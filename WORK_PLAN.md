@@ -9,8 +9,7 @@ Prioritized roadmap of upcoming work, maintained by the Guide role.
 - **M0: amorphous ion core, validated.** Materials, potentials, scattering
   integral, electronic stopping, 1D layered BCA with full cascades, damage and
   range tallies, TOML/JSON CLI, a validation harness against analytic limits
-  and oracles, and benchmarks. The repo becomes public after M0 (operator
-  decision at that point).
+  and oracles, and benchmarks.
 - **M1: low-energy electron engine.** Partial-wave Mott elastic scattering,
   dielectric-function inelastic scattering, secondary electrons, layered
   resist/oxide/metal stacks, energy-deposition maps and PSF extraction.

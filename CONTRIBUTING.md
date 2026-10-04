@@ -72,13 +72,12 @@ not paraphrase. Paraphrase is on you.
 
 ## Disclosure
 
-This repository is **private until milestone M0**, and the plan is to make it
-public after that. Once it is public, everything in its history and its issues
-is published. This project implements *published* physics. If you think you
-have devised a method that is genuinely new (one not found in the
-literature), stop and raise it with the operator **before** committing it,
-filing an issue about it, or describing it in a PR. Do not describe the
-operator's downstream applications in this repo either.
+This repository is **public**. Everything in its history, its issues and its
+PRs is published the moment it is pushed or posted. This project implements
+*published* physics. If you think you have devised a method that is genuinely
+new (one not found in the literature), stop and raise it with the operator
+**before** committing it, filing an issue about it, or describing it in a PR.
+Do not describe the operator's downstream applications in this repo either.
 
 ## Everything else
 

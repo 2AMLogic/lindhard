@@ -11,9 +11,8 @@ be read about in papers, and what may never enter the tree) and the
 - Every dataset gets a row in `docs/data-provenance.md`. No SRIM-derived
   tables, ever.
 - Determinism across thread counts is a tested invariant. Do not break it.
-- This repo will go public after M0. Keep it free of anything that is not
-  already published physics, and of any description of downstream
-  applications.
+- This repo is public. Keep it free of anything that is not already
+  published physics, and of any description of downstream applications.
 
 <!-- BEGIN LOOM ORCHESTRATION -->
 This repository uses [Loom](https://github.com/rjwalters/loom) for AI-powered development orchestration — see the Loom repository for the full guide (roles, labels, worktrees, configuration). When installed, Loom also writes a locally-substituted copy of that guide to `.loom/CLAUDE.md`.
