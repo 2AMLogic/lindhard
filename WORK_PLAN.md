@@ -27,7 +27,14 @@ Prioritized roadmap of upcoming work, maintained by the Guide role.
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`): the M0 set,
-seeded at bootstrap (see the M0 epic).
+seeded at bootstrap (epic #10).
+
+- #1 Materials, units and physical constants
+- #2 Deterministic per-particle RNG streams + parallel driver
+- #3 Screened interatomic potentials + scattering integral
+- #4 Electronic stopping models + Bragg additivity
+
+Blocked on those: #5 BCA engine → #6 tallies, #7 CLI, #8 validation, #9 benchmarks.
 
 ## In Progress
 
@@ -36,3 +43,9 @@ seeded at bootstrap (see the M0 epic).
 ## Proposed
 
 *No proposed issues.*
+
+## Epics
+
+- #10 M0: amorphous ion core, validated
+- #11 M1: low-energy electron engine
+- #12 M2: crystalline implant
