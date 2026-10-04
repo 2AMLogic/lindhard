@@ -1,0 +1,24 @@
+# Rust
+target/
+*.rs.bk
+
+# Python oracle/venv (validation harness)
+.venv/
+__pycache__/
+*.pyc
+
+# Oracle outputs from third-party codes are regenerated locally and never
+# committed — see CONTRIBUTING.md ("Oracles").
+validation/oracle-runs/
+
+# Environment
+.env
+.env.local
+*.local
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
