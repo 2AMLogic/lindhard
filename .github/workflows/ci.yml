@@ -61,11 +61,13 @@ jobs:
         run: cargo deny check licenses sources --show-stats
 
   rust:
-    # Linux only while the repo is private (private-repo Actions minutes are
-    # billed, and macOS minutes at 10x). Add macOS and arm64 when it goes public.
-    name: Rust (ubuntu-latest)
-    runs-on: ubuntu-latest
+    name: Rust (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
