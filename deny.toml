@@ -1,0 +1,133 @@
+# cargo-deny configuration — license and source gate for the dependency tree.
+#
+# Two separate questions are gated here. `[licenses]` answers "may we ship this
+# dependency's code?"; `[sources]` answers "did this dependency come from where
+# we think it did?". The second does not follow from the first: a git dependency
+# inherits whatever `license` field its manifest happens to declare, so it can
+# sail through the license check while being an unreviewed, unversioned,
+# force-pushable input to a release binary.
+#
+# lindhard and lindhard-cli are published under MIT (see LICENSE). The
+# CLI is also distributed as a binary, which links every transitive dependency
+# into the shipped artifact. Both facts mean a dependency's license is our
+# license problem: a copyleft crate anywhere in the graph would impose terms
+# the MIT LICENSE file does not carry.
+#
+# Adopted from fasterhenry at bootstrap. It makes the license audit a CI
+# gate instead of a thing somebody remembers to re-check, so a dependency
+# bump that pulls in a copyleft or unknown license fails the PR rather than
+# shipping quietly.
+#
+# Run it locally exactly as CI does:
+#
+#     cargo deny check licenses sources
+#
+# Dev-dependencies are checked too (`graph.exclude-dev` is left at its default
+# of false). They are not linked into anything we publish, but a copyleft or
+# git-sourced dev-dependency is still worth knowing about before it becomes a
+# normal one — and a dev-dependency does execute on every contributor's machine
+# and in CI, which is reason enough to know where it came from.
+
+[licenses]
+# Only these SPDX identifiers may satisfy a dependency's license expression.
+# cargo-deny evaluates the real SPDX expression, so `A OR B` passes when either
+# side is allowed and `A AND B` passes only when both are. Every entry below is
+# allowed on its own merits, not merely as one arm of some current dual-license
+# crate: a future dependency carrying only that license is an intentional pass.
+allow = [
+    # Our own license. No additional obligation beyond the notice we already
+    # ship in LICENSE.
+    "MIT",
+    # Permissive, MIT-compatible. Adds a patent grant and a notice/attribution
+    # requirement; satisfied for a binary distribution by shipping the
+    # dependency's license text. Most of the tree is `MIT OR Apache-2.0`.
+    "Apache-2.0",
+    # Public-domain dedication; imposes nothing at all. Reaches the tree today
+    # only via `Unlicense OR MIT` crates, which would pass on the MIT arm
+    # anyway — listed so an Unlicense-only crate is a deliberate pass rather
+    # than a surprise failure.
+    "Unlicense",
+    # Permissive, attribution-only, no source-disclosure obligation — but not a
+    # public-domain dedication: the notice must be preserved unaltered and
+    # altered versions must be marked as such. Reaches the tree today only via
+    # `Zlib OR Apache-2.0 OR MIT` crates, which would pass on the Apache-2.0/MIT
+    # arm anyway — same reasoning as Unlicense above.
+    "Zlib",
+    # Unicode data license (Unicode character tables). Permissive,
+    # attribution-only. Required, not optional: `icu_*`/`zerovec`-style crates
+    # declare `(MIT OR Apache-2.0) AND Unicode-3.0`, an AND expression that
+    # cannot be satisfied without it.
+    "Unicode-3.0",
+]
+
+# When a crate declares no SPDX expression, cargo-deny falls back to scanning
+# its LICENSE file text and scoring the match against known license texts. This
+# is the minimum score such an inferred license must reach to be used at all;
+# below it the crate is treated as unlicensed and the check fails. cargo-deny's
+# default is 0.8 — 0.93 is a deliberate tightening, so a near-miss on a modified
+# or unfamiliar license text is a failure to look at rather than a silent guess.
+# Nothing in the tree today relies on text inference; the tighter bound exists to
+# keep it that way.
+confidence-threshold = 0.93
+
+# No per-crate exceptions. Anything that needs one is a decision to make in a
+# PR that adds it here with a reason, not something to grant silently.
+exceptions = []
+
+[licenses.private]
+# The workspace crates themselves are MIT and published, so there is nothing
+# to ignore here; a private/unpublished workspace member would still be
+# checked.
+ignore = false
+
+[sources]
+# Where a dependency may come from. Every crate in Cargo.lock today resolves to
+# `registry+https://github.com/rust-lang/crates.io-index` and nothing else, so
+# these settings describe the tree as it already is rather than asking for a
+# change. The point is to keep it that way: pointing a dependency at a git
+# revision or a private registry is a one-line Cargo.toml edit that is easy to
+# wave through in review and that the license check above passes silently.
+
+# A registry that is not in `allow-registry` below is a failure, not a warning.
+# cargo-deny's default here is `warn`, which in CI means a green check with a
+# note nobody reads. A non-crates.io registry means the crate's provenance,
+# availability and yank policy are all outside crates.io's guarantees — and for
+# a private registry, that a fresh clone cannot even build. That is a decision
+# to make deliberately in a PR that edits this file, not a log line.
+unknown-registry = "deny"
+
+# Same reasoning for git sources, with an extra failure mode: a git dependency
+# is mutable. A branch or tag can be force-pushed under us, so the code that
+# built a release is not necessarily the code that builds today, and `cargo
+# update` cannot see the difference. `Cargo.lock` pins the commit, but nothing
+# guarantees that commit still exists or still contains what it did.
+unknown-git = "deny"
+
+# The only registry the tree is allowed to resolve against. crates.io is where
+# every current dependency already lives; it enforces immutable published
+# versions and is what the license and third-party-bundle tooling assumes. This
+# is also cargo-deny's own default value, written out explicitly so the policy
+# is readable here rather than inherited invisibly.
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+
+# No git sources are permitted at all: neither individual URLs (`allow-git`) nor
+# whole forge organisations (`[sources.allow-org]`). Both are deliberately left
+# at their empty defaults and are not written out, because an empty `allow-git`
+# is not a list to append to casually — the intended answer to "this crate is
+# only on git" is to wait for a crates.io release, vendor the code with its
+# license, or write the few lines ourselves. Granting an exception means adding
+# the key back with a reason, in a PR.
+
+# No `[bans]` table, on purpose (decided in #94).
+#
+# `bans` answers a third, different question — "is this graph tidy?" — and is
+# the noisiest of the three. The tree currently carries duplicate `syn` (2.x and
+# 3.x, pulled in by different proc-macro dependencies we do not control), so
+# `multiple-versions = "deny"` would fail on day one for a reason no dependency
+# edit of ours can fix, and `multiple-versions = "warn"` would add a warning
+# stream to a job whose whole value is that a failure means something. Neither
+# earns its keep right now. Both `[licenses]` and `[sources]` above gate real
+# supply-chain properties with a currently-clean tree, which is what makes them
+# worth failing a PR over. If a concrete need appears — a crate we want to ban
+# outright, or duplicate-version bloat that measurably hurts build time — add
+# `[bans]` then, starting from `multiple-versions = "warn"`.

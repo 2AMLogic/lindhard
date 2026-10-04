@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  clean-room:
+    name: Clean-room check (no copyleft or SRIM-derived text)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fail if a copyleft notice or a SRIM output header appears
+        run: |
+          set -euo pipefail
+          # Fingerprints of copied files: the GNU license preambles that every
+          # GPL/LGPL/AGPL source file carries, and the header lines SRIM writes
+          # into its stopping/range tables. CONTRIBUTING.md names these codes
+          # in prose but never quotes the fingerprints; .github/ carries them
+          # here, so it is excluded.
+          if grep -rIl --exclude-dir=.git --exclude-dir=.github --exclude-dir=target \
+               -e 'GNU General Public License' -e 'GNU Lesser General Public License' \
+               -e 'GNU Affero General Public License' \
+               -e 'SRIM version --->' -e 'Calculation using SRIM' . ; then
+            echo '::error::copyleft or SRIM-derived text found; this project is clean-room, see CONTRIBUTING.md'
+            exit 1
+          fi
+          echo "clean"
+
+  dependency-policy:
+    name: Dependency licenses & sources (cargo-deny)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # One pin for the whole job: the URL and the checksum both read it.
+      CARGO_DENY_VERSION: "0.18.2"
+      CARGO_DENY_SHA256: "43c4a79c4b9fd1fcb3dddb305a1b4d8f7ac4a72accd61bb50a0b698789ca894c"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: install cargo-deny ${{ env.CARGO_DENY_VERSION }}
+        run: |
+          set -euo pipefail
+          tarball="cargo-deny-$CARGO_DENY_VERSION-x86_64-unknown-linux-musl"
+          curl -fsSL --retry 3 -o /tmp/cargo-deny.tar.gz \
+            "https://github.com/EmbarkStudios/cargo-deny/releases/download/$CARGO_DENY_VERSION/$tarball.tar.gz"
+          echo "$CARGO_DENY_SHA256  /tmp/cargo-deny.tar.gz" | sha256sum --check --strict
+          mkdir -p /tmp/cargo-deny-bin
+          tar -xzf /tmp/cargo-deny.tar.gz -C /tmp/cargo-deny-bin --strip-components=1 "$tarball/cargo-deny"
+          echo /tmp/cargo-deny-bin >> "$GITHUB_PATH"
+      - name: cargo deny check licenses sources
+        run: cargo deny check licenses sources --show-stats
+
+  rust:
+    # Linux only while the repo is private (private-repo Actions minutes are
+    # billed, and macOS minutes at 10x). Add macOS and arm64 when it goes public.
+    name: Rust (ubuntu-latest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: fmt
+        run: cargo fmt --all --check
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: test
+        run: cargo test --workspace
