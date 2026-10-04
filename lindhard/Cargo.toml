@@ -1,0 +1,13 @@
+[package]
+name = "lindhard"
+description = "Clean-room Monte Carlo transport of ions and electrons in matter: implantation ranges, damage, sputtering and electron energy deposition"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme = "../README.md"
+keywords = ["ion-implantation", "monte-carlo", "bca", "stopping-power", "physics"]
+categories = ["science", "simulation"]
+
+[dependencies]
