@@ -54,6 +54,24 @@
       "run": { "ions": 20000, "seed": 1 },
       "tally": { "depth_bin_nm": 0.1, "depth_bins": 100 },
       "metrics": ["sputter_yield", "backscatter", "ions_per_s"]
+    },
+    {
+      "id": "ar_1keV_cu_ed_es",
+      "description": "As ar_1keV_cu, with E_d = E_s = 3.49 eV (Eckstein 1991: E_d <= E_s when sputter yields matter). Isolates the displacement-criterion convention, which differs between codes",
+      "beam": { "ion": "Ar", "energy_ev": 1000.0, "tilt_deg": 0.0 },
+      "target": { "substrate": "Cu" },
+      "physics": {
+        "potential": "zbl",
+        "stopping": "lindhard-scharff",
+        "free_path": "constant",
+        "primary_cutoff_ev": 2.0,
+        "recoil_cutoff_ev": 1.0,
+        "follow_recoils": true,
+        "energies": { "Cu": { "e_d_ev": 3.49, "e_b_ev": 0.0, "e_s_ev": 3.49 } }
+      },
+      "run": { "ions": 20000, "seed": 1 },
+      "tally": { "depth_bin_nm": 0.1, "depth_bins": 100 },
+      "metrics": ["sputter_yield", "backscatter", "ions_per_s"]
     }
   ]
 }

@@ -1,0 +1,154 @@
+{
+  "format": "lindhard-oracle-summary/2",
+  "problem": "ar_1keV_cu",
+  "oracle": "RustBCA",
+  "oracle_version": "v3.0.0-17-ga356280",
+  "oracle_commit": "a356280d564bbdfbe74b97f32db0776444da58a5",
+  "oracle_source": "https://github.com/lcpp-org/RustBCA",
+  "oracle_build": "cargo build --release (rustc 1.98.1), default features, separate target dir",
+  "oracle_license": "GPL-3.0 (Tier B): run unmodified as an oracle; adapter written from the RustBCA wiki only; source, example inputs, tables and fixtures never read or copied",
+  "lindhard_version": "lindhard 0.0.1 (7c76596)",
+  "date": "2026-10-05",
+  "host": "Darwin arm64, 28 logical CPUs, load average 30.7 at start",
+  "ions": {
+    "lindhard": 20000,
+    "oracle": 20000
+  },
+  "threads": {
+    "lindhard": 28,
+    "oracle": 28
+  },
+  "lindhard": {
+    "sputter_yield": 0.46655,
+    "backscatter": 0.08805,
+    "ions_per_s": 93191.3,
+    "std_err": {
+      "sputter_yield": 0.00482986,
+      "backscatter": 0.00200371
+    },
+    "ions_per_s_marginal": 791815.0,
+    "ions_per_s_transport_only": 630092.0
+  },
+  "oracle_values": {
+    "sputter_yield": 4.16935,
+    "backscatter": 0.1077,
+    "ions_per_s": 5233.21,
+    "ions_per_s_marginal": 5828.26,
+    "std_err": {
+      "sputter_yield": 0.0144384,
+      "backscatter": 0.00219204
+    }
+  },
+  "comparison": {
+    "sputter_yield_rel_diff": -0.8881,
+    "sputter_yield_rel_diff_se": 0.00122151,
+    "sputter_yield_z": -727.048,
+    "backscatter_abs_diff": -0.01965,
+    "backscatter_abs_diff_se": 0.00296983,
+    "backscatter_z": -6.61654,
+    "ions_per_s_ratio": 17.8077,
+    "ions_per_s_marginal_ratio": 135.858
+  },
+  "timing": {
+    "ions_per_s": "end-to-end process wall clock at the run's ion count (setup, table builds and output writing included)",
+    "ions_per_s_marginal": "(N2 - N1) / (t2 - t1) between runs of N1 = 20000 and N2 = 100000 ions: throughput with fixed setup costs removed",
+    "threads": "every code runs on all logical CPUs of the host"
+  },
+  "lindhard_settings": {
+    "potential": "zbl",
+    "stopping": "lindhard-scharff",
+    "free_path": "constant",
+    "electronic_loss": "nonlocal",
+    "primary_cutoff_ev": 2.0,
+    "recoil_cutoff_ev": 1.0,
+    "follow_recoils": true,
+    "primary_surface_binding_ev": 0.0,
+    "density_g_cm3": 8.96,
+    "atom_density_per_nm3": 84.9123,
+    "elements": [
+      {
+        "symbol": "Cu",
+        "atom_fraction": 1.0,
+        "e_d_ev": 30.0,
+        "e_b_ev": 0.0,
+        "e_s_ev": 3.49
+      }
+    ]
+  },
+  "oracle_settings": {
+    "geometry": "0D (Mesh0D: semi-infinite homogeneous target from x = 0)",
+    "options": {
+      "name": "rb_",
+      "track_trajectories": false,
+      "track_recoils": true,
+      "track_recoil_trajectories": false,
+      "track_displacements": false,
+      "track_energy_losses": false,
+      "weak_collision_order": 0,
+      "suppress_deep_recoils": false,
+      "high_energy_free_flight_paths": false,
+      "num_threads": 28,
+      "num_chunks": 10,
+      "seed": 1,
+      "electronic_stopping_mode": "LOW_ENERGY_NONLOCAL",
+      "mean_free_path_model": "LIQUID"
+    },
+    "interaction_potential": "ZBL",
+    "scattering_integral": "GAUSS_MEHLER, n_points = 10",
+    "root_finder": "NEWTON, max_iterations = 100, tolerance = 1e-6",
+    "material": {
+      "Z": [
+        29
+      ],
+      "m_amu": [
+        63.546
+      ],
+      "Eb_ev": [
+        0.0
+      ],
+      "Es_ev": [
+        3.49
+      ],
+      "Ed_ev": [
+        30.0
+      ],
+      "Ec_ev": [
+        1.0
+      ],
+      "surface_binding_model": "TARGET (planar)",
+      "bulk_binding_model": "INDIVIDUAL"
+    },
+    "particle": {
+      "Z": 18,
+      "m_amu": 39.95,
+      "E_ev": 1000.0,
+      "Ec_ev": 2.0,
+      "Es_ev": 0.0,
+      "dir": "normal incidence, 1e-5 rad off the x axis (documented requirement)"
+    },
+    "densities_per_nm3": [
+      84.9123
+    ],
+    "threads": 28,
+    "timing": "end-to-end process wall clock, including setup and writing the particle lists"
+  },
+  "matched": [
+    "potential ZBL (universal screening length)",
+    "electronic stopping Lindhard-Scharff, all nonlocal (LOW_ENERGY_NONLOCAL)",
+    "constant free path n^(-1/3) (LIQUID)",
+    "primary cutoff Ec and E_s of the beam ion",
+    "recoil cutoff Ec, E_b, E_s and E_d of each target element",
+    "planar surface barrier (surface_binding_model TARGET, planar by default)",
+    "recoils followed",
+    "number density and masses as echoed by lindhard"
+  ],
+  "mismatches": [
+    "random-number streams differ (different generators); agreement is statistical only",
+    "impact-parameter limit: not stated in the RustBCA documentation; lindhard uses N pi p_max^2 l = 1 (Biersack-Haggmark 1980)",
+    "first free flight: lindhard draws the primary's first flight uniformly in [0, l); RustBCA's choice is not documented",
+    "scattering angle: RustBCA Gauss-Mehler quadrature (10 points) per collision; lindhard a Gauss-Mehler table interpolated in (eps, beta), max error 3.8 mrad",
+    "Lindhard-Scharff: the RustBCA documentation cites Lindhard and Scharff (1961) without stating the formula; constants (e.g. Firsov vs Lindhard screening length in k_L) may differ",
+    "normal incidence is 1e-5 rad off-normal in RustBCA (it rejects an exact x direction)",
+    "E_d: the RustBCA input page describes Ed as a filter of the displacement list output, its BCA page as the threshold for removing an atom from its site. Its sputter yield is the same with E_d = 30 eV and E_d = E_s (compare ar_1keV_cu and ar_1keV_cu_ed_es), so it does not act as a displacement threshold there; lindhard uses E_d as the displacement criterion (Biersack-Haggmark), which controls low-energy sputtering (docs/validation.md, 'Sputter yield vs E_d')"
+  ]
+}
