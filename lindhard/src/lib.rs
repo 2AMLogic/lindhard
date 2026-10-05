@@ -11,6 +11,7 @@
 pub mod constants;
 pub mod elements;
 pub mod geometry;
+pub mod input;
 pub mod ion;
 pub mod material;
 pub mod rng;

@@ -1,0 +1,31 @@
+# 1 keV argon onto copper at normal incidence: backscattering and sputtering.
+#
+# Run: lindhard run examples/ar_1keV_cu.toml --out out/ar_1keV_cu
+#
+# Schema: docs/cli.md. Energies are in eV, lengths in nm, angles in degrees.
+
+[beam]
+ion = "Ar"
+energy_ev = 1000.0
+
+[target]
+# Cu takes its tabulated density, its cohesive energy as E_s and its
+# convention E_d from the element table (lindhard/src/elements.rs).
+substrate = "Cu"
+
+[physics]
+potential = "kr-c"
+stopping = "lindhard-scharff"
+free_path = "constant"
+primary_cutoff_ev = 2.0
+# Keep the recoil cutoff below E_s (3.49 eV for Cu), or sputtered atoms are
+# lost.
+recoil_cutoff_ev = 1.0
+
+[run]
+ions = 10000
+seed = 1
+
+[tally]
+depth_bin_nm = 0.1
+depth_bins = 100

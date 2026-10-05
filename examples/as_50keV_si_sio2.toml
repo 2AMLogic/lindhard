@@ -1,0 +1,47 @@
+# 50 keV arsenic into silicon through a 10 nm SiO2 screen layer.
+#
+# Run: lindhard run examples/as_50keV_si_sio2.toml --out out/as_50keV_si_sio2
+#
+# Schema: docs/cli.md. Energies are in eV, lengths in nm, angles in degrees.
+
+[beam]
+ion = "As"
+energy_ev = 50000.0
+tilt_deg = 7.0
+
+# A compound needs an explicit density. 2.2 g/cm^3 is the usual handbook
+# density of vitreous (amorphous) silica. The O energies have no defaults in
+# the element table; the values below are illustrative model parameters,
+# not recommendations.
+[materials.SiO2]
+density_g_cm3 = 2.2
+elements = [
+  { symbol = "Si", atom_fraction = 1.0 },
+  { symbol = "O", atom_fraction = 2.0, e_d_ev = 20.0, e_s_ev = 2.0 },
+]
+
+[target]
+substrate = "Si"
+
+[[target.layers]]
+material = "SiO2"
+thickness_nm = 10.0
+
+[physics]
+potential = "zbl"
+stopping = "lindhard-scharff"
+free_path = "constant"
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+
+# Applies to Si in both the screen and the substrate (illustrative value).
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 2000
+seed = 1
+
+[tally]
+depth_bin_nm = 1.0
+depth_bins = 150
