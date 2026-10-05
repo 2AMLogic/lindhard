@@ -114,6 +114,8 @@ fn every_example_checks_and_runs_at_small_n() {
             .sum();
         assert_eq!(hist, p["stopped"].as_u64().unwrap());
 
+        check_tally_outputs(&out, &s, stem);
+
         let ions = std::fs::read_to_string(out.join("ions.csv")).unwrap();
         let rows: Vec<_> = ions.lines().skip(1).collect();
         assert_eq!(rows.len() as u64, N, "{stem}: one row per primary");
@@ -124,6 +126,113 @@ fn every_example_checks_and_runs_at_small_n() {
             for x in &f[2..9] {
                 x.parse::<f64>().unwrap();
             }
+        }
+    }
+}
+
+/// The range, damage, sputtering and escape sections and their CSVs agree
+/// with the older summary counters and with each other.
+fn check_tally_outputs(out: &Path, s: &serde_json::Value, stem: &str) {
+    let r = &s["results"];
+    let p = &r["primaries"];
+    let n = r["histories"].as_u64().unwrap();
+    for f in ["lateral_profile", "damage_profile", "escape_spectra"] {
+        let name = s["files"][f].as_str().unwrap();
+        assert!(out.join(name).exists(), "{stem}: {name}");
+    }
+
+    // Range: the legacy depth keys are the same quantity.
+    let range = &r["range"];
+    assert_eq!(range["stopped"], p["stopped"], "{stem}");
+    if !range["depth"].is_null() {
+        assert_eq!(range["depth"]["mean_nm"], p["stopped_depth_mean_nm"]);
+        assert_eq!(range["depth"]["std_dev_nm"], p["stopped_depth_std_nm"]);
+    }
+    let by_layer: u64 = range["layers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["stopped"].as_u64().unwrap())
+        .sum();
+    assert_eq!(by_layer, p["stopped"].as_u64().unwrap(), "{stem}");
+    // The fit is reported (as a result or an error) only when requested.
+    let want_fit = s["input"]["tally"]["dual_pearson"] == true;
+    assert_eq!(
+        range.get("dual_pearson").is_some() || range.get("dual_pearson_error").is_some(),
+        want_fit,
+        "{stem}"
+    );
+
+    // Sputtering and escapes against the summary counters.
+    let sputtered = r["recoils"]["sputtered"].as_u64().unwrap();
+    let by_element: u64 = r["sputtering"]["by_element"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| e["count"].as_u64().unwrap())
+        .sum();
+    assert_eq!(by_element, sputtered, "{stem}");
+    let y = r["sputtering"]["yield_per_ion"].as_f64().unwrap();
+    assert!((y - sputtered as f64 / n as f64).abs() < 1e-12, "{stem}");
+    let e = &r["escapes"];
+    let beam = &e["species"][0];
+    assert_eq!(beam["beam"], true);
+    assert_eq!(beam["front"]["count"], p["backscattered"], "{stem}");
+    assert_eq!(beam["back"]["count"], p["transmitted"], "{stem}");
+
+    // Damage: the cascade identity and per-layer sums.
+    let d = &r["damage"];
+    let c = &d["cascade"];
+    assert_eq!(
+        c["vacancies"].as_u64().unwrap(),
+        c["displacements"].as_u64().unwrap() - c["replacements"].as_u64().unwrap()
+    );
+    assert_eq!(c["displacements"], r["recoils"]["displaced"], "{stem}");
+    let layer_disp: u64 = d["layers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|l| l["cascade"]["displacements"].as_u64().unwrap())
+        .sum();
+    assert_eq!(layer_disp, c["displacements"].as_u64().unwrap());
+
+    // CSV totals match.
+    let csv = |f: &str| std::fs::read_to_string(out.join(s["files"][f].as_str().unwrap())).unwrap();
+    let col_sum = |text: &str, col: usize| -> u64 {
+        text.lines()
+            .skip(1)
+            .map(|l| l.split(',').nth(col).unwrap().parse::<u64>().unwrap())
+            .sum()
+    };
+    let dmg = csv("damage_profile");
+    assert_eq!(col_sum(&dmg, 2), c["vacancies"].as_u64().unwrap(), "{stem}");
+    assert_eq!(col_sum(&dmg, 3), c["interstitials"].as_u64().unwrap());
+    assert_eq!(col_sum(&dmg, 4), c["replacements"].as_u64().unwrap());
+    let lat = csv("lateral_profile");
+    for q in ["y", "z", "radial"] {
+        let rows: Vec<_> = lat
+            .lines()
+            .filter(|l| l.starts_with(&format!("{q},")))
+            .collect();
+        let total: u64 = rows
+            .iter()
+            .map(|l| l.split(',').nth(3).unwrap().parse::<u64>().unwrap())
+            .sum();
+        assert_eq!(total, p["stopped"].as_u64().unwrap(), "{stem}: {q}");
+    }
+    let esc = csv("escape_spectra");
+    for (face, want) in [
+        ("front", &beam["front"]["count"]),
+        ("back", &beam["back"]["count"]),
+    ] {
+        for spec in ["energy_ev", "polar_deg"] {
+            let tag = format!(",true,{face},{spec},");
+            let total: u64 = esc
+                .lines()
+                .filter(|l| l.contains(&tag))
+                .map(|l| l.split(',').nth(7).unwrap().parse::<u64>().unwrap())
+                .sum();
+            assert_eq!(total, want.as_u64().unwrap(), "{stem}: {face} {spec}");
         }
     }
 }
@@ -156,7 +265,13 @@ fn output_is_byte_identical_across_thread_counts() {
         assert_eq!(deterministic_part(&a), deterministic_part(&b), "{name}");
         assert_eq!(json(&outs[0].join("summary.json"))["run"]["threads"], 1);
         assert_eq!(json(&outs[1].join("summary.json"))["run"]["threads"], 4);
-        for f in ["depth_profile.csv", "ions.csv"] {
+        for f in [
+            "depth_profile.csv",
+            "ions.csv",
+            "lateral_profile.csv",
+            "damage_profile.csv",
+            "escape_spectra.csv",
+        ] {
             assert_eq!(read(&outs[0], f), read(&outs[1], f), "{name}: {f}");
         }
     }
@@ -240,4 +355,33 @@ fn invalid_input_fails_naming_the_field() {
         &GOOD.replace("[physics]", "[physics]\nstopping = \"srim\""),
     );
     assert!(e.contains("srim"), "{e}");
+}
+
+#[test]
+fn dual_pearson_toggle_and_tally_settings_are_honoured() {
+    let dir = scratch("tally-settings");
+    let input = dir.join("input.toml");
+    let text = format!(
+        "{GOOD}\n[tally]\ndual_pearson = true\nlateral_bin_nm = 2.0\nlateral_bins = 10\n\
+         escape_energy_max_ev = 1000.0\nescape_energy_bins = 5\nescape_polar_bins = 3\n"
+    );
+    std::fs::write(&input, text).unwrap();
+    let out = dir.join("out");
+    run(&input, &out, &["--ions", "400"]);
+    let s = json(&out.join("summary.json"));
+    let range = &s["results"]["range"];
+    assert!(
+        !range["dual_pearson"].is_null() || !range["dual_pearson_error"].is_null(),
+        "the requested fit is reported, as a result or an error"
+    );
+    assert_eq!(s["input"]["tally"]["lateral_bins"], 10);
+    let lat = std::fs::read_to_string(out.join("lateral_profile.csv")).unwrap();
+    // y, z: 20 bins each; radial: 10; each plus underflow and overflow rows.
+    assert_eq!(lat.lines().count(), 1 + 2 * 22 + 12);
+    let esc = std::fs::read_to_string(out.join("escape_spectra.csv")).unwrap();
+    let beam_front_energy = esc
+        .lines()
+        .filter(|l| l.contains(",true,front,energy_ev,"))
+        .count();
+    assert_eq!(beam_front_energy, 5 + 2);
 }

@@ -332,6 +332,15 @@ fn default_bin_nm() -> f64 {
 fn default_bins() -> usize {
     1000
 }
+fn default_lateral_bins() -> usize {
+    100
+}
+fn default_escape_energy_bins() -> usize {
+    100
+}
+fn default_escape_polar_bins() -> usize {
+    30
+}
 
 /// `[tally]`: what the run records.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -347,6 +356,32 @@ pub struct TallySpec {
     /// Write the final state of every primary ion. Default `true`.
     #[serde(default = "default_true")]
     pub per_ion: bool,
+    /// Bin width of the lateral (`y`, `z`) and radial profiles of stopped
+    /// primaries, nm. Default 1.
+    #[serde(default = "default_bin_nm")]
+    pub lateral_bin_nm: f64,
+    /// Lateral bins per side of the beam axis: `y` and `z` are binned over
+    /// `[-lateral_bins * lateral_bin_nm, +lateral_bins * lateral_bin_nm)` and
+    /// the radial distance over `[0, lateral_bins * lateral_bin_nm)`.
+    /// Default 100.
+    #[serde(default = "default_lateral_bins")]
+    pub lateral_bins: usize,
+    /// Upper edge of the escape-energy spectra, eV. Default (absent): the
+    /// beam energy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub escape_energy_max_ev: Option<f64>,
+    /// Number of escape-energy bins over `[0, escape_energy_max_ev)`.
+    /// Default 100.
+    #[serde(default = "default_escape_energy_bins")]
+    pub escape_energy_bins: usize,
+    /// Number of escape polar-angle bins over `[0, 90)` degrees from the
+    /// outward surface normal. Default 30.
+    #[serde(default = "default_escape_polar_bins")]
+    pub escape_polar_bins: usize,
+    /// Also fit a dual-Pearson profile to the depth histogram. Default
+    /// `false`.
+    #[serde(default)]
+    pub dual_pearson: bool,
 }
 
 impl Default for TallySpec {
@@ -355,6 +390,12 @@ impl Default for TallySpec {
             depth_bin_nm: default_bin_nm(),
             depth_bins: default_bins(),
             per_ion: true,
+            lateral_bin_nm: default_bin_nm(),
+            lateral_bins: default_lateral_bins(),
+            escape_energy_max_ev: None,
+            escape_energy_bins: default_escape_energy_bins(),
+            escape_polar_bins: default_escape_polar_bins(),
+            dual_pearson: false,
         }
     }
 }
@@ -713,6 +754,29 @@ impl Input {
         }
         if self.tally.depth_bins == 0 {
             return Err(invalid("tally.depth_bins", "must be at least 1"));
+        }
+        if !finite_pos(self.tally.lateral_bin_nm) {
+            return Err(invalid(
+                "tally.lateral_bin_nm",
+                "must be finite and positive",
+            ));
+        }
+        for (key, n) in [
+            ("lateral_bins", self.tally.lateral_bins),
+            ("escape_energy_bins", self.tally.escape_energy_bins),
+            ("escape_polar_bins", self.tally.escape_polar_bins),
+        ] {
+            if n == 0 {
+                return Err(invalid(format!("tally.{key}"), "must be at least 1"));
+            }
+        }
+        if let Some(e) = self.tally.escape_energy_max_ev {
+            if !finite_pos(e) {
+                return Err(invalid(
+                    "tally.escape_energy_max_ev",
+                    "must be finite and positive",
+                ));
+            }
         }
 
         let screening = p.potential.screening();
@@ -1087,6 +1151,26 @@ seed = 2
             (
                 format!("{B_SI}\n[tally]\ndepth_bin_nm = 0.0\n"),
                 "tally.depth_bin_nm",
+            ),
+            (
+                format!("{B_SI}\n[tally]\nlateral_bin_nm = -1.0\n"),
+                "tally.lateral_bin_nm",
+            ),
+            (
+                format!("{B_SI}\n[tally]\nlateral_bins = 0\n"),
+                "tally.lateral_bins",
+            ),
+            (
+                format!("{B_SI}\n[tally]\nescape_energy_bins = 0\n"),
+                "tally.escape_energy_bins",
+            ),
+            (
+                format!("{B_SI}\n[tally]\nescape_polar_bins = 0\n"),
+                "tally.escape_polar_bins",
+            ),
+            (
+                format!("{B_SI}\n[tally]\nescape_energy_max_ev = 0.0\n"),
+                "tally.escape_energy_max_ev",
             ),
         ];
         for (text, want) in cases {
