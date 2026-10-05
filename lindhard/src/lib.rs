@@ -1,14 +1,16 @@
 //! `lindhard` — clean-room Monte Carlo transport of ions and electrons in matter.
 //!
-//! The roadmap and module plan are in `docs/architecture.md`. Nothing is
-//! implemented yet beyond the shared core (units, constants, the element table,
-//! materials and deterministic random streams) and the ion screening potentials
-//! and scattering integral.
+//! The roadmap and module plan are in `docs/architecture.md`. Implemented so
+//! far: the shared core (units, constants, the element table, materials, the 1D
+//! layered geometry and deterministic random streams), the ion screening
+//! potentials and scattering integral, electronic stopping, and the amorphous
+//! BCA engine with full recoil cascades (`ion::bca`).
 
 #![forbid(unsafe_code)]
 
 pub mod constants;
 pub mod elements;
+pub mod geometry;
 pub mod ion;
 pub mod material;
 pub mod rng;
