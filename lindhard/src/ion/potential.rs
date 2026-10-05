@@ -13,9 +13,11 @@
 //! `eps = a E_cm / (Z1 Z2 e^2 / (4 pi eps0))`, in which `phi` is the only
 //! input; the screening length only converts to and from SI.
 //!
-//! Coefficients follow the cited papers but were entered from memory and are
-//! not yet checked digit by digit against them; see the
-//! `docs/data-provenance.md` rows for the verification status of each set.
+//! Coefficients follow the cited papers. The primary sources have not been
+//! re-read digit by digit for this module. The ZBL, Kr-C and Moliere sets have
+//! been cross-checked against an independent MIT-licensed implementation, and
+//! the Lenz-Jensen set has not been cross-checked at all; see the
+//! `docs/data-provenance.md` rows for the status of each set.
 
 use crate::constants::{BOHR_RADIUS, COULOMB_E2};
 
@@ -40,7 +42,15 @@ pub enum Screening {
     LenzJensen,
 }
 
-/// Prefactors and exponents of the sum-of-exponentials screening functions.
+/// Prefactors and exponents `(c_i, b_i)` of the sum-of-exponentials screening
+/// functions, `phi(x) = Sum_i c_i exp(-b_i x)`.
+///
+/// Cross-checked digit for digit (Kr-C, Moliere) or to the printed rounding
+/// (ZBL, whose 4-digit values here are the commonly printed rounding of
+/// 0.18175, 0.50986, 0.28022, 0.028171 / 3.19980, 0.94229, 0.40290, 0.20162)
+/// against `include/screened_coulomb.h` of the MIT-licensed `ir2-lab/screened_coulomb`
+/// (commit f84c3c8), a component of OpenTRIM. This is a secondary source, not
+/// the cited papers.
 const ZBL_C: [(f64, f64); 4] = [
     (0.181_8, 3.2),
     (0.509_9, 0.942_3),
@@ -56,6 +66,11 @@ const MOLIERE_C: [(f64, f64); 3] = [(0.35, 0.3), (0.55, 1.2), (0.10, 6.0)];
 
 /// Lenz-Jensen: `phi = P(q) exp(-q)`, `q = sqrt(LJ_Q2 x)`,
 /// `P(q) = 1 + q + 0.3344 q^2 + 0.0485 q^3 + 0.002647 q^4`.
+///
+/// Not verified against any source: no permissively licensed implementation
+/// carries this set, and the papers were not available when it was entered.
+/// The argument scale is the least certain value (`9.67` here; a scale of
+/// `3.11126^2 = 9.680` is also plausible). See `docs/data-provenance.md`.
 const LJ_P: [f64; 5] = [1.0, 1.0, 0.3344, 0.0485, 0.002_647];
 const LJ_Q2: f64 = 9.67;
 
@@ -109,6 +124,19 @@ impl Screening {
                     .fold(0.0, |acc, (i, &c)| acc * q + c * i as f64);
                 (dp - p) * (-q).exp() * q / (2.0 * x)
             }
+        }
+    }
+
+    /// The `(c_i, b_i)` terms of a sum-of-exponentials screening function
+    /// `phi(x) = Sum_i c_i exp(-b_i x)`, or `None` for Lenz-Jensen. Used by the
+    /// analytic stopping asymptote in the scattering tests.
+    #[cfg(test)]
+    pub(crate) fn exponential_terms(self) -> Option<&'static [(f64, f64)]> {
+        match self {
+            Screening::ZblUniversal => Some(&ZBL_C),
+            Screening::KrC => Some(&KRC_C),
+            Screening::Moliere => Some(&MOLIERE_C),
+            Screening::LenzJensen => None,
         }
     }
 

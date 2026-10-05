@@ -103,20 +103,26 @@ pub fn theta_quadrature(s: Screening, eps: f64, beta: f64) -> f64 {
 /// Constants of the Biersack-Haggmark magic formula for one screening function.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MagicConstants {
-    /// `C1` .. `C5` of the fit.
+    /// `C1` .. `C5` of the fit, in the published order (`gamma = (C4 + eps) /
+    /// (C5 + eps)`).
     pub c: [f64; 5],
 }
 
 impl MagicConstants {
     /// Fit to the universal (ZBL) potential, Ziegler, Biersack, Littmark (1985),
-    /// Ch. 2 / Appendix on the magic formula.
+    /// Ch. 2 / Appendix on the magic formula. Cross-checked against the
+    /// MIT-licensed `ir2-lab/screened_coulomb` (commit f84c3c8), which carries
+    /// the same five values in the same order.
     pub const ZBL: Self = Self {
-        c: [0.99229, 0.011615, 0.0071222, 9.3066, 14.813],
+        c: [0.99229, 0.011615, 0.0071222, 14.813, 9.3066],
     };
     /// Fit to the Moliere potential, Biersack and Haggmark, Nucl. Instrum.
-    /// Methods 174 (1980) 257.
+    /// Methods 174 (1980) 257. No permissively licensed copy was found to
+    /// cross-check the digits. They are tested against the quadrature instead
+    /// (`magic_formula_tracks_quadrature_for_moliere`), and that test rejects the
+    /// ZBL set and a `C4`/`C5` swap.
     pub const MOLIERE: Self = Self {
-        c: [0.6743, 0.009611, 0.005175, 6.314, 10.0],
+        c: [0.6743, 0.009611, 0.005175, 10.0, 6.314],
     };
 
     /// The constant set published for a screening function, if one exists.
@@ -133,16 +139,22 @@ impl MagicConstants {
 /// the centre-of-mass angle:
 ///
 /// ```text
-/// cos(theta/2) = (beta + rho + Delta) / (x0 + rho + Delta)
+/// cos(theta/2) = (beta + rho + Delta) / (x0 + rho)
 /// Delta = A (x0 - beta) / (1 + G)
 /// A = 2 alpha eps beta^b,  alpha = 1 + C1 eps^(-1/2),
 /// b = (C2 + eps^(1/2)) / (C3 + eps^(1/2)),
-/// G = (C5 + eps) / (C4 + eps) * (sqrt(1 + A^2) - A)
+/// G = gamma / (sqrt(1 + A^2) - A),  gamma = (C4 + eps) / (C5 + eps)
 /// ```
 ///
 /// with `rho = 2 (1 - V(x0)/E) / (-V'(x0)/E)` the radius of curvature of the
 /// trajectory at the distance of closest approach. Only the closest-approach
 /// root find is needed, no integral.
+///
+/// This form (no `Delta` in the denominator, `gamma` divided by the bracket)
+/// agrees with the MIT-licensed `ir2-lab/screened_coulomb` (commit f84c3c8).
+/// It is also the only arrangement that reproduces the quadrature to the
+/// accuracy expected of the fit. The tests check this to 1e-2 in
+/// `cos(theta/2)` for both constant sets.
 pub fn theta_magic(s: Screening, k: &MagicConstants, eps: f64, beta: f64) -> f64 {
     if beta <= 0.0 {
         return PI;
@@ -158,9 +170,12 @@ pub fn theta_magic(s: Screening, k: &MagicConstants, eps: f64, beta: f64) -> f64
     let alpha = 1.0 + c1 / se;
     let bexp = (c2 + se) / (c3 + se);
     let a = 2.0 * alpha * eps * beta.powf(bexp);
-    let g = (c5 + eps) / (c4 + eps) * ((1.0 + a * a).sqrt() - a);
+    let gamma = (c4 + eps) / (c5 + eps);
+    // gamma / (sqrt(1 + A^2) - A) == gamma (sqrt(1 + A^2) + A), without the
+    // cancellation at large A.
+    let g = gamma * ((1.0 + a * a).sqrt() + a);
     let delta = a * (x0 - beta) / (1.0 + g);
-    let cos_half = ((beta + rho + delta) / (x0 + rho + delta)).clamp(-1.0, 1.0);
+    let cos_half = ((beta + rho + delta) / (x0 + rho)).clamp(-1.0, 1.0);
     2.0 * cos_half.acos()
 }
 
@@ -397,7 +412,9 @@ mod tests {
 
     /// ZBL universal reduced nuclear stopping fit, Ziegler, Biersack, Littmark
     /// (1985), Ch. 2: `ln(1 + 1.1383 eps) / (2 (eps + 0.01321 eps^0.21226 +
-    /// 0.19593 eps^0.5))` for `eps <= 30`, `ln(eps) / (2 eps)` above.
+    /// 0.19593 eps^0.5))` for `eps <= 30`, `ln(eps) / (2 eps)` above. The
+    /// `eps <= 30` coefficients are cross-checked against the MIT-licensed
+    /// `ir2-lab/screened_coulomb` (commit f84c3c8).
     fn zbl_fit(eps: f64) -> f64 {
         if eps <= 30.0 {
             (1.0 + 1.1383 * eps).ln()
@@ -470,73 +487,174 @@ mod tests {
         }
     }
 
-    /// Compare the integrated quadrature angle with the ZBL universal nuclear
-    /// stopping fit (as recalled; see `docs/data-provenance.md`).
+    /// High-energy limit of the reduced nuclear stopping for a sum-of-exponentials
+    /// screening function `phi = Sum_i c_i exp(-b_i x)`, `S = Sum_i c_i`:
     ///
-    /// Measured: agreement is better than 0.3 % for `eps <= 0.3` and better than
-    /// 1 % up to `eps = 1`, but the deviation grows to about 5.5 % for
-    /// `3 < eps < 1e3`, short of the 0.5 % acceptance criterion of issue #3.
-    /// What has been ruled out: the quadrature (converged in nodes, in the
-    /// Simpson step and in the `beta` range, and reproduced to four digits by an
-    /// independent scipy implementation of the angle and stopping integrals) and
-    /// the magic formula (integrating `theta_magic` is far worse, up to 1.7x).
-    /// What is not established: whether the recalled fit coefficients are right,
-    /// or whether the published fit is itself only accurate to a few percent
-    /// there (its two branches disagree by about 1 % at `eps = 30`). The cause is
-    /// open until the fit is checked against the book. The bands below only
-    /// record what is achieved and guard against regressions; they are not a
-    /// claim that the criterion is met.
-    #[test]
-    fn stopping_vs_zbl_universal_fit() {
-        let mut worst_low = 0.0f64;
-        let mut worst_high = 0.0f64;
-        for k in 0..=14 {
-            let eps = 1e-4 * 10f64.powf(k as f64 / 2.0);
-            let sn = nuclear_stopping_reduced(Screening::ZblUniversal, eps, 1e-4, 1e3, 40);
-            let rel = (sn / zbl_fit(eps) - 1.0).abs();
-            if eps <= 0.3 {
-                worst_low = worst_low.max(rel);
+    /// ```text
+    /// s_n(eps) -> (S^2 ln eps + C) / (2 eps),
+    /// C = S^2 (ln 2 - ln S - gamma_E) - Sum_ij c_i c_j L(b_i, b_j),
+    /// L(a, b) = (a^2 ln(a/2) - b^2 ln(b/2)) / (a^2 - b^2),  L(a, a) = ln(a/2) + 1/2.
+    /// ```
+    ///
+    /// It comes from the impulse (momentum) approximation
+    /// `theta = eps^-1 Sum_i c_i b_i K1(b_i beta)` (Lehmann and Leibfried,
+    /// Z. Phys. 172 (1963) 465), which holds for `eps beta >> 1`. That is matched
+    /// to exact Rutherford scattering (`phi -> S`) at small `beta`. The
+    /// `Int beta K1(a beta) K1(b beta) d beta` integrals are Lommel integrals
+    /// (G. N. Watson, *A Treatise on the Theory of Bessel Functions*, 2nd ed.,
+    /// CUP 1944, Sec. 5.11), evaluated with the small-argument forms of `K0` and `K1`
+    /// (Abramowitz and Stegun, Ch. 9). For ZBL `C = 0.2744`. The
+    /// expression needs no fitted stopping data and no trajectory integral, so it
+    /// is an independent reference for the quadrature at high `eps`. It was also
+    /// checked against direct numerical integration of the `K1` sum (scipy, out
+    /// of tree; agreement 1e-12).
+    fn high_energy_asymptote(s: Screening, eps: f64) -> f64 {
+        let terms = s
+            .exponential_terms()
+            .expect("sum-of-exponentials screening");
+        let sum: f64 = terms.iter().map(|&(c, _)| c).sum();
+        let l = |a: f64, b: f64| {
+            if a == b {
+                (0.5 * a).ln() + 0.5
             } else {
-                worst_high = worst_high.max(rel);
+                (a * a * (0.5 * a).ln() - b * b * (0.5 * b).ln()) / (a * a - b * b)
+            }
+        };
+        const EULER_GAMMA: f64 = 0.577_215_664_901_532_9;
+        let mut c = sum * sum * (std::f64::consts::LN_2 - sum.ln() - EULER_GAMMA);
+        for &(ci, bi) in terms {
+            for &(cj, bj) in terms {
+                c -= ci * cj * l(bi, bj);
             }
         }
-        eprintln!("zbl fit: worst rel dev eps<=0.3: {worst_low:.3e}, eps>0.3: {worst_high:.3e}");
-        assert!(worst_low < 5e-3, "eps <= 0.3: {worst_low}");
-        assert!(worst_high < 6e-2, "eps > 0.3: {worst_high}");
+        (sum * sum * eps.ln() + c) / (2.0 * eps)
     }
 
+    /// `beta_min` small enough that the neglected head-on part (`~ beta_min^2`,
+    /// Rutherford-like up to `beta ~ 1/eps`) is negligible at every `eps`.
+    fn stopping_beta_min(eps: f64) -> f64 {
+        1e-4f64.min(1e-3 / eps)
+    }
+
+    /// Low-energy part of the acceptance test of issue #3: s_n from the
+    /// quadrature against the ZBL universal stopping fit, `< 0.5 %` for
+    /// `1e-4 <= eps <= 0.3`. Measured: 0.39 % worst (at `eps = 0.3`).
     #[test]
-    fn magic_formula_tracks_quadrature_for_zbl() {
-        let k = MagicConstants::ZBL;
+    fn stopping_vs_zbl_universal_fit_low_energy() {
         let mut worst = 0.0f64;
-        for &eps in &[1e-2, 1e-1, 1.0, 10.0, 100.0] {
-            for j in 0..40 {
-                let beta = 1e-2 * 10f64.powf(j as f64 / 10.0);
-                let q = theta_quadrature(Screening::ZblUniversal, eps, beta);
-                let m = theta_magic(Screening::ZblUniversal, &k, eps, beta);
+        for k in 0..=7 {
+            let eps = 1e-4 * 10f64.powf(k as f64 / 2.0);
+            let sn = nuclear_stopping_reduced(Screening::ZblUniversal, eps, 1e-4, 1e3, 40);
+            worst = worst.max((sn / zbl_fit(eps) - 1.0).abs());
+        }
+        eprintln!("zbl fit: worst rel dev for eps <= 0.3: {worst:.3e}");
+        assert!(worst < 5e-3, "eps <= 0.3: {worst}");
+    }
+
+    /// High-energy part: s_n from the quadrature against the analytic
+    /// asymptote [`high_energy_asymptote`] for every sum-of-exponentials
+    /// screening, `< 0.2 %` for `1e3 <= eps <= 1e6`. Measured: 0.10 % at
+    /// `eps = 1e3`, falling roughly as `1/eps` (below 1e-4 from `eps = 1e4`).
+    ///
+    /// This also fixes the cause of the deviation from the ZBL fit above
+    /// `eps ~ 1`. The fit's `eps > 30` branch, `ln(eps) / (2 eps)`, is this
+    /// asymptote with `C = 0`, so it underestimates the stopping of the ZBL
+    /// potential by `C / ln(eps)`: 4.0 % at `1e3` and 1.5 % at `1e8`. The
+    /// quadrature reproduces this to within the asymptote's own `O(1/eps)`
+    /// error (measured 3.9 % and 1.5 %). The fit's `eps <= 30` branch joins
+    /// that branch to about 1 % at `eps = 30`, which is where the deviation
+    /// of a few percent for `1 < eps < 30` comes from.
+    #[test]
+    fn stopping_matches_high_energy_asymptote() {
+        for s in [Screening::ZblUniversal, Screening::KrC, Screening::Moliere] {
+            for &eps in &[1e3, 1e4, 1e5, 1e6] {
+                let sn = nuclear_stopping_reduced(s, eps, stopping_beta_min(eps), 1e3, 40);
+                let rel = (sn / high_energy_asymptote(s, eps) - 1.0).abs();
+                assert!(rel < 2e-3, "{s:?} eps={eps}: {rel}");
+            }
+        }
+        // The ZBL fit's high-energy branch misses exactly the constant C.
+        let eps = 1e6;
+        let c = 2.0 * eps * high_energy_asymptote(Screening::ZblUniversal, eps) - eps.ln();
+        assert!((c - 0.2744).abs() < 2e-3, "C = {c}");
+    }
+
+    /// Between the two regimes (`0.3 < eps < 1e3`) there is no independent
+    /// published reference, and the ZBL fit deviates there for the reason given
+    /// in [`stopping_matches_high_energy_asymptote`] (measured: up to 5.5 % near
+    /// `eps = 30`). This test checks that the quadrature s_n is converged there:
+    /// 16x the angle nodes, 4x the Simpson density and a 1e4x wider `beta` range
+    /// change it by less than 2e-5. The deviation from the fit is printed, not
+    /// asserted.
+    #[test]
+    fn stopping_is_converged_between_regimes() {
+        let s = Screening::ZblUniversal;
+        for k in 0..=7 {
+            let eps = 10f64.powf(-0.5 + k as f64 / 2.0);
+            let sn = nuclear_stopping_reduced(s, eps, stopping_beta_min(eps), 1e3, 40);
+            let fine = nuclear_stopping_with(
+                |b| theta_quadrature_n(s, eps, b, 16 * DEFAULT_NODES),
+                eps,
+                stopping_beta_min(eps) * 1e-2,
+                1e5,
+                160,
+            );
+            let conv = (sn / fine - 1.0).abs();
+            eprintln!(
+                "eps={eps:.3e}: convergence {conv:.1e}, dev from ZBL fit {:+.4}",
+                sn / zbl_fit(eps) - 1.0
+            );
+            assert!(conv < 2e-5, "eps={eps}: {conv}");
+        }
+    }
+
+    /// Worst `|cos(theta_magic/2) - cos(theta_quadrature/2)|` over
+    /// `eps` in `[1e-3, 1e3]` and `beta` in `[1e-3, 1e2]`.
+    fn magic_worst(s: Screening, k: &MagicConstants) -> f64 {
+        let mut worst = 0.0f64;
+        for &eps in &[1e-3, 1e-2, 1e-1, 1.0, 10.0, 100.0, 1e3] {
+            for j in 0..50 {
+                let beta = 1e-3 * 10f64.powf(j as f64 / 10.0);
+                let q = theta_quadrature(s, eps, beta);
+                let m = theta_magic(s, k, eps, beta);
                 // Compare cos(theta/2): relative error in theta is ill-conditioned
                 // where theta is tiny.
                 worst = worst.max(((0.5 * m).cos() - (0.5 * q).cos()).abs());
             }
         }
-        eprintln!("magic worst |d cos(theta/2)| {worst}");
-        assert!(worst < 0.05, "{worst}");
+        worst
+    }
+
+    #[test]
+    fn magic_formula_tracks_quadrature_for_zbl() {
+        // Measured 0.016.
+        let worst = magic_worst(Screening::ZblUniversal, &MagicConstants::ZBL);
+        eprintln!("zbl magic worst |d cos(theta/2)| {worst}");
+        assert!(worst < 2e-2, "{worst}");
     }
 
     #[test]
     fn magic_formula_tracks_quadrature_for_moliere() {
-        let k = MagicConstants::MOLIERE;
-        let mut worst = 0.0f64;
-        for &eps in &[1e-2, 1e-1, 1.0, 10.0, 100.0] {
-            for j in 0..40 {
-                let beta = 1e-2 * 10f64.powf(j as f64 / 10.0);
-                let q = theta_quadrature(Screening::Moliere, eps, beta);
-                let m = theta_magic(Screening::Moliere, &k, eps, beta);
-                worst = worst.max(((0.5 * m).cos() - (0.5 * q).cos()).abs());
-            }
-        }
+        // Measured 0.0060.
+        let worst = magic_worst(Screening::Moliere, &MagicConstants::MOLIERE);
         eprintln!("moliere magic worst |d cos(theta/2)| {worst}");
-        assert!(worst < 0.05, "{worst}");
+        assert!(worst < 1e-2, "{worst}");
+    }
+
+    /// The Moliere check above can tell a mis-transcribed constant set apart.
+    /// The ZBL set on the Moliere potential (measured 0.015) and a `C4`/`C5`
+    /// swap (measured 0.07 to 0.09) all exceed its tolerance.
+    #[test]
+    fn magic_formula_check_rejects_wrong_constants() {
+        assert!(magic_worst(Screening::Moliere, &MagicConstants::ZBL) > 1e-2);
+        for (s, k) in [
+            (Screening::Moliere, MagicConstants::MOLIERE),
+            (Screening::ZblUniversal, MagicConstants::ZBL),
+        ] {
+            let mut swapped = k;
+            swapped.c.swap(3, 4);
+            assert!(magic_worst(s, &swapped) > 5e-2, "{s:?}");
+        }
     }
 
     #[test]
