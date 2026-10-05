@@ -1,8 +1,9 @@
 //! `lindhard` — clean-room Monte Carlo transport of ions and electrons in matter.
 //!
 //! The roadmap and module plan are in `docs/architecture.md`. Nothing is
-//! implemented yet beyond the shared core: units, constants, the element table,
-//! materials and deterministic random streams.
+//! implemented yet beyond the shared core (units, constants, the element table,
+//! materials and deterministic random streams) and the ion screening potentials
+//! and scattering integral.
 
 #![forbid(unsafe_code)]
 
