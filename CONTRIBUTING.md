@@ -90,7 +90,10 @@ Do not describe the operator's downstream applications in this repo either.
   holds the allowlist.
 - **Reproducibility is a feature.** Every random draw comes from a counter-based
   stream keyed on (seed, particle index), so a run gives the same bits on 1
-  thread or 64. A PR that breaks this needs a test showing why it must.
+  thread or 64. A PR that breaks this needs a test showing why it must. The invariant is
+  tested by [`lindhard/tests/determinism.rs`](lindhard/tests/determinism.rs)
+  (bit-identical tallies on 1, 2 and 8 threads); the helpers are in
+  `lindhard::rng`.
 - Physics constants and model choices cite their source in a doc comment.
 - One PR per issue. PRs are reviewed by Loom's Judge and merged by Champion,
   using merge commits.
