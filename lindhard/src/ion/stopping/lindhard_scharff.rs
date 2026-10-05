@@ -23,7 +23,9 @@
 //! `S_e = Z1^(1/6) 8π e² a0 Z1 Z2 / (Z1^(2/3)+Z2^(2/3))^(3/2) · v/v0` to 1 %.
 //!
 //! A per-element multiplicative correction `f(Z2)` may be attached
-//! ([`LindhardScharff::with_correction`]); it defaults to 1.
+//! ([`LindhardScharff::with_correction`]); it defaults to 1. It must be finite
+//! and non-negative (zero switches the element's stopping off); anything else
+//! is rejected at evaluation time with [`StoppingError::InvalidParameter`].
 
 use super::{check_energy, target, ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::constants::{BOHR_RADIUS, COULOMB_E2};
@@ -98,8 +100,15 @@ impl ElectronicStopping for LindhardScharff {
     fn stopping(&self, ion: &Ion, target_z: u8, energy_ev: f64) -> Result<f64, StoppingError> {
         check_energy(energy_ev)?;
         let m2 = target(target_z)?.atomic_weight;
+        let factor = self.correction(target_z);
+        if !(factor.is_finite() && factor >= 0.0) {
+            return Err(StoppingError::InvalidParameter {
+                name: "correction_factor",
+                value: factor,
+            });
+        }
         let eps = reduced_energy(ion, target_z, m2, energy_ev);
-        Ok(self.correction(target_z)
+        Ok(factor
             * self.reduced_stopping(ion, target_z, m2, eps)
             * reduced_to_si_factor(ion, target_z, m2))
     }
@@ -159,6 +168,29 @@ mod tests {
             .stopping(&ion, 14, 1e4)
             .unwrap();
         assert!((c / base - 1.25).abs() < 1e-14);
+    }
+
+    #[test]
+    fn rejects_bad_correction_factor() {
+        let ion = Ion::proton();
+        for bad in [-1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            let m = LindhardScharff::new().with_correction(14, bad);
+            assert!(matches!(
+                m.stopping(&ion, 14, 1.0e4),
+                Err(StoppingError::InvalidParameter {
+                    name: "correction_factor",
+                    ..
+                })
+            ));
+            // Other target elements are unaffected.
+            assert!(m.stopping(&ion, 8, 1.0e4).unwrap() > 0.0);
+        }
+    }
+
+    #[test]
+    fn zero_correction_factor_gives_zero_stopping() {
+        let m = LindhardScharff::new().with_correction(14, 0.0);
+        assert_eq!(m.stopping(&Ion::proton(), 14, 1.0e4).unwrap(), 0.0);
     }
 
     #[test]

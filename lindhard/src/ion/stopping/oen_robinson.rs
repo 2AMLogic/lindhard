@@ -43,7 +43,7 @@ impl OenRobinson {
     }
 
     /// Local electronic energy loss, J, for a collision with closest approach
-    /// `r_min_m` (metres).
+    /// `r_min_m` (metres), which must be finite and non-negative.
     pub fn local_loss(
         &self,
         ion: &Ion,
@@ -52,6 +52,12 @@ impl OenRobinson {
         r_min_m: f64,
     ) -> Result<f64, StoppingError> {
         let s = self.ls.stopping(ion, target_z, energy_ev)?;
+        if !(r_min_m.is_finite() && r_min_m >= 0.0) {
+            return Err(StoppingError::InvalidParameter {
+                name: "r_min_m",
+                value: r_min_m,
+            });
+        }
         let a = local_length(ion.z(), target_z);
         let c = OR_EXPONENT_COEFFICIENT;
         Ok(s * c * c / (2.0 * PI * a * a) * (-c * r_min_m / a).exp())
@@ -100,5 +106,31 @@ mod tests {
         let a = m.local_loss(&ion, 14, 1e4, 1e-11).unwrap();
         let b = m.local_loss(&ion, 14, 1e4, 1e-10).unwrap();
         assert!(a > b && b > 0.0);
+    }
+
+    #[test]
+    fn rejects_bad_closest_approach() {
+        let ion = Ion::proton();
+        let m = OenRobinson::new();
+        for bad in [-1e-10, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(matches!(
+                m.local_loss(&ion, 14, 1e4, bad),
+                Err(StoppingError::InvalidParameter {
+                    name: "r_min_m",
+                    ..
+                })
+            ));
+        }
+    }
+
+    #[test]
+    fn zero_closest_approach_is_the_maximum_loss() {
+        let ion = Ion::proton();
+        let m = OenRobinson::new();
+        let s = m.stopping(&ion, 14, 1e4).unwrap();
+        let a = local_length(1, 14);
+        let c = OR_EXPONENT_COEFFICIENT;
+        let l0 = m.local_loss(&ion, 14, 1e4, 0.0).unwrap();
+        assert!((l0 / (s * c * c / (2.0 * PI * a * a)) - 1.0).abs() < 1e-14);
     }
 }

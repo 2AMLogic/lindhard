@@ -16,7 +16,9 @@ use crate::material::Material;
 
 /// Per-compound correction factor applied to the Bragg sum.
 pub trait CompoundCorrection {
-    /// Multiplicative factor at the given ion energy.
+    /// Multiplicative factor at the given ion energy. Must be finite and
+    /// non-negative (zero is allowed); [`bragg_cross_section_per_atom`] rejects
+    /// anything else with [`StoppingError::InvalidParameter`].
     fn factor(&self, material: &Material, ion: &Ion, energy_ev: f64) -> f64;
 }
 
@@ -53,7 +55,14 @@ pub fn bragg_cross_section_per_atom(
     for c in material.components() {
         sum += c.atom_fraction() * model.stopping(ion, c.z(), energy_ev)?;
     }
-    Ok(correction.factor(material, ion, energy_ev) * sum)
+    let factor = correction.factor(material, ion, energy_ev);
+    if !(factor.is_finite() && factor >= 0.0) {
+        return Err(StoppingError::InvalidParameter {
+            name: "compound_correction",
+            value: factor,
+        });
+    }
+    Ok(factor * sum)
 }
 
 /// Linear stopping power `-dE/dx`, J/m: `N` times
@@ -110,5 +119,37 @@ mod tests {
         let b =
             bragg_cross_section_per_atom(&m, &ConstantCorrection(0.9), &ion, &sio2, 1e4).unwrap();
         assert!((b / a - 0.9).abs() < 1e-14);
+    }
+
+    #[test]
+    fn rejects_bad_compound_correction() {
+        let m = LindhardScharff::new();
+        let ion = Ion::new(5).unwrap();
+        let sio2 = Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap();
+        for bad in [-1.0, f64::NAN, f64::INFINITY] {
+            let r = bragg_cross_section_per_atom(&m, &ConstantCorrection(bad), &ion, &sio2, 1e4);
+            assert!(matches!(
+                r,
+                Err(StoppingError::InvalidParameter {
+                    name: "compound_correction",
+                    ..
+                })
+            ));
+            let r = bragg_stopping_power(&m, &ConstantCorrection(bad), &ion, &sio2, 1e4);
+            assert!(r.is_err());
+        }
+        let z = bragg_cross_section_per_atom(&m, &ConstantCorrection(0.0), &ion, &sio2, 1e4);
+        assert_eq!(z.unwrap(), 0.0);
+    }
+
+    #[test]
+    fn bad_element_correction_propagates_through_bragg() {
+        let m = LindhardScharff::new().with_correction(8, -1.0);
+        let ion = Ion::new(5).unwrap();
+        let sio2 = Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap();
+        assert!(matches!(
+            bragg_cross_section_per_atom(&m, &NoCorrection, &ion, &sio2, 1e4),
+            Err(StoppingError::InvalidParameter { .. })
+        ));
     }
 }

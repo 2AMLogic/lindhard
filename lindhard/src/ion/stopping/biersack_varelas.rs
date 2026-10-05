@@ -172,6 +172,21 @@ mod tests {
     }
 
     #[test]
+    fn bad_ls_correction_factor_rejected() {
+        for bad in [-1.0, f64::NAN] {
+            let low = LindhardScharff::new().with_correction(14, bad);
+            let m = BiersackVarelas::new(low, BetheBloch::new());
+            assert!(matches!(
+                m.stopping(&Ion::proton(), 14, 1.0e4),
+                Err(StoppingError::InvalidParameter {
+                    name: "correction_factor",
+                    ..
+                })
+            ));
+        }
+    }
+
+    #[test]
     fn invalid_excitation_energy_rejected() {
         let mut high = BetheBloch::new();
         high.mean_excitation_ev = Some(0.0);

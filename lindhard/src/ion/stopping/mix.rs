@@ -73,4 +73,17 @@ mod tests {
         let b = LindhardScharff::new().stopping(&ion, 14, 5e4).unwrap();
         assert!((a / b - 1.0).abs() < 1e-14);
     }
+
+    #[test]
+    fn local_loss_rejects_bad_closest_approach() {
+        let ion = Ion::proton();
+        let m = EquipartitionMix::new();
+        for bad in [-1e-10, f64::NAN, f64::INFINITY] {
+            assert!(matches!(
+                m.local_loss(&ion, 14, 1e4, bad),
+                Err(StoppingError::InvalidParameter { .. })
+            ));
+        }
+        assert!(m.local_loss(&ion, 14, 1e4, 0.0).unwrap() > 0.0);
+    }
 }
