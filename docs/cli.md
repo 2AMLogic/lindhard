@@ -129,14 +129,28 @@ Every other pair uses the `[physics] stopping` model. A pair with a table is
 never silently served by the model: a query outside the table's energy range,
 or for a different ion mass, is an error that stops the run. Nothing is
 extrapolated. Declare each pair once. A table for a pair that cannot occur
-in the run is accepted with a warning. Tables cannot be combined with
+in the run (including a table for a target element's recoils when
+`follow_recoils = false`) is accepted with a warning that it is unused.
+
+**Recoil species.** Tables are keyed by (`ion_z`, `target_z`) only, so with
+`follow_recoils = true` a table whose `ion_z` is a target element also serves
+every recoil of that element. Recoils carry the standard atomic weight and are
+followed down to `physics.recoil_cutoff_ev`, so such a table is checked up
+front against both: its `ion_mass_amu` must be the standard weight, and it
+must start at or below `recoil_cutoff_ev`; either failure is an error. A
+consequence is that an isotopic self-ion beam (e.g. `beam.mass_amu = 27.9769`
+for Si into Si) cannot take a table for its own pair while recoils are
+followed: drop the table, use the standard weight, or set
+`follow_recoils = false`. A recoil-species table that ends below the largest
+energy the beam can transfer to that element warns. Tables cannot be combined with
 `stopping = "equipartition-ls-or"` (that mode carries its own
 Lindhard-Scharff/Oen-Robinson loss and would ignore them).
 
 **Errors** name the field (`stopping.tables[0]`): an unknown key in
 `[stopping]`, a missing or unreadable file, invalid table contents (including
 a missing `provenance`), a duplicate pair, a table whose ion mass differs from
-the beam ion's, and a table whose range does not contain the beam energy. A
+the beam ion's, a table whose range does not contain the beam energy, and the
+recoil-species checks above. A
 table that starts above `physics.primary_cutoff_ev` warns, because the run
 fails if a projectile slows below it.
 

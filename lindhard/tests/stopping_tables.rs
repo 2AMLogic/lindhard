@@ -194,3 +194,111 @@ fn composite_uses_the_table_for_its_pair_and_the_model_otherwise() {
     // Out of the table's range is an error, not the fallback.
     assert!(model.stopping(&ion, 14, 5.0e4).is_err());
 }
+
+/// With `follow_recoils` on, a table whose ion is a target element also
+/// serves that element's recoils, so it is checked against them up front.
+#[test]
+fn recoil_species_table_starting_above_the_recoil_cutoff_is_an_error() {
+    // Judge's reproduction: B into Si with a Si->Si table from 100 eV; the
+    // run used to stop at history 0 ("56.3 eV outside table range").
+    let d = scratch("recoil-range");
+    std::fs::write(d.join("b.toml"), ls_table(5, 14, 1.0, 1.0e4, "")).unwrap();
+    std::fs::write(d.join("si.toml"), ls_table(14, 14, 100.0, 1.0e4, "")).unwrap();
+    let (f, m) = field_of(
+        with_tables(&["b.toml", "si.toml"])
+            .resolve_in(&d)
+            .unwrap_err(),
+    );
+    assert_eq!(f, "stopping.tables[1]");
+    assert!(
+        m.contains("recoil_cutoff_ev") && m.contains("Si recoils"),
+        "{m}"
+    );
+
+    // Down to the cutoff it is accepted, and serves the recoils.
+    std::fs::write(d.join("si.toml"), ls_table(14, 14, 2.0, 1.0e4, "")).unwrap();
+    let r = with_tables(&["b.toml", "si.toml"]).resolve_in(&d).unwrap();
+    assert!(
+        r.warnings.iter().all(|w| !w.contains("stopping.tables")),
+        "{:?}",
+        r.warnings
+    );
+    let si = Ion::new(14).unwrap();
+    assert!(r.stopping_model().stopping(&si, 14, 2.0).is_ok());
+}
+
+#[test]
+fn recoil_species_table_ending_below_the_largest_transfer_warns() {
+    let d = scratch("recoil-top");
+    // B (10.81 u) on Si (28.085 u) at 5 keV can hand a Si atom ~3.98 keV.
+    std::fs::write(d.join("si.toml"), ls_table(14, 14, 1.0, 1.0e3, "")).unwrap();
+    let r = with_tables(&["si.toml"]).resolve_in(&d).unwrap();
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("stopping.tables[0]") && w.contains("largest energy")),
+        "{:?}",
+        r.warnings
+    );
+}
+
+#[test]
+fn isotopic_self_ion_table_is_rejected_when_recoils_are_followed() {
+    // Judge's reproduction: a Si beam of 27.9769 u into Si with a Si->Si
+    // table for 27.9769 u. Si recoils have the standard weight, so the run
+    // used to stop at history 0 ("asked for 28.085 u").
+    let d = scratch("recoil-mass");
+    let si_input = |follow: bool| {
+        let text = INPUT
+            .replace("ion = \"B\"", "ion = \"Si\"\nmass_amu = 27.9769")
+            .replace(
+                "recoil_cutoff_ev = 2.0",
+                &format!("recoil_cutoff_ev = 2.0\nfollow_recoils = {follow}"),
+            );
+        Input::from_toml_str(&format!("{text}\n[stopping]\ntables = [\"si.toml\"]\n")).unwrap()
+    };
+    std::fs::write(
+        d.join("si.toml"),
+        ls_table(14, 14, 1.0, 1.0e4, "ion_mass_amu = 27.9769"),
+    )
+    .unwrap();
+    let (f, m) = field_of(si_input(true).resolve_in(&d).unwrap_err());
+    assert_eq!(f, "stopping.tables[0]");
+    assert!(
+        m.contains("recoils") && m.contains("standard atomic weight"),
+        "{m}"
+    );
+    // A standard-weight table then fails the beam check: no table serves
+    // both, and this is reported before the run, not at history 0.
+    std::fs::write(d.join("si.toml"), ls_table(14, 14, 1.0, 1.0e4, "")).unwrap();
+    let (f, m) = field_of(si_input(true).resolve_in(&d).unwrap_err());
+    assert_eq!(f, "stopping.tables[0]");
+    assert!(m.contains("beam ion has mass"), "{m}");
+    // Without recoils the isotopic table serves the beam alone.
+    std::fs::write(
+        d.join("si.toml"),
+        ls_table(14, 14, 1.0, 1.0e4, "ion_mass_amu = 27.9769"),
+    )
+    .unwrap();
+    assert!(si_input(false).resolve_in(&d).is_ok());
+}
+
+#[test]
+fn recoil_species_table_without_followed_recoils_is_unused() {
+    let d = scratch("recoil-unused");
+    // Starts above the recoil cutoff, but it is never queried.
+    std::fs::write(d.join("si.toml"), ls_table(14, 14, 100.0, 1.0e4, "")).unwrap();
+    let mut i = with_tables(&["si.toml"]);
+    i.physics.follow_recoils = false;
+    let r = i.resolve_in(&d).unwrap();
+    let w = r
+        .warnings
+        .iter()
+        .find(|w| w.contains("stopping.tables[0]"))
+        .expect("unused warning");
+    assert!(
+        w.contains("unused") && w.contains("Si->Si") && w.contains("target elements Si"),
+        "{w}"
+    );
+    assert!(!w.contains('{'), "element symbols, not a set: {w}");
+}

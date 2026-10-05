@@ -603,40 +603,99 @@ impl Input {
         }
         let e0 = self.beam.energy_ev;
         let cutoff = self.physics.primary_cutoff_ev;
+        let recoil_cutoff = self.physics.recoil_cutoff_ev;
+        let follow = self.physics.follow_recoils;
+        let tol = crate::ion::stopping::table::MASS_RELATIVE_TOLERANCE;
+        let target_elements: std::collections::BTreeSet<u8> = layers
+            .iter()
+            .flat_map(|ly| ly.material.components().iter().map(|c| c.z()))
+            .collect();
+        let symbol = |z: u8| crate::elements::element(z).map_or("?", |e| e.symbol);
         for (i, l) in tables.iter().enumerate() {
             let field = format!("stopping.tables[{i}]");
             let t = &l.table;
-            let in_target = layers.iter().any(|ly| {
-                ly.material
-                    .components()
-                    .iter()
-                    .any(|c| c.z() == t.target_z())
-            });
-            let ion_possible = t.ion_z() == ion.z()
-                || layers
-                    .iter()
-                    .any(|ly| ly.material.components().iter().any(|c| c.z() == t.ion_z()));
-            if !in_target || !ion_possible {
+            let in_target = target_elements.contains(&t.target_z());
+            // A table serves the beam ion of its element and, when recoils
+            // are followed, every recoil of its element (`TableOverride`
+            // keys on Z1, Z2 only).
+            let serves_beam = t.ion_z() == ion.z();
+            let serves_recoils = follow && target_elements.contains(&t.ion_z());
+            if !in_target || !(serves_beam || serves_recoils) {
+                let recoils = if follow {
+                    ""
+                } else {
+                    " and physics.follow_recoils = false"
+                };
                 warnings.push(format!(
-                    "{field}: the table (Z1={}, Z2={}) is for a pair that does not occur in \
-                     this run (beam {}, target elements {:?}); it is unused",
+                    "{field}: the table ({}->{}, Z1={}, Z2={}) is for a pair that does not \
+                     occur in this run (beam {}, target elements {}{recoils}); it is unused",
+                    symbol(t.ion_z()),
+                    symbol(t.target_z()),
                     t.ion_z(),
                     t.target_z(),
                     self.beam.ion,
-                    layers
+                    target_elements
                         .iter()
-                        .flat_map(|ly| ly.material.components().iter().map(|c| c.z()))
-                        .collect::<std::collections::BTreeSet<_>>()
+                        .map(|&z| symbol(z))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ));
                 continue;
             }
-            if t.ion_z() != ion.z() {
+            let (lo, hi) = t.energy_range_ev();
+            if serves_recoils {
+                // Recoils are built with the standard atomic weight
+                // (`Ion::new`), so a table for another mass can never serve
+                // them, and the run would stop at the first such recoil.
+                let recoil = Ion::new(t.ion_z()).map_err(|e| invalid(&field, e.to_string()))?;
+                if (recoil.mass_amu() - t.ion_mass_amu()).abs() > tol * t.ion_mass_amu() {
+                    return Err(invalid(
+                        &field,
+                        format!(
+                            "{}: table is for an ion of mass {} u, but with \
+                             physics.follow_recoils = true it also serves the {} recoils, \
+                             which have the standard atomic weight {} u; a table serves one \
+                             mass per pair (use the standard weight in the table and the beam, \
+                             drop the table, or set physics.follow_recoils = false)",
+                            l.path,
+                            t.ion_mass_amu(),
+                            symbol(t.ion_z()),
+                            recoil.mass_amu()
+                        ),
+                    ));
+                }
+                // Every recoil is followed down to recoil_cutoff_ev.
+                if recoil_cutoff < lo {
+                    return Err(invalid(
+                        &field,
+                        format!(
+                            "{}: the table starts at {lo} eV, above physics.recoil_cutoff_ev = \
+                             {recoil_cutoff} eV; with physics.follow_recoils = true it serves \
+                             the {} recoils, which slow down to the recoil cutoff, so the run \
+                             would stop outside the table range (extend the table down to the \
+                             cutoff or raise physics.recoil_cutoff_ev)",
+                            l.path,
+                            symbol(t.ion_z()),
+                        ),
+                    ));
+                }
+                // The most a beam collision can hand a recoil of this element.
+                let (m1, m2) = (ion.mass_amu(), recoil.mass_amu());
+                let e_max = 4.0 * m1 * m2 / ((m1 + m2) * (m1 + m2)) * e0;
+                if hi < e_max {
+                    warnings.push(format!(
+                        "{field}: the table ends at {hi} eV, below the largest energy a \
+                         {} recoil can receive from the beam ({e_max:.4e} eV); the run fails \
+                         if a recoil starts above the table range",
+                        symbol(t.ion_z())
+                    ));
+                }
+            }
+            if !serves_beam {
                 continue;
             }
             // The beam ion's pair: mass and the energy range it travels.
-            if (ion.mass_amu() - t.ion_mass_amu()).abs()
-                > crate::ion::stopping::table::MASS_RELATIVE_TOLERANCE * t.ion_mass_amu()
-            {
+            if (ion.mass_amu() - t.ion_mass_amu()).abs() > tol * t.ion_mass_amu() {
                 return Err(invalid(
                     &field,
                     format!(
@@ -648,7 +707,6 @@ impl Input {
                     ),
                 ));
             }
-            let (lo, hi) = t.energy_range_ev();
             if e0 < lo || e0 > hi {
                 return Err(invalid(
                     &field,

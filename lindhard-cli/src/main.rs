@@ -109,7 +109,12 @@ fn check(path: &Path) -> Result<()> {
         );
     }
     for m in r.models() {
-        println!("  {}: {}", m.role, m.name);
+        if m.name == "user-table" {
+            // A user table is identified by its file: "path: provenance".
+            println!("  {}: {} ({})", m.role, m.name, m.citation);
+        } else {
+            println!("  {}: {}", m.role, m.name);
+        }
     }
     Ok(())
 }

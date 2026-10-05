@@ -518,3 +518,56 @@ fn stopping_table_errors_fail_naming_the_field() {
     );
     assert!(e.contains("table"), "{e}");
 }
+
+/// A Si->Si table sampled from our own Lindhard-Scharff model on [lo, 1e4] eV.
+fn si_in_si_ls_table(lo: f64) -> String {
+    use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
+    use lindhard::ion::stopping::{to_ev_1e15_cm2, ElectronicStopping, Ion};
+    let (ls, ion) = (LindhardScharff::new(), Ion::new(14).unwrap());
+    let (hi, n) = (1.0e4f64, 60);
+    let grid: Vec<f64> = (0..=n)
+        .map(|i| lo * (hi / lo).powf(f64::from(i) / f64::from(n)))
+        .collect();
+    let list = |f: &dyn Fn(f64) -> f64| {
+        grid.iter()
+            .map(|&e| format!("{:e}", f(e)))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!(
+        "provenance = \"Lindhard-Scharff model of this repository sampled on a grid (test)\"\n\
+         ion_z = 14\ntarget_z = 14\nenergy_ev = [{}]\nstopping_ev_1e15_cm2 = [{}]\n",
+        list(&|e| e),
+        list(&|e| to_ev_1e15_cm2(ls.stopping(&ion, 14, e).unwrap()))
+    )
+}
+
+#[test]
+fn recoil_species_tables_are_checked_before_the_run() {
+    let dir = scratch("table-recoil");
+    let input = dir.join("input.toml");
+    std::fs::write(
+        &input,
+        format!("{GOOD}\n[stopping]\ntables = [\"si.toml\"]\n"),
+    )
+    .unwrap();
+
+    // Starts above recoil_cutoff_ev: `check` now fails, naming the field.
+    std::fs::write(dir.join("si.toml"), si_in_si_ls_table(100.0)).unwrap();
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        e.contains("stopping.tables[0]") && e.contains("recoil_cutoff_ev"),
+        "{e}"
+    );
+
+    // Down to the cutoff: `check` lists the table by path, and a run in
+    // which the table serves every Si recoil completes.
+    std::fs::write(dir.join("si.toml"), si_in_si_ls_table(2.0)).unwrap();
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    ok(&o);
+    let s = String::from_utf8_lossy(&o.stdout);
+    assert!(s.contains("user-table (si.toml: Lindhard-Scharff"), "{s}");
+    run(&input, &dir.join("out"), &["--ions", "50"]);
+}
