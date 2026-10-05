@@ -8,6 +8,7 @@
 
 pub mod constants;
 pub mod elements;
+pub mod ion;
 pub mod material;
 pub mod rng;
 pub mod units;
