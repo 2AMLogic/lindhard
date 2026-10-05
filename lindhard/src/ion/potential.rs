@@ -13,11 +13,13 @@
 //! `eps = a E_cm / (Z1 Z2 e^2 / (4 pi eps0))`, in which `phi` is the only
 //! input; the screening length only converts to and from SI.
 //!
-//! Coefficients follow the cited papers. The primary sources have not been
-//! re-read digit by digit for this module. The ZBL, Kr-C and Moliere sets have
-//! been cross-checked against an independent MIT-licensed implementation, and
-//! the Lenz-Jensen set has not been cross-checked at all; see the
-//! `docs/data-provenance.md` rows for the status of each set.
+//! Coefficients follow the cited papers. The status of each set is recorded
+//! in its `docs/data-provenance.md` row. The Firsov and Lindhard screening
+//! lengths have been checked against the primary papers (page references
+//! below). The ZBL, Kr-C and Moliere screening sets have been cross-checked
+//! against an independent MIT-licensed implementation. The Lenz-Jensen set
+//! agrees with a textbook tabulation, but not with a primary source. The
+//! universal-length prefactor has been seen only in secondary sources.
 
 use crate::constants::{BOHR_RADIUS, COULOMB_E2};
 
@@ -37,8 +39,11 @@ pub enum Screening {
     Moliere,
     /// Lenz-Jensen screening, a polynomial-times-exponential approximation of
     /// the Thomas-Fermi-Jensen statistical model. W. Lenz, Z. Phys. 77, 713
-    /// (1932); H. Jensen, Z. Phys. 77, 722 (1932). Polynomial form as tabulated
-    /// in e.g. Nastasi, Mayer, Hirvonen, *Ion-Solid Interactions* (CUP, 1996).
+    /// (1932), doi:10.1007/BF01342150; H. Jensen, Z. Phys. 77, 722 (1932),
+    /// doi:10.1007/BF01342151. Polynomial form and argument scale as tabulated
+    /// in W. Moller, *Fundamentals of Ion-Solid Interaction*, HZDR-073
+    /// (Helmholtz-Zentrum Dresden-Rossendorf, 2017), p. 11, eq. (28); see
+    /// [`LJ_P`] for the verification status.
     LenzJensen,
 }
 
@@ -67,10 +72,18 @@ const MOLIERE_C: [(f64, f64); 3] = [(0.35, 0.3), (0.55, 1.2), (0.10, 6.0)];
 /// Lenz-Jensen: `phi = P(q) exp(-q)`, `q = sqrt(LJ_Q2 x)`,
 /// `P(q) = 1 + q + 0.3344 q^2 + 0.0485 q^3 + 0.002647 q^4`.
 ///
-/// Not verified against any source: no permissively licensed implementation
-/// carries this set, and the papers were not available when it was entered.
-/// The argument scale is the least certain value (`9.67` here; a scale of
-/// `3.11126^2 = 9.680` is also plausible). See `docs/data-provenance.md`.
+/// All five polynomial coefficients and the scale `9.67` are printed exactly
+/// so in W. Moller, *Fundamentals of Ion-Solid Interaction*, HZDR-073 (2017),
+/// p. 11, eq. (28), `phi_LJ(xi) = (1 + xi + 0.3344 xi^2 + 0.0485 xi^3 +
+/// 0.002647 xi^4) exp(-xi)`, `xi = sqrt(9.67 r/a)`
+/// (<https://www.hzdr.de/publications/PublDoc-10091.pdf>). There `a` is the
+/// single-atom Thomas-Fermi length `0.8853 a0 Z^(-1/3)` (eq. (26)). The
+/// two-atom form replaces it with the Lindhard length (eqs. (29)-(30)), which
+/// is the pairing in [`Screening::default_length`]. That is a secondary
+/// (textbook) source. The primary papers of Lenz and Jensen were not
+/// accessible, so the set is **unverified against the primary literature**. No
+/// source was found for the alternative scale `3.11126^2 = 9.680`. See
+/// `docs/data-provenance.md`.
 const LJ_P: [f64; 5] = [1.0, 1.0, 0.3344, 0.0485, 0.002_647];
 const LJ_Q2: f64 = 9.67;
 
@@ -161,20 +174,32 @@ fn horner(c: &[f64], q: f64) -> f64 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScreeningLength {
     /// Universal length, `a_U = 0.8854 a0 / (Z1^0.23 + Z2^0.23)`.
-    /// Ziegler, Biersack, Littmark (1985), Ch. 2.
+    /// Ziegler, Biersack, Littmark (1985), Ch. 2. The primary source was not
+    /// accessible, so the prefactor is **unverified against it**. Secondary
+    /// sources agree on the exponent `0.23` but print the prefactor as either
+    /// `0.8854` or `0.8853` (a 1e-4 relative difference); see
+    /// `docs/data-provenance.md`.
     Universal,
     /// Firsov length, `a_F = 0.8853 a0 / (sqrt(Z1) + sqrt(Z2))^(2/3)`.
-    /// O. B. Firsov, Sov. Phys. JETP 6, 534 (1958).
+    /// O. B. Firsov, Sov. Phys. JETP 6, 534 (1958): the scaled distance
+    /// `x' = (Z1^(1/2) + Z2^(1/2))^(2/3) R / a` (p. 536), with
+    /// `a = (9 pi^2/128)^(1/3) hbar^2/(m e^2) = 4.68e-9 cm` (p. 535, below
+    /// eq. (4)). Verified against the scan at
+    /// <http://www.jetp.ras.ru/cgi-bin/dn/e_006_03_0534.pdf>.
     Firsov,
     /// Lindhard (Thomas-Fermi) length,
     /// `a_L = 0.8853 a0 / (Z1^(2/3) + Z2^(2/3))^(1/2)`.
     /// J. Lindhard, M. Scharff, H. E. Schiott, Mat. Fys. Medd. Dan. Vid. Selsk.
-    /// 33(14) (1963).
+    /// 33(14) (1963), p. 8, printed as `a = a0 . 0.8853 (Z1^(2/3) +
+    /// Z2^(2/3))^(-1/2)`. Verified against the scan at
+    /// <http://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-33-14.pdf>.
     Lindhard,
 }
 
 /// The Thomas-Fermi constant `(9 pi^2 / 128)^(1/3) = 0.8853`, which multiplies
-/// the Bohr radius in the Firsov and Lindhard lengths.
+/// the Bohr radius in the Firsov and Lindhard lengths. The closed form is
+/// Firsov's (Sov. Phys. JETP 6, 534 (1958), p. 535), and the rounded value
+/// `0.8853` is the one printed by Lindhard, Scharff and Schiott (1963), p. 8.
 pub fn thomas_fermi_constant() -> f64 {
     (9.0 * std::f64::consts::PI * std::f64::consts::PI / 128.0).cbrt()
 }
@@ -304,6 +329,25 @@ mod tests {
         let a = ScreeningLength::Firsov.metres(14.0, 14.0);
         let expect = tf * a0 / (2.0 * 14f64.sqrt()).powf(2.0 / 3.0);
         assert!((a / expect - 1.0).abs() < 1e-12);
+    }
+
+    /// The Thomas-Fermi prefactor against the numbers printed in the primary
+    /// sources: Firsov (1958), p. 535, `a = (9 pi^2/128)^(1/3) hbar^2/(m e^2) =
+    /// 4.68e-9 cm`, and Lindhard, Scharff, Schiott (1963), p. 8, `0.8853`.
+    #[test]
+    fn screening_length_prefactors_match_primary_sources() {
+        let tf = thomas_fermi_constant();
+        // LSS (1963) prints four digits.
+        assert_eq!((tf * 1e4).round(), 8853.0);
+        // Firsov (1958) prints a = 4.68e-9 cm. The value is 4.6850e-9 cm, so
+        // the printed figure is truncated, not rounded: require agreement to
+        // one unit in its last digit.
+        let a_cm = tf * BOHR_RADIUS * 100.0;
+        assert!((a_cm - 4.68e-9).abs() < 0.01e-9, "a = {a_cm} cm");
+        // Firsov p. 536: R = a x' / (sqrt(Z1) + sqrt(Z2))^(2/3).
+        let (z1, z2) = (5.0f64, 14.0f64);
+        let expect = tf * BOHR_RADIUS / (z1.sqrt() + z2.sqrt()).powf(2.0 / 3.0);
+        assert!((ScreeningLength::Firsov.metres(z1, z2) / expect - 1.0).abs() < 1e-12);
     }
 
     #[test]
