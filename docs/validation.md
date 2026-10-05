@@ -22,7 +22,8 @@ The harness lives in [`../validation/`](../validation/README.md) and
 `cargo test` runs the level-1 harness (`lindhard/tests/validation`, a
 `harness = false` test target) with "quick" statistics. It prints one table
 and fails the build if any check misses its tolerance. A check id (or part of
-one) filters: `cargo test -p lindhard --test validation range`.
+one) filters the reported rows, and a filter that matches no id fails:
+`cargo test -p lindhard --test validation range.p50k`.
 
 What it covers:
 
@@ -171,7 +172,7 @@ its published documentation and reading back its output) are not written
 yet. They are tracked by #50.
 
 <!-- validation:level2:begin -->
-_No oracle summaries committed yet; see "Running the oracles" below._
+_No oracle summaries committed yet; see "Running the oracles" above._
 <!-- validation:level2:end -->
 
 ## 3. Experiment (the real bar)

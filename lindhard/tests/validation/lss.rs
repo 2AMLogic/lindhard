@@ -20,11 +20,14 @@
 //! (probability `N dsigma dx`), after which its remaining mean penetration
 //! along the old axis is `cos(psi) R1(E - T)` by rotational symmetry.
 //!
-//! The equation is solved here with the **same inputs as the engine**: the
-//! engine's ZBL scattering table for `theta(eps, beta)`, the exact lab angle
-//! ([`kinematics::lab_angles`]), `p` over the constant-free-path disc
-//! `p <= p_max`, Lindhard-Scharff `S_e`, and `R1 = 0` below the primary
-//! cutoff energy. So it tests the transport (flight, deflection, rotation,
+//! The equation is solved here with the **same physics inputs as the
+//! engine**: the engine's ZBL scattering table for `theta(eps, beta)`, `p`
+//! over the constant-free-path disc `p <= p_max`, Lindhard-Scharff `S_e`, the
+//! density, and `R1 = 0` below the primary cutoff energy. The two-body
+//! kinematics that turn `theta` into `cos(psi)` and `T` are *not* taken from
+//! the engine; they are written out independently in [`cos_psi_lab`] and
+//! [`energy_transfer`], so a bug in the engine's kinematics does not cancel.
+//! So it tests the transport (deflection kinematics, flight, rotation,
 //! bookkeeping), not the physics inputs: a disagreement means a transport
 //! bug, an agreement says nothing about whether the inputs match experiment.
 //!
@@ -52,7 +55,7 @@
 //!   backscatter fraction is reported.
 
 use lindhard::geometry::Stack;
-use lindhard::ion::bca::{kinematics, Bca, BcaConfig, BcaTally, Beam, Face, Particle};
+use lindhard::ion::bca::{Bca, BcaConfig, BcaTally, Beam, Face, Particle};
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{theta_quadrature, ScatteringTable};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
@@ -129,6 +132,36 @@ fn p_nodes(p_max: f64, per_decade: usize) -> Vec<(f64, f64)> {
         .collect()
 }
 
+/// Cosine of the laboratory deflection `psi` of a projectile of mass `m1`
+/// scattered elastically through centre-of-mass angle `theta` by an
+/// initially stationary atom of mass `m2`.
+///
+/// Classical two-body elastic kinematics (H. Goldstein, *Classical
+/// Mechanics*, 2nd ed. (1980), Sec. 3.11; W. Eckstein, *Computer
+/// Simulation of Ion-Solid Interactions*, Springer (1991), Ch. 2). With
+/// `A = m2 / m1`,
+///
+/// ```text
+/// cos(psi) = (1 + A cos(theta)) / sqrt(1 + 2 A cos(theta) + A^2)
+/// ```
+///
+/// Written out here, deliberately not imported from the engine, so that the
+/// LSS solution is independent of the engine's deflection kinematics.
+pub fn cos_psi_lab(theta: f64, m1: f64, m2: f64) -> f64 {
+    let a = m2 / m1;
+    let c = theta.cos();
+    (1.0 + a * c) / (1.0 + 2.0 * a * c + a * a).sqrt()
+}
+
+/// Energy `T` transferred to an initially stationary atom of mass `m2` by a
+/// projectile of mass `m1` and energy `e` scattered through centre-of-mass
+/// angle `theta`: `T = 4 m1 m2 / (m1 + m2)^2 * E sin^2(theta / 2)`
+/// (same references as [`cos_psi_lab`]). Clamped to `e` against rounding.
+pub fn energy_transfer(e: f64, theta: f64, m1: f64, m2: f64) -> f64 {
+    let s = (0.5 * theta).sin();
+    (4.0 * m1 * m2 / ((m1 + m2) * (m1 + m2)) * e * s * s).min(e)
+}
+
 /// Solve on one grid of `per_decade` energies per decade; returns `f(E0)`, m.
 pub fn solve_grid(pr: &Problem, e0: f64, moment: Moment, per_decade: usize) -> f64 {
     let m1 = pr.ion.mass_amu();
@@ -139,8 +172,6 @@ pub fn solve_grid(pr: &Problem, e0: f64, moment: Moment, per_decade: usize) -> f
     );
     let a = pot.screening_length();
     let eps_per_ev = pot.reduced_energy(Potential::cm_energy(J_PER_EV, m1, pr.m2));
-    let gamma = kinematics::gamma(m1, pr.m2);
-    let mu = m1 / pr.m2;
     let nodes = p_nodes(pr.p_max(), 40);
 
     let k = ((e0 / pr.cutoff_ev).log10() * per_decade as f64).ceil() as usize;
@@ -155,10 +186,9 @@ pub fn solve_grid(pr: &Problem, e0: f64, moment: Moment, per_decade: usize) -> f
         let (mut diag, mut known) = (0.0, 0.0);
         for &(p, w) in &nodes {
             let theta = pr.theta(eps, p / a);
-            let half = (0.5 * theta).sin();
-            let t = (gamma * e * half * half).min(e);
+            let t = energy_transfer(e, theta, m1, pr.m2);
             let c = match moment {
-                Moment::Projected => kinematics::lab_angles(theta, mu).0.cos(),
+                Moment::Projected => cos_psi_lab(theta, m1, pr.m2),
                 Moment::Path => 1.0,
                 Moment::ProjectedCmAngleBug => theta.cos(),
             };
@@ -202,15 +232,11 @@ pub fn csda_path(pr: &Problem, e0: f64) -> f64 {
     );
     let a = pot.screening_length();
     let eps_per_ev = pot.reduced_energy(Potential::cm_energy(J_PER_EV, m1, pr.m2));
-    let gamma = kinematics::gamma(m1, pr.m2);
     let nodes = p_nodes(pr.p_max(), 40);
     let sn = |e: f64| -> f64 {
         nodes
             .iter()
-            .map(|&(p, w)| {
-                let h = (0.5 * pr.theta(e * eps_per_ev, p / a)).sin();
-                w * (gamma * e * h * h).min(e)
-            })
+            .map(|&(p, w)| w * energy_transfer(e, pr.theta(e * eps_per_ev, p / a), m1, pr.m2))
             .sum()
     };
     // Simpson in ln E: Int E dE/(E N S) d(ln E).

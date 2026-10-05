@@ -42,7 +42,7 @@ def pct(x) -> str:
 def level2() -> str:
     files = sorted(SUMMARIES.glob("*.json")) if SUMMARIES.is_dir() else []
     if not files:
-        return "_No oracle summaries committed yet; see \"Running the oracles\" below._"
+        return "_No oracle summaries committed yet; see \"Running the oracles\" above._"
     lines = [
         "| Problem | Oracle (version) | Rp | ΔRp | Backscatter (abs.) | Sputter yield | Speed ratio | Date |",
         "|---|---|---|---|---|---|---|---|",

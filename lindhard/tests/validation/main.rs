@@ -18,7 +18,9 @@
 //! * `LINDHARD_VALIDATION_OUT=<path>`: also write the table as Markdown.
 //!
 //! A first positional argument filters checks by substring of their id
-//! (like libtest); `--list` lists them. Rows are `pass`, `FAIL` or `info`
+//! (like libtest; every group still runs, only matching rows are reported and
+//! asserted, and a filter that matches no id fails); `--list` lists the
+//! groups. Rows are `pass`, `FAIL` or `info`
 //! (reported, not asserted, with the reason in the note). Every tolerance is
 //! the one achieved and justified in the PR that introduced the model, not a
 //! band widened to make a check pass.
@@ -71,11 +73,11 @@ fn main() -> ExitCode {
     );
     let mut rows = Vec::new();
     for (g, f) in GROUPS {
-        if filter.as_deref().is_some_and(|p| !g.contains(p)) {
-            continue;
-        }
         let t = Instant::now();
-        let r = f(&table, !full);
+        let mut r = f(&table, !full);
+        if let Some(p) = filter.as_deref() {
+            r.retain(|c| c.id.contains(p));
+        }
         eprintln!(
             "validation: {g}: {} checks in {:.1} s",
             r.len(),
@@ -84,8 +86,11 @@ fn main() -> ExitCode {
         rows.extend(r);
     }
     if rows.is_empty() {
-        println!("validation: no checks match the filter");
-        return ExitCode::SUCCESS;
+        eprintln!(
+            "validation: no check id matches the filter {:?}",
+            filter.as_deref().unwrap_or("")
+        );
+        return ExitCode::FAILURE;
     }
 
     println!(
