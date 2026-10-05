@@ -44,21 +44,40 @@ def level2() -> str:
     if not files:
         return "_No oracle summaries committed yet; see \"Running the oracles\" above._"
     lines = [
-        "| Problem | Oracle (version) | Rp | ΔRp | Backscatter (abs.) | Sputter yield | Speed ratio | Date |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Problem | Oracle (version, commit) | Rp | ΔRp | Backscatter (abs.) | Sputter yield "
+        "| Speed ratio (end-to-end) | Speed ratio (marginal) | Date |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
+
+    def sig(c: dict, key: str) -> str:
+        z = c.get(f"{key}_z")
+        return "" if z is None else f" ({abs(z):.1f}σ)"
+
+    def ratio(x) -> str:
+        return "-" if x is None else f"{x:.2f}x"
+
     for f in files:
         s = json.loads(f.read_text())
         c = s["comparison"]
         bs = c.get("backscatter_abs_diff")
-        sp = c.get("ions_per_s_ratio")
+        commit = s.get("oracle_commit", "")[:7]
+        oracle = f"{s['oracle']} ({s['oracle_version']}{', ' + commit if commit else ''})"
         lines.append(
-            f"| `{s['problem']}` | {s['oracle']} ({s['oracle_version']}) | {pct(c.get('rp_rel_diff'))} "
-            f"| {pct(c.get('drp_rel_diff'))} | {'-' if bs is None else f'{bs:+.4f}'} "
-            f"| {pct(c.get('sputter_yield_rel_diff'))} | {'-' if sp is None else f'{sp:.2f}x'} | {s['date']} |"
+            f"| `{s['problem']}` | {oracle} | {pct(c.get('rp_rel_diff'))}{sig(c, 'rp')} "
+            f"| {pct(c.get('drp_rel_diff'))}{sig(c, 'drp')} "
+            f"| {'-' if bs is None else f'{bs:+.4f}'}{sig(c, 'backscatter')} "
+            f"| {pct(c.get('sputter_yield_rel_diff'))}{sig(c, 'sputter_yield')} "
+            f"| {ratio(c.get('ions_per_s_ratio'))} | {ratio(c.get('ions_per_s_marginal_ratio'))} | {s['date']} |"
         )
     lines.append("")
-    lines.append("Differences are lindhard relative to the oracle; speed ratio > 1 means lindhard is faster.")
+    lines.append(
+        "Differences are lindhard relative to the oracle, with the difference in units of its combined "
+        "standard error in brackets (both runs' statistics; the sputter-yield error assumes Poisson counts). "
+        "A speed ratio > 1 means lindhard is faster: end-to-end is process wall clock at the run's ion "
+        "count, marginal removes fixed setup costs (see each summary's `timing`). Every row's settings, "
+        "both sides' values and the full list of mismatches are in its file under "
+        "`validation/oracles/summaries/`."
+    )
     return "\n".join(lines)
 
 
