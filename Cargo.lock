@@ -313,6 +313,9 @@ dependencies = [
  "anyhow",
  "clap",
  "lindhard",
+ "rayon",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

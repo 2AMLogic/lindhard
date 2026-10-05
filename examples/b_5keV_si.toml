@@ -1,0 +1,37 @@
+# 5 keV boron into amorphous silicon, 7 degrees off normal.
+#
+# Run:   lindhard run examples/b_5keV_si.toml --out out/b_5keV_si
+# Check: lindhard check examples/b_5keV_si.toml
+#
+# Schema: docs/cli.md. Energies are in eV, lengths in nm, angles in degrees.
+
+[beam]
+ion = "B"
+energy_ev = 5000.0
+tilt_deg = 7.0
+
+[target]
+# An element symbol names the pure element at its tabulated density
+# (lindhard/src/elements.rs).
+substrate = "Si"
+
+[physics]
+potential = "zbl"
+stopping = "lindhard-scharff"
+free_path = "constant"
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+
+# Si has no default displacement energy in the element table, so the input
+# must choose one. 15 eV is an illustrative model parameter, not a
+# recommendation: choose E_d for your problem.
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10000
+seed = 1
+
+[tally]
+depth_bin_nm = 0.5
+depth_bins = 200

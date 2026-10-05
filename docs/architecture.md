@@ -58,3 +58,5 @@ electron MC). The engines share the core and nothing else.
   its own header.
 - Output is JSON for summaries and CSV for profiles. HDF5 is optional behind a
   feature flag; it pulls in a C library, so it is never the default.
+- The input schema, output layout and the rules for extending them are in
+  [`cli.md`](cli.md).
