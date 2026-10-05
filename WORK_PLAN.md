@@ -33,11 +33,17 @@ The rest run as capacity allows.
 Human-approved issues ready for implementation (`loom:issue`): the M0 set,
 seeded at bootstrap (epic #10).
 
-- #2 Deterministic per-particle RNG streams + parallel driver
 - #3 Screened interatomic potentials + scattering integral
-- #4 Electronic stopping models + Bragg additivity
 
-Blocked on those: #5 BCA engine → #6 tallies, #7 CLI, #8 validation, #9 benchmarks.
+Done in M0 so far: #1 (materials), #2 (deterministic per-particle RNG streams
+and parallel driver, PR #43), and the core of #4 (LS, OR and Bethe-Bloch
+electronic stopping with Bragg additivity, PR #42). The Biersack-Varelas
+joined model was split out of #4 into #44; #4 stays open on the tracker only
+until that hand-off is recorded.
+
+Next in M0 (Phase 1): #5 BCA engine, blocked only on #3. Then #6 tallies,
+#7 CLI, #8 validation and #9 benchmarks, all of which build on #5. These
+issues are being curated for implementation now.
 
 ## In Progress
 
@@ -49,11 +55,18 @@ Phase 1 issues awaiting Champion approval (`loom:architect` + `loom:epic-phase`)
 #15–#21, #23–#24, #26–#27, #29, #31–#32, #34–#35, #37. Later phases are
 filed by Champion as each phase completes.
 
+M0 follow-ups awaiting triage (`loom:triage`):
+
+- #41 Barkas, shell and density-effect stopping terms, plus a Chu/Yang-type
+  straggling correction
+- #44 Biersack-Varelas interpolation joining low- and high-energy stopping
+  (deferred from #4)
+
 ## Epics
 
 | Epic | Scope | Phase 1 |
 |---|---|---|
-| #10 | M0: amorphous ion core, validated | #2–#4, #15 (#1 merged) |
+| #10 | M0: amorphous ion core, validated | #3, #5–#9, #15 (#1, #2, #4 merged; follow-ups #41, #44) |
 | #11 | M1: low-energy electron engine | #16–#18 |
 | #12 | M2: crystalline implant | #19–#21 |
 | #22 | M3: dynamic composition | #23–#24 |
