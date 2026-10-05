@@ -353,16 +353,16 @@ below its range of validity. Choosing a new default is a model change and
 belongs in its own issue.
 
 <!-- validation:level3:begin -->
-lindhard 0.0.1 (0b76013), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
+lindhard 0.0.1 (bb7261e), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
 
 | Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |
 |---|---|---|---|---|---|---|---|---|
-| B 1 keV -> Si (SIMS) | 4.84 ± 0.17 | 6.58 | +35.9 % | +10.1 | - | 3.85 | - | Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017) |
-| B 2 keV -> Si (SIMS) | 8.58 ± 0.30 | 11.21 | +30.6 % | +8.7 | - | 6.37 | - | Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017) |
-| B 3 keV -> Si (SIMS) | 12.18 ± 0.43 | 15.64 | +28.4 % | +8.0 | - | 8.61 | - | Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017) |
-| B 5 keV -> Si (SIMS) | 19.40 ± 0.68 | 24.37 | +25.6 % | +7.2 | - | 12.78 | - | Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017) |
-| B 10 keV -> Si (SIMS) | 37.36 ± 1.31 | 46.13 | +23.5 % | +6.6 | - | 22.20 | - | Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017) |
-| B 20 keV -> Si (SIMS) | 72.93 ± 2.55 | 90.26 | +23.8 % | +6.8 | - | 37.94 | - | Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017) |
+| B 1 keV -> Si (SIMS) | 4.84 ± 0.17 | 6.58 | +35.9 % | +10.1 | - | 3.85 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 2 keV -> Si (SIMS) | 8.58 ± 0.30 | 11.21 | +30.6 % | +8.7 | - | 6.37 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 3 keV -> Si (SIMS) | 12.18 ± 0.43 | 15.64 | +28.4 % | +8.0 | - | 8.61 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 5 keV -> Si (SIMS) | 19.40 ± 0.68 | 24.37 | +25.6 % | +7.2 | - | 12.78 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 10 keV -> Si (SIMS) | 37.36 ± 1.31 | 46.13 | +23.5 % | +6.6 | - | 22.20 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 20 keV -> Si (SIMS) | 72.93 ± 2.55 | 90.26 | +23.8 % | +6.8 | - | 37.94 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
 
 σ combines the measurement uncertainty with the Monte Carlo standard error of lindhard's Rp. Datasets, their extraction and uncertainty: `validation/data/ranges/`; provenance: [`data-provenance.md`](data-provenance.md).
 
