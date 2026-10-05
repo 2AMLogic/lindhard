@@ -22,7 +22,7 @@ energy, and track any fission neutrons as new histories. He proposed
 running it on ENIAC [1, 2].
 
 The calculations ran on ENIAC in three campaigns: **April–May 1948**,
-**22 October–7 November 1948**, and **May–June 1949** [3, 21]. Klára Dán von
+**22 October–7 November 1948** [3], and a third in **1949** [21]. Klára Dán von
 Neumann was the principal coder, and she and Nicholas Metropolis set up and
 ran the machine. The first-run program, completed in December 1947 and run
 in spring 1948 after ENIAC was converted to a new control mode, was the
