@@ -129,9 +129,9 @@ impl Screening {
 
     /// The `(c_i, b_i)` terms of a sum-of-exponentials screening function
     /// `phi(x) = Sum_i c_i exp(-b_i x)`, or `None` for Lenz-Jensen. Used by the
-    /// analytic stopping asymptote in the scattering tests.
-    #[cfg(test)]
-    pub(crate) fn exponential_terms(self) -> Option<&'static [(f64, f64)]> {
+    /// analytic stopping asymptote in the scattering tests and the validation
+    /// harness (`lindhard/tests/validation`).
+    pub fn exponential_terms(self) -> Option<&'static [(f64, f64)]> {
         match self {
             Screening::ZblUniversal => Some(&ZBL_C),
             Screening::KrC => Some(&KRC_C),
