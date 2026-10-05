@@ -30,24 +30,16 @@ The rest run as capacity allows.
 
 ## Ready
 
-Human-approved issues ready for implementation (`loom:issue`): the M0 set,
-seeded at bootstrap (epic #10).
+Human-approved issues ready for implementation (`loom:issue`):
 
-- #3 Screened interatomic potentials + scattering integral
-
-Done in M0 so far: #1 (materials), #2 (deterministic per-particle RNG streams
-and parallel driver, PR #43), and the core of #4 (LS, OR and Bethe-Bloch
-electronic stopping with Bragg additivity, PR #42). The Biersack-Varelas
-joined model was split out of #4 into #44; #4 stays open on the tracker only
-until that hand-off is recorded.
-
-Next in M0 (Phase 1): #5 BCA engine, blocked only on #3. Then #6 tallies,
-#7 CLI, #8 validation and #9 benchmarks, all of which build on #5. These
-issues are being curated for implementation now.
+*None at present.* The remaining M0 items below are curated but blocked or
+partly done, or are awaiting triage.
 
 ## In Progress
 
-*No issues currently being built.*
+- #51 Validation level 3: first published range datasets and stopping-input
+  attribution (`loom:building`). PR #62 delivers B in amorphous Si and is
+  approved; P and As remain open gaps, so #51 stays open after it merges.
 
 ## Proposed
 
@@ -57,16 +49,39 @@ filed by Champion as each phase completes.
 
 M0 follow-ups awaiting triage (`loom:triage`):
 
-- #41 Barkas, shell and density-effect stopping terms, plus a Chu/Yang-type
-  straggling correction
-- #44 Biersack-Varelas interpolation joining low- and high-energy stopping
-  (deferred from #4)
+- #58 CLI: an electronic-loss-off stopping choice, for like-for-like
+  OpenTRIM comparisons (follow-up to #50)
+- #61 Investigate low sputter yields: Ar 1 keV → Cu is 2.2x below RustBCA
+  even with `E_d = E_s` (follow-up to #50)
+
+Open M0 work (`loom:curated`), partly done:
+
+- #8 Validation harness: level 1 in CI (PR #52) and level-2 oracles (#50,
+  PR #59) are done; level 3 continues under #51.
+- #9 Benchmarks: hot-path benches and thread scaling are done (PR #53), and
+  oracle ions/s are recorded by #50; a quiet-machine re-measure and a
+  profile of the hot spots remain.
+- #45 Verify Lenz-Jensen, Moliere magic and screening-length coefficients
+  against primary sources. PR #57 verified what open-access sources allow;
+  the rest needs closed-access primary papers, so it is not in the ready
+  queue.
+
+## Done
+
+M0: #1 materials (PR #14), #2 deterministic RNG streams and parallel driver
+(PR #43), #3 screened potentials and scattering integral (PR #40), #4
+electronic stopping (PR #42), #5 BCA engine with cascades (PR #46), #6
+tallies (PR #48), #7 CLI (PRs #47, #54), #41 density effect, with the
+declined Barkas, shell and straggling terms documented (PR #49), #44
+Biersack-Varelas join documented, not implemented (PR #60), #50
+level-2 oracle adapters and summaries (PR #59), #55 user-supplied stopping
+tables (PR #56).
 
 ## Epics
 
 | Epic | Scope | Phase 1 |
 |---|---|---|
-| #10 | M0: amorphous ion core, validated | #3, #5–#9, #15 (#1, #2, #4 merged; follow-ups #41, #44) |
+| #10 | M0: amorphous ion core, validated | Done: #1–#7, #41, #44, #50, #55. Partial: #8, #9. Open: #15, #45, #51, #58, #61 |
 | #11 | M1: low-energy electron engine | #16–#18 |
 | #12 | M2: crystalline implant | #19–#21 |
 | #22 | M3: dynamic composition | #23–#24 |
