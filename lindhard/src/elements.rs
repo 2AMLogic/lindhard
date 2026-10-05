@@ -189,7 +189,7 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
         Some(60.0),
     ),
     el(42, "Mo", 95.95, false, Some(10.28), Some(6.82), Some(60.0)),
-    el(43, "Tc", 98.0, false, Some(11.0), None, None),
+    el(43, "Tc", 98.0, true, Some(11.0), None, None),
     el(44, "Ru", 101.07, false, Some(12.45), None, None),
     el(45, "Rh", 102.90549, false, Some(12.41), None, None),
     el(46, "Pd", 106.42, false, Some(12.023), Some(3.89), None),
@@ -215,7 +215,7 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     el(58, "Ce", 140.116, false, Some(6.770), None, None),
     el(59, "Pr", 140.90766, false, Some(6.77), None, None),
     el(60, "Nd", 144.242, false, Some(7.01), None, None),
-    el(61, "Pm", 145.0, false, Some(7.26), None, None),
+    el(61, "Pm", 145.0, true, Some(7.26), None, None),
     el(62, "Sm", 150.36, false, Some(7.52), None, None),
     el(63, "Eu", 151.964, false, Some(5.264), None, None),
     el(64, "Gd", 157.25, false, Some(7.90), None, None),
@@ -254,12 +254,12 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     el(81, "Tl", 204.38, false, Some(11.85), None, None),
     el(82, "Pb", 207.2, false, Some(11.34), Some(2.03), Some(25.0)),
     el(83, "Bi", 208.98040, false, Some(9.78), None, None),
-    el(84, "Po", 209.0, false, Some(9.196), None, None),
-    el(85, "At", 210.0, false, None, None, None),
-    el(86, "Rn", 222.0, false, None, None, None),
-    el(87, "Fr", 223.0, false, None, None, None),
-    el(88, "Ra", 226.0, false, Some(5.0), None, None),
-    el(89, "Ac", 227.0, false, Some(10.07), None, None),
+    el(84, "Po", 209.0, true, Some(9.196), None, None),
+    el(85, "At", 210.0, true, None, None, None),
+    el(86, "Rn", 222.0, true, None, None, None),
+    el(87, "Fr", 223.0, true, None, None, None),
+    el(88, "Ra", 226.0, true, Some(5.0), None, None),
+    el(89, "Ac", 227.0, true, Some(10.07), None, None),
     el(90, "Th", 232.0377, false, Some(11.72), None, None),
     el(91, "Pa", 231.03588, false, Some(15.37), None, None),
     el(92, "U", 238.02891, false, Some(19.1), None, None),
@@ -283,6 +283,21 @@ mod tests {
         assert!(element(0).is_none() && element(93).is_none());
         assert_eq!(element_by_symbol("Ga").unwrap().z, 31);
         assert!(element_by_symbol("Xx").is_none());
+    }
+
+    #[test]
+    fn mass_number_flag_is_exactly_the_elements_without_standard_weight() {
+        // Tc, Pm, Po, At, Rn, Fr, Ra, Ac have no CIAAW standard atomic weight.
+        let flagged: Vec<u8> = ELEMENTS
+            .iter()
+            .filter(|e| e.weight_is_mass_number)
+            .map(|e| e.z)
+            .collect();
+        assert_eq!(flagged, [43, 61, 84, 85, 86, 87, 88, 89]);
+        // A mass number is an integer.
+        for e in ELEMENTS.iter().filter(|e| e.weight_is_mass_number) {
+            assert_eq!(e.atomic_weight, e.atomic_weight.trunc());
+        }
     }
 
     #[test]
