@@ -83,13 +83,19 @@ and Ziegler, "Refined universal potentials in atomic collisions"
 
 ### Why it is not implemented
 
-The published `s_high` stays positive, and grows as E goes to 0, because of
-the fitted `A3/E` term inside the logarithm. That is what makes the harmonic
-join tend to `s_low` at low energy. A3 comes from the Andersen-Ziegler /
-ICRU 49 fits, which the clean-room policy (`CONTRIBUTING.md`) does not allow.
+The published `s_high = (A2/E) ln(1 + A3/E + A4 E)` is a fully fitted
+functional form (de Vera et al. eqs. (10)-(11), following ICRU 49; A1 to A4
+are all fitting parameters) built so that it never crosses zero. For positive
+coefficients the `1 +` keeps the logarithm's argument above 1, so `s_high > 0`
+at every E whatever A3 is. The harmonic join tends to `s_low` at low energy
+even with A3 = 0: `s_high` then tends to the finite value `A2 A4` while
+`s_low = A1 E^0.45` goes to 0. The fitted `A3/E` term only sets how fast
+`s_high` grows as E goes to 0. The coefficients come from the
+Andersen-Ziegler / ICRU 49 fits, which the clean-room policy
+(`CONTRIBUTING.md`) does not allow.
 
-lindhard's only sourced high-energy branch is `BetheBloch`, whose bracket
-crosses zero inside the crossover region. As `S_high` goes to 0+, the join
+lindhard's only sourced high-energy branch is `BetheBloch`, which has no such
+structure: its bracket crosses zero inside the crossover region. As `S_high` goes to 0+, the join
 `S_low S_high / (S_low + S_high)` goes to 0, not to `S_low`. Evaluated with
 `LindhardScharff` and `BetheBloch` defaults (Bloch term on, `I = 10 eV Z2`),
 in units of 1e-15 eV cm^2/atom (computed by a Python mirror of the formulas,
@@ -106,15 +112,18 @@ not by the Rust models):
 | He in Au | 500 keV | 170 | 18.5 | 16.7 |
 
 Bethe-Bloch is negative for H in Si below roughly 90 keV, for P in Si up to
-about 400 keV/u, and for He in Au up to about 400 keV/u. Neither workaround
+about 400 keV/u, and for He in Au up to about 450 keV/u. Neither workaround
 is acceptable. Falling back to `S_low` below the Bethe zero makes S jump from
 about 0 to the full LS value (about 27 for H in Si near 90 keV), which breaks
 continuity. Propagating `NotApplicable` leaves the model undefined over the
 whole low-energy regime, so ions slowing down through it cannot be
 transported. Restricting the join to where Bethe-Bloch is positive violates
 the low-energy limit and gives badly wrong stopping near the zero. A fix
-would need a high branch positive at low E: a fitted `A3` (Tier C data) or a
-regularised Bethe logarithm of our own devising (neither admissible).
+would need a high branch that stays positive at low E. The options are the
+fitted A1 to A4 (Tier C data), or a regularisation of our own, such as
+grafting the `ln(1 + ...)` structure onto Bethe by identifying A2 and A4 with
+Bethe quantities and setting A3 = 0. That identification is our own
+construction, which neither source makes. Neither option is admissible.
 
 ### When it could be revisited
 
@@ -124,8 +133,9 @@ regularised Bethe logarithm of our own devising (neither admissible).
   be cited to an equation.
 * The A1 to A4 coefficients become available from a source whose licence
   permits use, or are derived from our own fits to data that may be used.
-* The primary papers are read and show a formulation that avoids the fitted
-  `A3` dependence.
+* The primary papers are read and show a high branch that stays positive
+  without fitted coefficients, or that ties the `ln(1 + ...)` form to Bethe
+  quantities in a way that can be cited.
 
 ## Literature findings (issue #41)
 
