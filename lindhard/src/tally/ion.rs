@@ -48,6 +48,13 @@ pub struct IonTallyConfig {
 /// Displacement-model estimates (NRT and Kinchin-Pease) from the PKA damage
 /// energies. **Not** a count of simulated defects: see [`CascadeDefects`]
 /// and [`crate::ion::damage`] for why the two are kept apart.
+///
+/// In a layer with more than one element, the Lindhard partition uses the
+/// PKA's own `Z1`/`A1` and the layer's atom-fraction mean `Z2`/`A2`. NRT is
+/// defined for monatomic targets, so this is an approximation and this
+/// crate's own convention: see
+/// [the compound-target section](crate::ion::damage#compound-and-multi-element-targets-an-approximation)
+/// of [`crate::ion::damage`].
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct NrtDamage {
     /// Primary knock-on atoms: target atoms displaced by the beam particle.
@@ -80,7 +87,13 @@ impl NrtDamage {
 ///   collision in which it displaced an atom of its own element, at that
 ///   atom's site, so it fills the site. In this engine a particle stops when
 ///   its energy falls below its cutoff, so this count depends on the cutoffs
-///   (a recoil cutoff near `E_d` gives the most replacements).
+///   (a recoil cutoff near `E_d` gives the most replacements). When a recoil
+///   is not followed (below its cutoff, or with
+///   [`BcaConfig::follow_recoils`](crate::ion::bca::BcaConfig::follow_recoils)
+///   `= false`), the engine reports `stopped(&r)` straight after
+///   `recoil(&r)`, which clears the pending site, so the displacer cannot
+///   score a replacement in that collision. With `follow_recoils = false` the
+///   replacement count is therefore always 0.
 /// * `vacancies = displacements - replacements`.
 /// * `interstitials`: recoils that came to rest in the target and did not
 ///   fill a site. Implanted beam particles are not counted here (see the

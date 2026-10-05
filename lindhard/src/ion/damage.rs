@@ -58,6 +58,25 @@
 //! in-cascade recombination (as seen in molecular dynamics); it is a standard
 //! exposure unit, not a prediction of surviving defects. This crate therefore
 //! reports both and lets the user choose.
+//!
+//! # Compound and multi-element targets (an approximation)
+//!
+//! NRT (Norgett, Robinson and Torrens 1975) and the Lindhard partition it
+//! uses are defined for a monatomic target. For a layer with more than one
+//! element, the tally ([`crate::tally::IonTally`]) evaluates the partition
+//! with:
+//!
+//! * `Z1`, `A1`: the PKA's own atomic number and mass;
+//! * `Z2`, `A2`: the atom-fraction-weighted mean atomic number and mean
+//!   mass of the layer the PKA starts in (non-integer in general);
+//! * `E_d`: the PKA element's own displacement threshold in that layer.
+//!
+//! This is an approximation outside NRT's monatomic definition. It is
+//! **this crate's own convention**; no published source is claimed for this
+//! particular averaging. For a monatomic layer it reduces exactly to the
+//! standard NRT evaluation. Treat NRT numbers for compounds as an exposure
+//! index that is comparable within this crate, not as a value that follows
+//! any compound-target standard.
 
 use crate::constants::{BOHR_RADIUS, COULOMB_E2};
 use crate::units::J_PER_EV;
