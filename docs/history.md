@@ -22,7 +22,7 @@ energy, and track any fission neutrons as new histories. He proposed
 running it on ENIAC [1, 2].
 
 The calculations ran on ENIAC in three campaigns: **April–May 1948**,
-**22 October–7 November 1948**, and **May–June 1949** [3]. Klára Dán von
+**22 October–7 November 1948**, and **May–June 1949** [3, 21]. Klára Dán von
 Neumann was the principal coder, and she and Nicholas Metropolis set up and
 ran the machine. The first-run program, completed in December 1947 and run
 in spring 1948 after ENIAC was converted to a new control mode, was the
@@ -46,14 +46,17 @@ coded [8].
 |---|---|---|
 | Free flight | Exponential path length from the total cross section | Amorphous targets: a free-path convention set by the atomic density ([#5](https://github.com/2AMLogic/lindhard/issues/5)). Crystals: a deterministic search for the next lattice atom ([#20](https://github.com/2AMLogic/lindhard/issues/20)) |
 | Collision | Scatter, absorb or fission, chosen by tabulated cross sections | Impact parameter → scattering angle from the screened-potential scattering integral ([#3](https://github.com/2AMLogic/lindhard/issues/3)) |
-| Between collisions | Nothing: a neutron is neutral | Continuous electronic energy loss ([#4](https://github.com/2AMLogic/lindhard/issues/4)): Lindhard's contribution |
+| Between collisions | Nothing: a neutron is neutral | Continuous electronic energy loss ([#4](https://github.com/2AMLogic/lindhard/issues/4)): Bohr and Bethe at high energy, Lindhard at low energy |
 | Branching | Fission neutrons pushed onto a stack | Recoils above the displacement energy pushed onto a stack |
 | Fate of the tree | Can multiply: a chain reaction | Can only divide the incident energy, so every cascade dies out |
 
 The middle row is where the physics changes. A neutron loses energy only
 at collisions. A charged particle also loses energy continuously to the
-target's electrons. That continuous term is the subject of Lindhard and
-Scharff's 1961 paper [9] and of the LSS range theory of 1963 [10].
+target's electrons. That continuous term goes back to Bohr (1913) [22] and
+Bethe (1930) [23], whose stopping formulas hold at high velocity. What
+Lindhard and Scharff's 1961 paper [9] and the LSS range theory of 1963 [10]
+added is the low-velocity regime, where the loss is proportional to the
+particle's velocity, and a unified theory of range.
 
 ## Charged particles: three branches
 
@@ -69,16 +72,20 @@ dielectric function [12], extended to finite momentum transfer by Penn
 (1987) [13].
 
 **Ions in crystals.** In 1965 Lindhard showed how a crystal lattice
-steers energetic ions along its open channels [14]. The binary-collision
-approximation was put on a computer for crystalline targets in
-Robinson and Torrens's MARLOWE code at Oak Ridge (1974) [15]. That is the
-lineage of lindhard's M2 milestone
-([#12](https://github.com/2AMLogic/lindhard/issues/12)).
+steers energetic ions along its open channels [14]. The simulation came
+first: at Oak Ridge in 1963, Robinson and Oen ran binary-collision computer
+studies of ions slowing down in crystals and found channeling [24], two
+years before Lindhard's theory. Robinson and Torrens's MARLOWE code (1974)
+[15] was the mature, general form of that line of work. lindhard's M2
+milestone ([#12](https://github.com/2AMLogic/lindhard/issues/12))
+addresses the same problem class, built only from the published papers
+(Lindhard 1965 [14]; Robinson and Oen 1963 [24]; Robinson and Torrens 1974
+[15]).
 
 **Ions in amorphous targets.** Biersack and Haggmark's TRIM (1980) [16]
-brought the free-flight-and-collision loop to amorphous targets, using an
-analytic "magic formula" for the scattering angle that made it fast. With Ziegler's stopping work [17] it
-grew into SRIM, the code whose problem class lindhard re-implements from
+made the free-flight-and-collision loop fast and practical for amorphous
+targets, using an analytic "magic formula" for the scattering angle. With
+Ziegler's stopping work [17] it grew into SRIM, the code whose problem class lindhard re-implements from
 the published physics.
 
 ## Random numbers, then and now
@@ -122,4 +129,8 @@ function (1954) [12], the theory of energy loss and range (1961, 1963)
 17. J. F. Ziegler, J. P. Biersack, U. Littmark, *The Stopping and Range of Ions in Solids* (Pergamon, 1985).
 18. J. von Neumann, "Various Techniques Used in Connection with Random Digits," in *Monte Carlo Method*, NBS Applied Mathematics Series 12, 36–38 (1951).
 19. RAND Corporation, *A Million Random Digits with 100,000 Normal Deviates* (Free Press, 1955).
-20. J. U. Andersen, P. Sigmund, "Jens Lindhard" (obituary), *Physics Today* 51(9), 89–90 (1998).
+20. J. U. Andersen, P. Sigmund, "Jens Lindhard" (obituary), *Physics Today* 51(9), 89–90 (1998), doi:10.1063/1.882460.
+21. T. Haigh, M. Priestley, C. Rope, *ENIAC in Action: Making and Remaking the Modern Computer* (MIT Press, 2016).
+22. N. Bohr, "On the Theory of the Decrease of Velocity of Moving Electrified Particles on Passing through Matter," *Phil. Mag.* 25, 10–31 (1913), doi:10.1080/14786440108634305.
+23. H. Bethe, "Zur Theorie des Durchgangs schneller Korpuskularstrahlen durch Materie," *Ann. Phys.* 397, 325–400 (1930), doi:10.1002/andp.19303970303.
+24. M. T. Robinson, O. S. Oen, "Computer Studies of the Slowing Down of Energetic Atoms in Crystals," *Phys. Rev.* 132, 2385 (1963), doi:10.1103/PhysRev.132.2385.
