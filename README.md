@@ -6,8 +6,31 @@ sputtering and backscatter for ions, and energy deposition for low-energy
 electrons. SRIM/TRIM covers the same problem class; lindhard uses none of its
 code or data.
 
-> **Status: scaffold.** Nothing is implemented yet. See [`WORK_PLAN.md`](WORK_PLAN.md)
-> for milestones and [`docs/architecture.md`](docs/architecture.md) for the design.
+> **Status: early, pre-release (0.0.1).** Most of milestone M0, the amorphous
+> ion core, has landed: materials and the element table, deterministic
+> per-ion random streams and a parallel driver, screened potentials and the
+> scattering integral, electronic stopping, the 1D layered BCA engine with
+> full recoil cascades, range, damage and sputter/backscatter tallies, and the
+> CLI. Validation levels 1 (analytic checks, in CI) and 2 (code-to-code
+> oracles) are in place; the first level-3 experimental dataset (B in
+> amorphous Si, #51) is in review. Known deviations are reported, not hidden:
+> with the default inputs the computed B ranges run long against that
+> measurement, and the Ar → Cu sputter yield sits well below RustBCA's for a
+> reason not yet explained (#61). See [`docs/validation.md`](docs/validation.md),
+> [`WORK_PLAN.md`](WORK_PLAN.md) for milestones and
+> [`docs/architecture.md`](docs/architecture.md) for the design. The electron
+> engine (M1) and crystalline targets (M2) are not started.
+
+## Quick start
+
+```sh
+cargo run -p lindhard-cli -- check examples/b_5keV_si.toml
+cargo run --release -p lindhard-cli -- run examples/b_5keV_si.toml --out out/b_5keV_si
+```
+
+`run` writes `summary.json` and CSV profiles into the output directory. The
+input schema and output layout are in [`docs/cli.md`](docs/cli.md); more
+inputs are in [`examples/`](examples/README.md).
 
 ## Why another code
 
@@ -50,9 +73,25 @@ cover both halves of this project.
 
 | Path | What |
 |---|---|
-| `lindhard/` | The library: materials, potentials, stopping, transport, tallies |
-| `lindhard-cli/` | `lindhard` binary: TOML in, JSON/CSV out |
-| `docs/` | Architecture, prior art, validation plan, data provenance |
+| [`lindhard/`](lindhard/README.md) | The library: materials, potentials, stopping, transport, tallies |
+| [`lindhard-cli/`](lindhard-cli/README.md) | `lindhard` binary: TOML in, JSON/CSV out |
+| [`examples/`](examples/README.md) | Example CLI inputs |
+| [`validation/`](validation/README.md) | Validation harness: oracle runner, experimental datasets, results |
+| [`docs/`](docs/README.md) | Design, physics and project documentation (index below) |
+
+## Documentation
+
+- [`docs/architecture.md`](docs/architecture.md): design and module plan.
+- [`docs/cli.md`](docs/cli.md): the `lindhard` command, input schema and outputs.
+- [`docs/stopping-models.md`](docs/stopping-models.md): electronic stopping
+  models, their validity ranges and sources.
+- [`docs/validation.md`](docs/validation.md): validation plan and current results.
+- [`docs/benchmarks.md`](docs/benchmarks.md): how performance is measured, and
+  first numbers.
+- [`docs/data-provenance.md`](docs/data-provenance.md): where every dataset
+  comes from.
+- [`docs/prior-art.md`](docs/prior-art.md) and
+  [`docs/history.md`](docs/history.md): the survey and the lineage.
 
 ## Contributing
 

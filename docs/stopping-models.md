@@ -32,16 +32,16 @@ from SRIM/ZBL, ICRU reports and similar. As a result:
 * **Mean excitation energy `I`**: defaults to the Bloch rule `10 eV · Z2`
   (rough); supply a cited measured value with `with_mean_excitation_ev`.
 * **Biersack-Varelas interpolation joining the low- and high-energy
-  regimes**: documented but not implemented (issue #44; see "Biersack-Varelas
-  interpolation" below). Fitted ZBL/Biersack-Varelas coefficients are not
-  used.
+  regimes**: documented but not implemented (issue #44, closed; see
+  "Biersack-Varelas interpolation" below). Fitted ZBL/Biersack-Varelas
+  coefficients are not used.
 * **Straggling**: Chu and Yang-O'Connor-Wang corrections declined (see
   below) and the Lindhard-Scharff low-velocity correction (not verified) is
   omitted; Bohr plus an optional relativistic factor only.
 * **Heavy-ion effective charge**: the Barkas empirical form is available in
   `bethe` and is not applied by default.
 
-## Biersack-Varelas interpolation (issue #44)
+## Biersack-Varelas interpolation (issue #44, closed)
 
 **Status: documented, not implemented.**
 
@@ -129,15 +129,15 @@ construction, which neither source makes. Neither option is admissible.
 
 * A published, coefficient-free high-energy branch that stays positive below
   the Bethe zero (for example a Bethe form with a closed-form, non-tabulated
-  shell correction; #41 tracks the omitted correction terms) is found and can
-  be cited to an equation.
+  shell correction; the review of the omitted correction terms under #41,
+  now closed, is recorded below) is found and can be cited to an equation.
 * The A1 to A4 coefficients become available from a source whose licence
   permits use, or are derived from our own fits to data that may be used.
 * The primary papers are read and show a high branch that stays positive
   without fitted coefficients, or that ties the `ln(1 + ...)` form to Bethe
   quantities in a way that can be cited.
 
-## Literature findings (issue #41)
+## Literature findings (issue #41, closed)
 
 Each of the four omitted items was reviewed for a closed form whose
 coefficients come from a paper itself. The review was from the contributor's

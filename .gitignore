@@ -11,6 +11,9 @@ __pycache__/
 # committed — see CONTRIBUTING.md ("Oracles").
 validation/oracle-runs/
 
+# Local tool database (machine-local state, never committed)
+.squad/
+
 # Environment
 .env
 .env.local

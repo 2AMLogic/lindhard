@@ -87,9 +87,13 @@ called per collision at MeV energies.
 
 ## Not yet covered
 
-* **Comparison against oracles (RustBCA, OpenTRIM)** needs the oracle runner
-  of the validation harness and matched inputs; tracked as the remainder of
-  issue #9. Rules for running oracles and what may be committed (our numbers
+* **A quiet-machine measurement against oracles (RustBCA, OpenTRIM).** The
+  oracle runner landed in #50 (PR #59): each summary in
+  [`../validation/oracles/summaries/`](../validation/oracles/summaries/README.md)
+  records end-to-end and marginal ions/s for both codes, and the speed ratios
+  are tabulated in [`validation.md`](validation.md) §2. Those first numbers
+  were taken on a loaded machine, so a re-measure on a quiet one remains
+  under #9. Rules for running oracles and what may be committed (our numbers
   and ratios only, never oracle output or source) are in
   [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §Oracles.
 * **A profile (flamegraph) of the 10^4-ion run**, with the top hot spots named,
