@@ -254,7 +254,9 @@ def problem(d: dict, ions: int, variant: dict | None = None, force_table: bool =
 
 def k_needed(points: list[tuple[float, float]], target: float) -> float | None:
     """k at which Rp(k) meets `target`, interpolating ln Rp linearly in ln k
-    between the probed k (extrapolating from the nearest pair outside)."""
+    between the probed k. Outside the probed Rp range the nearest pair is
+    extrapolated, which assumes a power law Rp ~ k^s that no run verifies;
+    `is_extrapolated` flags those results."""
     pts = sorted(points)
     if len(pts) < 2:
         return None
@@ -267,6 +269,12 @@ def k_needed(points: list[tuple[float, float]], target: float) -> float | None:
         (k0, r0), (k1, r1) = pairs[0] if target > pts[0][1] else pairs[-1]
     slope = (math.log(r1) - math.log(r0)) / (math.log(k1) - math.log(k0))
     return math.exp(math.log(k0) + (lt - math.log(r0)) / slope)
+
+
+def is_extrapolated(points: list[tuple[float, float]], k: float | None) -> bool:
+    """True if `k` lies outside the probed k, so `k_needed` extrapolated to it."""
+    ks = [p[0] for p in points]
+    return k is not None and not min(ks) <= k <= max(ks)
 
 
 def main() -> int:
@@ -333,6 +341,8 @@ def main() -> int:
                 "k_low": k_needed(pts, m["rp_nm"] + m["rp_unc_nm"]),
                 "k_high": k_needed(pts, m["rp_nm"] - m["rp_unc_nm"]),
             }
+            for key in ("k", "k_low", "k_high"):
+                kn[fam][key + "_extrapolated"] = is_extrapolated(pts, kn[fam][key])
         attribution.append(
             {
                 "id": d["id"],

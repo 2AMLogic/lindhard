@@ -122,8 +122,13 @@ def level3() -> str:
         "**Stopping-input attribution.** lindhard's Rp relative to the measurement, with the nuclear "
         "or the electronic stopping varied separately (existing models only; LS = Lindhard-Scharff, "
         "k LS = LS times k, through a generated user table; a = screening length). "
-        "\"k needed\" is the LS factor at which the potential's Rp meets the measurement "
-        "(log-log interpolation between the probed k; range from the measurement uncertainty).",
+        "\"k needed\" is the LS factor at which the potential's Rp would meet the measurement "
+        "(range from the measurement uncertainty). A value without a star lies between the probed k "
+        "(1, 1.46 and 2 for ZBL; 1 and 1.46 for Kr-C) and is a log-log interpolation. "
+        "**A starred value (*) lies outside the probed k: it extrapolates the nearest pair of "
+        "runs, assuming Rp follows a power law in k there, and no run verifies it.** "
+        "It is a sensitivity estimate, not a result, and the measurement-uncertainty range does not "
+        "include the extrapolation uncertainty.",
         "",
         "| Case | Rp measured (nm) | "
         + " | ".join(v["label"] for v in variants)
@@ -138,7 +143,10 @@ def level3() -> str:
             k = row["k_needed"][f]
             if k["k"] is None:
                 return "-"
-            return f"{k['k']:.2f} ({k['k_low']:.2f}-{k['k_high']:.2f})"
+            def v(key: str) -> str:
+                return f"{k[key]:.2f}" + ("*" if k.get(key + "_extrapolated") else "")
+
+            return f"{v('k')} ({v('k_low')}-{v('k_high')})"
 
         lines.append(
             f"| {row['case']} | {mm(row['rp_measured_nm'], row['rp_unc_nm'])} | "

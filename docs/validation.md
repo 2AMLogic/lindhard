@@ -313,11 +313,16 @@ changes. Results are in the second table below. For B in amorphous Si,
 - **The defaults are 24 to 36 % long** (7 to 10 σ), the largest excess at
   1 keV.
 - **Electronic stopping alone does not explain it.** With ZBL, the LS factor
-  needed to match falls from 6.8 at 1 keV to 1.75 at 20 keV. A missing
-  constant factor in velocity-proportional stopping would need the same k at
-  every energy. At 1 keV, where nuclear stopping dominates, even 2 LS leaves
-  +23 %. The PR #46 estimate of about 2 LS holds at 10 keV (2.02) but only
-  there.
+  needed to match is above the largest probed k = 2 at 1 to 10 keV, so
+  those values are extrapolated (starred in the table; they assume a power
+  law Rp ~ k^s between the probes and are unverified). The extrapolation is
+  sensitive to the assumed slope: at 1 keV, the k = 1.46 to 2 pair gives 6.8
+  but the k = 1 to 1.46 pair gives 15.0. Only the 20 keV value (1.75) lies
+  between probes. The directly simulated runs carry the conclusion: a
+  missing constant factor in velocity-proportional stopping would need the
+  same k at every energy, but with ZBL 2 LS leaves +23 % at 1 keV (where
+  nuclear stopping dominates) and overshoots by 5.6 % at 20 keV. The PR #46
+  estimate of about 2 LS is consistent with the 10 keV run (+0.4 % at k = 2).
 - **Nuclear stopping carries the low-energy part.** Changing only the
   potential to Kr-C with the Lindhard screening length (the combination
   Wittmaack and Mutzke found best, below) removes 86 % of the excess at
@@ -326,8 +331,9 @@ changes. Results are in the second table below. For B in amorphous Si,
   default (Firsov) length, and the LS/Oen-Robinson split of the same LS
   magnitude, help less or not at all.
 - **Together, one constant k fits.** With Kr-C and the Lindhard length, the
-  k needed is 1.33 to 1.44 from 2 to 20 keV (1.65 at 1 keV, where Rp hardly
-  depends on k), and the run with k = 1.46 is within -2.7 to +1.2 % of all
+  k needed is 1.33 to 1.44 from 2 to 20 keV (interpolated between the probes;
+  the upper bounds are extrapolated) and 1.65 at 1 keV (extrapolated, where Rp
+  hardly depends on k), and the run with k = 1.46 is within -2.7 to +1.2 % of all
   six measurements (at most 0.8 σ).
 
 So the offset is attributed to both inputs: mainly the nuclear stopping
@@ -366,16 +372,16 @@ lindhard 0.0.1 (bb7261e), 20000 ions per case, physics zbl + lindhard-scharff (t
 
 σ combines the measurement uncertainty with the Monte Carlo standard error of lindhard's Rp. Datasets, their extraction and uncertainty: `validation/data/ranges/`; provenance: [`data-provenance.md`](data-provenance.md).
 
-**Stopping-input attribution.** lindhard's Rp relative to the measurement, with the nuclear or the electronic stopping varied separately (existing models only; LS = Lindhard-Scharff, k LS = LS times k, through a generated user table; a = screening length). "k needed" is the LS factor at which the potential's Rp meets the measurement (log-log interpolation between the probed k; range from the measurement uncertainty).
+**Stopping-input attribution.** lindhard's Rp relative to the measurement, with the nuclear or the electronic stopping varied separately (existing models only; LS = Lindhard-Scharff, k LS = LS times k, through a generated user table; a = screening length). "k needed" is the LS factor at which the potential's Rp would meet the measurement (range from the measurement uncertainty). A value without a star lies between the probed k (1, 1.46 and 2 for ZBL; 1 and 1.46 for Kr-C) and is a log-log interpolation. **A starred value (*) lies outside the probed k: it extrapolates the nearest pair of runs, assuming Rp follows a power law in k there, and no run verifies it.** It is a sensitivity estimate, not a result, and the measurement-uncertainty range does not include the extrapolation uncertainty.
 
 | Case | Rp measured (nm) | ZBL, LS | ZBL, 1.46 LS | ZBL, 2 LS | ZBL, LS/Oen-Robinson | Kr-C (Firsov a), LS | Moliere (Firsov a), LS | Kr-C (Lindhard a), LS | Kr-C (Lindhard a), 1.46 LS | k needed, ZBL | k needed, Kr-C (Lindhard a) |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| B 1 keV -> Si (SIMS) | 4.84 ± 0.17 | +35.9 % | +30.2 % | +23.4 % | +38.3 % | +18.7 % | +12.0 % | +5.0 % | +1.2 % | 6.80 (5.56-8.37) | 1.65 (1.15-2.39) |
-| B 2 keV -> Si (SIMS) | 8.58 ± 0.30 | +30.6 % | +23.2 % | +16.1 % | +33.1 % | +16.6 % | +14.9 % | +4.6 % | -0.2 % | 4.40 (3.67-5.31) | 1.44 (1.09-1.93) |
-| B 3 keV -> Si (SIMS) | 12.18 ± 0.43 | +28.4 % | +20.2 % | +12.3 % | +30.8 % | +16.0 % | +16.3 % | +4.9 % | -0.6 % | 3.42 (2.92-4.04) | 1.40 (1.10-1.79) |
-| B 5 keV -> Si (SIMS) | 19.40 ± 0.68 | +25.6 % | +16.6 % | +7.0 % | +28.3 % | +15.6 % | +17.6 % | +5.4 % | -1.6 % | 2.56 (2.26-2.92) | 1.33 (1.11-1.62) |
-| B 10 keV -> Si (SIMS) | 37.36 ± 1.31 | +23.5 % | +11.4 % | +0.4 % | +26.9 % | +15.5 % | +19.0 % | +7.2 % | -2.2 % | 2.02 (1.82-2.25) | 1.33 (1.16-1.54) |
-| B 20 keV -> Si (SIMS) | 72.93 ± 2.55 | +23.8 % | +8.0 % | -5.6 % | +27.6 % | +17.2 % | +21.5 % | +10.5 % | -2.7 % | 1.75 (1.61-1.90) | 1.34 (1.21-1.50) |
+| B 1 keV -> Si (SIMS) | 4.84 ± 0.17 | +35.9 % | +30.2 % | +23.4 % | +38.3 % | +18.7 % | +12.0 % | +5.0 % | +1.2 % | 6.80* (5.56*-8.37*) | 1.65* (1.15-2.39*) |
+| B 2 keV -> Si (SIMS) | 8.58 ± 0.30 | +30.6 % | +23.2 % | +16.1 % | +33.1 % | +16.6 % | +14.9 % | +4.6 % | -0.2 % | 4.40* (3.67*-5.31*) | 1.44 (1.09-1.93*) |
+| B 3 keV -> Si (SIMS) | 12.18 ± 0.43 | +28.4 % | +20.2 % | +12.3 % | +30.8 % | +16.0 % | +16.3 % | +4.9 % | -0.6 % | 3.42* (2.92*-4.04*) | 1.40 (1.10-1.79*) |
+| B 5 keV -> Si (SIMS) | 19.40 ± 0.68 | +25.6 % | +16.6 % | +7.0 % | +28.3 % | +15.6 % | +17.6 % | +5.4 % | -1.6 % | 2.56* (2.26*-2.92*) | 1.33 (1.11-1.62*) |
+| B 10 keV -> Si (SIMS) | 37.36 ± 1.31 | +23.5 % | +11.4 % | +0.4 % | +26.9 % | +15.5 % | +19.0 % | +7.2 % | -2.2 % | 2.02* (1.82-2.25*) | 1.33 (1.16-1.54*) |
+| B 20 keV -> Si (SIMS) | 72.93 ± 2.55 | +23.8 % | +8.0 % | -5.6 % | +27.6 % | +17.2 % | +21.5 % | +10.5 % | -2.7 % | 1.75 (1.61-1.90) | 1.34 (1.21-1.50*) |
 
 Control: a k = 1 table reproduces the built-in Lindhard-Scharff Rp to 6.7e-16 (relative), so the k tables change only the magnitude. Per-run values: `validation/experiments/results.json`.
 <!-- validation:level3:end -->

@@ -224,12 +224,18 @@
           "zbl": {
             "k": 6.7973881556479,
             "k_low": 5.558624044898129,
-            "k_high": 8.372232918714317
+            "k_high": 8.372232918714317,
+            "k_extrapolated": true,
+            "k_low_extrapolated": true,
+            "k_high_extrapolated": true
           },
           "krc_aL": {
             "k": 1.6495410368810042,
             "k_low": 1.1541159930786737,
-            "k_high": 2.38794076528615
+            "k_high": 2.38794076528615,
+            "k_extrapolated": true,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": true
           }
         }
       },
@@ -262,12 +268,18 @@
           "zbl": {
             "k": 4.397013208637806,
             "k_low": 3.6672947842170704,
-            "k_high": 5.306094707912473
+            "k_high": 5.306094707912473,
+            "k_extrapolated": true,
+            "k_low_extrapolated": true,
+            "k_high_extrapolated": true
           },
           "krc_aL": {
             "k": 1.4422001395228459,
             "k_low": 1.0911019051836246,
-            "k_high": 1.9252999460310714
+            "k_high": 1.9252999460310714,
+            "k_extrapolated": false,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": true
           }
         }
       },
@@ -300,12 +312,18 @@
           "zbl": {
             "k": 3.424847837442248,
             "k_low": 2.9166767231130653,
-            "k_high": 4.044842263404621
+            "k_high": 4.044842263404621,
+            "k_extrapolated": true,
+            "k_low_extrapolated": true,
+            "k_high_extrapolated": true
           },
           "krc_aL": {
             "k": 1.3967589303436303,
             "k_low": 1.09762080485691,
-            "k_high": 1.792887313682249
+            "k_high": 1.792887313682249,
+            "k_extrapolated": false,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": true
           }
         }
       },
@@ -338,12 +356,18 @@
           "zbl": {
             "k": 2.5615858439893118,
             "k_low": 2.257681896300599,
-            "k_high": 2.9195251636846433
+            "k_high": 2.9195251636846433,
+            "k_extrapolated": true,
+            "k_low_extrapolated": true,
+            "k_high_extrapolated": true
           },
           "krc_aL": {
             "k": 1.3345341082624644,
             "k_low": 1.1057838395751778,
-            "k_high": 1.621448178868761
+            "k_high": 1.621448178868761,
+            "k_extrapolated": false,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": true
           }
         }
       },
@@ -376,12 +400,18 @@
           "zbl": {
             "k": 2.0217648853954513,
             "k_low": 1.8222194214173133,
-            "k_high": 2.2514984423190785
+            "k_high": 2.2514984423190785,
+            "k_extrapolated": true,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": true
           },
           "krc_aL": {
             "k": 1.3305881554708034,
             "k_low": 1.1553700406738188,
-            "k_high": 1.5401224822816821
+            "k_high": 1.5401224822816821,
+            "k_extrapolated": false,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": true
           }
         }
       },
@@ -414,12 +444,18 @@
           "zbl": {
             "k": 1.7491173304999457,
             "k_low": 1.6136687875906799,
-            "k_high": 1.9013823527335938
+            "k_high": 1.9013823527335938,
+            "k_extrapolated": false,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": false
           },
           "krc_aL": {
             "k": 1.3448103823853548,
             "k_low": 1.2140954824656014,
-            "k_high": 1.4950301628653697
+            "k_high": 1.4950301628653697,
+            "k_extrapolated": false,
+            "k_low_extrapolated": false,
+            "k_high_extrapolated": true
           }
         }
       }
