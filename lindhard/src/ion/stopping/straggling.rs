@@ -13,8 +13,8 @@
 //! # Not implemented
 //!
 //! The Chu and Yang-O'Connor-Wang corrections, which reduce Bohr's value at
-//! intermediate energies, are published as fits with coefficients (or
-//! Hartree-Fock tables) that we have not sourced cleanly, and the Lindhard-
+//! intermediate energies, are published as Hartree-Fock-Slater tables and as
+//! fits to data (declined, see `docs/stopping-models.md`), and the Lindhard-
 //! Scharff low-velocity correction was not verified against the original. They
 //! are omitted. Bohr is therefore an upper-end estimate below about
 //! 1 MeV/u; see `docs/stopping-models.md`.

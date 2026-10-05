@@ -18,16 +18,19 @@
 //! * `I` defaults to the Bloch rule `I = 10 eV · Z2` (Bloch 1933). This is a
 //!   rough estimate, good to about 20 % in `I` (about 2 % in `S`); pass a
 //!   measured `I` (cited) with [`BetheBloch::with_mean_excitation_ev`].
-//! * `δ` and `C` default to 0 (see below) and can be set by the caller as
-//!   constants if they come from a cited source.
+//! * `δ` and `C` default to 0 and can be set by the caller as constants if
+//!   they come from a cited source. `δ` can instead be computed with the
+//!   opt-in single-oscillator model, see [`density_effect_single_oscillator`]
+//!   and [`BetheBloch::with_density_effect`].
 //!
 //! # Omitted terms
 //!
 //! The Barkas term `L1` (Ashley-Ritchie-Brandt 1972) needs a tabulated
-//! function, and the usual shell-correction and density-effect parameter sets
-//! are published as tables (ICRU 49/37 and Sternheimer-Berger-Seltzer), which
-//! this project may not ingest. They are not implemented. See
-//! `docs/stopping-models.md`; expect errors of a few percent in the range
+//! function, and the usual shell-correction parameter sets and the
+//! multi-oscillator density-effect parameter sets are published as tables
+//! (ICRU 49/37 and Sternheimer-Berger-Seltzer), which this project may not
+//! ingest. They are not implemented. See `docs/stopping-models.md` for the
+//! literature findings; expect errors of a few percent in the range
 //! 1 to 10 MeV/u until they are added.
 //!
 //! # Effective charge
@@ -62,6 +65,60 @@ impl EffectiveCharge {
     }
 }
 
+/// Plasma energy `ħ ω_p = ħ sqrt(n e² / (ε0 m))` in eV for an electron
+/// density `n` in m^-3 (the free-electron plasma frequency).
+pub fn plasma_energy_ev(electron_density_m3: f64) -> f64 {
+    let wp2 = 4.0 * PI * electron_density_m3 * COULOMB_E2 / crate::constants::ELECTRON_MASS;
+    crate::constants::HBAR * wp2.sqrt() / J_PER_EV
+}
+
+/// Density-effect correction `δ` of a single-oscillator dielectric model.
+///
+/// Takes the squared product `(βγ)²`, the target plasma energy `ħω_p` and the
+/// mean excitation energy `I` (both eV). Returns 0 below the threshold
+/// `(βγ)² = (I/ħω_p)²` and otherwise
+///
+/// `δ = ln((βγ)² (ħω_p/I)²) − 1 + (I/ħω_p)² / (βγ)²`.
+///
+/// # Source and status
+///
+/// This is the Fermi (Phys. Rev. 57, 485 (1940)) / Sternheimer (Phys. Rev. 88,
+/// 851 (1952)) dielectric formulation, which in the form given by Fano (Ann.
+/// Rev. Nucl. Sci. 13, 1 (1963)) reads
+/// `δ = Σ f_i ln(1 + L²/ω_i²) − L² (1−β²)/(β² ω_p²)`, with `L` fixed by
+/// `Σ f_i ω_p² / (ω_i² + L²) = 1/β² − 1`. We specialise it to ONE oscillator
+/// (`f = 1`, `ω_0 = I/ħ`), where the constraint solves in closed form
+/// (`L² = ω_p² (βγ)² − ω_0²`), giving the expression above. The reduction was
+/// done by us and is not quoted from a paper; equation numbers of the sources
+/// are not cited because they were not checked. It is verified in the tests by
+/// its limits: `δ → 0` continuously (value and slope) at threshold, and
+/// `δ → 2 ln(βγ ħω_p/I) − 1` at large `βγ`, the standard high-energy form.
+///
+/// # Validity
+///
+/// Exact in the high-energy limit when `I` is the true mean excitation
+/// energy. Near and above threshold a single oscillator is a crude stand-in
+/// for the real oscillator spectrum, and it contains no conductor
+/// (free-electron) terms, so the transition region is only approximate. It
+/// is zero below `βγ = I/ħω_p`, which is about 5 to 6 for Si (a proton of
+/// about 5 GeV). Real materials switch the effect on much earlier (around
+/// `βγ ≈ 1.5` for Si in the published parameterisations), because their
+/// oscillator spectrum is spread; this model therefore UNDER-estimates `δ`
+/// through the transition and, in particular, is identically 0 over the whole
+/// range `BetheBloch::validity` advertises (up to 1 GeV/u). Its value is the
+/// correct asymptote for ultra-relativistic ions only.
+pub fn density_effect_single_oscillator(
+    beta_gamma_sq: f64,
+    plasma_energy_ev: f64,
+    mean_excitation_ev: f64,
+) -> f64 {
+    let a = (mean_excitation_ev / plasma_energy_ev).powi(2);
+    if beta_gamma_sq <= a {
+        return 0.0;
+    }
+    (beta_gamma_sq / a).ln() - 1.0 + a / beta_gamma_sq
+}
+
 /// Bloch correction `L2(y)`, `y = z α / β` (see module docs).
 pub fn bloch_term(y: f64) -> f64 {
     let y2 = y * y;
@@ -89,6 +146,10 @@ pub struct BetheBloch {
     pub shell_over_z: f64,
     /// Density-effect `δ` (dimensionless); default 0.
     pub density_delta: f64,
+    /// Target electron density (m^-3) for the opt-in single-oscillator
+    /// density effect; `None` (default) leaves it off. Added to
+    /// `density_delta`.
+    pub density_effect_electron_density_m3: Option<f64>,
     /// Include the Bloch term `L2` (default: true via [`BetheBloch::new`]).
     pub no_bloch: bool,
 }
@@ -108,6 +169,16 @@ impl BetheBloch {
     /// Set the mean excitation energy, eV (cite its source at the call site).
     pub fn with_mean_excitation_ev(mut self, i_ev: f64) -> Self {
         self.mean_excitation_ev = Some(i_ev);
+        self
+    }
+
+    /// Enable the single-oscillator density effect
+    /// ([`density_effect_single_oscillator`]) for a target of electron density
+    /// `n_e` (m^-3). The density effect needs a meaningful `I`: set a cited
+    /// one with [`BetheBloch::with_mean_excitation_ev`]. Opt-in; relevant only
+    /// at relativistic energies.
+    pub fn with_density_effect(mut self, electron_density_m3: f64) -> Self {
+        self.density_effect_electron_density_m3 = Some(electron_density_m3);
         self
     }
 
@@ -141,6 +212,14 @@ impl BetheBloch {
                 });
             }
         }
+        if let Some(n) = self.density_effect_electron_density_m3 {
+            if !(n.is_finite() && n > 0.0) {
+                return Err(StoppingError::InvalidParameter {
+                    name: "density_effect_electron_density_m3",
+                    value: n,
+                });
+            }
+        }
         for (name, value) in [
             ("shell_over_z", self.shell_over_z),
             ("density_delta", self.density_delta),
@@ -167,9 +246,17 @@ impl BetheBloch {
         let ratio = m / mc2_ion;
         let wmax = 2.0 * m * beta2 * gamma * gamma / (1.0 + 2.0 * gamma * ratio + ratio * ratio);
         let z = self.effective_charge.charge(ion.z(), beta);
+        let delta = self.density_delta
+            + self.density_effect_electron_density_m3.map_or(0.0, |n| {
+                density_effect_single_oscillator(
+                    beta2 * gamma * gamma,
+                    plasma_energy_ev(n),
+                    i_j / J_PER_EV,
+                )
+            });
         let mut b = 0.5 * (2.0 * m * beta2 * gamma * gamma * wmax / (i_j * i_j)).ln()
             - beta2
-            - 0.5 * self.density_delta
+            - 0.5 * delta
             - self.shell_over_z;
         if !self.no_bloch {
             b += bloch_term(z * FINE_STRUCTURE / beta);
@@ -281,6 +368,66 @@ mod tests {
             .stopping(&ion, 14, 1.2e8)
             .unwrap();
         assert!(a < b);
+    }
+
+    #[test]
+    fn plasma_energy_of_aluminium() {
+        // n_e = 13 rho N_A / A, rho = 2.699 g/cm^3, A = 26.98 (elementary
+        // facts); the free-electron plasma energy is about 32.9 eV.
+        let n = 13.0 * 2.699e3 * AVOGADRO / 26.98e-3;
+        assert!((plasma_energy_ev(n) / 32.86 - 1.0).abs() < 3e-3);
+    }
+
+    #[test]
+    fn density_effect_limits() {
+        let (ehp, i): (f64, f64) = (30.0, 150.0);
+        let a = (i / ehp).powi(2);
+        // zero at and below threshold, continuous in value and slope
+        assert_eq!(density_effect_single_oscillator(0.5 * a, ehp, i), 0.0);
+        let eps = 1e-4 * a;
+        let above = density_effect_single_oscillator(a + eps, ehp, i);
+        assert!((0.0..1e-6).contains(&above));
+        // high-energy form 2 ln(bg ehp / I) - 1
+        for bg2 in [1e6, 1e8] {
+            let want = (bg2 * (ehp / i).powi(2)).ln() - 1.0;
+            let got = density_effect_single_oscillator(bg2, ehp, i);
+            assert!((got - want).abs() < 2.0 * a / bg2 + 1e-12, "{got} {want}");
+        }
+        // monotonic
+        let mut prev = 0.0;
+        for k in 0..60 {
+            let d = density_effect_single_oscillator(a * 10f64.powf(f64::from(k) * 0.1), ehp, i);
+            assert!(d >= prev);
+            prev = d;
+        }
+    }
+
+    #[test]
+    fn density_effect_is_opt_in_and_reduces_stopping() {
+        let n = 14.0 * 2.33e3 * AVOGADRO / 28.0855e-3; // Si
+        let base = BetheBloch::new().with_mean_excitation_ev(173.0);
+        let on = base.with_density_effect(n);
+        let p = Ion::proton();
+        // 10 MeV and 1 GeV: below this model's threshold (beta gamma about
+        // 5.6 for Si), identical
+        for e in [1.0e7, 1.0e9] {
+            assert_eq!(
+                base.stopping(&p, 14, e).unwrap(),
+                on.stopping(&p, 14, e).unwrap()
+            );
+        }
+        // 100 GeV: reduced
+        let (a, b) = (
+            base.stopping(&p, 14, 1.0e11).unwrap(),
+            on.stopping(&p, 14, 1.0e11).unwrap(),
+        );
+        assert!(b < a);
+        let mut bad = base;
+        bad.density_effect_electron_density_m3 = Some(-1.0);
+        assert!(matches!(
+            bad.stopping(&p, 14, 1.0e9),
+            Err(StoppingError::InvalidParameter { .. })
+        ));
     }
 
     #[test]
