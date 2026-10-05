@@ -38,7 +38,8 @@ validated**:
   published measurements ([`docs/validation.md`](docs/validation.md)).
 
 [`docs/prior-art.md`](docs/prior-art.md) is the survey this project starts
-from.
+from. [`docs/history.md`](docs/history.md) traces the method back to the
+1947 Los Alamos neutron histories.
 
 The name honours Jens Lindhard. His LSS theory is the standard theory of ion
 range, he did the foundational work on channeling, and his dielectric function
