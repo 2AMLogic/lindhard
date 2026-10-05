@@ -19,8 +19,9 @@
 //!
 //! A first positional argument filters checks by substring of their id
 //! (like libtest; every group still runs, only matching rows are reported and
-//! asserted, and a filter that matches no id fails); `--list` lists the
-//! groups. Rows are `pass`, `FAIL` or `info`
+//! asserted, and a filter that matches no id reports nothing and succeeds,
+//! as libtest does, because `cargo test <name>` passes its filter to every
+//! test binary); `--list` lists the groups. Rows are `pass`, `FAIL` or `info`
 //! (reported, not asserted, with the reason in the note). Every tolerance is
 //! the one achieved and justified in the PR that introduced the model, not a
 //! band widened to make a check pass.
@@ -51,6 +52,31 @@ const GROUPS: [Group; 5] = [
     ("damage", damage::checks),
 ];
 
+/// libtest options that take a separate value (`--test-threads 4`); the value
+/// must not be mistaken for the filter.
+const VALUE_FLAGS: [&str; 7] = [
+    "--test-threads",
+    "--skip",
+    "--format",
+    "--color",
+    "--logfile",
+    "--shuffle-seed",
+    "-Z",
+];
+
+/// The first positional argument, skipping libtest flags and their values.
+fn filter_arg(args: &[String]) -> Option<String> {
+    let mut it = args.iter();
+    while let Some(a) = it.next() {
+        if VALUE_FLAGS.contains(&a.as_str()) {
+            it.next();
+        } else if !a.starts_with('-') {
+            return Some(a.clone());
+        }
+    }
+    None
+}
+
 fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.iter().any(|a| a == "--list") {
@@ -59,9 +85,10 @@ fn main() -> ExitCode {
         }
         return ExitCode::SUCCESS;
     }
-    // libtest-style flags (--nocapture, --test-threads=..., --ignored) are
-    // accepted and ignored; the first non-flag argument is a filter.
-    let filter = args.iter().find(|a| !a.starts_with('-')).cloned();
+    // libtest flags that cargo may forward (--quiet, --nocapture, --exact,
+    // --test-threads N, ...) are accepted and ignored; the first non-flag
+    // argument is a filter.
+    let filter = filter_arg(&args);
 
     let full = std::env::var("LINDHARD_VALIDATION").is_ok_and(|v| v == "full");
     let t0 = Instant::now();
@@ -86,10 +113,14 @@ fn main() -> ExitCode {
         rows.extend(r);
     }
     if rows.is_empty() {
-        eprintln!(
-            "validation: no check id matches the filter {:?}",
-            filter.as_deref().unwrap_or("")
-        );
+        if let Some(p) = filter.as_deref() {
+            // libtest convention: a filter that matches nothing is "0 passed",
+            // not a failure. `cargo test <name>` forwards the filter to every
+            // test binary, including this one.
+            eprintln!("validation: no check id matches the filter {p:?}; 0 checks run");
+            return ExitCode::SUCCESS;
+        }
+        eprintln!("validation: no checks were produced");
         return ExitCode::FAILURE;
     }
 

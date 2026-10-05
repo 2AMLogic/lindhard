@@ -22,8 +22,10 @@ The harness lives in [`../validation/`](../validation/README.md) and
 `cargo test` runs the level-1 harness (`lindhard/tests/validation`, a
 `harness = false` test target) with "quick" statistics. It prints one table
 and fails the build if any check misses its tolerance. A check id (or part of
-one) filters the reported rows, and a filter that matches no id fails:
-`cargo test -p lindhard --test validation range.p50k`.
+one) filters the reported rows:
+`cargo test -p lindhard --test validation range.p50k`. A filter that matches
+no id reports nothing and succeeds, as libtest does, since `cargo test <name>`
+passes the filter to every test binary in the package.
 
 What it covers:
 
