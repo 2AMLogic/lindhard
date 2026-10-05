@@ -34,9 +34,10 @@ fn zbl_fit(eps: f64) -> f64 {
 /// sum-of-exponentials screening function, `s_n -> (S^2 ln eps + C)/(2 eps)`,
 /// from the first-order momentum (impulse) approximation (Lindhard, Nielsen,
 /// Scharff, Mat. Fys. Medd. Dan. Vid. Selsk. 36(10) (1968), p. 12,
-/// eqs. (3.1)-(3.4); verified in #45) matched to Rutherford scattering; `C` from Lommel integrals (Watson, *Theory of Bessel
-/// Functions*, 2nd ed., 1944, Sec. 5.11). Derivation in the doc comment of
-/// the same helper in `lindhard/src/ion/scattering.rs`.
+/// eqs. (3.1)-(3.4); verified in #45) matched to Rutherford scattering; `C`
+/// from Lommel integrals (Watson, *Theory of Bessel Functions*, 2nd ed.,
+/// 1944, Sec. 5.11). Derivation in the doc comment of the same helper in
+/// `lindhard/src/ion/scattering.rs`.
 fn high_energy_asymptote(s: Screening, eps: f64) -> f64 {
     let terms = s
         .exponential_terms()
