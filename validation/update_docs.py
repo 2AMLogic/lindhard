@@ -85,18 +85,74 @@ def level3() -> str:
     if not RESULTS.exists():
         return "_No experimental datasets yet; see validation/data/README.md._"
     r = json.loads(RESULTS.read_text())
+
+    def mm(x, unc=None) -> str:
+        if x is None:
+            return "-"
+        return f"{x:.2f}" + ("" if unc is None else f" ± {unc:.2f}")
+
     lines = [
-        f"{r['lindhard_version']}, {r['ions']} ions per case, physics {r['physics']['potential']} + {r['physics']['stopping']}.",
+        f"{r['lindhard_version']}, {r['ions']} ions per case, physics {r['physics']['potential']} + "
+        f"{r['physics']['stopping']} (the defaults).",
         "",
-        "| Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / unc. | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |",
+        "| Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) "
+        "| ΔRp lindhard (nm) | Diff. | Source |",
         "|---|---|---|---|---|---|---|---|---|",
     ]
     for d in r["datasets"]:
         lines.append(
-            f"| {d['case']} | {d['rp_measured_nm']:.1f} ± {d['rp_unc_nm']:.1f} | {d['rp_lindhard_nm']:.1f} "
-            f"| {pct(d['rp_rel_diff'])} | {d['rp_diff_sigma']:+.1f} | {d['drp_measured_nm']:.1f} ± {d['drp_unc_nm']:.1f} "
-            f"| {d['drp_lindhard_nm']:.1f} | {pct(d['drp_rel_diff'])} | {d['citation']} |"
+            f"| {d['case']} | {mm(d['rp_measured_nm'], d['rp_unc_nm'])} | {d['rp_lindhard_nm']:.2f} "
+            f"| {pct(d['rp_rel_diff'])} | {d['rp_diff_sigma']:+.1f} | {mm(d['drp_measured_nm'], d['drp_unc_nm'])} "
+            f"| {d['drp_lindhard_nm']:.2f} | {pct(d['drp_rel_diff'])} | {d.get('short_citation', d['citation'])} |"
         )
+    lines.append("")
+    lines.append(
+        "σ combines the measurement uncertainty with the Monte Carlo standard error of lindhard's Rp. "
+        "Datasets, their extraction and uncertainty: `validation/data/ranges/`; provenance: "
+        "[`data-provenance.md`](data-provenance.md)."
+    )
+    a = r.get("attribution")
+    if not a or not a.get("rows"):
+        return "\n".join(lines)
+    variants = a["variants"]
+    fams = list(a["k_families"])
+    fam_label = {"zbl": "k needed, ZBL", "krc_aL": "k needed, Kr-C (Lindhard a)"}
+    lines += [
+        "",
+        "**Stopping-input attribution.** lindhard's Rp relative to the measurement, with the nuclear "
+        "or the electronic stopping varied separately (existing models only; LS = Lindhard-Scharff, "
+        "k LS = LS times k, through a generated user table; a = screening length). "
+        "\"k needed\" is the LS factor at which the potential's Rp meets the measurement "
+        "(log-log interpolation between the probed k; range from the measurement uncertainty).",
+        "",
+        "| Case | Rp measured (nm) | "
+        + " | ".join(v["label"] for v in variants)
+        + " | "
+        + " | ".join(fam_label.get(f, f"k needed, {f}") for f in fams)
+        + " |",
+        "|---|---|" + "---|" * (len(variants) + len(fams)),
+    ]
+    for row in a["rows"]:
+
+        def kn(f: str) -> str:
+            k = row["k_needed"][f]
+            if k["k"] is None:
+                return "-"
+            return f"{k['k']:.2f} ({k['k_low']:.2f}-{k['k_high']:.2f})"
+
+        lines.append(
+            f"| {row['case']} | {mm(row['rp_measured_nm'], row['rp_unc_nm'])} | "
+            + " | ".join(pct(row["ratio"][v["id"]] - 1.0) for v in variants)
+            + " | "
+            + " | ".join(kn(f) for f in fams)
+            + " |"
+        )
+    lines.append("")
+    lines.append(
+        f"Control: a k = 1 table reproduces the built-in Lindhard-Scharff Rp to "
+        f"{a['table_control_max_rel_diff']:.1e} (relative), so the k tables change only the magnitude. "
+        "Per-run values: `validation/experiments/results.json`."
+    )
     return "\n".join(lines)
 
 

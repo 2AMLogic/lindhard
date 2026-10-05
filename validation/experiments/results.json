@@ -1,0 +1,422 @@
+{
+  "format": "lindhard-experiment-results/2",
+  "lindhard_version": "lindhard 0.0.1 (0b76013)",
+  "ions": 20000,
+  "physics": {
+    "potential": "zbl",
+    "stopping": "lindhard-scharff",
+    "free_path": "constant",
+    "primary_cutoff_ev": 5.0,
+    "recoil_cutoff_ev": 2.0,
+    "follow_recoils": false
+  },
+  "datasets": [
+    {
+      "id": "b_1keV_asi_wach1982",
+      "case": "B 1 keV -> Si (SIMS)",
+      "citation": "Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017)",
+      "rp_measured_nm": 4.84,
+      "rp_unc_nm": 0.17,
+      "rp_lindhard_nm": 6.578178520024389,
+      "rp_lindhard_se_nm": 0.02856641197705061,
+      "rp_rel_diff": 0.3591277933934689,
+      "rp_diff_sigma": 10.08321232542584,
+      "drp_measured_nm": null,
+      "drp_unc_nm": null,
+      "drp_lindhard_nm": 3.8470377570082985,
+      "drp_rel_diff": null,
+      "drp_diff_sigma": null,
+      "backscatter": 0.0932
+    },
+    {
+      "id": "b_2keV_asi_wach1982",
+      "case": "B 2 keV -> Si (SIMS)",
+      "citation": "Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017)",
+      "rp_measured_nm": 8.58,
+      "rp_unc_nm": 0.3,
+      "rp_lindhard_nm": 11.207543675906852,
+      "rp_lindhard_se_nm": 0.046854351229765924,
+      "rp_rel_diff": 0.3062405216674653,
+      "rp_diff_sigma": 8.653573397961646,
+      "drp_measured_nm": null,
+      "drp_unc_nm": null,
+      "drp_lindhard_nm": 6.3687456625305785,
+      "drp_rel_diff": null,
+      "drp_diff_sigma": null,
+      "backscatter": 0.0762
+    },
+    {
+      "id": "b_3keV_asi_wach1982",
+      "case": "B 3 keV -> Si (SIMS)",
+      "citation": "Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017)",
+      "rp_measured_nm": 12.18,
+      "rp_unc_nm": 0.43,
+      "rp_lindhard_nm": 15.64136396068308,
+      "rp_lindhard_se_nm": 0.06300469560062522,
+      "rp_rel_diff": 0.2841842332252118,
+      "rp_diff_sigma": 7.964641765804051,
+      "drp_measured_nm": null,
+      "drp_unc_nm": null,
+      "drp_lindhard_nm": 8.612536786751916,
+      "drp_rel_diff": null,
+      "drp_diff_sigma": null,
+      "backscatter": 0.0657
+    },
+    {
+      "id": "b_5keV_asi_wach1982",
+      "case": "B 5 keV -> Si (SIMS)",
+      "citation": "Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017)",
+      "rp_measured_nm": 19.4,
+      "rp_unc_nm": 0.68,
+      "rp_lindhard_nm": 24.374421091678077,
+      "rp_lindhard_se_nm": 0.09291334424223395,
+      "rp_rel_diff": 0.2564134583339215,
+      "rp_diff_sigma": 7.247979058637557,
+      "drp_measured_nm": null,
+      "drp_unc_nm": null,
+      "drp_lindhard_nm": 12.781580560413198,
+      "drp_rel_diff": null,
+      "drp_diff_sigma": null,
+      "backscatter": 0.0538
+    },
+    {
+      "id": "b_10keV_asi_wach1982",
+      "case": "B 10 keV -> Si (SIMS)",
+      "citation": "Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017)",
+      "rp_measured_nm": 37.36,
+      "rp_unc_nm": 1.31,
+      "rp_lindhard_nm": 46.129714553299046,
+      "rp_lindhard_se_nm": 0.159908833192167,
+      "rp_rel_diff": 0.23473540024890371,
+      "rp_diff_sigma": 6.645113726050173,
+      "drp_measured_nm": null,
+      "drp_unc_nm": null,
+      "drp_lindhard_nm": 22.204883228150464,
+      "drp_rel_diff": null,
+      "drp_diff_sigma": null,
+      "backscatter": 0.0359
+    },
+    {
+      "id": "b_20keV_asi_wach1982",
+      "case": "B 20 keV -> Si (SIMS)",
+      "citation": "Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017)",
+      "rp_measured_nm": 72.93,
+      "rp_unc_nm": 2.55,
+      "rp_lindhard_nm": 90.25859328199776,
+      "rp_lindhard_se_nm": 0.2711945048561776,
+      "rp_rel_diff": 0.23760583137251823,
+      "rp_diff_sigma": 6.757419366478452,
+      "drp_measured_nm": null,
+      "drp_unc_nm": null,
+      "drp_lindhard_nm": 37.9401015369368,
+      "drp_rel_diff": null,
+      "drp_diff_sigma": null,
+      "backscatter": 0.0214
+    }
+  ],
+  "attribution": {
+    "variants": [
+      {
+        "id": "zbl_k1",
+        "part": "default",
+        "potential": "zbl",
+        "k": 1.0,
+        "label": "ZBL, LS"
+      },
+      {
+        "id": "zbl_k1.46",
+        "part": "electronic",
+        "potential": "zbl",
+        "k": 1.46,
+        "label": "ZBL, 1.46 LS"
+      },
+      {
+        "id": "zbl_k2",
+        "part": "electronic",
+        "potential": "zbl",
+        "k": 2.0,
+        "label": "ZBL, 2 LS"
+      },
+      {
+        "id": "zbl_eqLSOR",
+        "part": "electronic form",
+        "potential": "zbl",
+        "stopping": "equipartition-ls-or",
+        "k": 1.0,
+        "label": "ZBL, LS/Oen-Robinson"
+      },
+      {
+        "id": "krc_k1",
+        "part": "nuclear",
+        "potential": "kr-c",
+        "k": 1.0,
+        "label": "Kr-C (Firsov a), LS"
+      },
+      {
+        "id": "moliere_k1",
+        "part": "nuclear",
+        "potential": "moliere",
+        "k": 1.0,
+        "label": "Moliere (Firsov a), LS"
+      },
+      {
+        "id": "krc_aL_k1",
+        "part": "nuclear",
+        "potential": "kr-c",
+        "screening_length": "lindhard",
+        "k": 1.0,
+        "label": "Kr-C (Lindhard a), LS"
+      },
+      {
+        "id": "krc_aL_k1.46",
+        "part": "both",
+        "potential": "kr-c",
+        "screening_length": "lindhard",
+        "k": 1.46,
+        "label": "Kr-C (Lindhard a), 1.46 LS"
+      }
+    ],
+    "k_families": {
+      "zbl": [
+        "zbl_k1",
+        "zbl_k1.46",
+        "zbl_k2"
+      ],
+      "krc_aL": [
+        "krc_aL_k1",
+        "krc_aL_k1.46"
+      ]
+    },
+    "table_control_max_rel_diff": 6.661338147750939e-16,
+    "rows": [
+      {
+        "id": "b_1keV_asi_wach1982",
+        "case": "B 1 keV -> Si (SIMS)",
+        "rp_measured_nm": 4.84,
+        "rp_unc_nm": 0.17,
+        "rp_nm": {
+          "zbl_k1": 6.578178520024389,
+          "zbl_k1.46": 6.3017845180154985,
+          "zbl_k2": 5.97051157291697,
+          "zbl_eqLSOR": 6.694203878871702,
+          "krc_k1": 5.746933972372,
+          "moliere_k1": 5.423025309436243,
+          "krc_aL_k1": 5.079890937673033,
+          "krc_aL_k1.46": 4.897438814333178
+        },
+        "ratio": {
+          "zbl_k1": 1.359127793393469,
+          "zbl_k1.46": 1.3020215946313014,
+          "zbl_k2": 1.2335767712638368,
+          "zbl_eqLSOR": 1.3830999749734922,
+          "krc_k1": 1.1873830521429753,
+          "moliere_k1": 1.1204597746769096,
+          "krc_aL_k1": 1.0495642433208747,
+          "krc_aL_k1.46": 1.0118675236225574
+        },
+        "k_needed": {
+          "zbl": {
+            "k": 6.7973881556479,
+            "k_low": 5.558624044898129,
+            "k_high": 8.372232918714317
+          },
+          "krc_aL": {
+            "k": 1.6495410368810042,
+            "k_low": 1.1541159930786737,
+            "k_high": 2.38794076528615
+          }
+        }
+      },
+      {
+        "id": "b_2keV_asi_wach1982",
+        "case": "B 2 keV -> Si (SIMS)",
+        "rp_measured_nm": 8.58,
+        "rp_unc_nm": 0.3,
+        "rp_nm": {
+          "zbl_k1": 11.207543675906852,
+          "zbl_k1.46": 10.57219119455125,
+          "zbl_k2": 9.960488123612299,
+          "zbl_eqLSOR": 11.418175492467068,
+          "krc_k1": 10.008347533658455,
+          "moliere_k1": 9.859561756139659,
+          "krc_aL_k1": 8.975891172281315,
+          "krc_aL_k1.46": 8.56704438927023
+        },
+        "ratio": {
+          "zbl_k1": 1.3062405216674653,
+          "zbl_k1.46": 1.232190115915064,
+          "zbl_k2": 1.160896051703065,
+          "zbl_eqLSOR": 1.330789684436721,
+          "krc_k1": 1.1664740715219644,
+          "moliere_k1": 1.149133071811149,
+          "krc_aL_k1": 1.0461411622705497,
+          "krc_aL_k1.46": 0.9984900220594674
+        },
+        "k_needed": {
+          "zbl": {
+            "k": 4.397013208637806,
+            "k_low": 3.6672947842170704,
+            "k_high": 5.306094707912473
+          },
+          "krc_aL": {
+            "k": 1.4422001395228459,
+            "k_low": 1.0911019051836246,
+            "k_high": 1.9252999460310714
+          }
+        }
+      },
+      {
+        "id": "b_3keV_asi_wach1982",
+        "case": "B 3 keV -> Si (SIMS)",
+        "rp_measured_nm": 12.18,
+        "rp_unc_nm": 0.43,
+        "rp_nm": {
+          "zbl_k1": 15.64136396068308,
+          "zbl_k1.46": 14.643190466150497,
+          "zbl_k2": 13.68079039264852,
+          "zbl_eqLSOR": 15.935270942475858,
+          "krc_k1": 14.125185581179318,
+          "moliere_k1": 14.164449278380541,
+          "krc_aL_k1": 12.78022386934428,
+          "krc_aL_k1.46": 12.102603459860369
+        },
+        "ratio": {
+          "zbl_k1": 1.2841842332252118,
+          "zbl_k1.46": 1.2022323863834563,
+          "zbl_k2": 1.1232176020236881,
+          "zbl_eqLSOR": 1.3083145272968686,
+          "krc_k1": 1.159703249686315,
+          "moliere_k1": 1.1629268701461857,
+          "krc_aL_k1": 1.0492794638213694,
+          "krc_aL_k1.46": 0.99364560425783
+        },
+        "k_needed": {
+          "zbl": {
+            "k": 3.424847837442248,
+            "k_low": 2.9166767231130653,
+            "k_high": 4.044842263404621
+          },
+          "krc_aL": {
+            "k": 1.3967589303436303,
+            "k_low": 1.09762080485691,
+            "k_high": 1.792887313682249
+          }
+        }
+      },
+      {
+        "id": "b_5keV_asi_wach1982",
+        "case": "B 5 keV -> Si (SIMS)",
+        "rp_measured_nm": 19.4,
+        "rp_unc_nm": 0.68,
+        "rp_nm": {
+          "zbl_k1": 24.374421091678077,
+          "zbl_k1.46": 22.61555540702954,
+          "zbl_k2": 20.75495858961033,
+          "zbl_eqLSOR": 24.884190403411345,
+          "krc_k1": 22.42504728316981,
+          "moliere_k1": 22.812791455285613,
+          "krc_aL_k1": 20.453382929808168,
+          "krc_aL_k1.46": 19.083223763066165
+        },
+        "ratio": {
+          "zbl_k1": 1.2564134583339215,
+          "zbl_k1.46": 1.1657502787128629,
+          "zbl_k2": 1.0698432262685738,
+          "zbl_eqLSOR": 1.2826902269799663,
+          "krc_k1": 1.155930272328341,
+          "moliere_k1": 1.1759170853240006,
+          "krc_aL_k1": 1.0542980891653695,
+          "krc_aL_k1.46": 0.9836713279931014
+        },
+        "k_needed": {
+          "zbl": {
+            "k": 2.5615858439893118,
+            "k_low": 2.257681896300599,
+            "k_high": 2.9195251636846433
+          },
+          "krc_aL": {
+            "k": 1.3345341082624644,
+            "k_low": 1.1057838395751778,
+            "k_high": 1.621448178868761
+          }
+        }
+      },
+      {
+        "id": "b_10keV_asi_wach1982",
+        "case": "B 10 keV -> Si (SIMS)",
+        "rp_measured_nm": 37.36,
+        "rp_unc_nm": 1.31,
+        "rp_nm": {
+          "zbl_k1": 46.129714553299046,
+          "zbl_k1.46": 41.61928811660101,
+          "zbl_k2": 37.49435041018111,
+          "zbl_eqLSOR": 47.401124690801645,
+          "krc_k1": 43.14065696682725,
+          "moliere_k1": 44.45292089511148,
+          "krc_aL_k1": 40.05740652172962,
+          "krc_aL_k1.46": 36.52316430915622
+        },
+        "ratio": {
+          "zbl_k1": 1.2347354002489037,
+          "zbl_k1.46": 1.1140066412366438,
+          "zbl_k2": 1.0035961030562397,
+          "zbl_eqLSOR": 1.2687667208458684,
+          "krc_k1": 1.1547285055360614,
+          "moliere_k1": 1.1898533430169027,
+          "krc_aL_k1": 1.0722003886972595,
+          "krc_aL_k1.46": 0.9776007577397275
+        },
+        "k_needed": {
+          "zbl": {
+            "k": 2.0217648853954513,
+            "k_low": 1.8222194214173133,
+            "k_high": 2.2514984423190785
+          },
+          "krc_aL": {
+            "k": 1.3305881554708034,
+            "k_low": 1.1553700406738188,
+            "k_high": 1.5401224822816821
+          }
+        }
+      },
+      {
+        "id": "b_20keV_asi_wach1982",
+        "case": "B 20 keV -> Si (SIMS)",
+        "rp_measured_nm": 72.93,
+        "rp_unc_nm": 2.55,
+        "rp_nm": {
+          "zbl_k1": 90.25859328199776,
+          "zbl_k1.46": 78.77049434098885,
+          "zbl_k2": 68.87878100218944,
+          "zbl_eqLSOR": 93.061145146813,
+          "krc_k1": 85.47581241233395,
+          "moliere_k1": 88.61319824930709,
+          "krc_aL_k1": 80.5655582955253,
+          "krc_aL_k1.46": 70.94309571553447
+        },
+        "ratio": {
+          "zbl_k1": 1.2376058313725182,
+          "zbl_k1.46": 1.0800835642532407,
+          "zbl_k2": 0.9444505827806038,
+          "zbl_eqLSOR": 1.2760338015468669,
+          "krc_k1": 1.1720253998674612,
+          "moliere_k1": 1.215044539274744,
+          "krc_aL_k1": 1.1046970834433745,
+          "krc_aL_k1.46": 0.9727560087143077
+        },
+        "k_needed": {
+          "zbl": {
+            "k": 1.7491173304999457,
+            "k_low": 1.6136687875906799,
+            "k_high": 1.9013823527335938
+          },
+          "krc_aL": {
+            "k": 1.3448103823853548,
+            "k_low": 1.2140954824656014,
+            "k_high": 1.4950301628653697
+          }
+        }
+      }
+    ]
+  }
+}

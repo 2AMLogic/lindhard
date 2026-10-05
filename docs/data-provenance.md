@@ -41,6 +41,8 @@ The following are **never allowed**:
 | Example input parameters | `examples/*.toml` | Illustrative user inputs, not library data | SiO2 density 2.2 g/cm³: the usual handbook density of vitreous silica (Haynes (ed.), CRC Handbook of Chemistry and Physics). `E_d` of Si and O, `E_s` of O: illustrative model parameters chosen for the examples, not recommendations and not measurements; the comments in each file say so | Inputs | 2026-10-05 |
 | Level-2 matched-problem parameters (`E_d`, `E_b`, `E_s`, cutoffs, ion counts) and the Z/mass map of the oracle adapters | `validation/oracles/problems.json`, `validation/oracles/run.py` (`ELEMENTS`) | Model parameters chosen for the comparison; masses mirror lindhard's defaults | `E_d`, `E_b`, `E_s` and cutoffs are comparison settings, not measurements (`E_d = E_s` = 3.49 eV for Cu in `ar_1keV_cu_ed_es` follows Eckstein, Computer Simulation of Ion-Solid Interactions (1991): `E_d <= E_s` when yields matter; 3.49 eV is the Kittel cohesive energy of the `E_s` row above). The masses in `ELEMENTS` are the standard atomic weights of `lindhard/src/elements.rs` (row above), checked at run time against lindhard's echoed density and atom density | Inputs | 2026-10-05 |
 | Level-2 oracle comparison summaries | `validation/oracles/summaries/*.json` | Computed by our harness from local runs of the oracles, run unmodified and installed outside this tree | RustBCA v3.0.0-17-ga356280 (commit a356280, <https://github.com/lcpp-org/RustBCA>, GPL-3.0, Tier B: adapter written from its wiki only; source, examples and fixtures never read) and OpenTRIM 1.2.0 (commit 6b12392, <https://github.com/ir2-lab/OpenTRIM>, MIT, Tier A; run with electronic stopping off, so no SRIM-2013/SRIM-1996 or DPASS table is used). Each file holds scalar summary metrics only (range moments, yields, ions/s, their differences and standard errors), the settings of both sides and every mismatch. No oracle table, curve, particle list, input file or raw output is committed (`validation/oracle-runs/` is gitignored) | Our own computed summaries | 2026-10-05 |
+| Measured projected ranges of 11B in amorphous Si, 1 to 20 keV (`b_1keV_asi_wach1982`, `b_2keV_asi_wach1982`, `b_3keV_asi_wach1982`, `b_5keV_asi_wach1982`, `b_10keV_asi_wach1982`, `b_20keV_asi_wach1982`) | `validation/data/ranges/b_*keV_asi_wach1982.json` | Experimental measurement (SIMS), digitized from a figure of a secondary source | Measurement: W. Wach and K. Wittmaack, Nucl. Instrum. Methods 194, 113 (1982), doi:10.1016/0029-554X(82)90499-2, a-Si (pre-amorphized), normal incidence, O2+ SIMS at four probe energies; **not seen** (closed access). Read from: K. Wittmaack and A. Mutzke, J. Appl. Phys. 121, 105104 (2017), doi:10.1063/1.4978016, Fig. 8 (p. 105104-6), black circles "raw experimental data"; published version seen at <https://push-zb.helmholtz-munich.de/frontdoor.php?source_opus=50831> on 2026-10-05. The points below 25 keV are Wach and Wittmaack's: the paper's Table I lists no other set there. Fig. 8 holds measured ranges only (no SRIM/TRIM values; the paper's SDTrimSP calculations are in other figures and are not used). Digitized with `validation/data/digitize/wm2017_fig8.py` (method in each file's `extraction`); a second read from the figure's mean-value triangles agrees within 1 %. Uncertainty 3.5 % per point (digitizing 3 %, the compilation's 1.8 % statistical scatter for these data). No Delta-Rp (not in the figure). The 6 values: 4.84, 8.58, 12.18, 19.40, 37.36, 72.93 nm | Facts, cited: numbers only, digitized from an AIP-copyrighted figure (copying data, recorded as such); no figure or text reproduced | 2026-10-05 |
+| Electronic-stopping probe tables, k x Lindhard-Scharff (k = 1, 1.46, 2) | Generated at run time by `validation/experiments/run.py` into the gitignored `validation/oracle-runs/experiments/tables/`; nothing is committed | Computed from our own model | Our Lindhard-Scharff formula (row above) re-evaluated in Python with the constants of `lindhard/src/constants.rs`, times a constant k, on a log grid from 1 eV to 1.5 times the beam energy. k = 1.46 is the factor Wittmaack and Mutzke (2017, abstract and p. 105104-8) report for B in Si; k = 2 is the PR #46 review's estimate. Probes for the level-3 attribution, not data and not a model change; a k = 1 table must reproduce the built-in model's Rp (checked on every run) | Computed | 2026-10-05 |
 | Lindhard partition: Robinson fit coefficients 3.4008 and 0.40244 in `g(ε) = 3.4008 ε^(1/6) + 0.40244 ε^(3/4) + ε` | `lindhard/src/ion/damage.rs` | Computed from a published formula | M. T. Robinson, in *Nuclear Fusion Reactors* (BNES, London, 1970) p. 364, as adopted in Norgett, Robinson & Torrens, Nucl. Eng. Des. 33, 50 (1975); partition theory of Lindhard, Nielsen, Scharff & Thomsen, Mat. Fys. Medd. 33 (10) (1963). `ε` and `k` reuse the Lindhard-Scharff forms (0.8853, 0.0793; row above). Entered from the contributor's memory; not verified digit by digit against the papers | Formula, cited | 2026-10-05 |
 | NRT displacement efficiency 0.8 and thresholds `E_d`, `2 E_d / 0.8`; Kinchin-Pease thresholds `E_d`, `2 E_d` | `lindhard/src/ion/damage.rs` | Computed from a published formula | Norgett, Robinson & Torrens, Nucl. Eng. Des. 33, 50 (1975); Kinchin & Pease, Rep. Prog. Phys. 18, 1 (1955). NRT is defined for monatomic targets; for compound layers the tally uses the PKA's own Z/A and the layer's atom-fraction mean Z/A, which is this crate's own convention (no published source claimed; see `ion::damage` module docs) | Formula, cited | 2026-10-05 |
 | Self-ion NRT constants 0.1337 (`k`) and 86.931 (`E_L / Z^(7/3)`, eV), test reference only | `lindhard/src/ion/damage.rs` (tests); copied into `lindhard/tests/validation/damage.rs` | Published formula | The self-ion forms of the NRT standard (Norgett, Robinson & Torrens 1975), as also quoted by Stoller et al., NIM B 310, 75 (2013). Used only to check that our general `k` and `ε` reduce to them (0.3 % and 0.02 %); entered from memory, not verified against the papers | Formula, cited | 2026-10-05 |
@@ -50,8 +52,42 @@ The following are **never allowed**:
 
 Experimental datasets for `docs/validation.md` level 3 live in
 `validation/data/` (schema and rules: `validation/data/README.md`), one row
-each in the table above. **None yet**: no dataset is added until its values
-are read from the cited paper itself. Oracle comparison summaries
+each in the table above. `validation/experiments/run.py` refuses to run if a
+dataset lacks a required provenance field or has no row here naming its `id`.
+
+Status (2026-10-05, #51):
+
+- **B in a-Si:** six measured ranges, 1 to 20 keV (row above).
+- **P in a-Si: gap.** No accessible source with values that may be stored was
+  found (searches listed below).
+- **As in a-Si: gap.** As for P.
+- **Found but not usable.** H. S. Fox, *A study of shallow implants in silicon
+  by secondary ion mass spectrometry*, PhD thesis, University of Warwick
+  (1989), <http://wrap.warwick.ac.uk/99683>, Table 4.1 (p. 56), gives SIMS
+  first moments for 20 keV BF2, 15 keV P and 20 keV As in Si pre-amorphized
+  by a self-implant. Its copy carries the British Library supply condition
+  that "no information derived from it may be published without the author's
+  prior written consent", so neither its numbers nor a comparison derived
+  from them is stored. The thesis itself also reports the amorphous-Si values
+  as inconsistent between SIMS probe energies (p. 49). Usable only with the
+  author's consent.
+- **Searched without success (2026-10-05):** OpenAlex, Semantic Scholar,
+  arXiv, OSTI and HAL for SIMS/RBS/NRA ranges of B, P and As in amorphous or
+  pre-amorphized Si, including citation chasing from Hofker et al., Radiat.
+  Eff. 24, 223 (1975) and Wach and Wittmaack (1982). The primary measurements
+  found (Crowder, J. Electrochem. Soc. 118, 943 (1971); Hofker et al. (1975);
+  Wach and Wittmaack (1982); Oetzmann et al., Phys. Lett. A 55, 170 (1975);
+  Svensson et al., J. Appl. Phys. 73, 4836 (1993); Behar et al., Nucl.
+  Instrum. Methods B 34, 316 (1988)) are closed access. Open copies listed by
+  the indexes could not be fetched: the University of Twente repository copy
+  of Oosterhoff, Nucl. Instrum. Methods B 30, 1 (1988) (crystalline Si, B and
+  P) and the IOP-hosted J. Electrochem. Soc. and JJAP PDFs answer with a bot
+  challenge or a paywall, and HAL's Journal de Physique archive with a
+  proof-of-work bot check. These were not worked around. General web search
+  engines refused scripted queries, so this list is from scholarly indexes
+  only. A source read by hand may close the gaps.
+
+Oracle comparison summaries
 (`validation/oracles/summaries/`) hold scalar summary metrics of local oracle
 runs, never oracle tables or raw output; their row is in the table above.
 

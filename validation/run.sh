@@ -31,6 +31,9 @@ for arg in "$@"; do
   esac
 done
 
+# Every level-3 dataset must carry its provenance (validation/data/README.md).
+python3 validation/experiments/run.py --check
+
 level1="$(mktemp "${TMPDIR:-/tmp}/lindhard-level1.XXXXXX")"
 trap 'rm -f "$level1"' EXIT
 
