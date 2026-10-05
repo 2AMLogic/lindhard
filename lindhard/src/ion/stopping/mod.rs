@@ -20,7 +20,6 @@
 //! omission is listed in `docs/stopping-models.md`.
 
 pub mod bethe;
-pub mod biersack_varelas;
 pub mod bragg;
 pub mod lindhard_scharff;
 pub mod mix;
@@ -259,21 +258,19 @@ mod tests {
     #[test]
     fn models_are_bitwise_deterministic_across_threads() {
         let ion = Ion::new(15).unwrap();
-        let m = biersack_varelas::BiersackVarelas::default();
-        let r0 = m.stopping(&ion, 14, 1.0e5).unwrap();
+        let m = bethe::BetheBloch::new();
+        let r0 = m.stopping(&ion, 14, 1.2e8).unwrap();
         let hs: Vec<_> = (0..4)
             .map(|_| {
                 std::thread::spawn(move || {
                     let ion = Ion::new(15).unwrap();
-                    biersack_varelas::BiersackVarelas::default()
-                        .stopping(&ion, 14, 1.0e5)
-                        .unwrap()
+                    bethe::BetheBloch::new().stopping(&ion, 14, 1.2e8).unwrap()
                 })
             })
             .collect();
         for h in hs {
             assert_eq!(h.join().unwrap().to_bits(), r0.to_bits());
         }
-        assert_eq!(m.stopping(&ion, 14, 1.0e5).unwrap().to_bits(), r0.to_bits());
+        assert_eq!(m.stopping(&ion, 14, 1.2e8).unwrap().to_bits(), r0.to_bits());
     }
 }

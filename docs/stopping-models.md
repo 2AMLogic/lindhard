@@ -13,7 +13,6 @@ advisory; the models do not refuse energies outside them (Bethe-Bloch returns
 | Oen-Robinson (local) | `oen_robinson` | same as LS; impact-averaged value equals LS | Oen & Robinson, NIM 132, 647 (1976) |
 | Equipartition LS/OR | `mix` | same as LS | as above |
 | Bethe-Bloch | `bethe` | `v >= 3 v0 Z1^(2/3)` up to 1 GeV/u (no density effect) | Bethe 1930/32; Bloch 1933; Fano 1963 |
-| Joined LS + Bethe | `biersack_varelas` | whole range; best below about 0.1 MeV/u and above 1 MeV/u | harmonic form of Biersack & Haggmark, NIM 174, 257 (1980) |
 | User table | `table` | exactly the table's energy range | the table's own `provenance` |
 | Bragg additivity | `bragg` | where the element models apply; ignores chemical state unless a correction is supplied | Bragg & Kleeman 1905 |
 | Bohr straggling | `straggling` | high energy, `v >> v0 Z1^(2/3)`; overestimates below about 1 MeV/u | Bohr 1948 |
@@ -31,17 +30,15 @@ from SRIM/ZBL, ICRU reports and similar. As a result:
   a cited source (`BetheBloch::shell_over_z`, `density_delta`).
 * **Mean excitation energy `I`**: defaults to the Bloch rule `10 eV · Z2`
   (rough); supply a cited measured value with `with_mean_excitation_ev`.
-* **Fitted ZBL/Biersack-Varelas coefficients**: not used. The "Biersack-
-  Varelas" model here is the harmonic joining only, with Lindhard-Scharff as the
-  low-energy branch and a softened Bethe-Bloch (`ln(1 + e^B)` in place of the
-  bracket `B`, our own regularisation with no fitted constant) as the high-
-  energy branch. It is not a reproduction of SRIM or ASSESS stopping values.
+* **Biersack-Varelas interpolation joining the low- and high-energy
+  regimes**: deferred to a follow-up issue. No verifiable published equation
+  for the full interpolation was available, and an unsourced substitute is
+  not allowed. Fitted ZBL/Biersack-Varelas coefficients are likewise not used.
 * **Straggling**: Chu and Yang-O'Connor-Wang corrections (fits/tables) and the
   Lindhard-Scharff low-velocity correction (not verified) are omitted; Bohr
   plus an optional relativistic factor only.
-* **Heavy-ion effective charge**: the Barkas empirical form is available but
-  is not the default in the joined model (see the module docs of
-  `biersack_varelas` for why).
+* **Heavy-ion effective charge**: the Barkas empirical form is available in
+  `bethe` and is not applied by default.
 
 ## Deviations from the issue text
 
