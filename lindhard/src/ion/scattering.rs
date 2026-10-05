@@ -117,10 +117,12 @@ impl MagicConstants {
         c: [0.99229, 0.011615, 0.0071222, 14.813, 9.3066],
     };
     /// Fit to the Moliere potential, Biersack and Haggmark, Nucl. Instrum.
-    /// Methods 174 (1980) 257. No permissively licensed copy was found to
-    /// cross-check the digits. They are tested against the quadrature instead
-    /// (`magic_formula_tracks_quadrature_for_moliere`), and that test rejects the
-    /// ZBL set and a `C4`/`C5` swap.
+    /// Methods 174 (1980) 257, doi:10.1016/0029-554X(80)90440-1. The digits
+    /// are **unverified**: the paper is not open access, and no other copy
+    /// (primary, textbook or permissively licensed code) could be found. They
+    /// are tested against the quadrature instead
+    /// (`magic_formula_tracks_quadrature_for_moliere`), and that test rejects
+    /// the ZBL set and a `C4`/`C5` swap. See `docs/data-provenance.md`.
     pub const MOLIERE: Self = Self {
         c: [0.6743, 0.009611, 0.005175, 10.0, 6.314],
     };
@@ -496,10 +498,21 @@ mod tests {
     /// L(a, b) = (a^2 ln(a/2) - b^2 ln(b/2)) / (a^2 - b^2),  L(a, a) = ln(a/2) + 1/2.
     /// ```
     ///
-    /// It comes from the impulse (momentum) approximation
-    /// `theta = eps^-1 Sum_i c_i b_i K1(b_i beta)` (Lehmann and Leibfried,
-    /// Z. Phys. 172 (1963) 465), which holds for `eps beta >> 1`. That is matched
-    /// to exact Rutherford scattering (`phi -> S`) at small `beta`. The
+    /// It comes from the first-order momentum (impulse) approximation
+    /// `theta = eps^-1 Sum_i c_i b_i K1(b_i beta)`, which holds for
+    /// `eps beta >> 1`. This is eq. (3.4) of J. Lindhard, V. Nielsen,
+    /// M. Scharff, Mat. Fys. Medd. Dan. Vid. Selsk. 36(10) (1968), p. 12,
+    /// `eps theta = (a/p) g(p/a)`, with `g` from eq. (3.3). For a sum of
+    /// exponentials `g(beta) = beta Sum_i c_i b_i K1(b_i beta)` (checked out of
+    /// tree with scipy to 1e-9; the formula itself is reproduced by the
+    /// quadrature in `small_angles_match_lns_perturbation_formula`). Copy seen:
+    /// <http://gymarkiv.sdu.dk/MFM/kdvs/mfm%2030-39/mfm-36-10.pdf>.
+    /// The approximation is matched to exact Rutherford scattering
+    /// (`phi -> S`) at small `beta`. (Higher-order momentum approximations are
+    /// treated by C. Lehmann and G. Leibfried, "Higher order momentum
+    /// approximations in classical collision theory", Z. Phys. 172, 465 (1963),
+    /// doi:10.1007/BF01378911; bibliographic data confirmed via Crossref, text
+    /// not seen, and not used here.) The
     /// `Int beta K1(a beta) K1(b beta) d beta` integrals are Lommel integrals
     /// (G. N. Watson, *A Treatise on the Theory of Bessel Functions*, 2nd ed.,
     /// CUP 1944, Sec. 5.11), evaluated with the small-argument forms of `K0` and `K1`
@@ -528,6 +541,44 @@ mod tests {
             }
         }
         (sum * sum * eps.ln() + c) / (2.0 * eps)
+    }
+
+    /// Small-angle deflection from the first-order perturbation (momentum)
+    /// formula of Lindhard, Nielsen and Scharff, Mat. Fys. Medd. 36(10) (1968),
+    /// p. 12, eqs. (3.3)-(3.4): `eps theta = g(beta) / beta` with
+    /// `g(z) = Int_0^{pi/2} cos t [u(z/cos t) - (z/cos t) u'(z/cos t)] dt`,
+    /// `u = phi`. Midpoint rule in `t`; the integrand is smooth and vanishes
+    /// at `t = pi/2`.
+    fn lns_perturbation_angle(s: Screening, eps: f64, beta: f64) -> f64 {
+        let n = 4000;
+        let h = FRAC_PI_2 / n as f64;
+        let mut g = 0.0;
+        for k in 0..n {
+            let c = ((k as f64 + 0.5) * h).cos();
+            let x = beta / c;
+            g += c * (s.phi(x) - x * s.dphi(x));
+        }
+        g * h / (beta * eps)
+    }
+
+    /// The quadrature reproduces the cited small-angle formula (LNS 1968,
+    /// eq. (3.4)) at high `eps` for every screening function, Lenz-Jensen
+    /// included. Measured: worst relative deviation 5.0e-6 (the first-order
+    /// formula's own error is `O(theta)`, and every angle here is small).
+    #[test]
+    fn small_angles_match_lns_perturbation_formula() {
+        let eps = 1e5;
+        let mut worst = 0.0f64;
+        for s in Screening::ALL {
+            for &beta in &[0.1, 0.3, 1.0, 3.0, 10.0] {
+                let q = theta_quadrature(s, eps, beta);
+                let p = lns_perturbation_angle(s, eps, beta);
+                let rel = (q / p - 1.0).abs();
+                worst = worst.max(rel);
+                assert!(rel < 2e-5, "{s:?} beta={beta}: quadrature {q:e}, LNS {p:e}");
+            }
+        }
+        eprintln!("LNS (3.4) vs quadrature at eps = 1e5: worst rel dev {worst:.2e}");
     }
 
     /// `beta_min` small enough that the neglected head-on part (`~ beta_min^2`,
