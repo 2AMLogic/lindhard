@@ -83,9 +83,28 @@ struct LayerOut {
     material: MaterialSpec,
 }
 
+/// A user stopping table, identified by file, for provenance. User tables are
+/// user data: the record is the path as given, where it was read from, the
+/// SHA-256 of the file's bytes and the table's own provenance string.
+#[derive(Serialize)]
+struct StoppingTableOut {
+    path: String,
+    resolved_path: String,
+    sha256: String,
+    provenance: String,
+    ion_z: u8,
+    ion_mass_amu: f64,
+    target_z: u8,
+    energy_min_ev: f64,
+    energy_max_ev: f64,
+}
+
 #[derive(Serialize)]
 struct Physics {
     models: Vec<ModelInfo>,
+    /// Present only when the input has a `[stopping]` table.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    stopping_tables: Vec<StoppingTableOut>,
     engine: Engine,
     scattering_table: Table,
     target: Vec<LayerOut>,
@@ -514,6 +533,24 @@ pub fn summary_json(
         input: &r.input,
         physics: Physics {
             models: r.models(),
+            stopping_tables: r
+                .stopping_tables
+                .iter()
+                .map(|l| {
+                    let (lo, hi) = l.table.energy_range_ev();
+                    StoppingTableOut {
+                        path: l.path.clone(),
+                        resolved_path: l.resolved_path.display().to_string(),
+                        sha256: l.sha256.clone(),
+                        provenance: l.table.provenance().to_string(),
+                        ion_z: l.table.ion_z(),
+                        ion_mass_amu: l.table.ion_mass_amu(),
+                        target_z: l.table.target_z(),
+                        energy_min_ev: lo,
+                        energy_max_ev: hi,
+                    }
+                })
+                .collect(),
             engine: Engine {
                 primary_cutoff_ev: c.primary_cutoff_ev,
                 recoil_cutoff_ev: c.recoil_cutoff_ev,

@@ -117,6 +117,77 @@ impl StoppingTable {
     pub fn provenance(&self) -> &str {
         &self.provenance
     }
+
+    /// Projectile atomic number the table is for.
+    pub fn ion_z(&self) -> u8 {
+        self.ion_z
+    }
+
+    /// Projectile mass the table is for, u.
+    pub fn ion_mass_amu(&self) -> f64 {
+        self.ion_mass_amu
+    }
+
+    /// Target atomic number the table is for.
+    pub fn target_z(&self) -> u8 {
+        self.target_z
+    }
+
+    /// The tabulated energy range `(min, max)`, eV.
+    pub fn energy_range_ev(&self) -> (f64, f64) {
+        (self.energy_ev[0], self.energy_ev[self.energy_ev.len() - 1])
+    }
+
+    /// Whether the table is for this projectile and target element (the
+    /// projectile mass is checked at query time).
+    pub fn covers_pair(&self, ion_z: u8, target_z: u8) -> bool {
+        self.ion_z == ion_z && self.target_z == target_z
+    }
+}
+
+/// User tables layered over a base model: a query for a pair some table
+/// declares goes to that table (so its range and mass checks apply, and it is
+/// never silently replaced by the base model); every other pair goes to the
+/// base model.
+///
+/// `new` does not check for duplicate pairs; the first matching table wins.
+/// The CLI input layer rejects duplicates with a field-naming error.
+pub struct TableOverride {
+    tables: Vec<StoppingTable>,
+    base: Box<dyn ElectronicStopping + Send + Sync>,
+}
+
+impl TableOverride {
+    /// `tables` take precedence over `base` for the pairs they declare.
+    pub fn new(
+        tables: Vec<StoppingTable>,
+        base: Box<dyn ElectronicStopping + Send + Sync>,
+    ) -> Self {
+        Self { tables, base }
+    }
+}
+
+impl ElectronicStopping for TableOverride {
+    fn name(&self) -> &'static str {
+        "user-table-override"
+    }
+
+    fn stopping(&self, ion: &Ion, target_z: u8, energy_ev: f64) -> Result<f64, StoppingError> {
+        match self
+            .tables
+            .iter()
+            .find(|t| t.covers_pair(ion.z(), target_z))
+        {
+            Some(t) => t.stopping(ion, target_z, energy_ev),
+            None => self.base.stopping(ion, target_z, energy_ev),
+        }
+    }
+
+    /// The base model's advisory range; a table's own range is enforced as an
+    /// error at query time instead.
+    fn validity(&self, ion: &Ion) -> ValidityRange {
+        self.base.validity(ion)
+    }
 }
 
 impl ElectronicStopping for StoppingTable {
@@ -177,6 +248,30 @@ target_z = 14
 energy_ev = [1.0e3, 1.0e4, 1.0e5]
 stopping_ev_1e15_cm2 = [10.0, 40.0, 90.0]
 "#;
+
+    #[test]
+    fn override_routes_declared_pairs_to_the_table_and_others_to_the_base() {
+        use crate::ion::stopping::lindhard_scharff::LindhardScharff;
+        let t = StoppingTable::from_toml_str(GOOD).unwrap();
+        let o = TableOverride::new(vec![t.clone()], Box::new(LindhardScharff::new()));
+        let si = Ion::new(14).unwrap();
+        assert_eq!(
+            o.stopping(&si, 14, 1.0e4).unwrap(),
+            t.stopping(&si, 14, 1.0e4).unwrap()
+        );
+        // The declared pair is never replaced by the base model: out of range
+        // stays an error.
+        assert!(matches!(
+            o.stopping(&si, 14, 10.0),
+            Err(StoppingError::OutOfTableRange { .. })
+        ));
+        // An undeclared pair uses the base model.
+        let ls = LindhardScharff::new();
+        assert_eq!(
+            o.stopping(&si, 8, 1.0e4).unwrap(),
+            ls.stopping(&si, 8, 1.0e4).unwrap()
+        );
+    }
 
     #[test]
     fn rejects_missing_or_blank_provenance() {

@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
-use lindhard::input::{stopping_model, Input, Resolved};
+use lindhard::input::{Input, Resolved};
 use lindhard::ion::bca::Bca;
 use lindhard::ion::potential::Potential;
 use lindhard::ion::scattering::ScatteringTable;
@@ -66,8 +66,10 @@ fn load(path: &Path) -> Result<Input> {
 }
 
 fn resolve(path: &Path, input: &Input) -> Result<Resolved> {
+    // Relative [stopping] table paths are relative to the input file.
+    let base = path.parent().filter(|p| !p.as_os_str().is_empty());
     let r = input
-        .resolve()
+        .resolve_in(base.unwrap_or(Path::new(".")))
         .with_context(|| format!("{}: invalid input", path.display()))?;
     for w in &r.warnings {
         eprintln!("warning: {w}");
@@ -148,7 +150,7 @@ fn run(
     let table = ScatteringTable::build(&pot, &r.table_spec);
     let table_build_s = t0.elapsed().as_secs_f64();
 
-    let stopping = stopping_model(r.input.physics.stopping);
+    let stopping = r.stopping_model();
     let bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
         .context("setting up the transport engine")?;
     let tally_spec = &r.input.tally;

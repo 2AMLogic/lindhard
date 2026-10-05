@@ -86,6 +86,67 @@ element in every layer that contains it, after (so overriding) the
 material's own values. An element with no tabulated default and no value set
 is an error naming the layer and the key to set.
 
+### `[stopping]`
+
+Optional. Supplies user stopping tables for the electronic stopping of
+particular (ion, target element) pairs.
+
+```toml
+[stopping]
+tables = ["tables/b_in_si.toml", "tables/p_in_si.toml"]
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `tables` | none | Paths of table files, one per pair |
+
+Absent, the input means what it always meant (`format.version` is unchanged
+and nothing is echoed).
+
+**Table file.** The `lindhard::ion::stopping::table::StoppingTable` format:
+
+```toml
+provenance = "Author, Journal vol, page (year), Table N"   # required
+ion_z = 5
+ion_mass_amu = 11.0093            # optional; default: standard atomic weight
+target_z = 14
+energy_ev = [1.0e2, 1.0e3, 1.0e4]                 # strictly increasing, eV
+stopping_ev_1e15_cm2 = [10.0, 30.0, 60.0]         # eV 1e-15 cm^2 per atom
+```
+
+Interpolation is piecewise linear in ln S versus ln E. `provenance` is
+mandatory (data without an origin is not admitted). Do not use SRIM- or
+ICRU-derived tables in anything committed to a repository; a table is the
+user's own data and its terms are the user's concern.
+
+**Paths.** A relative path resolves against the directory of the input file
+(not the current directory). The echoed input keeps the path as written.
+
+**Composition with `[physics] stopping`.** A table replaces the
+`[physics] stopping` model for exactly the pair it declares (`ion_z`,
+`target_z`), including recoils of that species when `follow_recoils` is on.
+Every other pair uses the `[physics] stopping` model. A pair with a table is
+never silently served by the model: a query outside the table's energy range,
+or for a different ion mass, is an error that stops the run. Nothing is
+extrapolated. Declare each pair once. A table for a pair that cannot occur
+in the run is accepted with a warning. Tables cannot be combined with
+`stopping = "equipartition-ls-or"` (that mode carries its own
+Lindhard-Scharff/Oen-Robinson loss and would ignore them).
+
+**Errors** name the field (`stopping.tables[0]`): an unknown key in
+`[stopping]`, a missing or unreadable file, invalid table contents (including
+a missing `provenance`), a duplicate pair, a table whose ion mass differs from
+the beam ion's, and a table whose range does not contain the beam energy. A
+table that starts above `physics.primary_cutoff_ev` warns, because the run
+fails if a projectile slows below it.
+
+**Provenance in the output.** Tables are user data, so the run records them.
+`summary.json` has `physics.stopping_tables`, one entry per table: `path` (as
+written), `resolved_path` (absolute where possible), `sha256` of the file's
+bytes, the table's `provenance` string, `ion_z`, `ion_mass_amu`, `target_z`
+and the energy range. `physics.models` lists each as `user-table` with the path
+and provenance as its source. The key is absent without `[stopping]`.
+
 ### `[run]`
 
 | Key | Default | Meaning |
@@ -123,6 +184,7 @@ dropped. Every count and per-ion value is for the same incident ions.
 | `software` | Crate `version` and `git_describe` of the binary |
 | `input` | The input as run: defaults filled in, CLI overrides applied, `run.threads` removed. Deserializes back to the same `lindhard::input::Input`, so a run can be reproduced from its own header |
 | `physics.models` | Every model in use: `role`, `name`, `citation` |
+| `physics.stopping_tables` | Only with `[stopping]`: path, SHA-256, provenance and range of each user table (see `[stopping]`) |
 | `physics.engine` | Cutoffs, free path, electronic-loss mode, seed, chunk size as passed to the engine |
 | `physics.scattering_table` | Angle-table grid and its measured interpolation error |
 | `physics.target` | Each layer: extent (nm; `back_nm` is `null` for a substrate), atom density, and the fully resolved material (every `E_d`, `E_b`, `E_s`) |
@@ -196,10 +258,3 @@ keys, never by changing existing ones:
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes
   meaning.
-
-## Not yet in the output
-
-User-supplied stopping tables are not an input option yet. They need a design
-decision about how a table is declared (units, grid, which species pair and
-projectile energy range it covers) and how it composes with the model choices
-in `[physics]`; this is tracked separately.
