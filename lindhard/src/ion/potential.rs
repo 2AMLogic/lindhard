@@ -13,7 +13,8 @@
 //! `eps = a E_cm / (Z1 Z2 e^2 / (4 pi eps0))`, in which `phi` is the only
 //! input; the screening length only converts to and from SI.
 //!
-//! All coefficients are transcribed from the cited papers; see the
+//! Coefficients follow the cited papers but were entered from memory and are
+//! not yet checked digit by digit against them; see the
 //! `docs/data-provenance.md` rows for the verification status of each set.
 
 use crate::constants::{BOHR_RADIUS, COULOMB_E2};
@@ -43,7 +44,7 @@ pub enum Screening {
 const ZBL_C: [(f64, f64); 4] = [
     (0.181_8, 3.2),
     (0.509_9, 0.942_3),
-    (0.280_2, 0.402_8),
+    (0.280_2, 0.402_9),
     (0.028_17, 0.201_6),
 ];
 const KRC_C: [(f64, f64); 3] = [
@@ -264,9 +265,8 @@ mod tests {
     }
 
     #[test]
-    fn screening_lengths_are_ordered_sensibly() {
-        // Firsov and Lindhard lengths coincide for Z1 = Z2 up to the 2^(1/3) vs
-        // 2^(1/2)... check explicit closed forms instead.
+    fn screening_lengths_match_closed_forms() {
+        // Explicit closed forms for Z1 = Z2 = 14.
         let a0 = BOHR_RADIUS;
         let tf = thomas_fermi_constant();
         assert!((tf - 0.8853).abs() < 1e-4);
@@ -276,6 +276,17 @@ mod tests {
         let a = ScreeningLength::Firsov.metres(14.0, 14.0);
         let expect = tf * a0 / (2.0 * 14f64.sqrt()).powf(2.0 / 3.0);
         assert!((a / expect - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn exponential_sets_are_normalised() {
+        // phi(0) = 1 requires the prefactors to sum to 1.
+        let sum = |c: &[(f64, f64)]| c.iter().map(|&(a, _)| a).sum::<f64>();
+        assert!((sum(&ZBL_C) - 1.0).abs() < 1e-4);
+        assert!((sum(&KRC_C) - 1.0).abs() < 1e-5);
+        assert!((sum(&MOLIERE_C) - 1.0).abs() < 1e-12);
+        // The ZBL exponents are 3.2, 0.9423, 0.4029, 0.2016.
+        assert_eq!(ZBL_C[2].1, 0.4029);
     }
 
     #[test]

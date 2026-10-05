@@ -470,15 +470,22 @@ mod tests {
         }
     }
 
-    /// Compare the integrated quadrature angle with the published ZBL universal
-    /// nuclear stopping fit. Measured: agreement is better than 0.5 % for
-    /// `eps <= 0.3` (checked against an independent implementation of the
-    /// angle integral for individual `(eps, beta)` points), and the deviation
-    /// then grows to a few percent for `eps > 1`. The quadrature itself is
-    /// converged (see `quadrature_converges_with_nodes`), so the deviation is
-    /// attributed to the accuracy of the published fit at high energy; see the
-    /// PR notes and the issue discussion. The bands below record what is
-    /// actually achieved and guard against regressions.
+    /// Compare the integrated quadrature angle with the ZBL universal nuclear
+    /// stopping fit (as recalled; see `docs/data-provenance.md`).
+    ///
+    /// Measured: agreement is better than 0.3 % for `eps <= 0.3` and better than
+    /// 1 % up to `eps = 1`, but the deviation grows to about 5.5 % for
+    /// `3 < eps < 1e3`, short of the 0.5 % acceptance criterion of issue #3.
+    /// What has been ruled out: the quadrature (converged in nodes, in the
+    /// Simpson step and in the `beta` range, and reproduced to four digits by an
+    /// independent scipy implementation of the angle and stopping integrals) and
+    /// the magic formula (integrating `theta_magic` is far worse, up to 1.7x).
+    /// What is not established: whether the recalled fit coefficients are right,
+    /// or whether the published fit is itself only accurate to a few percent
+    /// there (its two branches disagree by about 1 % at `eps = 30`). The cause is
+    /// open until the fit is checked against the book. The bands below only
+    /// record what is achieved and guard against regressions; they are not a
+    /// claim that the criterion is met.
     #[test]
     fn stopping_vs_zbl_universal_fit() {
         let mut worst_low = 0.0f64;
@@ -513,6 +520,22 @@ mod tests {
             }
         }
         eprintln!("magic worst |d cos(theta/2)| {worst}");
+        assert!(worst < 0.05, "{worst}");
+    }
+
+    #[test]
+    fn magic_formula_tracks_quadrature_for_moliere() {
+        let k = MagicConstants::MOLIERE;
+        let mut worst = 0.0f64;
+        for &eps in &[1e-2, 1e-1, 1.0, 10.0, 100.0] {
+            for j in 0..40 {
+                let beta = 1e-2 * 10f64.powf(j as f64 / 10.0);
+                let q = theta_quadrature(Screening::Moliere, eps, beta);
+                let m = theta_magic(Screening::Moliere, &k, eps, beta);
+                worst = worst.max(((0.5 * m).cos() - (0.5 * q).cos()).abs());
+            }
+        }
+        eprintln!("moliere magic worst |d cos(theta/2)| {worst}");
         assert!(worst < 0.05, "{worst}");
     }
 
