@@ -73,14 +73,18 @@ impl BiersackVarelas {
         let b = self.high.bracket(ion, target_z, energy_ev)?;
         // softplus, written to avoid overflow for large b.
         let soft = if b > 30.0 { b } else { b.exp().ln_1p() };
-        let mc2_ion = ion.mass_kg() * crate::constants::SPEED_OF_LIGHT.powi(2);
-        let gamma = 1.0 + energy_ev * crate::units::J_PER_EV / mc2_ion;
-        let beta2 = 1.0 - 1.0 / (gamma * gamma);
+        let (_, beta2, _) = BetheBloch::kinematics(ion, energy_ev);
+        if soft == 0.0 || beta2 <= 0.0 {
+            // Underflow far below any physical energy: the softened bracket
+            // (and hence S_high) vanishes in this limit.
+            return Ok(0.0);
+        }
         let z = self.high.effective_charge.charge(ion.z(), beta2.sqrt());
+        // Multiply by `soft` before dividing by beta^2, so a subnormal beta^2
+        // cannot produce inf * 0.
         Ok(
-            4.0 * PI * COULOMB_E2 * COULOMB_E2 * z * z * f64::from(target_z)
-                / (ELECTRON_REST_ENERGY * beta2)
-                * soft,
+            4.0 * PI * COULOMB_E2 * COULOMB_E2 * z * z * f64::from(target_z) * soft
+                / (ELECTRON_REST_ENERGY * beta2),
         )
     }
 }
@@ -93,6 +97,9 @@ impl ElectronicStopping for BiersackVarelas {
     fn stopping(&self, ion: &Ion, target_z: u8, energy_ev: f64) -> Result<f64, StoppingError> {
         let lo = self.low.stopping(ion, target_z, energy_ev)?;
         let hi = self.high_energy_part(ion, target_z, energy_ev)?;
+        if lo + hi == 0.0 {
+            return Ok(0.0);
+        }
         Ok(lo * hi / (lo + hi))
     }
 
@@ -148,6 +155,31 @@ mod tests {
     #[test]
     fn phosphorus_in_si_smooth_and_unimodal() {
         check_unimodal_and_continuous(Ion::new(15).unwrap(), 14);
+    }
+
+    #[test]
+    fn finite_at_tiny_energies() {
+        let u = Ion::with_mass(92, 238.028_91).unwrap();
+        for m in [
+            BiersackVarelas::default(),
+            BiersackVarelas::new(LindhardScharff::new(), BetheBloch::new()),
+        ] {
+            for e in [1.0e-6, 1.0e-30, 1.0e-300] {
+                let s = m.stopping(&u, 14, e).unwrap();
+                assert!(s.is_finite() && s >= 0.0, "{e}: {s}");
+            }
+        }
+    }
+
+    #[test]
+    fn invalid_excitation_energy_rejected() {
+        let mut high = BetheBloch::new();
+        high.mean_excitation_ev = Some(0.0);
+        let m = BiersackVarelas::new(LindhardScharff::new(), high);
+        assert!(matches!(
+            m.stopping(&Ion::proton(), 14, 1.0e7),
+            Err(StoppingError::InvalidParameter { .. })
+        ));
     }
 
     #[test]

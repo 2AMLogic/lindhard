@@ -50,6 +50,15 @@ pub enum StoppingError {
         /// Energy, eV.
         energy_ev: f64,
     },
+    /// A model parameter (for example a mean excitation energy) was not finite,
+    /// or not positive where it must be.
+    #[error("invalid model parameter {name} = {value}")]
+    InvalidParameter {
+        /// Parameter name.
+        name: &'static str,
+        /// Offending value.
+        value: f64,
+    },
     /// A user table has no (or an empty) provenance field.
     #[error(
         "stopping table has no provenance; a citation or description of its origin is required"

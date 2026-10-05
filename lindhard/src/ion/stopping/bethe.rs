@@ -117,17 +117,46 @@ impl BetheBloch {
         self
     }
 
-    fn kinematics(ion: &Ion, energy_ev: f64) -> (f64, f64, f64) {
+    /// `(gamma, beta^2, M c^2)` for kinetic energy `energy_ev`.
+    ///
+    /// With `tau = T / (M c^2)`, `beta^2 = tau (tau + 2) / (1 + tau)^2`, which
+    /// stays accurate when `tau` is below the rounding error of `1 + tau`
+    /// (the form `1 - 1/gamma^2` cancels to exactly 0 there).
+    pub(super) fn kinematics(ion: &Ion, energy_ev: f64) -> (f64, f64, f64) {
         let mc2 = ion.mass_kg() * crate::constants::SPEED_OF_LIGHT.powi(2);
-        let gamma = 1.0 + energy_ev * J_PER_EV / mc2;
-        let beta2 = 1.0 - 1.0 / (gamma * gamma);
+        let tau = energy_ev * J_PER_EV / mc2;
+        let gamma = 1.0 + tau;
+        let beta2 = tau * (tau + 2.0) / (gamma * gamma);
         (gamma, beta2, mc2)
+    }
+
+    /// Reject non-physical parameters. Checked on every evaluation so that
+    /// direct assignment to the public fields is covered too.
+    fn validate(&self) -> Result<(), StoppingError> {
+        if let Some(i) = self.mean_excitation_ev {
+            if !(i.is_finite() && i > 0.0) {
+                return Err(StoppingError::InvalidParameter {
+                    name: "mean_excitation_ev",
+                    value: i,
+                });
+            }
+        }
+        for (name, value) in [
+            ("shell_over_z", self.shell_over_z),
+            ("density_delta", self.density_delta),
+        ] {
+            if !value.is_finite() {
+                return Err(StoppingError::InvalidParameter { name, value });
+            }
+        }
+        Ok(())
     }
 
     /// Bracket `[...]` of the formula (dimensionless).
     pub fn bracket(&self, ion: &Ion, target_z: u8, energy_ev: f64) -> Result<f64, StoppingError> {
         check_energy(energy_ev)?;
         target(target_z)?;
+        self.validate()?;
         let (gamma, beta2, mc2_ion) = Self::kinematics(ion, energy_ev);
         let beta = beta2.sqrt();
         let i_j = self
@@ -145,6 +174,12 @@ impl BetheBloch {
         if !self.no_bloch {
             b += bloch_term(z * FINE_STRUCTURE / beta);
         }
+        if b.is_nan() {
+            return Err(StoppingError::NotApplicable {
+                model: "bethe-bloch",
+                energy_ev,
+            });
+        }
         Ok(b)
     }
 }
@@ -156,19 +191,18 @@ impl ElectronicStopping for BetheBloch {
 
     fn stopping(&self, ion: &Ion, target_z: u8, energy_ev: f64) -> Result<f64, StoppingError> {
         let b = self.bracket(ion, target_z, energy_ev)?;
-        if b <= 0.0 {
+        let (_, beta2, _) = Self::kinematics(ion, energy_ev);
+        let z = self.effective_charge.charge(ion.z(), beta2.sqrt());
+        let s = 4.0 * PI * COULOMB_E2 * COULOMB_E2 * z * z * f64::from(target_z)
+            / (ELECTRON_REST_ENERGY * beta2)
+            * b;
+        if !(b > 0.0 && s.is_finite()) {
             return Err(StoppingError::NotApplicable {
                 model: "bethe-bloch",
                 energy_ev,
             });
         }
-        let (_, beta2, _) = Self::kinematics(ion, energy_ev);
-        let z = self.effective_charge.charge(ion.z(), beta2.sqrt());
-        Ok(
-            4.0 * PI * COULOMB_E2 * COULOMB_E2 * z * z * f64::from(target_z)
-                / (ELECTRON_REST_ENERGY * beta2)
-                * b,
-        )
+        Ok(s)
     }
 
     fn validity(&self, ion: &Ion) -> ValidityRange {
@@ -253,6 +287,73 @@ mod tests {
     fn effective_charge_limits() {
         assert!((EffectiveCharge::BarkasEmpirical.charge(15, 0.9) / 15.0 - 1.0).abs() < 1e-6);
         assert!(EffectiveCharge::BarkasEmpirical.charge(15, 0.01) < 5.0);
+    }
+
+    #[test]
+    fn tiny_energy_is_a_defined_error_not_nan() {
+        let u = Ion::with_mass(92, 238.028_91).unwrap();
+        for e in [1.0e-6, 1.0e-30, 1.0e-300] {
+            for m in [BetheBloch::new(), BetheBloch::new().without_bloch()] {
+                let r = m.stopping(&u, 14, e);
+                assert!(
+                    matches!(r, Err(StoppingError::NotApplicable { .. })),
+                    "{e}: {r:?}"
+                );
+                assert!(!m.bracket(&u, 14, e).is_ok_and(f64::is_nan));
+            }
+        }
+    }
+
+    #[test]
+    fn beta2_is_stable_at_tiny_tau() {
+        let u = Ion::with_mass(92, 238.028_91).unwrap();
+        let (_, beta2, _) = BetheBloch::kinematics(&u, 1.0e-6);
+        assert!(beta2 > 0.0 && beta2.is_finite());
+        // non-relativistic limit beta^2 = 2 T / (M c^2)
+        let mc2_ev = u.mass_kg() * crate::constants::SPEED_OF_LIGHT.powi(2) / J_PER_EV;
+        assert!((beta2 / (2.0e-6 / mc2_ev) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn invalid_parameters_are_rejected() {
+        let ion = Ion::proton();
+        for i in [0.0, -140.0, f64::NAN, f64::INFINITY] {
+            let mut m = BetheBloch::new().without_bloch();
+            m.mean_excitation_ev = Some(i);
+            assert!(matches!(
+                m.stopping(&ion, 14, 1.0e7),
+                Err(StoppingError::InvalidParameter {
+                    name: "mean_excitation_ev",
+                    ..
+                })
+            ));
+            assert!(matches!(
+                BetheBloch::new()
+                    .with_mean_excitation_ev(i)
+                    .bracket(&ion, 14, 1.0e7),
+                Err(StoppingError::InvalidParameter { .. })
+            ));
+        }
+        for bad in [f64::NAN, f64::INFINITY] {
+            let mut m = BetheBloch::new();
+            m.shell_over_z = bad;
+            assert!(matches!(
+                m.stopping(&ion, 14, 1.0e7),
+                Err(StoppingError::InvalidParameter {
+                    name: "shell_over_z",
+                    ..
+                })
+            ));
+            let mut m = BetheBloch::new();
+            m.density_delta = bad;
+            assert!(matches!(
+                m.stopping(&ion, 14, 1.0e7),
+                Err(StoppingError::InvalidParameter {
+                    name: "density_delta",
+                    ..
+                })
+            ));
+        }
     }
 
     #[test]
