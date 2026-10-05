@@ -119,9 +119,10 @@ Level 1, `full` statistics, `lindhard` 0.0.1.
 - **Range offsets against measurement are in the inputs.** Because the
   transport reproduces the LSS equation for the same inputs, any offset of a
   computed range from a measured one comes from the Lindhard-Scharff
-  electronic and ZBL nuclear stopping, not from the engine. Both stopping
-  magnitudes are to be compared with measured data at level 3 (PR #46
-  review; #51).
+  electronic and ZBL nuclear stopping, not from the engine (PR #46 review).
+  For B in amorphous Si the defaults give Rp 24 to 36 % too long; level 3
+  attributes this to both inputs, nuclear stopping dominating below about
+  5 keV (see "Stopping-input attribution" in section 3; #51).
 - **Sputter yield vs `E_d`.** Ar 1 keV on Si gives about 0.3 with
   `E_d` = 15 eV and about 0.5 with `E_d = E_s`: with the Biersack-Haggmark
   displacement criterion a transfer between `E_s` and `E_d` near the surface
@@ -281,15 +282,108 @@ Differences are lindhard relative to the oracle, with the difference in units of
 
 Datasets live in `validation/data/` with the schema and rules in
 [`../validation/data/README.md`](../validation/data/README.md);
-`validation/experiments/run.py` compares `lindhard` with each one.
+`validation/experiments/run.py` compares `lindhard` with each one. It first
+checks every dataset's provenance fields and its row in
+[`data-provenance.md`](data-provenance.md), and refuses to run if one is
+missing (`validation/experiments/run.py --check` runs the check alone;
+`validation/run.sh` always runs it).
 
-**Status:** no experimental dataset is in the tree yet. A dataset goes in
-only when its numbers are read from the cited paper itself, with a
-provenance row; the first B, P and As in amorphous Si datasets are tracked by
-#51.
+**Status (#51):** six measured ranges of 11B in amorphous Si, 1 to 20 keV
+(Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982)), digitized from
+the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017),
+Fig. 8, with 3.5 % uncertainty. No ΔRp was reported in that figure. **P and
+As in amorphous Si are open gaps:** no source with values that may be stored
+could be reached; the searches and the one source found but not usable (its
+terms forbid publishing derived information) are listed in
+[`data-provenance.md`](data-provenance.md).
+
+### Stopping-input attribution
+
+The level-1 harness shows that the transport reproduces the LSS first-moment
+equation for its inputs, so an offset from a measured range lies in the
+nuclear stopping (interatomic potential and screening length) or the
+electronic stopping (Lindhard-Scharff, LS). `validation/experiments/run.py`
+reruns each dataset with one of the two varied, using lindhard's existing
+models only: the CLI's potentials and screening lengths, and LS times a
+constant k supplied as a user stopping table. The probes k = 1.46 and 2 are
+the values in the literature and the PR #46 review, not fits, and no default
+changes. Results are in the second table below. For B in amorphous Si,
+1 to 20 keV:
+
+- **The defaults are 24 to 36 % long** (7 to 10 σ), the largest excess at
+  1 keV.
+- **Electronic stopping alone does not explain it.** With ZBL, the LS factor
+  needed to match is above the largest probed k = 2 at 1 to 10 keV, so
+  those values are extrapolated (starred in the table; they assume a power
+  law Rp ~ k^s between the probes and are unverified). The extrapolation is
+  sensitive to the assumed slope: at 1 keV, the k = 1.46 to 2 pair gives 6.8
+  but the k = 1 to 1.46 pair gives 15.0. Only the 20 keV value (1.75) lies
+  between probes. The directly simulated runs carry the conclusion: a
+  missing constant factor in velocity-proportional stopping would need the
+  same k at every energy, but with ZBL 2 LS leaves +23 % at 1 keV (where
+  nuclear stopping dominates) and overshoots by 5.6 % at 20 keV. The PR #46
+  estimate of about 2 LS is consistent with the 10 keV run (+0.4 % at k = 2).
+- **Nuclear stopping carries the low-energy part.** Changing only the
+  potential to Kr-C with the Lindhard screening length (the combination
+  Wittmaack and Mutzke found best, below) removes 86 % of the excess at
+  1 keV, 69 % at 10 keV and 56 % at 20 keV. What remains grows with energy,
+  as the electronic share of the stopping does. Kr-C and Moliere with their
+  default (Firsov) length, and the LS/Oen-Robinson split of the same LS
+  magnitude, help less or not at all.
+- **Together, one constant k fits.** With Kr-C and the Lindhard length, the
+  k needed is 1.33 to 1.44 from 2 to 20 keV (interpolated between the probes;
+  the upper bounds are extrapolated) and 1.65 at 1 keV (extrapolated, where Rp
+  hardly depends on k), and the run with k = 1.46 is within -2.7 to +1.2 % of all
+  six measurements (at most 0.8 σ).
+
+So the offset is attributed to both inputs: mainly the nuclear stopping
+(the ZBL universal potential is too soft for B on Si) below about 5 keV, and
+about equally nuclear and electronic (LS a factor of about 1.3 to 1.5 too
+small) at 10 to 20 keV.
+This agrees with Wittmaack and Mutzke (2017), who reached the same pair
+(Kr-C with the Lindhard screening length, S_e = 1.46 S_e,LS up to 300 keV) by
+fitting their own Monte Carlo code to 93 measured B-in-Si ranges from 1 keV to
+8 MeV. The runs here use only lindhard's models and none of their computed
+values. That paper also cites a measured electronic stopping for 44 keV 11B
+in Si foils (Hoffmann, Jager and Muller-Jahreis, Radiat. Eff. 31, 57 (1976),
+8 % uncertainty) that agrees within 2 % with its 1.46 LS. That measurement
+was not seen here, and the IAEA stopping database is still unread (terms,
+#34), so the direct check of the electronic magnitude against stopping data
+remains open.
+
+Limits: within the 3.5 % uncertainty the potential and k are partly
+degenerate, so these data identify which input is short, not unique
+corrections. Only B has been compared; P and As (heavier, more nuclear
+stopping) await data. Bethe-Bloch was not probed: at 0.1 to 2 keV/u it is far
+below its range of validity. Choosing a new default is a model change and
+belongs in its own issue.
 
 <!-- validation:level3:begin -->
-_No experimental datasets yet; see validation/data/README.md._
+lindhard 0.0.1 (bb7261e), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
+
+| Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |
+|---|---|---|---|---|---|---|---|---|
+| B 1 keV -> Si (SIMS) | 4.84 ± 0.17 | 6.58 | +35.9 % | +10.1 | - | 3.85 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 2 keV -> Si (SIMS) | 8.58 ± 0.30 | 11.21 | +30.6 % | +8.7 | - | 6.37 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 3 keV -> Si (SIMS) | 12.18 ± 0.43 | 15.64 | +28.4 % | +8.0 | - | 8.61 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 5 keV -> Si (SIMS) | 19.40 ± 0.68 | 24.37 | +25.6 % | +7.2 | - | 12.78 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 10 keV -> Si (SIMS) | 37.36 ± 1.31 | 46.13 | +23.5 % | +6.6 | - | 22.20 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+| B 20 keV -> Si (SIMS) | 72.93 ± 2.55 | 90.26 | +23.8 % | +6.8 | - | 37.94 | - | Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8 |
+
+σ combines the measurement uncertainty with the Monte Carlo standard error of lindhard's Rp. Datasets, their extraction and uncertainty: `validation/data/ranges/`; provenance: [`data-provenance.md`](data-provenance.md).
+
+**Stopping-input attribution.** lindhard's Rp relative to the measurement, with the nuclear or the electronic stopping varied separately (existing models only; LS = Lindhard-Scharff, k LS = LS times k, through a generated user table; a = screening length). "k needed" is the LS factor at which the potential's Rp would meet the measurement (range from the measurement uncertainty). A value without a star lies between the probed k (1, 1.46 and 2 for ZBL; 1 and 1.46 for Kr-C) and is a log-log interpolation. **A starred value (*) lies outside the probed k: it extrapolates the nearest pair of runs, assuming Rp follows a power law in k there, and no run verifies it.** It is a sensitivity estimate, not a result, and the measurement-uncertainty range does not include the extrapolation uncertainty.
+
+| Case | Rp measured (nm) | ZBL, LS | ZBL, 1.46 LS | ZBL, 2 LS | ZBL, LS/Oen-Robinson | Kr-C (Firsov a), LS | Moliere (Firsov a), LS | Kr-C (Lindhard a), LS | Kr-C (Lindhard a), 1.46 LS | k needed, ZBL | k needed, Kr-C (Lindhard a) |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| B 1 keV -> Si (SIMS) | 4.84 ± 0.17 | +35.9 % | +30.2 % | +23.4 % | +38.3 % | +18.7 % | +12.0 % | +5.0 % | +1.2 % | 6.80* (5.56*-8.37*) | 1.65* (1.15-2.39*) |
+| B 2 keV -> Si (SIMS) | 8.58 ± 0.30 | +30.6 % | +23.2 % | +16.1 % | +33.1 % | +16.6 % | +14.9 % | +4.6 % | -0.2 % | 4.40* (3.67*-5.31*) | 1.44 (1.09-1.93*) |
+| B 3 keV -> Si (SIMS) | 12.18 ± 0.43 | +28.4 % | +20.2 % | +12.3 % | +30.8 % | +16.0 % | +16.3 % | +4.9 % | -0.6 % | 3.42* (2.92*-4.04*) | 1.40 (1.10-1.79*) |
+| B 5 keV -> Si (SIMS) | 19.40 ± 0.68 | +25.6 % | +16.6 % | +7.0 % | +28.3 % | +15.6 % | +17.6 % | +5.4 % | -1.6 % | 2.56* (2.26*-2.92*) | 1.33 (1.11-1.62*) |
+| B 10 keV -> Si (SIMS) | 37.36 ± 1.31 | +23.5 % | +11.4 % | +0.4 % | +26.9 % | +15.5 % | +19.0 % | +7.2 % | -2.2 % | 2.02* (1.82-2.25*) | 1.33 (1.16-1.54*) |
+| B 20 keV -> Si (SIMS) | 72.93 ± 2.55 | +23.8 % | +8.0 % | -5.6 % | +27.6 % | +17.2 % | +21.5 % | +10.5 % | -2.7 % | 1.75 (1.61-1.90) | 1.34 (1.21-1.50*) |
+
+Control: a k = 1 table reproduces the built-in Lindhard-Scharff Rp to 6.7e-16 (relative), so the k tables change only the magnitude. Per-run values: `validation/experiments/results.json`.
 <!-- validation:level3:end -->
 
 ## Reporting

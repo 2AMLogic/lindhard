@@ -13,12 +13,14 @@ validation/run.sh [--experiments] [--oracles]
 | `oracles/run.py`, `oracles/problems.json` | 2 | Runs `lindhard` and user-installed oracles (RustBCA, OpenTRIM) on matched problems |
 | `oracles/summaries/` | 2 | Committed comparison summaries (scalar summary metrics only; [format](oracles/summaries/README.md)) |
 | `oracle-runs/` | 2, 3 | Raw runs, regenerated locally; **gitignored** |
-| `data/` | 3 | Published measurements with citations ([schema](data/README.md)) |
-| `experiments/run.py` | 3 | Runs `lindhard` on each dataset; writes `experiments/results.json` |
+| `data/` | 3 | Published measurements with citations ([schema](data/README.md)); `data/digitize/` holds the scripts that digitized figures |
+| `experiments/run.py` | 3 | Checks each dataset's provenance, runs `lindhard` on it with the defaults and with the stopping inputs varied; writes `experiments/results.json` |
 | `lib/lindhard_cli.py` | 2, 3 | Builds and drives the `lindhard` command |
 | `update_docs.py` | all | Splices the tables into `docs/validation.md` between marker comments |
 
-The Python scripts use the standard library only (Python 3.9 or newer).
+The harness scripts use the standard library only (Python 3.9 or newer). The
+one-off digitizing scripts in `data/digitize/` also need numpy and Pillow;
+the harness never runs them.
 
 ## Clean-room rules that apply here
 

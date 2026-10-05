@@ -63,6 +63,8 @@ def _toml_value(v) -> str:
         return repr(v)
     if isinstance(v, str):
         return json.dumps(v)  # a TOML basic string is a JSON string for our keys
+    if isinstance(v, (list, tuple)):
+        return "[" + ", ".join(_toml_value(x) for x in v) + "]"
     raise TypeError(f"unsupported TOML value {v!r}")
 
 
@@ -83,6 +85,9 @@ def to_toml(problem: dict) -> str:
     table("physics", physics)
     for sym, e in energies.items():
         table(f"physics.energies.{sym}", e)
+    if problem.get("stopping_tables"):
+        # User electronic-stopping tables (docs/cli.md, [stopping]).
+        table("stopping", {"tables": [str(t) for t in problem["stopping_tables"]]})
     table("run", problem["run"])
     table("tally", {**problem.get("tally", {}), "per_ion": False})
     return "\n".join(lines)

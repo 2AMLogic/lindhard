@@ -1,0 +1,27 @@
+{
+  "id": "b_1keV_asi_wach1982",
+  "ion": "B",
+  "mass_amu": 11.0093,
+  "energy_ev": 1000.0,
+  "tilt_deg": 0.0,
+  "target": "Si",
+  "target_state": "amorphous: crystalline Si pre-amorphized by inert-gas or Si bombardment (the compilation's Table I, 'a-Si'). Amorphizing species, its dose and the B dose are not given in the source seen",
+  "measured": {
+    "method": "SIMS (O2+ probe at 1.5, 2, 3 and 5 keV, normal incidence: four sets, one marker per energy in the figure)",
+    "rp_nm": 4.84,
+    "rp_unc_nm": 0.17,
+    "drp_nm": null,
+    "drp_unc_nm": null,
+    "dose_cm2": null
+  },
+  "profile_csv": null,
+  "citation": "Wach and Wittmaack, Nucl. Instrum. Methods 194, 113 (1982); read from the compilation of Wittmaack and Mutzke, J. Appl. Phys. 121, 105104 (2017)",
+  "short_citation": "Wach and Wittmaack (1982), via Wittmaack and Mutzke (2017) Fig. 8",
+  "doi": "10.1063/1.4978016",
+  "primary_doi": "10.1016/0029-554X(82)90499-2",
+  "url": "https://push-zb.helmholtz-munich.de/frontdoor.php?source_opus=50831",
+  "source_location": "Wittmaack and Mutzke (2017), Fig. 8 (p. 105104-6), filled black circles 'raw experimental data', 11B in Si. Assigned to Wach and Wittmaack (a-Si, 0 deg) by the paper's Table I: no other set listed there goes below 25 keV. The primary paper was not seen (closed access)",
+  "extraction": "digitized from a figure: the embedded 952 x 733 px, 300 ppi raster of Fig. 8 (pdfimages), log-log axes calibrated by a least-squares line through the five x and four y major-tick centres, each weighted by its black-pixel count (residual <= 0.002 decade); circle centre found by matching a filled disk (radius 7.0 and 7.5 px; the legend marker is 15 px across) against black-or-blue pixels, since the blue fit line crosses each marker; value = mean of the two radii (4.84 and 4.84 nm); energy read as 1 keV within 0.6 %. Second read: the 'selected data (mean) x 0.5' triangles at the same energy agree within 1 % (area centroid) and are about 3 % higher by bounding-box centre. Uncertainty 3.5 %: digitizing 3 % (marker-convention spread about 3 %, tick-centre convention up to 1 %) combined in quadrature with the 1.8 % statistical scatter and < 0.3 % systematic error the compilation reports for this set (p. 105104-7). Delta-Rp is not shown in the figure and is not entered. Script: validation/data/digitize/wm2017_fig8.py",
+  "terms": "Facts, cited. Measured values digitized from a figure of an AIP-copyrighted article (published version in the Helmholtz Munich repository); only the numbers are stored, no figure. Digitizing counts as copying data and is recorded as such",
+  "added": "2026-10-05"
+}
