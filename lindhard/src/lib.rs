@@ -4,7 +4,9 @@
 //! far: the shared core (units, constants, the element table, materials, the 1D
 //! layered geometry and deterministic random streams), the ion screening
 //! potentials and scattering integral, electronic stopping, and the amorphous
-//! BCA engine with full recoil cascades (`ion::bca`).
+//! BCA engine with full recoil cascades (`ion::bca`), damage models
+//! (`ion::damage`), and the tallies: moments, Pearson IV / dual-Pearson, range,
+//! damage and escape statistics (`tally`).
 
 #![forbid(unsafe_code)]
 
@@ -15,6 +17,7 @@ pub mod input;
 pub mod ion;
 pub mod material;
 pub mod rng;
+pub mod tally;
 pub mod units;
 
 /// Crate version, as stamped by Cargo.

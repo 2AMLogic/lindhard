@@ -44,7 +44,7 @@ pub enum ElectronicChannel {
 /// surface barrier `E_s` paid by an escaping particle is counted in
 /// `surface_barrier`, not in the escaped energy (which is the energy outside
 /// the target).
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct EnergyBudget {
     /// Incident kinetic energy of the primary.
     pub incident: f64,

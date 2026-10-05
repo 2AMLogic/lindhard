@@ -28,13 +28,13 @@ electron MC). The engines share the core and nothing else.
 | `ion::scattering` | Scattering integral solved by Gauss–Mehler quadrature; precomputed (ε, b) tables; magic formula kept as a cross-check | M0 |
 | `ion::stopping` | Electronic stopping: Lindhard-Scharff, Oen-Robinson, Bethe-Bloch with corrections, user tables with provenance; Bragg additivity plus optional compound corrections. Validity ranges: [`stopping-models.md`](stopping-models.md) | M0 |
 | `ion::bca` | Amorphous BCA: free-flight path selection, full recoil cascades, cutoffs, sputtering and backscatter | M0 |
-| `ion::damage` | NRT/Kinchin-Pease damage energy, alongside full-cascade vacancy and interstitial bookkeeping (the two are reported side by side, never conflated) | M0 |
+| `ion::damage` | NRT/Kinchin-Pease damage energy (Lindhard partition), alongside full-cascade vacancy, interstitial and replacement counts kept by `tally::ion` (the two are reported side by side, in different types, never conflated) | M0 |
 | `ion::crystal` | Lattice-site targets, thermal vibration (Debye), tilt/twist/rotation, screen oxide, dynamic damage → dechanneling → amorphization | M2 |
 | `ion::dynamic` | Target composition updated with fluence (sputter erosion, build-up of implanted atoms) | M3 |
 | `electron::elastic` | Mott cross sections by our own partial-wave solution (not ELSEPA tables) | M1 |
 | `electron::inelastic` | Dielectric-function model (Lindhard / Mermin, Penn algorithm) built from optical data with provenance; SE generation; interface refraction | M1 |
 | `electron::transport` | Event-by-event MC from about 10 eV to 50 keV in layered and voxel targets | M1 |
-| `tally` | Depth and lateral histograms, moments (Rp, ΔRp, γ, β), Pearson IV / dual-Pearson fits, 3D grids, energy-deposition maps, PSF extraction (double/triple Gaussian α/β/η) | M0/M1 |
+| `tally` | Depth and lateral histograms, moments (Rp, ΔRp, γ, β), Pearson IV / dual-Pearson fits, damage and sputter/backscatter tallies (M0, `tally::ion` on the BCA hooks, plain-data `IonReport`); 3D grids, energy-deposition maps, PSF extraction (double/triple Gaussian α/β/η) (later) | M0/M1 |
 
 ## Performance plan
 

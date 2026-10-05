@@ -62,10 +62,13 @@
 //! rounding (`EnergyBudget::residual`). Electronic losses larger than the
 //! particle's energy are clamped to it.
 //!
+//! Vacancy, interstitial and replacement counts, and the NRT damage estimate,
+//! are kept by the tally [`crate::tally::IonTally`] from the events reported
+//! here ([`crate::ion::damage`] has the models).
+//!
 //! # Not modelled here (see the issue tracker)
 //!
-//! Replacement collisions and vacancy/interstitial bookkeeping (`ion::damage`),
-//! crystal structure, target composition changes with fluence, and refraction
+//! Crystal structure, target composition changes with fluence, and refraction
 //! of the incident beam at the entrance surface (negligible at keV energies).
 
 pub mod kinematics;
