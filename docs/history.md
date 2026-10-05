@@ -85,8 +85,8 @@ addresses the same problem class, built only from the published papers
 **Ions in amorphous targets.** Biersack and Haggmark's TRIM (1980) [16]
 made the free-flight-and-collision loop fast and practical for amorphous
 targets, using an analytic "magic formula" for the scattering angle. With
-Ziegler's stopping work [17] it grew into SRIM, the code whose problem class lindhard re-implements from
-the published physics.
+Ziegler's stopping work [17] it grew into SRIM, the code whose problem
+class lindhard re-implements from the published physics.
 
 ## Random numbers, then and now
 
