@@ -14,7 +14,9 @@ use lindhard::ion::bca::Bca;
 use lindhard::ion::potential::Potential;
 use lindhard::ion::scattering::ScatteringTable;
 
-use crate::tally::CliTally;
+use lindhard::tally::IonTally;
+
+use crate::tally::{ion_tally_config, CliTally};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -150,6 +152,8 @@ fn run(
     let bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
         .context("setting up the transport engine")?;
     let tally_spec = &r.input.tally;
+    let ion_proto = IonTally::new(&r.stack, &bca.species_z(), ion_tally_config(&r)?)
+        .context("setting up the ion tally")?;
     let t1 = Instant::now();
     let tally = pool
         .install(|| {
@@ -158,6 +162,7 @@ fn run(
                     tally_spec.depth_bin_nm * 1e-9,
                     tally_spec.depth_bins,
                     tally_spec.per_ion,
+                    ion_proto.clone(),
                 )
             })
         })
@@ -175,11 +180,15 @@ fn run(
         transport_s,
         ions_per_s: tally.summary.histories as f64 / transport_s.max(f64::MIN_POSITIVE),
     };
+    let report = tally.ion.report(r.input.tally.dual_pearson);
     write(
         output::SUMMARY_FILE,
-        output::summary_json(&r, &table, &tally, info)?,
+        output::summary_json(&r, &table, &tally, &report, info)?,
     )?;
     write(output::DEPTH_FILE, output::depth_csv(&tally))?;
+    write(output::LATERAL_FILE, output::lateral_csv(&report))?;
+    write(output::DAMAGE_FILE, output::damage_csv(&report))?;
+    write(output::ESCAPES_FILE, output::escapes_csv(&report))?;
     if tally.per_ion {
         write(output::IONS_FILE, output::ions_csv(&tally))?;
     }

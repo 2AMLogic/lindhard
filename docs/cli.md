@@ -101,6 +101,17 @@ is an error naming the layer and the key to set.
 | `depth_bin_nm` | 1 | Bin width of the stopped-primary depth profile |
 | `depth_bins` | 1000 | Number of bins; the last also collects everything deeper |
 | `per_ion` | `true` | Write `ions.csv` |
+| `lateral_bin_nm` | 1 | Bin width of the lateral and radial profiles of stopped primaries |
+| `lateral_bins` | 100 | Bins per side of the beam axis: `y` and `z` span `[-lateral_bins * lateral_bin_nm, +lateral_bins * lateral_bin_nm)` nm, the radial distance `[0, lateral_bins * lateral_bin_nm)` nm |
+| `escape_energy_max_ev` | beam energy | Upper edge of the escape-energy spectra, eV (from 0) |
+| `escape_energy_bins` | 100 | Escape-energy bins |
+| `escape_polar_bins` | 30 | Polar-angle bins over `[0, 90)` degrees from the outward surface normal |
+| `dual_pearson` | `false` | Also fit a dual-Pearson profile to the depth histogram |
+
+The depth grid (`depth_bin_nm`, `depth_bins`, from the front face) is shared by
+the range histogram, the dual-Pearson fit and the defect profiles. Particles
+outside any grid are counted in explicit underflow and overflow entries, never
+dropped. Every count and per-ion value is for the same incident ions.
 
 ## Output
 
@@ -116,10 +127,14 @@ is an error naming the layer and the key to set.
 | `physics.scattering_table` | Angle-table grid and its measured interpolation error |
 | `physics.target` | Each layer: extent (nm; `back_nm` is `null` for a substrate), atom density, and the fully resolved material (every `E_d`, `E_b`, `E_s`) |
 | `results.histories` | Primaries run |
-| `results.primaries` | `stopped`, `backscattered`, `transmitted`; mean and standard deviation of the stopped-primary depth, nm |
+| `results.primaries` | `stopped`, `backscattered`, `transmitted`; mean and standard deviation of the stopped-primary depth, nm (`stopped_depth_mean_nm`, `stopped_depth_std_nm`; the same numbers as `results.range.depth.mean_nm` and `std_dev_nm`, the projected range and straggle, kept under their original keys) |
 | `results.recoils` | Atoms `displaced`, `sputtered` (left through the front face), `transmitted` |
 | `results.yields` | The above per incident ion |
 | `results.energy_budget_ev_per_ion` | Where the incident energy went, per ion, and the largest per-history relative bookkeeping residual |
+| `results.range` | Where the beam particles came to rest, lengths in nm. `depth`: `n`, `mean_nm` (projected range `Rp`), `std_dev_nm` (straggle), `skewness`, `kurtosis` (`beta`, Gaussian 3) and the standard error of each (`null` below two stopped primaries). `pearson_iv`: the Pearson IV density with those moments (`m`, `nu`, `a_nm`, `lambda_nm`), or `null` with the reason in `pearson_iv_error`. `dual_pearson` (or `dual_pearson_error`): only with `tally.dual_pearson = true`; head fraction, head and tail components, chi-square of the fit and of the single Pearson IV. `lateral_y`, `lateral_z`, `radial`: moments of the lateral positions. `layers`: `stopped` and `depth` moments by the layer where the particle stopped |
+| `results.damage` | `nrt`: Norgett-Robinson-Torrens and Kinchin-Pease displacement estimates from the primary knock-on atom damage energies (`pka_count`, `pka_energy_ev`, `damage_energy_ev`, `nrt_displacements`, `kinchin_pease_displacements`). `cascade`: defects counted event by event in the simulated cascades (`displacements`, `replacements`, `vacancies`, `interstitials`). The two are different quantities and are reported separately; see `lindhard::ion::damage` for the conventions, including the approximation used for compounds. Totals over all ions, with `per_ion` and a `layers` breakdown |
+| `results.sputtering` | `yield_per_ion` and `by_element`: target atoms leaving the front face, with `count`, `per_ion` and `mean_energy_ev` for each element |
+| `results.escapes` | `backscatter_coefficient`, `transmission_coefficient`, `energy_reflection_coefficient` (energy carried out of the front face by the beam particles, as a fraction of the incident energy), and `species`: every species (beam first) through the `front` and `back` face, with `count`, `per_ion` and `mean_energy_ev` |
 | `files` | Names of the other files written (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `ions_per_s` |
 
@@ -128,6 +143,30 @@ is an error naming the layer and the key to set.
 `depth_lo_nm,depth_hi_nm,stopped_primaries,fraction_per_nm`: stopped primaries
 per depth bin, and that count per incident ion per nm. The last row's upper
 edge is `inf` (overflow) and its density is empty.
+
+### `lateral_profile.csv`
+
+`quantity,lo_nm,hi_nm,count,per_ion_per_nm`: stopped primaries by `y`, `z` and
+radial distance (`quantity` is `y`, `z` or `radial`), for the grid set by
+`lateral_bin_nm` and `lateral_bins`. Each quantity ends with an `underflow`
+row (`lo_nm = -inf`) and an `overflow` row (`hi_nm = inf`) with empty density.
+
+### `damage_profile.csv`
+
+`depth_lo_nm,depth_hi_nm,vacancies,interstitials,replacements,` then the same
+three per incident ion per nm: the cascade defect counts by depth, on the
+depth grid. `vacancies` is displacements minus replacements. The last row,
+with `depth_hi_nm = inf`, holds everything deeper than the grid (empty
+densities). The totals equal `results.damage.cascade`.
+
+### `escape_spectra.csv`
+
+`species_z,symbol,beam,face,spectrum,lo,hi,count,per_ion_per_unit`: the energy
+(`spectrum = energy_ev`, `lo`/`hi` in eV) and polar-angle (`polar_deg`, degrees
+from the outward normal) spectra of every species leaving each face (`front`
+or `back`). Each spectrum ends with `-inf` and `inf` rows for entries outside
+the grid, with empty densities. The density is per incident ion per eV or per
+degree.
 
 ### `ions.csv`
 
@@ -138,8 +177,8 @@ face and the energy and direction are outside the target. `x` is depth.
 
 ## Reproducibility
 
-Everything in `summary.json` except the trailing `run` object, and both CSV
-files, is a function of the input and the binary only: byte-identical for the
+Everything in `summary.json` except the trailing `run` object, and every CSV
+file, is a function of the input and the binary only: byte-identical for the
 same input and seed at any thread count. `lindhard-cli/tests/examples.rs`
 checks this on 1 and 4 threads. Floats are written in shortest round-trip
 form.
@@ -149,12 +188,18 @@ form.
 Consumers must ignore keys they do not know. New results are added as new
 keys, never by changing existing ones:
 
-- New tallies (range moments and fits, damage, sputtering by species and
-  energy, lateral profiles) become new objects under `results`, for example
-  `results.range`, `results.damage`, `results.sputtering`, with their settings
-  as new keys under `[tally]` and their profiles as new CSV files listed
-  under `files`.
+- New tallies become new objects under `results`, with their settings as new
+  keys under `[tally]` and their profiles as new CSV files listed under
+  `files`. `results.range`, `results.damage`, `results.sputtering` and
+  `results.escapes` were added this way, without a version bump.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes
   meaning.
+
+## Not yet in the output
+
+User-supplied stopping tables are not an input option yet. They need a design
+decision about how a table is declared (units, grid, which species pair and
+projectile energy range it covers) and how it composes with the model choices
+in `[physics]`; this is tracked separately.

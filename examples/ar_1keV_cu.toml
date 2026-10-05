@@ -29,3 +29,10 @@ seed = 1
 [tally]
 depth_bin_nm = 0.1
 depth_bins = 100
+
+# Escape spectra up to 1 keV (the default is the beam energy; bins and
+# polar-angle bins keep their defaults); lateral profiles: 100 bins of 0.5 nm
+# on each side of the beam axis.
+escape_energy_max_ev = 1000.0
+lateral_bin_nm = 0.5
+lateral_bins = 100

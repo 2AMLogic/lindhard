@@ -35,3 +35,6 @@ seed = 1
 [tally]
 depth_bin_nm = 0.5
 depth_bins = 200
+
+# Fit a dual-Pearson profile to the depth histogram (off by default).
+dual_pearson = true

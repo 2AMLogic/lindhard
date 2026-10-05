@@ -13,6 +13,9 @@ use lindhard::input::{ModelInfo, Resolved};
 use lindhard::ion::bca::{EnergyBudget, MeanFreePath};
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::material::MaterialSpec;
+use lindhard::tally::{
+    CascadeDefects, DualPearsonFit, Histogram, IonReport, MomentSummary, NrtDamage, PearsonIv,
+};
 use serde::Serialize;
 
 use crate::tally::CliTally;
@@ -25,6 +28,9 @@ pub const FORMAT_VERSION: u32 = 1;
 pub const SUMMARY_FILE: &str = "summary.json";
 pub const DEPTH_FILE: &str = "depth_profile.csv";
 pub const IONS_FILE: &str = "ions.csv";
+pub const LATERAL_FILE: &str = "lateral_profile.csv";
+pub const DAMAGE_FILE: &str = "damage_profile.csv";
+pub const ESCAPES_FILE: &str = "escape_spectra.csv";
 
 const NM: f64 = 1e-9;
 
@@ -91,8 +97,10 @@ struct Primaries {
     backscattered: u64,
     transmitted: u64,
     /// Mean depth at rest of stopped primaries, nm (`null` if none stopped).
+    /// The same quantity as `results.range.depth.mean_nm` (the projected
+    /// range), kept under its original key.
     stopped_depth_mean_nm: Option<f64>,
-    /// Standard deviation of that depth, nm.
+    /// Standard deviation of that depth, nm (`results.range.depth.std_dev_nm`).
     stopped_depth_std_nm: Option<f64>,
 }
 
@@ -132,12 +140,306 @@ struct Results {
     yields: Yields,
     /// Mean per primary ion, eV.
     energy_budget_ev_per_ion: Budget,
+    range: Range,
+    damage: Damage,
+    sputtering: Sputtering,
+    escapes: Escapes,
+}
+
+/// Moments of a length distribution, in nm.
+#[derive(Serialize)]
+struct MomentsNm {
+    n: u64,
+    mean_nm: f64,
+    std_dev_nm: f64,
+    skewness: f64,
+    kurtosis: f64,
+    mean_std_err_nm: f64,
+    std_dev_std_err_nm: f64,
+    skewness_std_err: f64,
+    kurtosis_std_err: f64,
+}
+
+fn moments_nm(m: &MomentSummary) -> MomentsNm {
+    MomentsNm {
+        n: m.n,
+        mean_nm: m.mean / NM,
+        std_dev_nm: m.std_dev / NM,
+        skewness: m.skewness,
+        kurtosis: m.kurtosis,
+        mean_std_err_nm: m.mean_std_err / NM,
+        std_dev_std_err_nm: m.std_dev_std_err / NM,
+        skewness_std_err: m.skewness_std_err,
+        kurtosis_std_err: m.kurtosis_std_err,
+    }
+}
+
+/// A Pearson IV density: its four moments and Heinrich's parameters.
+#[derive(Serialize)]
+struct PearsonOut {
+    mean_nm: f64,
+    std_dev_nm: f64,
+    skewness: f64,
+    kurtosis: f64,
+    m: f64,
+    nu: f64,
+    a_nm: f64,
+    lambda_nm: f64,
+}
+
+fn pearson_out(p: &PearsonIv) -> PearsonOut {
+    PearsonOut {
+        mean_nm: p.mean / NM,
+        std_dev_nm: p.std_dev / NM,
+        skewness: p.skewness,
+        kurtosis: p.kurtosis,
+        m: p.m,
+        nu: p.nu,
+        a_nm: p.a / NM,
+        lambda_nm: p.lambda / NM,
+    }
+}
+
+#[derive(Serialize)]
+struct DualPearsonOut {
+    head_fraction: f64,
+    head: PearsonOut,
+    tail: PearsonOut,
+    chi_square: f64,
+    single_chi_square: Option<f64>,
+    bins: usize,
+    evaluations: u64,
+}
+
+fn dual_pearson_out(f: &DualPearsonFit) -> DualPearsonOut {
+    DualPearsonOut {
+        head_fraction: f.profile.head_fraction,
+        head: pearson_out(&f.profile.head),
+        tail: pearson_out(&f.profile.tail),
+        chi_square: f.chi_square,
+        single_chi_square: f.single_chi_square,
+        bins: f.bins,
+        evaluations: f.evaluations,
+    }
+}
+
+/// Depth statistics of the beam particles at rest in one layer.
+#[derive(Serialize)]
+struct LayerRangeOut {
+    layer: usize,
+    stopped: u64,
+    depth: Option<MomentsNm>,
+}
+
+/// `results.range`: where the beam particles came to rest. Lengths in nm.
+#[derive(Serialize)]
+struct Range {
+    stopped: u64,
+    /// `mean_nm` is the projected range `Rp`, `std_dev_nm` the straggle
+    /// `dRp`; `null` with fewer than two stopped primaries.
+    depth: Option<MomentsNm>,
+    /// Pearson IV with the depth moments, when they are in the type IV
+    /// region; otherwise `null` and the reason is in `pearson_iv_error`.
+    pearson_iv: Option<PearsonOut>,
+    pearson_iv_error: Option<String>,
+    /// Present only with `tally.dual_pearson = true`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dual_pearson: Option<DualPearsonOut>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    dual_pearson_error: Option<String>,
+    lateral_y: Option<MomentsNm>,
+    lateral_z: Option<MomentsNm>,
+    radial: Option<MomentsNm>,
+    layers: Vec<LayerRangeOut>,
+}
+
+/// Per-ion damage numbers.
+#[derive(Serialize)]
+struct DamagePerIon {
+    pka: f64,
+    pka_energy_ev: f64,
+    damage_energy_ev: f64,
+    nrt_displacements: f64,
+    kinchin_pease_displacements: f64,
+    displacements: f64,
+    replacements: f64,
+    vacancies: f64,
+    interstitials: f64,
+}
+
+#[derive(Serialize)]
+struct LayerDamageOut {
+    layer: usize,
+    nrt: NrtDamage,
+    cascade: CascadeDefects,
+}
+
+/// `results.damage`: displacement-model estimates (`nrt`) and defects counted
+/// in the simulated cascades (`cascade`), kept apart because they are not the
+/// same quantity (see `lindhard::ion::damage`). Totals over all histories;
+/// energies in eV.
+#[derive(Serialize)]
+struct Damage {
+    nrt: NrtDamage,
+    cascade: CascadeDefects,
+    per_ion: DamagePerIon,
+    layers: Vec<LayerDamageOut>,
+}
+
+/// Atoms leaving through one face, of one element.
+#[derive(Serialize)]
+struct SputteredElement {
+    z: u8,
+    symbol: &'static str,
+    count: u64,
+    per_ion: f64,
+    mean_energy_ev: f64,
+}
+
+/// `results.sputtering`: target atoms leaving through the front face, per
+/// incident ion, by element.
+#[derive(Serialize)]
+struct Sputtering {
+    yield_per_ion: f64,
+    by_element: Vec<SputteredElement>,
+}
+
+#[derive(Serialize)]
+struct FaceOut {
+    count: u64,
+    per_ion: f64,
+    mean_energy_ev: f64,
+}
+
+#[derive(Serialize)]
+struct SpeciesOut {
+    species: usize,
+    z: u8,
+    symbol: &'static str,
+    beam: bool,
+    front: FaceOut,
+    back: FaceOut,
+}
+
+/// `results.escapes`: every species leaving each face (the spectra are in
+/// `escape_spectra.csv`).
+#[derive(Serialize)]
+struct Escapes {
+    backscatter_coefficient: f64,
+    transmission_coefficient: f64,
+    energy_reflection_coefficient: f64,
+    species: Vec<SpeciesOut>,
+}
+
+fn symbol(z: u8) -> &'static str {
+    lindhard::elements::element(z).map_or("?", |e| e.symbol)
+}
+
+fn range_out(r: &IonReport) -> Range {
+    let g = &r.range;
+    Range {
+        stopped: g.stopped,
+        depth: g.depth.as_ref().map(moments_nm),
+        pearson_iv: g.pearson_iv.as_ref().map(pearson_out),
+        pearson_iv_error: g.pearson_iv_error.as_ref().map(ToString::to_string),
+        dual_pearson: g.dual_pearson.as_ref().map(dual_pearson_out),
+        dual_pearson_error: g.dual_pearson_error.as_ref().map(ToString::to_string),
+        lateral_y: g.lateral_y.as_ref().map(moments_nm),
+        lateral_z: g.lateral_z.as_ref().map(moments_nm),
+        radial: g.radial.as_ref().map(moments_nm),
+        layers: g
+            .layers
+            .iter()
+            .map(|l| LayerRangeOut {
+                layer: l.layer,
+                stopped: l.stopped,
+                depth: l.depth.as_ref().map(moments_nm),
+            })
+            .collect(),
+    }
+}
+
+fn damage_out(r: &IonReport) -> Damage {
+    let d = &r.damage;
+    let n = (r.histories as f64).max(1.0);
+    Damage {
+        nrt: d.nrt,
+        cascade: d.cascade,
+        per_ion: DamagePerIon {
+            pka: d.nrt.pka_count as f64 / n,
+            pka_energy_ev: d.nrt.pka_energy_ev / n,
+            damage_energy_ev: d.nrt.damage_energy_ev / n,
+            nrt_displacements: d.nrt.nrt_displacements / n,
+            kinchin_pease_displacements: d.nrt.kinchin_pease_displacements / n,
+            displacements: d.cascade.displacements as f64 / n,
+            replacements: d.cascade.replacements as f64 / n,
+            vacancies: d.cascade.vacancies as f64 / n,
+            interstitials: d.cascade.interstitials as f64 / n,
+        },
+        layers: d
+            .layers
+            .iter()
+            .map(|l| LayerDamageOut {
+                layer: l.layer,
+                nrt: l.nrt,
+                cascade: l.cascade,
+            })
+            .collect(),
+    }
+}
+
+fn sputtering_out(r: &IonReport) -> Sputtering {
+    Sputtering {
+        yield_per_ion: r.escapes.sputter_yield,
+        by_element: r
+            .escapes
+            .species
+            .iter()
+            .filter(|s| !s.beam)
+            .map(|s| SputteredElement {
+                z: s.z,
+                symbol: symbol(s.z),
+                count: s.front.count,
+                per_ion: s.front.per_ion,
+                mean_energy_ev: s.front.mean_energy_ev,
+            })
+            .collect(),
+    }
+}
+
+fn escapes_out(r: &IonReport) -> Escapes {
+    let e = &r.escapes;
+    let face = |f: &lindhard::tally::FaceEscape| FaceOut {
+        count: f.count,
+        per_ion: f.per_ion,
+        mean_energy_ev: f.mean_energy_ev,
+    };
+    Escapes {
+        backscatter_coefficient: e.backscatter_coefficient,
+        transmission_coefficient: e.transmission_coefficient,
+        energy_reflection_coefficient: e.energy_reflection_coefficient,
+        species: e
+            .species
+            .iter()
+            .map(|s| SpeciesOut {
+                species: s.species,
+                z: s.z,
+                symbol: symbol(s.z),
+                beam: s.beam,
+                front: face(&s.front),
+                back: face(&s.back),
+            })
+            .collect(),
+    }
 }
 
 #[derive(Serialize)]
 struct Files {
     depth_profile: &'static str,
     ions: Option<&'static str>,
+    lateral_profile: &'static str,
+    damage_profile: &'static str,
+    escape_spectra: &'static str,
 }
 
 /// The only nondeterministic part of the summary.
@@ -188,6 +490,7 @@ pub fn summary_json(
     r: &Resolved,
     table: &ScatteringTable,
     t: &CliTally,
+    report: &IonReport,
     run: RunInfo,
 ) -> serde_json::Result<String> {
     let c = &r.config;
@@ -195,6 +498,13 @@ pub fn summary_json(
     let s = &t.summary;
     let n = s.histories as f64;
     let stopped = s.primaries_stopped > 0;
+    // The projected range and straggle come from the range tally's
+    // accumulator, so these keys equal `results.range.depth` exactly. With a
+    // single stopped primary that tally has no moments; use the summary's.
+    let (depth_mean, depth_std) = match &report.range.depth {
+        Some(d) => (d.mean, d.std_dev),
+        None => (s.mean_depth(), s.depth_std()),
+    };
     let summary = Summary {
         format: Format {
             name: FORMAT_NAME,
@@ -255,8 +565,8 @@ pub fn summary_json(
                 stopped: s.primaries_stopped,
                 backscattered: s.backscattered,
                 transmitted: s.transmitted,
-                stopped_depth_mean_nm: stopped.then(|| s.mean_depth() / NM),
-                stopped_depth_std_nm: stopped.then(|| s.depth_std() / NM),
+                stopped_depth_mean_nm: stopped.then(|| depth_mean / NM),
+                stopped_depth_std_nm: stopped.then(|| depth_std / NM),
             },
             recoils: Recoils {
                 displaced: s.recoils,
@@ -269,10 +579,17 @@ pub fn summary_json(
                 sputtered_per_ion: s.sputtered as f64 / n,
             },
             energy_budget_ev_per_ion: budget_per_ion(&s.budget, n, s.max_relative_residual),
+            range: range_out(report),
+            damage: damage_out(report),
+            sputtering: sputtering_out(report),
+            escapes: escapes_out(report),
         },
         files: Files {
             depth_profile: DEPTH_FILE,
             ions: t.per_ion.then_some(IONS_FILE),
+            lateral_profile: LATERAL_FILE,
+            damage_profile: DAMAGE_FILE,
+            escape_spectra: ESCAPES_FILE,
         },
         run,
     };
@@ -322,6 +639,124 @@ pub fn ions_csv(t: &CliTally) -> String {
             f.layer
         )
         .unwrap();
+    }
+    out
+}
+
+/// Per-ion, per-nm density of a histogram bin.
+fn density(count: u64, histories: u64, width_nm: f64) -> f64 {
+    count as f64 / (histories.max(1) as f64 * width_nm)
+}
+
+/// `lateral_profile.csv`: stopped primaries by lateral position `y`, `z` and
+/// radial distance (long format). Rows of each quantity are in bin order,
+/// followed by its `underflow` and `overflow` rows (edges `-inf`/`inf`).
+pub fn lateral_csv(r: &IonReport) -> String {
+    let g = &r.range;
+    let mut out = String::from("quantity,lo_nm,hi_nm,count,per_ion_per_nm\n");
+    for (name, h) in [
+        ("y", &g.lateral_y_histogram),
+        ("z", &g.lateral_z_histogram),
+        ("radial", &g.radial_histogram),
+    ] {
+        hist_rows(&mut out, &format!("{name},"), h, r.histories, NM, 1.0);
+    }
+    out
+}
+
+/// Append one row per bin of `h` (edges divided by `unit`) then underflow and
+/// overflow rows. `prefix` starts every row.
+fn hist_rows(out: &mut String, prefix: &str, h: &Histogram, histories: u64, unit: f64, scale: f64) {
+    let b = &h.binning;
+    let w = b.width() / unit * scale;
+    for (i, &c) in h.counts.iter().enumerate() {
+        let (lo, hi) = (b.edge(i) / unit * scale, b.edge(i + 1) / unit * scale);
+        writeln!(
+            out,
+            "{prefix}{lo:?},{hi:?},{c},{:?}",
+            density(c, histories, w)
+        )
+        .unwrap();
+    }
+    writeln!(
+        out,
+        "{prefix}-inf,{:?},{},",
+        b.lo / unit * scale,
+        h.underflow
+    )
+    .unwrap();
+    writeln!(out, "{prefix}{:?},inf,{},", b.hi / unit * scale, h.overflow).unwrap();
+}
+
+/// `damage_profile.csv`: simulated cascade defects by depth. `vacancies` is
+/// displacements minus replacements. Densities are per incident ion per nm.
+/// The last row is everything deeper than the grid.
+pub fn damage_csv(r: &IonReport) -> String {
+    let d = &r.damage;
+    let n = r.histories;
+    let b = &d.vacancy_histogram.binning;
+    let w = b.width() / NM;
+    let mut out = String::from(
+        "depth_lo_nm,depth_hi_nm,vacancies,interstitials,replacements,\
+         vacancies_per_ion_per_nm,interstitials_per_ion_per_nm,replacements_per_ion_per_nm\n",
+    );
+    for i in 0..b.bins {
+        let (v, it, rp) = (
+            d.vacancy_histogram.counts[i],
+            d.interstitial_histogram.counts[i],
+            d.replacement_histogram.counts[i],
+        );
+        writeln!(
+            out,
+            "{:?},{:?},{v},{it},{rp},{:?},{:?},{:?}",
+            b.edge(i) / NM,
+            b.edge(i + 1) / NM,
+            density(v, n, w),
+            density(it, n, w),
+            density(rp, n, w)
+        )
+        .unwrap();
+    }
+    writeln!(
+        out,
+        "{:?},inf,{},{},{},,,",
+        b.hi / NM,
+        d.vacancy_histogram.overflow,
+        d.interstitial_histogram.overflow,
+        d.replacement_histogram.overflow
+    )
+    .unwrap();
+    out
+}
+
+/// `escape_spectra.csv`: energy and polar-angle spectra of every species
+/// leaving each face (long format, in species, face, spectrum order). Energy
+/// bins are in eV and angle bins in degrees from the outward surface normal;
+/// `per_ion_per_unit` is per incident ion per eV or per degree. Each spectrum
+/// is followed by its `underflow` and `overflow` rows.
+pub fn escapes_csv(r: &IonReport) -> String {
+    let mut out =
+        String::from("species_z,symbol,beam,face,spectrum,lo,hi,count,per_ion_per_unit\n");
+    for s in &r.escapes.species {
+        for (face, f) in [("front", &s.front), ("back", &s.back)] {
+            let prefix = |spec: &str| format!("{},{},{},{face},{spec},", s.z, symbol(s.z), s.beam);
+            hist_rows(
+                &mut out,
+                &prefix("energy_ev"),
+                &f.energy_histogram,
+                r.histories,
+                1.0,
+                1.0,
+            );
+            hist_rows(
+                &mut out,
+                &prefix("polar_deg"),
+                &f.polar_histogram,
+                r.histories,
+                1.0,
+                180.0 / std::f64::consts::PI,
+            );
+        }
     }
     out
 }
