@@ -33,11 +33,14 @@
 //! engine's types ([`Resolved`]); [`Resolved::models`] lists every model in
 //! use with its citation, for the output metadata.
 
+use std::borrow::Cow;
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
+use std::path::{Path, PathBuf};
 
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
+use sha2::{Digest, Sha256};
 
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
@@ -46,6 +49,7 @@ use crate::ion::potential::{Screening, ScreeningLength};
 use crate::ion::scattering::TableSpec;
 use crate::ion::stopping::bethe::BetheBloch;
 use crate::ion::stopping::lindhard_scharff::LindhardScharff;
+use crate::ion::stopping::table::{StoppingTable, TableOverride};
 use crate::ion::stopping::{ElectronicStopping, Ion};
 use crate::material::{EnergyKind, Material, MaterialSpec};
 
@@ -88,6 +92,9 @@ pub struct Input {
     pub target: TargetSpec,
     /// Physics model choices and cutoffs.
     pub physics: PhysicsSpec,
+    /// User-supplied electronic stopping tables (optional).
+    #[serde(default, skip_serializing_if = "StoppingSpec::is_empty")]
+    pub stopping: StoppingSpec,
     /// Run size, seed and threads.
     pub run: RunSpec,
     /// What the run records.
@@ -225,6 +232,49 @@ impl LengthChoice {
             Self::Lindhard => ScreeningLength::Lindhard,
         }
     }
+}
+
+/// `[stopping]`: user-supplied electronic stopping tables.
+///
+/// ```toml
+/// [stopping]
+/// tables = ["tables/b_in_si.toml"]
+/// ```
+///
+/// Each entry is a file in the [`StoppingTable`] format (one ion and target
+/// element, `eV 1e-15 cm^2` per atom, mandatory `provenance`). Relative paths
+/// resolve against the directory of the input file. A table replaces the
+/// `[physics] stopping` model for the (ion, target element) pair it declares;
+/// every other pair uses the `[physics] stopping` model. Queries outside a
+/// table's energy range are errors, never extrapolated.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct StoppingSpec {
+    /// Paths of table files, one per (ion, target element) pair.
+    #[serde(default)]
+    pub tables: Vec<String>,
+}
+
+impl StoppingSpec {
+    /// No tables declared.
+    pub fn is_empty(&self) -> bool {
+        self.tables.is_empty()
+    }
+}
+
+/// A user stopping table after loading, with what a run record needs to
+/// identify the exact file.
+#[derive(Debug, Clone)]
+pub struct LoadedStoppingTable {
+    /// The path as written in the input (`stopping.tables[i]`).
+    pub path: String,
+    /// The path the file was read from (the input directory joined with
+    /// `path`, made absolute when possible).
+    pub resolved_path: PathBuf,
+    /// SHA-256 of the file's bytes, lowercase hex.
+    pub sha256: String,
+    /// The validated table.
+    pub table: StoppingTable,
 }
 
 /// Electronic stopping choice.
@@ -407,8 +457,8 @@ pub struct ModelInfo {
     pub role: &'static str,
     /// Stable model name.
     pub name: &'static str,
-    /// Published source.
-    pub citation: &'static str,
+    /// Published source (for a user table: its path and provenance).
+    pub citation: Cow<'static, str>,
 }
 
 /// One target layer after resolution.
@@ -440,6 +490,8 @@ pub struct Resolved {
     pub screening_length: ScreeningLength,
     /// Scattering-table grid.
     pub table_spec: TableSpec,
+    /// User stopping tables, in input order (empty without `[stopping]`).
+    pub stopping_tables: Vec<LoadedStoppingTable>,
     /// Non-fatal advice (e.g. beam energy outside a model's validity range).
     pub warnings: Vec<String>,
 }
@@ -481,6 +533,197 @@ impl Input {
             ));
         }
         e
+    }
+
+    /// Read and validate every `[stopping]` table file.
+    fn load_stopping_tables(
+        &self,
+        base_dir: &Path,
+    ) -> Result<Vec<LoadedStoppingTable>, InputError> {
+        let mut loaded: Vec<LoadedStoppingTable> = Vec::new();
+        for (i, path) in self.stopping.tables.iter().enumerate() {
+            let field = format!("stopping.tables[{i}]");
+            let joined = base_dir.join(path);
+            let bytes = std::fs::read(&joined)
+                .map_err(|e| invalid(&field, format!("cannot read {}: {e}", joined.display())))?;
+            let text = std::str::from_utf8(&bytes).map_err(|_| {
+                invalid(
+                    &field,
+                    format!("{} is not valid UTF-8 text", joined.display()),
+                )
+            })?;
+            let table = StoppingTable::from_toml_str(text)
+                .map_err(|e| invalid(&field, format!("{path}: {e}")))?;
+            if let Some(prev) = loaded
+                .iter()
+                .position(|l| l.table.covers_pair(table.ion_z(), table.target_z()))
+            {
+                return Err(invalid(
+                    &field,
+                    format!(
+                        "{path} declares the same ion/target pair (Z1={}, Z2={}) as \
+                         stopping.tables[{prev}]; give each pair one table",
+                        table.ion_z(),
+                        table.target_z()
+                    ),
+                ));
+            }
+            let sha256 = Sha256::digest(&bytes)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            loaded.push(LoadedStoppingTable {
+                path: path.clone(),
+                resolved_path: std::fs::canonicalize(&joined).unwrap_or(joined),
+                sha256,
+                table,
+            });
+        }
+        Ok(loaded)
+    }
+
+    /// Checks of the loaded tables against the rest of the run.
+    fn check_stopping_tables(
+        &self,
+        tables: &[LoadedStoppingTable],
+        ion: &Ion,
+        layers: &[ResolvedLayer],
+        warnings: &mut Vec<String>,
+    ) -> Result<(), InputError> {
+        if tables.is_empty() {
+            return Ok(());
+        }
+        if self.physics.stopping == StoppingChoice::EquipartitionLsOr {
+            return Err(invalid(
+                "stopping.tables",
+                "not usable with physics.stopping = \"equipartition-ls-or\", which carries \
+                 its own Lindhard-Scharff/Oen-Robinson loss and would ignore the tables; \
+                 use \"lindhard-scharff\" (or another model) as the fallback",
+            ));
+        }
+        let e0 = self.beam.energy_ev;
+        let cutoff = self.physics.primary_cutoff_ev;
+        let recoil_cutoff = self.physics.recoil_cutoff_ev;
+        let follow = self.physics.follow_recoils;
+        let tol = crate::ion::stopping::table::MASS_RELATIVE_TOLERANCE;
+        let target_elements: std::collections::BTreeSet<u8> = layers
+            .iter()
+            .flat_map(|ly| ly.material.components().iter().map(|c| c.z()))
+            .collect();
+        let symbol = |z: u8| crate::elements::element(z).map_or("?", |e| e.symbol);
+        for (i, l) in tables.iter().enumerate() {
+            let field = format!("stopping.tables[{i}]");
+            let t = &l.table;
+            let in_target = target_elements.contains(&t.target_z());
+            // A table serves the beam ion of its element and, when recoils
+            // are followed, every recoil of its element (`TableOverride`
+            // keys on Z1, Z2 only).
+            let serves_beam = t.ion_z() == ion.z();
+            let serves_recoils = follow && target_elements.contains(&t.ion_z());
+            if !in_target || !(serves_beam || serves_recoils) {
+                let recoils = if follow {
+                    ""
+                } else {
+                    " and physics.follow_recoils = false"
+                };
+                warnings.push(format!(
+                    "{field}: the table ({}->{}, Z1={}, Z2={}) is for a pair that does not \
+                     occur in this run (beam {}, target elements {}{recoils}); it is unused",
+                    symbol(t.ion_z()),
+                    symbol(t.target_z()),
+                    t.ion_z(),
+                    t.target_z(),
+                    self.beam.ion,
+                    target_elements
+                        .iter()
+                        .map(|&z| symbol(z))
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                ));
+                continue;
+            }
+            let (lo, hi) = t.energy_range_ev();
+            if serves_recoils {
+                // Recoils are built with the standard atomic weight
+                // (`Ion::new`), so a table for another mass can never serve
+                // them, and the run would stop at the first such recoil.
+                let recoil = Ion::new(t.ion_z()).map_err(|e| invalid(&field, e.to_string()))?;
+                if (recoil.mass_amu() - t.ion_mass_amu()).abs() > tol * t.ion_mass_amu() {
+                    return Err(invalid(
+                        &field,
+                        format!(
+                            "{}: table is for an ion of mass {} u, but with \
+                             physics.follow_recoils = true it also serves the {} recoils, \
+                             which have the standard atomic weight {} u; a table serves one \
+                             mass per pair (use the standard weight in the table and the beam, \
+                             drop the table, or set physics.follow_recoils = false)",
+                            l.path,
+                            t.ion_mass_amu(),
+                            symbol(t.ion_z()),
+                            recoil.mass_amu()
+                        ),
+                    ));
+                }
+                // Every recoil is followed down to recoil_cutoff_ev.
+                if recoil_cutoff < lo {
+                    return Err(invalid(
+                        &field,
+                        format!(
+                            "{}: the table starts at {lo} eV, above physics.recoil_cutoff_ev = \
+                             {recoil_cutoff} eV; with physics.follow_recoils = true it serves \
+                             the {} recoils, which slow down to the recoil cutoff, so the run \
+                             would stop outside the table range (extend the table down to the \
+                             cutoff or raise physics.recoil_cutoff_ev)",
+                            l.path,
+                            symbol(t.ion_z()),
+                        ),
+                    ));
+                }
+                // The most a beam collision can hand a recoil of this element.
+                let (m1, m2) = (ion.mass_amu(), recoil.mass_amu());
+                let e_max = 4.0 * m1 * m2 / ((m1 + m2) * (m1 + m2)) * e0;
+                if hi < e_max {
+                    warnings.push(format!(
+                        "{field}: the table ends at {hi} eV, below the largest energy a \
+                         {} recoil can receive from the beam ({e_max:.4e} eV); the run fails \
+                         if a recoil starts above the table range",
+                        symbol(t.ion_z())
+                    ));
+                }
+            }
+            if !serves_beam {
+                continue;
+            }
+            // The beam ion's pair: mass and the energy range it travels.
+            if (ion.mass_amu() - t.ion_mass_amu()).abs() > tol * t.ion_mass_amu() {
+                return Err(invalid(
+                    &field,
+                    format!(
+                        "{}: table is for an ion of mass {} u but the beam ion has mass {} u \
+                         (set `ion_mass_amu` in the table, or beam.mass_amu)",
+                        l.path,
+                        t.ion_mass_amu(),
+                        ion.mass_amu()
+                    ),
+                ));
+            }
+            if e0 < lo || e0 > hi {
+                return Err(invalid(
+                    &field,
+                    format!(
+                        "{}: beam energy {e0} eV is outside the table range [{lo}, {hi}] eV",
+                        l.path
+                    ),
+                ));
+            }
+            if cutoff < lo {
+                warnings.push(format!(
+                    "{field}: the table starts at {lo} eV, above physics.primary_cutoff_ev = \
+                     {cutoff} eV; the run fails if a projectile slows below the table range"
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn material(&self, field: &str, r: &MaterialRef) -> Result<ResolvedLayer, InputError> {
@@ -531,6 +774,12 @@ impl Input {
     /// Validate everything and build the engine's inputs. Errors name the
     /// offending key.
     pub fn resolve(&self) -> Result<Resolved, InputError> {
+        self.resolve_in(Path::new("."))
+    }
+
+    /// Like [`Input::resolve`], with relative `[stopping]` table paths taken
+    /// relative to `base_dir` (the directory of the input file).
+    pub fn resolve_in(&self, base_dir: &Path) -> Result<Resolved, InputError> {
         let mut warnings = Vec::new();
 
         // Beam.
@@ -783,18 +1032,31 @@ impl Input {
         let screening_length = p
             .screening_length
             .map_or(screening.default_length(), LengthChoice::length);
-        let validity = stopping_model(p.stopping).validity(&ion);
-        if !validity.contains(b.energy_ev) {
+        let stopping_tables = self.load_stopping_tables(base_dir)?;
+        let fallback = stopping_model(p.stopping);
+        let validity = fallback.validity(&ion);
+        // The advisory range of the fallback model only matters for the pairs
+        // it actually serves; a beam pair with a table has its range checked
+        // as an error above.
+        let beam_pair_uncovered = layers.iter().any(|l| {
+            l.material.components().iter().any(|c| {
+                !stopping_tables
+                    .iter()
+                    .any(|t| t.table.covers_pair(ion.z(), c.z()))
+            })
+        });
+        if beam_pair_uncovered && !validity.contains(b.energy_ev) {
             warnings.push(format!(
                 "beam energy {} eV is outside the advisory validity range of the {} \
                  stopping model for {} ([{}, {}] eV)",
                 b.energy_ev,
-                stopping_model(p.stopping).name(),
+                fallback.name(),
                 b.ion,
                 validity.min_energy_ev,
                 validity.max_energy_ev
             ));
         }
+        self.check_stopping_tables(&stopping_tables, &ion, &layers, &mut warnings)?;
 
         Ok(Resolved {
             input: self.echo(),
@@ -805,6 +1067,7 @@ impl Input {
             screening,
             screening_length,
             table_spec: TABLE_SPEC,
+            stopping_tables,
             warnings,
         })
     }
@@ -824,127 +1087,180 @@ pub fn stopping_model(choice: StoppingChoice) -> Box<dyn ElectronicStopping + Se
 }
 
 impl Resolved {
+    /// The electronic stopping model of the run: the `[physics] stopping`
+    /// choice, with any `[stopping]` tables layered over it for the pairs
+    /// they declare. This is what to pass to the engine.
+    pub fn stopping_model(&self) -> Box<dyn ElectronicStopping + Send + Sync> {
+        let base = stopping_model(self.input.physics.stopping);
+        if self.stopping_tables.is_empty() {
+            base
+        } else {
+            Box::new(TableOverride::new(
+                self.stopping_tables
+                    .iter()
+                    .map(|l| l.table.clone())
+                    .collect(),
+                base,
+            ))
+        }
+    }
+
     /// Every model in use, with its published source, in a fixed order.
     pub fn models(&self) -> Vec<ModelInfo> {
         let mut v = vec![ModelInfo {
             role: "transport",
             name: "amorphous-bca",
-            citation: "J. P. Biersack and L. G. Haggmark, Nucl. Instrum. Methods 174 (1980) 257; \
+            citation: Cow::Borrowed(
+                "J. P. Biersack and L. G. Haggmark, Nucl. Instrum. Methods 174 (1980) 257; \
                        M. T. Robinson and I. M. Torrens, Phys. Rev. B 9 (1974) 5008; \
                        W. Eckstein, Computer Simulation of Ion-Solid Interactions (Springer, 1991)",
+            ),
         }];
         v.push(match self.screening {
             Screening::ZblUniversal => ModelInfo {
                 role: "screening function",
                 name: "zbl-universal",
-                citation: "J. F. Ziegler, J. P. Biersack, U. Littmark, The Stopping and Range \
+                citation: Cow::Borrowed(
+                    "J. F. Ziegler, J. P. Biersack, U. Littmark, The Stopping and Range \
                            of Ions in Solids (Pergamon, 1985), ch. 2",
+                ),
             },
             Screening::KrC => ModelInfo {
                 role: "screening function",
                 name: "kr-c",
-                citation:
+                citation: Cow::Borrowed(
                     "W. D. Wilson, L. G. Haggmark, J. P. Biersack, Phys. Rev. B 15 (1977) 2458",
+                ),
             },
             Screening::Moliere => ModelInfo {
                 role: "screening function",
                 name: "moliere",
-                citation: "G. Moliere, Z. Naturforsch. A 2 (1947) 133",
+                citation: Cow::Borrowed("G. Moliere, Z. Naturforsch. A 2 (1947) 133"),
             },
             Screening::LenzJensen => ModelInfo {
                 role: "screening function",
                 name: "lenz-jensen",
-                citation: "W. Lenz, Z. Phys. 77 (1932) 713; H. Jensen, Z. Phys. 77 (1932) 722",
+                citation: Cow::Borrowed(
+                    "W. Lenz, Z. Phys. 77 (1932) 713; H. Jensen, Z. Phys. 77 (1932) 722",
+                ),
             },
         });
         v.push(match self.screening_length {
             ScreeningLength::Universal => ModelInfo {
                 role: "screening length",
                 name: "universal",
-                citation: "J. F. Ziegler, J. P. Biersack, U. Littmark, The Stopping and Range \
+                citation: Cow::Borrowed(
+                    "J. F. Ziegler, J. P. Biersack, U. Littmark, The Stopping and Range \
                            of Ions in Solids (Pergamon, 1985), ch. 2",
+                ),
             },
             ScreeningLength::Firsov => ModelInfo {
                 role: "screening length",
                 name: "firsov",
-                citation: "O. B. Firsov, Sov. Phys. JETP 6 (1958) 534",
+                citation: Cow::Borrowed("O. B. Firsov, Sov. Phys. JETP 6 (1958) 534"),
             },
             ScreeningLength::Lindhard => ModelInfo {
                 role: "screening length",
                 name: "lindhard",
-                citation: "J. Lindhard, M. Scharff, H. E. Schiott, Mat. Fys. Medd. Dan. Vid. \
+                citation: Cow::Borrowed(
+                    "J. Lindhard, M. Scharff, H. E. Schiott, Mat. Fys. Medd. Dan. Vid. \
                            Selsk. 33 (14) (1963)",
+                ),
             },
         });
         v.push(ModelInfo {
             role: "scattering angle",
             name: "gauss-mehler-quadrature-table",
-            citation: "scattering integral by Gauss-Mehler quadrature, tabulated in \
+            citation: Cow::Borrowed(
+                "scattering integral by Gauss-Mehler quadrature, tabulated in \
                        (reduced energy, reduced impact parameter); see lindhard::ion::scattering",
+            ),
         });
         v.extend(match self.input.physics.stopping {
             StoppingChoice::LindhardScharff => vec![ModelInfo {
                 role: "electronic stopping",
                 name: "lindhard-scharff",
-                citation: "J. Lindhard and M. Scharff, Phys. Rev. 124 (1961) 128",
+                citation: Cow::Borrowed("J. Lindhard and M. Scharff, Phys. Rev. 124 (1961) 128"),
             }],
             StoppingChoice::BetheBloch => vec![ModelInfo {
                 role: "electronic stopping",
                 name: "bethe-bloch",
-                citation:
+                citation: Cow::Borrowed(
                     "H. Bethe, Ann. Phys. 5 (1930) 325; F. Bloch, Ann. Phys. 408 (1933) 285; \
                            mean excitation energy by the Bloch rule I = 10 eV Z2",
+                ),
             }],
             StoppingChoice::EquipartitionLsOr => vec![
                 ModelInfo {
                     role: "electronic stopping",
                     name: "lindhard-scharff",
-                    citation: "J. Lindhard and M. Scharff, Phys. Rev. 124 (1961) 128",
+                    citation: Cow::Borrowed(
+                        "J. Lindhard and M. Scharff, Phys. Rev. 124 (1961) 128",
+                    ),
                 },
                 ModelInfo {
                     role: "electronic loss partition",
                     name: "equipartition-ls-or",
-                    citation: "half nonlocal Lindhard-Scharff, half local Oen-Robinson: \
+                    citation: Cow::Borrowed(
+                        "half nonlocal Lindhard-Scharff, half local Oen-Robinson: \
                                O. S. Oen and M. T. Robinson, Nucl. Instrum. Methods 132 (1976) 647",
+                    ),
                 },
             ],
         });
+        for l in &self.stopping_tables {
+            v.push(ModelInfo {
+                role: "electronic stopping (user table)",
+                name: "user-table",
+                citation: Cow::Owned(format!("{}: {}", l.path, l.table.provenance())),
+            });
+        }
         v.push(ModelInfo {
             role: "compound stopping",
             name: "bragg-additivity",
-            citation:
+            citation: Cow::Borrowed(
                 "W. H. Bragg and R. Kleeman, Phil. Mag. 10 (1905) 318; no compound correction",
+            ),
         });
         v.push(match self.config.mean_free_path {
             MeanFreePath::Constant => ModelInfo {
                 role: "free path",
                 name: "constant",
-                citation:
+                citation: Cow::Borrowed(
                     "J. P. Biersack and L. G. Haggmark, Nucl. Instrum. Methods 174 (1980) 257",
+                ),
             },
             MeanFreePath::EnergyDependent { .. } => ModelInfo {
                 role: "free path",
                 name: "energy-dependent",
-                citation: "W. Eckstein, Computer Simulation of Ion-Solid Interactions \
+                citation: Cow::Borrowed(
+                    "W. Eckstein, Computer Simulation of Ion-Solid Interactions \
                            (Springer, 1991)",
+                ),
             },
         });
         v.push(ModelInfo {
             role: "displacement criterion",
             name: "e_d-e_b",
-            citation: "J. P. Biersack and L. G. Haggmark, Nucl. Instrum. Methods 174 (1980) 257; \
+            citation: Cow::Borrowed(
+                "J. P. Biersack and L. G. Haggmark, Nucl. Instrum. Methods 174 (1980) 257; \
                        W. Eckstein (1991)",
+            ),
         });
         v.push(ModelInfo {
             role: "surface barrier",
             name: "planar",
-            citation: "W. Eckstein, Computer Simulation of Ion-Solid Interactions (Springer, 1991)",
+            citation: Cow::Borrowed(
+                "W. Eckstein, Computer Simulation of Ion-Solid Interactions (Springer, 1991)",
+            ),
         });
         v.push(ModelInfo {
             role: "random numbers",
             name: "chacha8-per-history-stream",
-            citation: "D. J. Bernstein, ChaCha, a variant of Salsa20 (2008); \
+            citation: Cow::Borrowed(
+                "D. J. Bernstein, ChaCha, a variant of Salsa20 (2008); \
                        J. K. Salmon et al., Proc. SC'11 (2011)",
+            ),
         });
         v
     }

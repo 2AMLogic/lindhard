@@ -385,3 +385,189 @@ fn dual_pearson_toggle_and_tally_settings_are_honoured() {
         .count();
     assert_eq!(beam_front_energy, 5 + 2);
 }
+
+/// A table for boron in silicon sampled from lindhard's own Lindhard-Scharff
+/// model (no external data), as TOML text.
+fn b_in_si_ls_table() -> String {
+    use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
+    use lindhard::ion::stopping::{to_ev_1e15_cm2, ElectronicStopping, Ion};
+    let (ls, ion) = (LindhardScharff::new(), Ion::new(5).unwrap());
+    let (lo, hi, n) = (1.0f64, 1.0e4f64, 80);
+    let grid: Vec<f64> = (0..=n)
+        .map(|i| lo * (hi / lo).powf(f64::from(i) / f64::from(n)))
+        .collect();
+    let list = |f: &dyn Fn(f64) -> f64| {
+        grid.iter()
+            .map(|&e| format!("{:e}", f(e)))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!(
+        "provenance = \"Lindhard-Scharff model of this repository sampled on a grid (test)\"\n\
+         ion_z = 5\ntarget_z = 14\nenergy_ev = [{}]\nstopping_ev_1e15_cm2 = [{}]\n",
+        list(&|e| e),
+        list(&|e| to_ev_1e15_cm2(ls.stopping(&ion, 14, e).unwrap()))
+    )
+}
+
+#[test]
+fn user_stopping_table_runs_deterministically_and_is_recorded() {
+    let dir = scratch("table-run");
+    std::fs::create_dir_all(dir.join("tables")).unwrap();
+    let table_text = b_in_si_ls_table();
+    std::fs::write(dir.join("tables/b_in_si.toml"), &table_text).unwrap();
+    let input = dir.join("input.toml");
+    // The table path is relative: it resolves against the input file's
+    // directory, not the current directory.
+    std::fs::write(
+        &input,
+        format!("{GOOD}\n[stopping]\ntables = [\"tables/b_in_si.toml\"]\n"),
+    )
+    .unwrap();
+    ok(&lindhard(&["check", input.to_str().unwrap()]));
+
+    let mut outs = Vec::new();
+    for threads in ["1", "4"] {
+        let out = dir.join(format!("out-{threads}"));
+        run(&input, &out, &["--ions", "300", "--threads", threads]);
+        outs.push(out);
+    }
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    let (a, b) = (
+        read(&outs[0], "summary.json"),
+        read(&outs[1], "summary.json"),
+    );
+    assert_eq!(deterministic_part(&a), deterministic_part(&b));
+    for f in ["depth_profile.csv", "ions.csv", "damage_profile.csv"] {
+        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
+    }
+
+    let s = json(&outs[0].join("summary.json"));
+    assert_eq!(
+        s["input"]["stopping"]["tables"][0], "tables/b_in_si.toml",
+        "echoed input carries the table path"
+    );
+    let rec = &s["physics"]["stopping_tables"][0];
+    assert_eq!(rec["path"], "tables/b_in_si.toml");
+    assert!(rec["resolved_path"]
+        .as_str()
+        .unwrap()
+        .ends_with("tables/b_in_si.toml"));
+    assert!(rec["provenance"]
+        .as_str()
+        .unwrap()
+        .contains("Lindhard-Scharff"));
+    let sha = rec["sha256"].as_str().unwrap();
+    assert_eq!(sha.len(), 64);
+    // Recompute independently: `shasum` ships with macOS and most Linux
+    // systems; skip the cross-check where it is missing.
+    if let Ok(o) = Command::new("shasum")
+        .args([
+            "-a",
+            "256",
+            dir.join("tables/b_in_si.toml").to_str().unwrap(),
+        ])
+        .output()
+    {
+        if o.status.success() {
+            assert!(String::from_utf8_lossy(&o.stdout).starts_with(sha));
+        }
+    }
+    let models = s["physics"]["models"].as_array().unwrap();
+    assert!(models.iter().any(|m| m["name"] == "user-table"
+        && m["citation"].as_str().unwrap().contains("Lindhard-Scharff")));
+}
+
+#[test]
+fn ls_equivalent_table_matches_the_builtin_model() {
+    let dir = scratch("table-equiv");
+    std::fs::write(dir.join("t.toml"), b_in_si_ls_table()).unwrap();
+    let plain = dir.join("plain.toml");
+    let tabled = dir.join("tabled.toml");
+    std::fs::write(&plain, GOOD).unwrap();
+    std::fs::write(
+        &tabled,
+        format!("{GOOD}\n[stopping]\ntables = [\"t.toml\"]\n"),
+    )
+    .unwrap();
+    let mean = |input: &Path, name: &str| {
+        let out = dir.join(name);
+        run(input, &out, &["--ions", "2000"]);
+        json(&out.join("summary.json"))["results"]["range"]["depth"]["mean_nm"]
+            .as_f64()
+            .unwrap()
+    };
+    let (a, b) = (mean(&plain, "o-plain"), mean(&tabled, "o-tabled"));
+    // Same seed and the same stopping up to interpolation: nearly identical.
+    assert!((a / b - 1.0).abs() < 0.01, "plain {a} nm, table {b} nm");
+}
+
+#[test]
+fn stopping_table_errors_fail_naming_the_field() {
+    let e = fails(
+        "table-missing",
+        &format!("{GOOD}\n[stopping]\ntables = [\"no/such.toml\"]\n"),
+    );
+    assert!(
+        e.contains("stopping.tables[0]") && e.contains("no/such.toml"),
+        "{e}"
+    );
+    let e = fails(
+        "table-unknown-key",
+        &format!("{GOOD}\n[stopping]\ntable = \"x\"\n"),
+    );
+    assert!(e.contains("table"), "{e}");
+}
+
+/// A Si->Si table sampled from our own Lindhard-Scharff model on [lo, 1e4] eV.
+fn si_in_si_ls_table(lo: f64) -> String {
+    use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
+    use lindhard::ion::stopping::{to_ev_1e15_cm2, ElectronicStopping, Ion};
+    let (ls, ion) = (LindhardScharff::new(), Ion::new(14).unwrap());
+    let (hi, n) = (1.0e4f64, 60);
+    let grid: Vec<f64> = (0..=n)
+        .map(|i| lo * (hi / lo).powf(f64::from(i) / f64::from(n)))
+        .collect();
+    let list = |f: &dyn Fn(f64) -> f64| {
+        grid.iter()
+            .map(|&e| format!("{:e}", f(e)))
+            .collect::<Vec<_>>()
+            .join(", ")
+    };
+    format!(
+        "provenance = \"Lindhard-Scharff model of this repository sampled on a grid (test)\"\n\
+         ion_z = 14\ntarget_z = 14\nenergy_ev = [{}]\nstopping_ev_1e15_cm2 = [{}]\n",
+        list(&|e| e),
+        list(&|e| to_ev_1e15_cm2(ls.stopping(&ion, 14, e).unwrap()))
+    )
+}
+
+#[test]
+fn recoil_species_tables_are_checked_before_the_run() {
+    let dir = scratch("table-recoil");
+    let input = dir.join("input.toml");
+    std::fs::write(
+        &input,
+        format!("{GOOD}\n[stopping]\ntables = [\"si.toml\"]\n"),
+    )
+    .unwrap();
+
+    // Starts above recoil_cutoff_ev: `check` now fails, naming the field.
+    std::fs::write(dir.join("si.toml"), si_in_si_ls_table(100.0)).unwrap();
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        e.contains("stopping.tables[0]") && e.contains("recoil_cutoff_ev"),
+        "{e}"
+    );
+
+    // Down to the cutoff: `check` lists the table by path, and a run in
+    // which the table serves every Si recoil completes.
+    std::fs::write(dir.join("si.toml"), si_in_si_ls_table(2.0)).unwrap();
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    ok(&o);
+    let s = String::from_utf8_lossy(&o.stdout);
+    assert!(s.contains("user-table (si.toml: Lindhard-Scharff"), "{s}");
+    run(&input, &dir.join("out"), &["--ions", "50"]);
+}
