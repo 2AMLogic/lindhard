@@ -80,6 +80,18 @@ pub enum StoppingError {
         /// Requested target Z.
         target: u8,
     },
+    /// Projectile mass was not finite and positive.
+    #[error("projectile mass must be finite and positive, got {0} u")]
+    InvalidMass(f64),
+    /// A user table was queried for a projectile mass different from the one
+    /// it was declared for (a different isotope).
+    #[error("table is for an ion of mass {table_mass_amu} u; asked for {mass_amu} u")]
+    TableMassMismatch {
+        /// Mass the table was declared for, u.
+        table_mass_amu: f64,
+        /// Requested projectile mass, u.
+        mass_amu: f64,
+    },
     /// A material error while summing a compound.
     #[error(transparent)]
     Material(#[from] crate::material::MaterialError),
@@ -87,11 +99,12 @@ pub enum StoppingError {
 
 /// A projectile: atomic number and mass.
 #[derive(Debug, Clone, Copy, PartialEq)]
+///
+/// Fields are private so that every `Ion` satisfies its invariants: a known
+/// element and a finite, positive mass.
 pub struct Ion {
-    /// Atomic number `Z1`.
-    pub z: u8,
-    /// Mass in unified atomic mass units.
-    pub mass_amu: f64,
+    z: u8,
+    mass_amu: f64,
 }
 
 impl Ion {
@@ -105,9 +118,22 @@ impl Ion {
     }
 
     /// An ion with an explicit (isotopic) mass in amu.
+    ///
+    /// The mass must be finite and positive.
     pub fn with_mass(z: u8, mass_amu: f64) -> Result<Self, StoppingError> {
         element(z).ok_or(StoppingError::UnknownElement(z))?;
+        check_mass(mass_amu)?;
         Ok(Self { z, mass_amu })
+    }
+
+    /// Atomic number `Z1`.
+    pub fn z(&self) -> u8 {
+        self.z
+    }
+
+    /// Mass in unified atomic mass units.
+    pub fn mass_amu(&self) -> f64 {
+        self.mass_amu
     }
 
     /// A proton (CODATA proton mass).
@@ -172,6 +198,14 @@ pub fn speed_nonrel(ion: &Ion, energy_ev: f64) -> f64 {
     (2.0 * energy_ev * J_PER_EV / ion.mass_kg()).sqrt()
 }
 
+pub(crate) fn check_mass(mass_amu: f64) -> Result<(), StoppingError> {
+    if mass_amu.is_finite() && mass_amu > 0.0 {
+        Ok(())
+    } else {
+        Err(StoppingError::InvalidMass(mass_amu))
+    }
+}
+
 pub(crate) fn check_energy(energy_ev: f64) -> Result<(), StoppingError> {
     if energy_ev.is_finite() && energy_ev > 0.0 {
         Ok(())
@@ -195,6 +229,17 @@ pub(crate) fn velocity_scale_energy_per_amu_ev(z1: u8, n_v0: f64) -> f64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn with_mass_rejects_invalid_mass() {
+        for m in [0.0, -1.0, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(
+                matches!(Ion::with_mass(1, m), Err(StoppingError::InvalidMass(_))),
+                "mass {m}"
+            );
+        }
+        assert!(Ion::with_mass(1, 2.014).is_ok());
+    }
 
     #[test]
     fn unit_round_trip() {

@@ -37,23 +37,23 @@ pub fn screening_length(z1: u8, z2: u8) -> f64 {
 
 /// Reduced energy `ε` for ion energy `energy_ev` on a target of mass `m2_amu`.
 pub fn reduced_energy(ion: &Ion, z2: u8, m2_amu: f64, energy_ev: f64) -> f64 {
-    let a = screening_length(ion.z, z2);
+    let a = screening_length(ion.z(), z2);
     energy_ev * J_PER_EV * a * m2_amu
-        / (f64::from(ion.z) * f64::from(z2) * COULOMB_E2 * (ion.mass_amu + m2_amu))
+        / (f64::from(ion.z()) * f64::from(z2) * COULOMB_E2 * (ion.mass_amu() + m2_amu))
 }
 
 /// Factor converting reduced stopping `dε/dρ` to a cross section in J m².
 pub fn reduced_to_si_factor(ion: &Ion, z2: u8, m2_amu: f64) -> f64 {
-    let a = screening_length(ion.z, z2);
-    4.0 * PI * a * f64::from(ion.z) * f64::from(z2) * COULOMB_E2 * ion.mass_amu
-        / (ion.mass_amu + m2_amu)
+    let a = screening_length(ion.z(), z2);
+    4.0 * PI * a * f64::from(ion.z()) * f64::from(z2) * COULOMB_E2 * ion.mass_amu()
+        / (ion.mass_amu() + m2_amu)
 }
 
 /// The Lindhard-Scharff coefficient `k_L` including `ξ_e = Z1^(1/6)` (see
 /// module docs).
 pub fn k_l(ion: &Ion, z2: u8, m2_amu: f64) -> f64 {
-    let (z1, z2f) = (f64::from(ion.z), f64::from(z2));
-    let (a1, a2) = (ion.mass_amu, m2_amu);
+    let (z1, z2f) = (f64::from(ion.z()), f64::from(z2));
+    let (a1, a2) = (ion.mass_amu(), m2_amu);
     0.0793 * z1.powf(1.0 / 6.0) * z1.sqrt() * z2f.sqrt() * (a1 + a2).powf(1.5)
         / ((z1.powf(2.0 / 3.0) + z2f.powf(2.0 / 3.0)).powf(0.75) * a1.powf(1.5) * a2.sqrt())
 }
@@ -108,7 +108,7 @@ impl ElectronicStopping for LindhardScharff {
         // v < v0 Z1^(2/3): E/A below about 25 keV Z1^(4/3).
         ValidityRange {
             min_energy_ev: 0.0,
-            max_energy_ev: ion.mass_amu * super::velocity_scale_energy_per_amu_ev(ion.z, 1.0),
+            max_energy_ev: ion.mass_amu() * super::velocity_scale_energy_per_amu_ev(ion.z(), 1.0),
         }
     }
 }

@@ -48,7 +48,7 @@ pub fn variance_per_atom(
     let mc2 = ion.mass_kg() * crate::constants::SPEED_OF_LIGHT.powi(2);
     let gamma = 1.0 + energy_ev * crate::units::J_PER_EV / mc2;
     let beta2 = 1.0 - 1.0 / (gamma * gamma);
-    let z = charge.charge(ion.z, beta2.sqrt());
+    let z = charge.charge(ion.z(), beta2.sqrt());
     let base = 4.0 * PI * z * z * f64::from(target_z) * COULOMB_E2 * COULOMB_E2;
     Ok(match model {
         StragglingModel::Bohr => base,

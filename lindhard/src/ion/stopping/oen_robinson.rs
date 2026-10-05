@@ -52,7 +52,7 @@ impl OenRobinson {
         r_min_m: f64,
     ) -> Result<f64, StoppingError> {
         let s = self.ls.stopping(ion, target_z, energy_ev)?;
-        let a = local_length(ion.z, target_z);
+        let a = local_length(ion.z(), target_z);
         let c = OR_EXPONENT_COEFFICIENT;
         Ok(s * c * c / (2.0 * PI * a * a) * (-c * r_min_m / a).exp())
     }

@@ -137,7 +137,7 @@ impl BetheBloch {
         let m = ELECTRON_REST_ENERGY;
         let ratio = m / mc2_ion;
         let wmax = 2.0 * m * beta2 * gamma * gamma / (1.0 + 2.0 * gamma * ratio + ratio * ratio);
-        let z = self.effective_charge.charge(ion.z, beta);
+        let z = self.effective_charge.charge(ion.z(), beta);
         let mut b = 0.5 * (2.0 * m * beta2 * gamma * gamma * wmax / (i_j * i_j)).ln()
             - beta2
             - 0.5 * self.density_delta
@@ -163,7 +163,7 @@ impl ElectronicStopping for BetheBloch {
             });
         }
         let (_, beta2, _) = Self::kinematics(ion, energy_ev);
-        let z = self.effective_charge.charge(ion.z, beta2.sqrt());
+        let z = self.effective_charge.charge(ion.z(), beta2.sqrt());
         Ok(
             4.0 * PI * COULOMB_E2 * COULOMB_E2 * z * z * f64::from(target_z)
                 / (ELECTRON_REST_ENERGY * beta2)
@@ -175,8 +175,8 @@ impl ElectronicStopping for BetheBloch {
         // v >= 3 v0 Z1^(2/3) on the low side; no density effect on the high
         // side, so stop at 1 GeV/u.
         ValidityRange {
-            min_energy_ev: ion.mass_amu * super::velocity_scale_energy_per_amu_ev(ion.z, 3.0),
-            max_energy_ev: ion.mass_amu * 1.0e9,
+            min_energy_ev: ion.mass_amu() * super::velocity_scale_energy_per_amu_ev(ion.z(), 3.0),
+            max_energy_ev: ion.mass_amu() * 1.0e9,
         }
     }
 }

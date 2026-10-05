@@ -76,7 +76,7 @@ impl BiersackVarelas {
         let mc2_ion = ion.mass_kg() * crate::constants::SPEED_OF_LIGHT.powi(2);
         let gamma = 1.0 + energy_ev * crate::units::J_PER_EV / mc2_ion;
         let beta2 = 1.0 - 1.0 / (gamma * gamma);
-        let z = self.high.effective_charge.charge(ion.z, beta2.sqrt());
+        let z = self.high.effective_charge.charge(ion.z(), beta2.sqrt());
         Ok(
             4.0 * PI * COULOMB_E2 * COULOMB_E2 * z * z * f64::from(target_z)
                 / (ELECTRON_REST_ENERGY * beta2)
@@ -99,7 +99,7 @@ impl ElectronicStopping for BiersackVarelas {
     fn validity(&self, ion: &Ion) -> ValidityRange {
         ValidityRange {
             min_energy_ev: 0.0,
-            max_energy_ev: ion.mass_amu * 1.0e9,
+            max_energy_ev: ion.mass_amu() * 1.0e9,
         }
     }
 }

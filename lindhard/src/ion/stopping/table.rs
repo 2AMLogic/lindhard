@@ -14,14 +14,26 @@
 //! Do not load SRIM- or ICRU-derived tables for anything committed to the
 //! repository.
 //!
+//! The table is tied to the projectile mass it was declared for (the standard
+//! atomic weight when `ion_mass_amu` is omitted): a query for an ion whose mass
+//! differs by more than [`MASS_RELATIVE_TOLERANCE`] is an error
+//! ([`StoppingError::TableMassMismatch`]), because the same energy at a
+//! different mass is a different ion speed. No energy-axis conversion is
+//! attempted.
+//!
 //! Interpolation is piecewise linear in `ln S` versus `ln E`, which preserves
 //! the monotonicity of each segment of the data. **Out of range** queries are
 //! an error ([`StoppingError::OutOfTableRange`]); nothing is extrapolated or
 //! clamped silently.
 
-use super::{from_ev_1e15_cm2, ElectronicStopping, Ion, StoppingError, ValidityRange};
+use super::{check_mass, from_ev_1e15_cm2, ElectronicStopping, Ion, StoppingError, ValidityRange};
 use serde::Deserialize;
 use std::path::Path;
+
+/// Relative tolerance when comparing a table's declared projectile mass with
+/// the queried ion's mass. Tight enough to separate neighbouring isotopes,
+/// loose enough to absorb rounding in a quoted mass.
+pub const MASS_RELATIVE_TOLERANCE: f64 = 1.0e-4;
 
 #[derive(Deserialize)]
 struct RawTable {
@@ -38,6 +50,7 @@ struct RawTable {
 pub struct StoppingTable {
     provenance: String,
     ion_z: u8,
+    ion_mass_amu: f64,
     target_z: u8,
     /// ln(E / eV)
     ln_e: Vec<f64>,
@@ -55,8 +68,14 @@ impl StoppingTable {
         if provenance.is_empty() {
             return Err(StoppingError::MissingProvenance);
         }
-        let _ = raw.ion_mass_amu; // identity is by Z; mass is not needed for S_e(E) lookup
-        super::target(raw.ion_z)?;
+        let ion_element = super::target(raw.ion_z)?;
+        let ion_mass_amu = match raw.ion_mass_amu {
+            Some(m) => {
+                check_mass(m)?;
+                m
+            }
+            None => ion_element.atomic_weight,
+        };
         super::target(raw.target_z)?;
         let (e, s) = (raw.energy_ev, raw.stopping_ev_1e15_cm2);
         if e.len() != s.len() || e.len() < 2 {
@@ -79,6 +98,7 @@ impl StoppingTable {
         Ok(Self {
             provenance,
             ion_z: raw.ion_z,
+            ion_mass_amu,
             target_z: raw.target_z,
             ln_e: e.iter().map(|x| x.ln()).collect(),
             ln_s: s.iter().map(|x| from_ev_1e15_cm2(*x).ln()).collect(),
@@ -106,12 +126,19 @@ impl ElectronicStopping for StoppingTable {
 
     fn stopping(&self, ion: &Ion, target_z: u8, energy_ev: f64) -> Result<f64, StoppingError> {
         super::check_energy(energy_ev)?;
-        if ion.z != self.ion_z || target_z != self.target_z {
+        if ion.z() != self.ion_z || target_z != self.target_z {
             return Err(StoppingError::TableMismatch {
                 table_ion: self.ion_z,
                 table_target: self.target_z,
-                ion: ion.z,
+                ion: ion.z(),
                 target: target_z,
+            });
+        }
+        if (ion.mass_amu() - self.ion_mass_amu).abs() > MASS_RELATIVE_TOLERANCE * self.ion_mass_amu
+        {
+            return Err(StoppingError::TableMassMismatch {
+                table_mass_amu: self.ion_mass_amu,
+                mass_amu: ion.mass_amu(),
             });
         }
         let (lo, hi) = (self.energy_ev[0], self.energy_ev[self.energy_ev.len() - 1]);
@@ -195,6 +222,46 @@ stopping_ev_1e15_cm2 = [10.0, 40.0, 90.0]
             t.stopping(&ion, 8, 1.0e4),
             Err(StoppingError::TableMismatch { .. })
         ));
+    }
+
+    #[test]
+    fn declared_mass_must_match_projectile_isotope() {
+        let h1 = GOOD.replace("ion_z = 14", "ion_z = 1\nion_mass_amu = 1.00794");
+        let t = StoppingTable::from_toml_str(&h1).unwrap();
+        // matching isotope (same mass) is accepted
+        let ion = Ion::with_mass(1, 1.00794).unwrap();
+        assert!(t.stopping(&ion, 14, 1.0e4).is_ok());
+        // a deuteron at the same energy is a different ion speed: rejected
+        let d = Ion::with_mass(1, 2.014).unwrap();
+        assert!(matches!(
+            t.stopping(&d, 14, 1.0e4),
+            Err(StoppingError::TableMassMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn omitted_mass_defaults_to_standard_weight() {
+        let t = StoppingTable::from_toml_str(GOOD).unwrap();
+        assert!(t.stopping(&Ion::new(14).unwrap(), 14, 1.0e4).is_ok());
+        let si28 = Ion::with_mass(14, 27.9769).unwrap();
+        assert!(matches!(
+            t.stopping(&si28, 14, 1.0e4),
+            Err(StoppingError::TableMassMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn rejects_invalid_declared_mass() {
+        for m in ["0.0", "-1.0", "nan", "inf"] {
+            let bad = GOOD.replace("ion_z = 14", &format!("ion_z = 14\nion_mass_amu = {m}"));
+            assert!(
+                matches!(
+                    StoppingTable::from_toml_str(&bad),
+                    Err(StoppingError::InvalidMass(_))
+                ),
+                "mass {m}"
+            );
+        }
     }
 
     #[test]
