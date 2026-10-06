@@ -1,0 +1,141 @@
+{
+  "format": "lindhard-oracle-summary/2",
+  "problem": "ar_1keV_cu_ed_es_weak3",
+  "oracle": "OpenTRIM",
+  "oracle_version": "1.2.0 (v1.1.6-84-g6b12392)",
+  "oracle_commit": "6b123925fd039e4928cc94d5e45aa20703fbad3f",
+  "oracle_source": "https://github.com/ir2-lab/OpenTRIM",
+  "oracle_build": "CMake Release, GCC 16.2.0 (Homebrew), OPENTRIM_BUILD_GUI=OFF, CXXFLAGS='-include cmath -D finite(x)=std::isfinite(x)' for macOS portability; no source edits",
+  "oracle_license": "MIT (Tier A); its SRIM-2013 and SRIM-1996 electronic stopping (Tier C data) is never selected; DPASS (Tier C) is not used either",
+  "lindhard_version": "lindhard 0.0.1 (57fb1f7)",
+  "date": "2026-10-05",
+  "host": "Darwin arm64, 28 logical CPUs, load average 107.6 at start",
+  "ions": {
+    "lindhard": 20000,
+    "oracle": 20000
+  },
+  "threads": {
+    "lindhard": 28,
+    "oracle": 28
+  },
+  "lindhard": {
+    "sputter_yield": 0.65985,
+    "backscatter": 0.0777,
+    "ions_per_s": 66444.7,
+    "std_err": {
+      "sputter_yield": 0.00574391,
+      "backscatter": 0.00189292
+    },
+    "ions_per_s_marginal": 201401.0,
+    "ions_per_s_transport_only": 173940.0
+  },
+  "oracle_values": {
+    "sputter_yield": null,
+    "backscatter": 0.06025,
+    "ions_per_s": 65681.7,
+    "ions_per_s_marginal": 297306.0,
+    "std_err": {
+      "sputter_yield": null,
+      "backscatter": 0.00168256
+    }
+  },
+  "comparison": {
+    "backscatter_abs_diff": 0.01745,
+    "backscatter_abs_diff_se": 0.00253261,
+    "backscatter_z": 6.89012,
+    "ions_per_s_ratio": 1.01162,
+    "ions_per_s_marginal_ratio": 0.67742
+  },
+  "timing": {
+    "ions_per_s": "end-to-end process wall clock at the run's ion count (setup, table builds and output writing included)",
+    "ions_per_s_marginal": "(N2 - N1) / (t2 - t1) between runs of N1 = 20000 and N2 = 100000 ions: throughput with fixed setup costs removed",
+    "threads": "every code runs on all logical CPUs of the host"
+  },
+  "lindhard_settings": {
+    "potential": "zbl",
+    "stopping": "lindhard-scharff",
+    "free_path": "constant",
+    "weak_collisions": 3,
+    "electronic_loss": "nonlocal",
+    "primary_cutoff_ev": 2.0,
+    "recoil_cutoff_ev": 1.0,
+    "follow_recoils": true,
+    "primary_surface_binding_ev": 0.0,
+    "density_g_cm3": 8.96,
+    "atom_density_per_nm3": 84.9123,
+    "elements": [
+      {
+        "symbol": "Cu",
+        "atom_fraction": 1.0,
+        "e_d_ev": 3.49,
+        "e_b_ev": 0.0,
+        "e_s_ev": 3.49
+      }
+    ]
+  },
+  "oracle_settings": {
+    "Simulation": {
+      "simulation_type": "FullCascade",
+      "screening_type": "ZBL",
+      "electronic_stopping": "Off",
+      "electronic_straggling": "Off",
+      "defect_recombination": false
+    },
+    "Transport": {
+      "min_energy": 2.0,
+      "flight_path_type": "Constant",
+      "flight_path_const": 1.61199
+    },
+    "target": {
+      "size_nm": [
+        50.0,
+        100.0,
+        100.0
+      ],
+      "periodic_bc": [
+        0,
+        1,
+        1
+      ],
+      "density_g_cm3": 8.96,
+      "composition": [
+        {
+          "element": {
+            "symbol": "Cu",
+            "atomic_number": 29,
+            "atomic_mass": 63.546
+          },
+          "X": 1.0,
+          "Ed": 3.49,
+          "El": 0.001,
+          "Es": 3.49,
+          "Er": 3.49,
+          "Rc": 0.5
+        }
+      ]
+    },
+    "tallies": "IonStop by depth (bins 0.05 nm, atom_id 0) and IonExit through x = 0 by species",
+    "threads": 28,
+    "timing": "end-to-end process wall clock, including setup and writing the HDF5 file"
+  },
+  "matched": [
+    "potential ZBL",
+    "constant free path N^(-1/3) (flight_path_const = (4 pi/3)^(1/3) R_at) and its p_max disc",
+    "E_d of each target element",
+    "primary cutoff",
+    "recoils followed",
+    "density and masses as echoed by lindhard"
+  ],
+  "mismatches": [
+    "electronic stopping: OpenTRIM offers Off, SRIM96, SRIM13 or DPASS. SRIM tables and DPASS (Tier C) are excluded, so it runs with electronic loss Off, while lindhard runs Lindhard-Scharff (its CLI has no electronic-loss-off choice). Ranges and backscatter are NOT like-for-like; the differences are dominated by the missing electronic loss",
+    "random-number streams differ (different generators); agreement is statistical only",
+    "one energy cutoff (Transport/min_energy) for the beam ion and recoils, set to lindhard's primary cutoff",
+    "E_b = 0 in lindhard; OpenTRIM's El has a minimum of 0.001 eV",
+    "replacement energy Er set to E_d (OpenTRIM doc/damage.md); lindhard's replacement rule is its own",
+    "finite box (depth x 100 nm x 100 nm, laterally periodic) instead of a semi-infinite target",
+    "ZBL scattering from OpenTRIM's interpolation tables; lindhard a Gauss-Mehler table in (eps, beta)",
+    "normal incidence along +x; first-flight convention not documented",
+    "no surface binding: OpenTRIM 1.2 stores Es but applies no surface barrier (its TODO.md lists 'Handle surface effects (sputtering etc.)'), so recoils leaving the front face are not a sputter yield; the sputter yield is not compared",
+    "weak collisions: lindhard runs 3 per collision step; the adapter maps no OpenTRIM option to them"
+  ]
+}

@@ -76,6 +76,7 @@ substrate the target has a back face and particles can be transmitted.
 | `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or` |
 | `free_path` | `"constant"` | `constant`, `energy-dependent` |
 | `min_cm_angle_deg` | none | Required with, and only with, `energy-dependent` |
+| `weak_collisions` | 0 | `0` to `3`: weak collisions beyond `p_max` per collision step (Moller and Eckstein, IPP 9/64 (1988)); `constant` free path only. See the `ion::bca` docs, "Weak collisions" |
 | `primary_cutoff_ev` | required | The primary stops below this energy |
 | `recoil_cutoff_ev` | required | Recoils stop below this; keep it below the smallest `E_s` |
 | `follow_recoils` | `true` | Full cascades |
@@ -199,7 +200,7 @@ dropped. Every count and per-ion value is for the same incident ions.
 | `input` | The input as run: defaults filled in, CLI overrides applied, `run.threads` removed. Deserializes back to the same `lindhard::input::Input`, so a run can be reproduced from its own header |
 | `physics.models` | Every model in use: `role`, `name`, `citation` |
 | `physics.stopping_tables` | Only with `[stopping]`: path, SHA-256, provenance and range of each user table (see `[stopping]`) |
-| `physics.engine` | Cutoffs, free path, electronic-loss mode, seed, chunk size as passed to the engine |
+| `physics.engine` | Cutoffs, free path, weak collisions, electronic-loss mode, seed, chunk size as passed to the engine |
 | `physics.scattering_table` | Angle-table grid and its measured interpolation error |
 | `physics.target` | Each layer: extent (nm; `back_nm` is `null` for a substrate), atom density, and the fully resolved material (every `E_d`, `E_b`, `E_s`) |
 | `results.histories` | Primaries run |

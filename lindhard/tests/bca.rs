@@ -5,7 +5,7 @@ use std::sync::OnceLock;
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaError, BcaTally, Beam, ElectronicChannel, ElectronicLoss, Face,
-    MeanFreePath, Particle, SummaryTally,
+    LatticeDeposit, MeanFreePath, Particle, SummaryTally,
 };
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{ScatteringTable, TableSpec};
@@ -74,20 +74,25 @@ fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
 fn energy_is_conserved_per_history_with_cascades() {
     let ls = LindhardScharff::new();
     // Every code path: two finite layers of different materials, front and
-    // back faces, cascades, both free-path conventions, both electronic modes.
+    // back faces, cascades, both free-path conventions, both electronic modes,
+    // with and without weak collisions.
     let stack = Stack::new(vec![(sio2(), 3.0 * NM), (si(), 4.0 * NM)], None).unwrap();
-    for (mfp, el) in [
-        (MeanFreePath::Constant, ElectronicLoss::NonLocal),
+    for (mfp, el, weak) in [
+        (MeanFreePath::Constant, ElectronicLoss::NonLocal, 0),
         (
             MeanFreePath::EnergyDependent {
                 min_cm_angle_rad: 0.01,
             },
             ElectronicLoss::EquipartitionLsOr,
+            0,
         ),
+        (MeanFreePath::Constant, ElectronicLoss::NonLocal, 2),
+        (MeanFreePath::Constant, ElectronicLoss::EquipartitionLsOr, 3),
     ] {
         let mut cfg = BcaConfig::new(5.0, 1.0);
         cfg.mean_free_path = mfp;
         cfg.electronic = el;
+        cfg.weak_collisions = weak;
         cfg.seed = 7;
         let beam = Beam {
             ion: Ion::new(18).unwrap(),
@@ -101,7 +106,7 @@ fn energy_is_conserved_per_history_with_cascades() {
         assert_eq!(t.histories, 300);
         assert!(
             t.max_relative_residual < 1e-9,
-            "{mfp:?} {el:?}: residual {}",
+            "{mfp:?} {el:?} weak {weak}: residual {}",
             t.max_relative_residual
         );
         // Every channel was exercised.
@@ -137,15 +142,20 @@ fn split_layer_is_equivalent() {
     let ls = LindhardScharff::new();
     let one = Stack::semi_infinite(si());
     let two = Stack::new(vec![(si(), 4.0 * NM)], Some(si())).unwrap();
-    for mfp in [
-        MeanFreePath::Constant,
-        MeanFreePath::EnergyDependent {
-            min_cm_angle_rad: 0.02,
-        },
+    for (mfp, weak) in [
+        (MeanFreePath::Constant, 0),
+        (
+            MeanFreePath::EnergyDependent {
+                min_cm_angle_rad: 0.02,
+            },
+            0,
+        ),
+        (MeanFreePath::Constant, 3),
     ] {
         let mut cfg = BcaConfig::new(5.0, 2.0);
         cfg.follow_recoils = false;
         cfg.mean_free_path = mfp;
+        cfg.weak_collisions = weak;
         cfg.seed = 11;
         let beam = Beam {
             ion: Ion::new(5).unwrap(),
@@ -391,14 +401,79 @@ fn bit_identical_across_thread_counts() {
         azimuth_rad: 0.0,
         count: 400,
     };
-    let bca = Bca::new(beam, &stack, cfg, &ls, table()).unwrap();
-    let r1 = with_threads(1, || run_summary(&bca, NM, 16));
-    assert!(r1.recoils > 0);
-    let b1 = summary_bits(&r1);
-    for n in [2, 8] {
-        let r = with_threads(n, || run_summary(&bca, NM, 16));
-        assert_eq!(b1, summary_bits(&r), "differs on {n} threads");
+    for weak in [0, 3] {
+        cfg.weak_collisions = weak;
+        let bca = Bca::new(beam, &stack, cfg, &ls, table()).unwrap();
+        let r1 = with_threads(1, || run_summary(&bca, NM, 16));
+        assert!(r1.recoils > 0);
+        let b1 = summary_bits(&r1);
+        for n in [2, 8] {
+            let r = with_threads(n, || run_summary(&bca, NM, 16));
+            assert_eq!(b1, summary_bits(&r), "weak {weak}: differs on {n} threads");
+        }
     }
+}
+
+/// Weak collisions (Moller and Eckstein, IPP 9/64 (1988), p. 14) add the
+/// nuclear loss of impact parameters beyond `p_max`: in a self-ion cascade
+/// the lattice gets more and the electrons less, the weak transfers are
+/// reported as `LatticeDeposit::Weak` and never make recoils.
+#[test]
+fn weak_collisions_move_cascade_energy_from_electrons_to_the_lattice() {
+    struct Kinds {
+        weak: u64,
+        weak_ev: f64,
+        recoils: u64,
+    }
+    impl BcaTally for Kinds {
+        fn lattice(&mut self, _at: [f64; 3], _l: usize, kind: LatticeDeposit, e: f64) {
+            if kind == LatticeDeposit::Weak {
+                self.weak += 1;
+                self.weak_ev += e;
+            }
+        }
+        fn recoil(&mut self, _r: &Particle) {
+            self.recoils += 1;
+        }
+        fn merge(&mut self, o: Self) {
+            self.weak += o.weak;
+            self.weak_ev += o.weak_ev;
+            self.recoils += o.recoils;
+        }
+    }
+    let ls = LindhardScharff::new();
+    let mut cu = elemental(29);
+    cu.set_displacement_energy_ev(29, 5.0).unwrap();
+    let stack = Stack::semi_infinite(cu);
+    let beam = Beam::normal(Ion::new(29).unwrap(), 1.0e3, 300);
+    let mut shares = Vec::new();
+    for weak in [0, 1, 3] {
+        let mut cfg = BcaConfig::new(2.0, 2.0);
+        cfg.seed = 64;
+        cfg.weak_collisions = weak;
+        let bca = Bca::new(beam, &stack, cfg, &ls, table()).unwrap();
+        let t = run_summary(&bca, NM, 8);
+        assert!(t.max_relative_residual < 1e-9);
+        shares.push(t.budget.electronic_nonlocal / t.budget.incident);
+        let k = bca
+            .run(|| Kinds {
+                weak: 0,
+                weak_ev: 0.0,
+                recoils: 0,
+            })
+            .unwrap();
+        assert_eq!(k.recoils, t.recoils);
+        if weak == 0 {
+            assert_eq!(k.weak, 0);
+        } else {
+            assert!(k.weak > 0 && k.weak_ev > 0.0);
+            assert!(k.weak_ev < t.budget.lattice);
+        }
+    }
+    assert!(
+        shares[0] > shares[1] && shares[1] > shares[2],
+        "electronic share should fall with K: {shares:?}"
+    );
 }
 
 #[test]

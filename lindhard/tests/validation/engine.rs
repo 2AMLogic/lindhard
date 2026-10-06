@@ -53,18 +53,21 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let stack = Stack::new(vec![(sio2(), 3.0 * NM), (si(), 4.0 * NM)], None).unwrap();
     let mut worst = 0.0f64;
     let mut histories = 0;
-    for (mfp, el) in [
-        (MeanFreePath::Constant, ElectronicLoss::NonLocal),
+    for (mfp, el, weak) in [
+        (MeanFreePath::Constant, ElectronicLoss::NonLocal, 0),
         (
             MeanFreePath::EnergyDependent {
                 min_cm_angle_rad: 0.01,
             },
             ElectronicLoss::EquipartitionLsOr,
+            0,
         ),
+        (MeanFreePath::Constant, ElectronicLoss::EquipartitionLsOr, 3),
     ] {
         let mut cfg = BcaConfig::new(5.0, 1.0);
         cfg.mean_free_path = mfp;
         cfg.electronic = el;
+        cfg.weak_collisions = weak;
         cfg.seed = 7;
         let beam = Beam {
             ion: Ion::new(18).unwrap(),
@@ -83,7 +86,7 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     out.push(Check::at_most(
         "engine.energy_conservation",
         format!(
-            "Per-history energy budget residual / incident, worst of {histories} Ar 3 keV histories (SiO2/Si film, cascades, both free paths and electronic modes)"
+            "Per-history energy budget residual / incident, worst of {histories} Ar 3 keV histories (SiO2/Si film, cascades, both free paths and electronic modes, with and without weak collisions)"
         ),
         worst,
         1e-9,
@@ -103,7 +106,6 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         azimuth_rad: 0.0,
         count: 400,
     };
-    let bca = Bca::new(beam, &stack, cfg, &ls, table).unwrap();
     let tc = IonTallyConfig {
         depth: Binning::new(0.0, 20.0 * NM, 40).unwrap(),
         lateral: Binning::new(-10.0 * NM, 10.0 * NM, 20).unwrap(),
@@ -111,18 +113,23 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         escape_energy: Binning::new(0.0, 2000.0, 20).unwrap(),
         escape_polar: Binning::new(0.0, 0.5 * PI, 9).unwrap(),
     };
-    let proto = IonTally::new(&stack, &bca.species_z(), tc).unwrap();
-    let report = |n: usize| {
-        with_threads(n, || {
-            let r = bca.run(|| proto.clone()).unwrap().report(true);
-            serde_json::to_string(&r).unwrap()
-        })
-    };
-    let r1 = report(1);
-    let same = [2, 8].iter().all(|&n| report(n) == r1);
+    let mut same = true;
+    for weak in [0, 3] {
+        cfg.weak_collisions = weak;
+        let bca = Bca::new(beam, &stack, cfg, &ls, table).unwrap();
+        let proto = IonTally::new(&stack, &bca.species_z(), tc).unwrap();
+        let report = |n: usize| {
+            with_threads(n, || {
+                let r = bca.run(|| proto.clone()).unwrap().report(true);
+                serde_json::to_string(&r).unwrap()
+            })
+        };
+        let r1 = report(1);
+        same &= [2, 8].iter().all(|&n| report(n) == r1);
+    }
     out.push(Check::holds(
         "engine.determinism",
-        "IonReport (moments, Pearson fits, damage, escapes) of a 400-ion Ar 2 keV cascade run, byte-identical JSON on 1, 2 and 8 threads",
+        "IonReport (moments, Pearson fits, damage, escapes) of a 400-ion Ar 2 keV cascade run, without and with K = 3 weak collisions, byte-identical JSON on 1, 2 and 8 threads",
         same,
         if same { "identical" } else { "DIFFERS" },
         "counter-based streams keyed on (seed, index), chunk-order merge (CONTRIBUTING.md)",

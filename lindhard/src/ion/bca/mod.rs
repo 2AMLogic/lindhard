@@ -55,6 +55,86 @@
 //! layer split of one material changes nothing but floating-point rounding,
 //! which the `split_layer_is_equivalent` test checks.
 //!
+//! # Weak collisions (optional)
+//!
+//! With the constant free path every flight ends in one collision with
+//! `p <= p_max`, and the nuclear loss of collisions with `p > p_max` is
+//! dropped, while the electronic loss of the flight is charged in full. At
+//! cascade-tail energies (a few to tens of eV) the dropped part is large: for
+//! Cu on Cu with the ZBL potential the disc `p <= p_max` carries 45 % of the
+//! nuclear stopping cross section at 5 eV and 54 % at 10 eV, so the
+//! electronic share of a cascade comes out far too high (issue #64; the level-1
+//! check `damage.cascade_electronic_share` measures it).
+//!
+//! [`BcaConfig::weak_collisions`] `= K` adds the "weak" collisions of
+//! W. Moller and W. Eckstein, *TRIDYN - Binary collision simulation of atomic
+//! collisions and dynamic composition changes in solids*, report IPP 9/64,
+//! Max-Planck-Institut fur Plasmaphysik, Garching (1988) (the long write-up
+//! of Comput. Phys. Commun. 51 (1988) 355), read at
+//! <https://pure.mpg.de/rest/items/item_2131703/component/file_2131702/content>:
+//!
+//! * p. 14: "'weak' collisions might occur with more distant atoms which
+//!   might contribute to energy loss and angular deflection. The present
+//!   version allows up to three additional weak collisions with impact
+//!   parameters larger than `p_max`, each of them representing one additional
+//!   atomic volume", with eq. (9) replaced by eq. (26),
+//!   `p_k^weak = p_max sqrt(k + r_p)`, `k = 1, 2, 3` (`r_p` uniform in
+//!   `[0, 1)`): the `k`-th partner is uniform over the annulus between
+//!   `p_max sqrt(k)` and `p_max sqrt(k + 1)`, of area `pi p_max^2`. Fig. 3
+//!   (p. 11) draws the first-order partner at its own azimuth.
+//! * p. 26: "the weak collision loop is entered which finally defines new
+//!   directions after each of the simultaneous collisions. (Actually, the
+//!   last passage of the weak collision loop represents the hard collision.)
+//!   A primary recoil may be generated and stored for each hard collision."
+//! * p. 35: the program sums the elastic energy transfers of the weak and
+//!   hard collisions, and their local inelastic (Oen-Robinson) losses.
+//!
+//! So each collision step here is: the `K` weak collisions, `k = 1..K`, each
+//! with a partner drawn by stoichiometry, `p = p_max sqrt(k + R)` and a
+//! uniform azimuth, then the hard collision with `p = p_max sqrt(R)`. Each
+//! deflects the particle and takes its transfer `T`; under
+//! [`ElectronicLoss::EquipartitionLsOr`] each also takes its Oen-Robinson
+//! local loss, so the local half is sampled out to `p_max sqrt(K + 1)`. A weak
+//! collision never makes a recoil: its `T` stays in the lattice at the site
+//! ([`LatticeDeposit::Weak`], counted in [`EnergyBudget::lattice`]). The
+//! report does not say whether the simultaneous collisions use the energy the
+//! step began with or the energy left after the previous one; here each uses
+//! the energy left (and the direction after the previous one), so no transfer
+//! can exceed the particle's energy. Random draws per weak collision: partner,
+//! `R`, azimuth, in that order and before the hard collision's, so `K = 0`
+//! draws exactly what the engine drew before the option existed and
+//! reproduces it bit for bit.
+//!
+//! With `K` weak collisions the nuclear loss per path is the stopping cross
+//! section integrated to `p_max sqrt(K + 1)` instead of `p_max` (93 % of the
+//! full value at 5 eV for Cu on Cu with `K = 3`). It is available with
+//! [`MeanFreePath::Constant`] only (`p_max` is the constant-path radius);
+//! [`MeanFreePath::EnergyDependent`] rejects it, since that convention drops
+//! small-angle collisions by design.
+//!
+//! **Default 0**, because there is no single published convention: Biersack
+//! and Haggmark (1980), whose constant free path this engine follows, use one
+//! collision per flight; TRIDYN allows up to three (the report read does not
+//! give a default); SDTrimSP, a TRIDYN descendant, defaults to two for
+//! projectiles and two for recoils (`iwc`, `iwcr`: A. Mutzke et al.,
+//! *SDTrimSP Version 6.00*, report IPP 2019-02 (2019), Table 13, p. 73,
+//! "number of ring cylinders for weak simultaneous collisions"); and the
+//! RustBCA manual documents `weak_collision_order` with a default of 0 (its
+//! GitHub wiki, "Standalone Code: Input File"; manual only, Tier B).
+//!
+//! The option is not a free improvement, which is the other reason it is off
+//! by default. It brings the electronic share of a cascade in line with the
+//! Lindhard partition integral equation solved for the engine's own inputs
+//! (level-1 rows `damage.cascade_electronic_share.*`: for Cu on Cu at 1 keV
+//! about 0.79 without weak collisions and 0.35 with `K = 3`, against 0.38).
+//! But a weak transfer stays in the lattice, and at a few eV it is a large
+//! part of the energy (Cu on Cu at 5 eV, ZBL: on average 46, 25 and 13 % in
+//! the first three annuli), so slow atoms near the surface stop sooner: the
+//! Ar 1 keV on Cu sputter yield with `E_d = E_s` falls from 1.93 to 0.66 with
+//! `K = 3` (`docs/validation.md`, level 2). Use it for the energy partition
+//! (damage energy, electronic share); its effect on yields is large and has
+//! not been checked against measured yields.
+//!
 //! # Energy bookkeeping
 //!
 //! Every energy change is subtracted from the particle and added to exactly
@@ -89,6 +169,10 @@ use crate::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange
 use crate::material::EnergyKind;
 use crate::rng::{run_particles, ParticleRng};
 use crate::units::J_PER_EV;
+
+/// Largest [`BcaConfig::weak_collisions`]: "up to three additional weak
+/// collisions" (Moller and Eckstein, IPP 9/64 (1988), p. 14).
+pub const MAX_WEAK_COLLISIONS: u8 = 3;
 
 /// The incident beam.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -136,6 +220,9 @@ pub enum MeanFreePath {
     /// 257. To avoid every primary making its first collision at the same depth
     /// `l cos(theta_in)`, the primary's first flight is `R l` with `R` uniform
     /// in `[0, 1)`; recoils start at an atom site and fly a full `l`.
+    /// Collisions with `p > p_max` are dropped unless
+    /// [`BcaConfig::weak_collisions`] adds them (module docs, "Weak
+    /// collisions").
     Constant,
     /// Energy-dependent free path with Poisson-distributed flight lengths.
     /// Collisions deflecting by less than `min_cm_angle_rad` (centre-of-mass)
@@ -149,7 +236,10 @@ pub enum MeanFreePath {
     /// collision process (Eckstein 1991). It reduces to `Constant` (with
     /// exponential instead of fixed flight lengths) when every `p_i` hits the
     /// cap. The nuclear energy loss of the neglected small-angle collisions is
-    /// dropped, so choose the minimum angle small.
+    /// dropped, so choose the minimum angle small; and since `p_i` never
+    /// exceeds the constant-convention `p_max`, collisions beyond it are
+    /// dropped too, as in `Constant` without weak collisions (which this
+    /// variant does not support).
     EnergyDependent {
         /// Smallest centre-of-mass deflection treated as a collision, radians,
         /// in `(0, pi)`.
@@ -169,7 +259,9 @@ pub enum ElectronicLoss {
     /// approach (O. S. Oen and M. T. Robinson, Nucl. Instrum. Methods 132
     /// (1976) 647; [`EquipartitionMix`]). The stopping model passed to
     /// [`Bca::new`] is not used in this mode. The local part is only sampled
-    /// out to `p_max`, so where `p_max` is not large compared with
+    /// at the collisions, out to `p_max` (to `p_max sqrt(K + 1)` with
+    /// [`BcaConfig::weak_collisions`] `= K`, each weak collision taking its
+    /// own local loss), so where that radius is not large compared with
     /// `a / 0.3` (the decay length of the Oen-Robinson loss) the total
     /// electronic stopping is somewhat below the Lindhard-Scharff value.
     EquipartitionLsOr,
@@ -182,6 +274,11 @@ pub struct BcaConfig {
     pub mean_free_path: MeanFreePath,
     /// Electronic-loss treatment. Default [`ElectronicLoss::NonLocal`].
     pub electronic: ElectronicLoss,
+    /// Number of simultaneous weak collisions per collision step, `0..=3`
+    /// ([`MeanFreePath::Constant`] only; see the module docs, "Weak
+    /// collisions"). Default 0, the single-collision convention of Biersack
+    /// and Haggmark (1980).
+    pub weak_collisions: u8,
     /// Follow displaced atoms as full cascades. If `false`, a displaced atom
     /// stops where it was created and its energy counts as rest energy (an
     /// ion-only run). Default `true`.
@@ -210,6 +307,7 @@ impl BcaConfig {
         Self {
             mean_free_path: MeanFreePath::Constant,
             electronic: ElectronicLoss::NonLocal,
+            weak_collisions: 0,
             follow_recoils: true,
             primary_cutoff_ev,
             recoil_cutoff_ev,
@@ -476,6 +574,17 @@ impl<'a> Bca<'a> {
                     "min_cm_angle_rad = {min_cm_angle_rad} must be in (0, pi)"
                 )));
             }
+            if config.weak_collisions > 0 {
+                return Err(BcaError::InvalidConfig(
+                    "weak_collisions requires the constant free path".into(),
+                ));
+            }
+        }
+        if config.weak_collisions > MAX_WEAK_COLLISIONS {
+            return Err(BcaError::InvalidConfig(format!(
+                "weak_collisions = {} must be at most {MAX_WEAK_COLLISIONS}",
+                config.weak_collisions
+            )));
         }
         for (layer, l) in stack.layers().iter().enumerate() {
             if let Some(&(z, kind)) = l.material().unset_energies().first() {
@@ -836,29 +945,35 @@ impl<'a> Bca<'a> {
             .unwrap_or_else(|| theta_quadrature(self.screening, eps, beta))
     }
 
-    fn collide<T: BcaTally>(
-        &self,
-        p: &mut Particle,
-        rng: &mut ParticleRng,
-        scratch: &Scratch,
-        pending: &mut Vec<Particle>,
-        budget: &mut EnergyBudget,
-        tally: &mut T,
-    ) -> Result<(), StoppingError> {
-        let lay = &self.layers[p.layer];
-        // Partner by stoichiometry (weighted by p_max^2 for the
-        // energy-dependent free path).
+    /// Partner element index, by stoichiometry (weighted by `p_max^2` for
+    /// the energy-dependent free path).
+    fn draw_partner(rng: &mut ParticleRng, scratch: &Scratch) -> usize {
         let total = *scratch.cum.last().expect("layer has elements");
         let u = Self::uniform(rng) * total;
-        let j = scratch
+        scratch
             .cum
             .iter()
             .position(|&c| u < c)
-            .unwrap_or(scratch.cum.len() - 1);
-        let elem = &lay.elems[j];
-        let b = scratch.p_max[j] * Self::uniform(rng).sqrt();
-        let azimuth = 2.0 * PI * Self::uniform(rng);
+            .unwrap_or(scratch.cum.len() - 1)
+    }
 
+    /// One binary collision of `p`, at its current energy and direction,
+    /// with element `j` of its layer at impact parameter `b` and azimuth
+    /// `azimuth`. Deflects `p`, removes the transfer `T` and, under
+    /// [`ElectronicLoss::EquipartitionLsOr`], the local electronic loss (clamped
+    /// to the energy left), and returns `(T, incoming direction, recoil lab
+    /// angle)`.
+    #[allow(clippy::too_many_arguments)]
+    fn binary<T: BcaTally>(
+        &self,
+        p: &mut Particle,
+        j: usize,
+        b: f64,
+        azimuth: f64,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) -> Result<(f64, [f64; 3], f64), StoppingError> {
+        let elem = &self.layers[p.layer].elems[j];
         let pair = self.pairs[p.species * self.species.len() + elem.species];
         let e0 = p.energy_ev;
         let eps = e0 * pair.eps_per_ev;
@@ -881,7 +996,46 @@ impl<'a> Bca<'a> {
                 tally.electronic(p, p.pos, ElectronicChannel::Local, q);
             }
         }
+        Ok((t, incoming, phi))
+    }
 
+    /// One collision step: the `weak_collisions` simultaneous weak
+    /// collisions, then the hard collision (see the module docs).
+    fn collide<T: BcaTally>(
+        &self,
+        p: &mut Particle,
+        rng: &mut ParticleRng,
+        scratch: &Scratch,
+        pending: &mut Vec<Particle>,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) -> Result<(), StoppingError> {
+        // Weak collisions (Moller and Eckstein, IPP 9/64 (1988), p. 14,
+        // eq. (26)): the k-th partner sits in the k-th annulus,
+        // p = p_max sqrt(k + R), with its own species and azimuth. They come
+        // before the hard collision, the direction is updated after each, and
+        // only the hard collision makes a recoil (p. 26); a weak transfer
+        // stays in the lattice at the site. Each collision is evaluated at
+        // the energy left after the previous one (see the module docs).
+        for k in 1..=self.config.weak_collisions {
+            let j = Self::draw_partner(rng, scratch);
+            let b = scratch.p_max[j] * (f64::from(k) + Self::uniform(rng)).sqrt();
+            let azimuth = 2.0 * PI * Self::uniform(rng);
+            let (t, _, _) = self.binary(p, j, b, azimuth, budget, tally)?;
+            if t > 0.0 {
+                budget.lattice += t;
+                tally.lattice(p.pos, p.layer, LatticeDeposit::Weak, t);
+            }
+        }
+
+        // The hard collision: impact parameter uniform over the disc of
+        // radius p_max, p = p_max sqrt(R).
+        let j = Self::draw_partner(rng, scratch);
+        let b = scratch.p_max[j] * Self::uniform(rng).sqrt();
+        let azimuth = 2.0 * PI * Self::uniform(rng);
+        let (t, incoming, phi) = self.binary(p, j, b, azimuth, budget, tally)?;
+
+        let elem = &self.layers[p.layer].elems[j];
         if t > elem.e_d_ev && t > elem.e_b_ev {
             let e_r = t - elem.e_b_ev;
             if elem.e_b_ev > 0.0 {
@@ -1011,5 +1165,21 @@ mod tests {
             Err(BcaError::InvalidConfig(_))
         ));
         assert!(mk(Beam::normal(ion, 1e3, 1), ok).is_ok());
+        let mut c = ok;
+        c.weak_collisions = MAX_WEAK_COLLISIONS;
+        assert!(mk(Beam::normal(ion, 1e3, 1), c).is_ok());
+        c.weak_collisions = MAX_WEAK_COLLISIONS + 1;
+        assert!(matches!(
+            mk(Beam::normal(ion, 1e3, 1), c),
+            Err(BcaError::InvalidConfig(_))
+        ));
+        c.weak_collisions = 1;
+        c.mean_free_path = MeanFreePath::EnergyDependent {
+            min_cm_angle_rad: 0.01,
+        };
+        assert!(matches!(
+            mk(Beam::normal(ion, 1e3, 1), c),
+            Err(BcaError::InvalidConfig(_))
+        ));
     }
 }
