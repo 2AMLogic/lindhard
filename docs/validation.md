@@ -507,7 +507,7 @@ none for Si, 3 for Ag, 2 for Au); identities that rest on an argument are
 marked in the point's `note` (2 for Cu, 2 for Ag, 1 for Au). Original
 references, DOIs and author names were checked against Crossref.
 
-Three things about the sets matter for the comparison:
+Four things about the sets matter for the comparison:
 
 - **Si.** The compilation does not record, per set, whether the surface was
   crystalline or amorphized, and the datasets say so. Si targets in such
@@ -525,6 +525,13 @@ Three things about the sets matter for the comparison:
   0.6 keV, so the publication that holds them is uncertain. The points are
   stored as the compilation shows them, without a DOI, and the dataset says
   so.
+- **Titles that name another system.** The Crossref titles of a few cited
+  papers name other ions or targets than the point they are cited for
+  (Szymonski et al. 1978: Xe+ on an AgAu alloy, cited for the highest Au
+  point; Holloway 1977: chromium in gold; Poate et al. 1976: PtSi and NiSi;
+  Okajima 1981: O2+). The originals were not seen, so whether each reports
+  the Ar yield plotted is not checked; the points are stored as the
+  compilation attributes them, and the Szymonski dataset says so.
 
 **Double-check.** Every stored point was located at least twice.
 

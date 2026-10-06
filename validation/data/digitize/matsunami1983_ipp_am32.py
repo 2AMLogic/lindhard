@@ -542,7 +542,9 @@ AU_REFERENCES = {
     "J": ("ar_au_sputter_oechsner1973", "H. Oechsner, Z. Phys. 261, 37 (1973)", "10.1007/BF01402280", "U"),
     "P": ("ar_au_sputter_holloway1977", "P. H. Holloway, Surf. Sci. 66, 479 (1977)", "10.1016/0039-6028(77)90033-4", "V"),
     "Q": ("ar_au_sputter_szymonski1978", "M. Szymonski, R. S. Bhattacharya, H. Overeijnder and A. E. de Vries, J. Phys. "
-          "D: Appl. Phys. 11, 751 (1978)", "10.1088/0022-3727/11/5/018", "Z"),
+          "D: Appl. Phys. 11, 751 (1978) (Crossref title: \"Sputtering of an AgAu alloy by bombardment with 6 keV Xe+ "
+          "ions\"; the compilation plots this point as Ar -> Au, and whether the paper reports that yield was not "
+          "checked)", "10.1088/0022-3727/11/5/018", "Z"),
     "S": ("ar_au_sputter_yamashita1980", "M. Yamashita, S. Baba and A. Kinbara, Proc. 4th Symp. Ion Sources and Ion "
           "Application Technology (Tokyo, 1980), p. 311", None, "T"),
     "T": ("ar_au_sputter_yamashita1982", "M. Yamashita, S. Baba and A. Kinbara, J. Vac. Soc. Japan 25, 249 (1982)",

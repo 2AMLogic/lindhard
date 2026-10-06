@@ -14,7 +14,7 @@
       "yield_unc_rel": 0.02
     }
   ],
-  "original_reference": "M. Szymonski, R. S. Bhattacharya, H. Overeijnder and A. E. de Vries, J. Phys. D: Appl. Phys. 11, 751 (1978)",
+  "original_reference": "M. Szymonski, R. S. Bhattacharya, H. Overeijnder and A. E. de Vries, J. Phys. D: Appl. Phys. 11, 751 (1978) (Crossref title: \"Sputtering of an AgAu alloy by bombardment with 6 keV Xe+ ions\"; the compilation plots this point as Ar -> Au, and whether the paper reports that yield was not checked)",
   "original_doi": "10.1088/0022-3727/11/5/018",
   "compilation": "Matsunami et al., IPPJ-AM-32 (1983); At. Data Nucl. Data Tables 31, 1 (1984)",
   "compilation_figure": "Ar -> Au",
