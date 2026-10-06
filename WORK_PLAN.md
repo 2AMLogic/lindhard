@@ -50,10 +50,11 @@ M0 follow-ups awaiting triage (`loom:triage`):
 - #58 CLI: an electronic-loss-off stopping choice, for like-for-like
   OpenTRIM comparisons (follow-up to #50)
 - #61 Investigate low sputter yields: Ar 1 keV → Cu is 2.2x below RustBCA
-  even with `E_d = E_s` (follow-up to #50). Investigated: the gap is
-  electronic loss on low-energy recoils; the fix is #64
-- #64 BCA: nuclear loss truncated at p_max while electronic loss is not,
-  over-damping low-energy recoils (follow-up to #61)
+  even with `E_d = E_s` (follow-up to #50). The electronic-loss excess found
+  there was addressed by #64 (opt-in weak collisions), which lowers the yield
+  further; the gap to RustBCA is unexplained again. A measured Ar sputter
+  yield is needed to settle it, and whether weak collisions become the default
+  is an open operator decision
 
 Open M0 work (`loom:curated`), partly done:
 
@@ -76,13 +77,14 @@ tallies (PR #48), #7 CLI (PRs #47, #54), #41 density effect, with the
 declined Barkas, shell and straggling terms documented (PR #49), #44
 Biersack-Varelas join documented, not implemented (PR #60), #50
 level-2 oracle adapters and summaries (PR #59), #55 user-supplied stopping
-tables (PR #56).
+tables (PR #56), #64 opt-in TRIDYN weak collisions and a cascade
+electronic-share check against the LNST partition (PR #67).
 
 ## Epics
 
 | Epic | Scope | Phase 1 |
 |---|---|---|
-| #10 | M0: amorphous ion core, validated | Done: #1–#7, #41, #44, #50, #55. Partial: #8, #9. Open: #15, #45, #51, #58, #61 |
+| #10 | M0: amorphous ion core, validated | Done: #1–#7, #41, #44, #50, #55, #64. Partial: #8, #9. Open: #15, #45, #51, #58, #61 |
 | #11 | M1: low-energy electron engine | #16–#18 |
 | #12 | M2: crystalline implant | #19–#21 |
 | #22 | M3: dynamic composition | #23–#24 |
