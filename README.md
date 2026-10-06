@@ -12,11 +12,13 @@ code or data.
 > scattering integral, electronic stopping, the 1D layered BCA engine with
 > full recoil cascades, range, damage and sputter/backscatter tallies, and the
 > CLI. Validation levels 1 (analytic checks, in CI) and 2 (code-to-code
-> oracles) are in place; the first level-3 experimental dataset (B in
-> amorphous Si, #51) is in review. Known deviations are reported, not hidden:
-> with the default inputs the computed B ranges run long against that
-> measurement, and the Ar → Cu sputter yield sits well below RustBCA's for a
-> reason not yet explained (#61). See [`docs/validation.md`](docs/validation.md),
+> oracles) are in place, and level 3 has its first experimental dataset (B in
+> amorphous Si; P and As remain open under #51). Known deviations are
+> reported, not hidden: with the default inputs the computed B ranges run long
+> against that measurement, and the Ar → Cu sputter yield sits about 2x below
+> RustBCA's. The investigation in #61 traced the yield gap to electronic loss
+> on low-energy recoils not being consistent with the p_max-truncated nuclear
+> loss; the fix is tracked in #64. See [`docs/validation.md`](docs/validation.md),
 > [`WORK_PLAN.md`](WORK_PLAN.md) for milestones and
 > [`docs/architecture.md`](docs/architecture.md) for the design. The electron
 > engine (M1) and crystalline targets (M2) are not started.

@@ -37,9 +37,7 @@ partly done, or are awaiting triage.
 
 ## In Progress
 
-- #51 Validation level 3: first published range datasets and stopping-input
-  attribution (`loom:building`). PR #62 delivers B in amorphous Si and is
-  approved; P and As remain open gaps, so #51 stays open after it merges.
+*No issues currently being built.*
 
 ## Proposed
 
@@ -52,7 +50,10 @@ M0 follow-ups awaiting triage (`loom:triage`):
 - #58 CLI: an electronic-loss-off stopping choice, for like-for-like
   OpenTRIM comparisons (follow-up to #50)
 - #61 Investigate low sputter yields: Ar 1 keV → Cu is 2.2x below RustBCA
-  even with `E_d = E_s` (follow-up to #50)
+  even with `E_d = E_s` (follow-up to #50). Investigated: the gap is
+  electronic loss on low-energy recoils; the fix is #64
+- #64 BCA: nuclear loss truncated at p_max while electronic loss is not,
+  over-damping low-energy recoils (follow-up to #61)
 
 Open M0 work (`loom:curated`), partly done:
 
