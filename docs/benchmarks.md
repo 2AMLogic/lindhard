@@ -85,16 +85,197 @@ cascade work. Bethe-Bloch is about 200 times the cost of Lindhard-Scharff per
 evaluation, which is irrelevant for keV implants but would matter if it were
 called per collision at MeV energies.
 
+## Oracle comparison (ions/s)
+
+Source: the committed summaries in
+[`../validation/oracles/summaries/`](../validation/oracles/summaries/README.md)
+(format `lindhard-oracle-summary/2`, written by `validation/oracles/run.py`,
+PR #59). This section only tabulates our own numbers and the ratios from
+those files. No oracle output, input or source is committed
+([`../CONTRIBUTING.md`](../CONTRIBUTING.md) Oracles). The oracle matrix was
+**not** re-run for this section.
+
+**Where and when.** 2026-10-05, Apple M3 Ultra (`Darwin arm64`, 28 logical
+CPUs), lindhard built with rustc 1.98.1 at `7c76596` (the `_weak3` problem
+at `782e3cc`). Oracles, run unmodified: RustBCA `v3.0.0-17-ga356280`
+(`cargo build --release`, rustc 1.98.1) and OpenTRIM `1.2.0`
+(`v1.1.6-84-g6b12392`, CMake Release, GCC 16.2.0). Every code used all 28
+logical CPUs. This is a different machine from the profile below.
+
+**The comparison is load-affected.** The host's load average at the start of
+each run is in its summary: **30.7** for every problem except
+`ar_1keV_cu_ed_es_weak3` (**66.1**), from unrelated jobs. All three programs
+were timed under the same load, one after another, so the ratios are
+indicative; absolute rates are not quotable. A quiet-machine re-measure
+(`run.py --timing-factor` sets N2/N1) is still outstanding (#76).
+
+**OpenTRIM runs with electronic loss off.** Its electronic stopping choices
+are SRIM tables or DPASS, both excluded from this project, so every
+`opentrim-*.json` summary records `"electronic_stopping": "Off"` and lists it
+as the first mismatch (see also [`validation.md`](validation.md)). lindhard
+and RustBCA run Lindhard-Scharff. **None of the OpenTRIM speed ratios is
+like-for-like, the primary-only ones included**; see "Reading it" below.
+
+**Two rates.** *End-to-end* is process wall clock at 20 000 ions, setup
+included: lindhard builds its scattering table (about 0.2 s) and RustBCA
+writes its particle lists, so at this ion count setup dominates lindhard.
+*Marginal* is `(N2 - N1) / (t2 - t1)` between 20 000 and 100 000 ions, with
+fixed costs removed. The marginal rate is the throughput of the transport.
+Ratios are lindhard / oracle (above 1: lindhard faster).
+
+| Problem | Oracle | lindhard end-to-end (k ions/s) | oracle end-to-end | lindhard marginal | oracle marginal | **marginal ratio** | end-to-end ratio | Load |
+|---|---|---|---|---|---|---|---|---|
+| `b_5keV_si` | RustBCA | 81.9 | 103.8 | 413.6 | 72.8 | **5.68x** | 0.79x | 30.7 |
+| `b_5keV_si` | OpenTRIM | 81.9 | 54.2 | 413.6 | 97.6 | **4.24x** | 1.51x | 30.7 |
+| `as_50keV_si` | RustBCA | 83.9 | 110.4 | 380.0 | 112.5 | **3.38x** | 0.76x | 30.7 |
+| `as_50keV_si` | OpenTRIM | 83.9 | 80.9 | 380.0 | 109.5 | **3.47x** | 1.04x | 30.7 |
+| `ar_1keV_cu` | RustBCA | 93.2 | 5.2 | 791.8 | 5.8 | 135.86x | 17.81x | 30.7 |
+| `ar_1keV_cu` | OpenTRIM | 93.2 | 144.7 | 791.8 | 373.6 | 2.12x | **0.64x** | 30.7 |
+| `ar_1keV_cu_ed_es` | RustBCA | 72.9 | 5.1 | 205.9 | 6.1 | 33.96x | 14.40x | 30.7 |
+| `ar_1keV_cu_ed_es` | OpenTRIM | 72.9 | 81.1 | 205.9 | 194.6 | 1.06x | 0.90x | 30.7 |
+| `ar_1keV_cu_ed_es_weak3` | RustBCA | 66.3 | 2.0 | 178.1 | 2.2 | 81.69x | 32.50x | 66.1 |
+| `ar_1keV_cu_ed_es_weak3` | OpenTRIM | 66.3 | 69.5 | 178.1 | 286.1 | **0.62x** | 0.95x | 66.1 |
+
+lindhard's own transport-only rate (no process start or table build) is in
+each summary as `ions_per_s_transport_only`: 332.5 k/s (B), 359.6 k/s (As),
+630.1 k/s (Ar, Cu `E_d` 30 eV), 223.0 k/s and 170.6 k/s (Ar, Cu `E_d` 3.49 eV
+without and with three weak collisions).
+
+**Reading it, as measured.**
+
+* **Every OpenTRIM ratio includes the electronic-loss difference, which
+  acts in both directions.** OpenTRIM skips the stopping evaluation, which
+  in the profile below is about 28 % of lindhard's time (B 5 keV into Si,
+  one thread, a different machine; the share differs per problem). Without
+  electronic loss, its ions and recoils also keep more energy, travel
+  further and collide more often before they stop, which costs OpenTRIM
+  time. The net effect on each ratio is not known from these runs. A
+  like-for-like run needs an electronic-loss-off choice in lindhard's CLI
+  (#58).
+* On the two **primary-only range problems** (`b_5keV_si`, `as_50keV_si`),
+  the marginal throughput of lindhard is 5.7x and 3.4x RustBCA's (the
+  matched comparison, both on Lindhard-Scharff) and 4.2x and 3.5x
+  OpenTRIM's (not matched, see above). End-to-end at 20 000 ions lindhard is
+  **slower than RustBCA** (0.76 to 0.79x) because of its fixed table build,
+  and about level with OpenTRIM (1.04x) or ahead of it (1.51x), with the
+  same OpenTRIM caveat.
+* On the **cascade problems** (`ar_1keV_cu*`) the ratios are **not a
+  like-for-like speed comparison** and must not be quoted as one. The codes
+  do different amounts of work. RustBCA's rate is 5 k ions/s and the ratios
+  reach 34 to 136x, most likely because RustBCA follows far more recoils
+  (its `Ed` does not act as a displacement threshold; the summaries show
+  only that its sputter yield does not depend on `Ed`). OpenTRIM follows
+  recoils with one shared energy cutoff, no surface barrier and no
+  electronic loss (and, for `_weak3`, no weak collisions). The OpenTRIM
+  cascade ratios, which carry all of these differences, are mixed: lindhard is **slower** end-to-end on
+  `ar_1keV_cu` (0.64x) and on the marginal rate for the three-weak-collision
+  problem (**0.62x**), about level on `ar_1keV_cu_ed_es` (1.06x), and
+  ahead on `ar_1keV_cu` marginal (2.12x).
+* The matching of physics is not perfect and the throughput depends on it;
+  each summary lists `matched` and `mismatches` (random streams, impact
+  parameter limit, first free flight, scattering-angle integration).
+
+**Matched settings per problem** (the full lists are in the summary files).
+All: ZBL universal potential; electronic loss Lindhard-Scharff, all
+non-local, in lindhard and RustBCA (`LOW_ENERGY_NONLOCAL`) and **off in
+OpenTRIM**; constant mean free path `n^(-1/3)` (RustBCA `LIQUID`), planar
+surface barrier where the oracle has one (OpenTRIM has none), densities Si
+2.329 g/cm^3 and Cu 8.96 g/cm^3, normal incidence (RustBCA needs 1e-5 rad
+off the axis), 20 000 ions at the end-to-end point and 100 000 at the
+second marginal point.
+
+| Problem | Beam | Target `E_d` (eV), density (g/cm^3) | Cutoffs: primary / recoil (eV) | Recoils followed | Weak collisions | Electronic loss: lindhard / RustBCA / OpenTRIM |
+|---|---|---|---|---|---|---|
+| `b_5keV_si` | B 5 keV | Si 15, 2.329 | 5 / 2 | no (primary only) | 0 | LS / LS / off |
+| `as_50keV_si` | As 50 keV | Si 15, 2.329 | 5 / 2 | no (primary only) | 0 | LS / LS / off |
+| `ar_1keV_cu` | Ar 1 keV | Cu 30, 8.96 | 2 / 1 | yes | 0 | LS / LS / off |
+| `ar_1keV_cu_ed_es` | Ar 1 keV | Cu 3.49 (= `E_s`), 8.96 | 2 / 1 | yes | 0 | LS / LS / off |
+| `ar_1keV_cu_ed_es_weak3` | Ar 1 keV | Cu 3.49 (= `E_s`), 8.96 | 2 / 1 | yes | 3 per step | LS / LS / off |
+
+LS = Lindhard-Scharff, non-local.
+
+## Profile
+
+Single-threaded run of 10^4 ions, B 5 keV into Si, 7 degrees off normal,
+seed 1: the `throughput_B_5keV_Si_10k_ions` problem of `history.rs` (cascades
+on, constant free path, ZBL + Lindhard-Scharff, `E_d` = 15 eV, cutoffs
+5 eV / 2 eV). Run on one pool thread so the profile is attributable, with the
+same fixed seed and ion count every time (the physics is identical from run
+to run; sample counts vary a little with timing).
+
+![flame graph, B 5 keV into Si](img/flamegraph-b-si.svg)
+
+[`img/flamegraph-b-si.svg`](img/flamegraph-b-si.svg) (49 kB; hover a frame
+for its sample count; root at the bottom; frames below 0.4 % are not drawn).
+
+**Method and conditions.** 2026-10-06, `lindhard` at `add8f40` (clean tree
+plus this change), rustc 1.97.1, Linux 7.0.0-1013-aws, Intel Xeon Platinum
+8488C, 8 vCPUs shared with other jobs (**load average 7 to 9** during the
+run), release profile (`lto = "fat"`, `codegen-units = 1`) with
+`-C force-frame-pointers=yes` and line tables. The run is the 10^4 ions
+repeated five times in one process (50 000 ions in 14.6 s, 3.4 k ions/s on
+this loaded host, 14 360 samples at 1 kHz of CPU time), after the table
+build. `perf_event_paranoid = 4` prevented unprivileged `perf`, so the
+samples come from a small `SIGPROF` sampler that walks the frame-pointer
+chain ([`tools/profile/sigprof_sampler.rs`](../tools/profile/sigprof_sampler.rs)),
+symbolized with `addr2line` including inlined frames
+([`tools/profile/symbolize_samples.py`](../tools/profile/symbolize_samples.py)) and drawn by
+[`tools/profile/perf_to_svg.py`](../tools/profile/perf_to_svg.py). The last script also reads
+`perf script -F ip,sym` output, so on a machine where `perf record
+--call-graph fp` works the same graph can be made from that. Frames inside
+libm and libc carry only the library name (they have no exported symbol for
+the internal routines), so libm time is attributed to its caller below.
+
+**To reproduce.** Build `sigprof_sampler.rs` as its own throwaway crate
+(`lindhard` by path, `libc` and `rayon` as dependencies; point its `#[path]` at
+`lindhard/benches/common/mod.rs`) with `RUSTFLAGS="-C
+force-frame-pointers=yes"`, a release profile with `debug =
+"line-tables-only"` and `strip = "none"`, then run it (x86_64 Linux only; it
+writes `samples.txt` and `maps.txt` to the current directory). Then
+`python3 tools/profile/symbolize_samples.py <binary> > perf.txt` and
+`python3 tools/profile/perf_to_svg.py flamegraph-b-si.svg "title" < perf.txt`.
+
+**Result.** Shares are of all samples; "inclusive" includes callees.
+
+| Rank | Hot spot | Inclusive | What it is |
+|---|---|---|---|
+| 1 | `scattering angle chain in Bca::binary` (`ScatteringTable::theta`, `kinematics::lab_angles`, `sin` of the half angle) | about 34 % (`theta` 21 %, `lab_angles` 9 %, `sin` 3.2 %) | `theta`'s own bilinear interpolation is 6.6 %; the rest is `exp` and `atan` (about 9 %) and `atan2` (7 %) from libm |
+| 2 | `ElectronicStopping::stopping` for Lindhard-Scharff, reached through `electronic_nonlocal` | 28 % (of 32 % for `electronic_nonlocal`) | about 20 % of all samples is `powf` in `screening_length` and `k_l`, which depend only on `Z1, Z2, M1, M2` and are recomputed every flight |
+| 3 | `kinematics::rotate` (new direction after a collision) | 20 % | `sin_cos` 10 % and `normalize` 5.5 % |
+
+Together these are about 80 % of the run; libm transcendental calls alone
+(`pow`, `sin`/`cos`, `atan2`, `atan`, `exp`) are about 57 % of all samples.
+RNG (ChaCha8, 1 %), the energy-ordered stack of particles, tallies and
+geometry are each at or below a few percent.
+
+**SoA / SIMD verdict: not warranted now.** The time is not spent moving or
+laying out data, it is spent in scalar transcendental functions, a large
+part of which is avoidable arithmetic: the `powf` constants depend on
+nothing that changes during a history, and the angle chain converts
+between angle and sine/cosine forms several times per collision. Those are
+algorithmic changes within the present layout (cache the Lindhard-Scharff
+constants per ion and target pair; carry `cos` and `sin` of the angles instead
+of recomputing them from the angle; reduce the number of `normalize` calls).
+Only after those would a layout change be worth measuring, which is
+consistent with `architecture.md` ("do not do SoA/SIMD first"). Those
+optimizations are not made in this change, which is measurement only; they
+belong to #37 (profile-guided hot-path work, phase 1 of the performance
+epic #36) and should be re-profiled with the same script.
+
 ## Not yet covered
 
-* **A quiet-machine measurement against oracles (RustBCA, OpenTRIM).** The
-  oracle runner landed in #50 (PR #59): each summary in
-  [`../validation/oracles/summaries/`](../validation/oracles/summaries/README.md)
-  records end-to-end and marginal ions/s for both codes, and the speed ratios
-  are tabulated in [`validation.md`](validation.md) §2. Those first numbers
-  were taken on a loaded machine, so a re-measure on a quiet one remains
-  under #9. Rules for running oracles and what may be committed (our numbers
-  and ratios only, never oracle output or source) are in
-  [`../CONTRIBUTING.md`](../CONTRIBUTING.md) §Oracles.
-* **A profile (flamegraph) of the 10^4-ion run**, with the top hot spots named,
-  to decide whether SoA/SIMD work is worth doing. Also the remainder of #9.
+* **A quiet-machine re-measure of the oracle comparison, and a thread-scaling
+  curve (#76).** The numbers above were taken under load (30 to 66); re-run
+  `validation/oracles/run.py` on an idle machine, one problem at a time, to
+  replace them, and report ions/s at 1, 2, 4, ... N threads (the only
+  scaling data here is 1 vs 28 threads on a loaded machine).
+* **The optimizations the profile names (#37).** Caching the
+  Lindhard-Scharff `powf` constants per ion and target pair, carrying
+  `sin`/`cos` through the scattering-angle chain, and fewer `normalize`
+  calls in `kinematics::rotate`; phase 1 of the performance epic #36.
+* **A like-for-like OpenTRIM comparison (#58)**, which needs an
+  electronic-loss-off choice in lindhard's CLI.
+* **Profile of the all-thread run, and of the As and Ar problems.** The
+  single-thread B profile is the one #9 asks for; different cascade sizes
+  shift the weights (the stopping evaluation is per flight, the angle chain
+  per collision).
