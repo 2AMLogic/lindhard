@@ -36,6 +36,16 @@ jobs:
           fi
           echo "clean"
 
+  validation-docs:
+    name: Validation tables match the committed results
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: docs/validation.md is what validation/update_docs.py generates
+        # Python standard library only; reads committed files, runs no simulation.
+        run: python3 validation/update_docs.py --check
+
   dependency-policy:
     name: Dependency licenses & sources (cargo-deny)
     runs-on: ubuntu-latest

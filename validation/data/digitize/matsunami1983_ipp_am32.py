@@ -273,6 +273,11 @@ CU = {
 LAEGREID = ("N. Laegreid and G. K. Wehner, Trans. 6th Natl. Vacuum Symp. (Pergamon, 1959), p. 164; J. Appl. Phys. 32, "
             "365 (1961)", "10.1063/1.1736012")
 NOT_STATED = TARGET_STATE
+SI_STATE = (
+    "not stated in the compilation for this set, nor whether the surface was crystalline or amorphized by the Ar "
+    "dose; the compilation excludes single-crystal targets and states that most specimens were thinned "
+    "polycrystalline foils or evaporated films (IPPJ-AM-32, p. 2)"
+)
 
 # ======================================================================
 # Ar -> Si, PDF p. 47 (printed p. 42); issue #70. Legend A-G; in 0.2-10 keV
@@ -335,7 +340,7 @@ SI = {
     "dropped": SI_DROPPED,
     "references": SI_REFERENCES,
     "legend_names": SI_LEGEND_NAMES,
-    "target_state": NOT_STATED,
+    "target_state": SI_STATE,
 }
 
 # ======================================================================
@@ -965,8 +970,13 @@ def main() -> int:
                 "added": args.added,
             }
             path = out / f"{ident}.json"
-            if path.exists():  # keep a crosscheck written earlier by the second read
-                d["crosscheck"] = json.loads(path.read_text()).get("crosscheck")
+            if path.exists():  # keep a crosscheck, and any point flag, written earlier by the second read
+                prev = json.loads(path.read_text())
+                d["crosscheck"] = prev.get("crosscheck")
+                flags = {(q["energy_ev"], q["yield"]): q["flag"] for q in prev.get("points", []) if "flag" in q}
+                for pt in points:
+                    if (pt["energy_ev"], pt["yield"]) in flags:
+                        pt["flag"] = flags[pt["energy_ev"], pt["yield"]]
             mine2 = [s for s in second if s["letter"] == L]
             if mine2:
                 cc = dict(d["crosscheck"] or {})

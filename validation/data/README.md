@@ -17,7 +17,13 @@ derived from it, or any other code's output, however well known
   the compilation of Matsunami et al., IPPJ-AM-32 (1983), and cross-checked
   against Yamamura and Tawara, NIFS-DATA-23 (1995) (#69). Stored under an
   operator decision (#69) despite the compilations' cover notes; no figure
-  image or fitted curve is stored. Ar on Si, Ag and Au: not yet digitized (#70).
+  image or fitted curve is stored.
+- **Sputter yields, Ar on Si, Ag and Au:** `sputtering/ar_si_sputter_*.json`
+  (4 sets, 19 points), `ar_ag_sputter_*.json` (9 sets, 34 points) and
+  `ar_au_sputter_*.json` (12 sets, 44 points), same compilation, range and
+  decision (#70). Every point has a manual second read
+  (`digitize/secondread_ar_*_am32.json`), and the symbols that NIFS-DATA-23
+  separates a second compilation read (`digitize/crosscheck_ar_*_nifs23.json`).
 - **P and As in amorphous Si:** open gaps (#51). What was searched, and why
   the one source found could not be used, is in
   [`docs/data-provenance.md`](../../docs/data-provenance.md).
@@ -123,7 +129,8 @@ pair), holding all its points. `id` is the file name, e.g.
   "compilation_symbol": "letter used for this reference in the figure",
   "compilation_table_ref": "where the compilation lists the reference",
   "url": "where the compilation was read",
-  "crosscheck": { "compilation": "...", "figure": "...", "pdf_page": 0, "symbol": "...", "agreement": "..." },
+  "crosscheck": { "compilation": "...", "figure": "...", "pdf_page": 0, "symbol": "...", "agreement": "...",
+                  "second_read": "optional: a second symbol-location method in the same figure" },
   "extraction": "tool, axis calibration, symbol-location method, uncertainty",
   "reliability_note": "why the compilation treats the set as reliable",
   "terms": "Facts, cited; ...",
@@ -144,7 +151,18 @@ Rules:
   script lists it and why.
 - Every set digitized from IPPJ-AM-32 is re-read independently from
   NIFS-DATA-23 where that figure separates it; the record is
-  `digitize/crosscheck_ar_cu_nifs23.json`, summarized in each `crosscheck`.
+  `digitize/crosscheck_ar_<target>_nifs23.json`, summarized in each
+  `crosscheck` (`agreement`). A point the second compilation cannot separate
+  is located a second time in the same figure by another method (a glyph box
+  read by eye against the template centre); the record is
+  `digitize/secondread_ar_<target>_am32.json`, summarized in
+  `crosscheck.second_read` (Si, Ag and Au, #70).
+- A second read beyond the combined uncertainty is either explained by a rule
+  written in the digitizing script and replayable on the committed record, or
+  reported as unexplained; beyond twice the combined uncertainty the point
+  gets `"flag": "disagrees_between_compilations"` and is left out of the
+  statistics (`energy_groups` in `validation/experiments/run.py`). No stored
+  point is flagged at present.
 
 ## Enforced
 

@@ -73,7 +73,10 @@ that record as JSON and writes each dataset's `crosscheck` summary (keeping a
 `second_read` entry written by matsunami1983_ipp_am32.py). A read beyond the
 combined uncertainty is called explained by coincident symbols only by the
 rule in `coinc()`: the NIFS read must lie within the range of the IPPJ-AM-32
-reads of the references drawn on that spot.
+reads of the references drawn on that spot. A read beyond twice the combined
+uncertainty that the rule does not explain gets
+`"flag": "disagrees_between_compilations"` on its point in the dataset (none
+does at present).
 """
 
 from __future__ import annotations
@@ -430,6 +433,15 @@ def main() -> int:
             else:
                 agreement = (f"present in {fig['figure']} (letter {L}), but none of its {len(mine)} points "
                              "is separable from neighbouring symbols at 200 ppi; not compared")
+            # A read beyond twice the combined uncertainty that coincidence does not explain is flagged;
+            # validation/experiments/run.py leaves flagged points out of its statistics.
+            bad = {r["energy_ev"] for r in comp
+                   if r["verdict"] == "disagree" and coinc(r) != ", symbols coincident in both figures"}
+            for pt in d["points"]:
+                if pt["energy_ev"] in bad:
+                    pt["flag"] = "disagrees_between_compilations"
+                elif pt.get("flag") == "disagrees_between_compilations":
+                    del pt["flag"]
             old = d.get("crosscheck") or {}
             d["crosscheck"] = {
                 "compilation": "Yamamura and Tawara, NIFS-DATA-23 (1995); At. Data Nucl. Data Tables 62, 149 (1996)",

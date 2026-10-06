@@ -4,7 +4,7 @@
   "ion": "Ar",
   "mass_amu": null,
   "target": "Si",
-  "target_state": "not stated in the compilation for this set; the compilation excludes single-crystal targets and states that most specimens were thinned polycrystalline foils or evaporated films (IPPJ-AM-32, p. 2)",
+  "target_state": "not stated in the compilation for this set, nor whether the surface was crystalline or amorphized by the Ar dose; the compilation excludes single-crystal targets and states that most specimens were thinned polycrystalline foils or evaporated films (IPPJ-AM-32, p. 2)",
   "incidence_deg": 0.0,
   "points": [
     {
