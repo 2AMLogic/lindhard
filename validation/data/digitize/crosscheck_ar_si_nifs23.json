@@ -1,0 +1,179 @@
+{
+  "format": "lindhard-digitize-crosscheck/1",
+  "figure_a": "IPPJ-AM-32 (1983), Ar -> Si, PDF p. 47 (matsunami1983_ipp_am32.py)",
+  "figure_b": "NIFS-DATA-23 (1995), Fig. 41, PDF p. 29 (yamamura1995_nifs23.py)",
+  "calibration_b_rms_decade": 0.0044,
+  "pairing": "same reference, nearest NIFS symbol within 0.05 decade in E and 0.1 in Y",
+  "criterion": "|ln(Y_b / Y_a)| against the combined digitizing uncertainty (quadrature)",
+  "nifs_reads": [
+    {
+      "letters": "F",
+      "x": 442.1447,
+      "y": 1457.5526,
+      "energy_ev": 1483.6378,
+      "yield_": 0.7336,
+      "energy_unc_rel": 0.0281,
+      "yield_unc_rel": 0.0256,
+      "legibility": "isolated",
+      "note": "about 1.5 keV; the curve crosses its top bar"
+    },
+    {
+      "letters": "G",
+      "x": 537.1298,
+      "y": 1425.0096,
+      "energy_ev": 9687.6653,
+      "yield_": 1.2791,
+      "energy_unc_rel": 0.0234,
+      "yield_unc_rel": 0.0216,
+      "legibility": "isolated",
+      "note": "about 10 keV, right of an I; its top lies under the curve, so the box starts below the curve"
+    }
+  ],
+  "pairs": [
+    {
+      "id": "ar_si_sputter_coburn1977",
+      "nifs_letter": "F",
+      "energy_ev": 295.2,
+      "yield_am32": 0.275,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_coburn1977",
+      "nifs_letter": "F",
+      "energy_ev": 494.8,
+      "yield_am32": 0.4668,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_coburn1977",
+      "nifs_letter": "F",
+      "energy_ev": 744.3,
+      "yield_am32": 0.5017,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_coburn1977",
+      "nifs_letter": "F",
+      "energy_ev": 985.2,
+      "yield_am32": 0.6827,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_coburn1977",
+      "nifs_letter": "F",
+      "energy_ev": 1487.0,
+      "yield_am32": 0.7091,
+      "energy_nifs_ev": 1483.6,
+      "energy_ratio": 0.9977,
+      "yield_nifs": 0.7336,
+      "yield_ratio": 1.0345,
+      "combined_unc_rel": 0.0325,
+      "legibility": "isolated",
+      "verdict": "agree within twice the combined uncertainty"
+    },
+    {
+      "id": "ar_si_sputter_coburn1977",
+      "nifs_letter": "F",
+      "energy_ev": 1949.0,
+      "yield_am32": 0.8856,
+      "verdict": "inside an unreadable NIFS stack (1.5-5 keV stack of Coburn F, Kang G, Wehner B, Tung-Ti Tu H and Morgan I); not compared"
+    },
+    {
+      "id": "ar_si_sputter_coburn1977",
+      "nifs_letter": "F",
+      "energy_ev": 2905.0,
+      "yield_am32": 0.9561,
+      "verdict": "inside an unreadable NIFS stack (1.5-5 keV stack of Coburn F, Kang G, Wehner B, Tung-Ti Tu H and Morgan I); not compared"
+    },
+    {
+      "id": "ar_si_sputter_kang1979",
+      "nifs_letter": "G",
+      "energy_ev": 2936.0,
+      "yield_am32": 1.2,
+      "verdict": "inside an unreadable NIFS stack (1.5-5 keV stack of Coburn F, Kang G, Wehner B, Tung-Ti Tu H and Morgan I); not compared"
+    },
+    {
+      "id": "ar_si_sputter_kang1979",
+      "nifs_letter": "G",
+      "energy_ev": 4928.0,
+      "yield_am32": 1.297,
+      "verdict": "inside an unreadable NIFS stack (1.5-5 keV stack of Coburn F, Kang G, Wehner B, Tung-Ti Tu H and Morgan I); not compared"
+    },
+    {
+      "id": "ar_si_sputter_kang1979",
+      "nifs_letter": "G",
+      "energy_ev": 9804.0,
+      "yield_am32": 1.296,
+      "energy_nifs_ev": 9687.7,
+      "energy_ratio": 0.9881,
+      "yield_nifs": 1.2791,
+      "yield_ratio": 0.9869,
+      "combined_unc_rel": 0.0295,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 199.0,
+      "yield_am32": 0.1789,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 199.2,
+      "yield_am32": 0.2294,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 246.8,
+      "yield_am32": 0.2294,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 296.9,
+      "yield_am32": 0.3093,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 347.6,
+      "yield_am32": 0.3787,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 396.9,
+      "yield_am32": 0.3187,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 495.6,
+      "yield_am32": 0.449,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_laegreid1961",
+      "nifs_letter": "A",
+      "energy_ev": 592.3,
+      "yield_am32": 0.5301,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_si_sputter_poate1976",
+      "nifs_letter": "K",
+      "energy_ev": 888.5,
+      "yield_am32": 0.5177,
+      "verdict": "inside an unreadable NIFS stack (0.2-1 keV stack of Wehner B, Laegreid A, Coburn F, Poate K and ACAT stars); not compared"
+    }
+  ]
+}
