@@ -52,7 +52,7 @@ use std::f64::consts::PI;
 
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
-    Bca, BcaConfig, BcaTally, Beam, ElectronicChannel, EnergyBudget, Face, Particle,
+    Bca, BcaConfig, BcaTally, Beam, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, Particle,
 };
 use lindhard::ion::damage::damage_energy_ev;
 use lindhard::ion::potential::{Potential, Screening};
@@ -296,12 +296,18 @@ struct ShareTally {
     /// The last recoil reported (energy, position), to tell a recoil that is
     /// not followed (stopped at once) from the end of the moving particle.
     last_recoil: Option<(f64, [f64; 3])>,
+    /// Depth, m, within which a weak partner can lie beyond the front
+    /// surface: the outer radius of the weak rings, `p_max sqrt(K + 1)`.
+    near_depth_m: f64,
+    /// Weak-collision transfers made at depths below `near_depth_m`.
+    near_weak: f64,
 }
 
 impl ShareTally {
-    fn new(cutoff: f64) -> Self {
+    fn new(cutoff: f64, near_depth_m: f64) -> Self {
         Self {
             cutoff,
+            near_depth_m,
             ..Self::default()
         }
     }
@@ -339,6 +345,11 @@ impl BcaTally for ShareTally {
     fn recoil(&mut self, r: &Particle) {
         self.last_recoil = Some((r.energy_ev, r.pos));
     }
+    fn lattice(&mut self, at: [f64; 3], _layer: usize, kind: LatticeDeposit, energy_ev: f64) {
+        if kind == LatticeDeposit::Weak && at[0] < self.near_depth_m {
+            self.near_weak += energy_ev;
+        }
+    }
     fn stopped(&mut self, p: &Particle) {
         if let Some((e, pos)) = self.last_recoil.take() {
             if p.generation > 0 && e == p.energy_ev && pos == p.pos {
@@ -369,6 +380,7 @@ impl BcaTally for ShareTally {
         self.sum_f2 += o.sum_f2;
         self.end_of_step += o.end_of_step;
         self.overshoot += o.overshoot;
+        self.near_weak += o.near_weak;
     }
 }
 
@@ -465,7 +477,12 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         // Engine: E_d = cutoffs = 1 eV, E_b = 0, and surface barriers so high
         // that nothing leaves: a particle reaching a face is reflected
         // specularly, which for an amorphous medium is the mirror image of
-        // its path in an infinite medium, the setting of the equation.
+        // its path in an infinite medium, the setting of the equation. One
+        // exception: a weak partner beyond the face is skipped (TRIDYN's
+        // surface test, `ion::bca` module docs), where the mirror image would
+        // have one. That can only happen within the outer ring radius
+        // p_max sqrt(K + 1) of the face, and is bounded by the `surface` term
+        // of the tolerance below.
         mat.set_displacement_energy_ev(c.z, CUTOFF_EV).unwrap();
         mat.set_lattice_binding_energy_ev(c.z, 0.0).unwrap();
         mat.set_surface_binding_energy_ev(c.z, 1e9).unwrap();
@@ -476,6 +493,7 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
             (false, false) => 2000,
             (false, true) => 400,
         };
+        let near_depth_m = pr.p_max() * f64::from(WEAK + 1).sqrt();
         let run = |weak_collisions: u8| {
             let mut cfg = BcaConfig::new(CUTOFF_EV, CUTOFF_EV);
             cfg.weak_collisions = weak_collisions;
@@ -483,7 +501,7 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
             cfg.seed = 0x64 + u64::from(c.z);
             Bca::new(Beam::normal(ion, c.e0, count), &stack, cfg, &ls, table)
                 .unwrap()
-                .run(|| ShareTally::new(CUTOFF_EV))
+                .run(|| ShareTally::new(CUTOFF_EV, near_depth_m))
                 .unwrap()
         };
         let t = run(WEAK);
@@ -498,11 +516,22 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         //   the same losses at the energy the step ends with bracket it from
         //   below. Plus the loss charged below the cutoff by flights that
         //   cross it, and the primary's first flight R l (on average l/2 of
-        //   loss missing, N S_e(E0) l / 2).
+        //   loss missing, N S_e(E0) l / 2);
+        // * surface: the weak transfers the skip drops. A partner is at most
+        //   p_max sqrt(K + 1) from the path, and its azimuth is uniform, so
+        //   for a collision at depth x >= 0 the chance that it lies beyond the
+        //   face is at most 1/2: the dropped transfers are at most those made
+        //   within that depth, which the tally measures. Dropped nuclear loss
+        //   stays with the particle, and at most all of it later goes to
+        //   electrons, so to first order it moves the share by at most that
+        //   sum over the kept energy. (Full-statistics development runs:
+        //   switching the skip off moves the share by 0.0002 to 0.0020, 10
+        //   to 25 times less than this bound.)
         let trunc = (weak - full).abs() + d_weak;
         let first = n * se(c.e0) * n.powf(-1.0 / 3.0) * 0.5 / c.e0;
         let step = (t.electronic - t.end_of_step + t.overshoot) / t.kept + first;
-        let tol = 3.0 * t.se() + d_full + trunc + step;
+        let surface = t.near_weak / t.kept;
+        let tol = 3.0 * t.se() + d_full + trunc + step + surface;
         out.push(Check::at_most(
             c.id,
             format!(
@@ -516,13 +545,14 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
             tol,
             num,
             format!(
-                "share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = {} kept, {count} ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE {} + solver {} + truncation {} (LNST with K = {WEAK} rings: {}) + step {}",
+                "share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = {} kept, {count} ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE {} + solver {} + truncation {} (LNST with K = {WEAK} rings: {}) + step {} + surface {}",
                 num(kept),
                 num(3.0 * t.se()),
                 num(d_full),
                 num(trunc),
                 num(weak),
-                num(step)
+                num(step),
+                num(surface)
             ),
         ));
 

@@ -88,6 +88,11 @@
 //!   A primary recoil may be generated and stored for each hard collision."
 //! * p. 35: the program sums the elastic energy transfers of the weak and
 //!   hard collisions, and their local inelastic (Oen-Robinson) losses.
+//! * Figs. 7 and 8, pp. 29-30 (flow charts of the projectile and cascade
+//!   loops): inside the weak-collision loop, after the partner's species,
+//!   azimuth and impact parameter are drawn, a "Target beyond Surf.?" test
+//!   skips the passage when the partner would lie outside the target; and
+//!   "Elastic Energy Loss" is applied once, after the loop.
 //!
 //! So each collision step here is: the `K` weak collisions, `k = 1..K`, each
 //! with a partner drawn by stoichiometry, `p = p_max sqrt(k + R)` and a
@@ -96,14 +101,38 @@
 //! [`ElectronicLoss::EquipartitionLsOr`] each also takes its Oen-Robinson
 //! local loss, so the local half is sampled out to `p_max sqrt(K + 1)`. A weak
 //! collision never makes a recoil: its `T` stays in the lattice at the site
-//! ([`LatticeDeposit::Weak`], counted in [`EnergyBudget::lattice`]). The
-//! report does not say whether the simultaneous collisions use the energy the
-//! step began with or the energy left after the previous one; here each uses
-//! the energy left (and the direction after the previous one), so no transfer
-//! can exceed the particle's energy. Random draws per weak collision: partner,
-//! `R`, azimuth, in that order and before the hard collision's, so `K = 0`
-//! draws exactly what the engine drew before the option existed and
-//! reproduces it bit for bit.
+//! ([`LatticeDeposit::Weak`], counted in [`EnergyBudget::lattice`]). Random
+//! draws per weak collision: partner, `R`, azimuth, in that order and before
+//! the hard collision's, so `K = 0` draws exactly what the engine drew before
+//! the option existed and reproduces it bit for bit.
+//!
+//! **Surface test.** As in Figs. 7 and 8, a weak collision whose partner would
+//! lie in front of the front surface (in vacuum) is skipped; its draws are
+//! still made. The partner sits at distance `p` from the path on the side
+//! opposite to the deflection (where a hard collision sends its recoil). In
+//! TRIDYN the test also covers the hard collision (the loop's last passage);
+//! here it does not, because that would change the engine without weak
+//! collisions, which this option leaves untouched. Whether the hard
+//! collision should be tested too is left as a separate model decision. The
+//! back face of a finite target is not tested: the flow charts test "the
+//! surface" only.
+//!
+//! **Deviation from TRIDYN: the energy of each collision.** The flow charts
+//! apply the elastic loss once, after the loop, and p. 35 sums the
+//! transfers, so in TRIDYN every collision of a step is evaluated at the
+//! energy the step starts with. Here each is evaluated at the energy left
+//! after the previous one (and in the direction after it), so no transfer
+//! can exceed the particle's energy. Evaluated at the starting energy, the
+//! summed transfers of a slow atom often exceed its energy, and the report
+//! shows no rule for that case: for Ar 1 keV on Cu with `E_d = E_s` and
+//! `K = 3`, 18 % of the binary collisions would need a clamp, about 200 eV per
+//! ion in all, and the sputter yield would depend on how the clamp is
+//! applied. Measured on that problem (20 000 ions, seed 1): 0.882 as here;
+//! 0.875 with only the weak collisions at the starting energy (each transfer
+//! clamped to the energy left, the hard collision at the energy left); 0.976
+//! with every collision at the starting energy and each transfer clamped in
+//! loop order. Since the clamp is not in the source, the sequential choice
+//! is kept.
 //!
 //! With `K` weak collisions the nuclear loss per path is the stopping cross
 //! section integrated to `p_max sqrt(K + 1)` instead of `p_max` (93 % of the
@@ -130,10 +159,11 @@
 //! But a weak transfer stays in the lattice, and at a few eV it is a large
 //! part of the energy (Cu on Cu at 5 eV, ZBL: on average 46, 25 and 13 % in
 //! the first three annuli), so slow atoms near the surface stop sooner: the
-//! Ar 1 keV on Cu sputter yield with `E_d = E_s` falls from 1.93 to 0.66 with
-//! `K = 3` (`docs/validation.md`, level 2). Use it for the energy partition
-//! (damage energy, electronic share); its effect on yields is large and has
-//! not been checked against measured yields.
+//! Ar 1 keV on Cu sputter yield with `E_d = E_s` falls from 1.93 to 0.88 with
+//! `K = 3` (0.66 without the surface test; `docs/validation.md`, level 2).
+//! Use it for the energy partition (damage energy, electronic share); its
+//! effect on yields is large and has not been checked against measured
+//! yields.
 //!
 //! # Energy bookkeeping
 //!
@@ -999,6 +1029,16 @@ impl<'a> Bca<'a> {
         Ok((t, incoming, phi))
     }
 
+    /// Whether the partner of a weak collision of `p` at impact parameter
+    /// `b` and azimuth `azimuth` lies in front of the target's front surface,
+    /// in vacuum. The partner sits at distance `b` from the path on the side
+    /// opposite to the deflection, where a hard collision sends its recoil:
+    /// at `b rotate(dir, pi/2, azimuth + pi)` from the collision site.
+    fn partner_beyond_surface(&self, p: &Particle, b: f64, azimuth: f64) -> bool {
+        let offset = kinematics::rotate(p.dir, 0.5 * PI, azimuth + PI);
+        p.pos[0] + b * offset[0] < self.stack.layers()[0].front_m()
+    }
+
     /// One collision step: the `weak_collisions` simultaneous weak
     /// collisions, then the hard collision (see the module docs).
     fn collide<T: BcaTally>(
@@ -1015,12 +1055,19 @@ impl<'a> Bca<'a> {
         // p = p_max sqrt(k + R), with its own species and azimuth. They come
         // before the hard collision, the direction is updated after each, and
         // only the hard collision makes a recoil (p. 26); a weak transfer
-        // stays in the lattice at the site. Each collision is evaluated at
-        // the energy left after the previous one (see the module docs).
+        // stays in the lattice at the site. A weak partner that would lie
+        // beyond the front surface is skipped, after its draws are made (the
+        // "Target beyond Surf.?" test inside the weak-collision loop of the
+        // flow charts, Figs. 7 and 8, pp. 29-30). Each collision is evaluated
+        // at the energy left after the previous one, a deliberate deviation
+        // from TRIDYN (module docs).
         for k in 1..=self.config.weak_collisions {
             let j = Self::draw_partner(rng, scratch);
             let b = scratch.p_max[j] * (f64::from(k) + Self::uniform(rng)).sqrt();
             let azimuth = 2.0 * PI * Self::uniform(rng);
+            if self.partner_beyond_surface(p, b, azimuth) {
+                continue;
+            }
             let (t, _, _) = self.binary(p, j, b, azimuth, budget, tally)?;
             if t > 0.0 {
                 budget.lattice += t;
@@ -1029,7 +1076,9 @@ impl<'a> Bca<'a> {
         }
 
         // The hard collision: impact parameter uniform over the disc of
-        // radius p_max, p = p_max sqrt(R).
+        // radius p_max, p = p_max sqrt(R). Its partner is not tested against
+        // the surface, unlike in TRIDYN: that would change the engine
+        // without weak collisions (module docs).
         let j = Self::draw_partner(rng, scratch);
         let b = scratch.p_max[j] * Self::uniform(rng).sqrt();
         let azimuth = 2.0 * PI * Self::uniform(rng);
@@ -1134,6 +1183,57 @@ mod tests {
             let b = g.beta(eps);
             let got = table.theta(eps, b).unwrap();
             assert!((got / th - 1.0).abs() < 0.05, "eps={eps}: {got}");
+        }
+    }
+
+    #[test]
+    fn weak_partner_surface_test() {
+        let stack = Stack::semi_infinite(si());
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        let bca = Bca::new(
+            Beam::normal(Ion::new(14).unwrap(), 1e3, 1),
+            &stack,
+            BcaConfig::new(5.0, 2.0),
+            &ls,
+            &table,
+        )
+        .unwrap();
+        let b = 2e-10;
+        let at = |x: f64, dir: [f64; 3]| Particle {
+            species: 0,
+            z: 14,
+            mass_amu: 28.0,
+            energy_ev: 10.0,
+            pos: [x, 0.0, 0.0],
+            dir,
+            layer: 0,
+            generation: 0,
+        };
+        let n = 3600;
+        let azimuths = (0..n).map(|i| 2.0 * PI * (i as f64 + 0.5) / n as f64);
+        let beyond = |p: &Particle| {
+            azimuths
+                .clone()
+                .filter(|&az| bca.partner_beyond_surface(p, b, az))
+                .count() as f64
+                / n as f64
+        };
+        // Moving parallel to the surface: on the surface half of the
+        // partners are in vacuum, at depth b/2 a third (offset_x < -1/2),
+        // at depth b none. Moving along the normal, none.
+        let par = [0.0, 1.0, 0.0];
+        assert!((beyond(&at(0.0, par)) - 0.5).abs() < 1e-3);
+        assert!((beyond(&at(0.5 * b, par)) - 1.0 / 3.0).abs() < 1e-3);
+        assert_eq!(beyond(&at(1.0001 * b, par)), 0.0);
+        assert_eq!(beyond(&at(0.0, [1.0, 0.0, 0.0])), 0.0);
+        // The partner is on the side opposite to the deflection.
+        let p = at(0.0, par);
+        for az in azimuths {
+            let deflected = kinematics::rotate(p.dir, 0.3, az);
+            if deflected[0].abs() > 1e-6 {
+                assert_eq!(bca.partner_beyond_surface(&p, b, az), deflected[0] > 0.0);
+            }
         }
     }
 
