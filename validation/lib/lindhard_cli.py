@@ -109,6 +109,7 @@ def run(problem: dict, workdir: Path, binary: Path | None = None) -> dict:
         die(f"lindhard failed on {problem['id']}:\n{proc.stderr}")
     s = json.loads((out / "summary.json").read_text())
     r = s["results"]
+    sputtered = r["recoils"]["sputtered"]
     return {
         "code": "lindhard",
         "version": s["software"]["git_describe"],
@@ -117,5 +118,12 @@ def run(problem: dict, workdir: Path, binary: Path | None = None) -> dict:
         "drp_nm": r["primaries"]["stopped_depth_std_nm"],
         "backscatter": r["yields"]["backscattered_per_ion"],
         "sputter_yield": r["yields"]["sputtered_per_ion"],
+        # The summary holds only the sputtered count, not its per-ion spread,
+        # so this is the Poisson estimate sqrt(N) / ions. Sputtered atoms come
+        # in correlated bursts per ion, so it underestimates the true error.
+        "sputtered": sputtered,
+        "sputter_yield_se": sputtered**0.5 / r["histories"],
+        # Resolved target elements (E_d, E_b, E_s actually used), first layer.
+        "target_elements": s["physics"]["target"][0]["material"]["elements"],
         "ions_per_s": s["run"]["ions_per_s"],
     }

@@ -33,6 +33,7 @@ done
 
 # Every level-3 dataset must carry its provenance (validation/data/README.md).
 python3 validation/experiments/run.py --check
+python3 validation/experiments/test_run.py
 
 level1="$(mktemp "${TMPDIR:-/tmp}/lindhard-level1.XXXXXX")"
 trap 'rm -f "$level1"' EXIT

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Level-3 comparison with published range measurements
-(docs/validation.md section 3; data and schema: validation/data/README.md).
+"""Level-3 comparison with published measurements: projected ranges and
+sputter yields (docs/validation.md section 3; data and schema:
+validation/data/README.md).
 
 For every `validation/data/ranges/*.json`:
 
@@ -15,11 +16,25 @@ For every `validation/data/ranges/*.json`:
    a constant factor k (a user stopping table, generated here) for the
    electronic part. Nothing is fitted or tuned; the defaults do not change.
 
+For every `validation/data/sputtering/*.json` (measured sputter yields):
+
+1. checks it the same way (`check_sputter_dataset`);
+2. merges the measured energies of each ion-target pair into groups within
+   2 % and runs `lindhard` once per group with the matched settings of the
+   level-2 problem `ar_1keV_cu_ed_es` (SPUTTER_PHYSICS below), with
+   `weak_collisions` = 0 and 3; records the measured band (min, median, max
+   over every stored point in the group) next to both yields. Nothing is
+   fitted to the measurements and no default changes.
+
 Writes `validation/experiments/results.json`.
 
 Usage:
     validation/experiments/run.py [--ions N]   check, run, write results
     validation/experiments/run.py --check      check the datasets only
+    validation/experiments/run.py --rustbca    also run RustBCA (RUSTBCA_BIN, level-2
+                                               adapter) at the sputtering energies, for
+                                               context; writes the summary
+                                               validation/oracles/summaries/rustbca-sputter_ar_cu.json
 """
 
 from __future__ import annotations
@@ -35,6 +50,7 @@ sys.path.insert(0, str(HERE.parent / "lib"))
 import lindhard_cli  # noqa: E402
 
 DATA = HERE.parent / "data" / "ranges"
+SPUTTER_DATA = HERE.parent / "data" / "sputtering"
 RESULTS = HERE / "results.json"
 PROVENANCE = lindhard_cli.REPO / "docs" / "data-provenance.md"
 
@@ -277,20 +293,289 @@ def is_extrapolated(points: list[tuple[float, float]], k: float | None) -> bool:
     return k is not None and not min(ks) <= k <= max(ks)
 
 
+# --- sputter yields (validation/data/README.md, "Sputter-yield datasets") ---
+
+SPUTTER_REQUIRED_TEXT = [
+    "id",
+    "ion",
+    "target",
+    "target_state",
+    "original_reference",
+    "compilation",
+    "compilation_figure",
+    "extraction",
+    "terms",
+    "added",
+]
+
+# Matched settings: those of the level-2 problem `ar_1keV_cu_ed_es`
+# (validation/oracles/problems.json): ZBL, Lindhard-Scharff all nonlocal,
+# constant free path, cutoffs 2 eV (primary) and 1 eV (recoils), recoils
+# followed, E_b = 0, and E_d = E_s with E_s lindhard's tabulated cohesive
+# energy (read back from a probe run, never hardcoded). E_d <= E_s is
+# Eckstein's convention when yields matter (Computer Simulation of Ion-Solid
+# Interactions, 1991); #61 showed E_d is inert once E_d <= E_s.
+SPUTTER_PHYSICS = {
+    "potential": "zbl",
+    "stopping": "lindhard-scharff",
+    "free_path": "constant",
+    "primary_cutoff_ev": 2.0,
+    "recoil_cutoff_ev": 1.0,
+    "follow_recoils": True,
+}
+SPUTTER_WEAK = (0, 3)  # weak collisions per step: lindhard's default, and TRIDYN's maximum (#64)
+MERGE_REL = 0.02  # measured energies within 2 % share one lindhard run
+
+
+def check_sputter_dataset(path: Path, d: dict, provenance: str) -> list[str]:
+    """Every problem with one sputter-yield dataset, as messages; empty if it passes."""
+    errs = []
+    if d.get("kind") != "sputter_yield":
+        errs.append("`kind` must be \"sputter_yield\"")
+    for k in SPUTTER_REQUIRED_TEXT:
+        if not isinstance(d.get(k), str) or not d[k].strip():
+            errs.append(f"`{k}` missing or empty")
+    if not any(isinstance(d.get(k), str) and d[k].strip() for k in ("original_doi", "url")):
+        errs.append("needs an `original_doi` or a `url` for the source that was read")
+    if d.get("id") != path.stem:
+        errs.append(f"`id` {d.get('id')!r} differs from the file name {path.stem!r}")
+    if not (_num(d.get("compilation_pdf_page")) and d["compilation_pdf_page"] > 0):
+        errs.append("`compilation_pdf_page` must be a positive number")
+    if not _num(d.get("incidence_deg")):
+        errs.append("`incidence_deg` missing or not a number")
+    pts = d.get("points")
+    if not isinstance(pts, list) or not pts:
+        errs.append("`points` missing or empty")
+    else:
+        for i, p in enumerate(pts):
+            if not isinstance(p, dict):
+                errs.append(f"`points[{i}]` is not an object")
+                continue
+            for k in ("energy_ev", "yield", "energy_unc_rel", "yield_unc_rel"):
+                if not (_num(p.get(k)) and p[k] > 0):
+                    errs.append(f"`points[{i}].{k}` must be a positive number")
+    if isinstance(d.get("id"), str) and d["id"] not in provenance:
+        errs.append(f"no row in docs/data-provenance.md names `{d['id']}`")
+    return errs
+
+
+def load_sputter_datasets() -> list[tuple[Path, dict]]:
+    """All sputter-yield datasets, checked. Exits 2 on any failure."""
+    files = sorted(SPUTTER_DATA.glob("*.json")) if SPUTTER_DATA.is_dir() else []
+    provenance = PROVENANCE.read_text()
+    out, failed = [], False
+    for f in files:
+        rel = f.relative_to(lindhard_cli.REPO)
+        try:
+            d = json.loads(f.read_text())
+        except json.JSONDecodeError as e:
+            print(f"error: {rel}: not valid JSON: {e}", file=sys.stderr)
+            failed = True
+            continue
+        errs = check_sputter_dataset(f, d, provenance)
+        for e in errs:
+            print(f"error: {rel}: {e}", file=sys.stderr)
+        failed |= bool(errs)
+        out.append((f, d))
+    if failed:
+        print("error: dataset provenance check failed (rules: validation/data/README.md)", file=sys.stderr)
+        sys.exit(2)
+    return out
+
+
+def energy_groups(datasets: list[tuple[Path, dict]]) -> list[dict]:
+    """Measured points of each (ion, target), normal incidence, grouped by
+    energy: a group starts at its lowest energy and takes every point up to
+    2 % above it; its run energy is the geometric mean of its points."""
+    pts = {}
+    for _, d in datasets:
+        if d["incidence_deg"] != 0.0:
+            continue
+        for p in d["points"]:
+            pts.setdefault((d["ion"], d["target"]), []).append((p["energy_ev"], p["yield"], d["id"]))
+    groups = []
+    for (ion, target), xs in sorted(pts.items()):
+        xs.sort()
+        cur = []
+        for x in xs:
+            if cur and x[0] > cur[0][0] * (1 + MERGE_REL):
+                groups.append((ion, target, cur))
+                cur = []
+            cur.append(x)
+        if cur:
+            groups.append((ion, target, cur))
+    out = []
+    for ion, target, g in groups:
+        ys = sorted(y for _, y, _ in g)
+        n = len(ys)
+        med = ys[n // 2] if n % 2 else 0.5 * (ys[n // 2 - 1] + ys[n // 2])
+        e = math.exp(sum(math.log(x[0]) for x in g) / n)
+        out.append({
+            "ion": ion,
+            "target": target,
+            "energy_ev": float(f"{e:.4g}"),
+            "measured_energies_ev": [x[0] for x in g],
+            "n_points": n,
+            "sets": sorted({x[2] for x in g}),
+            "yield_min": ys[0],
+            "yield_median": med,
+            "yield_max": ys[-1],
+        })
+    return out
+
+
+def sputter_problem(ion: str, target: str, energy_ev: float, weak: int, ions: int, e_s_ev: float | None) -> dict:
+    """The matched lindhard problem at one energy. `e_s_ev` None: a probe
+    with the target's defaults, to read back the tabulated E_s."""
+    energies = {} if e_s_ev is None else {target: {"e_d_ev": e_s_ev, "e_b_ev": 0.0, "e_s_ev": e_s_ev}}
+    physics = dict(SPUTTER_PHYSICS)
+    if weak:
+        physics["weak_collisions"] = weak
+    return {
+        "id": f"sputter_{ion.lower()}_{target.lower()}_{energy_ev:g}eV_k{weak}" + ("" if e_s_ev is not None else "_probe"),
+        "beam": {"ion": ion, "energy_ev": energy_ev, "tilt_deg": 0.0},
+        "target": {"substrate": target},
+        "physics": {**physics, "energies": energies},
+        "run": {"ions": ions, "seed": 1},
+        "tally": {"depth_bin_nm": 0.1, "depth_bins": 100},
+    }
+
+
+def tabulated_e_s(ion: str, target: str, binary: Path) -> float:
+    """lindhard's default E_s of `target` (its tabulated cohesive energy), from a probe run's echo."""
+    p = sputter_problem(ion, target, 1000.0, 0, 10, None)
+    r = lindhard_cli.run(p, lindhard_cli.RUNS / "experiments" / p["id"], binary)
+    (el,) = [e for e in r["target_elements"] if e["symbol"] == target]
+    if not el.get("e_s_ev"):
+        lindhard_cli.die(f"lindhard has no tabulated E_s for {target}; the matched settings need one")
+    return el["e_s_ev"]
+
+
+def run_sputter(ions: int, binary: Path, groups: list[dict]) -> dict:
+    runs = lindhard_cli.RUNS / "experiments"
+    e_s = {}
+    rows = []
+    for g in groups:
+        key = (g["ion"], g["target"])
+        if key not in e_s:
+            e_s[key] = tabulated_e_s(*key, binary)
+        row = dict(g)
+        for k in SPUTTER_WEAK:
+            p = sputter_problem(g["ion"], g["target"], g["energy_ev"], k, ions, e_s[key])
+            r = lindhard_cli.run(p, runs / p["id"], binary)
+            row[f"lindhard_k{k}"] = r["sputter_yield"]
+            row[f"lindhard_k{k}_se"] = float(f"{r['sputter_yield_se']:.4g}")
+            row[f"lindhard_k{k}_in_band"] = g["yield_min"] <= r["sputter_yield"] <= g["yield_max"]
+            row[f"lindhard_k{k}_over_median"] = float(f"{r['sputter_yield'] / g['yield_median']:.4g}")
+        rows.append(row)
+        print(f"{g['ion']} {g['energy_ev']:g} eV -> {g['target']}: measured {g['yield_min']:.3g}..{g['yield_max']:.3g} "
+              f"(median {g['yield_median']:.3g}, {g['n_points']} pt), lindhard K=0 {row['lindhard_k0']:.3f}, "
+              f"K=3 {row['lindhard_k3']:.3f}")
+    # Sanity: the 1 keV problem must reproduce the committed level-2 value of ar_1keV_cu_ed_es.
+    summ = lindhard_cli.REPO / "validation" / "oracles" / "summaries" / "rustbca-ar_1keV_cu_ed_es.json"
+    control = None
+    if ("Ar", "Cu") in e_s and summ.exists():
+        ref = json.loads(summ.read_text())["lindhard"]
+        p = sputter_problem("Ar", "Cu", 1000.0, 0, 20000, e_s[("Ar", "Cu")])
+        r = lindhard_cli.run(p, runs / p["id"], binary)
+        z = (r["sputter_yield"] - ref["sputter_yield"]) / math.hypot(r["sputter_yield_se"], ref["std_err"]["sputter_yield"])
+        control = {"ar_cu_1keV_k0": r["sputter_yield"], "level2_ar_1keV_cu_ed_es": ref["sputter_yield"], "z": round(z, 3)}
+        print(f"control: Ar 1 keV -> Cu, K=0: {r['sputter_yield']:.4f} (level-2 ar_1keV_cu_ed_es: {ref['sputter_yield']:.4f})")
+        if abs(z) > 3:
+            lindhard_cli.die("the matched 1 keV problem no longer reproduces ar_1keV_cu_ed_es; the settings differ")
+    return {
+        "physics": SPUTTER_PHYSICS,
+        "weak_collisions": list(SPUTTER_WEAK),
+        "e_s_ev": {f"{i}->{t}": v for (i, t), v in sorted(e_s.items())},
+        "e_d_ev": "equal to e_s_ev",
+        "e_b_ev": 0.0,
+        "energy_merge_rel": MERGE_REL,
+        "ions_per_run": ions,
+        "seed": 1,
+        "std_err": "Poisson, sqrt(sputtered) / ions; underestimates the true error (correlated bursts)",
+        "control": control,
+        "rows": rows,
+    }
+
+
+def run_rustbca_context(ions: int, binary: Path, groups: list[dict]) -> None:
+    """RustBCA at the same energies and settings through the level-2 adapter
+    (validation/oracles/run.py), for context only; writes a summary of scalar
+    yields, never RustBCA output (CONTRIBUTING.md, Oracles)."""
+    import importlib.util
+    import datetime as _dt
+
+    spec = importlib.util.spec_from_file_location("oracles_run", HERE.parent / "oracles" / "run.py")
+    orc = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(orc)
+    rb = orc.RustBca()
+    try:
+        rb_bin = rb.binary()
+    except orc.NotConfigured as e:
+        print(e)
+        return
+    rows, settings, mismatches = [], None, None
+    for g in groups:
+        if (g["ion"], g["target"]) != ("Ar", "Cu"):
+            continue
+        row = {"energy_ev": g["energy_ev"]}
+        for k in SPUTTER_WEAK:
+            e_s = tabulated_e_s("Ar", "Cu", binary)
+            p = sputter_problem("Ar", "Cu", g["energy_ev"], k, ions, e_s)
+            # lindhard_settings() reads the lindhard run from RUNS/lindhard/<id>.
+            ours = lindhard_cli.run(p, lindhard_cli.RUNS / "lindhard" / p["id"], binary)
+            matched = orc.lindhard_settings(p)
+            work = lindhard_cli.RUNS / "rustbca" / p["id"]
+            work.mkdir(parents=True, exist_ok=True)
+            t = rb.run(p, work, rb_bin, matched)
+            row[f"lindhard_k{k}"] = ours["sputter_yield"]
+            row[f"rustbca_k{k}"] = t["sputter_yield"]
+            row[f"rustbca_k{k}_se"] = float(f"{t['std_err']['sputter_yield']:.4g}")
+            settings, mismatches = t["settings"], t["mismatches"]
+        print(f"RustBCA Ar {g['energy_ev']:g} eV -> Cu: K=0 {row['rustbca_k0']:.3f}, K=3 {row['rustbca_k3']:.3f}")
+        rows.append(row)
+    out = {
+        "format": "lindhard-oracle-sputter-summary/1",
+        "problem": "Ar -> Cu sputter yield at the level-3 measured energies, settings of ar_1keV_cu_ed_es",
+        "oracle": rb.name,
+        "oracle_version": rb.version(rb_bin),
+        "oracle_commit": rb.commit(),
+        "oracle_source": rb.source_url,
+        "oracle_license": rb.license_note,
+        "lindhard_version": lindhard_cli.version(binary),
+        "date": _dt.date.today().isoformat(),
+        "ions": ions,
+        "oracle_settings": orc._round(settings),
+        "mismatches": mismatches,
+        "rows": orc._round(rows),
+    }
+    path = HERE.parent / "oracles" / "summaries" / "rustbca-sputter_ar_cu.json"
+    path.write_text(json.dumps(out, indent=2) + "\n")
+    print(f"wrote {path.relative_to(lindhard_cli.REPO)}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ions", type=int, default=20000)
     ap.add_argument("--check", action="store_true", help="check the datasets' provenance fields only")
+    ap.add_argument("--rustbca", action="store_true", help="also run RustBCA at the sputtering energies (context)")
     args = ap.parse_args()
 
     datasets = load_datasets()
+    sputter = load_sputter_datasets()
     if args.check:
-        print(f"{len(datasets)} dataset(s) pass the provenance check")
+        npts = sum(len(d["points"]) for _, d in sputter)
+        print(f"{len(datasets)} range dataset(s) and {len(sputter)} sputter-yield dataset(s) ({npts} points) "
+              "pass the provenance check")
         return 0
-    if not datasets:
-        print(f"no datasets in {DATA.relative_to(lindhard_cli.REPO)}; see validation/data/README.md")
+    if not datasets and not sputter:
+        print("no datasets; see validation/data/README.md")
         return 0
     binary = lindhard_cli.lindhard_binary()
+    groups = energy_groups(sputter)
+    if args.rustbca:
+        run_rustbca_context(args.ions, binary, groups)
+        return 0
     runs = lindhard_cli.RUNS / "experiments"
     rows, attribution, control = [], [], []
     for _, d in datasets:
@@ -361,6 +646,7 @@ def main() -> int:
             + ", ".join(f"{f} {kn[f]['k']:.2f}" for f in K_FAMILIES)
         )
 
+    sputtering = run_sputter(args.ions, binary, groups) if groups else None
     worst = max(control)
     if worst > 2e-3:
         lindhard_cli.die(
@@ -381,6 +667,7 @@ def main() -> int:
                     "table_control_max_rel_diff": worst,
                     "rows": attribution,
                 },
+                "sputtering": sputtering,
             },
             indent=2,
         )

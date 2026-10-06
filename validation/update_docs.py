@@ -5,10 +5,12 @@ comments, so a rerun is idempotent:
     <!-- validation:level1:begin --> ... <!-- validation:level1:end -->
     <!-- validation:level2:begin --> ... <!-- validation:level2:end -->
     <!-- validation:level3:begin --> ... <!-- validation:level3:end -->
+    <!-- validation:level3-sputter:begin --> ... <!-- validation:level3-sputter:end -->
 
 Level 1 comes from the Markdown the harness writes (LINDHARD_VALIDATION_OUT),
 level 2 from the committed oracle summaries, level 3 from
-validation/experiments/results.json. Called by validation/run.sh.
+validation/experiments/results.json (the sputter-yield table also reads the
+optional RustBCA context summary, validation/oracles/summaries/rustbca-sputter_ar_cu.json). Called by validation/run.sh.
 
 Usage: validation/update_docs.py [--level1 FILE]
 """
@@ -58,6 +60,8 @@ def level2() -> str:
 
     for f in files:
         s = json.loads(f.read_text())
+        if s.get("format") != "lindhard-oracle-summary/2":
+            continue  # e.g. the level-3 sputtering context (rustbca-sputter_ar_cu.json)
         c = s["comparison"]
         bs = c.get("backscatter_abs_diff")
         commit = s.get("oracle_commit", "")[:7]
@@ -164,6 +168,63 @@ def level3() -> str:
     return "\n".join(lines)
 
 
+def level3_sputter() -> str:
+    if not RESULTS.exists():
+        return "_No experimental datasets yet; see validation/data/README.md._"
+    sp = json.loads(RESULTS.read_text()).get("sputtering")
+    if not sp or not sp.get("rows"):
+        return "_No sputter-yield datasets yet; see validation/data/README.md._"
+    rb_path = SUMMARIES / "rustbca-sputter_ar_cu.json"
+    rb = json.loads(rb_path.read_text()) if rb_path.exists() else None
+    rb_at = {r["energy_ev"]: r for r in rb["rows"]} if rb else {}
+
+    def y(row, k) -> str:
+        v = row[f"lindhard_k{k}"]
+        return f"{v:.2f} ({row[f'lindhard_k{k}_over_median']:.2f}){'' if not row[f'lindhard_k{k}_in_band'] else ' in'}"
+
+    lines = [
+        f"lindhard, {sp['ions_per_run']} ions per run, seed {sp['seed']}; matched settings of `ar_1keV_cu_ed_es` "
+        f"(ZBL, Lindhard-Scharff nonlocal, constant free path, cutoffs {sp['physics']['primary_cutoff_ev']:g} / "
+        f"{sp['physics']['recoil_cutoff_ev']:g} eV, recoils followed, E_b = 0, E_d = E_s = "
+        + ", ".join(f"{v:g} eV ({k})" for k, v in sp["e_s_ev"].items())
+        + ", lindhard's tabulated cohesive energy). Measured energies within "
+        f"{100 * sp['energy_merge_rel']:g} % share one run.",
+        "",
+        "| Ar → Cu, E (eV) | Points (sets) | Measured min..max (median) | lindhard K = 0 (/median) "
+        "| lindhard K = 3 (/median) | RustBCA K = 0 / K = 3 |",
+        "|---|---|---|---|---|---|",
+    ]
+    for row in sp["rows"]:
+        if (row["ion"], row["target"]) != ("Ar", "Cu"):
+            continue
+        r = rb_at.get(row["energy_ev"])
+        rbs = f"{r['rustbca_k0']:.2f} / {r['rustbca_k3']:.2f}" if r else "-"
+        lines.append(
+            f"| {row['energy_ev']:g} | {row['n_points']} ({len(row['sets'])}) | {row['yield_min']:.2f}..{row['yield_max']:.2f} "
+            f"({row['yield_median']:.2f}) | {y(row, 0)} | {y(row, 3)} | {rbs} |"
+        )
+    k0 = [row["lindhard_k0_over_median"] for row in sp["rows"]]
+    k3 = [row["lindhard_k3_over_median"] for row in sp["rows"]]
+    se_max = max(row[f"lindhard_k{k}_se"] / row[f"lindhard_k{k}"] for row in sp["rows"] for k in (0, 3))
+    inb0 = sum(row["lindhard_k0_in_band"] for row in sp["rows"])
+    inb3 = sum(row["lindhard_k3_in_band"] for row in sp["rows"])
+    lines += [
+        "",
+        f"(/median): lindhard over the measured median; \"in\": inside the measured min..max. K = 0 lies in the "
+        f"band at {inb0} of {len(k0)} energies (ratio {min(k0):.2f} to {max(k0):.2f}), K = 3 at {inb3} "
+        f"(ratio {min(k3):.2f} to {max(k3):.2f}). Statistical errors (Poisson) are at most {100 * se_max:.2f} % of the yield. "
+        + (f"RustBCA {rb['oracle_version']} ({rb['ions']} ions, same settings through the level-2 adapter; summary "
+           "`validation/oracles/summaries/rustbca-sputter_ar_cu.json`, context only)." if rb else
+           "RustBCA: not run (set RUSTBCA_BIN and run `validation/experiments/run.py --rustbca`).")
+        + " Measured points: `validation/data/sputtering/`; provenance: [`data-provenance.md`](data-provenance.md).",
+    ]
+    c = sp.get("control")
+    if c:
+        lines += ["", f"Control: the 1 keV run gives {c['ar_cu_1keV_k0']:.4f}, the level-2 `ar_1keV_cu_ed_es` value "
+                      f"{c['level2_ar_1keV_cu_ed_es']:.4f} ({c['z']:+.1f} σ)."]
+    return "\n".join(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--level1", type=Path, help="Markdown table written by the level-1 harness")
@@ -173,6 +234,7 @@ def main() -> int:
         text = splice(text, "level1", args.level1.read_text())
     text = splice(text, "level2", level2())
     text = splice(text, "level3", level3())
+    text = splice(text, "level3-sputter", level3_sputter())
     DOC.write_text(text)
     print(f"updated {DOC.relative_to(ROOT)}")
     return 0
