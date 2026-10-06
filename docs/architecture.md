@@ -31,6 +31,7 @@ electron MC). The engines share the core and nothing else.
 | `ion::damage` | NRT/Kinchin-Pease damage energy (Lindhard partition), alongside full-cascade vacancy, interstitial and replacement counts kept by `tally::ion` (the two are reported side by side, in different types, never conflated) | M0 |
 | `ion::crystal` | Lattice-site targets, thermal vibration (Debye), tilt/twist/rotation, screen oxide, dynamic damage → dechanneling → amorphization | M2 |
 | `ion::dynamic` | Target composition updated with fluence (sputter erosion, build-up of implanted atoms) | M3 |
+| `electron::data` | Validated data the electron engine consumes: optical ELF tables, subshell binding energies (read from an ENDF-6 File 28 copy the user supplies), and versioned cross-section caches (inverse mean free path plus inverse CDFs of the elastic angle or inelastic energy loss). Every loader requires a provenance; serde reads run the same checks | M1 |
 | `electron::elastic` | Mott cross sections by our own partial-wave solution (not ELSEPA tables) | M1 |
 | `electron::inelastic` | Dielectric-function model (Lindhard / Mermin, Penn algorithm) built from optical data with provenance; SE generation; interface refraction | M1 |
 | `electron::transport` | Event-by-event MC from about 10 eV to 50 keV in layered and voxel targets | M1 |
