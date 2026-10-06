@@ -16,9 +16,13 @@ code or data.
 > amorphous Si; P and As remain open under #51). Known deviations are
 > reported, not hidden: with the default inputs the computed B ranges run long
 > against that measurement, and the Ar → Cu sputter yield sits about 2x below
-> RustBCA's. The investigation in #61 traced the yield gap to electronic loss
-> on low-energy recoils not being consistent with the p_max-truncated nuclear
-> loss; the fix is tracked in #64. See [`docs/validation.md`](docs/validation.md),
+> RustBCA's. The investigation in #61 found that the default engine sends too
+> much energy to electronic loss at low energy, because nuclear loss is cut off
+> at p_max while electronic loss is not. #64 added TRIDYN-style weak collisions
+> as an opt-in (`physics.weak_collisions`), which brings the cascade's
+> electronic share into line with the LNST partition but lowers the sputter
+> yield further, so the gap to RustBCA remains open under #61. See
+> [`docs/validation.md`](docs/validation.md),
 > [`WORK_PLAN.md`](WORK_PLAN.md) for milestones and
 > [`docs/architecture.md`](docs/architecture.md) for the design. The electron
 > engine (M1) and crystalline targets (M2) are not started.
