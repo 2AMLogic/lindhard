@@ -206,7 +206,8 @@ REFERENCES = {
     "O": ("ar_cu_sputter_koshkin1969", "V. K. Koshkin, J. A. Rysov, I. I. Shkarban and B. M. Gourmin, Proc. 9th Int. "
           "Conf. Phenomena in Ionized Gases (Bucharest, 1969), p. 92", None, "N"),
     "R": ("ar_cu_sputter_oechsner1973", "H. Oechsner, Z. Phys. 261, 37 (1973)", "10.1007/BF01402280", "U"),
-    "T": ("ar_cu_sputter_akaishi1977", "K. Akaishi, A. Miyahara, Z. Kabeya, S. Skenobu, M. Komizo and T. Gotoh, "
+    # Fourth author is Sukenobu per Crossref (10.3131/jvsj.20.161); the compilation misprints it.
+    "T": ("ar_cu_sputter_akaishi1977", "K. Akaishi, A. Miyahara, Z. Kabeya, S. Sukenobu, M. Komizo and T. Gotoh, "
           "J. Vac. Soc. Japan 20, 161 (1977)", "10.3131/jvsj.20.161", "O"),
     "V": ("ar_cu_sputter_bohdansky1980", "J. Bohdansky, J. Nucl. Mater. 93-94, 44 (1980)",
           "10.1016/0022-3115(80)90302-5", "Q"),

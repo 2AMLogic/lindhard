@@ -205,13 +205,14 @@ def level3_sputter() -> str:
         )
     k0 = [row["lindhard_k0_over_median"] for row in sp["rows"]]
     k3 = [row["lindhard_k3_over_median"] for row in sp["rows"]]
+    se_max = max(row[f"lindhard_k{k}_se"] / row[f"lindhard_k{k}"] for row in sp["rows"] for k in (0, 3))
     inb0 = sum(row["lindhard_k0_in_band"] for row in sp["rows"])
     inb3 = sum(row["lindhard_k3_in_band"] for row in sp["rows"])
     lines += [
         "",
         f"(/median): lindhard over the measured median; \"in\": inside the measured min..max. K = 0 lies in the "
         f"band at {inb0} of {len(k0)} energies (ratio {min(k0):.2f} to {max(k0):.2f}), K = 3 at {inb3} "
-        f"(ratio {min(k3):.2f} to {max(k3):.2f}). Statistical errors (Poisson) are below 1.5 %. "
+        f"(ratio {min(k3):.2f} to {max(k3):.2f}). Statistical errors (Poisson) are at most {100 * se_max:.2f} % of the yield. "
         + (f"RustBCA {rb['oracle_version']} ({rb['ions']} ions, same settings through the level-2 adapter; summary "
            "`validation/oracles/summaries/rustbca-sputter_ar_cu.json`, context only)." if rb else
            "RustBCA: not run (set RUSTBCA_BIN and run `validation/experiments/run.py --rustbca`).")

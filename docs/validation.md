@@ -454,7 +454,7 @@ keeps most of its energy where the annuli beyond `p_max` carry little nuclear
 stopping.
 
 <!-- validation:level3:begin -->
-lindhard 0.0.1 (add8f40), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
+lindhard 0.0.1 (37b9964-dirty), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
 
 | Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -515,16 +515,21 @@ points where that 200 ppi figure separates them. That is 10 of the 47:
 | Keywell 1955 (A) | 455 | 1.198 | 1.202 | 1.003 | 1.004 | 2.9 % | isolated | within 1σ |
 | Koshkin 1969 (N) | 1003 | 2.204 | 2.107 | 0.956 | 0.988 | 2.9 % | coincident | within 2σ, explained |
 | Koshkin 1969 (N) | 7978 | 7.493 | 7.474 | 0.998 | 0.949 | 2.9 % | coincident | E within 2σ, explained |
-| Laegreid 1961 (G) | 202 | 1.089 | 1.123 | 1.031 | 1.005 | 2.9 % | coincident | within 2σ, explained |
+| Laegreid 1961 (G) | 202 | 1.089 | 1.123 | 1.031 | 1.005 | 2.9 % | coincident | within 2σ, unexplained |
 | Yonts 1960 (D) | 7440 | 7.365 | 7.474 | 1.015 | 1.018 | 2.9 % | coincident | within 1σ |
 
-Mean Y ratio 1.005, rms 2.0 %; mean E ratio 0.997, rms 1.8 %. The three
-reads beyond 1σ are all "coincident" symbols: two references drawn on one
-spot in NIFS-DATA-23 (Akaishi and Koshkin at 1 keV, Akaishi and Laegreid at
-200 eV, Yonts and Koshkin at 7.5 to 8 keV), where its single blob is
-compared with each of IPPJ-AM-32's separate points, so a split of a few
-percent between the two references cannot be resolved. No point disagrees,
-none is flagged. The other 37 points lie in stacks that NIFS-DATA-23 does not
+Mean Y ratio 1.005, rms 2.0 %; mean E ratio 0.997, rms 1.8 %. Three reads
+lie beyond 1σ. Two are explained by coincident symbols, two references drawn
+on one spot in NIFS-DATA-23, where its single blob is compared with each of
+IPPJ-AM-32's separate points: Koshkin at 1003 eV (the blob, 2.107, matches
+Akaishi's 2.105 and sits 4 % below Koshkin's 2.204) and the energy ratio at
+7.5 to 8 keV (the blob centre lies between Yonts at 7440 eV and Koshkin at
+7978 eV). The third, Laegreid at 202 eV, is not explained that way: the NIFS
+read (1.123) is above both IPPJ-AM-32 reads (1.099 Akaishi, 1.089 Laegreid),
+so a blob mixing the two cannot account for it. It is 1.031 times the
+IPPJ-AM-32 value, within twice the combined uncertainty, and is left
+unexplained; reading or rendering error at 200 ppi is possible. No point
+disagrees, none is flagged. The other 37 points lie in stacks that NIFS-DATA-23 does not
 separate; each dataset's `crosscheck` says which, and the full record is
 `validation/data/digitize/crosscheck_ar_cu_nifs23.json`.
 
@@ -579,7 +584,7 @@ lindhard, 20000 ions per run, seed 1; matched settings of `ar_1keV_cu_ed_es` (ZB
 | 8437 | 1 (1) | 4.55..4.55 (4.55) | 3.58 (0.79) | 1.77 (0.39) | 6.94 / 7.28 |
 | 9936 | 3 (3) | 4.33..6.39 (4.79) | 3.64 (0.76) | 1.80 (0.38) | 6.99 / 7.25 |
 
-(/median): lindhard over the measured median; "in": inside the measured min..max. K = 0 lies in the band at 0 of 31 energies (ratio 0.44 to 0.90), K = 3 at 0 (ratio 0.23 to 0.41). Statistical errors (Poisson) are below 1.5 %. RustBCA v3.0.0-17-ga356280 (20000 ions, same settings through the level-2 adapter; summary `validation/oracles/summaries/rustbca-sputter_ar_cu.json`, context only). Measured points: `validation/data/sputtering/`; provenance: [`data-provenance.md`](data-provenance.md).
+(/median): lindhard over the measured median; "in": inside the measured min..max. K = 0 lies in the band at 0 of 31 energies (ratio 0.44 to 0.90), K = 3 at 0 (ratio 0.23 to 0.41). Statistical errors (Poisson) are at most 1.40 % of the yield. RustBCA v3.0.0-17-ga356280 (20000 ions, same settings through the level-2 adapter; summary `validation/oracles/summaries/rustbca-sputter_ar_cu.json`, context only). Measured points: `validation/data/sputtering/`; provenance: [`data-provenance.md`](data-provenance.md).
 
 Control: the 1 keV run gives 1.9341, the level-2 `ar_1keV_cu_ed_es` value 1.9341 (+0.0 σ).
 <!-- validation:level3-sputter:end -->
@@ -605,7 +610,10 @@ to 1.05 keV), so lindhard is compared with the band, not with a curve.
   1.93, geometric mean 1.30, and it is highest at low energy (1.34 below
   0.6 keV, 1.19 above 2 keV). lindhard is
   0.41 to 0.52 of RustBCA, so the measured yields lie between the two
-  codes, nearer neither. The factor of 2.2 at 1 keV is therefore not a
+  codes, somewhat nearer RustBCA. On the geometric mean of ratios to the measured
+  median, lindhard is 0.610 (low by 1.64) and RustBCA 1.301 (high by 1.30),
+  so the median lies about 65 % of the log distance from lindhard toward
+  RustBCA. The factor of 2.2 at 1 keV is therefore not a
   defect of one code against a correct other. Both are off, in opposite
   directions, and the gap remains **unexplained**. RustBCA's weak collisions
   also move it away from experiment (1.64 times the median).

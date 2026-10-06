@@ -8,8 +8,8 @@ Data Tables 62, 149 (1996), doi:10.1006/adnd.1996.0005. Fig. 120, PDF p. 49.
 This is the double-check of `matsunami1983_ipp_am32.py` (issue #69). It shares
 no code and no constants with that script: its own axis calibration (a
 log-comb fit, not long-tick assignment; per-side 1-D fits blended across the
-frame, not a 2-D affine fit), its own templates (this figure's legend) and its
-own centring (normalized cross-correlation, not template coverage). Neither the
+frame, not a 2-D affine fit), its own template-free centring (ink bounding box
+and ink centroid of a hand-drawn box; no legend templates, no cross-correlation). Neither the
 report nor any page image is in this tree; fetch it yourself:
 
     curl -O https://www.nifs.ac.jp/report/NIFS-DATA-023.pdf
@@ -45,11 +45,10 @@ Method:
    separated at 200 ppi; reported, not used for the agreement statistics).
    The figure marks no point of these references as calculated (ACAT); the
    "#" set (Eckstein 1983) is not in IPPJ-AM-32 and is not read.
-3. Centres. Two estimates per symbol: the sub-pixel peak (parabolic fit) of
-   the zero-mean normalized cross-correlation with the legend glyph, both
-   lightly blurred (sigma 0.7 px); and the centroid of the positions where the
-   binary glyph is at least 95 % covered by ink. The value is their mean, half
-   their difference the centring repeatability.
+3. Centres. Two template-free estimates per symbol, from the ink inside its
+   hand-drawn box in SEEDS (`centres()`): the centre of the ink's bounding box,
+   and the centroid of the ink pixels. The value is their mean, half their
+   difference the centring repeatability.
 4. Uncertainty (digitizing only): calibration residual rms, centring
    repeatability, and one pixel of symbol placement (0.0085 decade in E,
    0.0076 in Y), in quadrature.
@@ -300,9 +299,19 @@ def main() -> int:
             mine = [r for r in rows if r["id"] == d["id"]]
             comp = [r for r in mine if "yield_ratio" in r]
             if comp:
+                def coinc(r):
+                    if r["legibility"] != "coincident":
+                        return ""
+                    # A coincident blob explains a split only if its read lies within the
+                    # range of the AM-32 reads of the references drawn on that spot.
+                    ys = [q["yield_am32"] for q in rows if q.get("yield_nifs") == r["yield_nifs"]]
+                    if r["verdict"].startswith("agree within the") or min(ys) <= r["yield_nifs"] <= max(ys):
+                        return ", symbols coincident in both figures"
+                    return (", symbols coincident in both figures, but the NIFS read lies outside the AM-32 reads "
+                            "of the coincident references, so coincidence does not explain it")
                 agreement = (f"{len(comp)} of {len(mine)} points compared; Y ratio NIFS/AM-32 "
                              + ", ".join(f"{r['yield_ratio']:.3f} at {r['energy_ev']:.0f} eV ({r['verdict']}"
-                                         + (", symbols coincident in both figures" if r["legibility"] == "coincident" else "")
+                                         + coinc(r)
                                          + ")" for r in comp)
                              + "; the other points lie in stacks not separable at 200 ppi")
             else:
