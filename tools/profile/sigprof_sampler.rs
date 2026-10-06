@@ -1,6 +1,7 @@
 // SIGPROF sampler used for docs/img/flamegraph-b-si.svg (see
-// docs/benchmarks.md, "Profile"). It is not part of the workspace: build it as its own crate with `lindhard` (path) and `libc`
-// as dependencies, `RUSTFLAGS="-C force-frame-pointers=yes"`, release profile
+// docs/benchmarks.md, "Profile"). It is not part of the workspace: build it
+// as its own crate with `lindhard` (path), `libc` and `rayon` as
+// dependencies, `RUSTFLAGS="-C force-frame-pointers=yes"`, release profile
 // with `debug = "line-tables-only"` and `strip = "none"`. Written for this
 // repository (MIT); needed because `perf_event_paranoid = 4` blocked `perf`.
 // x86_64 Linux only: it walks the rbp chain from the signal context.

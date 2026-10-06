@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Symbolize samples.txt / maps.txt written by sigprof_sampler.rs.txt.
+"""Symbolize samples.txt / maps.txt written by sigprof_sampler.rs.
+
+Both files are written to the directory the sampler was run in; run this
+script from that directory.
 
     python3 symbolize_samples.py /path/to/profiled/binary > perf.txt
     python3 perf_to_svg.py out.svg "title" < perf.txt
