@@ -439,9 +439,11 @@ below its range of validity. Choosing a new default is a model change and
 belongs in its own issue.
 
 Weak collisions (#64) do not change this. With `physics.weak_collisions = 3`
-the B Rp moves by -0.6 to +1.1 % at 1 to 20 keV (20 000 ions, one-off runs;
-the table below keeps the defaults): B keeps most of its energy where the
-annuli beyond `p_max` carry little nuclear stopping.
+lindhard's own B Rp changes by -0.6 to +1.0 % relative to the default
+`K = 0` at 1 to 20 keV, so it stays +24 to +35 % above the measurement
+(20 000 ions, seed 1, one-off runs; the table below keeps the defaults): B
+keeps most of its energy where the annuli beyond `p_max` carry little nuclear
+stopping.
 
 <!-- validation:level3:begin -->
 lindhard 0.0.1 (2597474), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
