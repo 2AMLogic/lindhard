@@ -459,7 +459,7 @@ keeps most of its energy where the annuli beyond `p_max` carry little nuclear
 stopping.
 
 <!-- validation:level3:begin -->
-lindhard 0.0.1 (5ff5209-dirty), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
+lindhard 0.0.1 (2aff938), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
 
 | Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |
 |---|---|---|---|---|---|---|---|---|

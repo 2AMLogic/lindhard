@@ -53,18 +53,24 @@ Method (also summarized in each dataset's `extraction`):
    35 on the others), and prints the residuals (decades).
 2. Templates. Each legend letter (the column of letters beside the reference
    names) is cut out of the page. The plotted letters are drawn smaller than
-   the legend letters, by a per-figure factor measured as the median ratio of
-   the ink bounding boxes of isolated plotted glyphs to their legend glyphs
-   (the figure's `isolated_check` glyphs; the check prints their template
-   coverage), so the templates are resampled by that factor.
+   the legend letters, so the templates are resampled by the figure's
+   `scale`. That factor is a constant in the figure's table, measured once
+   as the ratio of the ink bounding boxes of isolated plotted glyphs to their
+   legend glyphs (Cu: on T, V, A, I; Si, Ag, Au: the median over 7, 8 and 11
+   isolated glyphs, among them the figure's `isolated_check` glyphs). The
+   script does not recompute it; it prints the template coverage of the
+   `isolated_check` glyphs at both template sizes.
 3. Fitted curve. The compilation's empirical curve crosses many symbols. It
-   is located from anchor points read off the raster along the curve and
-   snapped to the thin ink run nearest a spline through them, and treated as
-   "don't care" (neither ink nor background) when templates are matched. It
-   is not stored.
+   is located from anchor points on the curve (hand-read for Cu; for Si, Ag
+   and Au taken about every 60 px where the curve's ink is a single thin run,
+   with one hand-read point in the crowded 200 eV region of Ag), snapped to
+   the thin ink run nearest a spline through them, and treated as "don't
+   care" (neither ink nor background) when templates are matched. It is not
+   stored.
 4. Symbols. Many letters overlap. Each symbol was identified by eye from 4x
-   to 8x zooms of the raster, helped by the template coverage of every
-   legend letter at the spot; the identifications are the figure's seeds
+   to 8x zooms and character dumps of the raster, helped by the template
+   coverage of every legend letter at the spot (for Cu also by a
+   template-matching cluster solver); the identifications are the figure's seeds
    (letter, approximate centre in pixels, status, note, glyph box). Identity
    rules: a glyph is kept only where its distinguishing strokes are visible
    (e.g. the H crossbar sits at 31-42 % of the glyph height and the A
@@ -91,8 +97,10 @@ Method (also summarized in each dataset's `extraction`):
    nominal energies; floored at 2 %.
 7. Second read (Si, Ag and Au; `--record`). Every stored point is located a
    second time without templates: the sixth seed field is a box around the
-   glyph read by eye from the zooms, and the centre is the centre of the
-   bounding box of the ink inside it (`second_read()`). The record lists the
+   glyph read by eye from the zooms and dumps, and the centre is the centre
+   of the bounding box of the ink inside it (`second_read()`; the curve's and
+   neighbours' ink is not removed, so where they cross the box the centre is
+   that of the box as read). The record lists the
    manual / template ratios in E and Y per point against the stored
    uncertainty u and against sqrt(2) u; each dataset's `crosscheck` gets a
    `second_read` summary. The Cu seeds have no boxes (Cu was cross-checked

@@ -6,7 +6,7 @@
   "oracle_commit": "a356280d564bbdfbe74b97f32db0776444da58a5",
   "oracle_source": "https://github.com/lcpp-org/RustBCA",
   "oracle_license": "GPL-3.0 (Tier B): run unmodified as an oracle; adapter written from the RustBCA wiki only; source, example inputs, tables and fixtures never read or copied",
-  "lindhard_version": "lindhard 0.0.1 (5ff5209-dirty)",
+  "lindhard_version": "lindhard 0.0.1 (2aff938)",
   "date": "2026-10-06",
   "ions": 20000,
   "oracle_settings": {
