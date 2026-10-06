@@ -1,6 +1,6 @@
 {
   "format": "lindhard-experiment-results/2",
-  "lindhard_version": "lindhard 0.0.1 (782e3cc-dirty)",
+  "lindhard_version": "lindhard 0.0.1 (2597474)",
   "ions": 20000,
   "physics": {
     "potential": "zbl",

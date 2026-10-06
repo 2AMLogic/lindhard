@@ -444,7 +444,7 @@ the table below keeps the defaults): B keeps most of its energy where the
 annuli beyond `p_max` carry little nuclear stopping.
 
 <!-- validation:level3:begin -->
-lindhard 0.0.1 (782e3cc-dirty), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
+lindhard 0.0.1 (2597474), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
 
 | Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |
 |---|---|---|---|---|---|---|---|---|
