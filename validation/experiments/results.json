@@ -1,6 +1,6 @@
 {
   "format": "lindhard-experiment-results/2",
-  "lindhard_version": "lindhard 0.0.1 (2597474)",
+  "lindhard_version": "lindhard 0.0.1 (add8f40)",
   "ions": 20000,
   "physics": {
     "potential": "zbl",
@@ -458,6 +458,781 @@
             "k_high_extrapolated": true
           }
         }
+      }
+    ]
+  },
+  "sputtering": {
+    "physics": {
+      "potential": "zbl",
+      "stopping": "lindhard-scharff",
+      "free_path": "constant",
+      "primary_cutoff_ev": 2.0,
+      "recoil_cutoff_ev": 1.0,
+      "follow_recoils": true
+    },
+    "weak_collisions": [
+      0,
+      3
+    ],
+    "e_s_ev": {
+      "Ar->Cu": 3.49
+    },
+    "e_d_ev": "equal to e_s_ev",
+    "e_b_ev": 0.0,
+    "energy_merge_rel": 0.02,
+    "ions_per_run": 20000,
+    "seed": 1,
+    "std_err": "Poisson, sqrt(sputtered) / ions; underestimates the true error (correlated bursts)",
+    "control": {
+      "ar_cu_1keV_k0": 1.9341,
+      "level2_ar_1keV_cu_ed_es": 1.9341,
+      "z": 0.0
+    },
+    "rows": [
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 201.5,
+        "measured_energies_ev": [
+          201.3,
+          201.7
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_laegreid1961"
+        ],
+        "yield_min": 1.089,
+        "yield_median": 1.0939999999999999,
+        "yield_max": 1.099,
+        "lindhard_k0": 0.47835,
+        "lindhard_k0_se": 0.004891,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.4372,
+        "lindhard_k3": 0.25615,
+        "lindhard_k3_se": 0.003579,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2341
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 253.1,
+        "measured_energies_ev": [
+          252.5,
+          253.7
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_laegreid1961"
+        ],
+        "yield_min": 1.2,
+        "yield_median": 1.2730000000000001,
+        "yield_max": 1.346,
+        "lindhard_k0": 0.6376,
+        "lindhard_k0_se": 0.005646,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5009,
+        "lindhard_k3": 0.3255,
+        "lindhard_k3_se": 0.004034,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2557
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 302.3,
+        "measured_energies_ev": [
+          302.3
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_akaishi1977"
+        ],
+        "yield_min": 0.9798,
+        "yield_median": 0.9798,
+        "yield_max": 0.9798,
+        "lindhard_k0": 0.78115,
+        "lindhard_k0_se": 0.00625,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.7973,
+        "lindhard_k3": 0.3763,
+        "lindhard_k3_se": 0.004338,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3841
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 330.2,
+        "measured_energies_ev": [
+          330.2
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_bader1961"
+        ],
+        "yield_min": 1.702,
+        "yield_median": 1.702,
+        "yield_max": 1.702,
+        "lindhard_k0": 0.8526,
+        "lindhard_k0_se": 0.006529,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5009,
+        "lindhard_k3": 0.4059,
+        "lindhard_k3_se": 0.004505,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2385
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 353.4,
+        "measured_energies_ev": [
+          352.6,
+          353.7,
+          353.9
+        ],
+        "n_points": 3,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_laegreid1961",
+          "ar_cu_sputter_weijsenfeld1967"
+        ],
+        "yield_min": 1.199,
+        "yield_median": 1.443,
+        "yield_max": 1.748,
+        "lindhard_k0": 0.90415,
+        "lindhard_k0_se": 0.006724,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6266,
+        "lindhard_k3": 0.435,
+        "lindhard_k3_se": 0.004664,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3015
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 405.2,
+        "measured_energies_ev": [
+          404.1,
+          406.3
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_laegreid1961"
+        ],
+        "yield_min": 1.706,
+        "yield_median": 1.846,
+        "yield_max": 1.986,
+        "lindhard_k0": 1.0374,
+        "lindhard_k0_se": 0.007202,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.562,
+        "lindhard_k3": 0.48185,
+        "lindhard_k3_se": 0.004908,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.261
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 455.3,
+        "measured_energies_ev": [
+          455.3,
+          455.4
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_keywell1955"
+        ],
+        "yield_min": 1.198,
+        "yield_median": 1.448,
+        "yield_max": 1.698,
+        "lindhard_k0": 1.13385,
+        "lindhard_k0_se": 0.007529,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.783,
+        "lindhard_k3": 0.53215,
+        "lindhard_k3_se": 0.005158,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3675
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 503.5,
+        "measured_energies_ev": [
+          503.5,
+          503.6
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_laegreid1961",
+          "ar_cu_sputter_weijsenfeld1967"
+        ],
+        "yield_min": 1.925,
+        "yield_median": 2.0515,
+        "yield_max": 2.178,
+        "lindhard_k0": 1.23725,
+        "lindhard_k0_se": 0.007865,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6031,
+        "lindhard_k3": 0.57165,
+        "lindhard_k3_se": 0.005346,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2786
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 554.5,
+        "measured_energies_ev": [
+          554.5
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_akaishi1977"
+        ],
+        "yield_min": 2.195,
+        "yield_median": 2.195,
+        "yield_max": 2.195,
+        "lindhard_k0": 1.32665,
+        "lindhard_k0_se": 0.008144,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6044,
+        "lindhard_k3": 0.6095,
+        "lindhard_k3_se": 0.00552,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2777
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 603.7,
+        "measured_energies_ev": [
+          603.7
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_akaishi1977"
+        ],
+        "yield_min": 2.711,
+        "yield_median": 2.711,
+        "yield_max": 2.711,
+        "lindhard_k0": 1.4093,
+        "lindhard_k0_se": 0.008394,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5198,
+        "lindhard_k3": 0.65445,
+        "lindhard_k3_se": 0.00572,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2414
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 652.5,
+        "measured_energies_ev": [
+          652.5
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_akaishi1977"
+        ],
+        "yield_min": 2.608,
+        "yield_median": 2.608,
+        "yield_max": 2.608,
+        "lindhard_k0": 1.49845,
+        "lindhard_k0_se": 0.008656,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5746,
+        "lindhard_k3": 0.68565,
+        "lindhard_k3_se": 0.005855,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2629
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 705.6,
+        "measured_energies_ev": [
+          705.6
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_weijsenfeld1967"
+        ],
+        "yield_min": 2.525,
+        "yield_median": 2.525,
+        "yield_max": 2.525,
+        "lindhard_k0": 1.5618,
+        "lindhard_k0_se": 0.008837,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6185,
+        "lindhard_k3": 0.72085,
+        "lindhard_k3_se": 0.006004,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2855
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 833.6,
+        "measured_energies_ev": [
+          833.6
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_bader1961"
+        ],
+        "yield_min": 2.609,
+        "yield_median": 2.609,
+        "yield_max": 2.609,
+        "lindhard_k0": 1.7456,
+        "lindhard_k0_se": 0.009342,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6691,
+        "lindhard_k3": 0.7979,
+        "lindhard_k3_se": 0.006316,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3058
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 852.7,
+        "measured_energies_ev": [
+          852.7
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_akaishi1977"
+        ],
+        "yield_min": 3.227,
+        "yield_median": 3.227,
+        "yield_max": 3.227,
+        "lindhard_k0": 1.7696,
+        "lindhard_k0_se": 0.009406,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5484,
+        "lindhard_k3": 0.8082,
+        "lindhard_k3_se": 0.006357,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2504
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 956.3,
+        "measured_energies_ev": [
+          956.3
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_weijsenfeld1967"
+        ],
+        "yield_min": 2.819,
+        "yield_median": 2.819,
+        "yield_max": 2.819,
+        "lindhard_k0": 1.88315,
+        "lindhard_k0_se": 0.009703,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.668,
+        "lindhard_k3": 0.85185,
+        "lindhard_k3_se": 0.006526,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3022
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 1002.0,
+        "measured_energies_ev": [
+          1001.0,
+          1003.0
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_koshkin1969"
+        ],
+        "yield_min": 2.105,
+        "yield_median": 2.1545,
+        "yield_max": 2.204,
+        "lindhard_k0": 1.939,
+        "lindhard_k0_se": 0.009846,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.9,
+        "lindhard_k3": 0.8879,
+        "lindhard_k3_se": 0.006663,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.4121
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 1054.0,
+        "measured_energies_ev": [
+          1052.0,
+          1056.0
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_oechsner1973",
+          "ar_cu_sputter_southern1963"
+        ],
+        "yield_min": 2.579,
+        "yield_median": 3.1275000000000004,
+        "yield_max": 3.676,
+        "lindhard_k0": 1.99355,
+        "lindhard_k0_se": 0.009984,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6374,
+        "lindhard_k3": 0.90965,
+        "lindhard_k3_se": 0.006744,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2909
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 1149.0,
+        "measured_energies_ev": [
+          1149.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_akaishi1977"
+        ],
+        "yield_min": 3.222,
+        "yield_median": 3.222,
+        "yield_max": 3.222,
+        "lindhard_k0": 2.0899,
+        "lindhard_k0_se": 0.01022,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6486,
+        "lindhard_k3": 0.9434,
+        "lindhard_k3_se": 0.006868,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2928
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 1503.0,
+        "measured_energies_ev": [
+          1499.0,
+          1508.0
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_southern1963"
+        ],
+        "yield_min": 3.395,
+        "yield_median": 3.6525,
+        "yield_max": 3.91,
+        "lindhard_k0": 2.36235,
+        "lindhard_k0_se": 0.01087,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6468,
+        "lindhard_k3": 1.0872,
+        "lindhard_k3_se": 0.007373,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2977
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 1594.0,
+        "measured_energies_ev": [
+          1594.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_bader1961"
+        ],
+        "yield_min": 4.127,
+        "yield_median": 4.127,
+        "yield_max": 4.127,
+        "lindhard_k0": 2.4111,
+        "lindhard_k0_se": 0.01098,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5842,
+        "lindhard_k3": 1.1251,
+        "lindhard_k3_se": 0.0075,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2726
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 1992.0,
+        "measured_energies_ev": [
+          1981.0,
+          1988.0,
+          1993.0,
+          2008.0
+        ],
+        "n_points": 4,
+        "sets": [
+          "ar_cu_sputter_akaishi1977",
+          "ar_cu_sputter_bohdansky1980",
+          "ar_cu_sputter_koshkin1969",
+          "ar_cu_sputter_southern1963"
+        ],
+        "yield_min": 3.029,
+        "yield_median": 3.915,
+        "yield_max": 4.231,
+        "lindhard_k0": 2.63975,
+        "lindhard_k0_se": 0.01149,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6743,
+        "lindhard_k3": 1.22695,
+        "lindhard_k3_se": 0.007832,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3134
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 2392.0,
+        "measured_energies_ev": [
+          2392.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_keywell1955"
+        ],
+        "yield_min": 4.548,
+        "yield_median": 4.548,
+        "yield_max": 4.548,
+        "lindhard_k0": 2.814,
+        "lindhard_k0_se": 0.01186,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6187,
+        "lindhard_k3": 1.3267,
+        "lindhard_k3_se": 0.008145,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2917
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 2502.0,
+        "measured_energies_ev": [
+          2502.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_southern1963"
+        ],
+        "yield_min": 4.545,
+        "yield_median": 4.545,
+        "yield_max": 4.545,
+        "lindhard_k0": 2.84035,
+        "lindhard_k0_se": 0.01192,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.6249,
+        "lindhard_k3": 1.33775,
+        "lindhard_k3_se": 0.008178,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2943
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 2587.0,
+        "measured_energies_ev": [
+          2587.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_bader1961"
+        ],
+        "yield_min": 5.332,
+        "yield_median": 5.332,
+        "yield_max": 5.332,
+        "lindhard_k0": 2.8661,
+        "lindhard_k0_se": 0.01197,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5375,
+        "lindhard_k3": 1.3525,
+        "lindhard_k3_se": 0.008223,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2537
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 4039.0,
+        "measured_energies_ev": [
+          4039.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_bader1961"
+        ],
+        "yield_min": 6.258,
+        "yield_median": 6.258,
+        "yield_max": 6.258,
+        "lindhard_k0": 3.21785,
+        "lindhard_k0_se": 0.01268,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5142,
+        "lindhard_k3": 1.531,
+        "lindhard_k3_se": 0.008749,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2446
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 4956.0,
+        "measured_energies_ev": [
+          4956.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_guseva1960"
+        ],
+        "yield_min": 4.117,
+        "yield_median": 4.117,
+        "yield_max": 4.117,
+        "lindhard_k0": 3.32785,
+        "lindhard_k0_se": 0.0129,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.8083,
+        "lindhard_k3": 1.6296,
+        "lindhard_k3_se": 0.009027,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3958
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 6003.0,
+        "measured_energies_ev": [
+          5966.0,
+          6041.0
+        ],
+        "n_points": 2,
+        "sets": [
+          "ar_cu_sputter_bader1961",
+          "ar_cu_sputter_koshkin1969"
+        ],
+        "yield_min": 6.478,
+        "yield_median": 6.763999999999999,
+        "yield_max": 7.05,
+        "lindhard_k0": 3.4247,
+        "lindhard_k0_se": 0.01309,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.5063,
+        "lindhard_k3": 1.67805,
+        "lindhard_k3_se": 0.00916,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2481
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 7440.0,
+        "measured_energies_ev": [
+          7440.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_yonts1960"
+        ],
+        "yield_min": 7.365,
+        "yield_median": 7.365,
+        "yield_max": 7.365,
+        "lindhard_k0": 3.5503,
+        "lindhard_k0_se": 0.01332,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.4821,
+        "lindhard_k3": 1.7271,
+        "lindhard_k3_se": 0.009293,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2345
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 7978.0,
+        "measured_energies_ev": [
+          7978.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_koshkin1969"
+        ],
+        "yield_min": 7.493,
+        "yield_median": 7.493,
+        "yield_max": 7.493,
+        "lindhard_k0": 3.56245,
+        "lindhard_k0_se": 0.01335,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.4754,
+        "lindhard_k3": 1.75645,
+        "lindhard_k3_se": 0.009371,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.2344
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 8437.0,
+        "measured_energies_ev": [
+          8437.0
+        ],
+        "n_points": 1,
+        "sets": [
+          "ar_cu_sputter_perovic1961"
+        ],
+        "yield_min": 4.548,
+        "yield_median": 4.548,
+        "yield_max": 4.548,
+        "lindhard_k0": 3.5829,
+        "lindhard_k0_se": 0.01338,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.7878,
+        "lindhard_k3": 1.7742,
+        "lindhard_k3_se": 0.009419,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3901
+      },
+      {
+        "ion": "Ar",
+        "target": "Cu",
+        "energy_ev": 9936.0,
+        "measured_energies_ev": [
+          9904.0,
+          9925.0,
+          9978.0
+        ],
+        "n_points": 3,
+        "sets": [
+          "ar_cu_sputter_dupp1966",
+          "ar_cu_sputter_fert1961",
+          "ar_cu_sputter_okajima1981"
+        ],
+        "yield_min": 4.335,
+        "yield_median": 4.789,
+        "yield_max": 6.393,
+        "lindhard_k0": 3.63605,
+        "lindhard_k0_se": 0.01348,
+        "lindhard_k0_in_band": false,
+        "lindhard_k0_over_median": 0.7593,
+        "lindhard_k3": 1.79735,
+        "lindhard_k3_se": 0.00948,
+        "lindhard_k3_in_band": false,
+        "lindhard_k3_over_median": 0.3753
       }
     ]
   }

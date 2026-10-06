@@ -356,7 +356,9 @@ Differences are lindhard relative to the oracle, with the difference in units of
 - **Electronic stopping:** IAEA stopping database experimental points, with
   per-system residual statistics reported (terms of reuse still unread; see
   the open questions in [`data-provenance.md`](data-provenance.md)).
-- **Sputtering:** published yields (e.g. Ar → Si, Ar → Cu) vs. energy and angle.
+- **Sputtering:** published yields vs. energy and angle. Ar → Cu at normal
+  incidence, 0.2 to 10 keV, is in (#69, below); Ar → Si, Ag and Au (#70)
+  and the angular dependence are not yet.
 - **Electrons (M1):** published backscatter coefficients η(E, Z), SE yields
   δ(E), and resist-exposure PSF measurements.
 
@@ -376,6 +378,12 @@ As in amorphous Si are open gaps:** no source with values that may be stored
 could be reached; the searches and the one source found but not usable (its
 terms forbid publishing derived information) are listed in
 [`data-provenance.md`](data-provenance.md).
+
+**Status (#69):** 15 measured Ar → Cu sputter-yield sets (47 points, 0.2 to
+10 keV, normal incidence), digitized from the compilation of Matsunami et al.
+(IPPJ-AM-32, 1983) and cross-checked against Yamamura and Tawara
+(NIFS-DATA-23, 1995); results and interpretation under "Sputter yields:
+Ar → Cu" below.
 
 ### Stopping-input attribution
 
@@ -446,7 +454,7 @@ keeps most of its energy where the annuli beyond `p_max` carry little nuclear
 stopping.
 
 <!-- validation:level3:begin -->
-lindhard 0.0.1 (2597474), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
+lindhard 0.0.1 (add8f40), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
 
 | Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |
 |---|---|---|---|---|---|---|---|---|
@@ -472,6 +480,144 @@ lindhard 0.0.1 (2597474), 20000 ions per case, physics zbl + lindhard-scharff (t
 
 Control: a k = 1 table reproduces the built-in Lindhard-Scharff Rp to 6.7e-16 (relative), so the k tables change only the magnitude. Per-run values: `validation/experiments/results.json`.
 <!-- validation:level3:end -->
+
+### Sputter yields: Ar → Cu (#69)
+
+**Data.** The measured points of the Ar → Cu figure of N. Matsunami et al.,
+IPPJ-AM-32 (1983) (At. Data Nucl. Data Tables 31, 1 (1984)), PDF p. 118,
+one dataset per original measurement (15 sets, 1955 to 1981), stored as
+facts attributed to those measurements with the compilation as the source
+read (operator decision, #69; provenance rows in
+[`data-provenance.md`](data-provenance.md)). The compilation's fitted
+curve is not stored and is used nowhere. The compilation holds only
+normal-incidence, room-temperature yields of non-single-crystal targets
+(mostly polycrystalline foils or evaporated films) and gives no
+measurement errors. Digitizing
+(`validation/data/digitize/matsunami1983_ipp_am32.py`): a 2-D affine axis
+calibration from all 157 ticks (rms 0.004 decade), symbols identified by eye
+and centred by template matching; 47 symbols between 196 eV and 10.2 keV are
+stored with a 2 % digitizing uncertainty, and 11 symbols that overlap beyond
+identification are listed in the script and not stored. Two identities are
+inferred, with the argument stored in the point's `note`.
+
+**Double-check.** An independent second read of NIFS-DATA-23 Fig. 120
+(`validation/data/digitize/yamamura1995_nifs23.py`: its own log-comb axis
+calibration and template-free centring, no shared code) gives the same
+points where that 200 ppi figure separates them. That is 10 of the 47:
+
+| Set (NIFS letter) | E (eV) | Y, IPPJ-AM-32 | Y, NIFS-DATA-23 | Y ratio | E ratio | Combined unc. | Symbols | Verdict |
+|---|---|---|---|---|---|---|---|---|
+| Akaishi 1977 (O) | 201 | 1.099 | 1.123 | 1.022 | 1.007 | 2.9 % | coincident | within 1σ |
+| Akaishi 1977 (O) | 254 | 1.200 | 1.220 | 1.017 | 1.000 | 2.9 % | isolated | within 1σ |
+| Akaishi 1977 (O) | 302 | 0.980 | 0.992 | 1.013 | 1.003 | 2.9 % | isolated | within 1σ |
+| Akaishi 1977 (O) | 1001 | 2.105 | 2.107 | 1.001 | 0.990 | 2.9 % | coincident | within 1σ |
+| Guseva 1960 (B) | 4956 | 4.117 | 4.093 | 0.994 | 1.003 | 2.9 % | isolated | within 1σ |
+| Keywell 1955 (A) | 455 | 1.198 | 1.202 | 1.003 | 1.004 | 2.9 % | isolated | within 1σ |
+| Koshkin 1969 (N) | 1003 | 2.204 | 2.107 | 0.956 | 0.988 | 2.9 % | coincident | within 2σ, explained |
+| Koshkin 1969 (N) | 7978 | 7.493 | 7.474 | 0.998 | 0.949 | 2.9 % | coincident | E within 2σ, explained |
+| Laegreid 1961 (G) | 202 | 1.089 | 1.123 | 1.031 | 1.005 | 2.9 % | coincident | within 2σ, explained |
+| Yonts 1960 (D) | 7440 | 7.365 | 7.474 | 1.015 | 1.018 | 2.9 % | coincident | within 1σ |
+
+Mean Y ratio 1.005, rms 2.0 %; mean E ratio 0.997, rms 1.8 %. The three
+reads beyond 1σ are all "coincident" symbols: two references drawn on one
+spot in NIFS-DATA-23 (Akaishi and Koshkin at 1 keV, Akaishi and Laegreid at
+200 eV, Yonts and Koshkin at 7.5 to 8 keV), where its single blob is
+compared with each of IPPJ-AM-32's separate points, so a split of a few
+percent between the two references cannot be resolved. No point disagrees,
+none is flagged. The other 37 points lie in stacks that NIFS-DATA-23 does not
+separate; each dataset's `crosscheck` says which, and the full record is
+`validation/data/digitize/crosscheck_ar_cu_nifs23.json`.
+
+**Matched settings.** Those of the level-2 problem `ar_1keV_cu_ed_es`: ZBL,
+Lindhard-Scharff all nonlocal, constant free path, primary and recoil
+cutoffs 2 and 1 eV, recoils followed, `E_b` = 0, and `E_d = E_s` = 3.49 eV,
+where `E_s` is lindhard's tabulated cohesive energy of Cu (Kittel; read
+back from lindhard, not typed in). `E_d <= E_s` is Eckstein's convention when
+yields matter, and #61 showed that `E_d` is inert once below `E_s`, while the
+default `E_d` = 30 eV costs about a factor of 4 for reasons unrelated to
+what is tested here. Both `weak_collisions` = 0 (the default) and 3
+(TRIDYN's maximum, #64) are run at each distinct measured energy (energies
+within 2 % merged), 20 000 ions, seed 1. Nothing was varied beyond these two
+settings, and nothing was fitted. The 1 keV run reproduces the committed
+level-2 value bit for bit (1.9341). RustBCA, through the unmodified level-2
+adapter and the same settings, is shown for context only.
+
+<!-- validation:level3-sputter:begin -->
+lindhard, 20000 ions per run, seed 1; matched settings of `ar_1keV_cu_ed_es` (ZBL, Lindhard-Scharff nonlocal, constant free path, cutoffs 2 / 1 eV, recoils followed, E_b = 0, E_d = E_s = 3.49 eV (Ar->Cu), lindhard's tabulated cohesive energy). Measured energies within 2 % share one run.
+
+| Ar → Cu, E (eV) | Points (sets) | Measured min..max (median) | lindhard K = 0 (/median) | lindhard K = 3 (/median) | RustBCA K = 0 / K = 3 |
+|---|---|---|---|---|---|
+| 201.5 | 2 (2) | 1.09..1.10 (1.09) | 0.48 (0.44) | 0.26 (0.23) | 1.17 / 2.08 |
+| 253.1 | 2 (2) | 1.20..1.35 (1.27) | 0.64 (0.50) | 0.33 (0.26) | 1.50 / 2.50 |
+| 302.3 | 1 (1) | 0.98..0.98 (0.98) | 0.78 (0.80) | 0.38 (0.38) | 1.78 / 2.83 |
+| 330.2 | 1 (1) | 1.70..1.70 (1.70) | 0.85 (0.50) | 0.41 (0.24) | 1.95 / 2.99 |
+| 353.4 | 3 (3) | 1.20..1.75 (1.44) | 0.90 (0.63) | 0.43 (0.30) | 2.04 / 3.12 |
+| 405.2 | 2 (2) | 1.71..1.99 (1.85) | 1.04 (0.56) | 0.48 (0.26) | 2.31 / 3.38 |
+| 455.3 | 2 (2) | 1.20..1.70 (1.45) | 1.13 (0.78) | 0.53 (0.37) | 2.54 / 3.63 |
+| 503.5 | 2 (2) | 1.93..2.18 (2.05) | 1.24 (0.60) | 0.57 (0.28) | 2.73 / 3.84 |
+| 554.5 | 1 (1) | 2.19..2.19 (2.19) | 1.33 (0.60) | 0.61 (0.28) | 2.93 / 3.99 |
+| 603.7 | 1 (1) | 2.71..2.71 (2.71) | 1.41 (0.52) | 0.65 (0.24) | 3.11 / 4.18 |
+| 652.5 | 1 (1) | 2.61..2.61 (2.61) | 1.50 (0.57) | 0.69 (0.26) | 3.28 / 4.33 |
+| 705.6 | 1 (1) | 2.52..2.52 (2.52) | 1.56 (0.62) | 0.72 (0.29) | 3.44 / 4.47 |
+| 833.6 | 1 (1) | 2.61..2.61 (2.61) | 1.75 (0.67) | 0.80 (0.31) | 3.77 / 4.80 |
+| 852.7 | 1 (1) | 3.23..3.23 (3.23) | 1.77 (0.55) | 0.81 (0.25) | 3.85 / 4.81 |
+| 956.3 | 1 (1) | 2.82..2.82 (2.82) | 1.88 (0.67) | 0.85 (0.30) | 4.08 / 5.05 |
+| 1002 | 2 (2) | 2.10..2.20 (2.15) | 1.94 (0.90) | 0.89 (0.41) | 4.15 / 5.16 |
+| 1054 | 2 (2) | 2.58..3.68 (3.13) | 1.99 (0.64) | 0.91 (0.29) | 4.29 / 5.25 |
+| 1149 | 1 (1) | 3.22..3.22 (3.22) | 2.09 (0.65) | 0.94 (0.29) | 4.44 / 5.34 |
+| 1503 | 2 (2) | 3.40..3.91 (3.65) | 2.36 (0.65) | 1.09 (0.30) | 4.99 / 5.80 |
+| 1594 | 1 (1) | 4.13..4.13 (4.13) | 2.41 (0.58) | 1.13 (0.27) | 5.09 / 5.89 |
+| 1992 | 4 (4) | 3.03..4.23 (3.92) | 2.64 (0.67) | 1.23 (0.31) | 5.46 / 6.25 |
+| 2392 | 1 (1) | 4.55..4.55 (4.55) | 2.81 (0.62) | 1.33 (0.29) | 5.77 / 6.50 |
+| 2502 | 1 (1) | 4.54..4.54 (4.54) | 2.84 (0.62) | 1.34 (0.29) | 5.87 / 6.52 |
+| 2587 | 1 (1) | 5.33..5.33 (5.33) | 2.87 (0.54) | 1.35 (0.25) | 5.87 / 6.58 |
+| 4039 | 1 (1) | 6.26..6.26 (6.26) | 3.22 (0.51) | 1.53 (0.24) | 6.44 / 6.99 |
+| 4956 | 1 (1) | 4.12..4.12 (4.12) | 3.33 (0.81) | 1.63 (0.40) | 6.60 / 7.10 |
+| 6003 | 2 (2) | 6.48..7.05 (6.76) | 3.42 (0.51) | 1.68 (0.25) | 6.78 / 7.23 |
+| 7440 | 1 (1) | 7.37..7.37 (7.37) | 3.55 (0.48) | 1.73 (0.23) | 6.89 / 7.29 |
+| 7978 | 1 (1) | 7.49..7.49 (7.49) | 3.56 (0.48) | 1.76 (0.23) | 6.95 / 7.25 |
+| 8437 | 1 (1) | 4.55..4.55 (4.55) | 3.58 (0.79) | 1.77 (0.39) | 6.94 / 7.28 |
+| 9936 | 3 (3) | 4.33..6.39 (4.79) | 3.64 (0.76) | 1.80 (0.38) | 6.99 / 7.25 |
+
+(/median): lindhard over the measured median; "in": inside the measured min..max. K = 0 lies in the band at 0 of 31 energies (ratio 0.44 to 0.90), K = 3 at 0 (ratio 0.23 to 0.41). Statistical errors (Poisson) are below 1.5 %. RustBCA v3.0.0-17-ga356280 (20000 ions, same settings through the level-2 adapter; summary `validation/oracles/summaries/rustbca-sputter_ar_cu.json`, context only). Measured points: `validation/data/sputtering/`; provenance: [`data-provenance.md`](data-provenance.md).
+
+Control: the 1 keV run gives 1.9341, the level-2 `ar_1keV_cu_ed_es` value 1.9341 (+0.0 σ).
+<!-- validation:level3-sputter:end -->
+
+**Interpretation.** Measured scatter between laboratories is large: at a
+given energy the sets differ by up to a factor of 1.75 (2.1 to 3.7 at 1.0
+to 1.05 keV), so lindhard is compared with the band, not with a curve.
+
+- **lindhard with its default (K = 0) is below the measured band at every
+  energy**, at 0.44 to 0.90 of the measured median (geometric mean 0.61).
+  The deficit is the same at 0.2 to 0.6 keV (0.59), 0.6 to 2 keV (0.63) and
+  2 to 10 keV (0.60). A deficit near threshold would grow towards low
+  energy, and this one does not. So it is a roughly constant factor in the
+  cascade's sputtering efficiency, not a threshold effect.
+- **Weak collisions (K = 3) make it worse by a further factor of 2**
+  (0.29 of the median, never in the band). As implemented (#64), they move
+  the yield away from experiment at every energy. Experiment therefore gives
+  no support for making K = 3 the default, and some evidence against it. No
+  default is changed here; that decision belongs to #61.
+- **The gap to RustBCA (#61) is split.** RustBCA with the same settings is
+  above the band at 28 of 31 energies, inside it at 6.0 keV and below it at
+  7.4 and 8.0 keV (single high points). Its ratio to the median is 0.93 to
+  1.93, geometric mean 1.30, and it is highest at low energy (1.34 below
+  0.6 keV, 1.19 above 2 keV). lindhard is
+  0.41 to 0.52 of RustBCA, so the measured yields lie between the two
+  codes, nearer neither. The factor of 2.2 at 1 keV is therefore not a
+  defect of one code against a correct other. Both are off, in opposite
+  directions, and the gap remains **unexplained**. RustBCA's weak collisions
+  also move it away from experiment (1.64 times the median).
+- **Limits.** These are 1955 to 1981 measurements, read from a figure, on
+  surfaces of unstated condition; the compilation does not rank them.
+  `E_s` = cohesive energy is a convention, not a measured surface barrier,
+  and the yield scales roughly as 1/`E_s`. The conclusion that lindhard is
+  low by about 40 % is robust to the scatter, since it holds at every energy
+  against the lowest set, but the cause (electronic share, #61; surface
+  binding; the impact-parameter limit) is not identified by these data.
+  Ar → Si, Ag and Au, which would test the target-mass dependence, are
+  #70.
 
 ## Reporting
 

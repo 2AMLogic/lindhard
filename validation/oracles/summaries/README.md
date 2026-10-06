@@ -21,3 +21,16 @@ Format `lindhard-oracle-summary/2`:
 | `matched`, `mismatches` | Choices made identical, and every choice that could not be matched |
 
 Format `/1` (no commit, no oracle values) was never committed.
+
+## Level-3 context: `rustbca-sputter_ar_cu.json`
+
+Format `lindhard-oracle-sputter-summary/1`, written by
+`validation/experiments/run.py --rustbca` (RUSTBCA_BIN set) and committed by
+hand: RustBCA's Ar → Cu sputter yield, with weak collisions 0 and 3, at the
+energies of the measured level-3 data (`validation/data/sputtering/`), run
+through this directory's RustBCA adapter with the settings of
+`ar_1keV_cu_ed_es`. `rows` holds per energy only scalar yields
+(`rustbca_k0`, `rustbca_k3`, Poisson standard errors) next to lindhard's;
+`oracle_settings` and `mismatches` are as in the level-2 summaries. Context
+for docs/validation.md section 3, not a level-2 comparison: `update_docs.py`
+leaves it out of the level-2 table.

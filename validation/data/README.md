@@ -12,6 +12,12 @@ derived from it, or any other code's output, however well known
   measured ranges of Wach and Wittmaack (1982) digitized from the compilation
   of Wittmaack and Mutzke (2017), Fig. 8 (#51). The script is in
   `digitize/`.
+- **Sputter yields, Ar on Cu:** `sputtering/ar_cu_sputter_*.json`, 15
+  measured sets (47 points, 0.2 to 10 keV, normal incidence) digitized from
+  the compilation of Matsunami et al., IPPJ-AM-32 (1983), and cross-checked
+  against Yamamura and Tawara, NIFS-DATA-23 (1995) (#69). Stored under an
+  operator decision (#69) despite the compilations' cover notes; no figure
+  image or fitted curve is stored. Ar on Si, Ag and Au: not yet digitized (#70).
 - **P and As in amorphous Si:** open gaps (#51). What was searched, and why
   the one source found could not be used, is in
   [`docs/data-provenance.md`](../../docs/data-provenance.md).
@@ -29,11 +35,14 @@ seen.
 ```
 validation/data/ranges/<id>.json      one dataset: metadata + moments
 validation/data/ranges/<id>.csv       optional depth profile (depth_nm,value)
+validation/data/sputtering/<id>.json  one measured sputter-yield set: metadata + points
 validation/data/digitize/             scripts that digitized a figure (not run
-                                      by the harness; may need numpy/Pillow)
+                                      by the harness; may need numpy/Pillow/scipy),
+                                      and their cross-check records
 ```
 
-`validation/experiments/run.py` reads every `ranges/*.json`, checks it (see
+`validation/experiments/run.py` reads every `ranges/*.json` and
+`sputtering/*.json`, checks it (see
 "Enforced" below), runs `lindhard` on the same ion, energy, tilt and target,
 and writes
 `validation/experiments/results.json`; `validation/run.sh` turns that into the
@@ -88,6 +97,55 @@ Rules:
   terms do not allow storing the numbers, store none: record the citation and
   a note on how to fetch and derive them instead.
 
+## Sputter-yield schema (`sputtering/<id>.json`)
+
+One file per *original measurement set* (one reference, one ion-target
+pair), holding all its points. `id` is the file name, e.g.
+`ar_cu_sputter_<firstauthor><year>`.
+
+```json
+{
+  "kind": "sputter_yield",
+  "id": "ar_cu_sputter_<firstauthor><year>",
+  "ion": "Ar", "mass_amu": null,
+  "target": "Cu",
+  "target_state": "as stated by the source, or 'not stated' and why",
+  "incidence_deg": 0.0,
+  "points": [
+    { "energy_ev": 1000.0, "energy_unc_rel": 0.02, "yield": 2.0, "yield_unc_rel": 0.02,
+      "note": "optional, e.g. why a symbol identity is inferred" }
+  ],
+  "original_reference": "Authors, Journal Volume, Page (Year)",
+  "original_doi": "10.xxxx/... or null",
+  "compilation": "the secondary source that was read",
+  "compilation_figure": "Ar -> Cu",
+  "compilation_pdf_page": 118,
+  "compilation_symbol": "letter used for this reference in the figure",
+  "compilation_table_ref": "where the compilation lists the reference",
+  "url": "where the compilation was read",
+  "crosscheck": { "compilation": "...", "figure": "...", "pdf_page": 0, "symbol": "...", "agreement": "..." },
+  "extraction": "tool, axis calibration, symbol-location method, uncertainty",
+  "reliability_note": "why the compilation treats the set as reliable",
+  "terms": "Facts, cited; ...",
+  "added": "YYYY-MM-DD"
+}
+```
+
+Rules:
+
+- Measured points only: never a compilation's fitted curve, and never a
+  point the compilation marks as calculated (e.g. ACAT in NIFS-DATA-23).
+- `energy_unc_rel` and `yield_unc_rel` are the digitizing uncertainties,
+  never zero; say in `extraction` that the source gives no measurement
+  uncertainty when it gives none.
+- `incidence_deg` is required (normal incidence = 0); a later angular
+  extension must not be mistaken for normal incidence.
+- A symbol whose identity cannot be decided is not stored; the digitizing
+  script lists it and why.
+- Every set digitized from IPPJ-AM-32 is re-read independently from
+  NIFS-DATA-23 where that figure separates it; the record is
+  `digitize/crosscheck_ar_cu_nifs23.json`, summarized in each `crosscheck`.
+
 ## Enforced
 
 `validation/experiments/run.py` (and `--check`, which `validation/run.sh`
@@ -99,3 +157,17 @@ always runs) exits with an error naming the file and field if a dataset:
 - has no positive `energy_ev`, `measured.rp_nm` or `measured.rp_unc_nm`, no
   `measured.method`, or a ΔRp without a positive uncertainty;
 - has no row in `docs/data-provenance.md` that names its `id`.
+
+and, for a sputter-yield dataset, if it:
+
+- has a `kind` other than `sputter_yield`, or lacks a non-empty `id` (equal
+  to the file name), `ion`, `target`, `target_state`, `original_reference`,
+  `compilation`, `compilation_figure`, `extraction`, `terms` or `added`, or
+  both of `original_doi` and `url`;
+- has no positive `compilation_pdf_page`, no numeric `incidence_deg`, no
+  points, or a point without a positive `energy_ev`, `yield`,
+  `energy_unc_rel` or `yield_unc_rel`;
+- has no row in `docs/data-provenance.md` that names its `id`.
+
+`validation/experiments/test_run.py` (run by `validation/run.sh`) checks
+that each of these failures is caught.

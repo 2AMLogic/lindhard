@@ -1,0 +1,42 @@
+{
+  "kind": "sputter_yield",
+  "id": "ar_cu_sputter_keywell1955",
+  "ion": "Ar",
+  "mass_amu": null,
+  "target": "Cu",
+  "target_state": "not stated in the compilation for this set; the compilation excludes single-crystal targets and states that most specimens were thinned polycrystalline foils or evaporated films (IPPJ-AM-32, p. 2)",
+  "incidence_deg": 0.0,
+  "points": [
+    {
+      "energy_ev": 455.4,
+      "energy_unc_rel": 0.02,
+      "yield": 1.198,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 2392.0,
+      "energy_unc_rel": 0.02,
+      "yield": 4.548,
+      "yield_unc_rel": 0.02
+    }
+  ],
+  "original_reference": "F. Keywell, Phys. Rev. 97, 1611 (1955)",
+  "original_doi": "10.1103/PhysRev.97.1611",
+  "compilation": "Matsunami et al., IPPJ-AM-32 (1983); At. Data Nucl. Data Tables 31, 1 (1984)",
+  "compilation_figure": "Ar -> Cu",
+  "compilation_pdf_page": 118,
+  "compilation_symbol": "A (KEYWELL (1955))",
+  "compilation_table_ref": "References for graphs, PDF pp. 281-286 (the figure legend gives the letter)",
+  "url": "http://dpc.nifs.ac.jp/IPPJ-AM/IPPJ-AM-32.pdf",
+  "crosscheck": {
+    "compilation": "Yamamura and Tawara, NIFS-DATA-23 (1995); At. Data Nucl. Data Tables 62, 149 (1996)",
+    "figure": "Fig. 120",
+    "pdf_page": 49,
+    "symbol": "A",
+    "agreement": "1 of 2 points compared; Y ratio NIFS/AM-32 1.003 at 455 eV (agree within the combined uncertainty); the other points lie in stacks not separable at 200 ppi (validation/data/digitize/crosscheck_ar_cu_nifs23.json)"
+  },
+  "extraction": "Digitized from the 400 ppi scan of PDF p. 118 with validation/data/digitize/matsunami1983_ipp_am32.py: 2-D affine axis calibration from all ~160 tick marks of the log-log frame (residual rms 0.0040 decade in E, 0.0026 in Y); symbols identified by eye from zoomed rasters (listed in the script) and centred by template matching against the figure's legend glyphs, two template sizes; the fitted curve masked out and not stored. Points with 196 eV <= E <= 10.2 keV only; symbols in that range that could not be identified are listed in the script and not stored. Uncertainties are digitizing only (calibration, centring repeatability and the 0.8 % rms scatter of round-energy points), floored at 2 %; the compilation gives no measurement uncertainty. Energy is the total ion energy, yield in atoms per ion (IPPJ-AM-32, p. 6).",
+  "reliability_note": "Included in the compilation's Ar -> Cu figure, so it passed the compilation's selection (IPPJ-AM-32, pp. 1-2: absolute or normalized-relative yields, room temperature, no dose effects, sufficient beam current; doubtful sets excluded). The compilation does not rank the sets it shows.",
+  "terms": "Facts, cited; stored under operator decision (#69) despite the compilation's cover note. No figure image and no fitted curve stored.",
+  "added": "2026-10-06"
+}

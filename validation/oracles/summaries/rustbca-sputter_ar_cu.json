@@ -1,0 +1,360 @@
+{
+  "format": "lindhard-oracle-sputter-summary/1",
+  "problem": "Ar -> Cu sputter yield at the level-3 measured energies, settings of ar_1keV_cu_ed_es",
+  "oracle": "RustBCA",
+  "oracle_version": "v3.0.0-17-ga356280",
+  "oracle_commit": "a356280d564bbdfbe74b97f32db0776444da58a5",
+  "oracle_source": "https://github.com/lcpp-org/RustBCA",
+  "oracle_license": "GPL-3.0 (Tier B): run unmodified as an oracle; adapter written from the RustBCA wiki only; source, example inputs, tables and fixtures never read or copied",
+  "lindhard_version": "lindhard 0.0.1 (add8f40)",
+  "date": "2026-10-06",
+  "ions": 20000,
+  "oracle_settings": {
+    "geometry": "0D (Mesh0D: semi-infinite homogeneous target from x = 0)",
+    "options": {
+      "name": "rb_",
+      "track_trajectories": false,
+      "track_recoils": true,
+      "track_recoil_trajectories": false,
+      "track_displacements": false,
+      "track_energy_losses": false,
+      "weak_collision_order": 3,
+      "suppress_deep_recoils": false,
+      "high_energy_free_flight_paths": false,
+      "num_threads": 28,
+      "num_chunks": 10,
+      "seed": 1,
+      "electronic_stopping_mode": "LOW_ENERGY_NONLOCAL",
+      "mean_free_path_model": "LIQUID"
+    },
+    "interaction_potential": "ZBL",
+    "scattering_integral": "GAUSS_MEHLER, n_points = 10",
+    "root_finder": "NEWTON, max_iterations = 100, tolerance = 1e-6",
+    "material": {
+      "Z": [
+        29
+      ],
+      "m_amu": [
+        63.546
+      ],
+      "Eb_ev": [
+        0.0
+      ],
+      "Es_ev": [
+        3.49
+      ],
+      "Ed_ev": [
+        3.49
+      ],
+      "Ec_ev": [
+        1.0
+      ],
+      "surface_binding_model": "TARGET (planar)",
+      "bulk_binding_model": "INDIVIDUAL"
+    },
+    "particle": {
+      "Z": 18,
+      "m_amu": 39.95,
+      "E_ev": 9936.0,
+      "Ec_ev": 2.0,
+      "Es_ev": 0.0,
+      "dir": "normal incidence, 1e-5 rad off the x axis (documented requirement)"
+    },
+    "densities_per_nm3": [
+      84.9123
+    ],
+    "threads": 28,
+    "timing": "end-to-end process wall clock, including setup and writing the particle lists"
+  },
+  "mismatches": [
+    "random-number streams differ (different generators); agreement is statistical only",
+    "impact-parameter limit: not stated in the RustBCA documentation; lindhard uses N pi p_max^2 l = 1 (Biersack-Haggmark 1980)",
+    "first free flight: lindhard draws the primary's first flight uniformly in [0, l); RustBCA's choice is not documented",
+    "scattering angle: RustBCA Gauss-Mehler quadrature (10 points) per collision; lindhard a Gauss-Mehler table interpolated in (eps, beta), max error 3.8 mrad",
+    "Lindhard-Scharff: the RustBCA documentation cites Lindhard and Scharff (1961) without stating the formula; constants (e.g. Firsov vs Lindhard screening length in k_L) may differ",
+    "normal incidence is 1e-5 rad off-normal in RustBCA (it rejects an exact x direction)",
+    "weak collisions: the RustBCA input page places the partners in the same annuli but does not say whether they make recoils, which energy each is evaluated at, or whether they carry local electronic loss; lindhard: no recoils, each at the energy left after the previous one (ion::bca module docs)",
+    "E_d: the RustBCA input page describes Ed as a filter of the displacement list output, its BCA page as the threshold for removing an atom from its site. Its sputter yield is the same with E_d = 30 eV and E_d = E_s (compare ar_1keV_cu and ar_1keV_cu_ed_es), so it does not act as a displacement threshold there; lindhard uses E_d as the displacement criterion (Biersack-Haggmark), which controls low-energy sputtering (docs/validation.md, 'Sputter yield vs E_d')"
+  ],
+  "rows": [
+    {
+      "energy_ev": 201.5,
+      "lindhard_k0": 0.47835,
+      "rustbca_k0": 1.16915,
+      "rustbca_k0_se": 0.007646,
+      "lindhard_k3": 0.25615,
+      "rustbca_k3": 2.0841,
+      "rustbca_k3_se": 0.01021
+    },
+    {
+      "energy_ev": 253.1,
+      "lindhard_k0": 0.6376,
+      "rustbca_k0": 1.49615,
+      "rustbca_k0_se": 0.008649,
+      "lindhard_k3": 0.3255,
+      "rustbca_k3": 2.50165,
+      "rustbca_k3_se": 0.01118
+    },
+    {
+      "energy_ev": 302.3,
+      "lindhard_k0": 0.78115,
+      "rustbca_k0": 1.78135,
+      "rustbca_k0_se": 0.009438,
+      "lindhard_k3": 0.3763,
+      "rustbca_k3": 2.82645,
+      "rustbca_k3_se": 0.01189
+    },
+    {
+      "energy_ev": 330.2,
+      "lindhard_k0": 0.8526,
+      "rustbca_k0": 1.94895,
+      "rustbca_k0_se": 0.009872,
+      "lindhard_k3": 0.4059,
+      "rustbca_k3": 2.9932,
+      "rustbca_k3_se": 0.01223
+    },
+    {
+      "energy_ev": 353.4,
+      "lindhard_k0": 0.90415,
+      "rustbca_k0": 2.0395,
+      "rustbca_k0_se": 0.0101,
+      "lindhard_k3": 0.435,
+      "rustbca_k3": 3.11805,
+      "rustbca_k3_se": 0.01249
+    },
+    {
+      "energy_ev": 405.2,
+      "lindhard_k0": 1.0374,
+      "rustbca_k0": 2.30855,
+      "rustbca_k0_se": 0.01074,
+      "lindhard_k3": 0.48185,
+      "rustbca_k3": 3.3846,
+      "rustbca_k3_se": 0.01301
+    },
+    {
+      "energy_ev": 455.3,
+      "lindhard_k0": 1.13385,
+      "rustbca_k0": 2.5432,
+      "rustbca_k0_se": 0.01128,
+      "lindhard_k3": 0.53215,
+      "rustbca_k3": 3.6322,
+      "rustbca_k3_se": 0.01348
+    },
+    {
+      "energy_ev": 503.5,
+      "lindhard_k0": 1.23725,
+      "rustbca_k0": 2.72505,
+      "rustbca_k0_se": 0.01167,
+      "lindhard_k3": 0.57165,
+      "rustbca_k3": 3.84005,
+      "rustbca_k3_se": 0.01386
+    },
+    {
+      "energy_ev": 554.5,
+      "lindhard_k0": 1.32665,
+      "rustbca_k0": 2.93215,
+      "rustbca_k0_se": 0.01211,
+      "lindhard_k3": 0.6095,
+      "rustbca_k3": 3.9926,
+      "rustbca_k3_se": 0.01413
+    },
+    {
+      "energy_ev": 603.7,
+      "lindhard_k0": 1.4093,
+      "rustbca_k0": 3.11445,
+      "rustbca_k0_se": 0.01248,
+      "lindhard_k3": 0.65445,
+      "rustbca_k3": 4.18145,
+      "rustbca_k3_se": 0.01446
+    },
+    {
+      "energy_ev": 652.5,
+      "lindhard_k0": 1.49845,
+      "rustbca_k0": 3.2764,
+      "rustbca_k0_se": 0.0128,
+      "lindhard_k3": 0.68565,
+      "rustbca_k3": 4.33245,
+      "rustbca_k3_se": 0.01472
+    },
+    {
+      "energy_ev": 705.6,
+      "lindhard_k0": 1.5618,
+      "rustbca_k0": 3.44435,
+      "rustbca_k0_se": 0.01312,
+      "lindhard_k3": 0.72085,
+      "rustbca_k3": 4.4714,
+      "rustbca_k3_se": 0.01495
+    },
+    {
+      "energy_ev": 833.6,
+      "lindhard_k0": 1.7456,
+      "rustbca_k0": 3.7706,
+      "rustbca_k0_se": 0.01373,
+      "lindhard_k3": 0.7979,
+      "rustbca_k3": 4.79815,
+      "rustbca_k3_se": 0.01549
+    },
+    {
+      "energy_ev": 852.7,
+      "lindhard_k0": 1.7696,
+      "rustbca_k0": 3.8454,
+      "rustbca_k0_se": 0.01387,
+      "lindhard_k3": 0.8082,
+      "rustbca_k3": 4.8132,
+      "rustbca_k3_se": 0.01551
+    },
+    {
+      "energy_ev": 956.3,
+      "lindhard_k0": 1.88315,
+      "rustbca_k0": 4.07795,
+      "rustbca_k0_se": 0.01428,
+      "lindhard_k3": 0.85185,
+      "rustbca_k3": 5.04665,
+      "rustbca_k3_se": 0.01588
+    },
+    {
+      "energy_ev": 1002.0,
+      "lindhard_k0": 1.939,
+      "rustbca_k0": 4.1547,
+      "rustbca_k0_se": 0.01441,
+      "lindhard_k3": 0.8879,
+      "rustbca_k3": 5.15535,
+      "rustbca_k3_se": 0.01606
+    },
+    {
+      "energy_ev": 1054.0,
+      "lindhard_k0": 1.99355,
+      "rustbca_k0": 4.28505,
+      "rustbca_k0_se": 0.01464,
+      "lindhard_k3": 0.90965,
+      "rustbca_k3": 5.2499,
+      "rustbca_k3_se": 0.0162
+    },
+    {
+      "energy_ev": 1149.0,
+      "lindhard_k0": 2.0899,
+      "rustbca_k0": 4.4377,
+      "rustbca_k0_se": 0.0149,
+      "lindhard_k3": 0.9434,
+      "rustbca_k3": 5.3409,
+      "rustbca_k3_se": 0.01634
+    },
+    {
+      "energy_ev": 1503.0,
+      "lindhard_k0": 2.36235,
+      "rustbca_k0": 4.9898,
+      "rustbca_k0_se": 0.0158,
+      "lindhard_k3": 1.0872,
+      "rustbca_k3": 5.799,
+      "rustbca_k3_se": 0.01703
+    },
+    {
+      "energy_ev": 1594.0,
+      "lindhard_k0": 2.4111,
+      "rustbca_k0": 5.0862,
+      "rustbca_k0_se": 0.01595,
+      "lindhard_k3": 1.1251,
+      "rustbca_k3": 5.8863,
+      "rustbca_k3_se": 0.01716
+    },
+    {
+      "energy_ev": 1992.0,
+      "lindhard_k0": 2.63975,
+      "rustbca_k0": 5.46325,
+      "rustbca_k0_se": 0.01653,
+      "lindhard_k3": 1.22695,
+      "rustbca_k3": 6.25075,
+      "rustbca_k3_se": 0.01768
+    },
+    {
+      "energy_ev": 2392.0,
+      "lindhard_k0": 2.814,
+      "rustbca_k0": 5.76625,
+      "rustbca_k0_se": 0.01698,
+      "lindhard_k3": 1.3267,
+      "rustbca_k3": 6.498,
+      "rustbca_k3_se": 0.01802
+    },
+    {
+      "energy_ev": 2502.0,
+      "lindhard_k0": 2.84035,
+      "rustbca_k0": 5.8697,
+      "rustbca_k0_se": 0.01713,
+      "lindhard_k3": 1.33775,
+      "rustbca_k3": 6.52125,
+      "rustbca_k3_se": 0.01806
+    },
+    {
+      "energy_ev": 2587.0,
+      "lindhard_k0": 2.8661,
+      "rustbca_k0": 5.87085,
+      "rustbca_k0_se": 0.01713,
+      "lindhard_k3": 1.3525,
+      "rustbca_k3": 6.57725,
+      "rustbca_k3_se": 0.01813
+    },
+    {
+      "energy_ev": 4039.0,
+      "lindhard_k0": 3.21785,
+      "rustbca_k0": 6.4449,
+      "rustbca_k0_se": 0.01795,
+      "lindhard_k3": 1.531,
+      "rustbca_k3": 6.99275,
+      "rustbca_k3_se": 0.0187
+    },
+    {
+      "energy_ev": 4956.0,
+      "lindhard_k0": 3.32785,
+      "rustbca_k0": 6.60085,
+      "rustbca_k0_se": 0.01817,
+      "lindhard_k3": 1.6296,
+      "rustbca_k3": 7.1022,
+      "rustbca_k3_se": 0.01884
+    },
+    {
+      "energy_ev": 6003.0,
+      "lindhard_k0": 3.4247,
+      "rustbca_k0": 6.7764,
+      "rustbca_k0_se": 0.01841,
+      "lindhard_k3": 1.67805,
+      "rustbca_k3": 7.2263,
+      "rustbca_k3_se": 0.01901
+    },
+    {
+      "energy_ev": 7440.0,
+      "lindhard_k0": 3.5503,
+      "rustbca_k0": 6.89485,
+      "rustbca_k0_se": 0.01857,
+      "lindhard_k3": 1.7271,
+      "rustbca_k3": 7.2918,
+      "rustbca_k3_se": 0.01909
+    },
+    {
+      "energy_ev": 7978.0,
+      "lindhard_k0": 3.56245,
+      "rustbca_k0": 6.94845,
+      "rustbca_k0_se": 0.01864,
+      "lindhard_k3": 1.75645,
+      "rustbca_k3": 7.25315,
+      "rustbca_k3_se": 0.01904
+    },
+    {
+      "energy_ev": 8437.0,
+      "lindhard_k0": 3.5829,
+      "rustbca_k0": 6.94405,
+      "rustbca_k0_se": 0.01863,
+      "lindhard_k3": 1.7742,
+      "rustbca_k3": 7.2789,
+      "rustbca_k3_se": 0.01908
+    },
+    {
+      "energy_ev": 9936.0,
+      "lindhard_k0": 3.63605,
+      "rustbca_k0": 6.98545,
+      "rustbca_k0_se": 0.01869,
+      "lindhard_k3": 1.79735,
+      "rustbca_k3": 7.2451,
+      "rustbca_k3_se": 0.01903
+    }
+  ]
+}
