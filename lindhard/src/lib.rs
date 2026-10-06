@@ -6,11 +6,13 @@
 //! potentials and scattering integral, electronic stopping, and the amorphous
 //! BCA engine with full recoil cascades (`ion::bca`), damage models
 //! (`ion::damage`), and the tallies: moments, Pearson IV / dual-Pearson, range,
-//! damage and escape statistics (`tally`).
+//! damage and escape statistics (`tally`). For electrons, only the validated
+//! data boundary exists so far (`electron::data`).
 
 #![forbid(unsafe_code)]
 
 pub mod constants;
+pub mod electron;
 pub mod elements;
 pub mod geometry;
 pub mod input;
