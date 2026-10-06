@@ -65,13 +65,17 @@ What it covers:
   that paper's closed result for power-law scattering (p. 23). The engine
   runs with three weak collisions per step and surfaces that reflect
   everything, which for an amorphous medium is the infinite medium of the
-  equation. The tolerance adds, to 3 SE and the solver error, two model terms
-  computed or measured on the run: the weak rings' truncation and missing
-  recoils (the equation solved with the engine's rings), and the BCA's step
-  conventions (each flight's electronic loss evaluated at the energy the
-  step starts with, bracketed by the energy it ends with; loss charged below
-  the cutoff; the primary's first flight). It is wide, but a negative control
-  shows the engine without weak collisions misses it in every case.
+  equation, except that a weak partner beyond the face is skipped (TRIDYN's
+  surface test) where the mirror image would have one. The tolerance adds,
+  to 3 SE and the solver error, three model terms computed or measured on
+  the run: the weak rings' truncation and missing recoils (the equation
+  solved with the engine's rings); the BCA's step conventions (each flight's
+  electronic loss evaluated at the energy the step starts with, bracketed by
+  the energy it ends with; loss charged below the cutoff; the primary's
+  first flight); and a bound on what the surface test drops near the face
+  (the weak transfers made within the outer ring radius of it). It is wide,
+  but a negative control shows the engine without weak collisions misses it
+  in every case.
 - **Electrons (M1, not yet).** Elastic total cross sections from our
   partial-wave Mott solution against published Mott values at spot energies;
   the dielectric model's f-sum and perfect-screening sum rules.
@@ -105,14 +109,14 @@ Level 1, `full` statistics, `lindhard` 0.0.1.
 | `range.p50k_si.rp_over_l` | P 50 keV -> Si: Rp / path ratio, engine 0.7682 vs equation 0.7682 (\|abs. diff.\|) | 0.0000 | <= 0.0052 | pass | mean path 93.42 nm (engine) vs 93.43 nm (equation) |
 | `range.as50k_si.rp` | As 50 keV -> Si: engine mean projected range 38.68 nm vs LSS first-moment equation 38.69 nm (\|rel. dev.\|) | 0.020% | <= 0.849% | pass | ZBL + LS, primary only, 100000 ions; tol = 3 SE + solver + 0.5 % systematic; backscatter 0.00 % excluded from engine mean |
 | `range.as50k_si.rp_over_l` | As 50 keV -> Si: Rp / path ratio, engine 0.8625 vs equation 0.8627 (\|abs. diff.\|) | 0.0002 | <= 0.0053 | pass | mean path 44.85 nm (engine) vs 44.85 nm (equation) |
-| `range.p50k_si_weak3.rp` | P 50 keV -> Si (K = 3 weak collisions): engine mean projected range 71.71 nm vs LSS first-moment equation 71.75 nm (\|rel. dev.\|) | 0.058% | <= 0.889% | pass | ZBL + LS, primary only, 100000 ions; tol = 3 SE + solver + 0.5 % systematic; backscatter 0.10 % excluded from engine mean |
+| `range.p50k_si_weak3.rp` | P 50 keV -> Si (K = 3 weak collisions): engine mean projected range 71.71 nm vs LSS first-moment equation 71.75 nm (\|rel. dev.\|) | 0.057% | <= 0.889% | pass | ZBL + LS, primary only, 100000 ions; tol = 3 SE + solver + 0.5 % systematic; backscatter 0.10 % excluded from engine mean |
 | `range.p50k_si_weak3.rp_over_l` | P 50 keV -> Si (K = 3 weak collisions): Rp / path ratio, engine 0.7689 vs equation 0.7693 (\|abs. diff.\|) | 0.0004 | <= 0.0052 | pass | mean path 93.26 nm (engine) vs 93.27 nm (equation) |
 | `range.si5k_si.nuclear_rho` | Si 5 keV -> Si, nuclear stopping only (eps = 0.113): engine reduced path rho 0.446 vs LSS first-moment equation 0.448 (\|rel. dev.\|) | 0.438% | <= 0.914% | pass | 100000 ions; backscatter 1.0 % excluded from engine mean (path is less sensitive to it than Rp) |
 | `range.si5k_si.csda` | Si 5 keV -> Si, nuclear only: LSS mean path / continuous-slowing-down path | -9.55% | - | info | context: the CSDA integral ignores the fluctuation of the nuclear energy loss, so it is not the mean path; not a pass/fail quantity |
 | `range.si5k_si.rp` | Si 5 keV -> Si, nuclear only: engine Rp 11.59 nm vs equation 11.60 nm | -0.10% | - | info | not asserted: the 1.0 % of ions that backscatter (equal masses) leave the engine's semi-infinite target but stay in the equation; solver uncertainty 0.001 % |
-| `range.si5k_si_weak3.nuclear_rho` | Si 5 keV -> Si (K = 3 weak collisions), nuclear stopping only (eps = 0.113): engine reduced path rho 0.443 vs LSS first-moment equation 0.444 (\|rel. dev.\|) | 0.225% | <= 0.917% | pass | 100000 ions; backscatter 0.9 % excluded from engine mean (path is less sensitive to it than Rp) |
+| `range.si5k_si_weak3.nuclear_rho` | Si 5 keV -> Si (K = 3 weak collisions), nuclear stopping only (eps = 0.113): engine reduced path rho 0.443 vs LSS first-moment equation 0.444 (\|rel. dev.\|) | 0.216% | <= 0.917% | pass | 100000 ions; backscatter 1.0 % excluded from engine mean (path is less sensitive to it than Rp) |
 | `range.b10k_si.rp` | B 10 keV -> Si: engine Rp 46.16 nm vs equation 44.40 nm | +3.97% | - | info | not asserted: 3.8 % backscatter excluded from the engine mean (semi-infinite target) but kept by the infinite-medium equation |
-| `engine.energy_conservation` | Per-history energy budget residual / incident, worst of 900 Ar 3 keV histories (SiO2/Si film, cascades, both free paths and electronic modes, with and without weak collisions) | 2.88e-15 | <= 1.00e-9 | pass | deposited + escaped + bound + at rest = incident; rounding only |
+| `engine.energy_conservation` | Per-history energy budget residual / incident, worst of 900 Ar 3 keV histories (SiO2/Si film, cascades, both free paths and electronic modes, with and without weak collisions) | 2.73e-15 | <= 1.00e-9 | pass | deposited + escaped + bound + at rest = incident; rounding only |
 | `engine.determinism` | IonReport (moments, Pearson fits, damage, escapes) of a 400-ion Ar 2 keV cascade run, without and with K = 3 weak collisions, byte-identical JSON on 1, 2 and 8 threads | identical | exact | pass | counter-based streams keyed on (seed, index), chunk-order merge (CONTRIBUTING.md) |
 | `engine.sputter_ed_sensitivity` | Ar 1 keV -> Si sputter yield with E_d = 15 eV vs E_d = E_s = 4.63 eV (E_b = 0), 3000 ions | 0.2983 vs 0.4867 | - | info | known model sensitivity (BH80 displacement criterion); set E_d <= E_s when yields matter (Eckstein 1991). Measured yields are compared at level 3 |
 | `damage.nrt_steps` | NRT: 0 below E_d, 1 from E_d, continuous at 2 E_d / 0.8 (E_d = 40 eV) | holds | exact | pass | Norgett, Robinson and Torrens 1975 |
@@ -122,11 +126,11 @@ Level 1, `full` statistics, `lindhard` 0.0.1.
 | `damage.partition_saturates` | Lindhard partition, Si self-ion at eps = 1e10: \|k eps_dam - 1\| | 0.127% | <= 0.300% | pass | analytic limit of T/(1 + k g(eps)); expected 0.13 % from the eps^(3/4) term |
 | `damage.cascade_over_kp` | Si 2 keV -> Si, no electronic loss, E_d = 15 eV, E_b = 0, cutoffs = E_d: engine vacancies / KP E/(2 E_d), E = energy kept in the target, 3000 ions | 0.8552 (displacements 1.3150) | - | info | context: Robinson and Torrens (1974) found BCA efficiencies near 0.8 (NRT's factor); vacancies = displacements - replacements, so the ratio depends on the replacement rule and cutoffs (about 1.26 with a 1 eV recoil cutoff) |
 | `damage.partition_solver` | Partition solver, power-law scattering s = 2, S_e/S_n = xi = 1e-3: (eta/E)/xi = 1.1655 vs LNST a1 = 4/(3 pi - 6) = 1.1680 (\|rel. dev.\|) | 0.206% | <= 1.000% | pass | LNST (1963) p. 23, solution of eq. (2.7); 1 % is under half the gap to the nearest other approximation, (E') with 8/7 (2.2 %), so the check shows the solver solves (2.7) |
-| `damage.cascade_electronic_share.cu_1k` | Cu 1 keV -> Cu, K = 3 weak collisions: engine electronic share 0.3468 vs LNST partition 0.3797 (\|abs. diff.\|) | 0.0329 | <= 0.2437 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 2000 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0009 + solver 0.0002 + truncation 0.0677 (LNST with K = 3 rings: 0.3121) + step 0.1749 |
-| `damage.cascade_electronic_share.cu_10k` | Cu 10 keV -> Cu, K = 3 weak collisions: engine electronic share 0.4211 vs LNST partition 0.4480 (\|abs. diff.\|) | 0.0269 | <= 0.2181 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 400 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0030 + solver 0.0001 + truncation 0.0591 (LNST with K = 3 rings: 0.3889) + step 0.1560 |
-| `damage.cascade_electronic_share.si_1k` | Si 1 keV -> Si, K = 3 weak collisions: engine electronic share 0.3715 vs LNST partition 0.3459 (\|abs. diff.\|) | 0.0255 | <= 0.1384 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 2000 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0013 + solver 0.0001 + truncation 0.0085 (LNST with K = 3 rings: 0.3375) + step 0.1285 |
-| `damage.cascade_electronic_share.si_10k` | Si 10 keV -> Si, K = 3 weak collisions: engine electronic share 0.4685 vs LNST partition 0.4458 (\|abs. diff.\|) | 0.0227 | <= 0.1190 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 400 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0042 + solver 0.0000 + truncation 0.0071 (LNST with K = 3 rings: 0.4387) + step 0.1077 |
-| `damage.cascade_electronic_share.control` | Negative control: without weak collisions (the engine before #64) every case above misses its tolerance | smallest \|deviation\| / tolerance 1.5084 | exact | pass | shows the partition check detects the dropped nuclear loss beyond p_max |
+| `damage.cascade_electronic_share.cu_1k` | Cu 1 keV -> Cu, K = 3 weak collisions: engine electronic share 0.3488 vs LNST partition 0.3797 (\|abs. diff.\|) | 0.0310 | <= 0.2914 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 2000 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0009 + solver 0.0002 + truncation 0.0677 (LNST with K = 3 rings: 0.3121) + step 0.1758 + surface 0.0468 |
+| `damage.cascade_electronic_share.cu_10k` | Cu 10 keV -> Cu, K = 3 weak collisions: engine electronic share 0.4215 vs LNST partition 0.4480 (\|abs. diff.\|) | 0.0265 | <= 0.2291 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 400 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0029 + solver 0.0001 + truncation 0.0591 (LNST with K = 3 rings: 0.3889) + step 0.1562 + surface 0.0108 |
+| `damage.cascade_electronic_share.si_1k` | Si 1 keV -> Si, K = 3 weak collisions: engine electronic share 0.3720 vs LNST partition 0.3459 (\|abs. diff.\|) | 0.0261 | <= 0.1518 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 2000 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0013 + solver 0.0001 + truncation 0.0085 (LNST with K = 3 rings: 0.3375) + step 0.1287 + surface 0.0132 |
+| `damage.cascade_electronic_share.si_10k` | Si 10 keV -> Si, K = 3 weak collisions: engine electronic share 0.4687 vs LNST partition 0.4458 (\|abs. diff.\|) | 0.0230 | <= 0.1212 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 400 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0041 + solver 0.0000 + truncation 0.0071 (LNST with K = 3 rings: 0.4387) + step 0.1077 + surface 0.0022 |
+| `damage.cascade_electronic_share.control` | Negative control: without weak collisions (the engine before #64) every case above misses its tolerance | smallest \|deviation\| / tolerance 1.3978 | exact | pass | shows the partition check detects the dropped nuclear loss beyond p_max |
 | `damage.cascade_electronic_share.robinson` | Context: Robinson's fit of the Lindhard partition (Thomas-Fermi cross section, no cutoffs), 1 - T_dam/T | Cu 1 keV: 0.1801 (LNST 0.3797); Cu 10 keV: 0.2498 (LNST 0.4480); Si 1 keV: 0.2156 (LNST 0.3459); Si 10 keV: 0.3098 (LNST 0.4458) | - | info | not comparable: with ZBL S_n and LS S_e the ratio S_e/S_n rises again below about 100 eV, while LNST's Thomas-Fermi cross section behaves as power-law scattering with s = 3 at low energy (p. 26), so S_e/S_n keeps falling (p. 21: it tends to zero for s < 4); the cascade tail spends much of its electronic loss there |
 <!-- validation:level1:end -->
 
@@ -285,16 +289,23 @@ explained here, or recorded as unexplained:
   nuclear loss beyond `p_max` is dropped (level 1, "Known deviations").
   Restoring that loss with TRIDYN's weak collisions does not close the gap,
   it widens it: with three per step, lindhard's electronic loss per ion falls
-  from 624 to 339 eV but its yield falls from 1.93 to 0.66, because at a few
+  from 624 to 340 eV but its yield falls from 1.93 to 0.88, because at a few
   eV the weak transfers, which stay in the lattice, take most of a slow
-  atom's energy. RustBCA's yield with its `weak_collision_order = 3` rises
-  instead, from 4.17 to 5.15. Its manual places the partners in the same
-  annuli but does not say whether they recoil or which energy they use;
-  TRIDYN's report says only the hard collision makes a recoil. The two codes'
-  weak collisions are therefore not the same model, and the yield gap
-  (factor 7.8 with weak collisions, 2.2 without) remains **unexplained**.
-  Backscatter falls in both (lindhard 8.8 % to 7.8 %, RustBCA 10.8 % to
-  10.5 %).
+  atom's energy. That figure includes TRIDYN's surface test (a weak partner
+  that would lie outside the target is skipped); without it the yield would
+  be 0.66, since near the surface many weak partners lie in vacuum. Each
+  weak collision uses the energy left after the previous one, a documented
+  deviation from TRIDYN (`ion::bca`, "Weak collisions"); evaluating the weak
+  collisions, or every collision, at the step's starting energy instead
+  gives 0.875 or 0.976, each with a clamp the report does not give. RustBCA's yield with its
+  `weak_collision_order = 3` rises instead, from 4.17 to 5.15. Its manual
+  places the partners in the same annuli but does not say whether they
+  recoil, which energy they use or whether partners outside the target are
+  skipped; TRIDYN's report says only the hard collision makes a recoil. The
+  two codes' weak collisions are therefore not the same model, and the yield
+  gap (factor 5.8 with weak collisions, 2.2 without) remains
+  **unexplained**. Backscatter: lindhard 8.8 % to 8.4 %, RustBCA 10.8 % to
+  10.5 %.
 - **OpenTRIM, ranges: stopping mismatch.** With no electronic loss,
   OpenTRIM's ranges are longer, as they must be: lindhard's Rp is 21 % (B)
   and 10 % (As) shorter. This says nothing about either code's transport.
@@ -323,12 +334,12 @@ explained here, or recorded as unexplained:
 |---|---|---|---|---|---|---|---|---|
 | `ar_1keV_cu` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0267 (10.2σ) | - | 0.64x | 2.12x | 2026-10-05 |
 | `ar_1keV_cu_ed_es` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0278 (10.6σ) | - | 0.90x | 1.06x | 2026-10-05 |
-| `ar_1keV_cu_ed_es_weak3` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0175 (6.9σ) | - | 1.01x | 0.68x | 2026-10-05 |
+| `ar_1keV_cu_ed_es_weak3` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0233 (9.0σ) | - | 0.95x | 0.62x | 2026-10-05 |
 | `as_50keV_si` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | -10.0 % (29.6σ) | -16.3 % (27.5σ) | +0.0000 | - | 1.04x | 3.47x | 2026-10-05 |
 | `b_5keV_si` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | -21.2 % (46.9σ) | -29.4 % (59.1σ) | -0.0070 (3.0σ) | - | 1.51x | 4.24x | 2026-10-05 |
 | `ar_1keV_cu` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0197 (6.6σ) | -88.8 % (727.0σ) | 17.81x | 135.86x | 2026-10-05 |
 | `ar_1keV_cu_ed_es` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0197 (6.6σ) | -53.6 % (187.9σ) | 14.40x | 33.96x | 2026-10-05 |
-| `ar_1keV_cu_ed_es_weak3` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0275 (9.6σ) | -87.2 % (736.5σ) | 33.41x | 95.62x | 2026-10-05 |
+| `ar_1keV_cu_ed_es_weak3` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0216 (7.4σ) | -82.9 % (594.1σ) | 32.50x | 81.69x | 2026-10-05 |
 | `as_50keV_si` | RustBCA (v3.0.0-17-ga356280, a356280) | +0.6 % (1.7σ) | -0.4 % (0.5σ) | +0.0000 | - | 0.76x | 3.38x | 2026-10-05 |
 | `b_5keV_si` | RustBCA (v3.0.0-17-ga356280, a356280) | +0.2 % (0.4σ) | -0.4 % (0.5σ) | -0.0015 (0.7σ) | - | 0.79x | 5.68x | 2026-10-05 |
 
@@ -428,12 +439,12 @@ below its range of validity. Choosing a new default is a model change and
 belongs in its own issue.
 
 Weak collisions (#64) do not change this. With `physics.weak_collisions = 3`
-the B Rp moves by -0.8 to +1.0 % at 1 to 20 keV (20 000 ions, one-off runs;
+the B Rp moves by -0.6 to +1.1 % at 1 to 20 keV (20 000 ions, one-off runs;
 the table below keeps the defaults): B keeps most of its energy where the
 annuli beyond `p_max` carry little nuclear stopping.
 
 <!-- validation:level3:begin -->
-lindhard 0.0.1 (ff49b66), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
+lindhard 0.0.1 (782e3cc-dirty), 20000 ions per case, physics zbl + lindhard-scharff (the defaults).
 
 | Case | Rp measured (nm) | Rp lindhard (nm) | Diff. | Diff. / σ | ΔRp measured (nm) | ΔRp lindhard (nm) | Diff. | Source |
 |---|---|---|---|---|---|---|---|---|

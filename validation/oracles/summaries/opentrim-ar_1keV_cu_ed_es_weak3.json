@@ -7,9 +7,9 @@
   "oracle_source": "https://github.com/ir2-lab/OpenTRIM",
   "oracle_build": "CMake Release, GCC 16.2.0 (Homebrew), OPENTRIM_BUILD_GUI=OFF, CXXFLAGS='-include cmath -D finite(x)=std::isfinite(x)' for macOS portability; no source edits",
   "oracle_license": "MIT (Tier A); its SRIM-2013 and SRIM-1996 electronic stopping (Tier C data) is never selected; DPASS (Tier C) is not used either",
-  "lindhard_version": "lindhard 0.0.1 (57fb1f7)",
+  "lindhard_version": "lindhard 0.0.1 (782e3cc)",
   "date": "2026-10-05",
-  "host": "Darwin arm64, 28 logical CPUs, load average 107.6 at start",
+  "host": "Darwin arm64, 28 logical CPUs, load average 66.1 at start",
   "ions": {
     "lindhard": 20000,
     "oracle": 20000
@@ -19,32 +19,32 @@
     "oracle": 28
   },
   "lindhard": {
-    "sputter_yield": 0.65985,
-    "backscatter": 0.0777,
-    "ions_per_s": 66444.7,
+    "sputter_yield": 0.88235,
+    "backscatter": 0.08355,
+    "ions_per_s": 66278.2,
     "std_err": {
-      "sputter_yield": 0.00574391,
-      "backscatter": 0.00189292
+      "sputter_yield": 0.0066421,
+      "backscatter": 0.00195665
     },
-    "ions_per_s_marginal": 201401.0,
-    "ions_per_s_transport_only": 173940.0
+    "ions_per_s_marginal": 178064.0,
+    "ions_per_s_transport_only": 170567.0
   },
   "oracle_values": {
     "sputter_yield": null,
     "backscatter": 0.06025,
-    "ions_per_s": 65681.7,
-    "ions_per_s_marginal": 297306.0,
+    "ions_per_s": 69480.7,
+    "ions_per_s_marginal": 286126.0,
     "std_err": {
       "sputter_yield": null,
       "backscatter": 0.00168256
     }
   },
   "comparison": {
-    "backscatter_abs_diff": 0.01745,
-    "backscatter_abs_diff_se": 0.00253261,
-    "backscatter_z": 6.89012,
-    "ions_per_s_ratio": 1.01162,
-    "ions_per_s_marginal_ratio": 0.67742
+    "backscatter_abs_diff": 0.0233,
+    "backscatter_abs_diff_se": 0.00258059,
+    "backscatter_z": 9.02893,
+    "ions_per_s_ratio": 0.953909,
+    "ions_per_s_marginal_ratio": 0.622327
   },
   "timing": {
     "ions_per_s": "end-to-end process wall clock at the run's ion count (setup, table builds and output writing included)",
