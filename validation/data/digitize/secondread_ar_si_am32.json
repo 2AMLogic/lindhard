@@ -1,0 +1,408 @@
+{
+  "format": "lindhard-digitize-secondread/1",
+  "figure": "IPPJ-AM-32 (1983), Ar -> Si, PDF p. 47 (matsunami1983_ipp_am32.py)",
+  "automatic": "template-coverage centre (mean of the scaled and the legend-size template), as stored",
+  "manual": "centre of the bounding box of the ink inside a glyph box read by eye from zoomed rasters (no template, same axis calibration)",
+  "criterion": "|ln(manual / automatic)| in E and in Y against the stored digitizing uncertainty u (within u) and against sqrt(2) u (within the combined uncertainty)",
+  "points": [
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 199.0,
+      "yield": 0.1789,
+      "box_px": [
+        1001,
+        2068,
+        1030,
+        2113
+      ],
+      "energy_manual_ev": 200.0,
+      "yield_manual": 0.1793,
+      "energy_ratio": 1.0053,
+      "yield_ratio": 1.002,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 199.2,
+      "yield": 0.2294,
+      "box_px": [
+        1001,
+        2010,
+        1029,
+        2052
+      ],
+      "energy_manual_ev": 199.0,
+      "yield_manual": 0.229,
+      "energy_ratio": 0.999,
+      "yield_ratio": 0.998,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 246.8,
+      "yield": 0.2294,
+      "box_px": [
+        1052,
+        2008,
+        1080,
+        2052
+      ],
+      "energy_manual_ev": 247.1,
+      "yield_manual": 0.2299,
+      "energy_ratio": 1.001,
+      "yield_ratio": 1.002,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 296.9,
+      "yield": 0.3093,
+      "box_px": [
+        1096,
+        1935,
+        1124,
+        1978
+      ],
+      "energy_manual_ev": 296.9,
+      "yield_manual": 0.3097,
+      "energy_ratio": 1.0,
+      "yield_ratio": 1.001,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 347.6,
+      "yield": 0.3787,
+      "box_px": [
+        1134,
+        1885,
+        1162,
+        1930
+      ],
+      "energy_manual_ev": 348.1,
+      "yield_manual": 0.3782,
+      "energy_ratio": 1.0014,
+      "yield_ratio": 0.9986,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 396.9,
+      "yield": 0.3187,
+      "box_px": [
+        1165,
+        1928,
+        1194,
+        1972
+      ],
+      "energy_manual_ev": 396.9,
+      "yield_manual": 0.3187,
+      "energy_ratio": 1.0,
+      "yield_ratio": 1.0,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 495.6,
+      "yield": 0.449,
+      "box_px": [
+        1219,
+        1844,
+        1246,
+        1889
+      ],
+      "energy_manual_ev": 496.3,
+      "yield_manual": 0.448,
+      "energy_ratio": 1.0014,
+      "yield_ratio": 0.9976,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "A",
+      "id": "ar_si_sputter_laegreid1961",
+      "energy_ev": 592.3,
+      "yield": 0.5301,
+      "box_px": [
+        1260,
+        1803,
+        1290,
+        1848
+      ],
+      "energy_manual_ev": 593.0,
+      "yield_manual": 0.5285,
+      "energy_ratio": 1.0011,
+      "yield_ratio": 0.9969,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_si_sputter_poate1976",
+      "energy_ev": 888.5,
+      "yield": 0.5177,
+      "box_px": [
+        1359,
+        1808,
+        1386,
+        1853
+      ],
+      "energy_manual_ev": 891.6,
+      "yield_manual": 0.5189,
+      "energy_ratio": 1.0035,
+      "yield_ratio": 1.0024,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_si_sputter_coburn1977",
+      "energy_ev": 295.2,
+      "yield": 0.275,
+      "box_px": [
+        1097,
+        1966,
+        1123,
+        2008
+      ],
+      "energy_manual_ev": 297.1,
+      "yield_manual": 0.2734,
+      "energy_ratio": 1.0066,
+      "yield_ratio": 0.9943,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_si_sputter_coburn1977",
+      "energy_ev": 494.8,
+      "yield": 0.4668,
+      "box_px": [
+        1219,
+        1834,
+        1245,
+        1878
+      ],
+      "energy_manual_ev": 495.1,
+      "yield_manual": 0.4666,
+      "energy_ratio": 1.0006,
+      "yield_ratio": 0.9996,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_si_sputter_coburn1977",
+      "energy_ev": 744.3,
+      "yield": 0.5017,
+      "box_px": [
+        1317,
+        1817,
+        1341,
+        1863
+      ],
+      "energy_manual_ev": 742.7,
+      "yield_manual": 0.4992,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 0.9949,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_si_sputter_coburn1977",
+      "energy_ev": 985.2,
+      "yield": 0.6827,
+      "box_px": [
+        1384,
+        1742,
+        1411,
+        1786
+      ],
+      "energy_manual_ev": 989.4,
+      "yield_manual": 0.6793,
+      "energy_ratio": 1.0042,
+      "yield_ratio": 0.9949,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_si_sputter_coburn1977",
+      "energy_ev": 1487.0,
+      "yield": 0.7091,
+      "box_px": [
+        1483,
+        1732,
+        1508,
+        1777
+      ],
+      "energy_manual_ev": 1494.0,
+      "yield_manual": 0.7076,
+      "energy_ratio": 1.0042,
+      "yield_ratio": 0.998,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_si_sputter_coburn1977",
+      "energy_ev": 1949.0,
+      "yield": 0.8856,
+      "box_px": [
+        1546,
+        1678,
+        1573,
+        1723
+      ],
+      "energy_manual_ev": 1953.0,
+      "yield_manual": 0.882,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 0.9959,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_si_sputter_coburn1977",
+      "energy_ev": 2905.0,
+      "yield": 0.9561,
+      "box_px": [
+        1642,
+        1659,
+        1667,
+        1704
+      ],
+      "energy_manual_ev": 2911.0,
+      "yield_manual": 0.9532,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 0.9969,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "G",
+      "id": "ar_si_sputter_kang1979",
+      "energy_ev": 2936.0,
+      "yield": 1.2,
+      "box_px": [
+        1642,
+        1604,
+        1671,
+        1647
+      ],
+      "energy_manual_ev": 2939.0,
+      "yield_manual": 1.195,
+      "energy_ratio": 1.0011,
+      "yield_ratio": 0.9959,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "G",
+      "id": "ar_si_sputter_kang1979",
+      "energy_ev": 4928.0,
+      "yield": 1.297,
+      "box_px": [
+        1767,
+        1584,
+        1794,
+        1628
+      ],
+      "energy_manual_ev": 4938.0,
+      "yield_manual": 1.297,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 1.0,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "G",
+      "id": "ar_si_sputter_kang1979",
+      "energy_ev": 9804.0,
+      "yield": 1.296,
+      "box_px": [
+        1929,
+        1584,
+        1957,
+        1628
+      ],
+      "energy_manual_ev": 9780.0,
+      "yield_manual": 1.297,
+      "energy_ratio": 0.9975,
+      "yield_ratio": 1.0014,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    }
+  ]
+}

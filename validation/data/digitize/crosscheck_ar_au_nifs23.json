@@ -1,0 +1,473 @@
+{
+  "format": "lindhard-digitize-crosscheck/1",
+  "figure_a": "IPPJ-AM-32 (1983), Ar -> Au, PDF p. 262 (matsunami1983_ipp_am32.py)",
+  "figure_b": "NIFS-DATA-23 (1995), Fig. 310, PDF p. 96 (yamamura1995_nifs23.py)",
+  "calibration_b_rms_decade": 0.0052,
+  "pairing": "same reference, nearest NIFS symbol within 0.05 decade in E and 0.1 in Y",
+  "criterion": "|ln(Y_b / Y_a)| against the combined digitizing uncertainty (quadrature)",
+  "nifs_reads": [
+    {
+      "letters": "T",
+      "x": 1095.4235,
+      "y": 1466.1327,
+      "energy_ev": 252.1184,
+      "yield_": 0.7791,
+      "energy_unc_rel": 0.023,
+      "yield_unc_rel": 0.0255,
+      "legibility": "isolated",
+      "note": "about 250 eV"
+    },
+    {
+      "letters": "T",
+      "x": 1112.9205,
+      "y": 1473.2727,
+      "energy_ev": 355.2227,
+      "yield_": 0.6876,
+      "energy_unc_rel": 0.023,
+      "yield_unc_rel": 0.0242,
+      "legibility": "isolated",
+      "note": "about 350 eV"
+    },
+    {
+      "letters": "T",
+      "x": 1131.0102,
+      "y": 1434.7296,
+      "energy_ev": 509.465,
+      "yield_": 1.3211,
+      "energy_unc_rel": 0.023,
+      "yield_unc_rel": 0.0246,
+      "legibility": "isolated",
+      "note": "about 500 eV"
+    },
+    {
+      "letters": "D",
+      "x": 1165.2566,
+      "y": 1443.0197,
+      "energy_ev": 997.389,
+      "yield_": 1.1398,
+      "energy_unc_rel": 0.0235,
+      "yield_unc_rel": 0.0208,
+      "legibility": "isolated",
+      "note": "about 1 keV"
+    },
+    {
+      "letters": "Y",
+      "x": 1165.093,
+      "y": 1353.0174,
+      "energy_ev": 1006.0919,
+      "yield_": 5.2786,
+      "energy_unc_rel": 0.0231,
+      "yield_unc_rel": 0.0223,
+      "legibility": "isolated",
+      "note": "about 1 keV, above another glyph"
+    },
+    {
+      "letters": "V",
+      "x": 1199.6189,
+      "y": 1327.9426,
+      "energy_ev": 1988.9161,
+      "yield_": 8.0383,
+      "energy_unc_rel": 0.0231,
+      "yield_unc_rel": 0.0208,
+      "legibility": "isolated",
+      "note": "about 2 keV"
+    },
+    {
+      "letters": "D",
+      "x": 1200.1188,
+      "y": 1416.6875,
+      "energy_ev": 1985.3877,
+      "yield_": 1.7732,
+      "energy_unc_rel": 0.0231,
+      "yield_unc_rel": 0.0215,
+      "legibility": "isolated",
+      "note": "about 2 keV"
+    },
+    {
+      "letters": "Z",
+      "x": 1254.9141,
+      "y": 1293.8047,
+      "energy_ev": 5918.8702,
+      "yield_": 14.2279,
+      "energy_unc_rel": 0.0231,
+      "yield_unc_rel": 0.0211,
+      "legibility": "isolated",
+      "note": "about 6 keV"
+    },
+    {
+      "letters": "L",
+      "x": 1279.2128,
+      "y": 1361.1862,
+      "energy_ev": 9457.9015,
+      "yield_": 4.4957,
+      "energy_unc_rel": 0.0278,
+      "yield_unc_rel": 0.0238,
+      "legibility": "isolated",
+      "note": "about 10 keV"
+    }
+  ],
+  "pairs": [
+    {
+      "id": "ar_au_sputter_almen1961",
+      "nifs_letter": "A",
+      "energy_ev": 9879.0,
+      "yield_am32": 8.529,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_benninghoven1969",
+      "nifs_letter": "Y",
+      "energy_ev": 1001.0,
+      "yield_am32": 5.098,
+      "energy_nifs_ev": 1006.1,
+      "energy_ratio": 1.0051,
+      "yield_nifs": 5.2786,
+      "yield_ratio": 1.0354,
+      "combined_unc_rel": 0.03,
+      "legibility": "isolated",
+      "verdict": "agree within twice the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_holloway1977",
+      "nifs_letter": "V",
+      "energy_ev": 1999.0,
+      "yield_am32": 7.901,
+      "energy_nifs_ev": 1988.9,
+      "energy_ratio": 0.995,
+      "yield_nifs": 8.0383,
+      "yield_ratio": 1.0174,
+      "combined_unc_rel": 0.0289,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_laegreid1961",
+      "nifs_letter": "B",
+      "energy_ev": 199.5,
+      "yield_am32": 1.07,
+      "verdict": "no separable symbol of this reference found in NIFS-DATA-23 Fig. 310"
+    },
+    {
+      "id": "ar_au_sputter_laegreid1961",
+      "nifs_letter": "B",
+      "energy_ev": 224.6,
+      "yield_am32": 1.303,
+      "verdict": "inside an unreadable NIFS stack (0.2-0.8 keV stack of Laegreid B and Weijsenfeld N); not compared"
+    },
+    {
+      "id": "ar_au_sputter_laegreid1961",
+      "nifs_letter": "B",
+      "energy_ev": 301.1,
+      "yield_am32": 1.652,
+      "verdict": "inside an unreadable NIFS stack (0.2-0.8 keV stack of Laegreid B and Weijsenfeld N); not compared"
+    },
+    {
+      "id": "ar_au_sputter_laegreid1961",
+      "nifs_letter": "B",
+      "energy_ev": 399.9,
+      "yield_am32": 2.01,
+      "verdict": "inside an unreadable NIFS stack (0.2-0.8 keV stack of Laegreid B and Weijsenfeld N); not compared"
+    },
+    {
+      "id": "ar_au_sputter_laegreid1961",
+      "nifs_letter": "B",
+      "energy_ev": 498.2,
+      "yield_am32": 2.441,
+      "verdict": "inside an unreadable NIFS stack (0.2-0.8 keV stack of Laegreid B and Weijsenfeld N); not compared"
+    },
+    {
+      "id": "ar_au_sputter_oechsner1973",
+      "nifs_letter": "U",
+      "energy_ev": 1047.0,
+      "yield_am32": 4.071,
+      "verdict": "no separable symbol of this reference found in NIFS-DATA-23 Fig. 310"
+    },
+    {
+      "id": "ar_au_sputter_patterson1962",
+      "nifs_letter": "D",
+      "energy_ev": 999.3,
+      "yield_am32": 1.151,
+      "energy_nifs_ev": 997.4,
+      "energy_ratio": 0.9981,
+      "yield_nifs": 1.1398,
+      "yield_ratio": 0.9903,
+      "combined_unc_rel": 0.0288,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_patterson1962",
+      "nifs_letter": "D",
+      "energy_ev": 2006.0,
+      "yield_am32": 1.769,
+      "energy_nifs_ev": 1985.4,
+      "energy_ratio": 0.9897,
+      "yield_nifs": 1.7732,
+      "yield_ratio": 1.0024,
+      "combined_unc_rel": 0.0293,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_patterson1962",
+      "nifs_letter": "D",
+      "energy_ev": 3027.0,
+      "yield_am32": 3.798,
+      "verdict": "no separable symbol of this reference found in NIFS-DATA-23 Fig. 310"
+    },
+    {
+      "id": "ar_au_sputter_patterson1962",
+      "nifs_letter": "D",
+      "energy_ev": 4024.0,
+      "yield_am32": 5.574,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_patterson1962",
+      "nifs_letter": "D",
+      "energy_ev": 5033.0,
+      "yield_am32": 6.468,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_patterson1962",
+      "nifs_letter": "D",
+      "energy_ev": 6021.0,
+      "yield_am32": 8.219,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_patterson1962",
+      "nifs_letter": "D",
+      "energy_ev": 9416.0,
+      "yield_am32": 8.226,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 1500.0,
+      "yield_am32": 4.73,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 1995.0,
+      "yield_am32": 5.618,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 2520.0,
+      "yield_am32": 6.316,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 3009.0,
+      "yield_am32": 6.794,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 3507.0,
+      "yield_am32": 7.133,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 4000.0,
+      "yield_am32": 7.285,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 4508.0,
+      "yield_am32": 7.578,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_robinson1967",
+      "nifs_letter": "M",
+      "energy_ev": 5026.0,
+      "yield_am32": 7.915,
+      "verdict": "inside an unreadable NIFS stack (2-10 keV stack of Robinson M, Patterson D, Almen A and others); not compared"
+    },
+    {
+      "id": "ar_au_sputter_sletten1972",
+      "nifs_letter": "L",
+      "energy_ev": 9943.0,
+      "yield_am32": 4.535,
+      "energy_nifs_ev": 9457.9,
+      "energy_ratio": 0.9512,
+      "yield_nifs": 4.4957,
+      "yield_ratio": 0.9913,
+      "combined_unc_rel": 0.0311,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_szymonski1978",
+      "nifs_letter": "Z",
+      "energy_ev": 6022.0,
+      "yield_am32": 13.92,
+      "energy_nifs_ev": 5918.9,
+      "energy_ratio": 0.9829,
+      "yield_nifs": 14.2279,
+      "yield_ratio": 1.0221,
+      "combined_unc_rel": 0.029,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "nifs_letter": "N",
+      "energy_ev": 301.0,
+      "yield_am32": 1.745,
+      "verdict": "inside an unreadable NIFS stack (0.2-0.8 keV stack of Laegreid B and Weijsenfeld N); not compared"
+    },
+    {
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "nifs_letter": "N",
+      "energy_ev": 595.5,
+      "yield_am32": 2.698,
+      "verdict": "inside an unreadable NIFS stack (0.2-0.8 keV stack of Laegreid B and Weijsenfeld N); not compared"
+    },
+    {
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "nifs_letter": "N",
+      "energy_ev": 802.1,
+      "yield_am32": 2.88,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "nifs_letter": "N",
+      "energy_ev": 999.4,
+      "yield_am32": 3.126,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "nifs_letter": "N",
+      "energy_ev": 999.6,
+      "yield_am32": 3.043,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 250.7,
+      "yield_am32": 0.7645,
+      "energy_nifs_ev": 252.1,
+      "energy_ratio": 1.0057,
+      "yield_nifs": 0.7791,
+      "yield_ratio": 1.0191,
+      "combined_unc_rel": 0.0324,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 351.5,
+      "yield_am32": 0.6809,
+      "energy_nifs_ev": 355.2,
+      "energy_ratio": 1.0106,
+      "yield_nifs": 0.6876,
+      "yield_ratio": 1.0099,
+      "combined_unc_rel": 0.0314,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 500.4,
+      "yield_am32": 1.303,
+      "energy_nifs_ev": 509.5,
+      "energy_ratio": 1.0181,
+      "yield_nifs": 1.3211,
+      "yield_ratio": 1.0139,
+      "combined_unc_rel": 0.0317,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 753.9,
+      "yield_am32": 1.608,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 1001.0,
+      "yield_am32": 1.918,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 1245.0,
+      "yield_am32": 2.208,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 1507.0,
+      "yield_am32": 2.415,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 1762.0,
+      "yield_am32": 2.513,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1980",
+      "nifs_letter": "T",
+      "energy_ev": 2000.0,
+      "yield_am32": 2.712,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1982",
+      "nifs_letter": "^",
+      "energy_ev": 752.0,
+      "yield_am32": 1.719,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1982",
+      "nifs_letter": "^",
+      "energy_ev": 995.2,
+      "yield_am32": 2.226,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1982",
+      "nifs_letter": "^",
+      "energy_ev": 1502.0,
+      "yield_am32": 2.413,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    },
+    {
+      "id": "ar_au_sputter_yamashita1982",
+      "nifs_letter": "^",
+      "energy_ev": 2007.0,
+      "yield_am32": 3.022,
+      "verdict": "inside an unreadable NIFS stack (0.75-2 keV stack of Yamashita T and triangle, Weijsenfeld N and Oechsner U); not compared"
+    }
+  ]
+}

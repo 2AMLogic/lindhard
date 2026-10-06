@@ -94,6 +94,45 @@ class EnergyGroups(unittest.TestCase):
         self.assertEqual([x["n_points"] for x in g], [2, 1])
         self.assertEqual((g[0]["yield_min"], g[0]["yield_median"], g[0]["yield_max"]), (2.0, 2.5, 3.0))
 
+    def test_targets_are_grouped_separately(self):
+        pts = [{"energy_ev": 1000.0, "yield": 2.0}]
+        ds = [(Path("a.json"), {"ion": "Ar", "target": "Cu", "incidence_deg": 0.0, "id": "a", "points": pts}),
+              (Path("b.json"), {"ion": "Ar", "target": "Au", "incidence_deg": 0.0, "id": "b", "points": pts})]
+        g = run.energy_groups(ds)
+        self.assertEqual([(x["target"], x["n_points"]) for x in g], [("Au", 1), ("Cu", 1)])
+
+    def test_flagged_point_is_left_out(self):
+        ds = [(Path("a.json"), {"ion": "Ar", "target": "Cu", "incidence_deg": 0.0, "id": "a",
+                                "points": [{"energy_ev": 1000.0, "yield": 2.0},
+                                           {"energy_ev": 1005.0, "yield": 9.0,
+                                            "flag": "disagrees_between_compilations"}]})]
+        g = run.energy_groups(ds)
+        self.assertEqual((len(g), g[0]["n_points"], g[0]["yield_max"]), (1, 1, 2.0))
+
+
+class SputterProblem(unittest.TestCase):
+    def test_matched_problem_sets_e_d_equal_to_e_s(self):
+        p = run.sputter_problem("Ar", "Si", 500.0, 0, 20000, 4.63)
+        self.assertEqual(p["physics"]["energies"], {"Si": {"e_d_ev": 4.63, "e_b_ev": 0.0, "e_s_ev": 4.63}})
+        self.assertNotIn("weak_collisions", p["physics"])
+        self.assertEqual(run.sputter_problem("Ar", "Si", 500.0, 3, 20000, 4.63)["physics"]["weak_collisions"], 3)
+
+    def test_probe_leaves_e_s_to_lindhard(self):
+        # Si has no default E_d, so the probe sets one; it must not set E_s, which is what it reads back.
+        p = run.sputter_problem("Ar", "Si", 1000.0, 0, 10, None)
+        self.assertEqual(p["physics"]["energies"], {"Si": {"e_d_ev": run.PROBE_E_D_EV}})
+        self.assertTrue(p["id"].endswith("_probe"))
+
+
+class AllSputterDatasets(unittest.TestCase):
+    def test_every_dataset_passes_and_names_its_target(self):
+        provenance = run.PROVENANCE.read_text()
+        for f in sorted(run.SPUTTER_DATA.glob("*.json")):
+            d = json.loads(f.read_text())
+            self.assertEqual(run.check_sputter_dataset(f, d, provenance), [], f.name)
+            self.assertTrue(f.stem.startswith(f"{d['ion'].lower()}_{d['target'].lower()}_sputter_"), f.name)
+            self.assertEqual(d["incidence_deg"], 0.0, f.name)
+
 
 if __name__ == "__main__":
     unittest.main()

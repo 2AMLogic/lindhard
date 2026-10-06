@@ -1,0 +1,933 @@
+{
+  "format": "lindhard-digitize-secondread/1",
+  "figure": "IPPJ-AM-32 (1983), Ar -> Au, PDF p. 262 (matsunami1983_ipp_am32.py)",
+  "automatic": "template-coverage centre (mean of the scaled and the legend-size template), as stored",
+  "manual": "centre of the bounding box of the ink inside a glyph box read by eye from zoomed rasters (no template, same axis calibration)",
+  "criterion": "|ln(manual / automatic)| in E and in Y against the stored digitizing uncertainty u (within u) and against sqrt(2) u (within the combined uncertainty)",
+  "points": [
+    {
+      "letter": "A",
+      "id": "ar_au_sputter_almen1961",
+      "energy_ev": 9879.0,
+      "yield": 8.529,
+      "box_px": [
+        1767,
+        1129,
+        1796,
+        1173
+      ],
+      "energy_manual_ev": 9961.0,
+      "yield_manual": 8.544,
+      "energy_ratio": 1.0083,
+      "yield_ratio": 1.0017,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "B",
+      "id": "ar_au_sputter_laegreid1961",
+      "energy_ev": 199.5,
+      "yield": 1.07,
+      "box_px": [
+        842,
+        1631,
+        872,
+        1676
+      ],
+      "energy_manual_ev": 200.2,
+      "yield_manual": 1.072,
+      "energy_ratio": 1.0032,
+      "yield_ratio": 1.0021,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "B",
+      "id": "ar_au_sputter_laegreid1961",
+      "energy_ev": 224.6,
+      "yield": 1.303,
+      "box_px": [
+        871,
+        1584,
+        900,
+        1628
+      ],
+      "energy_manual_ev": 225.6,
+      "yield_manual": 1.304,
+      "energy_ratio": 1.0042,
+      "yield_ratio": 1.001,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "B",
+      "id": "ar_au_sputter_laegreid1961",
+      "energy_ev": 301.1,
+      "yield": 1.652,
+      "box_px": [
+        941,
+        1526,
+        968,
+        1569
+      ],
+      "energy_manual_ev": 301.8,
+      "yield_manual": 1.657,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 1.0031,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "B",
+      "id": "ar_au_sputter_laegreid1961",
+      "energy_ev": 399.9,
+      "yield": 2.01,
+      "box_px": [
+        1007,
+        1478,
+        1036,
+        1523
+      ],
+      "energy_manual_ev": 400.3,
+      "yield_manual": 2.016,
+      "energy_ratio": 1.001,
+      "yield_ratio": 1.0031,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "B",
+      "id": "ar_au_sputter_laegreid1961",
+      "energy_ev": 498.2,
+      "yield": 2.441,
+      "box_px": [
+        1061,
+        1431,
+        1087,
+        1478
+      ],
+      "energy_manual_ev": 499.5,
+      "yield_manual": 2.433,
+      "energy_ratio": 1.0027,
+      "yield_ratio": 0.9969,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "C",
+      "id": "ar_au_sputter_patterson1962",
+      "energy_ev": 999.3,
+      "yield": 1.151,
+      "box_px": [
+        1224,
+        1615,
+        1250,
+        1659
+      ],
+      "energy_manual_ev": 1001.0,
+      "yield_manual": 1.151,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 1.0,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "C",
+      "id": "ar_au_sputter_patterson1962",
+      "energy_ev": 2006.0,
+      "yield": 1.769,
+      "box_px": [
+        1388,
+        1511,
+        1415,
+        1556
+      ],
+      "energy_manual_ev": 2006.0,
+      "yield_manual": 1.765,
+      "energy_ratio": 1.0,
+      "yield_ratio": 0.9979,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "C",
+      "id": "ar_au_sputter_patterson1962",
+      "energy_ev": 3027.0,
+      "yield": 3.798,
+      "box_px": [
+        1486,
+        1327,
+        1513,
+        1370
+      ],
+      "energy_manual_ev": 3030.0,
+      "yield_manual": 3.786,
+      "energy_ratio": 1.0011,
+      "yield_ratio": 0.9969,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "C",
+      "id": "ar_au_sputter_patterson1962",
+      "energy_ev": 4024.0,
+      "yield": 5.574,
+      "box_px": [
+        1554,
+        1233,
+        1580,
+        1277
+      ],
+      "energy_manual_ev": 4015.0,
+      "yield_manual": 5.568,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 0.999,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "C",
+      "id": "ar_au_sputter_patterson1962",
+      "energy_ev": 5033.0,
+      "yield": 6.468,
+      "box_px": [
+        1607,
+        1198,
+        1634,
+        1241
+      ],
+      "energy_manual_ev": 5033.0,
+      "yield_manual": 6.448,
+      "energy_ratio": 1.0,
+      "yield_ratio": 0.9969,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "C",
+      "id": "ar_au_sputter_patterson1962",
+      "energy_ev": 6021.0,
+      "yield": 8.219,
+      "box_px": [
+        1650,
+        1138,
+        1675,
+        1183
+      ],
+      "energy_manual_ev": 6004.0,
+      "yield_manual": 8.225,
+      "energy_ratio": 0.9972,
+      "yield_ratio": 1.0007,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "C",
+      "id": "ar_au_sputter_patterson1962",
+      "energy_ev": 9416.0,
+      "yield": 8.226,
+      "box_px": [
+        1754,
+        1137,
+        1781,
+        1183
+      ],
+      "energy_manual_ev": 9389.0,
+      "yield_manual": 8.232,
+      "energy_ratio": 0.9972,
+      "yield_ratio": 1.0007,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 1500.0,
+      "yield": 4.73,
+      "box_px": [
+        1321,
+        1272,
+        1349,
+        1316
+      ],
+      "energy_manual_ev": 1504.0,
+      "yield_manual": 4.733,
+      "energy_ratio": 1.0023,
+      "yield_ratio": 1.0006,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 1995.0,
+      "yield": 5.618,
+      "box_px": [
+        1389,
+        1230,
+        1416,
+        1274
+      ],
+      "energy_manual_ev": 1999.0,
+      "yield_manual": 5.63,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 1.0021,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 2520.0,
+      "yield": 6.316,
+      "box_px": [
+        1444,
+        1202,
+        1471,
+        1246
+      ],
+      "energy_manual_ev": 2523.0,
+      "yield_manual": 6.321,
+      "energy_ratio": 1.0011,
+      "yield_ratio": 1.0008,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 3009.0,
+      "yield": 6.794,
+      "box_px": [
+        1487,
+        1183,
+        1513,
+        1228
+      ],
+      "energy_manual_ev": 3019.0,
+      "yield_manual": 6.824,
+      "energy_ratio": 1.0034,
+      "yield_ratio": 1.0044,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 3507.0,
+      "yield": 7.133,
+      "box_px": [
+        1523,
+        1172,
+        1549,
+        1217
+      ],
+      "energy_manual_ev": 3516.0,
+      "yield_manual": 7.143,
+      "energy_ratio": 1.0025,
+      "yield_ratio": 1.0014,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 4000.0,
+      "yield": 7.285,
+      "box_px": [
+        1555,
+        1168,
+        1578,
+        1212
+      ],
+      "energy_manual_ev": 4000.0,
+      "yield_manual": 7.278,
+      "energy_ratio": 1.0,
+      "yield_ratio": 0.999,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 4508.0,
+      "yield": 7.578,
+      "box_px": [
+        1582,
+        1158,
+        1608,
+        1201
+      ],
+      "energy_manual_ev": 4522.0,
+      "yield_manual": 7.586,
+      "energy_ratio": 1.0032,
+      "yield_ratio": 1.001,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_au_sputter_robinson1967",
+      "energy_ev": 5026.0,
+      "yield": 7.915,
+      "box_px": [
+        1608,
+        1148,
+        1633,
+        1191
+      ],
+      "energy_manual_ev": 5026.0,
+      "yield_manual": 7.906,
+      "energy_ratio": 1.0,
+      "yield_ratio": 0.999,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "energy_ev": 301.0,
+      "yield": 1.745,
+      "box_px": [
+        941,
+        1513,
+        965,
+        1557
+      ],
+      "energy_manual_ev": 300.4,
+      "yield_manual": 1.745,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 1.0,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "energy_ev": 595.5,
+      "yield": 2.698,
+      "box_px": [
+        1102,
+        1407,
+        1129,
+        1452
+      ],
+      "energy_manual_ev": 595.2,
+      "yield_manual": 2.703,
+      "energy_ratio": 0.9995,
+      "yield_ratio": 1.0021,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "energy_ev": 802.1,
+      "yield": 2.88,
+      "box_px": [
+        1173,
+        1392,
+        1198,
+        1437
+      ],
+      "energy_manual_ev": 800.4,
+      "yield_manual": 2.877,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 0.999,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "energy_ev": 999.4,
+      "yield": 3.126,
+      "box_px": [
+        1225,
+        1372,
+        1249,
+        1416
+      ],
+      "energy_manual_ev": 997.3,
+      "yield_manual": 3.126,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 1.0,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_au_sputter_weijsenfeld1967",
+      "energy_ev": 999.6,
+      "yield": 3.043,
+      "box_px": [
+        1225,
+        1380,
+        1249,
+        1424
+      ],
+      "energy_manual_ev": 997.5,
+      "yield_manual": 3.024,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 0.9938,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "G",
+      "id": "ar_au_sputter_benninghoven1969",
+      "energy_ev": 1001.0,
+      "yield": 5.098,
+      "box_px": [
+        1226,
+        1252,
+        1253,
+        1297
+      ],
+      "energy_manual_ev": 1003.0,
+      "yield_manual": 5.125,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 1.0052,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "I",
+      "id": "ar_au_sputter_sletten1972",
+      "energy_ev": 9943.0,
+      "yield": 4.535,
+      "box_px": [
+        1771,
+        1283,
+        1788,
+        1328
+      ],
+      "energy_manual_ev": 9895.0,
+      "yield_manual": 4.53,
+      "energy_ratio": 0.9952,
+      "yield_ratio": 0.9988,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "J",
+      "id": "ar_au_sputter_oechsner1973",
+      "energy_ev": 1047.0,
+      "yield": 4.071,
+      "box_px": [
+        1238,
+        1310,
+        1264,
+        1352
+      ],
+      "energy_manual_ev": 1054.0,
+      "yield_manual": 4.061,
+      "energy_ratio": 1.0071,
+      "yield_ratio": 0.9976,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "P",
+      "id": "ar_au_sputter_holloway1977",
+      "energy_ev": 1999.0,
+      "yield": 7.901,
+      "box_px": [
+        1389,
+        1145,
+        1417,
+        1191
+      ],
+      "energy_manual_ev": 1999.0,
+      "yield_manual": 7.958,
+      "energy_ratio": 1.0,
+      "yield_ratio": 1.0072,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "Q",
+      "id": "ar_au_sputter_szymonski1978",
+      "energy_ev": 6022.0,
+      "yield": 13.92,
+      "box_px": [
+        1651,
+        1010,
+        1680,
+        1054
+      ],
+      "energy_manual_ev": 6022.0,
+      "yield_manual": 13.94,
+      "energy_ratio": 1.0,
+      "yield_ratio": 1.001,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 250.7,
+      "yield": 0.7645,
+      "box_px": [
+        896,
+        1714,
+        923,
+        1758
+      ],
+      "energy_manual_ev": 250.6,
+      "yield_manual": 0.7634,
+      "energy_ratio": 0.9993,
+      "yield_ratio": 0.9986,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 351.5,
+      "yield": 0.6809,
+      "box_px": [
+        974,
+        1742,
+        1003,
+        1786
+      ],
+      "energy_manual_ev": 350.5,
+      "yield_manual": 0.6807,
+      "energy_ratio": 0.997,
+      "yield_ratio": 0.9996,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 500.4,
+      "yield": 1.303,
+      "box_px": [
+        1061,
+        1583,
+        1086,
+        1628
+      ],
+      "energy_manual_ev": 500.4,
+      "yield_manual": 1.309,
+      "energy_ratio": 1.0,
+      "yield_ratio": 1.0041,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 753.9,
+      "yield": 1.608,
+      "box_px": [
+        1157,
+        1534,
+        1184,
+        1578
+      ],
+      "energy_manual_ev": 753.9,
+      "yield_manual": 1.606,
+      "energy_ratio": 1.0,
+      "yield_ratio": 0.999,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 1001.0,
+      "yield": 1.918,
+      "box_px": [
+        1225,
+        1491,
+        1251,
+        1534
+      ],
+      "energy_manual_ev": 1002.0,
+      "yield_manual": 1.922,
+      "energy_ratio": 1.001,
+      "yield_ratio": 1.0021,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 1245.0,
+      "yield": 2.208,
+      "box_px": [
+        1275,
+        1458,
+        1303,
+        1500
+      ],
+      "energy_manual_ev": 1243.0,
+      "yield_manual": 2.208,
+      "energy_ratio": 0.9989,
+      "yield_ratio": 1.0,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 1507.0,
+      "yield": 2.415,
+      "box_px": [
+        1321,
+        1436,
+        1349,
+        1479
+      ],
+      "energy_manual_ev": 1510.0,
+      "yield_manual": 2.408,
+      "energy_ratio": 1.0021,
+      "yield_ratio": 0.9969,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 1762.0,
+      "yield": 2.513,
+      "box_px": [
+        1358,
+        1425,
+        1384,
+        1469
+      ],
+      "energy_manual_ev": 1758.0,
+      "yield_manual": 2.52,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 1.0031,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "S",
+      "id": "ar_au_sputter_yamashita1980",
+      "energy_ev": 2000.0,
+      "yield": 2.712,
+      "box_px": [
+        1388,
+        1409,
+        1416,
+        1452
+      ],
+      "energy_manual_ev": 2004.0,
+      "yield_manual": 2.698,
+      "energy_ratio": 1.0022,
+      "yield_ratio": 0.9949,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "T",
+      "id": "ar_au_sputter_yamashita1982",
+      "energy_ev": 752.0,
+      "yield": 1.719,
+      "box_px": [
+        1157,
+        1518,
+        1182,
+        1562
+      ],
+      "energy_manual_ev": 752.0,
+      "yield_manual": 1.712,
+      "energy_ratio": 1.0,
+      "yield_ratio": 0.9959,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "T",
+      "id": "ar_au_sputter_yamashita1982",
+      "energy_ev": 995.2,
+      "yield": 2.226,
+      "box_px": [
+        1225,
+        1458,
+        1250,
+        1502
+      ],
+      "energy_manual_ev": 999.5,
+      "yield_manual": 2.193,
+      "energy_ratio": 1.0043,
+      "yield_ratio": 0.9852,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "T",
+      "id": "ar_au_sputter_yamashita1982",
+      "energy_ev": 1502.0,
+      "yield": 2.413,
+      "box_px": [
+        1321,
+        1436,
+        1346,
+        1479
+      ],
+      "energy_manual_ev": 1504.0,
+      "yield_manual": 2.408,
+      "energy_ratio": 1.0011,
+      "yield_ratio": 0.9979,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "T",
+      "id": "ar_au_sputter_yamashita1982",
+      "energy_ev": 2007.0,
+      "yield": 3.022,
+      "box_px": [
+        1390,
+        1383,
+        1415,
+        1427
+      ],
+      "energy_manual_ev": 2012.0,
+      "yield_manual": 2.991,
+      "energy_ratio": 1.0022,
+      "yield_ratio": 0.9898,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    }
+  ]
+}

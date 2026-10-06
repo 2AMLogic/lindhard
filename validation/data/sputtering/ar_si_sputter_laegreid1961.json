@@ -1,0 +1,79 @@
+{
+  "kind": "sputter_yield",
+  "id": "ar_si_sputter_laegreid1961",
+  "ion": "Ar",
+  "mass_amu": null,
+  "target": "Si",
+  "target_state": "not stated in the compilation for this set, nor whether the surface was crystalline or amorphized by the Ar dose; the compilation excludes single-crystal targets and states that most specimens were thinned polycrystalline foils or evaporated films (IPPJ-AM-32, p. 2)",
+  "incidence_deg": 0.0,
+  "points": [
+    {
+      "energy_ev": 199.0,
+      "energy_unc_rel": 0.02,
+      "yield": 0.1789,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 199.2,
+      "energy_unc_rel": 0.02,
+      "yield": 0.2294,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 246.8,
+      "energy_unc_rel": 0.02,
+      "yield": 0.2294,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 296.9,
+      "energy_unc_rel": 0.02,
+      "yield": 0.3093,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 347.6,
+      "energy_unc_rel": 0.02,
+      "yield": 0.3787,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 396.9,
+      "energy_unc_rel": 0.02,
+      "yield": 0.3187,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 495.6,
+      "energy_unc_rel": 0.02,
+      "yield": 0.449,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 592.3,
+      "energy_unc_rel": 0.02,
+      "yield": 0.5301,
+      "yield_unc_rel": 0.02
+    }
+  ],
+  "original_reference": "N. Laegreid and G. K. Wehner, Trans. 6th Natl. Vacuum Symp. (Pergamon, 1959), p. 164; J. Appl. Phys. 32, 365 (1961)",
+  "original_doi": "10.1063/1.1736012",
+  "compilation": "Matsunami et al., IPPJ-AM-32 (1983); At. Data Nucl. Data Tables 31, 1 (1984)",
+  "compilation_figure": "Ar -> Si",
+  "compilation_pdf_page": 47,
+  "compilation_symbol": "A (LAEGREID, WEHNER (1959, 1961))",
+  "compilation_table_ref": "References for graphs, PDF pp. 281-286 (the figure legend gives the letter)",
+  "url": "http://dpc.nifs.ac.jp/IPPJ-AM/IPPJ-AM-32.pdf",
+  "crosscheck": {
+    "compilation": "Yamamura and Tawara, NIFS-DATA-23 (1995); At. Data Nucl. Data Tables 62, 149 (1996)",
+    "figure": "Fig. 41",
+    "pdf_page": 29,
+    "symbol": "A",
+    "agreement": "present in Fig. 41 (letter A), but none of its 8 points is separable from neighbouring symbols at 200 ppi; not compared (validation/data/digitize/crosscheck_ar_si_nifs23.json)",
+    "second_read": "manual glyph-box centre against the template centre (validation/data/digitize/secondread_ar_si_am32.json): Y ratio 1.002, E ratio 1.005 at 199 eV (within the digitizing uncertainty), Y ratio 0.998, E ratio 0.999 at 199 eV (within the digitizing uncertainty), Y ratio 1.002, E ratio 1.001 at 247 eV (within the digitizing uncertainty), Y ratio 1.001, E ratio 1.000 at 297 eV (within the digitizing uncertainty), Y ratio 0.999, E ratio 1.001 at 348 eV (within the digitizing uncertainty), Y ratio 1.000, E ratio 1.000 at 397 eV (within the digitizing uncertainty), Y ratio 0.998, E ratio 1.001 at 496 eV (within the digitizing uncertainty), Y ratio 0.997, E ratio 1.001 at 592 eV (within the digitizing uncertainty)"
+  },
+  "extraction": "Digitized from the 400 ppi scan of PDF p. 47 with validation/data/digitize/matsunami1983_ipp_am32.py: 2-D affine axis calibration from all ~140 tick marks of the log-log frame (residual rms 0.0048 decade in E, 0.0022 in Y); symbols identified by eye from zoomed rasters (listed in the script) and centred by template matching against the figure's legend glyphs, two template sizes; the fitted curve masked out and not stored. Points with 196 eV <= E <= 10.2 keV only; symbols in that range that could not be identified are listed in the script and not stored. Uncertainties are digitizing only (calibration, centring repeatability and the 1.3 % rms scatter of round-energy points), floored at 2 %; the compilation gives no measurement uncertainty. Energy is the total ion energy, yield in atoms per ion (IPPJ-AM-32, p. 6).",
+  "reliability_note": "Included in the compilation's Ar -> Si figure, so it passed the compilation's selection (IPPJ-AM-32, pp. 1-2: absolute or normalized-relative yields, room temperature, no dose effects, sufficient beam current; doubtful sets excluded). The compilation does not rank the sets it shows.",
+  "terms": "Facts, cited; stored under operator decision (#69) despite the compilation's cover note. No figure image and no fitted curve stored.",
+  "added": "2026-10-06"
+}

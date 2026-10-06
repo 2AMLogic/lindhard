@@ -1,0 +1,61 @@
+{
+  "kind": "sputter_yield",
+  "id": "ar_ag_sputter_wehner1961",
+  "ion": "Ar",
+  "mass_amu": null,
+  "target": "Ag",
+  "target_state": "not stated in the compilation for this set; the compilation excludes single-crystal targets and states that most specimens were thinned polycrystalline foils or evaporated films (IPPJ-AM-32, p. 2)",
+  "incidence_deg": 0.0,
+  "points": [
+    {
+      "energy_ev": 197.5,
+      "energy_unc_rel": 0.02,
+      "yield": 1.601,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 296.2,
+      "energy_unc_rel": 0.02,
+      "yield": 2.307,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 399.3,
+      "energy_unc_rel": 0.02,
+      "yield": 2.709,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 497.8,
+      "energy_unc_rel": 0.02,
+      "yield": 3.378,
+      "yield_unc_rel": 0.02
+    },
+    {
+      "energy_ev": 600.3,
+      "energy_unc_rel": 0.02,
+      "yield": 3.485,
+      "yield_unc_rel": 0.02
+    }
+  ],
+  "original_reference": "G. K. Wehner and D. Rosenberg (1961), cited by the compilation as J. Appl. Phys. 32, 887 (1961); Crossref gives that paper's title as \"Mercury Ion Beam Sputtering of Metals at Energies 4-15 kev\", which does not match these Ar points at 0.2-0.6 keV, so the publication holding them is uncertain (the compilation also lists G. K. Wehner, R. V. Stuart and D. Rosenberg, General Mills Report No. 2243 (1961))",
+  "original_doi": null,
+  "compilation": "Matsunami et al., IPPJ-AM-32 (1983); At. Data Nucl. Data Tables 31, 1 (1984)",
+  "compilation_figure": "Ar -> Ag",
+  "compilation_pdf_page": 191,
+  "compilation_symbol": "H (WEHNER, ROSENBERG (1961))",
+  "compilation_table_ref": "References for graphs, PDF pp. 281-286 (the figure legend gives the letter)",
+  "url": "http://dpc.nifs.ac.jp/IPPJ-AM/IPPJ-AM-32.pdf",
+  "crosscheck": {
+    "compilation": "Yamamura and Tawara, NIFS-DATA-23 (1995); At. Data Nucl. Data Tables 62, 149 (1996)",
+    "figure": "Fig. 209",
+    "pdf_page": 71,
+    "symbol": "G",
+    "agreement": "present in Fig. 209 (letter G), but none of its 5 points is separable from neighbouring symbols at 200 ppi; not compared (validation/data/digitize/crosscheck_ar_ag_nifs23.json)",
+    "second_read": "manual glyph-box centre against the template centre (validation/data/digitize/secondread_ar_ag_am32.json): Y ratio 1.003, E ratio 1.002 at 198 eV (within the digitizing uncertainty), Y ratio 1.002, E ratio 1.003 at 296 eV (within the digitizing uncertainty), Y ratio 1.005, E ratio 1.003 at 399 eV (within the digitizing uncertainty), Y ratio 0.999, E ratio 0.998 at 498 eV (within the digitizing uncertainty), Y ratio 1.003, E ratio 1.000 at 600 eV (within the digitizing uncertainty)"
+  },
+  "extraction": "Digitized from the 400 ppi scan of PDF p. 191 with validation/data/digitize/matsunami1983_ipp_am32.py: 2-D affine axis calibration from all ~160 tick marks of the log-log frame (residual rms 0.0044 decade in E, 0.0023 in Y); symbols identified by eye from zoomed rasters (listed in the script) and centred by template matching against the figure's legend glyphs, two template sizes; the fitted curve masked out and not stored. Points with 196 eV <= E <= 10.2 keV only; symbols in that range that could not be identified are listed in the script and not stored. Uncertainties are digitizing only (calibration, centring repeatability and the 1.3 % rms scatter of round-energy points), floored at 2 %; the compilation gives no measurement uncertainty. Energy is the total ion energy, yield in atoms per ion (IPPJ-AM-32, p. 6).",
+  "reliability_note": "Included in the compilation's Ar -> Ag figure, so it passed the compilation's selection (IPPJ-AM-32, pp. 1-2: absolute or normalized-relative yields, room temperature, no dose effects, sufficient beam current; doubtful sets excluded). The compilation does not rank the sets it shows.",
+  "terms": "Facts, cited; stored under operator decision (#69) despite the compilation's cover note. No figure image and no fitted curve stored.",
+  "added": "2026-10-06"
+}
