@@ -29,6 +29,7 @@
 mod damage;
 mod engine;
 mod lss;
+mod partition;
 mod report;
 mod scattering;
 mod stopping;

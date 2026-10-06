@@ -130,6 +130,9 @@ def lindhard_settings(problem: dict) -> dict:
         "follow_recoils": eng["follow_recoils"],
         "primary_surface_binding_ev": eng["primary_surface_binding_ev"],
         "free_path": eng["free_path"],
+        # Weak collisions per collision step (absent from echoes written
+        # before #64, which had none).
+        "weak_collisions": int(eng.get("weak_collisions", 0)),
         "electronic_loss": eng["electronic_loss"],
         "potential": problem["physics"]["potential"],
         "stopping": problem["physics"]["stopping"],
@@ -268,7 +271,10 @@ class RustBca(Oracle):
             "track_recoil_trajectories": False,
             "track_displacements": False,
             "track_energy_losses": False,
-            "weak_collision_order": 0,
+            # "weak_collision_order": weak collisions per step, partners in
+            # the annuli sqrt(k + [0, 1)) p_max: the same rings as lindhard's
+            # `weak_collisions` (Moller and Eckstein, IPP 9/64 (1988), eq. (26)).
+            "weak_collision_order": matched["weak_collisions"],
             "suppress_deep_recoils": False,
             "high_energy_free_flight_paths": False,
             "num_threads": threads,
@@ -388,6 +394,7 @@ class RustBca(Oracle):
                 "potential ZBL (universal screening length)",
                 "electronic stopping Lindhard-Scharff, all nonlocal (LOW_ENERGY_NONLOCAL)",
                 "constant free path n^(-1/3) (LIQUID)",
+                f"weak collisions per step: {matched['weak_collisions']} (weak_collision_order)",
                 "primary cutoff Ec and E_s of the beam ion",
                 "recoil cutoff Ec, E_b, E_s and E_d of each target element",
                 "planar surface barrier (surface_binding_model TARGET, planar by default)",
@@ -407,6 +414,13 @@ class RustBca(Oracle):
                 "normal incidence is 1e-5 rad off-normal in RustBCA (it rejects an exact x direction)",
             ],
         }
+        if matched["weak_collisions"]:
+            out["mismatches"].append(
+                "weak collisions: the RustBCA input page places the partners in the same annuli but does not say "
+                "whether they make recoils, which energy each is evaluated at, or whether they carry local "
+                "electronic loss; lindhard: no recoils, each at the energy left after the previous one "
+                "(ion::bca module docs)"
+            )
         if matched["follow_recoils"]:
             out["mismatches"].append(
                 "E_d: the RustBCA input page describes Ed as a filter of the displacement list output, its BCA "
@@ -586,6 +600,11 @@ class OpenTrim(Oracle):
                 "no surface binding: OpenTRIM 1.2 stores Es but applies no surface barrier (its TODO.md lists "
                 "'Handle surface effects (sputtering etc.)'), so recoils leaving the front face are not a "
                 "sputter yield; the sputter yield is not compared"
+            )
+        if matched["weak_collisions"]:
+            mism.append(
+                f"weak collisions: lindhard runs {matched['weak_collisions']} per collision step; the adapter "
+                "maps no OpenTRIM option to them"
             )
         return {
             "ions": n,
@@ -802,7 +821,8 @@ def main() -> int:
                 },
                 "lindhard_settings": {
                     k: matched[k]
-                    for k in ("potential", "stopping", "free_path", "electronic_loss", "primary_cutoff_ev",
+                    for k in ("potential", "stopping", "free_path", "weak_collisions", "electronic_loss",
+                              "primary_cutoff_ev",
                               "recoil_cutoff_ev", "follow_recoils", "primary_surface_binding_ev",
                               "density_g_cm3", "atom_density_per_nm3")
                 } | {"elements": [{k: e[k] for k in ("symbol", "atom_fraction", "e_d_ev", "e_b_ev", "e_s_ev")}

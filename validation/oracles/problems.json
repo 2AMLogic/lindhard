@@ -72,6 +72,25 @@
       "run": { "ions": 20000, "seed": 1 },
       "tally": { "depth_bin_nm": 0.1, "depth_bins": 100 },
       "metrics": ["sputter_yield", "backscatter", "ions_per_s"]
+    },
+    {
+      "id": "ar_1keV_cu_ed_es_weak3",
+      "description": "As ar_1keV_cu_ed_es, with 3 weak collisions per collision step on both sides (lindhard physics.weak_collisions, RustBCA weak_collision_order; Moller and Eckstein, IPP 9/64 (1988), eq. (26)): the nuclear loss of impact parameters beyond p_max (#64)",
+      "beam": { "ion": "Ar", "energy_ev": 1000.0, "tilt_deg": 0.0 },
+      "target": { "substrate": "Cu" },
+      "physics": {
+        "potential": "zbl",
+        "stopping": "lindhard-scharff",
+        "free_path": "constant",
+        "weak_collisions": 3,
+        "primary_cutoff_ev": 2.0,
+        "recoil_cutoff_ev": 1.0,
+        "follow_recoils": true,
+        "energies": { "Cu": { "e_d_ev": 3.49, "e_b_ev": 0.0, "e_s_ev": 3.49 } }
+      },
+      "run": { "ions": 20000, "seed": 1 },
+      "tally": { "depth_bin_nm": 0.1, "depth_bins": 100 },
+      "metrics": ["sputter_yield", "backscatter", "ions_per_s"]
     }
   ]
 }

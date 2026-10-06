@@ -26,6 +26,10 @@ pub enum LatticeDeposit {
     Subthreshold,
     /// The lattice binding energy `E_b` subtracted from a displaced recoil.
     Binding,
+    /// The transfer of a weak collision ([`super::BcaConfig::weak_collisions`]).
+    /// Weak collisions make no recoils, whatever `T` is (Moller and Eckstein,
+    /// IPP 9/64 (1988), p. 26), so all of `T` stays at the collision site.
+    Weak,
 }
 
 /// Electronic energy-loss channel.
@@ -52,8 +56,8 @@ pub struct EnergyBudget {
     pub electronic_nonlocal: f64,
     /// Local electronic loss at collisions, all particles.
     pub electronic_local: f64,
-    /// Nuclear energy left in the lattice: subthreshold transfers plus `E_b`
-    /// of displaced recoils.
+    /// Nuclear energy left in the lattice: subthreshold transfers, weak-
+    /// collision transfers, and `E_b` of displaced recoils.
     pub lattice: f64,
     /// Work done against the planar surface barrier by escaping particles.
     pub surface_barrier: f64,

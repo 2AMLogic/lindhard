@@ -94,12 +94,25 @@ pub struct Problem<'a> {
     /// Electronic stopping cross section per atom, eV m^2, at an energy in eV.
     pub se: &'a dyn Fn(f64) -> f64,
     pub table: &'a ScatteringTable,
+    /// Weak collisions per collision step in the engine
+    /// (`BcaConfig::weak_collisions`).
+    pub weak: u8,
 }
 
 impl Problem<'_> {
     /// Constant-free-path `p_max = (pi N^(2/3))^(-1/2)` (as in the engine).
     pub fn p_max(&self) -> f64 {
         1.0 / (PI * self.n.powf(2.0 / 3.0)).sqrt()
+    }
+
+    /// Largest impact parameter the engine samples: `p_max`, or
+    /// `p_max sqrt(K + 1)` with `K` weak collisions, whose partners fill the
+    /// annuli out to that radius uniformly, one atom per annulus per flight
+    /// (Moller and Eckstein, IPP 9/64 (1988), p. 14, eq. (26)). For the
+    /// primary's range only the deflection and the transfer matter, so the
+    /// weak collisions enter the equation as ordinary collisions.
+    pub fn p_cut(&self) -> f64 {
+        self.p_max() * f64::from(self.weak + 1).sqrt()
     }
 
     fn theta(&self, eps: f64, beta: f64) -> f64 {
@@ -109,14 +122,14 @@ impl Problem<'_> {
     }
 }
 
-/// Simpson nodes `(p, weight)` for `Int 2 pi p dp` over `[1e-6 p_max, p_max]`
+/// Simpson nodes `(p, weight)` for `Int 2 pi p dp` over `[1e-6 p_max, p_cut]`
 /// in `ln p`.
-fn p_nodes(p_max: f64, per_decade: usize) -> Vec<(f64, f64)> {
-    let decades = 6.0;
+fn p_nodes(p_max: f64, p_cut: f64, per_decade: usize) -> Vec<(f64, f64)> {
+    let lo = p_max * 1e-6;
+    let decades = (p_cut / lo).log10();
     let mut m = (decades * per_decade as f64).ceil() as usize;
     m += m % 2;
-    let lo = p_max * 1e-6;
-    let du = (p_max / lo).ln() / m as f64;
+    let du = (p_cut / lo).ln() / m as f64;
     (0..=m)
         .map(|k| {
             let p = lo * (k as f64 * du).exp();
@@ -172,7 +185,7 @@ pub fn solve_grid(pr: &Problem, e0: f64, moment: Moment, per_decade: usize) -> f
     );
     let a = pot.screening_length();
     let eps_per_ev = pot.reduced_energy(Potential::cm_energy(J_PER_EV, m1, pr.m2));
-    let nodes = p_nodes(pr.p_max(), 40);
+    let nodes = p_nodes(pr.p_max(), pr.p_cut(), 40);
 
     let k = ((e0 / pr.cutoff_ev).log10() * per_decade as f64).ceil() as usize;
     let ln_r = (e0 / pr.cutoff_ev).ln() / k as f64;
@@ -221,7 +234,7 @@ pub fn solve(pr: &Problem, e0: f64, moment: Moment) -> (f64, f64) {
 }
 
 /// Continuous-slowing-down path length `Int dE / (N (S_n + S_e))` from the
-/// cutoff, with `S_n` integrated over the same `p <= p_max` disc. Not a mean
+/// cutoff, with `S_n` integrated over the same `p <= p_cut` disc. Not a mean
 /// path: it ignores the fluctuation of the nuclear energy loss.
 pub fn csda_path(pr: &Problem, e0: f64) -> f64 {
     let m1 = pr.ion.mass_amu();
@@ -232,7 +245,7 @@ pub fn csda_path(pr: &Problem, e0: f64) -> f64 {
     );
     let a = pot.screening_length();
     let eps_per_ev = pot.reduced_energy(Potential::cm_energy(J_PER_EV, m1, pr.m2));
-    let nodes = p_nodes(pr.p_max(), 40);
+    let nodes = p_nodes(pr.p_max(), pr.p_cut(), 40);
     let sn = |e: f64| -> f64 {
         nodes
             .iter()
@@ -396,16 +409,26 @@ fn run_engine(
     e0: f64,
     count: u64,
     seed: u64,
+    weak: u8,
 ) -> RangeTally {
     let stack = Stack::semi_infinite(silicon());
     let mut cfg = BcaConfig::new(CUTOFF_EV, 1.0);
     cfg.follow_recoils = false;
     cfg.seed = seed;
+    cfg.weak_collisions = weak;
     let beam = Beam::normal(Ion::new(z1).unwrap(), e0, count);
     Bca::new(beam, &stack, cfg, stopping, table)
         .unwrap()
         .run(RangeTally::default)
         .unwrap()
+}
+
+fn weak_label(weak: u8) -> String {
+    if weak == 0 {
+        String::new()
+    } else {
+        format!(" (K = {weak} weak collisions)")
+    }
 }
 
 /// Systematic allowance for the engine-vs-equation comparison, relative: the
@@ -425,13 +448,16 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let mut out = Vec::new();
 
     // Electronic + nuclear: P and As at 50 keV in Si (backscatter < 1 %).
-    for (id_rp, id_ratio, sym, z1, e0) in [
+    // The last case runs the engine with K = 3 weak collisions and the
+    // equation with p out to p_max sqrt(4) (issue #64).
+    for (id_rp, id_ratio, sym, z1, e0, weak) in [
         (
             "range.p50k_si.rp",
             "range.p50k_si.rp_over_l",
             "P",
             15u8,
             50e3,
+            0u8,
         ),
         (
             "range.as50k_si.rp",
@@ -439,6 +465,15 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
             "As",
             33,
             50e3,
+            0,
+        ),
+        (
+            "range.p50k_si_weak3.rp",
+            "range.p50k_si_weak3.rp_over_l",
+            "P",
+            15,
+            50e3,
+            3,
         ),
     ] {
         let ion = Ion::new(z1).unwrap();
@@ -451,18 +486,20 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
             cutoff_ev: CUTOFF_EV,
             se: &se,
             table,
+            weak,
         };
         let (rp_lss, drp) = solve(&pr, e0, Moment::Projected);
         let (l_lss, dl) = solve(&pr, e0, Moment::Path);
-        let t = run_engine(table, &ls, z1, e0, count, 0x5EED + u64::from(z1));
+        let t = run_engine(table, &ls, z1, e0, count, 0x5EED + u64::from(z1), weak);
         let bs = t.backscattered as f64 / count as f64;
         let dev = t.mean_x() / rp_lss - 1.0;
         let tol = 3.0 * t.se_x() / rp_lss + drp / rp_lss + SYSTEMATIC;
         out.push(Check::at_most(
             id_rp,
             format!(
-                "{sym} {} keV -> Si: engine mean projected range {:.2} nm vs LSS first-moment equation {:.2} nm (|rel. dev.|)",
+                "{sym} {} keV -> Si{}: engine mean projected range {:.2} nm vs LSS first-moment equation {:.2} nm (|rel. dev.|)",
                 e0 / 1e3,
+                weak_label(weak),
                 t.mean_x() / NM,
                 rp_lss / NM
             ),
@@ -474,7 +511,7 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
                 100.0 * bs
             ),
         ));
-        if z1 == 15 {
+        if z1 == 15 && weak == 0 {
             // Power of the check: the same comparison against the equation
             // solved with a wrong deflection must fail by a wide margin.
             let (rp_bug, _) = solve(&pr, e0, Moment::ProjectedCmAngleBug);
@@ -496,8 +533,9 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         out.push(Check::at_most(
             id_ratio,
             format!(
-                "{sym} {} keV -> Si: Rp / path ratio, engine {} vs equation {} (|abs. diff.|)",
+                "{sym} {} keV -> Si{}: Rp / path ratio, engine {} vs equation {} (|abs. diff.|)",
                 e0 / 1e3,
+                weak_label(weak),
                 num(r_eng),
                 num(r_lss)
             ),
@@ -513,8 +551,11 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     }
 
     // Nuclear stopping only: the reduced range rho(eps) regime. Si -> Si
-    // (M1 = M2) at 5 keV, eps ~ 0.1.
-    {
+    // (M1 = M2) at 5 keV, eps ~ 0.1; again with K = 3 weak collisions.
+    for (id, weak) in [
+        ("range.si5k_si.nuclear_rho", 0u8),
+        ("range.si5k_si_weak3.nuclear_rho", 3),
+    ] {
         let ion = Ion::new(14).unwrap();
         let zero = |_e: f64| 0.0;
         let pr = Problem {
@@ -525,11 +566,12 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
             cutoff_ev: CUTOFF_EV,
             se: &zero,
             table,
+            weak,
         };
         let e0 = 5e3;
         let (l_lss, dl) = solve(&pr, e0, Moment::Path);
         let (rp_lss, drp) = solve(&pr, e0, Moment::Projected);
-        let t = run_engine(table, &NoElectronic, 14, e0, count, 0xA11CE);
+        let t = run_engine(table, &NoElectronic, 14, e0, count, 0xA11CE, weak);
         // Reduced path rho = N L pi a^2 4 M1 M2 / (M1 + M2)^2 (LSS 1963).
         let pot = Potential::new(Screening::ZblUniversal, 14.0, 14.0);
         let a = pot.screening_length();
@@ -538,9 +580,10 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         let eps0 = pot.reduced_energy(Potential::cm_energy(e0 * J_PER_EV, m1, m2));
         let dev = t.mean_l() / l_lss - 1.0;
         out.push(Check::at_most(
-            "range.si5k_si.nuclear_rho",
+            id,
             format!(
-                "Si 5 keV -> Si, nuclear stopping only (eps = {eps0:.3}): engine reduced path rho {:.3} vs LSS first-moment equation {:.3} (|rel. dev.|)",
+                "Si 5 keV -> Si{}, nuclear stopping only (eps = {eps0:.3}): engine reduced path rho {:.3} vs LSS first-moment equation {:.3} (|rel. dev.|)",
+                weak_label(weak),
                 t.mean_l() * to_rho,
                 l_lss * to_rho
             ),
@@ -552,6 +595,9 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
                 100.0 * t.backscattered as f64 / count as f64
             ),
         ));
+        if weak > 0 {
+            continue;
+        }
         let csda = csda_path(&pr, e0);
         out.push(Check::info(
             "range.si5k_si.csda",
@@ -589,9 +635,10 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
             cutoff_ev: CUTOFF_EV,
             se: &se,
             table,
+            weak: 0,
         };
         let (rp_lss, _) = solve(&pr, 10e3, Moment::Projected);
-        let t = run_engine(table, &ls, 5, 10e3, count, 0xB0B);
+        let t = run_engine(table, &ls, 5, 10e3, count, 0xB0B, 0);
         out.push(Check::info(
             "range.b10k_si.rp",
             format!(

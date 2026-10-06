@@ -1,6 +1,8 @@
 //! Damage-model limits (issue #6): NRT and Kinchin-Pease, the Lindhard
-//! partition, and the engine's full-cascade displacement count against the
-//! Kinchin-Pease estimate in the nuclear-only limit.
+//! partition, the engine's full-cascade displacement count against the
+//! Kinchin-Pease estimate in the nuclear-only limit, and the cascade's
+//! electronic share against the partition integral equation
+//! (`partition.rs`, issue #64).
 
 use std::f64::consts::PI;
 
@@ -165,5 +167,8 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         ),
         "context: Robinson and Torrens (1974) found BCA efficiencies near 0.8 (NRT's factor); vacancies = displacements - replacements, so the ratio depends on the replacement rule and cutoffs (about 1.26 with a 1 eV recoil cutoff)",
     ));
+
+    // The cascade's electronic share against the Lindhard partition (#64).
+    out.extend(crate::partition::checks(table, quick));
     out
 }

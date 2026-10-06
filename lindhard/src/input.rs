@@ -44,7 +44,7 @@ use sha2::{Digest, Sha256};
 
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
-use crate::ion::bca::{BcaConfig, Beam, ElectronicLoss, MeanFreePath};
+use crate::ion::bca::{BcaConfig, Beam, ElectronicLoss, MeanFreePath, MAX_WEAK_COLLISIONS};
 use crate::ion::potential::{Screening, ScreeningLength};
 use crate::ion::scattering::TableSpec;
 use crate::ion::stopping::bethe::BetheBloch;
@@ -344,6 +344,11 @@ pub struct PhysicsSpec {
     /// required with `free_path = "energy-dependent"`, rejected otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_cm_angle_deg: Option<f64>,
+    /// Weak collisions per collision step, `0..=3`
+    /// ([`crate::ion::bca::BcaConfig::weak_collisions`]); constant free path
+    /// only. Default 0.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub weak_collisions: u8,
     /// The primary stops below this energy, eV. Required.
     pub primary_cutoff_ev: f64,
     /// Recoils stop below this energy, eV. Required. Keep it below the
@@ -374,6 +379,10 @@ pub struct RunSpec {
     /// so it is not part of the echoed input.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub threads: Option<usize>,
+}
+
+fn is_zero_u8(v: &u8) -> bool {
+    *v == 0
 }
 
 fn default_bin_nm() -> f64 {
@@ -987,8 +996,24 @@ impl Input {
                 ));
             }
         }
+        if p.weak_collisions > MAX_WEAK_COLLISIONS {
+            return Err(invalid(
+                "physics.weak_collisions",
+                format!(
+                    "{} must be at most {MAX_WEAK_COLLISIONS}",
+                    p.weak_collisions
+                ),
+            ));
+        }
+        if p.weak_collisions > 0 && mean_free_path != MeanFreePath::Constant {
+            return Err(invalid(
+                "physics.weak_collisions",
+                "only used with free_path = \"constant\"",
+            ));
+        }
         let mut config = BcaConfig::new(p.primary_cutoff_ev, p.recoil_cutoff_ev);
         config.mean_free_path = mean_free_path;
+        config.weak_collisions = p.weak_collisions;
         config.electronic = match p.stopping {
             StoppingChoice::EquipartitionLsOr => ElectronicLoss::EquipartitionLsOr,
             _ => ElectronicLoss::NonLocal,
@@ -1399,6 +1424,26 @@ seed = 2
     }
 
     #[test]
+    fn weak_collisions_reach_the_engine_and_echo() {
+        let r = Input::from_toml_str(&B_SI.replace(
+            "primary_cutoff_ev = 5.0",
+            "primary_cutoff_ev = 5.0\nweak_collisions = 3",
+        ))
+        .unwrap()
+        .resolve()
+        .unwrap();
+        assert_eq!(r.config.weak_collisions, 3);
+        let echo = toml::to_string(&r.input).unwrap();
+        assert!(echo.contains("weak_collisions = 3"), "{echo}");
+        // The default is 0 and is not echoed, so older echoes are unchanged.
+        let r0 = Input::from_toml_str(B_SI).unwrap().resolve().unwrap();
+        assert_eq!(r0.config.weak_collisions, 0);
+        assert!(!toml::to_string(&r0.input)
+            .unwrap()
+            .contains("weak_collisions"));
+    }
+
+    #[test]
     fn unknown_key_is_named() {
         let e = err(&B_SI.replace("tilt_deg", "tilt_degrees"));
         assert!(matches!(e, InputError::Parse(_)));
@@ -1455,6 +1500,20 @@ seed = 2
                     "primary_cutoff_ev = 5.0\nfree_path = \"energy-dependent\"",
                 ),
                 "physics.min_cm_angle_deg",
+            ),
+            (
+                B_SI.replace(
+                    "primary_cutoff_ev = 5.0",
+                    "primary_cutoff_ev = 5.0\nweak_collisions = 4",
+                ),
+                "physics.weak_collisions",
+            ),
+            (
+                B_SI.replace(
+                    "primary_cutoff_ev = 5.0",
+                    "primary_cutoff_ev = 5.0\nweak_collisions = 2\nfree_path = \"energy-dependent\"\nmin_cm_angle_deg = 1.0",
+                ),
+                "physics.weak_collisions",
             ),
             (
                 B_SI.replace("[physics.energies.Si]", "[physics.energies.Ge]"),

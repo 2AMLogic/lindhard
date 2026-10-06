@@ -56,6 +56,7 @@ struct Engine {
     free_path: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     min_cm_angle_rad: Option<f64>,
+    weak_collisions: u8,
     electronic_loss: &'static str,
     seed: u64,
     chunk_size: u64,
@@ -564,6 +565,7 @@ pub fn summary_json(
                     MeanFreePath::Constant => None,
                     MeanFreePath::EnergyDependent { min_cm_angle_rad } => Some(min_cm_angle_rad),
                 },
+                weak_collisions: c.weak_collisions,
                 electronic_loss: match c.electronic {
                     lindhard::ion::bca::ElectronicLoss::NonLocal => "nonlocal",
                     lindhard::ion::bca::ElectronicLoss::EquipartitionLsOr => "equipartition-ls-or",
