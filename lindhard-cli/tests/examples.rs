@@ -571,3 +571,62 @@ fn recoil_species_tables_are_checked_before_the_run() {
     assert!(s.contains("user-table (si.toml: Lindhard-Scharff"), "{s}");
     run(&input, &dir.join("out"), &["--ions", "50"]);
 }
+
+/// `[physics] stopping = "none"` (issue #58): echoed, listed, no electronic
+/// loss in the energy budget, and byte-identical across thread counts. With a
+/// `[stopping]` table the tabled pair loses energy to electrons again.
+#[test]
+fn stopping_none_runs_deterministically_with_zero_electronic_loss() {
+    let dir = scratch("stopping-none");
+    let text = GOOD.replace("[physics]", "[physics]\nstopping = \"none\"");
+    let input = dir.join("input.toml");
+    std::fs::write(&input, &text).unwrap();
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    ok(&o);
+    let stdout = String::from_utf8_lossy(&o.stdout);
+    assert!(stdout.contains("none"), "{stdout}");
+
+    let mut outs = Vec::new();
+    for threads in ["1", "4"] {
+        let out = dir.join(format!("out-{threads}"));
+        run(&input, &out, &["--ions", "300", "--threads", threads]);
+        outs.push(out);
+    }
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    assert_eq!(
+        deterministic_part(&read(&outs[0], "summary.json")),
+        deterministic_part(&read(&outs[1], "summary.json"))
+    );
+    for f in ["depth_profile.csv", "ions.csv", "damage_profile.csv"] {
+        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
+    }
+
+    let s = json(&outs[0].join("summary.json"));
+    assert_eq!(s["input"]["physics"]["stopping"], "none");
+    let models = s["physics"]["models"].as_array().unwrap();
+    assert!(models
+        .iter()
+        .any(|m| m["role"] == "electronic stopping" && m["name"] == "none"));
+    assert_eq!(s["physics"]["engine"]["electronic_loss"], "nonlocal");
+    let budget = &s["results"]["energy_budget_ev_per_ion"];
+    assert_eq!(budget["electronic_nonlocal"].as_f64().unwrap(), 0.0);
+    assert_eq!(budget["electronic_local"].as_f64().unwrap(), 0.0);
+
+    // With a B->Si table the beam loses energy to electrons through it.
+    std::fs::write(dir.join("t.toml"), b_in_si_ls_table()).unwrap();
+    let tabled = dir.join("tabled.toml");
+    std::fs::write(
+        &tabled,
+        format!("{text}\n[stopping]\ntables = [\"t.toml\"]\n"),
+    )
+    .unwrap();
+    let out = dir.join("out-tabled");
+    run(&tabled, &out, &["--ions", "50"]);
+    let s = json(&out.join("summary.json"));
+    assert!(
+        s["results"]["energy_budget_ev_per_ion"]["electronic_nonlocal"]
+            .as_f64()
+            .unwrap()
+            > 0.0
+    );
+}

@@ -212,7 +212,13 @@ with `E_d = E_s` (`ar_1keV_cu_ed_es`), which isolates the displacement
 criterion, and once more with three weak collisions per step on both sides
 (`ar_1keV_cu_ed_es_weak3`: lindhard's `weak_collisions`, RustBCA's documented
 `weak_collision_order`; OpenTRIM has no matched option, recorded as a
-mismatch). Install the oracles yourself, **outside this tree**, and point the
+mismatch). B, As and the first Ar problem also have nuclear-only variants
+(`b_5keV_si_nuclear`, `as_50keV_si_nuclear`, `ar_1keV_cu_nuclear`, #58):
+electronic stopping off on every side (lindhard `stopping = "none"`,
+OpenTRIM `electronic_stopping` `Off`, RustBCA's documented
+`electronic_stopping_correction_factor = 0.0`). They are the like-for-like
+problems for OpenTRIM, which cannot run a stopping we may use, and a
+transport-only check for RustBCA; they are not physical settings. Install the oracles yourself, **outside this tree**, and point the
 runner at them:
 
 ```sh
@@ -250,13 +256,18 @@ How each adapter was written, under the licence tiers of
   GUI off). Its electronic stopping choices are `SRIM96`, `SRIM13` (SRIM
   tables, Tier C) and `DPASS` (Tier C), or `Off`. None is a published formula
   we can match and none of the tables may be used, so OpenTRIM runs with
-  electronic stopping **off**. lindhard's CLI cannot switch electronic loss
-  off, so OpenTRIM's range comparisons are **not like-for-like**. They are
-  kept as a check of the setup, and for speed.
+  electronic stopping **off**. Its comparisons are like-for-like only on the
+  `*_nuclear` problems, where lindhard runs `stopping = "none"`. On the
+  Lindhard-Scharff problems they are **not like-for-like** (recorded as a
+  mismatch in each summary) and are kept as a check of the setup, and for
+  speed. The adapters choose their electronic-stopping settings, and the
+  `matched`/`mismatches` text, from the problem's `physics.stopping`.
 
 **Status:** both adapters are in place, and the first summaries were run
 locally on 2026-10-05 against RustBCA v3.0.0-17-ga356280 (commit `a356280`)
-and OpenTRIM 1.2.0 (commit `6b12392`).
+and OpenTRIM 1.2.0 (commit `6b12392`). The `*_nuclear` problems (#58) have
+no committed summaries yet; their interim OpenTRIM figures are under
+"Reading the level-2 table".
 
 ### Reading the level-2 table
 
@@ -306,14 +317,31 @@ explained here, or recorded as unexplained:
   gap (factor 5.8 with weak collisions, 2.2 without) remains
   **unexplained**. Backscatter: lindhard 8.8 % to 8.4 %, RustBCA 10.8 % to
   10.5 %.
-- **OpenTRIM, ranges: stopping mismatch.** With no electronic loss,
-  OpenTRIM's ranges are longer, as they must be: lindhard's Rp is 21 % (B)
-  and 10 % (As) shorter. This says nothing about either code's transport.
-  A like-for-like run needs an electronic-loss-off option in lindhard's CLI
-  (#58).
+- **OpenTRIM, ranges: stopping mismatch.** On the Lindhard-Scharff
+  problems OpenTRIM runs with no electronic loss, so its ranges are longer,
+  as they must be: lindhard's Rp is 21 % (B) and 10 % (As) shorter. This
+  says nothing about either code's transport.
+- **OpenTRIM, nuclear only (like-for-like, #58).** With electronic stopping
+  off on both sides the range gap closes. **Interim figures:** the
+  `*_nuclear` summaries have not been regenerated yet (the oracle builds
+  were not available where #58 was implemented), so these compare
+  lindhard's `*_nuclear` runs (20 000 ions, seed 1, same build as #58)
+  with the OpenTRIM 1.2.0 (`6b12392`) values in the committed Lindhard-Scharff
+  summaries. The adapter writes the same OpenTRIM input for a problem and
+  its `_nuclear` variant (only the output title differs), since OpenTRIM
+  runs with `Off` either way. B 5 keV:
+  Rp 30.49 vs 30.98 nm, -1.6 % (2.6σ); ΔRp -0.3 % (0.3σ); backscatter
+  7.6 % vs 6.2 % (+1.4 points, 5.5σ). As 50 keV: Rp 42.57 vs 42.83 nm,
+  -0.6 % (1.6σ); ΔRp -0.2 % (0.2σ); no backscatter on either side. Ar 1 keV
+  → Cu: backscatter 10.2 % vs 6.1 % (+4.0 points, 15σ). ΔRp agrees within
+  statistics for both ions and the As Rp within 1.6σ, against 21 % and 10 %
+  with the stopping mismatch. The B Rp difference (2.6σ) and the
+  backscatter differences are **unexplained**. They point the same way as
+  the Ar → Cu case below: OpenTRIM reflects less than lindhard and
+  RustBCA. lindhard is not tuned to close them.
 - **OpenTRIM, Ar → Cu backscatter.** OpenTRIM reflects 6.1 % against
-  lindhard's 8.8 %. This is not the stopping mismatch: in a one-off local
-  check with electronic loss off in both oracles (RustBCA through its
+  lindhard's 8.8 % (10.2 % with electronic loss off, above). This is not the
+  stopping mismatch: in a one-off local check with electronic loss off in both oracles (RustBCA through its
   documented `electronic_stopping_correction_factor = 0`), RustBCA reflected
   12.0 % and OpenTRIM 6.1 %. OpenTRIM's low-energy reflection differs from
   both other codes for a reason we have not identified. OpenTRIM 1.2 stores

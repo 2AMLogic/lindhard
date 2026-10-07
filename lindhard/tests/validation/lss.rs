@@ -59,7 +59,8 @@ use lindhard::ion::bca::{Bca, BcaConfig, BcaTally, Beam, Face, Particle};
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{theta_quadrature, ScatteringTable};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
-use lindhard::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
+use lindhard::ion::stopping::none::NoStopping;
+use lindhard::ion::stopping::{ElectronicStopping, Ion};
 use lindhard::material::Material;
 use lindhard::units::J_PER_EV;
 use std::f64::consts::PI;
@@ -374,24 +375,6 @@ impl BcaTally for RangeTally {
     }
 }
 
-/// No electronic stopping (nuclear-only runs).
-struct NoElectronic;
-
-impl ElectronicStopping for NoElectronic {
-    fn name(&self) -> &'static str {
-        "none"
-    }
-    fn stopping(&self, _ion: &Ion, _z: u8, _e: f64) -> Result<f64, StoppingError> {
-        Ok(0.0)
-    }
-    fn validity(&self, _ion: &Ion) -> ValidityRange {
-        ValidityRange {
-            min_energy_ev: 0.0,
-            max_energy_ev: f64::INFINITY,
-        }
-    }
-}
-
 /// Amorphous Si at its tabulated density. `E_d` = 15 eV is a test
 /// parameter (the engine requires one; primary-only runs do not depend on it).
 pub fn silicon() -> Material {
@@ -571,7 +554,7 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         let e0 = 5e3;
         let (l_lss, dl) = solve(&pr, e0, Moment::Path);
         let (rp_lss, drp) = solve(&pr, e0, Moment::Projected);
-        let t = run_engine(table, &NoElectronic, 14, e0, count, 0xA11CE, weak);
+        let t = run_engine(table, &NoStopping, 14, e0, count, 0xA11CE, weak);
         // Reduced path rho = N L pi a^2 4 M1 M2 / (M1 + M2)^2 (LSS 1963).
         let pot = Potential::new(Screening::ZblUniversal, 14.0, 14.0);
         let a = pot.screening_length();

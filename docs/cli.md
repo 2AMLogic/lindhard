@@ -75,7 +75,7 @@ substrate the target has a back face and particles can be transmitted.
 |---|---|---|
 | `potential` | `"zbl"` | `zbl`, `kr-c`, `moliere`, `lenz-jensen` |
 | `screening_length` | paired with the potential | `universal`, `firsov`, `lindhard` |
-| `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or` |
+| `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or`, `none` (see below) |
 | `free_path` | `"constant"` | `constant`, `energy-dependent` |
 | `min_cm_angle_deg` | none | Required with, and only with, `energy-dependent` |
 | `weak_collisions` | 0 | `0` to `3`: weak collisions beyond `p_max` per collision step (Moller and Eckstein, IPP 9/64 (1988)); `constant` free path only. See the `ion::bca` docs, "Weak collisions" |
@@ -83,6 +83,15 @@ substrate the target has a back face and particles can be transmitted.
 | `recoil_cutoff_ev` | required | Recoils stop below this; keep it below the smallest `E_s` |
 | `follow_recoils` | `true` | Full cascades |
 | `primary_surface_binding_ev` | 0 | Surface barrier for the beam species |
+
+`stopping = "none"` switches electronic stopping off: particles lose energy
+only in nuclear collisions, and the energy budget's electronic terms are zero.
+It is **not a realistic setting** for any target. It exists for like-for-like
+transport comparisons against codes run with their electronic stopping off
+(the `*_nuclear` level-2 problems, [`validation.md`](validation.md)) and for
+nuclear-only studies. It has no energy range, so no validity warning is ever
+raised for it; `physics.models` lists it as `none`, with nothing for Bragg
+additivity to sum unless `[stopping]` tables are given.
 
 `[physics.energies.<symbol>]` sets `e_d_ev`, `e_b_ev` and/or `e_s_ev` for that
 element in every layer that contains it, after (so overriding) the
@@ -147,7 +156,11 @@ followed: drop the table, use the standard weight, or set
 `follow_recoils = false`. A recoil-species table that ends below the largest
 energy the beam can transfer to that element warns. Tables cannot be combined with
 `stopping = "equipartition-ls-or"` (that mode carries its own
-Lindhard-Scharff/Oen-Robinson loss and would ignore them).
+Lindhard-Scharff/Oen-Robinson loss and would ignore them). They can be
+combined with `stopping = "none"`: the declared pairs use their tables and
+every other pair has no electronic stopping. That is coherent but easy to
+misread, so check `physics.models` (it lists both `none` and each
+`user-table`).
 
 **Errors** name the field (`stopping.tables[0]`): an unknown key in
 `[stopping]`, a missing or unreadable file, invalid table contents (including

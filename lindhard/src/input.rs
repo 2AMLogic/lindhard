@@ -49,6 +49,7 @@ use crate::ion::potential::{Screening, ScreeningLength};
 use crate::ion::scattering::TableSpec;
 use crate::ion::stopping::bethe::BetheBloch;
 use crate::ion::stopping::lindhard_scharff::LindhardScharff;
+use crate::ion::stopping::none::NoStopping;
 use crate::ion::stopping::table::{StoppingTable, TableOverride};
 use crate::ion::stopping::{ElectronicStopping, Ion};
 use crate::material::{EnergyKind, Material, MaterialSpec};
@@ -290,6 +291,11 @@ pub enum StoppingChoice {
     /// Equipartition of Lindhard-Scharff: half nonlocal, half local at each
     /// collision by Oen-Robinson ([`ElectronicLoss::EquipartitionLsOr`]).
     EquipartitionLsOr,
+    /// No electronic stopping ([`NoStopping`]): nuclear loss only. For
+    /// like-for-like transport comparisons against codes run with electronic
+    /// stopping off, and for nuclear-only studies; not a realistic setting.
+    /// `[stopping]` tables still serve the pairs they declare.
+    None,
 }
 
 /// Free-path convention.
@@ -1016,7 +1022,11 @@ impl Input {
         config.weak_collisions = p.weak_collisions;
         config.electronic = match p.stopping {
             StoppingChoice::EquipartitionLsOr => ElectronicLoss::EquipartitionLsOr,
-            _ => ElectronicLoss::NonLocal,
+            // `None` is nonlocal loss with a zero model: no energy is taken
+            // along the flight, and no local loss is added at collisions.
+            StoppingChoice::LindhardScharff | StoppingChoice::BetheBloch | StoppingChoice::None => {
+                ElectronicLoss::NonLocal
+            }
         };
         config.follow_recoils = p.follow_recoils;
         config.primary_surface_binding_ev = p.primary_surface_binding_ev;
@@ -1101,13 +1111,16 @@ impl Input {
 /// The electronic stopping model for a choice. For
 /// [`StoppingChoice::EquipartitionLsOr`] the engine does not use this model
 /// (it carries its own Lindhard-Scharff/Oen-Robinson mix); Lindhard-Scharff
-/// is returned so the validity range can still be checked.
+/// is returned so the validity range can still be checked. For
+/// [`StoppingChoice::None`] it is [`NoStopping`], whose validity range is
+/// unbounded, so no out-of-range warning is raised.
 pub fn stopping_model(choice: StoppingChoice) -> Box<dyn ElectronicStopping + Send + Sync> {
     match choice {
         StoppingChoice::LindhardScharff | StoppingChoice::EquipartitionLsOr => {
             Box::new(LindhardScharff::new())
         }
         StoppingChoice::BetheBloch => Box::new(BetheBloch::new()),
+        StoppingChoice::None => Box::new(NoStopping::new()),
     }
 }
 
@@ -1232,6 +1245,16 @@ impl Resolved {
                     ),
                 },
             ],
+            StoppingChoice::None => vec![ModelInfo {
+                role: "electronic stopping",
+                name: "none",
+                citation: Cow::Borrowed(
+                    "no electronic stopping (nuclear loss only; the k = 0 limit of \
+                           J. Lindhard, M. Scharff, H. E. Schiott, Mat. Fys. Medd. Dan. Vid. \
+                           Selsk. 33 (14) (1963)); for comparisons and nuclear-only studies, \
+                           not a physical model",
+                ),
+            }],
         });
         for l in &self.stopping_tables {
             v.push(ModelInfo {
@@ -1240,13 +1263,16 @@ impl Resolved {
                 citation: Cow::Owned(format!("{}: {}", l.path, l.table.provenance())),
             });
         }
-        v.push(ModelInfo {
-            role: "compound stopping",
-            name: "bragg-additivity",
-            citation: Cow::Borrowed(
-                "W. H. Bragg and R. Kleeman, Phil. Mag. 10 (1905) 318; no compound correction",
-            ),
-        });
+        // With no electronic stopping and no tables there is nothing to add up.
+        if self.input.physics.stopping != StoppingChoice::None || !self.stopping_tables.is_empty() {
+            v.push(ModelInfo {
+                role: "compound stopping",
+                name: "bragg-additivity",
+                citation: Cow::Borrowed(
+                    "W. H. Bragg and R. Kleeman, Phil. Mag. 10 (1905) 318; no compound correction",
+                ),
+            });
+        }
         v.push(match self.config.mean_free_path {
             MeanFreePath::Constant => ModelInfo {
                 role: "free path",

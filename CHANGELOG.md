@@ -9,6 +9,12 @@ one version).
 
 ### Added
 
+- `[physics] stopping = "none"`: no electronic stopping (nuclear loss only),
+  for like-for-like comparisons with codes run with electronic stopping off
+  and for nuclear-only studies. Echoed in `summary.json` and listed in
+  `physics.models`; `[stopping]` tables still serve the pairs they declare.
+  Library: `ion::stopping::none::NoStopping`. Level-2 problems
+  `b_5keV_si_nuclear`, `as_50keV_si_nuclear` and `ar_1keV_cu_nuclear`.
 - Packaging metadata for both crates: `include` allowlists, crate-local
   README, LICENSE and CHANGELOG in each archive, and a CI `package` job that
   runs `cargo package` and `cargo publish --dry-run`.
