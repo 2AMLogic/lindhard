@@ -30,6 +30,7 @@ scattering table), so run-to-run differences are timing noise only.
 | `history.rs` | `cascade_and_free_path_B_5keV_Si_1000_ions` | Full cascade vs ions only (`follow_recoils`), constant vs energy-dependent free path |
 | `history.rs` | `tally_overhead_B_5keV_Si_1000_ions` | The light `SummaryTally` vs the full `IonTally` (histograms, moments, damage, escapes) on the same histories |
 | `history.rs` | `throughput_<problem>_10k_ions` | 10^4 ions through `Bca::run` on explicit rayon pools of 1, 2, 4, ... up to the machine's parallelism |
+| `penn.rs` | `penn_spa_200_energies` | `SinglePolePenn::tabulate`: the electron IMFP and stopping power on a 200-point log grid from 10 eV to 50 keV, single-pole Penn model on a synthetic Drude plasmon ELF (20 eV, width 5 eV) tabulated at 1000 energies |
 
 Free-path selection is measured through the engine (constant vs
 energy-dependent convention), since the selection code is private to

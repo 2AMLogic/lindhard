@@ -9,7 +9,7 @@ rust-version.workspace = true
 readme = "README.md"
 include = [
     "/src/**",
-    # The manifest declares a harness-less `validation` test and three benches,
+    # The manifest declares a harness-less `validation` test and five benches,
     # so their sources must ship or the packaged manifest has dangling targets.
     "/tests/**",
     "/benches/**",
@@ -54,4 +54,8 @@ harness = false
 
 [[bench]]
 name = "elastic"
+harness = false
+
+[[bench]]
+name = "penn"
 harness = false

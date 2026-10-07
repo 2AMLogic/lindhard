@@ -52,6 +52,16 @@ one version).
   (bit-identical at any thread count) and returns the tally with `RunMetadata`
   recording the energy cutoff and escape rule; per-event results go through
   the `ElectronTally` hook trait.
+- `tally::electron`: `FullElectronTally`, an `ElectronTally` that records
+  energy deposition per layer and on optional Cartesian and cylindrical
+  (r-z) grids, backscatter (eta) and secondary (delta) yields split at a
+  configurable energy (50 eV by default, after Chen et al., Sci. Rep. 12,
+  18201 (2022); the split and its source are recorded in the report
+  metadata), escape energy and polar-angle spectra per face,
+  energy-weighted generation-volume moments, and the energy balance
+  (deposited + escaped + trapped = incident). Its plain-data
+  `ElectronReport` is serializable and bit-identical at any thread count.
+  Example: `cargo run -p lindhard --example electron_tally`.
 - `electron::elastic`: radial Dirac partial-wave solver for a screened central
   potential at one energy (phase shifts, differential cross section, Sherman
   function, `sigma_el`, `sigma_tr1`), with `Yukawa`, `SquareWell` and
@@ -62,6 +72,15 @@ one version).
   IAEA-NDS-224 Rev. 1), embedded in the library with its credit notice, under
   the operator ruling linked from `docs/data-provenance.md`. Its coverage test
   runs in the default test run.
+- `electron::inelastic`: the single-pole Penn model (`SinglePolePenn`), built
+  from a user-supplied `OpticalElf`, with the momentum-dependent loss
+  function, the DIIMFP, the inelastic mean free path and the stopping power
+  (nonrelativistic kinematics, stated integration tolerance); a sum-rule
+  report for any optical ELF (`SumRuleReport`: f-sum `N_eff(W)`, `P_eff`,
+  mean excitation energy); nonrelativistic Bethe stopping
+  (`inelastic::bethe`); and an analytic Drude-Lorentz ELF with closed-form
+  sum rules (`DrudeLorentz`) as a synthetic fixture. Example
+  `penn_sum_rules` and bench `penn`.
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and

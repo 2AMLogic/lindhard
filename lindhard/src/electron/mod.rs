@@ -4,10 +4,13 @@
 //! energy-loss functions, subshell binding energies and precomputed
 //! cross-section tables). [`elastic`] solves the radial Dirac equation for one
 //! screened potential at one energy (phase shifts, Mott cross sections).
-//! [`transport`] is the event-by-event loop over layered stacks on those
-//! tables. The models that fill the tables from first principles are later
-//! work.
+//! [`inelastic`] holds the dielectric-function models of inelastic
+//! scattering; so far the single-pole Penn algorithm, with its IMFP, stopping
+//! power and the sum rules of the optical input. [`transport`] is the
+//! event-by-event loop over layered stacks on those tables. The models that
+//! fill the tables from first principles are later work.
 
 pub mod data;
 pub mod elastic;
+pub mod inelastic;
 pub mod transport;
