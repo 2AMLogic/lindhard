@@ -26,6 +26,16 @@ one version).
 
 ### Added
 
+- Optical ELF datasets for Al and Cu (`validation/data/optical/`, Hagemann,
+  Gudat and Kunz 1975, read through the CC0 refractiveindex.info
+  transcription and checked against the scanned tables of DESY report
+  SR-74/7), with a sum-rule test gated on the linear interpolation
+  `OpticalElf::elf()` serves, integrated exactly. Both materials miss a 5 %
+  check there (Al N_eff +13.8 % and P_eff +9.4 %, Cu N_eff +7.3 %); the
+  failures are pinned and explained in the test as the chord overshoot of
+  log-spaced knots, with power-law segments kept as a labelled comparison
+  (Cu passes, Al N_eff +7.5 % against the authors' own +4.5 %) (#98 in
+  part). Si is a documented gap.
 - `geometry::Geometry`, the engine-facing target trait, implemented by `Stack`
   and the new `geometry::VoxelGrid` (regular 3D grid of material indices,
   periodic or vacuum boundaries per axis, exact 3D DDA traversal that

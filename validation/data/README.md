@@ -24,6 +24,14 @@ derived from it, or any other code's output, however well known
   decision (#70). Every point has a manual second read
   (`digitize/secondread_ar_*_am32.json`), and the symbols that NIFS-DATA-23
   separates a second compilation read (`digitize/crosscheck_ar_*_nifs23.json`).
+- **Optical ELF, Al and Cu:** `optical/{al,cu}_elf_hagemann1975.toml`, ELF
+  converted by `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz
+  (1975) as transcribed in the CC0 refractiveindex.info database (#98), with
+  a second read against the scanned tables of DESY report SR-74/7
+  (`optical/secondread_hagemann1975.json`). Sum-rule test:
+  `lindhard/tests/optical_sumrule.rs` (gated on the linear interpolation `elf()` serves: Al N_eff and P_eff and
+  Cu N_eff miss 5 % and are pinned with their explanation; power-law segments
+  are kept as a labelled comparison). Si: open gap.
 - **P and As in amorphous Si:** open gaps (#51). What was searched, and why
   the one source found could not be used, is in
   [`docs/data-provenance.md`](../../docs/data-provenance.md).
