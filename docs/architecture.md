@@ -32,7 +32,7 @@ electron MC). The engines share the core and nothing else.
 | `ion::crystal` | Lattice-site targets, thermal vibration (Debye), tilt/twist/rotation, screen oxide, dynamic damage → dechanneling → amorphization | M2 |
 | `ion::dynamic` | Target composition updated with fluence (sputter erosion, build-up of implanted atoms). `CompositionGrid` holds finite slabs with per-element areal inventories (atoms/m²), changed only by explicit deltas, then relaxes thicknesses (ideal mixing of atomic volumes, or a fixed mixture number density) and converts to a `geometry::Stack`; the front surface stays at x = 0 and the optional substrate is immutable. Fluence driver and tally-to-delta adapter come later. Conventions: module docs | M3 |
 | `electron::data` | Validated data the electron engine consumes: optical ELF tables, subshell binding energies (read from an ENDF-6 File 28 copy the user supplies), and versioned cross-section caches (inverse mean free path plus inverse CDFs of the elastic angle or inelastic energy loss). Every loader requires a provenance; serde reads run the same checks | M1 |
-| `electron::elastic` | Mott cross sections by our own partial-wave solution (not ELSEPA tables) | M1 |
+| `electron::elastic` | Mott cross sections by our own partial-wave solution (not ELSEPA tables), for free-atom potentials; the muffin-tin option for condensed targets is deferred, see [`muffin-tin-deferral.md`](muffin-tin-deferral.md) | M1 |
 | `electron::inelastic` | Dielectric-function model (Lindhard / Mermin, Penn algorithm) built from optical data with provenance | M1 |
 | `electron::secondary`, `electron::boundary` | Secondary-electron generation at inelastic events (Kieft-Bosch energy and Ivanchenko direction model) and the inner-potential step at surfaces and interfaces (quantum transmission, refraction, reflection), on per-layer band parameters (Fermi energy, work function or electron affinity, band gap) that carry a provenance; ported from Nebula and cstool (BSD-3) | M1 |
 | `electron::transport` | Event-by-event MC from about 10 eV to 50 keV in layered and voxel targets. Layered stacks on `CrossSectionTable` inputs are implemented (exact layer-face crossings with path redraw, configurable cutoff and escape rule recorded in run metadata, `ElectronTally` hooks mirroring `ion::bca`), secondaries on a per-history stack, surface and interface barriers, and a cutoff from the band bottom or the vacuum level; phonon/polaron channels come later | M1 |
@@ -62,3 +62,14 @@ electron MC). The engines share the core and nothing else.
   feature flag; it pulls in a C library, so it is never the default.
 - The input schema, output layout and the rules for extending them are in
   [`cli.md`](cli.md).
+
+## Decisions
+
+- **Muffin-tin potential deferred (#92, 2026-10-07).** `electron::elastic`
+  models free-atom potentials only. The muffin-tin definition (truncation
+  radius and offset) comes from a closed-access paper that nobody on the
+  project has opened, and no open comparison giving the size of the effect was
+  found, so the option is not built from memory. The note
+  [`muffin-tin-deferral.md`](muffin-tin-deferral.md) states the gap, gives no
+  number, and lists what lifts the deferral. A `MuffinTin` wrapper over
+  `ScreenedPotential` is the intended shape.
