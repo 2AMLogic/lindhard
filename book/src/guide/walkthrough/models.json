@@ -1,0 +1,44 @@
+{
+  "models": [
+    {
+      "role": "transport",
+      "name": "amorphous-bca"
+    },
+    {
+      "role": "screening function",
+      "name": "zbl-universal"
+    },
+    {
+      "role": "screening length",
+      "name": "universal"
+    },
+    {
+      "role": "scattering angle",
+      "name": "gauss-mehler-quadrature-table"
+    },
+    {
+      "role": "electronic stopping",
+      "name": "lindhard-scharff"
+    },
+    {
+      "role": "compound stopping",
+      "name": "bragg-additivity"
+    },
+    {
+      "role": "free path",
+      "name": "constant"
+    },
+    {
+      "role": "displacement criterion",
+      "name": "e_d-e_b"
+    },
+    {
+      "role": "surface barrier",
+      "name": "planar"
+    },
+    {
+      "role": "random numbers",
+      "name": "chacha8-per-history-stream"
+    }
+  ]
+}

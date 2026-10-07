@@ -18,6 +18,8 @@ Examples: [`../examples/`](../examples/).
 
 ## Input (TOML)
 
+<!-- Rendered in the book (book/src/guide/input.md and output.md) between the anchors in this file. -->
+<!-- ANCHOR: input -->
 Units are in the key names: energies in eV (`_ev`), lengths in nm (`_nm`),
 angles in degrees (`_deg`), densities in g/cm³. Every table rejects unknown
 keys. The schema types are `lindhard::input` (shared with future front ends).
@@ -189,8 +191,11 @@ the range histogram, the dual-Pearson fit and the defect profiles. Particles
 outside any grid are counted in explicit underflow and overflow entries, never
 dropped. Every count and per-ion value is for the same incident ions.
 
+<!-- ANCHOR_END: input -->
+
 ## Output
 
+<!-- ANCHOR: output -->
 ### `summary.json`
 
 | Key | Content |
@@ -273,3 +278,4 @@ keys, never by changing existing ones:
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes
   meaning.
+<!-- ANCHOR_END: output -->

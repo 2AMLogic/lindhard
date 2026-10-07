@@ -1,0 +1,1 @@
+10000 ions: 9441 stopped, 559 backscattered, 0 transmitted, 2534 sputtered atoms; wrote out/b_5keV_si

@@ -87,6 +87,10 @@ cover both halves of this project.
 
 ## Documentation
 
+- [The lindhard book](https://2amlogic.github.io/lindhard/) (source in
+  [`book/`](book/)): the physics manual, one page per model, and the user
+  guide, including a [first run](book/src/guide/first-run.md) from start to
+  finish.
 - [`docs/architecture.md`](docs/architecture.md): design and module plan.
 - [`docs/cli.md`](docs/cli.md): the `lindhard` command, input schema and outputs.
 - [`docs/stopping-models.md`](docs/stopping-models.md): electronic stopping

@@ -1,5 +1,12 @@
 # Documentation
 
+The physics manual (one page per model: equations, assumptions, validity,
+references) and the user guide (install, a first run, the input and output
+reference) are an mdBook under [`../book/`](../book/), published at
+<https://2amlogic.github.io/lindhard/>. Build it locally with
+`mdbook build book`. The book includes `cli.md` and `stopping-models.md`
+from this directory rather than copying them, so edit them here.
+
 | Document | What |
 |---|---|
 | [`architecture.md`](architecture.md) | Design intent: crate shape, module plan, and which milestone delivers each part |

@@ -2,6 +2,9 @@
 target/
 *.rs.bk
 
+# Rendered mdBook (built in CI, published to GitHub Pages)
+book/book/
+
 # Python oracle/venv (validation harness)
 .venv/
 __pycache__/
