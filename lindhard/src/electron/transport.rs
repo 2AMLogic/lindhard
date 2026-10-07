@@ -1,5 +1,5 @@
 //! Event-by-event electron transport in a layered stack, on precomputed
-//! cross-section tables.
+//! cross-section tables, with secondary electrons and surface barriers.
 //!
 //! This is the low-energy electron Monte Carlo loop of Kieft and Bosch,
 //! J. Phys. D: Appl. Phys. 41, 215310 (2008), doi:10.1088/0022-3727/41/21/215310
@@ -9,9 +9,10 @@
 //! layer at `E`), then picks the elastic or the inelastic channel with
 //! probability proportional to the two rates, samples the polar angle `θ` or
 //! the energy loss `W` from that channel's inverse CDF, and updates its state.
-//! The history ends when `E` falls below the cutoff or the electron leaves the
-//! target. This implementation is written from the paper; no Nebula source is
-//! ported (so there is no `THIRD_PARTY_LICENSES.md` entry for it).
+//! An electron ends when `E` falls below the stopping threshold or it leaves
+//! the target. The loop itself is written from the paper; the secondary
+//! electron kinematics ([`crate::electron::secondary`]) and the potential step
+//! ([`crate::electron::boundary`]) are ported from Nebula with attribution.
 //!
 //! # Model
 //!
@@ -21,25 +22,67 @@
 //! - **Layer boundaries are crossed exactly.** If the drawn path is longer
 //!   than the distance to the layer face along the flight direction, the
 //!   electron moves to the face (its depth is set to the face value exactly),
-//!   enters the neighbouring layer and **redraws** the path with that layer's
-//!   rates. This is exact because the free path is memoryless.
+//!   meets the face (below) and **redraws** the path with the rates of the
+//!   layer it is then in. This is exact because the free path is memoryless.
 //! - **Elastic collision.** `θ` from the table, azimuth uniform on `[0, 2π)`;
 //!   the energy is unchanged (no recoil energy).
 //! - **Inelastic collision.** `W` from the table (clamped to `E`); the energy
-//!   becomes `E - W`. The flight direction is unchanged, and no secondary is
-//!   made: both belong to later work, see [Hooks](#hooks).
+//!   becomes `E - W`. With [`SecondaryModel::Off`] the flight direction is
+//!   unchanged and nothing else happens. With
+//!   [`SecondaryModel::KieftBosch`] `W` is further clamped to `E - E_F` (the
+//!   primary cannot end below the Fermi level, as in Nebula's loss table),
+//!   and the event may liberate a secondary electron (energy `E_F + W - B`,
+//!   direction by the Ivanchenko method) and deflect the primary; see
+//!   [`crate::electron::secondary`]. The stopping threshold of every layer
+//!   must then exceed its Fermi energy, or secondaries would multiply without
+//!   end.
+//! - **Faces.** With [`BoundaryModel::Transparent`] a face changes nothing:
+//!   the electron enters the next layer or leaves the target at its energy
+//!   and direction. With [`BoundaryModel::StepBarrier`] every face is a step
+//!   in the inner potential (vacuum outside the target has `U = 0`), crossed
+//!   with the quantum-mechanical transmission probability and refraction of
+//!   [`crate::electron::boundary`], or reflected specularly; an electron
+//!   below the barrier is always reflected. Energies inside a layer are then
+//!   measured from that layer's band bottom and an escaped electron carries
+//!   its vacuum energy `E - U`. The back face under [`EscapeRule::FrontOnly`]
+//!   absorbs without a barrier.
 //! - **Inverse CDFs between grid energies** are interpolated linearly in
 //!   energy between the two bracketing rows, at the same cumulative
 //!   probability (a zero-rate bracketing row is ignored).
 //!
+//! # Electrons of one history
+//!
+//! A history starts with its primary. With [`BoundaryModel::StepBarrier`] the
+//! primary is incident from vacuum on the front face, its [`Primary`] energy
+//! is a vacuum energy, and it first meets the front-face step (it may be
+//! reflected there, ending the history as [`Fate::Escaped`] through
+//! [`Face::Front`]). Secondaries are pushed on a last-in, first-out stack and
+//! each is transported in full, like the primary, once the electron before it
+//! has ended; secondaries of secondaries are pushed on the same stack. The
+//! history ends when the stack is empty.
+//!
+//! An electron stops when its energy falls below the **stopping threshold**
+//! of its layer: the cutoff, measured from the band bottom
+//! ([`CutoffReference::BandBottom`]) or from the vacuum level
+//! ([`CutoffReference::VacuumLevel`], threshold `U + cutoff`, Nebula's rule
+//! in `source/drivers/cpu/cpu_driver.inl` at the commit named in
+//! [`crate::electron::boundary`]). A secondary below the threshold of its
+//! layer is not created; its energy is recorded as deposited.
+//!
 //! # Random draw order
 //!
 //! The order of draws from the per-history stream is part of the contract (the
-//! tests replay it). Per flight with a nonzero total rate: one uniform for the
-//! path. If a collision happens, one for the channel, then `θ` and the
-//! azimuth (elastic) or `W` (inelastic). A path drawn for a flight that ends at
-//! a layer face is discarded and a new one is drawn in the next layer. A
-//! flight with zero total rate draws nothing.
+//! tests replay it). With the step barrier, the primary first draws one
+//! uniform for its entry. Then, per flight with a nonzero total rate: one
+//! uniform for the path. If a collision happens, one for the channel, then
+//! `θ` and the azimuth (elastic) or `W` (inelastic). Under the Kieft-Bosch
+//! secondary model an inelastic event that liberates an electron then draws
+//! the secondary's azimuth and, with the instantaneous momentum on, two more
+//! uniforms. A path drawn for a flight that ends at a layer face is discarded;
+//! with the step barrier, the face draws one uniform if the electron has the
+//! normal energy to get over (and none if it is surely reflected). A flight
+//! with zero total rate draws nothing. Secondaries continue on the same
+//! stream, in stack order, after the electron before them ends.
 //!
 //! # Reproducibility
 //!
@@ -51,19 +94,21 @@
 //! # Hooks
 //!
 //! The [`ElectronTally`] trait mirrors [`crate::ion::bca::BcaTally`]: every
-//! event hook has a no-op default. The extension points for later work are
-//! observer hooks that already carry what those models need:
-//! [`ElectronTally::interface`] (interface refraction and transmission
-//! models), [`ElectronTally::inelastic`] with the energy loss `W` and the
-//! post-event state (secondary electron generation), and
-//! [`ElectronTally::escaped`] (surface barrier). Phonon and polaron channels
-//! would add a third channel next to the two tables.
+//! event hook has a no-op default. Per-electron hooks (`step`, `elastic`,
+//! `inelastic`, `secondary`, `interface`, `barrier`, `reflected`, `stopped`,
+//! `escaped`, `absorbed`) fire for the primary and for every secondary;
+//! [`ElectronTally::begin_secondary`] and [`ElectronTally::end_secondary`]
+//! bracket each secondary, and [`ElectronTally::end_history`] comes last, with
+//! the primary's fate. Phonon and polaron channels would add a third channel
+//! next to the two tables.
 
 use serde::Serialize;
 
 use rand_core::Rng;
 
+use crate::electron::boundary::{cross_step, BandStructure, StepOutcome};
 use crate::electron::data::{CrossSectionTable, SamplingAxis};
+use crate::electron::secondary::{kieft_bosch, SecondaryEvent, SecondaryModel};
 use crate::geometry::Stack;
 use crate::rng::run_particles;
 
@@ -107,9 +152,9 @@ fn invalid<T>(what: &'static str, why: impl Into<String>) -> Result<T, Transport
     })
 }
 
-/// What happens when an electron reaches a face of the target. There is no
-/// surface barrier or refraction yet: an electron that crosses a face leaves
-/// at its current energy and direction and never returns.
+/// What happens when an electron reaches a face of the target. Whether it can
+/// get out at all is decided by the [`BoundaryModel`]; an electron that does
+/// leave never returns.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum EscapeRule {
@@ -131,10 +176,67 @@ pub enum Face {
     Back,
 }
 
-/// How a history ended.
+/// A face an electron met: between two layers, or a face of the target.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Boundary {
+    /// The face between layer `from` (where the electron came from) and
+    /// layer `to`.
+    Interface {
+        /// Layer the electron was in.
+        from: usize,
+        /// Layer on the other side.
+        to: usize,
+    },
+    /// A face of the target, with vacuum on the other side.
+    Surface(Face),
+}
+
+/// What a face does to an electron.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(tag = "model", rename_all = "kebab-case")]
+pub enum BoundaryModel {
+    /// Faces change nothing (no inner potential, no reflection).
+    Transparent,
+    /// Each face is a step in the inner potential
+    /// ([`crate::electron::boundary`]); every layer needs a
+    /// [`BandStructure`].
+    StepBarrier {
+        /// Transmit with the quantum-mechanical probability `T` (Verduin
+        /// Eq. 3.145); if false, every electron that can get over does.
+        quantum_transmission: bool,
+        /// Refract on transmission (Verduin Eq. 3.139); if false, keep the
+        /// direction.
+        refraction: bool,
+    },
+}
+
+impl BoundaryModel {
+    /// The step barrier with quantum transmission and refraction, Nebula's
+    /// defaults (`boundary_intersect` template arguments at the commit named
+    /// in [`crate::electron::boundary`]).
+    pub const STEP_BARRIER: Self = Self::StepBarrier {
+        quantum_transmission: true,
+        refraction: true,
+    };
+}
+
+/// Where the energy cutoff is measured from.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum CutoffReference {
+    /// From the band bottom of the electron's layer: an electron stops below
+    /// `cutoff`.
+    BandBottom,
+    /// From the vacuum level: an electron stops below `U + cutoff`, `U` the
+    /// inner potential of its layer (zero without a [`BandStructure`]), so
+    /// electrons that could never leave are not followed. Nebula's rule.
+    VacuumLevel,
+}
+
+/// How a history (or one electron of it) ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Fate {
-    /// The energy fell below the cutoff inside the target.
+    /// The energy fell below the stopping threshold inside the target.
     Stopped,
     /// The electron left the target through a face.
     Escaped(Face),
@@ -143,32 +245,47 @@ pub enum Fate {
     /// The electron has no interaction available and no face to reach (zero
     /// total rate heading parallel to the faces, or away from every face).
     Trapped,
-    /// The history hit [`TransportConfig::max_events`] and was cut off.
+    /// The electron hit [`TransportConfig::max_events`] and was cut off.
     EventCap,
 }
 
-/// Run configuration: the energy cutoff and the escape condition are recorded
-/// in the [`RunMetadata`].
+/// Run configuration, recorded in the [`RunMetadata`].
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct TransportConfig {
-    /// A history stops when the energy falls below this, eV.
+    /// An electron stops when its energy falls below this (measured as
+    /// [`TransportConfig::cutoff_reference`] says), eV.
     pub cutoff_ev: f64,
     /// What a face of the target does to an electron reaching it.
     pub escape_rule: EscapeRule,
-    /// Safety cap on collisions per history. A history that reaches it ends
-    /// with [`Fate::EventCap`].
+    /// Safety cap on collisions and face reflections per electron (the
+    /// primary and each secondary count separately). An electron that
+    /// reaches it ends with [`Fate::EventCap`].
     pub max_events: u64,
+    /// Secondary-electron generation at inelastic events.
+    pub secondaries: SecondaryModel,
+    /// What the faces do.
+    pub boundary: BoundaryModel,
+    /// Where the cutoff is measured from.
+    pub cutoff_reference: CutoffReference,
 }
 
 impl TransportConfig {
-    /// A configuration with the given cutoff, [`EscapeRule::BothFaces`] and a
-    /// cap of 10 million collisions per history.
+    /// A configuration with the given cutoff (from the band bottom),
+    /// [`EscapeRule::BothFaces`], a cap of 10 million events per electron, no
+    /// secondaries and transparent faces.
     pub fn new(cutoff_ev: f64) -> Self {
         Self {
             cutoff_ev,
             escape_rule: EscapeRule::BothFaces,
             max_events: 10_000_000,
+            secondaries: SecondaryModel::Off,
+            boundary: BoundaryModel::Transparent,
+            cutoff_reference: CutoffReference::BandBottom,
         }
+    }
+
+    fn needs_bands(&self) -> bool {
+        self.secondaries != SecondaryModel::Off || self.boundary != BoundaryModel::Transparent
     }
 }
 
@@ -182,10 +299,13 @@ pub struct LayerTables {
 }
 
 /// A primary electron: it starts on the front face (`x = 0`, `y = z = 0`) in
-/// the first layer.
+/// the first layer, or, with [`BoundaryModel::StepBarrier`], just outside it
+/// in vacuum (then `energy_ev` is the vacuum energy and the direction must
+/// point into the target).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct Primary {
-    /// Kinetic energy, eV; must exceed the cutoff.
+    /// Kinetic energy, eV; must exceed the cutoff and, once inside, the
+    /// stopping threshold of the first layer.
     pub energy_ev: f64,
     /// Direction of flight (any nonzero finite vector; normalised on use).
     /// Normal incidence is `[1, 0, 0]`; a negative `x` component starts the
@@ -221,7 +341,8 @@ pub struct ElectronState {
 /// Event hooks called by [`Transport`]. All default to no-ops except `merge`.
 /// The `ElectronState` passed is the state **after** the event.
 pub trait ElectronTally: Send {
-    /// A primary history starts.
+    /// A primary history starts. With [`BoundaryModel::StepBarrier`], `start`
+    /// is the primary in vacuum, before it meets the front face.
     fn begin_history(&mut self, _index: u64, _start: &ElectronState) {}
 
     /// A flight segment of `length_m` ended at `end.pos` (at a collision, a
@@ -232,25 +353,61 @@ pub trait ElectronTally: Send {
     /// An elastic collision deflected the electron by `theta` rad.
     fn elastic(&mut self, _after: &ElectronState, _theta: f64) {}
 
-    /// An inelastic collision took `w_ev` from the electron. Secondary
-    /// electron generation attaches here.
+    /// An inelastic collision took `w_ev` from the electron. `after` carries
+    /// the new direction if the secondary model deflected it.
     fn inelastic(&mut self, _after: &ElectronState, _w_ev: f64) {}
 
+    /// Called right after [`ElectronTally::inelastic`] for every inelastic
+    /// event when a [`SecondaryModel`] is on: the event's energy bookkeeping,
+    /// and the secondary that was created (`None` if none was). The
+    /// secondary is transported later, between
+    /// [`ElectronTally::begin_secondary`] and
+    /// [`ElectronTally::end_secondary`].
+    fn secondary(
+        &mut self,
+        _primary: &ElectronState,
+        _event: &SecondaryEvent,
+        _created: Option<&ElectronState>,
+    ) {
+    }
+
     /// The electron crossed from layer `from_layer` into `to_layer`; `at` is
-    /// its state on the face, inside the new layer. Interface refraction and
-    /// transmission models attach here.
+    /// its state on the face, inside the new layer (after refraction, with
+    /// [`BoundaryModel::StepBarrier`]).
     fn interface(&mut self, _at: &ElectronState, _from_layer: usize, _to_layer: usize) {}
 
-    /// The electron fell below the cutoff (or was trapped) at `at`.
+    /// With [`BoundaryModel::StepBarrier`]: the electron got through the face
+    /// `boundary`, and its kinetic energy changed by `delta_u_ev` (the step
+    /// `U' - U`). `at` is its state just past the face (in vacuum, for a
+    /// surface). Comes before [`ElectronTally::interface`] or
+    /// [`ElectronTally::escaped`].
+    fn barrier(&mut self, _at: &ElectronState, _boundary: Boundary, _delta_u_ev: f64) {}
+
+    /// With [`BoundaryModel::StepBarrier`]: the electron was reflected at the
+    /// face `boundary`; `at` is its state after the reflection. At the
+    /// primary's entry this is followed by [`ElectronTally::escaped`].
+    fn reflected(&mut self, _at: &ElectronState, _boundary: Boundary) {}
+
+    /// A secondary of the given `generation` (1 for a secondary of the
+    /// primary, 2 for one of a secondary, ...) starts at `start`.
+    fn begin_secondary(&mut self, _start: &ElectronState, _generation: u32) {}
+
+    /// The current secondary ended with `fate`.
+    fn end_secondary(&mut self, _fate: Fate) {}
+
+    /// The electron fell below the stopping threshold (or was trapped) at
+    /// `at`.
     fn stopped(&mut self, _at: &ElectronState) {}
 
-    /// The electron left the target through `face`.
+    /// The electron left the target through `face`; `at.energy_ev` is the
+    /// energy it leaves with (its vacuum energy, with the step barrier).
     fn escaped(&mut self, _at: &ElectronState, _face: Face) {}
 
     /// The electron was absorbed at the back face ([`EscapeRule::FrontOnly`]).
     fn absorbed(&mut self, _at: &ElectronState) {}
 
-    /// The history ended with `fate`.
+    /// The history ended (its last secondary included); `fate` is the
+    /// primary's.
     fn end_history(&mut self, _index: u64, _fate: Fate) {}
 
     /// Fold `other` (a later chunk) into `self`.
@@ -260,22 +417,34 @@ pub trait ElectronTally: Send {
 }
 
 /// A minimal summary tally: counts, path length and energy bookkeeping.
+///
+/// The fate counts (`stopped` to `event_capped`) are per history, by the
+/// primary's fate; the event counts and energies cover every electron. With
+/// every electron ending stopped, trapped or escaped, the energies balance:
+/// incident energy plus `secondary_energy_ev` equals `inelastic_loss_ev +
+/// escaped_energy_ev + rest_energy_ev + barrier_ev`.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct SummaryTally {
     /// Histories run.
     pub histories: u64,
-    /// Histories that stopped below the cutoff.
+    /// Histories whose primary stopped below the threshold.
     pub stopped: u64,
-    /// Electrons that left through the front face.
+    /// Primaries that left through the front face.
     pub escaped_front: u64,
-    /// Electrons that left through the back face.
+    /// Primaries that left through the back face.
     pub escaped_back: u64,
-    /// Electrons absorbed at the back face.
+    /// Primaries absorbed at the back face.
     pub absorbed: u64,
-    /// Trapped electrons.
+    /// Trapped primaries.
     pub trapped: u64,
-    /// Histories cut off by the event cap.
+    /// Primaries cut off by the event cap.
     pub event_capped: u64,
+    /// Secondaries created (and transported).
+    pub secondaries: u64,
+    /// Secondaries that left the target through either face.
+    pub secondaries_escaped: u64,
+    /// Face reflections (step barrier).
+    pub reflections: u64,
     /// Elastic collisions.
     pub elastic_events: u64,
     /// Inelastic collisions.
@@ -290,6 +459,15 @@ pub struct SummaryTally {
     pub escaped_energy_ev: f64,
     /// Energy of stopped electrons when they stopped, eV.
     pub rest_energy_ev: f64,
+    /// Kinetic energy of the secondaries created, eV.
+    pub secondary_energy_ev: f64,
+    /// Sum of [`SecondaryEvent::binding_ev`], eV.
+    pub binding_ev: f64,
+    /// Sum of [`SecondaryEvent::deposited_ev`], eV.
+    pub deposited_ev: f64,
+    /// Kinetic energy taken by potential steps, the sum of `-ΔU` over face
+    /// transmissions, eV.
+    pub barrier_ev: f64,
 }
 
 impl ElectronTally for SummaryTally {
@@ -303,8 +481,27 @@ impl ElectronTally for SummaryTally {
         self.inelastic_events += 1;
         self.inelastic_loss_ev += w_ev;
     }
+    fn secondary(&mut self, _p: &ElectronState, e: &SecondaryEvent, c: Option<&ElectronState>) {
+        if c.is_some() {
+            self.secondaries += 1;
+            self.secondary_energy_ev += e.secondary_ev;
+        }
+        self.binding_ev += e.binding_ev;
+        self.deposited_ev += e.deposited_ev;
+    }
     fn interface(&mut self, _at: &ElectronState, _from: usize, _to: usize) {
         self.interface_crossings += 1;
+    }
+    fn barrier(&mut self, _at: &ElectronState, _b: Boundary, delta_u_ev: f64) {
+        self.barrier_ev -= delta_u_ev;
+    }
+    fn reflected(&mut self, _at: &ElectronState, _b: Boundary) {
+        self.reflections += 1;
+    }
+    fn end_secondary(&mut self, fate: Fate) {
+        if matches!(fate, Fate::Escaped(_)) {
+            self.secondaries_escaped += 1;
+        }
     }
     fn stopped(&mut self, at: &ElectronState) {
         self.rest_energy_ev += at.energy_ev;
@@ -331,6 +528,9 @@ impl ElectronTally for SummaryTally {
         self.absorbed += o.absorbed;
         self.trapped += o.trapped;
         self.event_capped += o.event_capped;
+        self.secondaries += o.secondaries;
+        self.secondaries_escaped += o.secondaries_escaped;
+        self.reflections += o.reflections;
         self.elastic_events += o.elastic_events;
         self.inelastic_events += o.inelastic_events;
         self.interface_crossings += o.interface_crossings;
@@ -338,6 +538,10 @@ impl ElectronTally for SummaryTally {
         self.inelastic_loss_ev += o.inelastic_loss_ev;
         self.escaped_energy_ev += o.escaped_energy_ev;
         self.rest_energy_ev += o.rest_energy_ev;
+        self.secondary_energy_ev += o.secondary_energy_ev;
+        self.binding_ev += o.binding_ev;
+        self.deposited_ev += o.deposited_ev;
+        self.barrier_ev += o.barrier_ev;
     }
 }
 
@@ -358,6 +562,8 @@ pub struct LayerMetadata {
     pub inelastic_model: String,
     /// Inelastic table provenance.
     pub inelastic_provenance: String,
+    /// Band parameters of the layer, with their provenance, if given.
+    pub band_structure: Option<BandStructure>,
 }
 
 /// What a run was configured with, for output metadata.
@@ -365,10 +571,16 @@ pub struct LayerMetadata {
 pub struct RunMetadata {
     /// Energy cutoff, eV.
     pub cutoff_ev: f64,
+    /// Where the cutoff is measured from.
+    pub cutoff_reference: CutoffReference,
     /// Escape rule at the target faces.
     pub escape_rule: EscapeRule,
-    /// Collision cap per history.
+    /// Collision and reflection cap per electron.
     pub max_events: u64,
+    /// Secondary-electron model.
+    pub secondaries: SecondaryModel,
+    /// Face model.
+    pub boundary: BoundaryModel,
     /// Run seed.
     pub seed: u64,
     /// Primaries run.
@@ -390,20 +602,53 @@ pub struct TransportRun<T> {
     pub metadata: RunMetadata,
 }
 
-/// The electron transport engine: a stack, the tables of each layer and a
-/// configuration.
+/// The electron transport engine: a stack, the tables of each layer, their
+/// band parameters (optional) and a configuration.
 #[derive(Debug, Clone)]
 pub struct Transport {
     stack: Stack,
     tables: Vec<LayerTables>,
+    bands: Option<Vec<BandStructure>>,
+    /// Inner potential per layer, eV (zero without band parameters).
+    inner: Vec<f64>,
+    /// Stopping threshold per layer, eV.
+    threshold: Vec<f64>,
     config: TransportConfig,
 }
 
+/// An electron waiting on the history's stack, with its generation.
+type Pending = (ElectronState, u32);
+
 impl Transport {
-    /// Check and assemble. `tables[i]` belongs to `stack.layers()[i]`.
+    /// Check and assemble, without band parameters. `tables[i]` belongs to
+    /// `stack.layers()[i]`. Fails if the configuration needs band parameters
+    /// (a [`SecondaryModel`] other than `Off`, or the step barrier); use
+    /// [`Transport::with_band_structures`] then.
     pub fn new(
         stack: Stack,
         tables: Vec<LayerTables>,
+        config: TransportConfig,
+    ) -> Result<Self, TransportError> {
+        Self::build(stack, tables, None, config)
+    }
+
+    /// Check and assemble with band parameters: `bands[i]` belongs to
+    /// `stack.layers()[i]`. They supply the Fermi energy and band gap of the
+    /// secondary model and the inner potential of the step barrier and of
+    /// [`CutoffReference::VacuumLevel`].
+    pub fn with_band_structures(
+        stack: Stack,
+        tables: Vec<LayerTables>,
+        bands: Vec<BandStructure>,
+        config: TransportConfig,
+    ) -> Result<Self, TransportError> {
+        Self::build(stack, tables, Some(bands), config)
+    }
+
+    fn build(
+        stack: Stack,
+        tables: Vec<LayerTables>,
+        bands: Option<Vec<BandStructure>>,
         config: TransportConfig,
     ) -> Result<Self, TransportError> {
         if tables.len() != stack.layers().len() {
@@ -433,9 +678,62 @@ impl Transport {
         if config.max_events == 0 {
             return invalid("max_events", "must be at least 1");
         }
+        match &bands {
+            Some(b) if b.len() != stack.layers().len() => {
+                return invalid(
+                    "band structures",
+                    format!(
+                        "the stack has {} layers but {} band structures were given",
+                        stack.layers().len(),
+                        b.len()
+                    ),
+                );
+            }
+            None if config.needs_bands() => {
+                return invalid(
+                    "band structures",
+                    "secondary generation and the step barrier need one per layer \
+                     (Transport::with_band_structures)",
+                );
+            }
+            _ => {}
+        }
+        let inner: Vec<f64> = match &bands {
+            Some(b) => b.iter().map(BandStructure::inner_potential_ev).collect(),
+            None => vec![0.0; tables.len()],
+        };
+        let threshold: Vec<f64> = inner
+            .iter()
+            .map(|&u| match config.cutoff_reference {
+                CutoffReference::BandBottom => config.cutoff_ev,
+                CutoffReference::VacuumLevel => u + config.cutoff_ev,
+            })
+            .collect();
+        if config.secondaries != SecondaryModel::Off {
+            // Every secondary starts at E_F + W, so a threshold at or below
+            // the Fermi level would let them multiply without end; with it
+            // above, the energy above the Fermi level, which inelastic events
+            // conserve or reduce, bounds the number of electrons followed.
+            let b = bands.as_ref().expect("checked above");
+            for (layer, (band, &t)) in b.iter().zip(&threshold).enumerate() {
+                if !(t > band.fermi_ev()) {
+                    return invalid(
+                        "cutoff",
+                        format!(
+                            "layer {layer}: the stopping threshold {t} eV must exceed the \
+                             Fermi energy {} eV under the secondary model",
+                            band.fermi_ev()
+                        ),
+                    );
+                }
+            }
+        }
         Ok(Self {
             stack,
             tables,
+            bands,
+            inner,
+            threshold,
             config,
         })
     }
@@ -450,6 +748,21 @@ impl Transport {
         &self.stack
     }
 
+    /// The band parameters per layer, if given.
+    pub fn band_structures(&self) -> Option<&[BandStructure]> {
+        self.bands.as_deref()
+    }
+
+    fn step_barrier(&self) -> Option<(bool, bool)> {
+        match self.config.boundary {
+            BoundaryModel::Transparent => None,
+            BoundaryModel::StepBarrier {
+                quantum_transmission,
+                refraction,
+            } => Some((quantum_transmission, refraction)),
+        }
+    }
+
     fn check_primary(&self, p: &Primary) -> Result<[f64; 3], TransportError> {
         if !(p.energy_ev.is_finite() && p.energy_ev > self.config.cutoff_ev) {
             return invalid(
@@ -461,7 +774,28 @@ impl Transport {
         if !(n.is_finite() && n > 0.0) {
             return invalid("primary direction", "must be finite and nonzero");
         }
-        Ok([p.direction[0] / n, p.direction[1] / n, p.direction[2] / n])
+        let dir = [p.direction[0] / n, p.direction[1] / n, p.direction[2] / n];
+        let inside = if self.step_barrier().is_some() {
+            if dir[0] <= 0.0 {
+                return invalid(
+                    "primary direction",
+                    "must point into the target (positive x) with the step barrier",
+                );
+            }
+            p.energy_ev + self.inner[0]
+        } else {
+            p.energy_ev
+        };
+        if !(inside > self.threshold[0]) {
+            return invalid(
+                "primary energy",
+                format!(
+                    "{inside} eV inside the first layer must exceed its stopping threshold {} eV",
+                    self.threshold[0]
+                ),
+            );
+        }
+        Ok(dir)
     }
 
     /// The metadata of a run with these arguments.
@@ -474,8 +808,11 @@ impl Transport {
     ) -> RunMetadata {
         RunMetadata {
             cutoff_ev: self.config.cutoff_ev,
+            cutoff_reference: self.config.cutoff_reference,
             escape_rule: self.config.escape_rule,
             max_events: self.config.max_events,
+            secondaries: self.config.secondaries,
+            boundary: self.config.boundary,
             seed,
             n_histories,
             chunk_size,
@@ -494,6 +831,7 @@ impl Transport {
                     elastic_provenance: t.elastic.provenance().to_string(),
                     inelastic_model: t.inelastic.model().to_string(),
                     inelastic_provenance: t.inelastic.provenance().to_string(),
+                    band_structure: self.bands.as_ref().map(|b| b[index].clone()),
                 })
                 .collect(),
         }
@@ -532,7 +870,8 @@ impl Transport {
         })
     }
 
-    /// Simulate one primary with the given random stream.
+    /// Simulate one primary, and every secondary it leads to, with the given
+    /// random stream. Returns the primary's fate.
     pub fn history<T, R>(
         &self,
         tally: &mut T,
@@ -552,9 +891,48 @@ impl Transport {
             layer: 0,
         };
         tally.begin_history(index, &st);
-        let fate = self.follow(tally, rng, &mut st);
+        let mut pending: Vec<Pending> = Vec::new();
+        let fate = match self.enter(tally, rng, &mut st) {
+            Some(f) => f,
+            None => self.follow(tally, rng, &mut st, 0, &mut pending),
+        };
+        while let Some((mut s, generation)) = pending.pop() {
+            tally.begin_secondary(&s, generation);
+            let f = self.follow(tally, rng, &mut s, generation, &mut pending);
+            tally.end_secondary(f);
+        }
         tally.end_history(index, fate);
         Ok(fate)
+    }
+
+    /// With the step barrier, take the primary through the front face from
+    /// vacuum. Returns its fate if it was reflected.
+    fn enter<T: ElectronTally, R: Rng>(
+        &self,
+        tally: &mut T,
+        rng: &mut R,
+        st: &mut ElectronState,
+    ) -> Option<Fate> {
+        let (quantum, refraction) = self.step_barrier()?;
+        let du = self.inner[0];
+        let boundary = Boundary::Surface(Face::Front);
+        // The normal energy is positive and the step is up, so the electron
+        // can always get over: one draw.
+        let u = uniform(rng);
+        match cross_step(st.dir, st.energy_ev, du, quantum, refraction, u) {
+            StepOutcome::Transmitted { dir, energy_ev } => {
+                st.dir = dir;
+                st.energy_ev = energy_ev;
+                tally.barrier(st, boundary, du);
+                None
+            }
+            StepOutcome::Reflected { dir } => {
+                st.dir = dir;
+                tally.reflected(st, boundary);
+                tally.escaped(st, Face::Front);
+                Some(Fate::Escaped(Face::Front))
+            }
+        }
     }
 
     fn follow<T: ElectronTally, R: Rng>(
@@ -562,6 +940,8 @@ impl Transport {
         tally: &mut T,
         rng: &mut R,
         st: &mut ElectronState,
+        generation: u32,
+        pending: &mut Vec<Pending>,
     ) -> Fate {
         let layers = self.stack.layers();
         let mut events = 0u64;
@@ -607,16 +987,56 @@ impl Transport {
                 } else {
                     let u = uniform(rng);
                     let w = sample(&tabs.inelastic, inel_at, u).clamp(0.0, st.energy_ev);
-                    st.energy_ev -= w;
-                    tally.inelastic(st, w);
-                    if st.energy_ev < self.config.cutoff_ev {
+                    let threshold = self.threshold[st.layer];
+                    match self.config.secondaries {
+                        SecondaryModel::Off => {
+                            st.energy_ev -= w;
+                            tally.inelastic(st, w);
+                        }
+                        SecondaryModel::KieftBosch {
+                            instantaneous_momentum,
+                            momentum_conservation,
+                        } => {
+                            let band = &self.bands.as_ref().expect("checked in build")[st.layer];
+                            // The primary cannot end below the Fermi level:
+                            // Nebula clamps its loss table to `K - E_F`
+                            // (`kieft_inelastic::create`, commit named in
+                            // `electron::boundary`). The threshold exceeds
+                            // E_F, so the bound is positive.
+                            let w = w.min(st.energy_ev - band.fermi_ev());
+                            let out = kieft_bosch(
+                                instantaneous_momentum,
+                                momentum_conservation,
+                                band,
+                                st.dir,
+                                st.energy_ev,
+                                w,
+                                threshold,
+                                rng,
+                            );
+                            st.energy_ev -= w;
+                            st.dir = out.primary_dir;
+                            tally.inelastic(st, w);
+                            let created = out.secondary.map(|(dir, energy_ev)| ElectronState {
+                                pos: st.pos,
+                                dir,
+                                energy_ev,
+                                layer: st.layer,
+                            });
+                            tally.secondary(st, &out.event, created.as_ref());
+                            if let Some(s) = created {
+                                pending.push((s, generation + 1));
+                            }
+                        }
+                    }
+                    if st.energy_ev < threshold {
                         tally.stopped(st);
                         return Fate::Stopped;
                     }
                 }
                 continue;
             }
-            // Reach the face exactly; the path is redrawn in the next layer.
+            // Reach the face exactly; the path is redrawn afterwards.
             let face_x = if mu > 0.0 {
                 layer.back_m()
             } else {
@@ -628,30 +1048,67 @@ impl Transport {
             st.pos[0] = face_x;
             tally.step(from, st, to_face);
             let last = layers.len() - 1;
-            if mu > 0.0 {
+            let (to, boundary) = if mu > 0.0 {
                 if st.layer < last {
-                    st.layer += 1;
-                    tally.interface(st, st.layer - 1, st.layer);
+                    let to = st.layer + 1;
+                    (Some(to), Boundary::Interface { from: st.layer, to })
                 } else if self.config.escape_rule == EscapeRule::BothFaces {
-                    tally.escaped(st, Face::Back);
-                    return Fate::Escaped(Face::Back);
+                    (None, Boundary::Surface(Face::Back))
                 } else {
                     tally.absorbed(st);
                     return Fate::Absorbed;
                 }
             } else if st.layer > 0 {
-                st.layer -= 1;
-                tally.interface(st, st.layer + 1, st.layer);
+                let to = st.layer - 1;
+                (Some(to), Boundary::Interface { from: st.layer, to })
             } else {
-                tally.escaped(st, Face::Front);
-                return Fate::Escaped(Face::Front);
+                (None, Boundary::Surface(Face::Front))
+            };
+            let from_layer = st.layer;
+            if let Some((quantum, refraction)) = self.step_barrier() {
+                let du = to.map_or(0.0, |t| self.inner[t]) - self.inner[from_layer];
+                // A draw only if the electron has the normal energy to get
+                // over (cross_step ignores it otherwise).
+                let can = st.energy_ev * mu * mu + du > 0.0;
+                let u = if can { uniform(rng) } else { 1.0 };
+                match cross_step(st.dir, st.energy_ev, du, quantum, refraction, u) {
+                    StepOutcome::Transmitted { dir, energy_ev } => {
+                        st.dir = dir;
+                        st.energy_ev = energy_ev;
+                        if let Some(t) = to {
+                            st.layer = t;
+                        }
+                        tally.barrier(st, boundary, du);
+                    }
+                    StepOutcome::Reflected { dir } => {
+                        st.dir = dir;
+                        events += 1;
+                        tally.reflected(st, boundary);
+                        continue;
+                    }
+                }
+            } else if let Some(t) = to {
+                st.layer = t;
+            }
+            match boundary {
+                Boundary::Interface { from, to } => {
+                    tally.interface(st, from, to);
+                    if st.energy_ev < self.threshold[to] {
+                        tally.stopped(st);
+                        return Fate::Stopped;
+                    }
+                }
+                Boundary::Surface(face) => {
+                    tally.escaped(st, face);
+                    return Fate::Escaped(face);
+                }
             }
         }
     }
 }
 
 /// Uniform on `[0, 1)` with 53 random bits.
-fn uniform<R: Rng>(rng: &mut R) -> f64 {
+pub(crate) fn uniform<R: Rng>(rng: &mut R) -> f64 {
     (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
 }
 
@@ -706,6 +1163,12 @@ fn sample(t: &CrossSectionTable, at: GridPos, u: f64) -> f64 {
 /// `phi` about `d` (measured from an arbitrary but deterministic reference
 /// axis), returning a unit vector.
 fn deflect(d: [f64; 3], theta: f64, phi: f64) -> [f64; 3] {
+    let (st, ct) = theta.sin_cos();
+    deflect_cs(d, ct, st, phi)
+}
+
+/// [`deflect`] with the polar angle given by its cosine `ct` and sine `st`.
+pub(crate) fn deflect_cs(d: [f64; 3], ct: f64, st: f64, phi: f64) -> [f64; 3] {
     let helper = if d[0].abs() < 0.9 {
         [1.0, 0.0, 0.0]
     } else {
@@ -713,7 +1176,6 @@ fn deflect(d: [f64; 3], theta: f64, phi: f64) -> [f64; 3] {
     };
     let e1 = normalize(cross(helper, d));
     let e2 = cross(d, e1);
-    let (st, ct) = theta.sin_cos();
     let (sp, cp) = phi.sin_cos();
     normalize([
         ct * d[0] + st * (cp * e1[0] + sp * e2[0]),
@@ -730,7 +1192,7 @@ fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
     ]
 }
 
-fn normalize(v: [f64; 3]) -> [f64; 3] {
+pub(crate) fn normalize(v: [f64; 3]) -> [f64; 3] {
     let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
     [v[0] / n, v[1] / n, v[2] / n]
 }

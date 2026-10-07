@@ -10,7 +10,9 @@
 //! event-by-event loop over layered stacks on those tables. The models that
 //! fill the tables from first principles are later work.
 
+pub mod boundary;
 pub mod data;
 pub mod elastic;
 pub mod inelastic;
+pub mod secondary;
 pub mod transport;
