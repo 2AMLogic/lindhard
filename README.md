@@ -81,6 +81,7 @@ cover both halves of this project.
 |---|---|
 | [`lindhard/`](lindhard/README.md) | The library: materials, potentials, stopping, transport, tallies |
 | [`lindhard-cli/`](lindhard-cli/README.md) | `lindhard` binary: TOML in, JSON/CSV out |
+| [`lindhard-py/`](lindhard-py/README.md) | `lindhard` Python package (pyo3 + maturin): NumPy arrays out, same TOML schema |
 | [`examples/`](examples/README.md) | Example CLI inputs |
 | [`validation/`](validation/README.md) | Validation harness: oracle runner, experimental datasets, results |
 | [`docs/`](docs/README.md) | Design, physics and project documentation (index below) |
