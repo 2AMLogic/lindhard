@@ -1,0 +1,7239 @@
+# Atomic subshell binding energies (eV) and ground-state occupancies, Z = 1..92.
+# Source: the Evaluated Atomic Data Library (EADL) as distributed in EPICS2017,
+# file EADL2017.ALL (ENDF-6 format, Eval-Dec17, Dist-Apr18), retrieved 2026-10-06
+# from https://www.nndc.bnl.gov/endf/epics/ENDF2017/EADL2017.ALL.
+# Credit: D. E. Cullen, author of the data library, "A Survey of Atomic Binding
+# Energies for use in EPICS2017", IAEA-NDS-224 Rev. 1 (April 2018); issued by the
+# IAEA Nuclear Data Section / National Nuclear Data Center (NNDC), BNL.
+# Notice: the source file carries a warranty disclaimer only; no warranty is made
+# for these values. Extracted mechanically by lindhard's ENDF-6 File 28 reader;
+# only subshell designator, binding energy and occupancy are kept. Committed under
+# the operator ruling recorded in docs/data-provenance.md.
+
+provenance = "EADL2017 (EPICS2017), D. E. Cullen, IAEA-NDS-224 Rev. 1 (April 2018), ENDF-6 file EADL2017.ALL (Eval-Dec17, Dist-Apr18), retrieved 2026-10-06 from https://www.nndc.bnl.gov/endf/epics/ENDF2017/EADL2017.ALL; Z=1..92 subshell binding energies and occupancies"
+
+[[atoms]]
+z = 1
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 13.6
+occupancy = 1.0
+
+[[atoms]]
+z = 2
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 24.59
+occupancy = 2.0
+
+[[atoms]]
+z = 3
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 58.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 5.39
+occupancy = 1.0
+
+[[atoms]]
+z = 4
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 115.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 9.32
+occupancy = 2.0
+
+[[atoms]]
+z = 5
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 192.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 11.39
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 8.3
+occupancy = 0.33
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 8.3
+occupancy = 0.67
+
+[[atoms]]
+z = 6
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 288.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 16.59
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 11.26
+occupancy = 0.67
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 11.26
+occupancy = 1.33
+
+[[atoms]]
+z = 7
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 403.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 20.33
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 12.38
+occupancy = 1.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 12.38
+occupancy = 2.0
+
+[[atoms]]
+z = 8
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 538.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 28.48
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 13.62
+occupancy = 1.33
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 13.62
+occupancy = 2.67
+
+[[atoms]]
+z = 9
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 694.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 37.85
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 17.42
+occupancy = 1.67
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 17.42
+occupancy = 3.33
+
+[[atoms]]
+z = 10
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 870.1
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 48.47
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 21.66
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 21.66
+occupancy = 4.0
+
+[[atoms]]
+z = 11
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 1075.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 66.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 34.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 34.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 5.14
+occupancy = 1.0
+
+[[atoms]]
+z = 12
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 1308.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 92.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 54.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 54.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 7.65
+occupancy = 2.0
+
+[[atoms]]
+z = 13
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 1564.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 121.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 77.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 77.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 9.07
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 5.99
+occupancy = 0.33
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 5.99
+occupancy = 0.67
+
+[[atoms]]
+z = 14
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 1844.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 154.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 104.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 104.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 13.46
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 8.15
+occupancy = 0.67
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 8.15
+occupancy = 1.33
+
+[[atoms]]
+z = 15
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 2148.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 191.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 135.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 134.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 16.15
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 10.49
+occupancy = 1.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 10.49
+occupancy = 2.0
+
+[[atoms]]
+z = 16
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 2476.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 232.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 170.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 168.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 20.2
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 10.36
+occupancy = 1.33
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 10.36
+occupancy = 2.67
+
+[[atoms]]
+z = 17
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 2829.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 277.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 208.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 206.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 24.54
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 12.97
+occupancy = 1.67
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 12.97
+occupancy = 3.33
+
+[[atoms]]
+z = 18
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 3206.3
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 326.5
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 250.6
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 248.5
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 29.24
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 15.94
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 15.76
+occupancy = 4.0
+
+[[atoms]]
+z = 19
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 3610.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 381.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 299.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 296.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 37.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 19.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 18.7
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 4.34
+occupancy = 1.0
+
+[[atoms]]
+z = 20
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 4041.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 441.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 353.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 349.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 46.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 28.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 28.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 6.11
+occupancy = 2.0
+
+[[atoms]]
+z = 21
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 4494.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 503.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 408.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 403.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 55.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 33.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 33.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 8.0
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 8.0
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 7.03
+occupancy = 2.0
+
+[[atoms]]
+z = 22
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 4970.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 567.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 465.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 459.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 64.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 39.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 38.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 8.0
+occupancy = 0.8
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 8.0
+occupancy = 1.2
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 6.82
+occupancy = 2.0
+
+[[atoms]]
+z = 23
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 5470.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 633.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 525.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 518.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 72.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 44.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 43.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 8.0
+occupancy = 1.2
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 8.0
+occupancy = 1.8
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 6.74
+occupancy = 2.0
+
+[[atoms]]
+z = 24
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 5995.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 702.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 589.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 580.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 80.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 49.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 48.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 8.25
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 8.25
+occupancy = 3.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 7.51
+occupancy = 1.0
+
+[[atoms]]
+z = 25
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 6544.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 772.92
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 656.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 645.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 89.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 55.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 53.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 9.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 9.0
+occupancy = 3.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 7.43
+occupancy = 2.0
+
+[[atoms]]
+z = 26
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 7117.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 851.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 726.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 713.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 98.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 61.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 59.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 9.0
+occupancy = 2.4
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 9.0
+occupancy = 3.6
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 7.87
+occupancy = 2.0
+
+[[atoms]]
+z = 27
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 7715.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 931.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 800.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 785.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 107.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 68.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 66.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 9.0
+occupancy = 2.8
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 9.0
+occupancy = 4.2
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 7.86
+occupancy = 2.0
+
+[[atoms]]
+z = 28
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 8338.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1015.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 877.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 860.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 117.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 75.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 73.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 10.0
+occupancy = 3.2
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 10.0
+occupancy = 4.8
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 7.63
+occupancy = 2.0
+
+[[atoms]]
+z = 29
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 8986.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1103.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 958.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 938.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 127.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 82.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 80.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 11.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 10.4
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 7.73
+occupancy = 1.0
+
+[[atoms]]
+z = 30
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 9663.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1198.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1047.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1024.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 141.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 94.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 91.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 12.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 11.2
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 9.39
+occupancy = 2.0
+
+[[atoms]]
+z = 31
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 10371.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1302.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1146.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1119.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 162.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 111.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 107.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 21.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 20.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 9.33
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 6.0
+occupancy = 0.33
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 6.0
+occupancy = 0.67
+
+[[atoms]]
+z = 32
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 11107.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1413.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1251.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1220.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 184.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 130.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 125.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 33.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 32.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 14.3
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 7.9
+occupancy = 0.67
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 7.9
+occupancy = 1.33
+
+[[atoms]]
+z = 33
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 11871.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1531.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1362.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1327.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 208.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 151.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 145.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 46.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 45.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 17.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 9.81
+occupancy = 1.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 9.81
+occupancy = 2.0
+
+[[atoms]]
+z = 34
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 12662.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1656.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1479.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1439.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 234.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 173.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 166.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 61.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 60.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 20.15
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 9.75
+occupancy = 1.33
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 9.75
+occupancy = 2.67
+
+[[atoms]]
+z = 35
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 13481.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1787.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1602.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1556.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 262.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 197.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 189.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 77.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 76.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 23.8
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 11.85
+occupancy = 1.67
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 11.85
+occupancy = 3.33
+
+[[atoms]]
+z = 36
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 14327.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 1924.6
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1730.9
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1678.4
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 292.8
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 222.2
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 214.4
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 95.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 93.8
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 27.51
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 14.65
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 14.0
+occupancy = 4.0
+
+[[atoms]]
+z = 37
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 15203.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 2068.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 1867.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1807.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 325.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 251.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 242.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 116.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 114.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 32.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 16.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 15.3
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 4.18
+occupancy = 1.0
+
+[[atoms]]
+z = 38
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 16108.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 2219.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 2010.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 1943.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 361.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 283.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 273.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 139.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 137.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 40.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 23.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 22.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 5.69
+occupancy = 2.0
+
+[[atoms]]
+z = 39
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 17041.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 2375.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 2158.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 2083.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 397.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 315.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 304.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 163.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 161.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 48.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 30.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 29.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 6.45
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 6.45
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 6.45
+occupancy = 2.0
+
+[[atoms]]
+z = 40
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 18002.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 2536.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 2311.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 2227.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 434.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 348.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 335.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 187.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 185.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 56.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 35.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 33.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 7.72
+occupancy = 0.8
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 7.72
+occupancy = 1.2
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 7.72
+occupancy = 2.0
+
+[[atoms]]
+z = 41
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 18990.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 2702.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 2469.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 2375.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 472.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 382.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 367.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 212.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 209.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 62.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 40.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 38.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 7.17
+occupancy = 1.6
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 7.17
+occupancy = 2.4
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 7.07
+occupancy = 1.0
+
+[[atoms]]
+z = 42
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 20006.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 2872.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 2632.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 2527.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 511.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 416.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 399.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 237.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 234.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 68.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 45.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 42.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 8.32
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 8.32
+occupancy = 3.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 8.32
+occupancy = 1.0
+
+[[atoms]]
+z = 43
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 21050.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 3048.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 2800.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 2683.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 551.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 451.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 432.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 263.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 259.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 74.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 49.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 45.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 8.6
+occupancy = 2.4
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 8.6
+occupancy = 3.6
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 8.27
+occupancy = 1.0
+
+[[atoms]]
+z = 44
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 22123.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 3230.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 2973.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 2844.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 592.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 488.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 466.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 290.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 286.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 81.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 53.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 49.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 8.5
+occupancy = 2.8
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 8.5
+occupancy = 4.2
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 8.12
+occupancy = 1.0
+
+[[atoms]]
+z = 45
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 23225.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 3418.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 3152.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 3010.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 634.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 526.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 501.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 318.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 313.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 87.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 58.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 53.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 9.56
+occupancy = 3.2
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 9.56
+occupancy = 4.8
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 8.86
+occupancy = 1.0
+
+[[atoms]]
+z = 46
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 24357.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 3611.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 3337.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 3180.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 677.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 565.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 537.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 347.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 342.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 93.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 63.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 57.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 8.56
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 8.56
+occupancy = 6.0
+
+[[atoms]]
+z = 47
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 25520.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 3812.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 3530.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 3357.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 724.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 608.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 577.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 379.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 373.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 101.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 69.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 63.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 11.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 10.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 7.58
+occupancy = 1.0
+
+[[atoms]]
+z = 48
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 26715.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 4022.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 3732.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 3542.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 775.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 655.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 621.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 415.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 408.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 112.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 78.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 71.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 14.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 13.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 8.99
+occupancy = 2.0
+
+[[atoms]]
+z = 49
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 27944.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 4242.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 3943.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 3735.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 830.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 707.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 669.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 455.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 447.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 126.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 90.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 82.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 21.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 20.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 8.6
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 7.2
+occupancy = 0.33
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 5.79
+occupancy = 0.67
+
+[[atoms]]
+z = 50
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 29204.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 4469.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 4160.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 3933.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 888.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 761.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 719.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 497.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 489.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 141.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 102.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 93.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 29.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 28.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 12.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 7.34
+occupancy = 0.67
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 7.34
+occupancy = 1.33
+
+[[atoms]]
+z = 51
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 30496.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 4703.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 4385.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 4137.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 949.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 817.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 771.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 542.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 533.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 157.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 114.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 104.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 38.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 37.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 15.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 8.64
+occupancy = 1.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 8.64
+occupancy = 2.0
+
+[[atoms]]
+z = 52
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 31820.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 4945.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 4618.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 4347.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1012.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 876.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 825.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 589.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 578.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 174.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 127.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 117.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 48.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 46.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 17.84
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 9.01
+occupancy = 1.33
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 9.01
+occupancy = 2.67
+
+[[atoms]]
+z = 53
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 33176.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 5195.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 4858.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 4563.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1078.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 937.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 881.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 638.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 626.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 193.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 141.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 131.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 58.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 56.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 20.61
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 10.45
+occupancy = 1.67
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 10.45
+occupancy = 3.33
+
+[[atoms]]
+z = 54
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 34565.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 5453.2
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 5107.2
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 4787.3
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1148.7
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1002.1
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 940.6
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 689.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 676.4
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 213.2
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 157.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 145.5
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 69.5
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 67.5
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 23.39
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 13.43
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 12.13
+occupancy = 4.0
+
+[[atoms]]
+z = 55
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 35987.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 5717.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 5362.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 5014.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1220.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1068.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1000.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 742.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 728.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 233.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 174.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 164.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 81.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 79.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 25.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 14.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 12.3
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 3.89
+occupancy = 1.0
+
+[[atoms]]
+z = 56
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 37442.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 5991.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 5626.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 5249.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1293.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1138.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1063.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 797.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 782.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 254.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 193.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 181.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 94.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 92.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 31.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 18.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 16.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.21
+occupancy = 2.0
+
+[[atoms]]
+z = 57
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 38928.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 6269.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 5894.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 5486.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1365.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1207.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1124.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 851.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 834.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 273.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 210.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 196.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 105.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 103.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 36.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 22.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 19.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 5.64
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 5.64
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.64
+occupancy = 2.0
+
+[[atoms]]
+z = 58
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 40446.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 6552.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 6167.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 5726.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1437.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1275.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1184.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 903.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 885.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 291.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 225.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 209.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 114.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 111.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 0.86
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 1.14
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 39.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 25.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 22.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.77
+occupancy = 2.0
+
+[[atoms]]
+z = 59
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 41995.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 6839.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 6444.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 5968.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1509.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1342.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1244.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 954.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 934.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 307.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 238.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 220.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 121.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 117.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 1.29
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 1.71
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 41.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 27.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 24.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.61
+occupancy = 2.0
+
+[[atoms]]
+z = 60
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 43575.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 7132.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 6727.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 6213.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1580.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1408.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1303.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1005.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 983.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 321.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 250.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 230.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 126.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 122.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 1.71
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 2.29
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 42.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 28.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 25.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.66
+occupancy = 2.0
+
+[[atoms]]
+z = 61
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 45188.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 7432.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 7017.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 6464.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1653.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1476.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1362.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1057.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1032.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 335.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 261.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 240.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 131.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 127.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 2.14
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 2.86
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 43.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 28.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 25.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.7
+occupancy = 2.0
+
+[[atoms]]
+z = 62
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 46837.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 7740.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 7315.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 6720.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1728.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1546.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1422.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1110.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1083.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 349.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 273.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 251.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 137.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 132.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 2.57
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 3.43
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 44.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 29.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 25.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.63
+occupancy = 2.0
+
+[[atoms]]
+z = 63
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 48522.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 8056.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 7621.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 6981.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1805.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1618.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1484.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1164.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1135.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 364.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 286.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 262.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 143.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 137.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 3.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 45.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 30.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 26.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.68
+occupancy = 2.0
+
+[[atoms]]
+z = 64
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 50243.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 8380.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 7935.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 7247.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1884.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1692.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1547.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1220.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1189.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 380.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 300.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 273.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 150.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 143.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.11
+occupancy = 3.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 46.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 31.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 27.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 6.0
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 6.0
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 6.0
+occupancy = 2.0
+
+[[atoms]]
+z = 65
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 51999.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 8711.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 8256.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 7518.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 1965.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1768.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1612.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1277.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1243.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 398.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 315.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 285.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 157.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 150.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 3.86
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 5.9
+occupancy = 5.14
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 48.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 32.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 28.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.9
+occupancy = 2.0
+
+[[atoms]]
+z = 66
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 53792.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 9050.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 8585.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 7794.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2048.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1846.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1678.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1335.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1298.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 416.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 331.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 297.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 164.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 157.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.0
+occupancy = 4.29
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 5.95
+occupancy = 5.71
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 50.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 33.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 28.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 5.95
+occupancy = 2.0
+
+[[atoms]]
+z = 67
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 55622.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 9398.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 8922.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 8075.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2133.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 1926.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1746.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1395.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1354.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 434.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 348.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 310.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 172.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 164.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.01
+occupancy = 4.71
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 6.29
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 52.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 34.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 29.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 6.0
+occupancy = 2.0
+
+[[atoms]]
+z = 68
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 57489.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 9754.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 9267.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 8361.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2220.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2008.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1815.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1456.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1412.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 452.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 365.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 323.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 181.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 172.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 6.07
+occupancy = 5.14
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.0
+occupancy = 6.86
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 54.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 35.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 30.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 6.0
+occupancy = 2.0
+
+[[atoms]]
+z = 69
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 59393.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 10118.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 9620.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 8651.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2309.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2092.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1885.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1518.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1471.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 471.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 382.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 336.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 190.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 181.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 7.0
+occupancy = 5.57
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 6.45
+occupancy = 7.43
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 56.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 36.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 30.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 6.45
+occupancy = 2.0
+
+[[atoms]]
+z = 70
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 61335.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 10490.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 9981.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 8946.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2401.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2178.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 1956.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1580.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1531.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 490.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 399.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 349.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 200.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 190.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 8.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 7.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 58.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 37.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 31.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 6.25
+occupancy = 2.0
+
+[[atoms]]
+z = 71
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 63320.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 10876.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 10355.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 9250.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2499.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2270.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2032.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1647.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1596.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 514.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 420.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 366.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 213.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 202.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 13.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 12.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 62.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 39.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 32.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 6.87
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 6.87
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 6.87
+occupancy = 2.0
+
+[[atoms]]
+z = 72
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 65350.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 11275.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 10742.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 9564.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2604.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2369.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2113.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1720.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1665.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 542.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 444.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 386.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 229.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 217.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 21.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 20.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 68.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 43.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 35.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 7.25
+occupancy = 0.8
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 7.25
+occupancy = 1.2
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 7.25
+occupancy = 2.0
+
+[[atoms]]
+z = 73
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 67419.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 11684.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 11139.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 9884.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2712.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2472.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2197.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1796.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1737.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 570.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 469.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 407.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 245.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 232.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 30.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 28.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 74.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 47.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 38.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 8.14
+occupancy = 1.2
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 8.14
+occupancy = 1.8
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 8.14
+occupancy = 2.0
+
+[[atoms]]
+z = 74
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 69529.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 12103.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 11546.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 10209.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2823.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2577.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2283.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1874.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1811.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 599.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 495.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 428.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 261.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 248.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 38.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 36.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 80.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 51.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 41.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 8.67
+occupancy = 1.6
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 8.67
+occupancy = 2.4
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 8.67
+occupancy = 2.0
+
+[[atoms]]
+z = 75
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 71681.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 12532.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 11963.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 10540.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 2937.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2686.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2371.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 1953.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1887.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 629.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 522.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 450.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 278.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 264.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 47.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 45.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 86.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 56.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 45.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 9.6
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 8.75
+occupancy = 3.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 8.75
+occupancy = 2.0
+
+[[atoms]]
+z = 76
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 73876.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 12972.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 12390.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 10876.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 3054.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2797.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2461.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2035.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 1964.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 660.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 551.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 473.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 295.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 280.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 56.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 54.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 92.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 61.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 49.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 9.6
+occupancy = 2.4
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 8.87
+occupancy = 3.6
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 8.87
+occupancy = 2.0
+
+[[atoms]]
+z = 77
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 76115.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 13422.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 12828.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 11219.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 3175.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 2912.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2554.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2119.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2044.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 693.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 581.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 497.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 314.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 298.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 67.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 64.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 99.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 66.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 53.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 9.6
+occupancy = 3.6
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 9.6
+occupancy = 5.4
+
+[[atoms]]
+z = 78
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 78399.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 13883.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 13277.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 11567.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 3300.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 3030.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2649.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2206.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2126.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 727.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 612.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 522.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 335.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 318.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 78.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 75.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 106.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 71.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 57.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 9.6
+occupancy = 3.6
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 9.6
+occupancy = 5.4
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 9.0
+occupancy = 1.0
+
+[[atoms]]
+z = 79
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 80729.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 14356.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 13738.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 11923.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 3430.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 3153.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2748.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2295.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2210.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 764.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 645.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 548.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 357.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 339.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 91.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 87.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 114.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 76.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 61.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 12.5
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 11.1
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 9.23
+occupancy = 1.0
+
+[[atoms]]
+z = 80
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 83108.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 14845.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 14214.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 12288.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 3567.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 3283.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2852.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2390.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2300.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 806.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 683.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 579.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 382.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 363.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 107.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 103.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 125.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 85.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 68.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 14.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 11.77
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 10.4
+occupancy = 2.0
+
+[[atoms]]
+z = 81
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 85536.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 15350.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 14704.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 12662.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 3710.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 3420.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 2961.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2490.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2394.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 852.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 726.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 615.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 411.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 391.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 127.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 123.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 139.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 98.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 79.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 21.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 19.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 12.36
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 6.11
+occupancy = 0.33
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 6.11
+occupancy = 0.67
+
+[[atoms]]
+z = 82
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 88011.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 15867.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 15206.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 13041.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 3857.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 3560.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3072.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2592.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2490.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 899.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 769.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 651.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 441.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 419.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 148.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 144.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 153.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 111.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 90.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 27.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 25.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 15.05
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 7.42
+occupancy = 0.67
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 7.42
+occupancy = 1.33
+
+[[atoms]]
+z = 83
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 90534.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 16396.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 15719.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 13426.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 4007.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 3704.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3185.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2696.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2588.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 946.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 813.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 687.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 472.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 448.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 170.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 165.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 167.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 125.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 101.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 34.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 32.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 17.69
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 7.29
+occupancy = 1.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 7.29
+occupancy = 2.0
+
+[[atoms]]
+z = 84
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 93106.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 16937.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 16244.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 13816.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 4161.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 3852.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3301.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2802.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2687.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 994.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 858.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 724.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 503.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 478.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 193.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 187.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 181.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 139.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 112.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 41.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 38.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 20.33
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 8.95
+occupancy = 1.33
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 8.43
+occupancy = 2.67
+
+[[atoms]]
+z = 85
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 95729.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 17490.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 16782.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 14212.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 4320.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 4005.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3420.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 2910.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2788.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1044.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 904.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 761.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 535.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 508.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 217.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 211.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 196.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 153.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 123.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 48.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 44.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 23.01
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 11.0
+occupancy = 1.67
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 9.3
+occupancy = 3.33
+
+[[atoms]]
+z = 86
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 98404.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 18055.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 17334.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 14615.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 4483.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 4162.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3542.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 3019.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2890.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1096.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 951.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 798.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 567.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 538.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 242.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 235.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 212.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 167.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 134.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 55.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 51.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 24.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 14.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 10.7
+occupancy = 4.0
+
+[[atoms]]
+z = 87
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 101130.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 18637.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 17903.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 15028.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 4652.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 4324.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3666.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 3134.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 2998.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1153.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 1003.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 839.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 603.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 572.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 268.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 260.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 231.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 183.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 147.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 65.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 61.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 33.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 19.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 14.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 37
+binding_energy_ev = 4.0
+occupancy = 1.0
+
+[[atoms]]
+z = 88
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 103920.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 19237.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 18488.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 15449.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 4827.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 4491.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3793.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 3254.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 3111.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1214.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 1060.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 884.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 642.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 609.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 296.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 287.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 253.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 201.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 161.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 77.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 73.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 40.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 25.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 19.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 37
+binding_energy_ev = 5.28
+occupancy = 2.0
+
+[[atoms]]
+z = 89
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 106760.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 19850.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 19086.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 15874.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 5005.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 4661.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 3921.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 3374.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 3223.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1274.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 1116.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 928.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 680.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 645.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 322.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 313.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 274.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 218.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 174.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 88.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 83.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 45.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 29.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 22.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 29
+binding_energy_ev = 6.1
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 30
+binding_energy_ev = 4.0
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 37
+binding_energy_ev = 6.1
+occupancy = 2.0
+
+[[atoms]]
+z = 90
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 109650.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 20475.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 19696.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 16303.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 5185.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 4833.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 4049.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 3494.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 3335.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1333.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 1171.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 970.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 717.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 679.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 347.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 338.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 293.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 233.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 185.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 97.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 91.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 50.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 33.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 25.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 29
+binding_energy_ev = 6.0
+occupancy = 0.8
+
+[[atoms.shells]]
+subshell = 30
+binding_energy_ev = 4.06
+occupancy = 1.2
+
+[[atoms.shells]]
+subshell = 37
+binding_energy_ev = 6.0
+occupancy = 2.0
+
+[[atoms]]
+z = 91
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 112600.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 21112.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 20318.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 16735.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 5368.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 5008.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 4178.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 3613.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 3446.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1390.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 1225.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 1011.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 752.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 712.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 372.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 362.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 312.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 248.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 195.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 104.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 97.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 22
+binding_energy_ev = 6.0
+occupancy = 0.86
+
+[[atoms.shells]]
+subshell = 23
+binding_energy_ev = 6.8
+occupancy = 1.14
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 50.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 32.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 24.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 29
+binding_energy_ev = 6.0
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 30
+binding_energy_ev = 4.13
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 37
+binding_energy_ev = 6.0
+occupancy = 2.0
+
+[[atoms]]
+z = 92
+
+[[atoms.shells]]
+subshell = 1
+binding_energy_ev = 115610.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 2
+binding_energy_ev = 21762.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 3
+binding_energy_ev = 20953.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 4
+binding_energy_ev = 17171.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 5
+binding_energy_ev = 5553.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 6
+binding_energy_ev = 5187.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 7
+binding_energy_ev = 4308.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 8
+binding_energy_ev = 3733.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 9
+binding_energy_ev = 3557.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 10
+binding_energy_ev = 1446.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 11
+binding_energy_ev = 1278.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 12
+binding_energy_ev = 1050.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 13
+binding_energy_ev = 785.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 14
+binding_energy_ev = 743.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 15
+binding_energy_ev = 396.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 16
+binding_energy_ev = 386.0
+occupancy = 8.0
+
+[[atoms.shells]]
+subshell = 17
+binding_energy_ev = 329.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 18
+binding_energy_ev = 261.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 19
+binding_energy_ev = 203.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 20
+binding_energy_ev = 110.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 21
+binding_energy_ev = 101.0
+occupancy = 6.0
+
+[[atoms.shells]]
+subshell = 22
+binding_energy_ev = 6.03
+occupancy = 1.29
+
+[[atoms.shells]]
+subshell = 23
+binding_energy_ev = 7.95
+occupancy = 1.71
+
+[[atoms.shells]]
+subshell = 26
+binding_energy_ev = 52.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 27
+binding_energy_ev = 34.0
+occupancy = 2.0
+
+[[atoms.shells]]
+subshell = 28
+binding_energy_ev = 24.0
+occupancy = 4.0
+
+[[atoms.shells]]
+subshell = 29
+binding_energy_ev = 6.0
+occupancy = 0.4
+
+[[atoms.shells]]
+subshell = 30
+binding_energy_ev = 4.13
+occupancy = 0.6
+
+[[atoms.shells]]
+subshell = 37
+binding_energy_ev = 6.0
+occupancy = 2.0
