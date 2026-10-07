@@ -36,6 +36,22 @@
 //!   [`crate::electron::secondary`]. The stopping threshold of every layer
 //!   must then exceed its Fermi energy, or secondaries would multiply without
 //!   end.
+//! - **Insulator channels (opt-in per layer).** A layer given
+//!   [`InsulatorChannels`] through [`Transport::with_insulator_channels`]
+//!   adds up to three more rates to the total: Fröhlich LO-phonon emission
+//!   and absorption, and polaron trapping (models and sources in
+//!   [`crate::electron::phonon`]). A phonon event changes the energy by `∓ħω`
+//!   and deflects the electron by `θ` drawn from the Fröhlich angular
+//!   distribution, azimuth uniform. A trapped electron deposits all of its
+//!   remaining energy where it is trapped and its history ends with
+//!   [`Fate::PolaronTrapped`]. Layers default to no insulator channel, which
+//!   is the right choice for a metal; the per-layer choice is in
+//!   [`LayerMetadata`].
+//! - **Channel choice.** With the rates in the fixed order elastic,
+//!   inelastic, phonon emission, phonon absorption, polaron trapping, the
+//!   channel is the first whose cumulative rate exceeds `u · total`; channels
+//!   with zero rate are never chosen (a rounding overshoot falls to the last
+//!   channel with a positive rate).
 //! - **Faces.** With [`BoundaryModel::Transparent`] a face changes nothing:
 //!   the electron enters the next layer or leaves the target at its energy
 //!   and direction. With [`BoundaryModel::StepBarrier`] every face is a step
@@ -75,10 +91,12 @@
 //! tests replay it). With the step barrier, the primary first draws one
 //! uniform for its entry. Then, per flight with a nonzero total rate: one
 //! uniform for the path. If a collision happens, one for the channel, then
-//! `θ` and the azimuth (elastic) or `W` (inelastic). Under the Kieft-Bosch
-//! secondary model an inelastic event that liberates an electron then draws
-//! the secondary's azimuth and, with the instantaneous momentum on, two more
-//! uniforms. A path drawn for a flight that ends at a layer face is discarded;
+//! `θ` and the azimuth (elastic), `W` (inelastic), or `cos θ` and the azimuth
+//! (phonon emission or absorption) or nothing (polaron trapping). Under the
+//! Kieft-Bosch secondary model an inelastic event that liberates an electron
+//! then draws the secondary's azimuth and, with the instantaneous momentum on,
+//! two more uniforms. With no insulator channel switched on, the draws are
+//! exactly those of a run without them. A path drawn for a flight that ends at a layer face is discarded;
 //! with the step barrier, the face draws one uniform if the electron has the
 //! normal energy to get over (and none if it is surely reflected). A flight
 //! with zero total rate draws nothing. Secondaries continue on the same
@@ -96,11 +114,12 @@
 //! The [`ElectronTally`] trait mirrors [`crate::ion::bca::BcaTally`]: every
 //! event hook has a no-op default. Per-electron hooks (`step`, `elastic`,
 //! `inelastic`, `secondary`, `interface`, `barrier`, `reflected`, `stopped`,
-//! `escaped`, `absorbed`) fire for the primary and for every secondary;
+//! `escaped`, `absorbed`, `phonon`, `polaron_trapped`) fire for the primary and
+//! for every secondary;
 //! [`ElectronTally::begin_secondary`] and [`ElectronTally::end_secondary`]
 //! bracket each secondary, and [`ElectronTally::end_history`] comes last, with
-//! the primary's fate. Phonon and polaron channels would add a third channel
-//! next to the two tables.
+//! the primary's fate. The insulator channels report through
+//! [`ElectronTally::phonon`] and [`ElectronTally::polaron_trapped`].
 
 use serde::Serialize;
 
@@ -108,6 +127,9 @@ use rand_core::Rng;
 
 use crate::electron::boundary::{cross_step, BandStructure, StepOutcome};
 use crate::electron::data::{CrossSectionTable, SamplingAxis};
+use crate::electron::phonon::{
+    sample_cos_theta, FrohlichPhonon, InsulatorChannels, PolaronTrapping,
+};
 use crate::electron::secondary::{kieft_bosch, SecondaryEvent, SecondaryModel};
 use crate::geometry::Stack;
 use crate::rng::run_particles;
@@ -247,6 +269,19 @@ pub enum Fate {
     Trapped,
     /// The electron hit [`TransportConfig::max_events`] and was cut off.
     EventCap,
+    /// The electron was trapped as a polaron (an opt-in insulator channel,
+    /// [`crate::electron::phonon::PolaronTrapping`]) and deposited its
+    /// remaining energy there.
+    PolaronTrapped,
+}
+
+/// Which way a Fröhlich LO-phonon event went.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PhononEvent {
+    /// The electron emitted a phonon and lost `ħω`.
+    Emission,
+    /// The electron absorbed a phonon and gained `ħω`.
+    Absorption,
 }
 
 /// Run configuration, recorded in the [`RunMetadata`].
@@ -371,6 +406,24 @@ pub trait ElectronTally: Send {
     ) {
     }
 
+    /// A Fröhlich LO-phonon event changed the energy by `-ħω` (emission) or
+    /// `+ħω` (absorption), `hbar_omega_ev` given, and deflected the electron by
+    /// `theta` rad. `after` is the state after the event.
+    fn phonon(
+        &mut self,
+        _after: &ElectronState,
+        _kind: PhononEvent,
+        _hbar_omega_ev: f64,
+        _theta: f64,
+    ) {
+    }
+
+    /// The electron was trapped as a polaron at `at` and deposits its whole
+    /// remaining energy `at.energy_ev` there. The history (or the secondary)
+    /// then ends with [`Fate::PolaronTrapped`] (no [`ElectronTally::stopped`]
+    /// call).
+    fn polaron_trapped(&mut self, _at: &ElectronState) {}
+
     /// The electron crossed from layer `from_layer` into `to_layer`; `at` is
     /// its state on the face, inside the new layer (after refraction, with
     /// [`BoundaryModel::StepBarrier`]).
@@ -441,6 +494,8 @@ pub struct SummaryTally {
     pub trapped: u64,
     /// Primaries cut off by the event cap.
     pub event_capped: u64,
+    /// Primaries trapped as polarons.
+    pub polaron_trapped: u64,
     /// Secondaries created (and transported).
     pub secondaries: u64,
     /// Secondaries that left the target through either face.
@@ -453,6 +508,10 @@ pub struct SummaryTally {
     pub inelastic_events: u64,
     /// Layer-face crossings between layers.
     pub interface_crossings: u64,
+    /// LO-phonon emissions.
+    pub phonon_emissions: u64,
+    /// LO-phonon absorptions.
+    pub phonon_absorptions: u64,
     /// Total flight path, m.
     pub path_m: f64,
     /// Total energy lost in inelastic collisions, eV.
@@ -461,6 +520,12 @@ pub struct SummaryTally {
     pub escaped_energy_ev: f64,
     /// Energy of stopped electrons when they stopped, eV.
     pub rest_energy_ev: f64,
+    /// Energy given to the lattice by phonon emission, eV.
+    pub phonon_emitted_ev: f64,
+    /// Energy taken from the lattice by phonon absorption, eV.
+    pub phonon_absorbed_ev: f64,
+    /// Energy deposited by electrons trapped as polarons, eV.
+    pub polaron_deposited_ev: f64,
     /// Kinetic energy of the secondaries created, eV.
     pub secondary_energy_ev: f64,
     /// Sum of [`SecondaryEvent::binding_ev`], eV.
@@ -491,6 +556,27 @@ impl ElectronTally for SummaryTally {
         self.binding_ev += e.binding_ev;
         self.deposited_ev += e.deposited_ev;
     }
+    fn phonon(
+        &mut self,
+        _after: &ElectronState,
+        kind: PhononEvent,
+        hbar_omega_ev: f64,
+        _theta: f64,
+    ) {
+        match kind {
+            PhononEvent::Emission => {
+                self.phonon_emissions += 1;
+                self.phonon_emitted_ev += hbar_omega_ev;
+            }
+            PhononEvent::Absorption => {
+                self.phonon_absorptions += 1;
+                self.phonon_absorbed_ev += hbar_omega_ev;
+            }
+        }
+    }
+    fn polaron_trapped(&mut self, at: &ElectronState) {
+        self.polaron_deposited_ev += at.energy_ev;
+    }
     fn interface(&mut self, _at: &ElectronState, _from: usize, _to: usize) {
         self.interface_crossings += 1;
     }
@@ -520,6 +606,7 @@ impl ElectronTally for SummaryTally {
             Fate::Absorbed => self.absorbed += 1,
             Fate::Trapped => self.trapped += 1,
             Fate::EventCap => self.event_capped += 1,
+            Fate::PolaronTrapped => self.polaron_trapped += 1,
         }
     }
     fn merge(&mut self, o: Self) {
@@ -530,16 +617,22 @@ impl ElectronTally for SummaryTally {
         self.absorbed += o.absorbed;
         self.trapped += o.trapped;
         self.event_capped += o.event_capped;
+        self.polaron_trapped += o.polaron_trapped;
         self.secondaries += o.secondaries;
         self.secondaries_escaped += o.secondaries_escaped;
         self.reflections += o.reflections;
         self.elastic_events += o.elastic_events;
         self.inelastic_events += o.inelastic_events;
         self.interface_crossings += o.interface_crossings;
+        self.phonon_emissions += o.phonon_emissions;
+        self.phonon_absorptions += o.phonon_absorptions;
         self.path_m += o.path_m;
         self.inelastic_loss_ev += o.inelastic_loss_ev;
         self.escaped_energy_ev += o.escaped_energy_ev;
         self.rest_energy_ev += o.rest_energy_ev;
+        self.phonon_emitted_ev += o.phonon_emitted_ev;
+        self.phonon_absorbed_ev += o.phonon_absorbed_ev;
+        self.polaron_deposited_ev += o.polaron_deposited_ev;
         self.secondary_energy_ev += o.secondary_energy_ev;
         self.binding_ev += o.binding_ev;
         self.deposited_ev += o.deposited_ev;
@@ -566,6 +659,12 @@ pub struct LayerMetadata {
     pub inelastic_provenance: String,
     /// Band parameters of the layer, with their provenance, if given.
     pub band_structure: Option<BandStructure>,
+    /// Fröhlich LO-phonon channel of this layer (its parameters and their
+    /// provenance), or `None` when off (the default, and the choice for a
+    /// metal).
+    pub phonon: Option<FrohlichPhonon>,
+    /// Polaron-trapping channel of this layer, or `None` when off.
+    pub polaron: Option<PolaronTrapping>,
 }
 
 /// What a run was configured with, for output metadata.
@@ -610,6 +709,7 @@ pub struct TransportRun<T> {
 pub struct Transport {
     stack: Stack,
     tables: Vec<LayerTables>,
+    channels: Vec<InsulatorChannels>,
     bands: Option<Vec<BandStructure>>,
     /// Inner potential per layer, eV (zero without band parameters).
     inner: Vec<f64>,
@@ -730,14 +830,44 @@ impl Transport {
                 }
             }
         }
+        let channels = vec![InsulatorChannels::none(); tables.len()];
         Ok(Self {
             stack,
             tables,
+            channels,
             bands,
             inner,
             threshold,
             config,
         })
+    }
+
+    /// Switch on the insulator channels `channels` in layer `layer` (they
+    /// replace that layer's previous choice). Every layer starts with
+    /// [`InsulatorChannels::none`]; only opt a layer in when it is a polar
+    /// insulator (never a metal). The choice is recorded in the
+    /// [`LayerMetadata`] of the run.
+    pub fn with_insulator_channels(
+        mut self,
+        layer: usize,
+        channels: InsulatorChannels,
+    ) -> Result<Self, TransportError> {
+        if layer >= self.channels.len() {
+            return invalid(
+                "layer",
+                format!(
+                    "{layer} is out of range (the stack has {} layers)",
+                    self.channels.len()
+                ),
+            );
+        }
+        self.channels[layer] = channels;
+        Ok(self)
+    }
+
+    /// The insulator channels of each layer.
+    pub fn insulator_channels(&self) -> &[InsulatorChannels] {
+        &self.channels
     }
 
     /// The configuration.
@@ -834,8 +964,9 @@ impl Transport {
                 .layers()
                 .iter()
                 .zip(&self.tables)
+                .zip(&self.channels)
                 .enumerate()
-                .map(|(index, (l, t))| LayerMetadata {
+                .map(|(index, ((l, t), c))| LayerMetadata {
                     index,
                     front_m: l.front_m(),
                     back_m: l.back_m().is_finite().then_some(l.back_m()),
@@ -844,6 +975,8 @@ impl Transport {
                     inelastic_model: t.inelastic.model().to_string(),
                     inelastic_provenance: t.inelastic.provenance().to_string(),
                     band_structure: self.bands.as_ref().map(|b| b[index].clone()),
+                    phonon: c.phonon.clone(),
+                    polaron: c.polaron.clone(),
                 })
                 .collect(),
         }
@@ -962,9 +1095,11 @@ impl Transport {
                 return Fate::EventCap;
             }
             let tabs = &self.tables[st.layer];
+            let chans = &self.channels[st.layer];
             let (el, el_at) = rate(&tabs.elastic, st.energy_ev);
             let (inel, inel_at) = rate(&tabs.inelastic, st.energy_ev);
-            let total = el + inel;
+            let (em, ab, tr) = chans.rates(st.energy_ev);
+            let total = el + inel + em + ab + tr;
             let layer = &layers[st.layer];
             let mu = st.dir[0];
             let to_face = if mu > 0.0 {
@@ -990,60 +1125,91 @@ impl Transport {
                 }
                 tally.step(from, st, free);
                 events += 1;
-                if uniform(rng) * total < el {
-                    let u = uniform(rng);
-                    let theta = sample(&tabs.elastic, el_at, u).clamp(0.0, std::f64::consts::PI);
-                    let phi = std::f64::consts::TAU * uniform(rng);
-                    st.dir = deflect(st.dir, theta, phi);
-                    tally.elastic(st, theta);
-                } else {
-                    let u = uniform(rng);
-                    let w = sample(&tabs.inelastic, inel_at, u).clamp(0.0, st.energy_ev);
-                    let threshold = self.threshold[st.layer];
-                    match self.config.secondaries {
-                        SecondaryModel::Off => {
-                            st.energy_ev -= w;
-                            tally.inelastic(st, w);
-                        }
-                        SecondaryModel::KieftBosch {
-                            instantaneous_momentum,
-                            momentum_conservation,
-                        } => {
-                            let band = &self.bands.as_ref().expect("checked in build")[st.layer];
-                            // The primary cannot end below the Fermi level:
-                            // Nebula clamps its loss table to `K - E_F`
-                            // (`kieft_inelastic::create`, commit named in
-                            // `electron::boundary`). The threshold exceeds
-                            // E_F, so the bound is positive.
-                            let w = w.min(st.energy_ev - band.fermi_ev());
-                            let out = kieft_bosch(
+                match choose(uniform(rng) * total, [el, inel, em, ab, tr]) {
+                    0 => {
+                        let u = uniform(rng);
+                        let theta =
+                            sample(&tabs.elastic, el_at, u).clamp(0.0, std::f64::consts::PI);
+                        let phi = std::f64::consts::TAU * uniform(rng);
+                        st.dir = deflect(st.dir, theta, phi);
+                        tally.elastic(st, theta);
+                    }
+                    1 => {
+                        let u = uniform(rng);
+                        let w = sample(&tabs.inelastic, inel_at, u).clamp(0.0, st.energy_ev);
+                        let threshold = self.threshold[st.layer];
+                        match self.config.secondaries {
+                            SecondaryModel::Off => {
+                                st.energy_ev -= w;
+                                tally.inelastic(st, w);
+                            }
+                            SecondaryModel::KieftBosch {
                                 instantaneous_momentum,
                                 momentum_conservation,
-                                band,
-                                st.dir,
-                                st.energy_ev,
-                                w,
-                                threshold,
-                                rng,
-                            );
-                            st.energy_ev -= w;
-                            st.dir = out.primary_dir;
-                            tally.inelastic(st, w);
-                            let created = out.secondary.map(|(dir, energy_ev)| ElectronState {
-                                pos: st.pos,
-                                dir,
-                                energy_ev,
-                                layer: st.layer,
-                            });
-                            tally.secondary(st, &out.event, created.as_ref());
-                            if let Some(s) = created {
-                                pending.push((s, generation + 1));
+                            } => {
+                                let band =
+                                    &self.bands.as_ref().expect("checked in build")[st.layer];
+                                // The primary cannot end below the Fermi level:
+                                // Nebula clamps its loss table to `K - E_F`
+                                // (`kieft_inelastic::create`, commit named in
+                                // `electron::boundary`). The threshold exceeds
+                                // E_F, so the bound is positive.
+                                let w = w.min(st.energy_ev - band.fermi_ev());
+                                let out = kieft_bosch(
+                                    instantaneous_momentum,
+                                    momentum_conservation,
+                                    band,
+                                    st.dir,
+                                    st.energy_ev,
+                                    w,
+                                    threshold,
+                                    rng,
+                                );
+                                st.energy_ev -= w;
+                                st.dir = out.primary_dir;
+                                tally.inelastic(st, w);
+                                let created = out.secondary.map(|(dir, energy_ev)| ElectronState {
+                                    pos: st.pos,
+                                    dir,
+                                    energy_ev,
+                                    layer: st.layer,
+                                });
+                                tally.secondary(st, &out.event, created.as_ref());
+                                if let Some(s) = created {
+                                    pending.push((s, generation + 1));
+                                }
                             }
                         }
+                        if st.energy_ev < threshold {
+                            tally.stopped(st);
+                            return Fate::Stopped;
+                        }
                     }
-                    if st.energy_ev < threshold {
-                        tally.stopped(st);
-                        return Fate::Stopped;
+                    k @ (2 | 3) => {
+                        let ph = chans
+                            .phonon
+                            .as_ref()
+                            .expect("a positive phonon rate implies the channel is on");
+                        let hw = ph.hbar_omega_ev();
+                        let (kind, after) = if k == 2 {
+                            (PhononEvent::Emission, st.energy_ev - hw)
+                        } else {
+                            (PhononEvent::Absorption, st.energy_ev + hw)
+                        };
+                        let mu = sample_cos_theta(st.energy_ev, after, uniform(rng));
+                        let theta = mu.acos();
+                        let phi = std::f64::consts::TAU * uniform(rng);
+                        st.dir = deflect(st.dir, theta, phi);
+                        st.energy_ev = after;
+                        tally.phonon(st, kind, hw, theta);
+                        if st.energy_ev < self.threshold[st.layer] {
+                            tally.stopped(st);
+                            return Fate::Stopped;
+                        }
+                    }
+                    _ => {
+                        tally.polaron_trapped(st);
+                        return Fate::PolaronTrapped;
                     }
                 }
                 continue;
@@ -1117,6 +1283,26 @@ impl Transport {
             }
         }
     }
+}
+
+/// The channel for `x = u · total`: the first index whose cumulative rate
+/// exceeds `x`, skipping zero rates; if rounding leaves `x` at or past the
+/// sum, the last channel with a positive rate. With only the first two rates
+/// positive this is `x < el` → elastic, else inelastic, as before the
+/// insulator channels existed. Only called when the total is positive.
+fn choose(x: f64, rates: [f64; 5]) -> usize {
+    let mut cum = 0.0;
+    let mut last = 0;
+    for (k, &r) in rates.iter().enumerate() {
+        if r > 0.0 {
+            cum += r;
+            last = k;
+            if x < cum {
+                return k;
+            }
+        }
+    }
+    last
 }
 
 /// Uniform on `[0, 1)` with 53 random bits.
