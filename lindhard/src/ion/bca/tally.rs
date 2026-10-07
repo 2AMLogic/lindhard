@@ -9,14 +9,7 @@
 
 use super::Particle;
 
-/// Which face of the target a particle left through.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Face {
-    /// The front surface, `x = 0` (backscattering, sputtering).
-    Front,
-    /// The back face of a finite stack (transmission).
-    Back,
-}
+pub use crate::geometry::Face;
 
 /// Where an amount of nuclear energy given to the lattice came from.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,9 +60,18 @@ pub struct EnergyBudget {
     pub sputtered: f64,
     /// Energy carried out of the back face (primary and recoils).
     pub transmitted: f64,
+    /// Energy carried out of a lateral face of a voxel grid ([`Face::Side`];
+    /// primary and recoils). Always zero for a stack, and omitted from the
+    /// serialised form when zero.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub lateral: f64,
     /// Kinetic energy of particles when they stopped (below their cutoff, or
     /// recoils not followed).
     pub rest: f64,
+}
+
+fn is_zero(v: &f64) -> bool {
+    *v == 0.0
 }
 
 impl EnergyBudget {
@@ -83,6 +85,7 @@ impl EnergyBudget {
                 + self.backscattered
                 + self.sputtered
                 + self.transmitted
+                + self.lateral
                 + self.rest)
     }
 
@@ -96,6 +99,7 @@ impl EnergyBudget {
         self.backscattered += o.backscattered;
         self.sputtered += o.sputtered;
         self.transmitted += o.transmitted;
+        self.lateral += o.lateral;
         self.rest += o.rest;
     }
 }
@@ -120,7 +124,9 @@ pub trait BcaTally: Send {
     ) {
     }
 
-    /// Nuclear energy `energy_ev` left in the lattice at `at` in layer `layer`.
+    /// Nuclear energy `energy_ev` left in the lattice at `at` in region
+    /// `layer` (the layer index of a stack, the flat voxel index of a voxel
+    /// grid).
     fn lattice(&mut self, _at: [f64; 3], _layer: usize, _kind: LatticeDeposit, _energy_ev: f64) {}
 
     /// A target atom was displaced (transfer above `E_d`); `recoil` is its
@@ -164,6 +170,10 @@ pub struct SummaryTally {
     pub sputtered: u64,
     /// Recoils that left through the back face.
     pub recoils_transmitted: u64,
+    /// Primaries that left through a lateral face of a voxel grid.
+    pub lateral: u64,
+    /// Recoils that left through a lateral face of a voxel grid.
+    pub recoils_lateral: u64,
     /// Displaced atoms (recoils created).
     pub recoils: u64,
     /// Sum of the rest depth of stopped primaries, m.
@@ -188,6 +198,8 @@ impl SummaryTally {
             transmitted: 0,
             sputtered: 0,
             recoils_transmitted: 0,
+            lateral: 0,
+            recoils_lateral: 0,
             recoils: 0,
             depth_sum: 0.0,
             depth_sq_sum: 0.0,
@@ -232,6 +244,8 @@ impl BcaTally for SummaryTally {
             (true, Face::Back) => self.transmitted += 1,
             (false, Face::Front) => self.sputtered += 1,
             (false, Face::Back) => self.recoils_transmitted += 1,
+            (true, Face::Side) => self.lateral += 1,
+            (false, Face::Side) => self.recoils_lateral += 1,
         }
     }
 
@@ -251,6 +265,8 @@ impl BcaTally for SummaryTally {
         self.transmitted += o.transmitted;
         self.sputtered += o.sputtered;
         self.recoils_transmitted += o.recoils_transmitted;
+        self.lateral += o.lateral;
+        self.recoils_lateral += o.recoils_lateral;
         self.recoils += o.recoils;
         self.depth_sum += o.depth_sum;
         self.depth_sq_sum += o.depth_sq_sum;

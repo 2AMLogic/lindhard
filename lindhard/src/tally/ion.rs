@@ -504,6 +504,9 @@ impl BcaTally for IonTally {
         let acc = match face {
             Face::Front => &mut pair.0,
             Face::Back => &mut pair.1,
+            // Lateral faces exist only on voxel grids, which this stack
+            // tally does not describe.
+            Face::Side => return,
         };
         acc.count += 1;
         acc.energy_ev += p.energy_ev;

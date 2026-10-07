@@ -51,3 +51,7 @@ harness = false
 [[bench]]
 name = "history"
 harness = false
+
+[[bench]]
+name = "elastic"
+harness = false
