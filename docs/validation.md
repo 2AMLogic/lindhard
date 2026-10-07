@@ -284,7 +284,8 @@ explained here, or recorded as unexplained:
   Candidates are the impact-parameter limit and first-flight conventions at
   1 keV. Neither is tuned away.
 - **RustBCA, Ar → Cu with weak collisions (#64).** The #61 investigation
-  traced much of the factor 2.2 to lindhard's electronic share of the
+  (summary below the table) suspected that much of the factor 2.2 comes from
+  lindhard's electronic share of the
   cascade, which is about twice the partition for its own inputs because the
   nuclear loss beyond `p_max` is dropped (level 1, "Known deviations").
   Restoring that loss with TRIDYN's weak collisions does not close the gap,
@@ -345,6 +346,193 @@ explained here, or recorded as unexplained:
 
 Differences are lindhard relative to the oracle, with the difference in units of its combined standard error in brackets (both runs' statistics; the sputter-yield error assumes Poisson counts). A speed ratio > 1 means lindhard is faster: end-to-end is process wall clock at the run's ion count, marginal removes fixed setup costs (see each summary's `timing`). Every row's settings, both sides' values and the full list of mismatches are in its file under `validation/oracles/summaries/`.
 <!-- validation:level2:end -->
+
+### Investigation of the low sputter yield (#61), as of 2026-10-07
+
+**Status.** No coding defect was found in the paths checked below. The
+factor of about 2.2 between lindhard and RustBCA on `ar_1keV_cu_ed_es`
+(level 2), and lindhard's deficit of 0.43 to 0.66 against the measured median
+for Ar on Si, Cu, Ag and Au (level 3, "Sputter yields"), both remain
+**unexplained**. The yield depends strongly on how electronic loss is charged
+to slow recoils. That is the leading hypothesis, not a demonstrated cause, and
+a residual not attributable to electronic loss is not excluded. No default
+was changed and nothing was tuned. Agreement with RustBCA is not the target,
+because RustBCA itself lies above the measured median for most energies on
+Si, Cu and Au (level 3).
+
+**Evidence classes.** Every number in this summary is one of three kinds:
+
+- *Committed*: in a file in this tree, with the lindhard revision recorded,
+  namely the level-2 summaries under `validation/oracles/summaries/`, the
+  level-3 `validation/experiments/results.json` (lindhard `2aff938`) and the
+  level-1 table above.
+- *Rerun*: run again for this summary (table below).
+- *Exploratory, unverified*: reported in the #61 comments from scratch builds
+  that were never committed. The source revision, patches, scripts and outputs
+  of those builds were not recovered. They are quoted only as reported, are
+  not regenerated here with a different revision, and must not be cited as
+  results.
+
+The investigation history, in order:
+[investigation](https://github.com/2AMLogic/lindhard/issues/61#issuecomment-6006453873),
+[weak collisions, first report](https://github.com/2AMLogic/lindhard/issues/61#issuecomment-6010527198)
+(superseded by the
+[correction](https://github.com/2AMLogic/lindhard/issues/61#issuecomment-6010987411)),
+[Cu experiment](https://github.com/2AMLogic/lindhard/issues/61#issuecomment-6022849779),
+[four-target experiment](https://github.com/2AMLogic/lindhard/issues/61#issuecomment-6025544781),
+[electronic-loss variants](https://github.com/2AMLogic/lindhard/issues/61#issuecomment-6027541880).
+
+**Rerun, 2026-10-07.** lindhard `8cca5e8`, `lindhard run` on the inputs that
+`validation/lib/lindhard_cli.py` writes for each problem of
+`validation/oracles/problems.json`, 20 000 ions, seed 1, 2 threads. The errors
+are 1σ: Poisson `sqrt(sputtered)/ions` for the yield (this underestimates the
+true error, because sputtered atoms come in correlated bursts) and binomial
+for backscatter.
+
+| Case | Sputter yield | Backscatter | Electronic loss, eV/ion (nonlocal + local) | Committed value (lindhard revision) |
+|---|---|---|---|---|
+| `ar_1keV_cu_ed_es` (control: E_d = E_s = 3.49 eV, K = 0) | 1.9341 ± 0.0098 | 0.0881 ± 0.0020 | 623.8 + 0 | 1.9341, 0.08805 (`7c76596`): identical |
+| `ar_1keV_cu` (E_d = 30 eV) | 0.4666 ± 0.0048 | 0.0881 ± 0.0020 | 307.9 + 0 | 0.46655, 0.08805 (`7c76596`): identical |
+| `ar_1keV_cu_ed_es_weak3` (K = 3) | 0.8824 ± 0.0066 | 0.0836 ± 0.0020 | 339.7 + 0 | 0.88235, 0.08355 (`782e3cc`): identical |
+| Probe: the control with `stopping = "equipartition-ls-or"` | 2.7985 ± 0.0118 | 0.0915 ± 0.0020 | 402.0 + 32.7 | none (first recorded here) |
+
+For context, the committed RustBCA v3.0.0-17-ga356280 values are 4.169 ±
+0.014 (yield) and 0.1077 ± 0.0022 (backscatter) on the control, and 5.153
+and 0.1052 with `weak_collision_order = 3`. RustBCA was not rerun. Each
+energy budget closes to rounding (`max_relative_residual` 0). The committed
+summaries are rounded to 6 significant figures and were run on 28 threads.
+The rerun matches them exactly: the same sputtered and backscattered counts
+on 2 threads, at a later revision, as the determinism invariant requires.
+
+The probe is an existing, documented engine option (`ion::stopping`; the
+level-3 range variant `zbl_eqLSOR` uses it too). It is used here only as a
+sensitivity check. It moves part of the electronic loss into each collision
+(Oen-Robinson), lowers the total by 30 %, and raises the yield by a factor of
+1.45. It is not proposed as a sputtering model, and it was not compared with
+the measured yields here.
+
+**Hypotheses checked in the code** (`lindhard/src/ion/bca/mod.rs` and
+`kinematics.rs` at `8cca5e8`):
+
+1. *Recoil creation.* `Bca::collide` applies a single gate to the hard
+   partner, `T > E_d && T > E_b`. The recoil starts with `T - E_b` at the
+   collision site and is followed if that energy is at least the recoil
+   cutoff. No generation limit, depth limit or replacement rule acts in
+   transport; replacements are bookkeeping in `tally::ion`. A recoil with
+   `T <= E_s` can never cross the planar barrier, nor can any of its own
+   recoils. So once `E_d <= E_s`, lowering `E_d` further can change the yield
+   only through the random sequence, never in expectation. The drop from 1.93
+   to 0.47 at E_d = 30 eV (rerun) is the Biersack-Haggmark criterion
+   ("Sputter yield vs `E_d`", level 1).
+2. *Recoil termination.* `Bca::transport` ends a particle only when its
+   energy falls below its cutoff or when it escapes. There is no step limit.
+   Collisions beyond `p_max` are dropped (`MeanFreePath::Constant`,
+   `N pi p_max^2 l = 1`). That truncation of the nuclear loss is a committed,
+   tested finding: the negative control `damage.cascade_electronic_share.control`
+   in the level-1 table above, and "Cascade electronic share without weak
+   collisions" under "Known deviations". Restoring the dropped loss (K = 3)
+   lowers the yield (rerun, 1.93 → 0.88), so the truncation alone does not
+   account for the gap.
+3. *Surface crossing and first flight.* `kinematics::refract_out_normal`
+   implements the planar barrier `E cos^2 > E_s`, the refraction outside and
+   specular reflection when the atom cannot escape. `Bca::draw_tau` draws the
+   uniform `[0, l)` first flight for the primary only. A new recoil flies a
+   full `l` (`tau = 1`), and `Bca::electronic_nonlocal` charges `n S_e(E) s`
+   at the energy that flight starts with, before the next collision or the
+   barrier test. This is the convention that the electronic-loss hypothesis
+   concerns.
+4. *Counting.* `tally.escaped` counts every non-primary front-face escape as
+   sputtered, whatever its generation or depth of origin. The pending stack is
+   drained in `Bca::history_in`, and the energy budget closes (rerun).
+
+**Electronic-loss sensitivity: what is shown and what is not.**
+
+- *Committed or rerun.* Without weak collisions the cascade's electronic
+  share is about twice the LNST partition for the engine's own inputs (level
+  1). The equipartition probe raises the yield by a factor of 1.45. K = 3
+  brings the electronic share into line with the partition but halves the
+  yield. Together these show that the yield is sensitive to the electronic
+  loss of slow atoms. They do not show which treatment is correct.
+- *Exploratory, unverified.* These were reported from scratch builds:
+  - With electronic loss off in both codes, the lindhard/RustBCA ratio is
+    0.89 to 1.00 for the metals.
+  - Removing the nonlocal loss on each recoil's first flight raises the Cu
+    1 keV yield from 1.95 to 3.06.
+  - Charging the nonlocal loss over `lambda - tau`, with TRIM's hard-sphere
+    time integral `tau = p tan(theta/2)` (variant "P4"), gives 0.78 / 0.98 /
+    0.69 / 0.91 of the measured median for Si / Cu / Ag / Au. The same
+    variant brings the electronic share within 0.03 of the partition.
+
+  None of these variants exists in the engine. The time-integral path length
+  is follow-up #79, and #58 would make the electronic-loss-off comparison
+  reproducible with the supported CLI. Closeness to RustBCA or to the
+  partition is not, by itself, evidence of a defect.
+
+**Residual hypotheses (not electronic).** These are separate from the above
+and open:
+
+- *Backscatter* is lower than RustBCA's: 8.8 % against 10.8 %, 6.6σ
+  (committed). It was reported to stay lower with electronic loss off (10.3 %
+  against 13.1 %, unverified).
+- *Si and Ag* stayed about 20 % low under every exploratory electronic-loss
+  variant (unverified).
+- *The surface-binding convention* (`E_s` = cohesive energy, planar barrier)
+  is a convention. The yield was reported to scale roughly as `1/E_s`
+  (unverified).
+- *The target dependence* at level 3 is not one common factor (committed,
+  "Key result" below).
+- *The sputtered-atom energy spectrum* (rerun, 0.5 eV bins, the recipe's
+  tally settings) has a broad maximum over 1.5 to 3.0 eV in the control.
+  Its largest bin is 2.0 to 2.5 eV (1817 atoms; the neighbouring bins hold
+  1764 and 1801, each ± about 42). With the equipartition probe the
+  maximum moves to 1.5 to 2.5 eV. Thompson's spectrum peaks at
+  `U_s/2` = 1.75 eV for Cu (Phil. Mag. 18, 377 (1968)). The shift is
+  consistent with a few-eV loss on the way out, but it does not identify a
+  mechanism. The mean sputtered energy is 12.2 eV in the control.
+
+**Weak-collision numbers.** The current values are those of the correction
+comment, and the rerun confirms them: the yield falls from 1.93 to 0.88, the
+electronic loss from 624 to 340 eV/ion, and backscatter from 8.8 % to 8.4 %.
+The first report's 0.66, 339 eV and 7.8 % were obtained without TRIDYN's
+surface test for weak partners. They are superseded.
+
+**Reproduction.** Use a worktree, and keep the build's target directory
+inside it.
+
+```sh
+export CARGO_TARGET_DIR=$PWD/target
+cargo build --release -p lindhard-cli -j 2
+export LINDHARD_BIN=$PWD/target/release/lindhard
+# Control (prints yield and backscatter; input and output under validation/oracle-runs/)
+validation/oracles/run.py --lindhard-only --problem ar_1keV_cu_ed_es --timing-factor 0
+validation/oracles/run.py --lindhard-only --problem ar_1keV_cu --timing-factor 0
+validation/oracles/run.py --lindhard-only --problem ar_1keV_cu_ed_es_weak3 --timing-factor 0
+# Electronic-loss probe: the control's own input with one physics choice changed
+d=validation/oracle-runs/lindhard/ar_1keV_cu_ed_es
+sed 's/^stopping = "lindhard-scharff"$/stopping = "equipartition-ls-or"/' "$d/input.toml" > probe.toml
+$LINDHARD_BIN run probe.toml --out probe-out --threads 2
+# Sputtered-atom spectrum in 0.5 eV bins: append to either input, whose last
+# table is [tally] (tally only; the counts and yields are unchanged), rerun,
+# then read escape_spectra.csv
+printf 'escape_energy_max_ev = 20.0\nescape_energy_bins = 40\n' >> probe.toml
+```
+
+`summary.json` in each output directory records the revision
+(`software.git_describe`), the full input as run, and the per-ion energy
+budget. The thread count does not change any result, and neither do the
+tally settings. Measured yields are only
+in level 3, and oracle values only in the committed level-2 summaries; none
+of the commands above runs an oracle.
+
+**Follow-ups, none of them required by #61:**
+
+- #58: an electronic-loss-off CLI choice.
+- #79: an opt-in time-integral path length for nonlocal loss.
+- #80: an opt-in, experiment-tuned mode. It is kept separate from the untuned
+  comparison.
+- #81: a clean-room warning that the cited IPP 9/64 PDF carries the TRIDYN
+  listing as Appendix 1. Use only the report body.
+- #78: the sensitivity of the level-3 ratios to doubtful datasets.
 
 ## 3. Experiment (the real bar)
 
@@ -812,7 +1000,8 @@ error then stands in for the median. `E_s` = cohesive energy is a
 convention, not a measured surface barrier, and the yield depends on it
 directly, so a per-target difference in how well that convention holds
 would appear as a per-target ratio. The statements above say what the
-numbers show; they do not identify a cause (electronic share, #61; surface
+numbers show; they do not identify a cause (electronic share, #61, see
+"Investigation of the low sputter yield" in section 2; surface
 binding; the impact-parameter limit; target structure), and no parameter
 was adjusted to these data. The angular dependence is not covered.
 
