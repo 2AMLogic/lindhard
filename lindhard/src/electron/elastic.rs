@@ -5,8 +5,9 @@
 //! differential cross section `DCS(theta)`, the total elastic cross section
 //! `sigma_el`, the first transport cross section `sigma_tr1` and the Sherman
 //! function, all at **one** kinetic energy and for a potential given as a
-//! function. Energy-grid tables, exchange and polarization corrections and
-//! condensed phases are follow-up issues.
+//! function. Energy-grid tables for a material are in [`table`] (issue #90);
+//! exchange and polarization corrections and condensed phases are follow-up
+//! issues.
 //!
 //! # Units
 //!
@@ -972,6 +973,8 @@ pub fn solve(
         partial_waves: pw,
     })
 }
+
+pub mod table;
 
 #[cfg(test)]
 mod tests;
