@@ -716,7 +716,7 @@ impl Transport {
             // conserve or reduce, bounds the number of electrons followed.
             let b = bands.as_ref().expect("checked above");
             for (layer, (band, &t)) in b.iter().zip(&threshold).enumerate() {
-                if !(t > band.fermi_ev()) {
+                if t <= band.fermi_ev() {
                     return invalid(
                         "cutoff",
                         format!(
@@ -786,7 +786,7 @@ impl Transport {
         } else {
             p.energy_ev
         };
-        if !(inside > self.threshold[0]) {
+        if inside <= self.threshold[0] {
             return invalid(
                 "primary energy",
                 format!(

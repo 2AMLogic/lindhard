@@ -264,7 +264,8 @@ pub fn free_electron_density_per_m3(fermi_ev: f64) -> f64 {
 /// `4 s / (1 + s)²` with `s = sqrt(1 + ΔU / E_n)`. Symmetric under exchanging
 /// the two sides (`s -> 1/s`).
 pub fn step_transmission(normal_energy_ev: f64, delta_u_ev: f64) -> f64 {
-    if !(normal_energy_ev > 0.0) || normal_energy_ev + delta_u_ev <= 0.0 {
+    if normal_energy_ev.is_nan() || normal_energy_ev <= 0.0 || normal_energy_ev + delta_u_ev <= 0.0
+    {
         return 0.0;
     }
     let s = (1.0 + delta_u_ev / normal_energy_ev).sqrt();

@@ -39,6 +39,24 @@ one version).
   `kinematics::refract_out_normal` applies the surface barrier along an
   arbitrary face normal. `Particle::layer` is now the region index (layer or
   flat voxel index). Stack runs are unchanged.
+- Secondary electrons and surface barriers in `electron::transport` (Kieft
+  and Bosch; equations from Verduin's thesis, TU Delft 2017; kinematics and
+  step ported from Nebula and the band model from cstool, BSD-3). New
+  `TransportConfig` fields, all off by default so existing runs are unchanged
+  bit for bit: `secondaries` (`SecondaryModel::KieftBosch`: one secondary of
+  energy `E_F + W - B` per inelastic event, Ivanchenko direction model,
+  pushed on the history's stack and transported in full), `boundary`
+  (`BoundaryModel::StepBarrier`: quantum-mechanical transmission, refraction
+  and reflection at every face by the inner-potential step, with the primary
+  incident from vacuum) and `cutoff_reference` (cutoff from the band bottom
+  or the vacuum level). Per-layer band parameters (`electron::boundary::
+  BandStructure`: Fermi energy and work function, or valence band width, band
+  gap and electron affinity, with a required provenance) go through
+  `Transport::with_band_structures`; no material defaults are built in (see
+  `docs/data-provenance.md`). New `ElectronTally` hooks with no-op defaults
+  (`secondary`, `barrier`, `reflected`, `begin_secondary`, `end_secondary`),
+  new `SummaryTally` counters, and the models and band parameters in
+  `RunMetadata`.
 - `electron::transport`: the event-by-event electron loop (Kieft and Bosch,
   J. Phys. D 41, 215310 (2008)) over layered stacks on elastic and inelastic
   `CrossSectionTable`s. `Transport::run` goes through `rng::run_particles`
