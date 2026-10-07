@@ -13,28 +13,12 @@ use lindhard::ion::damage::{
     NRT_EFFICIENCY,
 };
 use lindhard::ion::scattering::ScatteringTable;
-use lindhard::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
+use lindhard::ion::stopping::none::NoStopping;
+use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 use crate::report::{num, pct, sci, Check};
-
-struct NoElectronic;
-
-impl ElectronicStopping for NoElectronic {
-    fn name(&self) -> &'static str {
-        "none"
-    }
-    fn stopping(&self, _ion: &Ion, _z: u8, _e: f64) -> Result<f64, StoppingError> {
-        Ok(0.0)
-    }
-    fn validity(&self, _ion: &Ion) -> ValidityRange {
-        ValidityRange {
-            min_energy_ev: 0.0,
-            max_energy_ev: f64::INFINITY,
-        }
-    }
-}
 
 pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let mut out = Vec::new();
@@ -139,7 +123,7 @@ pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
         Beam::normal(Ion::new(14).unwrap(), 2.0e3, count),
         &stack,
         cfg,
-        &NoElectronic,
+        &NoStopping,
         table,
     )
     .unwrap();

@@ -44,7 +44,8 @@ Declare the files under `[stopping] tables` (see
 declares, including recoils of that species when recoils are followed; every
 other pair uses the model. A table cannot be combined with
 `stopping = "equipartition-ls-or"`, which carries its own Lindhard-Scharff
-and Oen-Robinson loss.
+and Oen-Robinson loss. With `stopping = "none"` the declared pairs use their
+tables and every other pair has no electronic stopping.
 
 ## Assumptions
 
