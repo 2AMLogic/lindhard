@@ -181,6 +181,16 @@ one version).
   (`inelastic::bethe`); and an analytic Drude-Lorentz ELF with closed-form
   sum rules (`DrudeLorentz`) as a synthetic fixture. Example
   `penn_sum_rules` and bench `penn`.
+- `electron::inelastic::FullPenn`: the full Penn algorithm, the optical ELF
+  expanded over Lindhard dielectric functions (`LindhardGas`, with its
+  plasmon and limiting-form tests), with the loss function, DIIMFP, IMFP and
+  stopping power; it agrees with the single pole to 1e-3 at 10 to 50 keV on
+  the synthetic Drude fixture and differs below 1 keV as documented in the
+  module docs. `PennAlgorithm` / `PennInelastic` select either per material
+  and give the identity string to record as a table's `model`. Example
+  `penn_full_vs_single_pole`, bench group
+  `penn_single_pole_vs_full_8_energies`. Penn (1987) and Lindhard (1954)
+  were not opened; see `docs/data-provenance.md`.
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and

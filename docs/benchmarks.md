@@ -33,6 +33,7 @@ scattering table), so run-to-run differences are timing noise only.
 | `elastic.rs` | `elastic_table` | A full `electron::elastic::table::build_elastic_table` for Si and Au: 75 energies from 10 eV to 50 keV, adaptive probability grid (same stand-in potential) |
 | `history.rs` | `throughput_<problem>_10k_ions` | 10^4 ions through `Bca::run` on explicit rayon pools of 1, 2, 4, ... up to the machine's parallelism |
 | `penn.rs` | `penn_spa_200_energies` | `SinglePolePenn::tabulate`: the electron IMFP and stopping power on a 200-point log grid from 10 eV to 50 keV, single-pole Penn model on a synthetic Drude plasmon ELF (20 eV, width 5 eV) tabulated at 1000 energies |
+| `penn.rs` | `penn_single_pole_vs_full_8_energies` | `SinglePolePenn::tabulate` against `FullPenn::tabulate` (default tolerance 1e-4) on 8 log-spaced energies from 10 eV to 50 keV, same synthetic Drude ELF at 1000 energies; the full model is about three orders of magnitude slower per energy (about 2 s against 2 ms per energy, 17.7 s against 15 ms for the 8 energies, on a loaded shared host) |
 
 Free-path selection is measured through the engine (constant vs
 energy-dependent convention), since the selection code is private to

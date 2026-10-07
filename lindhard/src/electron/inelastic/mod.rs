@@ -1,6 +1,6 @@
 //! Inelastic electron scattering from dielectric-function models.
 //!
-//! The first model is the **single-pole Penn algorithm** ([`penn`]): from a
+//! The simplest model is the **single-pole Penn algorithm** ([`penn`]): from a
 //! user-supplied optical energy-loss function
 //! ([`crate::electron::data::OpticalElf`]) it builds the momentum-dependent
 //! loss function, the differential inverse inelastic mean free path (DIIMFP),
@@ -23,21 +23,32 @@
 //! [`table`] builds the inelastic energy-loss `CrossSectionTable` and a
 //! momentum-transfer sampler from the model.
 //!
-//! The full Penn algorithm, Mermin fits and relativistic kinematics are
-//! later work.
+//! The **full Penn algorithm** ([`full_penn`]) expands the same optical ELF
+//! over the Lindhard dielectric functions of free-electron gases
+//! ([`lindhard_gas`]) and costs about a second per energy where the single
+//! pole costs milliseconds; [`model`] selects either per material and gives
+//! the string to record in the metadata of derived tables.
+//!
+//! Mermin fits and relativistic kinematics are later work.
 
 pub mod bethe;
 pub mod drude;
+pub mod full_penn;
 pub mod inner_shell;
+pub mod lindhard_gas;
+pub mod model;
 pub mod penn;
 mod quadrature;
 pub mod sum_rules;
 pub mod table;
 
 pub use drude::{DrudeLorentz, DrudeLorentzOscillator};
+pub use full_penn::{FullPenn, DEFAULT_FULL_TOLERANCE};
 pub use inner_shell::{
     Channel, ChannelDiimfp, ChannelInverseImfp, InnerShell, ShellResolvedChannels,
 };
+pub use lindhard_gas::{LindhardGas, LindhardPlasmon};
+pub use model::{PennAlgorithm, PennInelastic};
 pub use penn::{
     born_ochkur_factor, ExchangeCorrection, InelasticPoint, SinglePolePenn,
     DEFAULT_RELATIVE_TOLERANCE,
