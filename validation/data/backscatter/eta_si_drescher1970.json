@@ -44,7 +44,7 @@
       "eta_unc_abs": 0.0005
     }
   ],
-  "original_reference": "H. Drescher, L. Reimer and H. Seidel, Z. angew. Physik 29, 331 (1970)",
+  "original_reference": "H. Drescher, L. Reimer and M. Seidel, Z. angew. Physik 29, 331 (1970)",
   "original_doi": null,
   "original_reference_note": "no Crossref record found; the original was not opened",
   "compilation": "D. C. Joy, 'A Database of Electron-Solid Interactions', revision 01-01 (2001), database.doc (SHA-256 9445f8ddbebb72892a30e2e3bb5c77dac3b4d5b36790287e7c0ce658afd25fd7), Section 2(a) 'Backscattered Electron Yield Data, for elements'; published description: D. C. Joy, Scanning 17, 270 (1995), doi:10.1002/sca.4950170501 (not opened)",

@@ -94,7 +94,7 @@ REFS = {
          "Crossref title: 'Backscattering coefficient measurements of 15 to 60 keV electrons for solids at various angles of incidence'"),
     14: ("kanter1961", "M. Kanter, Phys. Rev. 121, 1677 (1961)", None,
          "page as printed by Joy; Crossref has no Phys. Rev. 121 article at p. 1677. Kanter's two 1961 articles in that volume are pp. 677-681 (doi:10.1103/physrev.121.677) and 681-684 (doi:10.1103/physrev.121.681); which one holds these values is not settled, so no DOI is given"),
-    15: ("drescher1970", "H. Drescher, L. Reimer and H. Seidel, Z. angew. Physik 29, 331 (1970)", None,
+    15: ("drescher1970", "H. Drescher, L. Reimer and M. Seidel, Z. angew. Physik 29, 331 (1970)", None,
          "no Crossref record found"),
     22: ("cosslett1965", "V. E. Cosslett and R. N. Thomas, Brit. J. Appl. Phys. 16, 774 (1965)", None,
          "page as printed by Joy; Crossref has Cosslett and Thomas, Brit. J. Appl. Phys. 16, 779-796 (1965), 'Multiple scattering of 5-30 keV electrons in evaporated metal films III: Backscattering and absorption', doi:10.1088/0508-3443/16/6/303, probably this paper (first page differs), so no DOI is asserted"),

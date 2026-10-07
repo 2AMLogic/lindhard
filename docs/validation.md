@@ -1212,7 +1212,7 @@ lindhard 0.0.1 (6629260), 100000 primaries per run, seed 1; the model and its ga
 - Cu: 5 of 5 energies pass; largest abs. diff. -0.021 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
 - Au: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
 
-**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the correlation-polarization corrections switched off one at a time and together (same seed and primaries; σ of each eta as above).
+**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the correlation-polarization corrections switched off one at a time and together (same seed and primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value for independent runs. The variants share the seed, so their noise is correlated and the true σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, not a conservative test of it.
 
 | Target | E (keV) | exchange + polarization (baseline) | exchange only | polarization only | no corrections | baseline - no corrections |
 |---|---|---|---|---|---|---|
@@ -1221,14 +1221,14 @@ lindhard 0.0.1 (6629260), 100000 primaries per run, seed 1; the model and its ga
 | Cu | 1 | 0.3334 ± 0.0015 | 0.3329 ± 0.0015 | 0.3284 ± 0.0015 | 0.3305 ± 0.0015 | +0.0029 (+1.4 σ) |
 | Cu | 10 | 0.2983 ± 0.0014 | 0.2983 ± 0.0014 | 0.2970 ± 0.0014 | 0.2973 ± 0.0014 | +0.0010 (+0.5 σ) |
 
-Largest effect of the two corrections together: 0.0029 (1.4 σ, Cu at 1 keV); every difference is within 2 σ, so at this statistic the corrections do not change η measurably, with the stand-in potential they are solved on.
+Largest effect of the two corrections together: 0.0029 (1.4 σ, Cu at 1 keV); every difference is within 2 σ of the independent-run bound. Because the runs are correlated, that does not show the effect is zero; the measured differences (at most 0.0029 in η) are small next to the 0.05 tolerance and the measured spread, with the stand-in potential the corrections are solved on.
 
 Per-run values: `validation/experiments/backscatter_results.json`; datasets: `validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md).
 <!-- validation:level3-backscatter:end -->
 
 **Limits.** Al and Cu meet the tolerance at every energy from 5 to 30 keV,
 but lindhard is below the measured median at every compared energy, by
-0.013 to 0.021 at 5 keV and above. That offset is not attributed here. Two
+0.012 to 0.021 at 5 keV and above. That offset is not attributed here. Two
 known parts of the model act on it: the elastic potential is the
 Thomas-Fermi Yukawa stand-in, not DHFS, and fast secondaries above 50 eV
 (counted in a measured η) are not generated. The measured sets are mostly

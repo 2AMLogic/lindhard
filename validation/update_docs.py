@@ -828,7 +828,10 @@ def level3_backscatter() -> str:
             "",
             "**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the "
             "correlation-polarization corrections switched off one at a time and together (same seed and "
-            "primaries; σ of each eta as above).",
+            "primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value "
+            "for independent runs. The variants share the seed, so their noise is correlated and the true "
+            "σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, "
+            "not a conservative test of it.",
             "",
             "| Target | E (keV) | " + " | ".join(labels[i] for i in order) + " | baseline - no corrections |",
             "|---|---|" + "---|" * len(order) + "---|",
@@ -844,8 +847,10 @@ def level3_backscatter() -> str:
         big = max(effects)
         lines += ["", f"Largest effect of the two corrections together: {big[0]:.4f} ({big[1]:.1f} σ, "
                   f"{big[2]} at {big[3]} keV); "
-                  + ("every difference is within 2 σ, so at this statistic the corrections do not change η "
-                     "measurably, with the stand-in potential they are solved on."
+                  + ("every difference is within 2 σ of the independent-run bound. Because the runs are "
+                     "correlated, that does not show the effect is zero; the measured differences (at most "
+                     f"{big[0]:.4f} in η) are small next to the 0.05 tolerance and the measured spread, with "
+                     "the stand-in potential the corrections are solved on."
                      if all(x[1] < 2 for x in effects) else "at least one difference exceeds 2 σ.")]
     lines += ["", "Per-run values: `validation/experiments/backscatter_results.json`; datasets: "
               "`validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md)."]
