@@ -1,0 +1,55 @@
+# Published partial-wave elastic cross sections for the level-1 check of
+# issue #93 (tests/electron_elastic_reference.rs).
+#
+# STATUS: NO REFERENCE VALUE IS COMMITTED. Every `sigma_el` / `sigma_tr1`
+# below is deliberately absent (a documented placeholder). The intended
+# source, Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409 (2004),
+# doi:10.1063/1.1595653, could not be opened on 2026-10-07 (see
+# docs/data-provenance.md); values are never entered from memory.
+#
+# To fill a case, add `sigma_el_a02` / `sigma_tr1_a02` (bohr^2) together with
+# `sigma_el_cite` / `sigma_tr1_cite` naming the exact table and page, and set
+# `exchange` / `correlation_polarization` to the reference's stated settings.
+# Convert units in the cite string, not silently.
+#
+# Tolerances are fixed by the issue: 2 % at 10 keV, 5 % at 1 keV.
+
+[tolerance]
+rel_at_1000_ev = 0.05
+rel_at_10000_ev = 0.02
+
+[reference]
+source = "Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409 (2004), doi:10.1063/1.1595653"
+status = "placeholder: not reachable, no values committed"
+
+[[case]]
+z = 6
+energy_ev = 1000.0
+
+[[case]]
+z = 6
+energy_ev = 10000.0
+
+[[case]]
+z = 14
+energy_ev = 1000.0
+
+[[case]]
+z = 14
+energy_ev = 10000.0
+
+[[case]]
+z = 29
+energy_ev = 1000.0
+
+[[case]]
+z = 29
+energy_ev = 10000.0
+
+[[case]]
+z = 79
+energy_ev = 1000.0
+
+[[case]]
+z = 79
+energy_ev = 10000.0
