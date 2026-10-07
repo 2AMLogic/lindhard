@@ -9,13 +9,19 @@ one version).
 
 ### Added
 
-- `electron::inelastic::ChannelPartition`: losses above subshell edges (from a
-  `SubshellBindingTable`) are attributed to inner-shell ionization channels,
-  with secondary energy `ω - E_B`, and channel-resolved inverse mean free
-  paths. The occupancy-weighted split of one optical ELF is our own
-  assumption, stated in the docs.
+- `electron::inelastic::ShellResolvedChannels`: a valence channel and
+  inner-shell ionization channels, each from its own caller-supplied optical
+  ELF (one loss function per shell, as in de Vera et al., Int. J. Mol. Sci.
+  23, 6121 (2022), eqs. (1)-(2) and (32)), with secondary energy `ω - B`,
+  channel-resolved inverse mean free paths and DIIMFPs, and channel sampling.
+  No partition of a single total ELF is applied.
 - `electron::inelastic::ExchangeCorrection`: optional Born-Ochkur exchange for
-  `SinglePolePenn` below a stated energy (`ω <= T'/2`). Off by default.
+  `SinglePolePenn` below a stated energy, off by default. The denominator is
+  `T' - W` with `W = ω - B` the emitted energy (de Vera et al. (2022), eq.
+  (32)) and the loss limit `ω <= (T' + B)/2`
+  (`SinglePolePenn::diimfp_with_binding_per_m_ev`,
+  `imfp_and_stopping_with_binding`, `born_ochkur_factor`); the plain model
+  and the valence channel use `B = 0`.
 
 ### Changed
 

@@ -1,48 +1,61 @@
-//! Attribution of energy losses to inner-shell ionization above subshell
-//! edges.
+//! Inner-shell ionization channels from shell-resolved loss functions.
 //!
-//! # Source and what is ours
+//! # Source
 //!
-//! The structure follows the open account in M. A. Quinto *et al.*, Int. J.
-//! Mol. Sci. 23, 6121 (2022), doi:10.3390/ijms23116121 (PMC9181504), Section
-//! 3, eqs. (32) and (35): the secondary-electron spectrum of a material is the
-//! sum of an outer-shell (valence) term, built from the loss function at
-//! energy `W + B(T)`, and one term per inner shell `j`, built from that
-//! shell's loss function at `W + B_j`, where `B_j` is the shell's binding
-//! energy and `W` the kinetic energy of the emitted electron. So a loss
-//! `ω = W + B_j` attributed to shell `j` hands the secondary the energy
-//! `W = ω - B_j` ([`ChannelPartition::secondary_energy_ev`]). Shell `j`
-//! contributes only for `ω >= B_j`.
+//! P. de Vera, S. Taioli, P. E. Trevisanutto, M. Dapor, I. Abril, S.
+//! Simonucci and R. Garcia-Molina, "Energy Deposition around Swift Carbon-Ion
+//! Tracks in Liquid Water", Int. J. Mol. Sci. 23, 6121 (2022),
+//! doi:10.3390/ijms23116121 (open access, PMC9181504; "dV2022", as in
+//! [`super::penn`]):
 //!
-//! **The partition of one optical ELF between channels is our own model
-//! assumption, not a published rule.** The cited account has a separate loss
-//! function per shell (from atomic or TDDFT data), which a single optical ELF
-//! does not provide. Here, at the loss `ω`, the optical ELF is divided among
-//! all subshells with `B <= ω` in proportion to `x_a n_s`, the number of
-//! atoms `x_a` of the element per formula unit times the subshell's ground
-//! state occupancy `n_s` (from [`SubshellBindingTable`]): shell `s` takes the
-//! fraction `x_a n_s / Σ_{B_t <= ω} x_b n_t`. Subshells with `B` below a
-//! user-given valence cutoff stay in the valence channel; the others are the
-//! inner-shell channels. This counting rule makes each channel's share
-//! proportional to the electrons that can take part, nothing more; it
-//! ignores that atomic oscillator strength is not proportional to occupancy
-//! near an edge. The table must therefore list the valence subshells too
-//! (EADL does), or the valence channel is starved above the first inner
-//! edge. The partition is applied to the energy loss `ω` of the DIIMFP, not to
-//! the Penn plasma frequency `ω₀(q, ω)`.
+//! * eq. (1) splits the ELF into an outer-shell and an inner-shell part, and
+//!   eq. (2) writes the inner part as a sum over elements `j` (weighted by the
+//!   atoms per molecule `ν_j`) and subshells `nℓ` of atomic generalised
+//!   oscillator strengths, each multiplied by the step `Θ(E - B_nℓ^j)`: an
+//!   inner shell contributes only to losses above its binding energy;
+//! * eqs. (32) and (35) write the secondary-electron spectrum and the
+//!   ionization cross section as a sum of one outer-shell (valence) term and
+//!   one term per inner shell `j`, each built from **that shell's own loss
+//!   function** `Im[-1/ε(k, W + B_j)]_j`, where `W` is the kinetic energy of
+//!   the emitted electron. So a loss `ω = W + B_j` in shell `j` hands the
+//!   secondary `W = ω - B_j` ([`ShellResolvedChannels::secondary_energy_ev`]).
 //!
-//! Channel inverse mean free paths are the integrals of
-//! `f_channel(ω) p(T, ω)` over the allowed losses, where `p` is the DIIMFP of
-//! [`SinglePolePenn`], with the optional exchange factor `1 + F` and the
-//! indistinguishability limit `ω <= (T' + B)/2` (valence: `B = 0`) of the
-//! source, eq. (35). They add up to the total by construction.
+//! # The model here
+//!
+//! [`ShellResolvedChannels`] takes what those equations take: a valence
+//! optical ELF and **one optical ELF per inner shell**, supplied by the
+//! caller (for example from atomic oscillator strengths, as in dV2022 eq.
+//! (2)). The loss functions are not derived here, and a single total ELF is
+//! not split: no partition rule of ours is applied. Each shell's ELF must
+//! start at or above its binding energy (the step of eq. (2)). Each channel's
+//! DIIMFP is the single-pole Penn DIIMFP ([`SinglePolePenn`]) of its own ELF;
+//! with the exchange correction applying, shell `j` uses its binding energy
+//! in the Born-Ochkur denominator `T' - W = T' - ω + B_j` and is limited to
+//! `ω <= (T' + B_j)/2`, and the valence channel has `B = 0` (dV2022 eqs. (32),
+//! (34), (35); see the `super::penn` module docs for the terms of eq. (32)
+//! not followed: the Coulomb-field correction of the direct term, and the
+//! energy-dependent valence binding energy `B(T)`).
+//!
+//! **Our choices, not from dV2022:** the momentum dependence of every
+//! channel's loss function is the Penn SPA of S2017 applied to that
+//! channel's optical ELF (dV2022 uses Mermin functions for the outer shells
+//! and hydrogenic GOS for the inner ones); and the channel models share the
+//! valence model's Fermi energy, tolerance and exchange setting. The SPA is
+//! linear in the optical ELF, so without exchange the channel inverse mean
+//! free paths add up to that of one model built from the sum of the ELFs
+//! (when the sum is representable on one grid; tested).
+//!
+//! The binding energies come from a [`SubshellBindingTable`]
+//! ([`InnerShell::from_table`]) or are given directly.
 
-use super::penn::{hartree_ev, SinglePolePenn};
-use super::quadrature::{integrate_segments, GaussLegendre};
-use crate::constants::BOHR_RADIUS;
-use crate::electron::data::{ElectronDataError, Subshell, SubshellBindingTable};
+use super::penn::SinglePolePenn;
+use crate::electron::data::{ElectronDataError, OpticalElf, Subshell, SubshellBindingTable};
 
 type Result<T> = std::result::Result<T, ElectronDataError>;
+
+fn invalid(what: &'static str, reason: String) -> ElectronDataError {
+    ElectronDataError::Invalid { what, reason }
+}
 
 /// An inner-shell channel: one subshell of one element.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -51,20 +64,38 @@ pub struct InnerShell {
     pub z: u8,
     /// The subshell.
     pub subshell: Subshell,
-    /// Binding energy `E_B`, eV.
+    /// Binding energy `B`, eV.
     pub binding_energy_ev: f64,
-    /// Partition weight `x_a n_s` (atoms per formula unit times occupancy).
-    pub weight: f64,
+}
+
+impl InnerShell {
+    /// The shell `subshell` of element `z`, with its binding energy from
+    /// `table`.
+    pub fn from_table(table: &SubshellBindingTable, z: u8, subshell: Subshell) -> Result<Self> {
+        let binding_energy_ev = table
+            .atom(z)
+            .and_then(|a| a.binding_energy_ev(subshell))
+            .ok_or_else(|| {
+                invalid(
+                    "inner shell",
+                    format!("Z = {z} {} is not in the binding table", subshell.label()),
+                )
+            })?;
+        Ok(Self {
+            z,
+            subshell,
+            binding_energy_ev,
+        })
+    }
 }
 
 /// A loss channel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Channel {
-    /// Valence excitation and ionization (and every subshell below the
-    /// valence cutoff).
+    /// Valence excitation and ionization.
     Valence,
     /// Ionization of inner shell `i` (an index into
-    /// [`ChannelPartition::inner_shells`]).
+    /// [`ShellResolvedChannels::inner_shells`]).
     InnerShell(usize),
 }
 
@@ -74,7 +105,7 @@ pub struct ChannelInverseImfp {
     /// Valence channel.
     pub valence_per_m: f64,
     /// Inner-shell channels, in the order of
-    /// [`ChannelPartition::inner_shells`].
+    /// [`ShellResolvedChannels::inner_shells`].
     pub shells_per_m: Vec<f64>,
 }
 
@@ -85,249 +116,164 @@ impl ChannelInverseImfp {
     }
 }
 
-/// The partition of an optical ELF between the valence channel and the
-/// inner-shell channels of a target (module docs).
-#[derive(Debug, Clone)]
-pub struct ChannelPartition {
-    valence_cutoff_ev: f64,
-    inner: Vec<InnerShell>,
-    /// Every subshell `(E_B, weight)`, ascending in `E_B`.
-    all: Vec<(f64, f64)>,
-    /// Prefix sums of the weight over `all`, and over its inner members.
-    cum_all: Vec<f64>,
-    cum_inner: Vec<f64>,
-    /// Per inner shell, its position in `all`.
-    inner_pos: Vec<usize>,
+/// DIIMFP by channel at one loss, m⁻¹ eV⁻¹.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ChannelDiimfp {
+    /// Valence channel.
+    pub valence_per_m_ev: f64,
+    /// Inner-shell channels, in the order of
+    /// [`ShellResolvedChannels::inner_shells`].
+    pub shells_per_m_ev: Vec<f64>,
 }
 
-impl ChannelPartition {
-    /// The partition for a target with `composition` = `(Z, atoms per formula
-    /// unit)`, with binding energies from `table`; subshells with
-    /// `E_B < valence_cutoff_ev` are valence. Every `Z` must be tabulated and
-    /// the amounts finite and positive; `Z` may not repeat.
-    pub fn new(
-        table: &SubshellBindingTable,
-        composition: &[(u8, f64)],
-        valence_cutoff_ev: f64,
-    ) -> Result<Self> {
-        let bad = |what: &'static str, reason: String| ElectronDataError::Invalid { what, reason };
-        if !(valence_cutoff_ev.is_finite() && valence_cutoff_ev >= 0.0) {
-            return Err(bad(
-                "valence cutoff",
-                format!("must be finite and non-negative, got {valence_cutoff_ev} eV"),
-            ));
-        }
-        if composition.is_empty() {
-            return Err(bad("composition", "is empty".into()));
-        }
-        // (E_B, z, subshell, weight, is_inner)
-        let mut rows: Vec<(f64, u8, Subshell, f64, bool)> = Vec::new();
-        for (k, &(z, amount)) in composition.iter().enumerate() {
-            if !(amount.is_finite() && amount > 0.0) {
-                return Err(bad(
-                    "composition",
-                    format!("Z = {z}: amount must be finite and positive, got {amount}"),
+impl ChannelDiimfp {
+    /// The sum over channels.
+    pub fn total_per_m_ev(&self) -> f64 {
+        self.valence_per_m_ev + self.shells_per_m_ev.iter().sum::<f64>()
+    }
+}
+
+/// A valence channel and inner-shell channels, each with its own optical ELF
+/// (module docs).
+#[derive(Debug, Clone)]
+pub struct ShellResolvedChannels {
+    valence: SinglePolePenn,
+    shells: Vec<InnerShell>,
+    models: Vec<SinglePolePenn>,
+}
+
+impl ShellResolvedChannels {
+    /// Channels from a `valence` model and one optical ELF per inner shell,
+    /// kept in the given order. The shell models take the valence model's
+    /// Fermi energy, tolerance and exchange setting. Each binding energy must
+    /// be finite and positive, each shell's ELF must start at or above its
+    /// binding energy, and a `(Z, subshell)` may not repeat.
+    pub fn new(valence: SinglePolePenn, shells: Vec<(InnerShell, OpticalElf)>) -> Result<Self> {
+        let mut inner = Vec::with_capacity(shells.len());
+        let mut models = Vec::with_capacity(shells.len());
+        for (shell, elf) in shells {
+            let b = shell.binding_energy_ev;
+            let name = format!("Z = {} {}", shell.z, shell.subshell.label());
+            if !(b.is_finite() && b > 0.0) {
+                return Err(invalid(
+                    "inner shell",
+                    format!("{name}: binding energy must be finite and positive, got {b} eV"),
                 ));
             }
-            if composition[..k].iter().any(|&(zz, _)| zz == z) {
-                return Err(bad("composition", format!("Z = {z} listed twice")));
-            }
-            let atom = table.atom(z).ok_or_else(|| {
-                bad(
-                    "composition",
-                    format!("Z = {z} is not in the binding table"),
-                )
-            })?;
-            for s in atom.shells() {
-                let eb = s.binding_energy_ev();
-                rows.push((
-                    eb,
-                    z,
-                    s.subshell(),
-                    amount * s.occupancy(),
-                    eb >= valence_cutoff_ev,
+            let first = elf.energy_range_ev().0;
+            if first < b {
+                return Err(invalid(
+                    "inner-shell ELF",
+                    format!(
+                        "{name}: the ELF starts at {first} eV, below the binding energy {b} eV \
+                         (a shell contributes only above its edge)"
+                    ),
                 ));
             }
-        }
-        rows.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
-        let mut inner = Vec::new();
-        let mut inner_pos = Vec::new();
-        let mut all = Vec::new();
-        let (mut cum_all, mut cum_inner) = (Vec::new(), Vec::new());
-        let (mut ta, mut ti) = (0.0, 0.0);
-        for (i, &(eb, z, subshell, weight, is_inner)) in rows.iter().enumerate() {
-            ta += weight;
-            if is_inner {
-                ti += weight;
-                inner.push(InnerShell {
-                    z,
-                    subshell,
-                    binding_energy_ev: eb,
-                    weight,
-                });
-                inner_pos.push(i);
+            if inner
+                .iter()
+                .any(|s: &InnerShell| s.z == shell.z && s.subshell == shell.subshell)
+            {
+                return Err(invalid("inner shell", format!("{name} listed twice")));
             }
-            all.push((eb, weight));
-            cum_all.push(ta);
-            cum_inner.push(ti);
+            models.push(valence.same_settings_for(elf));
+            inner.push(shell);
         }
         Ok(Self {
-            valence_cutoff_ev,
-            inner,
-            all,
-            cum_all,
-            cum_inner,
-            inner_pos,
+            valence,
+            shells: inner,
+            models,
         })
     }
 
-    /// The valence cutoff, eV.
-    pub fn valence_cutoff_ev(&self) -> f64 {
-        self.valence_cutoff_ev
+    /// The valence model.
+    pub fn valence(&self) -> &SinglePolePenn {
+        &self.valence
     }
 
-    /// The inner-shell channels, ascending in binding energy (ties by `Z`,
-    /// then subshell).
+    /// The inner-shell channels, in the order given.
     pub fn inner_shells(&self) -> &[InnerShell] {
-        &self.inner
+        &self.shells
     }
 
-    /// Number of subshells with `E_B <= loss_ev`.
-    fn active(&self, loss_ev: f64) -> usize {
-        self.all.partition_point(|&(eb, _)| eb <= loss_ev)
+    /// The model of inner shell `i` (its own ELF, the valence settings).
+    pub fn shell_model(&self, i: usize) -> &SinglePolePenn {
+        &self.models[i]
     }
 
-    /// The share of the ELF at loss `loss_ev` that goes to inner shell `i`
-    /// (zero below its edge).
-    pub fn shell_fraction(&self, loss_ev: f64, i: usize) -> f64 {
-        let n = self.active(loss_ev);
-        if n == 0 || self.inner_pos[i] >= n {
-            return 0.0;
-        }
-        self.inner[i].weight / self.cum_all[n - 1]
-    }
-
-    /// The share that stays in the valence channel (one if no subshell is
-    /// open yet).
-    pub fn valence_fraction(&self, loss_ev: f64) -> f64 {
-        let n = self.active(loss_ev);
-        if n == 0 {
-            return 1.0;
-        }
-        let total = self.cum_all[n - 1];
-        ((total - self.cum_inner[n - 1]) / total).max(0.0)
-    }
-
-    /// The channel for a uniform variate `u` in `[0, 1)`: the inner shells
-    /// open at `loss_ev` in order, then the valence channel takes the rest.
-    /// Deterministic in `(loss_ev, u)`.
-    pub fn sample_channel(&self, loss_ev: f64, u: f64) -> Channel {
-        let mut acc = 0.0;
-        for i in 0..self.inner.len() {
-            acc += self.shell_fraction(loss_ev, i);
-            if u < acc {
-                return Channel::InnerShell(i);
-            }
-        }
-        Channel::Valence
-    }
-
-    /// The kinetic energy `W = ω - E_B` handed to the secondary electron by
-    /// an inner-shell loss `loss_ev`, eV; `None` for the valence channel
-    /// (its secondary energy depends on the band structure, see
-    /// `electron::secondary`) and below the edge.
-    pub fn secondary_energy_ev(&self, channel: Channel, loss_ev: f64) -> Option<f64> {
-        match channel {
-            Channel::Valence => None,
-            Channel::InnerShell(i) => {
-                let w = loss_ev - self.inner[i].binding_energy_ev;
-                (w >= 0.0).then_some(w)
-            }
-        }
-    }
-
-    /// The channel-resolved inverse IMFP of `model` at kinetic energy
-    /// `energy_ev` above the Fermi level (module docs). With the exchange
-    /// correction enabled and applicable at this energy the valence channel
-    /// is limited to `ω <= T'/2` and shell `i` to `ω <= (T' + E_B)/2`; without
-    /// it every channel reaches `ω = T`, and the total is the model's
-    /// `λ⁻¹` ([`SinglePolePenn::imfp_and_stopping`]) up to the integration
-    /// tolerance.
-    pub fn inverse_imfps(
-        &self,
-        model: &SinglePolePenn,
-        energy_ev: f64,
-    ) -> Result<ChannelInverseImfp> {
-        if !(energy_ev.is_finite() && energy_ev > 0.0) {
-            return Err(ElectronDataError::Invalid {
-                what: "electron energy",
-                reason: format!("must be finite and positive, got {energy_ev} eV"),
-            });
-        }
-        let h = hartree_ev();
-        let t_au = energy_ev / h;
-        let tp = energy_ev + model.fermi_energy_ev();
-        let exchange = model.exchange_applies_at(energy_ev);
-        let gl = GaussLegendre::new(5);
-        let tol = if exchange {
-            (model.relative_tolerance() * 100.0).min(1e-2)
-        } else {
-            model.relative_tolerance()
-        };
-        let knots = model.optical_elf().energy_ev();
-        let edges: Vec<f64> = self.all.iter().map(|&(eb, _)| eb).collect();
-
-        let integrate = |lo: f64, hi: f64, frac: &dyn Fn(f64) -> f64| -> f64 {
-            if hi.partial_cmp(&lo) != Some(std::cmp::Ordering::Greater) {
-                return 0.0;
-            }
-            let mut breaks: Vec<f64> = knots
-                .iter()
-                .chain(edges.iter())
-                .copied()
-                .filter(|&x| x > lo && x < hi)
-                .collect();
-            breaks.sort_by(f64::total_cmp);
-            breaks.dedup();
-            breaks.insert(0, lo);
-            breaks.push(hi);
-            integrate_segments(
-                &gl,
-                &mut |w: f64| {
-                    let f = frac(w);
-                    if f == 0.0 {
-                        return [0.0];
-                    }
-                    // per bohr per hartree -> per m per eV; dω is in eV.
-                    let p = model.diimfp_core_au(t_au, w / h, exchange) / (BOHR_RADIUS * h);
-                    [f * p]
-                },
-                &breaks,
-                tol,
-            )[0]
-        };
-
-        let top = |b: f64| {
-            if exchange {
-                (0.5 * (tp + b)).min(energy_ev)
-            } else {
-                energy_ev
-            }
-        };
-        let valence_per_m = integrate(0.0, top(0.0), &|w| self.valence_fraction(w));
+    /// The channel-resolved inverse IMFP at kinetic energy `energy_ev` above
+    /// the Fermi level: the valence model's `λ⁻¹`, and for shell `i`
+    /// [`SinglePolePenn::imfp_and_stopping_with_binding`] of its model with
+    /// its binding energy (module docs).
+    pub fn inverse_imfps(&self, energy_ev: f64) -> Result<ChannelInverseImfp> {
+        let valence_per_m = self
+            .valence
+            .imfp_and_stopping(energy_ev)?
+            .inverse_imfp_per_m;
         let shells_per_m = self
-            .inner
+            .shells
             .iter()
-            .enumerate()
-            .map(|(i, s)| {
-                integrate(s.binding_energy_ev, top(s.binding_energy_ev), &|w| {
-                    self.shell_fraction(w, i)
-                })
+            .zip(&self.models)
+            .map(|(s, m)| {
+                m.imfp_and_stopping_with_binding(energy_ev, s.binding_energy_ev)
+                    .map(|p| p.inverse_imfp_per_m)
             })
-            .collect();
+            .collect::<Result<Vec<_>>>()?;
         Ok(ChannelInverseImfp {
             valence_per_m,
             shells_per_m,
         })
+    }
+
+    /// The channel-resolved DIIMFP at kinetic energy `energy_ev` and loss
+    /// `loss_ev` ([`SinglePolePenn::diimfp_with_binding_per_m_ev`] per
+    /// channel).
+    pub fn diimfps_per_m_ev(&self, energy_ev: f64, loss_ev: f64) -> Result<ChannelDiimfp> {
+        let valence_per_m_ev = self.valence.diimfp_per_m_ev(energy_ev, loss_ev)?;
+        let shells_per_m_ev = self
+            .shells
+            .iter()
+            .zip(&self.models)
+            .map(|(s, m)| m.diimfp_with_binding_per_m_ev(energy_ev, loss_ev, s.binding_energy_ev))
+            .collect::<Result<Vec<_>>>()?;
+        Ok(ChannelDiimfp {
+            valence_per_m_ev,
+            shells_per_m_ev,
+        })
+    }
+
+    /// The channel of a loss `loss_ev` at kinetic energy `energy_ev`, for a
+    /// uniform variate `u` in `[0, 1)`: each channel with probability
+    /// proportional to its DIIMFP there, the inner shells first in order,
+    /// then valence. `None` if every channel's DIIMFP is zero there.
+    /// Deterministic in its arguments.
+    pub fn sample_channel(&self, energy_ev: f64, loss_ev: f64, u: f64) -> Result<Option<Channel>> {
+        let d = self.diimfps_per_m_ev(energy_ev, loss_ev)?;
+        let total = d.total_per_m_ev();
+        if total <= 0.0 {
+            return Ok(None);
+        }
+        let mut acc = 0.0;
+        for (i, p) in d.shells_per_m_ev.iter().enumerate() {
+            acc += p / total;
+            if *p > 0.0 && u < acc {
+                return Ok(Some(Channel::InnerShell(i)));
+            }
+        }
+        Ok(Some(Channel::Valence))
+    }
+
+    /// The kinetic energy `W = ω - B` handed to the secondary electron by an
+    /// inner-shell loss `loss_ev`, eV (dV2022 eqs. (32), (34)); `None` for the
+    /// valence channel (its secondary energy depends on the band structure,
+    /// see `electron::secondary`) and below the edge.
+    pub fn secondary_energy_ev(&self, channel: Channel, loss_ev: f64) -> Option<f64> {
+        match channel {
+            Channel::Valence => None,
+            Channel::InnerShell(i) => {
+                let w = loss_ev - self.shells.get(i)?.binding_energy_ev;
+                (w >= 0.0).then_some(w)
+            }
+        }
     }
 }

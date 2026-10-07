@@ -14,8 +14,9 @@
 //! No optical data is committed (`docs/data-provenance.md`); every ELF comes
 //! from the caller.
 //!
-//! [`inner_shell`] attributes losses above subshell edges to inner-shell
-//! ionization (secondary energy `ω - E_B`), and the optional Born-Ochkur
+//! [`inner_shell`] resolves the losses into a valence channel and
+//! inner-shell ionization channels (secondary energy `ω - B`), each from its
+//! own caller-supplied optical ELF, and the optional Born-Ochkur
 //! [`ExchangeCorrection`] makes the primary and the struck electron
 //! indistinguishable at low energy.
 //!
@@ -30,6 +31,11 @@ mod quadrature;
 pub mod sum_rules;
 
 pub use drude::{DrudeLorentz, DrudeLorentzOscillator};
-pub use inner_shell::{Channel, ChannelInverseImfp, ChannelPartition, InnerShell};
-pub use penn::{ExchangeCorrection, InelasticPoint, SinglePolePenn, DEFAULT_RELATIVE_TOLERANCE};
+pub use inner_shell::{
+    Channel, ChannelDiimfp, ChannelInverseImfp, InnerShell, ShellResolvedChannels,
+};
+pub use penn::{
+    born_ochkur_factor, ExchangeCorrection, InelasticPoint, SinglePolePenn,
+    DEFAULT_RELATIVE_TOLERANCE,
+};
 pub use sum_rules::SumRuleReport;
