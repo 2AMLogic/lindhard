@@ -32,6 +32,11 @@ one version).
   (bit-identical at any thread count) and returns the tally with `RunMetadata`
   recording the energy cutoff and escape rule; per-event results go through
   the `ElectronTally` hook trait.
+- `electron::elastic`: radial Dirac partial-wave solver for a screened central
+  potential at one energy (phase shifts, differential cross section, Sherman
+  function, `sigma_el`, `sigma_tr1`), with `Yukawa`, `SquareWell` and
+  `SalvatDhfs` potentials. The Salvat et al. (1987) coefficient table is not
+  yet in the tree (`SalvatDhfs::for_element` returns an error).
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and
