@@ -26,17 +26,35 @@
 //!   of a natural mixture. For Tc that page lists 97 and 98 as equally
 //!   long-lived; 98 is used. All 92 entries checked against these pages on
 //!   2026-10-06 (#15).
-//! * **Density** (`density_g_cm3`): density of the solid at about 20 °C
-//!   (25 °C or the stated allotrope where the handbook says so) as listed in
-//!   W. M. Haynes (ed.), *CRC Handbook of Chemistry and Physics*, "Physical
-//!   Constants of the Elements" (the common room-temperature allotrope:
-//!   graphite for C, white P, alpha-S, white Sn). **Not verified**: no
-//!   edition of the handbook could be reached legitimately (see
-//!   `docs/data-provenance.md`), so every value, including the
-//!   reviewer-flagged Sc and Ra, is still unchecked. It is `None` where no solid
-//!   density at ambient conditions exists (gases: H, He, N, O, F, Ne, Cl, Ar,
-//!   Kr, Xe, Rn; liquids: Br, Hg; no data: At, Fr). Densities are a default for a pure
-//!   element only; compounds need an explicit density override.
+//! * **Density** (`density_g_cm3`): density of the solid, g/cm³, as printed
+//!   in A. Thompson et al., *X-Ray Data Booklet*, LBNL/PUB-490 Rev. 3
+//!   (Lawrence Berkeley National Laboratory, October 2009), section 5.2,
+//!   Table 5-2 "Properties of the elements", pp. 5-5 to 5-8
+//!   (<https://xdb.lbl.gov/xdb-new.pdf>, PDF pages 153-156). Section 5.2 says
+//!   the data were taken mostly from D. R. Lide (ed.), *CRC Handbook of
+//!   Chemistry and Physics*, 80th ed. (CRC Press, 1999), and that densities
+//!   are specific gravities at 20 °C unless a superscript gives another
+//!   temperature (25 °C for Si, Sc, Ni, Zn, Ge, Y, La, Ce, Nd, Pm, Sm, Eu,
+//!   Gd, Dy, Ho, Er, Tm, Lu; V 18.7 °C, Ga 29.6 °C, Ir 17 °C). Tc and Pa are
+//!   marked "calculated" there, U "~18.95". The table names no allotrope
+//!   except graphite for C. All populated entries checked on 2026-10-07
+//!   (#15; the PDF's SHA-256 is recorded in `docs/data-provenance.md`), and
+//!   37 values set to the printed ones. Exceptions, still **not verified**
+//!   to their stored digits:
+//!   C 2.267 (printed as the range 1.9-2.3), Cr 7.15 (printed as 7.18-7.20,
+//!   so the stored value lies **outside** it), Mn 7.44 (the upper end of the
+//!   printed range 7.21-7.44), Au 19.30 (printed "~19.3"), and Ra 5.0 and
+//!   Ac 10.07 (no density printed). Si keeps 2.329: the booklet prints 2.33
+//!   at 25 °C, and 2.329 is the crystal density `M(Si) / V_m(Si)` from the
+//!   CODATA 2022 "molar volume of silicon" (1.205 883 199e-5 m³/mol,
+//!   <https://physics.nist.gov/cuu/Constants/Table/allascii.txt>) for any
+//!   weight in the standard interval [28.084, 28.086]. The specific gravities
+//!   are used as g/cm³; the booklet does not state the reference water
+//!   state. Later CRC editions may differ; none was seen. It is `None` where
+//!   no solid density at ambient conditions exists (gases: H, He, N, O, F,
+//!   Ne, Cl, Ar, Kr, Xe, Rn; liquids: Br, Hg; no data: At, Fr). Densities are
+//!   a default for a pure element only; compounds need an explicit density
+//!   override.
 //! * **Sublimation (cohesive) enthalpy** (`default_surface_binding_ev`): where
 //!   a measured value is tabulated, the cohesive energy per atom (eV) of
 //!   C. Kittel, *Introduction to Solid State Physics*, 8th ed. (Wiley, 2005),
@@ -141,21 +159,21 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     el(1, "H", 1.008, false, None, None, None),
     el(2, "He", 4.002602, false, None, None, None),
     el(3, "Li", 6.94, false, Some(0.534), Some(1.63), None),
-    el(4, "Be", 9.0121831, false, Some(1.85), Some(3.32), None),
+    el(4, "Be", 9.0121831, false, Some(1.848), Some(3.32), None),
     el(5, "B", 10.81, false, Some(2.34), Some(5.81), None),
     el(6, "C", 12.011, false, Some(2.267), Some(7.37), None),
     el(7, "N", 14.007, false, None, None, None),
     el(8, "O", 15.999, false, None, None, None),
     el(9, "F", 18.998403162, false, None, None, None),
     el(10, "Ne", 20.1797, false, None, None, None),
-    el(11, "Na", 22.98976928, false, Some(0.97), Some(1.11), None),
-    el(12, "Mg", 24.305, false, Some(1.74), Some(1.51), None),
+    el(11, "Na", 22.98976928, false, Some(0.971), Some(1.11), None),
+    el(12, "Mg", 24.305, false, Some(1.738), Some(1.51), None),
     el(
         13,
         "Al",
         26.9815384,
         false,
-        Some(2.70),
+        Some(2.6989),
         Some(3.39),
         Some(25.0),
     ),
@@ -186,20 +204,20 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
         "Ni",
         58.6934,
         false,
-        Some(8.908),
+        Some(8.902),
         Some(4.44),
         Some(40.0),
     ),
     el(29, "Cu", 63.546, false, Some(8.96), Some(3.49), Some(30.0)),
-    el(30, "Zn", 65.38, false, Some(7.134), Some(1.35), None),
+    el(30, "Zn", 65.38, false, Some(7.133), Some(1.35), None),
     el(31, "Ga", 69.723, false, Some(5.904), Some(2.81), None),
     el(32, "Ge", 72.630, false, Some(5.323), Some(3.85), None),
-    el(33, "As", 74.921595, false, Some(5.727), Some(2.96), None),
-    el(34, "Se", 78.971, false, Some(4.81), None, None),
+    el(33, "As", 74.921595, false, Some(5.73), Some(2.96), None),
+    el(34, "Se", 78.971, false, Some(4.79), None, None),
     el(35, "Br", 79.904, false, None, None, None),
     el(36, "Kr", 83.798, false, None, None, None),
     el(37, "Rb", 85.4678, false, Some(1.532), None, None),
-    el(38, "Sr", 87.62, false, Some(2.64), None, None),
+    el(38, "Sr", 87.62, false, Some(2.54), None, None),
     el(39, "Y", 88.905838, false, Some(4.469), None, None),
     el(40, "Zr", 91.222, false, Some(6.506), Some(6.25), Some(40.0)),
     el(
@@ -211,43 +229,43 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
         Some(7.57),
         Some(60.0),
     ),
-    el(42, "Mo", 95.95, false, Some(10.28), Some(6.82), Some(60.0)),
-    el(43, "Tc", 98.0, true, Some(11.0), None, None),
-    el(44, "Ru", 101.07, false, Some(12.45), None, None),
+    el(42, "Mo", 95.95, false, Some(10.22), Some(6.82), Some(60.0)),
+    el(43, "Tc", 98.0, true, Some(11.50), None, None),
+    el(44, "Ru", 101.07, false, Some(12.41), None, None),
     el(45, "Rh", 102.90549, false, Some(12.41), None, None),
-    el(46, "Pd", 106.42, false, Some(12.023), Some(3.89), None),
+    el(46, "Pd", 106.42, false, Some(12.02), Some(3.89), None),
     el(
         47,
         "Ag",
         107.8682,
         false,
-        Some(10.49),
+        Some(10.50),
         Some(2.95),
         Some(30.0),
     ),
     el(48, "Cd", 112.414, false, Some(8.65), Some(1.16), None),
     el(49, "In", 114.818, false, Some(7.31), Some(2.52), None),
-    el(50, "Sn", 118.710, false, Some(7.287), Some(3.14), None),
-    el(51, "Sb", 121.760, false, Some(6.685), Some(2.75), None),
-    el(52, "Te", 127.60, false, Some(6.232), None, None),
+    el(50, "Sn", 118.710, false, Some(7.31), Some(3.14), None),
+    el(51, "Sb", 121.760, false, Some(6.691), Some(2.75), None),
+    el(52, "Te", 127.60, false, Some(6.24), None, None),
     el(53, "I", 126.90447, false, Some(4.93), None, None),
     el(54, "Xe", 131.293, false, None, None, None),
-    el(55, "Cs", 132.90545196, false, Some(1.93), None, None),
-    el(56, "Ba", 137.327, false, Some(3.51), None, None),
-    el(57, "La", 138.90547, false, Some(6.162), None, None),
+    el(55, "Cs", 132.90545196, false, Some(1.873), None, None),
+    el(56, "Ba", 137.327, false, Some(3.5), None, None),
+    el(57, "La", 138.90547, false, Some(6.145), None, None),
     el(58, "Ce", 140.116, false, Some(6.770), None, None),
-    el(59, "Pr", 140.90766, false, Some(6.77), None, None),
-    el(60, "Nd", 144.242, false, Some(7.01), None, None),
-    el(61, "Pm", 145.0, true, Some(7.26), None, None),
+    el(59, "Pr", 140.90766, false, Some(6.773), None, None),
+    el(60, "Nd", 144.242, false, Some(7.008), None, None),
+    el(61, "Pm", 145.0, true, Some(7.264), None, None),
     el(62, "Sm", 150.36, false, Some(7.52), None, None),
-    el(63, "Eu", 151.964, false, Some(5.264), None, None),
-    el(64, "Gd", 157.249, false, Some(7.90), None, None),
+    el(63, "Eu", 151.964, false, Some(5.244), None, None),
+    el(64, "Gd", 157.249, false, Some(7.901), None, None),
     el(65, "Tb", 158.925354, false, Some(8.23), None, None),
-    el(66, "Dy", 162.500, false, Some(8.54), None, None),
-    el(67, "Ho", 164.930329, false, Some(8.79), None, None),
+    el(66, "Dy", 162.500, false, Some(8.551), None, None),
+    el(67, "Ho", 164.930329, false, Some(8.795), None, None),
     el(68, "Er", 167.259, false, Some(9.066), None, None),
-    el(69, "Tm", 168.934219, false, Some(9.32), None, None),
-    el(70, "Yb", 173.045, false, Some(6.90), None, None),
+    el(69, "Tm", 168.934219, false, Some(9.321), None, None),
+    el(70, "Yb", 173.045, false, Some(6.966), None, None),
     el(71, "Lu", 174.96669, false, Some(9.841), None, None),
     el(72, "Hf", 178.486, false, Some(13.31), None, None),
     el(
@@ -255,14 +273,14 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
         "Ta",
         180.94788,
         false,
-        Some(16.65),
+        Some(16.654),
         Some(8.1),
         Some(90.0),
     ),
-    el(74, "W", 183.84, false, Some(19.25), Some(8.9), Some(90.0)),
+    el(74, "W", 183.84, false, Some(19.3), Some(8.9), Some(90.0)),
     el(75, "Re", 186.207, false, Some(21.02), None, None),
-    el(76, "Os", 190.23, false, Some(22.59), None, None),
-    el(77, "Ir", 192.217, false, Some(22.56), None, None),
+    el(76, "Os", 190.23, false, Some(22.57), None, None),
+    el(77, "Ir", 192.217, false, Some(22.42), None, None),
     el(78, "Pt", 195.084, false, Some(21.45), Some(5.84), None),
     el(
         79,
@@ -275,9 +293,9 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     ),
     el(80, "Hg", 200.592, false, None, None, None),
     el(81, "Tl", 204.38, false, Some(11.85), None, None),
-    el(82, "Pb", 207.2, false, Some(11.34), Some(2.03), Some(25.0)),
-    el(83, "Bi", 208.98040, false, Some(9.78), None, None),
-    el(84, "Po", 209.0, true, Some(9.196), None, None),
+    el(82, "Pb", 207.2, false, Some(11.35), Some(2.03), Some(25.0)),
+    el(83, "Bi", 208.98040, false, Some(9.747), None, None),
+    el(84, "Po", 209.0, true, Some(9.32), None, None),
     el(85, "At", 210.0, true, None, None, None),
     el(86, "Rn", 222.0, true, None, None, None),
     el(87, "Fr", 223.0, true, None, None, None),
@@ -285,7 +303,7 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     el(89, "Ac", 227.0, true, Some(10.07), None, None),
     el(90, "Th", 232.0377, false, Some(11.72), None, None),
     el(91, "Pa", 231.03588, false, Some(15.37), None, None),
-    el(92, "U", 238.02891, false, Some(19.1), None, None),
+    el(92, "U", 238.02891, false, Some(18.95), None, None),
 ];
 
 #[cfg(test)]
@@ -427,9 +445,60 @@ mod tests {
         assert_eq!(by("P").default_surface_binding_ev, None);
     }
 
-    /// Defaults that are unset by design stay unset. Densities and `E_d`
-    /// values are not pinned here: their sources (CRC Handbook, ASTM E521)
-    /// could not be reached, so no populated value is source-verified.
+    /// Densities as printed in the X-Ray Data Booklet, LBNL/PUB-490 Rev. 3
+    /// (2009), Table 5-2, pp. 5-5 to 5-8 (<https://xdb.lbl.gov/xdb-new.pdf>,
+    /// read 2026-10-07; from the CRC Handbook, 80th ed.), g/cm³, to the
+    /// digits printed there. Superscripts give the temperature where it is
+    /// not 20 °C.
+    #[test]
+    fn densities_match_x_ray_data_booklet_spot_values() {
+        for (sym, rho) in [
+            ("B", 2.34),
+            ("P", 1.82),
+            ("Ga", 5.904), // 5.904^29.6
+            ("Cu", 8.96),
+            ("Sc", 2.989), // 2.989^25; reviewer-flagged, unchanged
+            // Corrected in #15 (were 5.727, 10.49, 1.93, 22.59, 19.1).
+            ("As", 5.73),
+            ("Ag", 10.50),
+            ("Cs", 1.873),
+            ("Os", 22.57),
+            ("U", 18.95), // printed "~18.95"
+        ] {
+            assert_eq!(by(sym).density_g_cm3, Some(rho), "{sym}");
+        }
+        // Au is printed only as "~19.3"; the stored 19.30 agrees to that
+        // precision, its second decimal is not verified.
+        let au = by("Au").density_g_cm3.unwrap();
+        assert!((au - 19.3).abs() < 0.05, "{au}");
+    }
+
+    /// Si: the CODATA 2022 "molar volume of silicon", V_m(Si) =
+    /// 1.205 883 199e-5 m³/mol
+    /// (<https://physics.nist.gov/cuu/Constants/Table/allascii.txt>), which
+    /// equals N_A a³ / 8 for the listed lattice parameter a = 5.431 020 511e-10
+    /// m, gives the crystal density M(Si) / V_m(Si). For every weight in the
+    /// CIAAW standard interval [28.084, 28.086] it rounds to the stored 2.329
+    /// g/cm³; the X-Ray Data Booklet prints 2.33 at 25 °C.
+    #[test]
+    fn silicon_density_matches_codata_molar_volume() {
+        use crate::constants::AVOGADRO;
+        let a = 5.431_020_511e-10; // m
+        let v_m = 1.205_883_199e-5; // m^3/mol
+        assert!((AVOGADRO * a * a * a / 8.0 / v_m - 1.0).abs() < 1e-9);
+        let si = by("Si").density_g_cm3.unwrap();
+        assert_eq!(si, 2.329);
+        for m_g in [28.084, 28.085, 28.086] {
+            // g/mol / (m^3/mol) = g/m^3; 1e-6 converts to g/cm^3.
+            let rho = m_g / v_m * 1e-6;
+            assert!((rho - si).abs() < 0.0005, "{m_g}: {rho}");
+        }
+        assert!((si - 2.33).abs() < 0.005);
+    }
+
+    /// Defaults that are unset by design stay unset. `E_d` values are not
+    /// pinned: ASTM E521 could not be reached, so no populated value is
+    /// source-verified.
     #[test]
     fn unset_defaults_are_preserved() {
         // Gases have no solid density.

@@ -17,6 +17,12 @@ one version).
   Results are statistically unchanged but not bit-identical to 0.0.1 (the
   floating-point operations differ); they remain bit-identical across thread
   counts.
+- Default elemental densities now follow the X-Ray Data Booklet, LBNL/PUB-490
+  Rev. 3 (2009), Table 5-2 (from the CRC Handbook, 80th ed.). 37 values
+  changed, by up to 5 % (for example Sr 2.64 to 2.54, Cs 1.93 to 1.873, Ag
+  10.49 to 10.50 g/cm³), which changes the number density of a pure-element
+  target that relies on the default. The full list is in
+  `docs/data-provenance.md`. Si, Cu and Au are unchanged.
 
 ### Added
 
