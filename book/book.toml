@@ -1,0 +1,17 @@
+[book]
+title = "lindhard"
+description = "Physics manual and user guide for lindhard, a clean-room Monte Carlo transport engine for ions in matter"
+authors = ["The lindhard contributors"]
+language = "en"
+src = "src"
+
+[build]
+# A chapter listed in SUMMARY.md without a file is an error, not a blank page.
+create-missing = false
+
+[output.html]
+# Built-in MathJax: no preprocessor crate, so no extra pinned dependency.
+mathjax-support = true
+git-repository-url = "https://github.com/2AMLogic/lindhard"
+edit-url-template = "https://github.com/2AMLogic/lindhard/edit/main/book/{path}"
+site-url = "/lindhard/"

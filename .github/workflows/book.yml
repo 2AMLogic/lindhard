@@ -1,0 +1,79 @@
+name: Book
+
+# Builds the mdBook under book/ (physics manual and user guide) on every PR
+# and push to main, and publishes it to GitHub Pages from main only.
+# Pages must be enabled for the repository with "GitHub Actions" as the
+# source (Settings -> Pages); until then the deploy job fails on main and
+# the build job is unaffected.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: book-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    name: Build the book
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # One pin for the whole job: the URL and the checksum both read it.
+      MDBOOK_VERSION: "0.5.4"
+      MDBOOK_SHA256: "5222beabd3e37dc5be0d18ff99b79058469354db5c220153a1b92db5ba12be89"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Every model enum variant is named in the manual
+        # Python standard library only; reads the Rust sources and book/src.
+        run: python3 validation/check_manual_coverage.py
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Build the lindhard binary
+        run: cargo build --release -p lindhard-cli
+      - name: The user guide quotes the output of an actual run
+        # Reruns examples/b_5keV_si.toml once and compares with the
+        # committed excerpts the guide includes (book/src/guide/walkthrough/).
+        run: python3 validation/book_walkthrough.py --lindhard target/release/lindhard --check
+      - name: install mdBook ${{ env.MDBOOK_VERSION }}
+        run: |
+          set -euo pipefail
+          tarball="mdbook-v$MDBOOK_VERSION-x86_64-unknown-linux-musl.tar.gz"
+          curl -fsSL --retry 3 -o /tmp/mdbook.tar.gz \
+            "https://github.com/rust-lang/mdBook/releases/download/v$MDBOOK_VERSION/$tarball"
+          echo "$MDBOOK_SHA256  /tmp/mdbook.tar.gz" | sha256sum --check --strict
+          mkdir -p /tmp/mdbook-bin
+          tar -xzf /tmp/mdbook.tar.gz -C /tmp/mdbook-bin mdbook
+          echo /tmp/mdbook-bin >> "$GITHUB_PATH"
+      - name: mdbook build
+        run: mdbook build book
+      - name: Upload the rendered book
+        # The same artifact serves PR review (download it from the run) and
+        # the Pages deploy below.
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: book/book
+
+  deploy:
+    name: Deploy to GitHub Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

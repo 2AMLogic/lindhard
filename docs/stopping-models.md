@@ -1,5 +1,8 @@
 # Electronic stopping models: validity ranges
 
+<!-- Rendered in the book (book/src/models/stopping-validity.md) between the anchors below. -->
+<!-- ANCHOR: body -->
+
 Code: `lindhard/src/ion/stopping/`. All models return the stopping cross section
 per atom in J m² (`to_ev_1e15_cm2` converts to eV·10⁻¹⁵ cm²) and expose the
 ranges below at run time through `ElectronicStopping::validity`. Ranges are
@@ -183,3 +186,4 @@ the declines are on that basis. Nothing was taken from ICRU/SRIM/NIST tables.
   for all tested ion/target pairs (and without it Z1 > 1 disagrees by `Z1^(1/6)`).
 * The Oen-Robinson local-loss constants are flagged unverified in
   `data-provenance.md`.
+<!-- ANCHOR_END: body -->

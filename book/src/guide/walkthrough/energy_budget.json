@@ -1,0 +1,14 @@
+{
+  "energy_budget_ev_per_ion": {
+    "incident": 5000.0,
+    "electronic_nonlocal": 2172.1687300145927,
+    "electronic_local": 0.0,
+    "lattice": 2628.475261767412,
+    "surface_barrier": 1.1732420000000003,
+    "backscattered": 49.14058463893804,
+    "sputtered": 14.90822822514642,
+    "transmitted": 0.0,
+    "rest": 134.13395335390996,
+    "max_relative_residual": 3.819877747446298e-15
+  }
+}

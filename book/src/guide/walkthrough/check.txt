@@ -1,0 +1,13 @@
+examples/b_5keV_si.toml: OK
+  beam: B at 5000 eV, tilt 7 deg, azimuth 0 deg; 10000 ions, seed 1
+  layer 0: Si (Si 1.0000), semi-infinite, 4.9940e22 atoms/cm^3
+  transport: amorphous-bca
+  screening function: zbl-universal
+  screening length: universal
+  scattering angle: gauss-mehler-quadrature-table
+  electronic stopping: lindhard-scharff
+  compound stopping: bragg-additivity
+  free path: constant
+  displacement criterion: e_d-e_b
+  surface barrier: planar
+  random numbers: chacha8-per-history-stream
