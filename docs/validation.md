@@ -86,7 +86,9 @@ What it covers:
   committed**: the paper's NIST reprint opens and was read in full, but it
   tabulates no `sigma_el` or `sigma_tr1` for these elements at these
   energies (its Tables 3 to 5 cover He and Hg at 50 and 100 eV and IMFPs; the
-  cross sections appear only in figures), and the C, Si and Au DHFS
+  cross sections appear only in figures, and those use H, Al, Ni, Ag, Au and
+  Cm plus some gases, so C, Si and Cu are not even plotted and only Au
+  overlaps), and the C, Si and Au DHFS
   coefficients are not in the tree (#130), so all eight cases are skipped and
   reported as skipped (`lindhard/tests/data/elastic_reference.toml`,
   provenance row). Nothing here has been validated yet.

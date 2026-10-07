@@ -5,7 +5,9 @@
 # below is deliberately absent (a documented placeholder). The intended
 # source, Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409 (2004),
 # doi:10.1063/1.1595653, was opened on 2026-10-07 (NIST reprint) but tabulates
-# no sigma_el / sigma_tr1 for these elements at 1 or 10 keV (figures only; see
+# no sigma_el / sigma_tr1 for these elements at 1 or 10 keV. Its cross sections
+# appear only in figures, for H, Al, Ni, Ag, Au and Cm plus some gases, so C,
+# Si and Cu are not even plotted and only Au overlaps (see
 # docs/data-provenance.md); values are never entered from memory or read off
 # figures.
 #

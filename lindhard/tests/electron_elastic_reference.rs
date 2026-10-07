@@ -2,8 +2,9 @@
 //! values (issue #93; fixture `tests/data/elastic_reference.toml`).
 //!
 //! **No reference value is committed yet.** The intended source (Jablonski,
-//! Salvat & Powell 2004) was read, but tabulates none of these cross sections
-//! (figures only), and the DHFS screening
+//! Salvat & Powell 2004) was read, but tabulates none of these cross sections;
+//! its figures cover H, Al, Ni, Ag, Au and Cm (plus some gases), not C, Si or
+//! Cu. The DHFS screening
 //! coefficients for C, Si and Au are not in the tree either (#130), so the
 //! harness below is in place but every case is skipped and reported as such.
 //! A skipped case is not a pass. Filling a case in the fixture activates it;
