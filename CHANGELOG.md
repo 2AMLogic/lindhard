@@ -7,6 +7,16 @@ one version).
 
 ## [Unreleased]
 
+### Added
+
+- `electron::inelastic::ChannelPartition`: losses above subshell edges (from a
+  `SubshellBindingTable`) are attributed to inner-shell ionization channels,
+  with secondary energy `ω - E_B`, and channel-resolved inverse mean free
+  paths. The occupancy-weighted split of one optical ELF is our own
+  assumption, stated in the docs.
+- `electron::inelastic::ExchangeCorrection`: optional Born-Ochkur exchange for
+  `SinglePolePenn` below a stated energy (`ω <= T'/2`). Off by default.
+
 ### Changed
 
 - Collision hot path (about 2.2 to 2.7 times the ions/s, see

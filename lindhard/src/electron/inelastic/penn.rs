@@ -67,6 +67,41 @@
 //! is `λ = [∫ p dω]⁻¹` (S2017 eq. (3)) and the stopping power
 //! `S = ∫ ω p dω`.
 //!
+//! # Optional exchange correction (Born-Ochkur)
+//!
+//! [`ExchangeCorrection`] makes the primary and the struck electron
+//! indistinguishable. The source is the open account in M. A. Quinto *et al.*,
+//! Int. J. Mol. Sci. 23, 6121 (2022), doi:10.3390/ijms23116121 (PMC9181504),
+//! Section 3 ("ionis-SDCS"), eqs. (32)-(35), which in turn cites Ochkur, Sov.
+//! Phys.-JETP 20, 1175 (1965) and Rudge, Rev. Mod. Phys. 40, 564 (1968)
+//! (neither read here) and takes the energy-dependent setup from the authors'
+//! earlier work (their ref. [42], not read). From that account:
+//!
+//! * the exchange term of the DIIMFP is the direct one with the integrand
+//!   multiplied by `1 + F(q)`, with the Born-Ochkur factor
+//!   `F = -x + x²`, `x = (q²/2) / (T' - ω)` (their `F_xc^ionis`; `ħ = m = 1`;
+//!   the printed denominator is `T - W` with `W` the energy of the emitted
+//!   electron, which is `T' - ω` for the valence channel here, where there is
+//!   no binding energy to subtract);
+//! * the exchange integration limits in `q` are `sqrt(2T') ± sqrt(2(T' - ω))`,
+//!   the same as the direct ones for a channel with no binding energy;
+//! * the loss is limited by indistinguishability to `ω <= (T' + B)/2`
+//!   (eq. (35) text, `W+ = (T - B)/2` for the emitted electron); the valence
+//!   channel of this model has `B = 0`, so `ω <= T'/2`, which is also the
+//!   `ω_max` of the SSPA* variant of S2017. With the factor, `x <= 1` over the
+//!   whole range, so `F` is bounded, `-1/4 <= F <= 0`.
+//!
+//! The correction is optional and applied only for kinetic energies below the
+//! energy given to [`ExchangeCorrection::new`]; at and above it the model is the
+//! plain SPA (no `ω_max` cut either), so `λ(E)` has a step of the size of the
+//! correction at that energy. The total is then evaluated by direct numerical
+//! integration over `ω` of the DIIMFP (no closed form), with the outer
+//! tolerance `100 × rel_tol` since each DIIMFP value is itself an integral.
+//! The prefactor `1/(T + 2B)` of the direct term in the source is `1/T'`
+//! here (`B = 0`). **Not read:** whether the printed `T - W` in `x` is
+//! intended as `T - E` for inner shells; the inner-shell channels
+//! (`inner_shell`) use the same `x` with `T' - ω`.
+//!
 //! # How the integrals are done
 //!
 //! **DIIMFP** ([`SinglePolePenn::diimfp_per_m_ev`]): the `q` integral of
@@ -139,11 +174,15 @@ type Result<T> = std::result::Result<T, ElectronDataError>;
 /// Default relative tolerance of the IMFP, stopping and DIIMFP integrals.
 pub const DEFAULT_RELATIVE_TOLERANCE: f64 = 1.0e-7;
 
+/// The outer (loss) integral of the exchange-corrected total is this many
+/// times looser than the tolerance of the inner integrals.
+const EXCHANGE_OUTER_TOLERANCE_FACTOR: f64 = 100.0;
+
 /// Gauss-Legendre order of the adaptive integrals.
 const GL_ORDER: usize = 5;
 
 /// The Hartree energy in eV.
-fn hartree_ev() -> f64 {
+pub(crate) fn hartree_ev() -> f64 {
     HARTREE_ENERGY / ELEMENTARY_CHARGE
 }
 
@@ -267,6 +306,34 @@ fn imfp_kernel(wp: f64, c: f64, qa: f64, qb: f64) -> f64 {
     0.5 * ((g(ya, qa) / ya) / (g(yb, qb) / yb)).ln()
 }
 
+/// The Born-Ochkur exchange factor `F = x² - x`, `x = (q²/2)/(T' - ω)`, in
+/// atomic units (see the module docs). `T' - ω` must be positive.
+fn ochkur_factor(q: f64, tp_minus_w: f64) -> f64 {
+    let x = 0.5 * q * q / tp_minus_w;
+    x * x - x
+}
+
+/// Optional exchange correction (module docs, "Optional exchange
+/// correction"), applied for kinetic energies strictly below
+/// `applies_below_ev`.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ExchangeCorrection {
+    applies_below_ev: f64,
+}
+
+impl ExchangeCorrection {
+    /// A correction applied for `T < applies_below_ev` (finite, positive).
+    pub fn new(applies_below_ev: f64) -> Result<Self> {
+        check_energy("exchange cutoff energy", applies_below_ev)?;
+        Ok(Self { applies_below_ev })
+    }
+
+    /// The energy below which the correction is applied, eV.
+    pub fn applies_below_ev(&self) -> f64 {
+        self.applies_below_ev
+    }
+}
+
 /// One point of an IMFP and stopping-power table.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct InelasticPoint {
@@ -300,6 +367,7 @@ pub struct SinglePolePenn {
     fermi: f64,
     rel_tol: f64,
     gl: GaussLegendre,
+    exchange: Option<ExchangeCorrection>,
 }
 
 fn check_energy(what: &'static str, v: f64) -> Result<()> {
@@ -326,7 +394,25 @@ impl SinglePolePenn {
             fermi: 0.0,
             rel_tol: DEFAULT_RELATIVE_TOLERANCE,
             gl: GaussLegendre::new(GL_ORDER),
+            exchange: None,
         }
+    }
+
+    /// Switch the exchange correction on (it is off by default).
+    pub fn with_exchange(mut self, exchange: ExchangeCorrection) -> Self {
+        self.exchange = Some(exchange);
+        self
+    }
+
+    /// The exchange correction, if enabled.
+    pub fn exchange(&self) -> Option<ExchangeCorrection> {
+        self.exchange
+    }
+
+    /// Whether the exchange correction applies at kinetic energy `energy_ev`.
+    pub fn exchange_applies_at(&self, energy_ev: f64) -> bool {
+        self.exchange
+            .is_some_and(|e| energy_ev < e.applies_below_ev)
     }
 
     /// Set the Fermi energy (eV, finite and non-negative). Energies passed to
@@ -410,7 +496,8 @@ impl SinglePolePenn {
 
     /// The DIIMFP `p(T, ω)` (S2017 eq. (2), nonrelativistic) at kinetic
     /// energy `energy_ev` above the Fermi level and energy loss `loss_ev`,
-    /// in m⁻¹ eV⁻¹. Zero for `ω <= 0` or `ω > T`.
+    /// in m⁻¹ eV⁻¹. Zero for `ω <= 0` or `ω > T`, and, with the exchange
+    /// correction applying at this energy, for `ω > T'/2` (module docs).
     pub fn diimfp_per_m_ev(&self, energy_ev: f64, loss_ev: f64) -> Result<f64> {
         check_energy("electron energy", energy_ev)?;
         if !loss_ev.is_finite() {
@@ -424,9 +511,23 @@ impl SinglePolePenn {
         Ok(p_au / (BOHR_RADIUS * h))
     }
 
-    /// `p(T, ω)` in atomic units (per bohr per hartree).
+    /// `p(T, ω)` in atomic units (per bohr per hartree), with the exchange
+    /// correction (and its `ω <= T'/2` limit) where it applies.
     fn diimfp_au(&self, t: f64, w: f64) -> f64 {
+        let exchange = self.exchange_applies_at(t * hartree_ev());
+        if exchange && w > 0.5 * (t + self.fermi) {
+            return 0.0;
+        }
+        self.diimfp_core_au(t, w, exchange)
+    }
+
+    /// `p(T, ω)` in atomic units, with the exchange factor `1 + F` in the
+    /// integrand if `exchange`; no limit on `ω` other than `ω <= T`.
+    pub(crate) fn diimfp_core_au(&self, t: f64, w: f64, exchange: bool) -> f64 {
         if !(w > 0.0 && w <= t) {
+            return 0.0;
+        }
+        if exchange && (t + self.fermi - w).partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
             return 0.0;
         }
         let n = self.w.len();
@@ -457,13 +558,20 @@ impl SinglePolePenn {
             }
         }
         breaks.push(hi.ln());
+        let tp_minus_w = tp - w;
         let integral = integrate_segments(
             &self.gl,
             &mut |u: f64| {
                 let q = u.exp();
                 match pole_plasma_frequency(q, w) {
                     Some(w0) => {
-                        [self.elf_au(w0) / (1.0 + PI * q * q / (6.0 * fermi_wavenumber(w0)))]
+                        let base =
+                            self.elf_au(w0) / (1.0 + PI * q * q / (6.0 * fermi_wavenumber(w0)));
+                        if exchange {
+                            [base * (1.0 + ochkur_factor(q, tp_minus_w))]
+                        } else {
+                            [base]
+                        }
                     }
                     None => [0.0],
                 }
@@ -480,6 +588,9 @@ impl SinglePolePenn {
         let n = self.w.len();
         if t.is_nan() || t <= self.w[0] {
             return (0.0, 0.0);
+        }
+        if self.exchange_applies_at(t * hartree_ev()) {
+            return self.imfp_and_stopping_exchange_au(t);
         }
         let tp = t + self.fermi;
         let k = (2.0 * tp).sqrt();
@@ -505,6 +616,27 @@ impl SinglePolePenn {
             self.rel_tol,
         );
         (r[0] / (PI * tp), r[1] / (PI * tp))
+    }
+
+    /// `(λ⁻¹, S)` with the exchange correction: the direct integral of the
+    /// DIIMFP over `0 < ω <= min(T'/2, T)` (module docs).
+    fn imfp_and_stopping_exchange_au(&self, t: f64) -> (f64, f64) {
+        let top = (0.5 * (t + self.fermi)).min(t);
+        if top <= self.w[0] {
+            return (0.0, 0.0);
+        }
+        let mut breaks: Vec<f64> = self.w.iter().copied().filter(|&x| x < top).collect();
+        breaks.push(top);
+        let r = integrate_segments(
+            &self.gl,
+            &mut |x: f64| {
+                let p = self.diimfp_core_au(t, x, true);
+                [p, x * p]
+            },
+            &breaks,
+            (self.rel_tol * EXCHANGE_OUTER_TOLERANCE_FACTOR).min(1e-2),
+        );
+        (r[0], r[1])
     }
 
     /// The inverse IMFP (m⁻¹) and the stopping power (eV/m) at kinetic

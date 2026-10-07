@@ -14,15 +14,22 @@
 //! No optical data is committed (`docs/data-provenance.md`); every ELF comes
 //! from the caller.
 //!
-//! The full Penn algorithm, Mermin fits, sampling tables, inner shells with
-//! the exchange correction and relativistic kinematics are later work.
+//! [`inner_shell`] attributes losses above subshell edges to inner-shell
+//! ionization (secondary energy `ω - E_B`), and the optional Born-Ochkur
+//! [`ExchangeCorrection`] makes the primary and the struck electron
+//! indistinguishable at low energy.
+//!
+//! The full Penn algorithm, Mermin fits, sampling tables and relativistic
+//! kinematics are later work.
 
 pub mod bethe;
 pub mod drude;
+pub mod inner_shell;
 pub mod penn;
 mod quadrature;
 pub mod sum_rules;
 
 pub use drude::{DrudeLorentz, DrudeLorentzOscillator};
-pub use penn::{InelasticPoint, SinglePolePenn, DEFAULT_RELATIVE_TOLERANCE};
+pub use inner_shell::{Channel, ChannelInverseImfp, ChannelPartition, InnerShell};
+pub use penn::{ExchangeCorrection, InelasticPoint, SinglePolePenn, DEFAULT_RELATIVE_TOLERANCE};
 pub use sum_rules::SumRuleReport;
