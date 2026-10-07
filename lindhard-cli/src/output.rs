@@ -32,7 +32,7 @@ pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
 
-const NM: f64 = 1e-9;
+pub const NM: f64 = 1e-9;
 
 #[derive(Serialize)]
 pub struct Format {
@@ -351,7 +351,7 @@ struct Escapes {
     species: Vec<SpeciesOut>,
 }
 
-fn symbol(z: u8) -> &'static str {
+pub fn symbol(z: u8) -> &'static str {
     lindhard::elements::element(z).map_or("?", |e| e.symbol)
 }
 
@@ -463,7 +463,7 @@ struct Files {
 }
 
 /// The only nondeterministic part of the summary.
-#[derive(Serialize)]
+#[derive(Serialize, Clone, Copy)]
 pub struct RunInfo {
     pub threads: usize,
     pub table_build_s: f64,
@@ -683,7 +683,7 @@ pub fn ions_csv(t: &CliTally) -> String {
 }
 
 /// Per-ion, per-nm density of a histogram bin.
-fn density(count: u64, histories: u64, width_nm: f64) -> f64 {
+pub fn density(count: u64, histories: u64, width_nm: f64) -> f64 {
     count as f64 / (histories.max(1) as f64 * width_nm)
 }
 

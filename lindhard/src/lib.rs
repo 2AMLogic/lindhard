@@ -6,8 +6,9 @@
 //! potentials and scattering integral, electronic stopping, and the amorphous
 //! BCA engine with full recoil cascades (`ion::bca`), damage models
 //! (`ion::damage`), and the tallies: moments, Pearson IV / dual-Pearson, range,
-//! damage and escape statistics (`tally`). For electrons, only the validated
-//! data boundary exists so far (`electron::data`).
+//! damage and escape statistics (`tally`). For electrons: the validated
+//! data boundary (`electron::data`) and the event loop on cross-section tables
+//! (`electron::transport`).
 
 #![forbid(unsafe_code)]
 

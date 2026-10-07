@@ -7,7 +7,7 @@
 # sail through the license check while being an unreviewed, unversioned,
 # force-pushable input to a release binary.
 #
-# lindhard and lindhard-cli are published under MIT (see LICENSE). The
+# lindhard, lindhard-cli and lindhard-py are published under MIT (see LICENSE). The
 # CLI is also distributed as a binary, which links every transitive dependency
 # into the shipped artifact. Both facts mean a dependency's license is our
 # license problem: a copyleft crate anywhere in the graph would impose terms
@@ -58,6 +58,16 @@ allow = [
     # declare `(MIT OR Apache-2.0) AND Unicode-3.0`, an AND expression that
     # cannot be satisfied without it.
     "Unicode-3.0",
+    # Permissive, attribution-only (notice kept in binary distributions). Reaches
+    # the tree through the `numpy` crate, which `lindhard-py` uses to hand
+    # tallies to NumPy; the Python wheel is the only shipped artifact that links
+    # it. `zerocopy` offers it as one arm of a dual license, which would pass
+    # without this entry.
+    "BSD-2-Clause",
+    # Apache-2.0 with the LLVM exception (relaxes the attribution requirement for
+    # compiled code). Reaches the tree through `target-lexicon`, a pyo3 build
+    # dependency that picks the target triple.
+    "Apache-2.0 WITH LLVM-exception",
 ]
 
 # When a crate declares no SPDX expression, cargo-deny falls back to scanning

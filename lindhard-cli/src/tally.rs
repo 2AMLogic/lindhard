@@ -21,6 +21,24 @@ pub enum Fate {
 }
 
 impl Fate {
+    /// Every fate, in the order of [`Fate::code`].
+    pub const ALL: [Fate; 4] = [
+        Fate::Stopped,
+        Fate::Backscattered,
+        Fate::Transmitted,
+        Fate::Lateral,
+    ];
+
+    /// Index of this fate in [`Fate::ALL`].
+    pub fn code(self) -> u8 {
+        match self {
+            Fate::Stopped => 0,
+            Fate::Backscattered => 1,
+            Fate::Transmitted => 2,
+            Fate::Lateral => 3,
+        }
+    }
+
     pub fn as_str(self) -> &'static str {
         match self {
             Fate::Stopped => "stopped",
