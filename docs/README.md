@@ -4,6 +4,7 @@
 |---|---|
 | [`architecture.md`](architecture.md) | Design intent: crate shape, module plan, and which milestone delivers each part |
 | [`cli.md`](cli.md) | The `lindhard` command: subcommands, TOML input schema, output files, reproducibility |
+| [`python.md`](python.md) | The `lindhard` Python package: classes, NumPy outputs, TOML round trip, error mapping |
 | [`stopping-models.md`](stopping-models.md) | Electronic stopping models, their validity ranges, sources, and the terms declined or deferred |
 | [`validation.md`](validation.md) | The three validation levels (analytic, oracle, experiment), current results and known deviations |
 | [`benchmarks.md`](benchmarks.md) | How to run the benches, what they measure, and first numbers |

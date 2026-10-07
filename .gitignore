@@ -103,3 +103,8 @@ validation/oracle-runs/
 
 # Repo Skills machine-local install metadata (absolute source path + timestamp)
 .claude/skills/repo/.install-local.json
+
+# Python bindings: local maturin build output
+lindhard-py/python/**/*.so
+lindhard-py/python/**/*.pyd
+lindhard-py/python/**/*.dylib
