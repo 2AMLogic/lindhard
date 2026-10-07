@@ -100,6 +100,9 @@ pub struct Input {
     /// What the run records.
     #[serde(default)]
     pub tally: TallySpec,
+    /// Fluence-dependent target (optional). Absent: the static run.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dynamic: Option<DynamicSpec>,
 }
 
 /// `[beam]`: species, energy and direction.
@@ -381,6 +384,65 @@ pub struct RunSpec {
     pub threads: Option<usize>,
 }
 
+/// Volume-relaxation convention of a dynamic run
+/// ([`crate::ion::dynamic::Relaxation`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum RelaxationChoice {
+    /// Ideal mixing of atomic volumes; every element at its elemental solid
+    /// volume unless `atomic_volume_nm3` gives one.
+    #[default]
+    IdealMixing,
+    /// One total atom number density for every slab; needs
+    /// `number_density_cm3`.
+    FixedNumberDensity,
+}
+
+fn default_min_ions() -> u64 {
+    1
+}
+
+/// `[dynamic]`: a fluence-dependent target. The run's `ions` are delivered in
+/// steps; after each step the target composition is updated from the
+/// transport events (module docs of [`crate::ion::dynamic`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DynamicSpec {
+    /// Total fluence of the whole run, ions/cm². The `run.ions` histories
+    /// represent it, each standing for `fluence_cm2 / ions` ions/cm².
+    pub fluence_cm2: f64,
+    /// Ions per step; with `max_change` set, the largest (and first) step.
+    pub ions_per_step: u64,
+    /// Adaptive steps: the largest relative composition change per step (see
+    /// [`crate::ion::dynamic::DynamicRun`]). Absent: fixed steps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_change: Option<f64>,
+    /// Adaptive steps: the smallest step. Default 1.
+    #[serde(default = "default_min_ions")]
+    pub min_ions_per_step: u64,
+    /// Split every finite layer into slabs at most this thick, nm. Default
+    /// (absent): each layer is one slab.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slab_nm: Option<f64>,
+    /// Volume relaxation convention. Default `"ideal-mixing"`.
+    #[serde(default)]
+    pub relaxation: RelaxationChoice,
+    /// Total atom number density, atoms/cm³ (`"fixed-number-density"` only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub number_density_cm3: Option<f64>,
+    /// Atomic volume per element symbol, nm³/atom (`"ideal-mixing"` only);
+    /// overrides the elemental solid volume. Required for an element with no
+    /// tabulated solid density (a gas, for example).
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub atomic_volume_nm3: BTreeMap<String, f64>,
+    /// Energies for elements that only enter the target during the run (the
+    /// beam species, for example); an element already in a layer keeps the
+    /// energies of that layer. Falls back to `[physics.energies]`, then to
+    /// the element defaults.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub energies: BTreeMap<String, EnergyOverride>,
+}
+
 fn is_zero_u8(v: &u8) -> bool {
     *v == 0
 }
@@ -548,6 +610,100 @@ impl Input {
             ));
         }
         e
+    }
+
+    /// Validate `[dynamic]`.
+    fn check_dynamic(&self, d: &DynamicSpec) -> Result<(), InputError> {
+        if !finite_pos(d.fluence_cm2) {
+            return Err(invalid(
+                "dynamic.fluence_cm2",
+                "must be finite and positive",
+            ));
+        }
+        if d.ions_per_step == 0 {
+            return Err(invalid("dynamic.ions_per_step", "must be at least 1"));
+        }
+        match d.max_change {
+            Some(c) if !finite_pos(c) => {
+                return Err(invalid("dynamic.max_change", "must be finite and positive"))
+            }
+            Some(_) => {
+                if d.min_ions_per_step == 0 || d.min_ions_per_step > d.ions_per_step {
+                    return Err(invalid(
+                        "dynamic.min_ions_per_step",
+                        "must be between 1 and ions_per_step",
+                    ));
+                }
+            }
+            None => {
+                if d.min_ions_per_step != default_min_ions() {
+                    return Err(invalid(
+                        "dynamic.min_ions_per_step",
+                        "only used with max_change (adaptive steps)",
+                    ));
+                }
+            }
+        }
+        if let Some(t) = d.slab_nm {
+            if !finite_pos(t) {
+                return Err(invalid("dynamic.slab_nm", "must be finite and positive"));
+            }
+        }
+        match (d.relaxation, d.number_density_cm3) {
+            (RelaxationChoice::FixedNumberDensity, None) => {
+                return Err(invalid(
+                    "dynamic.number_density_cm3",
+                    "required with relaxation = \"fixed-number-density\"",
+                ))
+            }
+            (RelaxationChoice::FixedNumberDensity, Some(n)) if !finite_pos(n) => {
+                return Err(invalid(
+                    "dynamic.number_density_cm3",
+                    "must be finite and positive",
+                ))
+            }
+            (RelaxationChoice::IdealMixing, Some(_)) => {
+                return Err(invalid(
+                    "dynamic.number_density_cm3",
+                    "only used with relaxation = \"fixed-number-density\"",
+                ))
+            }
+            _ => {}
+        }
+        if d.relaxation == RelaxationChoice::FixedNumberDensity && !d.atomic_volume_nm3.is_empty() {
+            return Err(invalid(
+                "dynamic.atomic_volume_nm3",
+                "only used with relaxation = \"ideal-mixing\"",
+            ));
+        }
+        for (sym, v) in &d.atomic_volume_nm3 {
+            let field = format!("dynamic.atomic_volume_nm3.{sym}");
+            if element_by_symbol(sym).is_none() {
+                return Err(invalid(&field, format!("unknown element symbol {sym:?}")));
+            }
+            if !finite_pos(*v) {
+                return Err(invalid(&field, "must be finite and positive"));
+            }
+        }
+        for (sym, o) in &d.energies {
+            let field = format!("dynamic.energies.{sym}");
+            if element_by_symbol(sym).is_none() {
+                return Err(invalid(&field, format!("unknown element symbol {sym:?}")));
+            }
+            for (key, v) in [
+                ("e_d_ev", o.e_d_ev),
+                ("e_b_ev", o.e_b_ev),
+                ("e_s_ev", o.e_s_ev),
+            ] {
+                if v.is_some_and(|v| !(v.is_finite() && v >= 0.0)) {
+                    return Err(invalid(
+                        format!("{field}.{key}"),
+                        "must be finite and non-negative",
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     /// Read and validate every `[stopping]` table file.
@@ -871,6 +1027,10 @@ impl Input {
         if let Some(s) = &t.substrate {
             layers.push(self.material("target.substrate", s)?);
             fields.push("target.substrate".to_string());
+        }
+
+        if let Some(d) = &self.dynamic {
+            self.check_dynamic(d)?;
         }
 
         // Energy overrides.

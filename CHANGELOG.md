@@ -9,6 +9,19 @@ one version).
 
 ### Added
 
+- Fluence-dependent targets: `ion::dynamic::DynamicRun`, a fluence stepping
+  loop on `CompositionGrid` with fixed or adaptive steps (bounded relative
+  composition change per step, with reject and retry), and `InventoryTally`,
+  the adapter from transport events to inventory deltas. Each step covers a
+  range of the global primary indices (`Bca::run_range`,
+  `rng::run_particles_range`; `run` is unchanged and bit-identical), so a run
+  is reproducible end to end and identical at any thread count. The CLI reads
+  an optional `[dynamic]` table and writes `dynamic_summary.json`,
+  `dynamic_steps.csv` (cumulative yields per step) and
+  `dynamic_composition.csv` (slab profile per step); inputs without it run as
+  before. `CompositionGrid::seed_energies` supplies the energies of elements
+  that only enter the target during the run. Example:
+  `examples/dynamic/as_1keV_si_film.toml`.
 - `electron::inelastic::ShellResolvedChannels`: a valence channel and
   inner-shell ionization channels, each from its own caller-supplied optical
   ELF (one loss function per shell, as in de Vera et al., Int. J. Mol. Sci.

@@ -77,6 +77,7 @@ impl Run {
                 threads,
             },
             tally: tally.map(|t| t.to_spec()).unwrap_or_default(),
+            dynamic: None,
         };
         Ok(Self { input, base_dir })
     }

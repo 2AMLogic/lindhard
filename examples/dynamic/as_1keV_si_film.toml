@@ -1,0 +1,47 @@
+# 1 keV arsenic into a 10 nm silicon film on a silicon substrate, with the
+# target composition updated as the fluence builds up (sputter erosion and
+# build-up of implanted atoms).
+#
+# Run:   lindhard run examples/dynamic/as_1keV_si_film.toml --out out/as_si_dynamic
+# Check: lindhard check examples/dynamic/as_1keV_si_film.toml
+#
+# Schema: docs/cli.md. The [dynamic] table makes the run a fluence-stepped
+# one; without it this would be a static run of the same target.
+
+[beam]
+ion = "As"
+energy_ev = 1000.0
+
+[target]
+substrate = "Si"
+
+[[target.layers]]
+material = "Si"
+thickness_nm = 10.0
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+
+# Illustrative model parameters (Si has no default displacement energy).
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+# The whole run: 4000 ions standing for the fluence below.
+ions = 4000
+seed = 1
+
+[dynamic]
+fluence_cm2 = 2.0e16
+# Steps of at most 500 ions; a step is shrunk until no slab changes by more
+# than 10 % of its atoms.
+ions_per_step = 500
+max_change = 0.1
+# Slabs at most 2 nm thick (each layer is split into equal slabs).
+slab_nm = 2.0
+
+# The implanted species enters the film, so it needs displacement energy
+# (illustrative, as above). Atomic volumes default to the elemental solids.
+[dynamic.energies.As]
+e_d_ev = 15.0

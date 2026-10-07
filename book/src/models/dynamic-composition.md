@@ -57,8 +57,27 @@ species that occurs (none is inferred, in particular not for gases).
 ## Verification status
 
 Conservation, transactional updates and the relaxation conventions are
-covered by `lindhard/tests/dynamic.rs`. There is no comparison with a
-measured dynamic profile yet, because no fluence driver exists.
+covered by `lindhard/tests/dynamic.rs`. The fluence stepping loop
+(`DynamicRun`, with the tally-to-delta adapter) is covered by
+`lindhard/tests/dynamic_run.rs`: the low-fluence limit equals the static
+engine, refining the step size converges, steps continue one global random
+stream, results are bit-identical on 1, 2 and 8 threads, adaptive rejection
+consumes no indices, and inventory follows the event conventions. There is no
+comparison with a measured dynamic profile yet.
+
+## The fluence loop
+
+`DynamicRun` delivers the beam's primaries in steps. A step runs `n` primaries
+on the current target, scales the integer atom counts of the events by the
+fluence one primary stands for, applies them to the grid and relaxes it. The
+target is held fixed within a step, so the step must be small enough that the
+composition does not change much inside it: the adaptive policy bounds the
+largest relative change of a slab per step and retries a too-large step with
+fewer ions from the same first primary. The front surface stays at `x = 0`;
+the time series reports the interface depths and total thickness measured
+from it, not a receding surface. The step-size policy is this crate's own
+design, not a published scheme. In the CLI it is the `[dynamic]` table
+(`docs/cli.md`).
 
 ## References
 

@@ -1,10 +1,13 @@
 //! Dynamic composition: a finite-slab target whose per-slab composition can
 //! change, with volume relaxation.
 //!
-//! This is the stateful target model for fluence-dependent runs. It is only
-//! the bookkeeping: callers supply explicit per-slab, per-element inventory
-//! deltas. Turning transport tallies into deltas, and the fluence loop itself,
-//! are a separate layer and are not part of this module.
+//! This is the stateful target model for fluence-dependent runs. The
+//! [`CompositionGrid`] itself is only the bookkeeping: callers supply explicit
+//! per-slab, per-element inventory deltas. Two submodule layers sit on top of
+//! it: [`InventoryTally`] turns the transport events of a block of primaries
+//! into those deltas (it is a [`BcaTally`](crate::ion::bca::BcaTally)), and
+//! [`DynamicRun`] is the fluence stepping loop (fixed or adaptive steps,
+//! deterministic at any thread count; see its module docs).
 //!
 //! # Inventory and units
 //!
@@ -95,6 +98,12 @@
 //! initial materials are remembered per slab and per element, including
 //! explicitly overridden values, and re-applied when materials are rebuilt.
 //! An element new to a slab gets the defaults of [`crate::elements`].
+
+mod adapter;
+mod driver;
+
+pub use adapter::{InventoryTally, Yields};
+pub use driver::{DynamicConfig, DynamicRun, DynamicRunError, StepPolicy, StepRecord};
 
 use std::collections::BTreeMap;
 
@@ -398,6 +407,41 @@ impl CompositionGrid {
         self.slabs
             .get(slab)
             .map(|s| s.inventory.iter().map(|(&z, &a)| (z, a)).collect())
+    }
+
+    /// Record energies for element `z` in every slab, for the case that `z` is
+    /// (or later becomes) present: only the values that are still unset are
+    /// filled, so explicit values and defaults already in place are kept.
+    /// This is how an element that only enters through implantation or
+    /// recoil mixing (the beam species, a substrate element) gets the
+    /// displacement, lattice-binding and surface-binding energies the engine
+    /// requires of every element in a layer.
+    pub fn seed_energies(
+        &mut self,
+        z: u8,
+        e_d_ev: Option<f64>,
+        e_b_ev: Option<f64>,
+        e_s_ev: Option<f64>,
+    ) {
+        let defaults = Material::from_atom_fractions(&[(z, 1.0)], None).ok();
+        for s in &mut self.slabs {
+            let e = s.energies.entry(z).or_default();
+            e.e_d = e.e_d.or(e_d_ev).or_else(|| {
+                defaults
+                    .as_ref()
+                    .and_then(|m| m.displacement_energy_ev(z).ok())
+            });
+            e.e_b = e.e_b.or(e_b_ev).or_else(|| {
+                defaults
+                    .as_ref()
+                    .and_then(|m| m.lattice_binding_energy_ev(z).ok())
+            });
+            e.e_s = e.e_s.or(e_s_ev).or_else(|| {
+                defaults
+                    .as_ref()
+                    .and_then(|m| m.surface_binding_energy_ev(z).ok())
+            });
+        }
     }
 
     /// Total areal inventory of element `z` over all finite slabs, atoms/m².

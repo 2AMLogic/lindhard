@@ -32,6 +32,12 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
     if threads == Some(0) {
         bail!("threads must be at least 1");
     }
+    if r.input.dynamic.is_some() {
+        bail!(
+            "the input has a [dynamic] section; run it with \
+             lindhard_cli::dynamic::simulate_dynamic"
+        );
+    }
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads.unwrap_or(0))
         .build()

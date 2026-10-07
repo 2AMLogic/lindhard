@@ -49,8 +49,38 @@ pub fn stream(seed: u64, index: u64) -> ParticleRng {
 ///   tally, so the result is independent of scheduling and thread count.
 ///
 /// Runs on the current rayon pool (use `ThreadPool::install` to choose it).
+/// Particle indices are `0..n_particles`; [`run_particles_range`] continues a
+/// global stream from another first index.
 pub fn run_particles<T, N, H, M>(
     seed: u64,
+    n_particles: u64,
+    chunk_size: u64,
+    new_tally: N,
+    history: H,
+    merge: M,
+) -> T
+where
+    T: Send,
+    N: Fn() -> T + Sync,
+    H: Fn(&mut T, &mut ParticleRng, u64) + Sync,
+    M: FnMut(&mut T, T),
+{
+    run_particles_range(seed, 0, n_particles, chunk_size, new_tally, history, merge)
+}
+
+/// [`run_particles`] for the global particle indices
+/// `first_index..first_index + n_particles`: particle `first_index + k` uses
+/// the stream `stream(seed, first_index + k)` and is passed that index.
+///
+/// This is how a run split into several parts (the fluence steps of a dynamic
+/// run) continues one global stream instead of replaying indices from zero.
+/// Chunks are counted from `first_index`, so with `first_index = 0` this is
+/// exactly [`run_particles`]. Because every history depends only on
+/// `(seed, index)`, splitting `0..n` into consecutive ranges draws the same
+/// random numbers as one run of `n` particles.
+pub fn run_particles_range<T, N, H, M>(
+    seed: u64,
+    first_index: u64,
     n_particles: u64,
     chunk_size: u64,
     new_tally: N,
@@ -71,7 +101,8 @@ where
             let mut tally = new_tally();
             let start = c * chunk;
             let end = (start + chunk).min(n_particles);
-            for i in start..end {
+            for k in start..end {
+                let i = first_index + k;
                 let mut rng = stream(seed, i);
                 history(&mut tally, &mut rng, i);
             }
@@ -89,6 +120,26 @@ where
 mod tests {
     use super::*;
     use rand_core::Rng;
+
+    #[test]
+    fn ranges_continue_the_global_stream() {
+        let collect = |first: u64, n: u64| {
+            run_particles_range(
+                9,
+                first,
+                n,
+                4,
+                Vec::new,
+                |v: &mut Vec<(u64, u64)>, rng, i| v.push((i, rng.next_u64())),
+                |a, b| a.extend(b),
+            )
+        };
+        let whole = collect(0, 10);
+        let mut parts = collect(0, 3);
+        parts.extend(collect(3, 7));
+        assert_eq!(whole, parts);
+        assert_eq!(whole[5], (5, stream(9, 5).next_u64()));
+    }
 
     #[test]
     fn stream_is_reproducible_and_distinct() {
