@@ -29,12 +29,31 @@ or as a mix of the two ([BCA transport](bca.md), "Electronic loss").
 | `stopping = "lindhard-scharff"` (default) | `StoppingChoice::LindhardScharff` | all nonlocal | [Lindhard-Scharff](stopping-lindhard-scharff.md) |
 | `stopping = "bethe-bloch"` | `StoppingChoice::BetheBloch` | all nonlocal | [Bethe-Bloch](stopping-bethe-bloch.md) |
 | `stopping = "equipartition-ls-or"` | `StoppingChoice::EquipartitionLsOr` | half nonlocal (LS), half local (Oen-Robinson) | [Oen-Robinson](stopping-oen-robinson.md) |
+| `stopping = "none"` | `StoppingChoice::None` | none: nuclear loss only | below |
 
 A `[stopping]` table replaces the chosen model for the one (ion, target
 element) pair it declares ([User stopping tables](stopping-user-tables.md)).
 Energy-loss straggling is described on its [own page](straggling.md). It is
 a library function that the BCA engine does not call at present: the
 electronic loss along each flight is deterministic, \\( N S_e(E)\\, s \\).
+
+## No electronic stopping
+
+`stopping = "none"` (`StoppingChoice::None`, model
+`lindhard::ion::stopping::none::NoStopping`) sets \\( S_e = 0 \\) for every
+ion, target and energy, so the moving atoms lose energy only in nuclear
+collisions. This is the \\( k = 0 \\) limit of the range theory of Lindhard,
+Scharff and Schiott (Mat. Fys. Medd. Dan. Vid. Selsk. 33 (14), 1963), where
+the electronic stopping coefficient vanishes.
+
+It is **not a physical model** of any target. It is there for two uses:
+like-for-like transport comparisons against codes run with their electronic
+stopping switched off (the `*_nuclear` level-2 problems of the validation
+report), and nuclear-only studies such as the level-1 `range.si5k_si.*` and
+damage checks, which use the same type. It has no validity range, so no
+warning is raised for it, and the electronic terms of the energy budget are
+exactly zero. `[stopping]` tables may still be given; they serve the pairs
+they declare.
 
 The validity ranges side by side, and the terms that are deliberately not
 implemented, are on [Validity ranges and declined terms](stopping-validity.md).
