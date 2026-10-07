@@ -45,6 +45,16 @@ one version).
   (bit-identical at any thread count) and returns the tally with `RunMetadata`
   recording the energy cutoff and escape rule; per-event results go through
   the `ElectronTally` hook trait.
+- `tally::electron`: `FullElectronTally`, an `ElectronTally` that records
+  energy deposition per layer and on optional Cartesian and cylindrical
+  (r-z) grids, backscatter (eta) and secondary (delta) yields split at a
+  configurable energy (50 eV by default, after Chen et al., Sci. Rep. 12,
+  18201 (2022); the split and its source are recorded in the report
+  metadata), escape energy and polar-angle spectra per face,
+  energy-weighted generation-volume moments, and the energy balance
+  (deposited + escaped + trapped = incident). Its plain-data
+  `ElectronReport` is serializable and bit-identical at any thread count.
+  Example: `cargo run -p lindhard --example electron_tally`.
 - `electron::elastic`: radial Dirac partial-wave solver for a screened central
   potential at one energy (phase shifts, differential cross section, Sherman
   function, `sigma_el`, `sigma_tr1`), with `Yukawa`, `SquareWell` and
