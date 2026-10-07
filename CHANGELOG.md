@@ -9,6 +9,9 @@ one version).
 
 ### Added
 
+- Documented gap for the PMMA optical ELF (#147): Ritsko et al. (1978) and the
+  Henke tail could not be opened on 2026-10-07, so no dataset is committed;
+  `docs/data-provenance.md` records what was tried and what is needed.
 - Electron run mode in `lindhard-cli`: an input with an `[electron]` table
   (beam, transport cutoff and escape rule, Kieft-Bosch secondaries, step
   barrier, Mott elastic with optional exchange and correlation-polarization
