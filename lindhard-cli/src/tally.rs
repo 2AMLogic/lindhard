@@ -16,6 +16,8 @@ pub enum Fate {
     Backscattered,
     /// Left through the back face.
     Transmitted,
+    /// Left through a lateral face (voxel grids only).
+    Lateral,
 }
 
 impl Fate {
@@ -24,6 +26,7 @@ impl Fate {
             Fate::Stopped => "stopped",
             Fate::Backscattered => "backscattered",
             Fate::Transmitted => "transmitted",
+            Fate::Lateral => "lateral",
         }
     }
 }
@@ -107,6 +110,7 @@ impl BcaTally for CliTally {
         let fate = match face {
             Face::Front => Fate::Backscattered,
             Face::Back => Fate::Transmitted,
+            Face::Side => Fate::Lateral,
         };
         self.record(p, fate);
     }

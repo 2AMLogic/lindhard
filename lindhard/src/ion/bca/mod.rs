@@ -1,10 +1,11 @@
-//! Amorphous binary-collision-approximation (BCA) transport in a 1D layered
-//! target, with full recoil cascades.
+//! Amorphous binary-collision-approximation (BCA) transport in a layered or
+//! voxelised target, with full recoil cascades.
 //!
 //! # Model
 //!
-//! The target is a [`Stack`] of homogeneous, structureless (amorphous)
-//! layers. A particle alternates straight free flights and binary elastic
+//! The target is any [`Geometry`]: a [`Stack`](crate::geometry::Stack) of layers or a
+//! [`VoxelGrid`](crate::geometry::VoxelGrid), whose regions are homogeneous,
+//! structureless (amorphous). A particle alternates straight free flights and binary elastic
 //! collisions with target atoms, losing energy continuously to electrons along
 //! each flight. This is the amorphous-target BCA of J. P. Biersack and L. G.
 //! Haggmark, Nucl. Instrum. Methods 174 (1980) 257 (TRIM), within the general
@@ -16,7 +17,9 @@
 //!
 //! One history:
 //!
-//! 1. The primary enters at the origin of the front face with the beam's
+//! 1. The primary enters at the geometry's entry point (the origin of the
+//!    front face of a stack; the centre of the front face of a voxel grid
+//!    unless [`Bca::with_entry_point`] chooses another) with the beam's
 //!    direction.
 //! 2. **Free flight** of length `tau * lambda` ([`MeanFreePath`]), with the
 //!    electronic loss `N S_e(E) s` taken at the energy at the start of the
@@ -44,9 +47,24 @@
 //!
 //! # Free-path convention and layer boundaries
 //!
+//! [`Particle::layer`] is the particle's *region* in the geometry: the layer
+//! index in a stack, the flat voxel index in a voxel grid. Material data
+//! (scattering, stopping, energies) is cached per material, shared by all
+//! voxels of that material. The surface barrier of an escaping atom uses the
+//! `E_s` of the material it leaves from and the actual outward normal of the
+//! face (see [`kinematics::refract_out_normal`]); a particle that cannot
+//! escape is reflected specularly about that normal. Escapes through the
+//! lateral faces of a voxel grid are reported as [`Face::Side`] and counted
+//! in [`EnergyBudget::lateral`]. [`crate::tally::ion::IonTally`] and the CLI
+//! tallies describe stacks only; use [`SummaryTally`] or a custom
+//! [`BcaTally`] for voxel runs.
+//!
 //! A flight is drawn as a dimensionless number of mean free paths `tau` and
-//! converted to a length with the local `lambda`. When a flight reaches an
-//! interface it is truncated exactly there, the electronic loss for the
+//! converted to a length with the local `lambda`. When a flight reaches a
+//! change of material (or a periodic wrap of a voxel grid) it is truncated
+//! exactly there, with the same unused-optical-depth rule; a voxel face
+//! between voxels of one material is not an event. At an interface it is
+//! truncated exactly there, the electronic loss for the
 //! truncated length is applied, the material is switched, and the flight
 //! continues in the new layer with the **unused** part `tau - s/lambda` (the
 //! flight is not redrawn). The collision then happens in the layer where the
@@ -190,7 +208,7 @@ use std::f64::consts::PI;
 
 use rand_core::Rng;
 
-use crate::geometry::Stack;
+use crate::geometry::{ExitOutcome, Geometry};
 use crate::ion::potential::{Potential, Screening};
 use crate::ion::scattering::{closest_approach, theta_quadrature, ScatteringTable};
 use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
@@ -357,10 +375,10 @@ pub enum BcaError {
     /// A configuration parameter is out of range.
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
-    /// A layer material has an energy with no value; set it before running.
+    /// A material has an energy with no value; set it before running.
     #[error("layer {layer}: {kind} for element Z={z} is not set")]
     EnergyNotSet {
-        /// Layer index.
+        /// Material index (the layer index for a stack).
         layer: usize,
         /// Atomic number.
         z: u8,
@@ -394,7 +412,8 @@ pub struct Particle {
     pub pos: [f64; 3],
     /// Unit direction.
     pub dir: [f64; 3],
-    /// Index of the layer the particle is in.
+    /// Index of the region the particle is in: the layer of a stack, the flat
+    /// voxel index of a voxel grid (see [`Geometry`]).
     pub layer: usize,
     /// 0 for the primary, parent's generation + 1 for recoils.
     pub generation: u32,
@@ -411,8 +430,10 @@ impl Particle {
 struct SpeciesData {
     ion: Ion,
     cutoff_ev: f64,
-    barrier_front_ev: f64,
-    barrier_back_ev: f64,
+    /// `E_s` used when the exit material does not contain the element: that
+    /// of the first material that does (the primary's own binding for the
+    /// beam).
+    barrier_default_ev: f64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -564,14 +585,19 @@ impl ElectronicStopping for MixNonLocal {
 /// data, so it is `Sync` and shared by all worker threads.
 pub struct Bca<'a> {
     beam: Beam,
-    stack: &'a Stack,
+    geometry: &'a dyn Geometry,
+    entry_pos: [f64; 3],
+    entry_region: usize,
     config: BcaConfig,
     stopping: &'a (dyn ElectronicStopping + Sync),
     mix: MixNonLocal,
     table: &'a ScatteringTable,
     screening: Screening,
     species: Vec<SpeciesData>,
+    /// Per-material data (indexed by material index, not region).
     layers: Vec<LayerData>,
+    /// Surface barrier `E_s` by `material * n_species + species`.
+    barriers: Vec<f64>,
     /// `pairs[projectile species * n_species + target species]`.
     pairs: Vec<PairData>,
     beta_max: Option<BetaMaxGrid>,
@@ -591,11 +617,14 @@ impl<'a> Bca<'a> {
     ///   convention; the same table serves every projectile/target pair,
     ///   since the angle depends on the reduced variables only.
     /// * Target atoms use, at each face, the `E_s` of their element in the
-    ///   material at that face; an element absent from that material uses its
-    ///   `E_s` in the first layer that contains it.
+    ///   material they leave from; an element absent from that material uses
+    ///   its `E_s` in the first material that contains it.
+    /// * `geometry` is a [`Stack`](crate::geometry::Stack) or a [`VoxelGrid`](crate::geometry::VoxelGrid)
+    ///   (or any other [`Geometry`]); its default entry point must lie in the
+    ///   target ([`Bca::with_entry_point`] changes it).
     pub fn new(
         beam: Beam,
-        stack: &'a Stack,
+        geometry: &'a dyn Geometry,
         config: BcaConfig,
         stopping: &'a (dyn ElectronicStopping + Sync),
         table: &'a ScatteringTable,
@@ -649,23 +678,27 @@ impl<'a> Bca<'a> {
                 config.weak_collisions
             )));
         }
-        for (layer, l) in stack.layers().iter().enumerate() {
-            if let Some(&(z, kind)) = l.material().unset_energies().first() {
+        let n_materials = geometry.n_materials();
+        for layer in 0..n_materials {
+            if let Some(&(z, kind)) = geometry.material(layer).unset_energies().first() {
                 return Err(BcaError::EnergyNotSet { layer, z, kind });
             }
         }
+        let entry_pos = geometry.entry_point();
+        let entry_region = geometry.locate(entry_pos).ok_or_else(|| {
+            BcaError::InvalidBeam(format!("entry point {entry_pos:?} is outside the target"))
+        })?;
 
         // Species: the beam, then target elements in order of appearance.
         let mut species = vec![SpeciesData {
             ion: beam.ion,
             cutoff_ev: config.primary_cutoff_ev,
-            barrier_front_ev: config.primary_surface_binding_ev,
-            barrier_back_ev: config.primary_surface_binding_ev,
+            barrier_default_ev: config.primary_surface_binding_ev,
         }];
         let mut species_z: Vec<u8> = vec![0];
-        let mut layers = Vec::with_capacity(stack.layers().len());
-        for l in stack.layers() {
-            let m = l.material();
+        let mut layers = Vec::with_capacity(n_materials);
+        for mi in 0..n_materials {
+            let m = geometry.material(mi);
             let n = m.atom_number_density();
             let mut elems = Vec::with_capacity(m.components().len());
             for c in m.components() {
@@ -677,8 +710,7 @@ impl<'a> Bca<'a> {
                         species.push(SpeciesData {
                             ion: Ion::new(z).expect("element in table"),
                             cutoff_ev: config.recoil_cutoff_ev,
-                            barrier_front_ev: e_s,
-                            barrier_back_ev: e_s,
+                            barrier_default_ev: e_s,
                         });
                         species_z.push(z);
                         species.len() - 1
@@ -720,15 +752,17 @@ impl<'a> Bca<'a> {
                     .collect();
             }
         }
-        // Face barriers from the materials at the faces.
-        let front = stack.layers().first().expect("non-empty").material();
-        let back = stack.layers().last().expect("non-empty").material();
-        for (s, &z) in species.iter_mut().zip(&species_z).skip(1) {
-            if let Ok(e) = front.surface_binding_energy_ev(z) {
-                s.barrier_front_ev = e;
-            }
-            if let Ok(e) = back.surface_binding_energy_ev(z) {
-                s.barrier_back_ev = e;
+        // Surface barriers by exit material; the beam always uses its own.
+        let mut barriers = Vec::with_capacity(n_materials * species.len());
+        for mi in 0..n_materials {
+            let m = geometry.material(mi);
+            for (si, &z) in species_z.iter().enumerate() {
+                barriers.push(if si == 0 {
+                    species[0].barrier_default_ev
+                } else {
+                    m.surface_binding_energy_ev(z)
+                        .unwrap_or(species[si].barrier_default_ev)
+                });
             }
         }
 
@@ -756,7 +790,9 @@ impl<'a> Bca<'a> {
         };
         Ok(Self {
             beam,
-            stack,
+            geometry,
+            entry_pos,
+            entry_region,
             config,
             stopping,
             mix,
@@ -764,9 +800,22 @@ impl<'a> Bca<'a> {
             screening: tp.screening,
             species,
             layers,
+            barriers,
             pairs,
             beta_max,
         })
+    }
+
+    /// Start primaries at `pos` instead of the geometry's default entry point.
+    /// `pos` must lie in the target (for a voxel grid this selects the
+    /// incident voxel explicitly; on a shared face the voxel with the higher
+    /// index owns the point).
+    pub fn with_entry_point(mut self, pos: [f64; 3]) -> Result<Self, BcaError> {
+        self.entry_region = self.geometry.locate(pos).ok_or_else(|| {
+            BcaError::InvalidBeam(format!("entry point {pos:?} is outside the target"))
+        })?;
+        self.entry_pos = pos;
+        Ok(self)
     }
 
     /// The beam.
@@ -864,9 +913,9 @@ impl<'a> Bca<'a> {
             z: self.beam.ion.z(),
             mass_amu: self.beam.ion.mass_amu(),
             energy_ev: self.beam.energy_ev,
-            pos: [0.0; 3],
+            pos: self.entry_pos,
             dir: self.beam.direction(),
-            layer: 0,
+            layer: self.entry_region,
             generation: 0,
         });
         while let Some(p) = pending.pop() {
@@ -874,6 +923,11 @@ impl<'a> Bca<'a> {
         }
         tally.end_history(index, &budget);
         Ok(budget)
+    }
+
+    /// Per-material data of the material filling `region`.
+    fn lay(&self, region: usize) -> &LayerData {
+        &self.layers[self.geometry.material_index(region)]
     }
 
     fn uniform(rng: &mut ParticleRng) -> f64 {
@@ -929,7 +983,8 @@ impl<'a> Bca<'a> {
         if len <= 0.0 {
             return Ok(());
         }
-        let lay = &self.layers[p.layer];
+        let mi = self.geometry.material_index(p.layer);
+        let lay = &self.layers[mi];
         let s = match lay.loss_coef[p.species] {
             // `c sqrt(E)`; the `E > 0` test keeps a non-physical energy on the
             // general path, which reports it.
@@ -939,7 +994,7 @@ impl<'a> Bca<'a> {
                     ElectronicLoss::NonLocal => self.stopping,
                     ElectronicLoss::EquipartitionLsOr => &self.mix,
                 };
-                let material = self.stack.layers()[p.layer].material();
+                let material = self.geometry.material(mi);
                 let ion = &self.species[p.species].ion;
                 bragg_cross_section_per_atom(model, &NoCorrection, ion, material, p.energy_ev)?
             }
@@ -977,45 +1032,29 @@ impl<'a> Bca<'a> {
                 tally.stopped(&p);
                 return Ok(());
             }
-            let lay = &self.layers[p.layer];
+            let lay = self.lay(p.layer);
             let lambda = self.flight(&p, lay, scratch);
             let s = tau * lambda;
-            let geo = &self.stack.layers()[p.layer];
-            let (d_b, boundary) = if p.dir[0] > 0.0 {
-                ((geo.back_m() - p.pos[0]) / p.dir[0], geo.back_m())
-            } else if p.dir[0] < 0.0 {
-                ((geo.front_m() - p.pos[0]) / p.dir[0], geo.front_m())
-            } else {
-                (f64::INFINITY, f64::NAN)
-            };
 
-            if d_b <= s {
-                // Truncate at the interface; keep the unused part of the flight.
+            if let Some(ex) = self.geometry.exit(p.layer, p.pos, p.dir, s) {
+                // Truncate at the event; keep the unused part of the flight.
+                let d_b = ex.distance;
                 let from = p.pos;
-                Self::advance(&mut p, d_b);
-                p.pos[0] = boundary;
+                p.pos = ex.at;
                 self.electronic_nonlocal(&mut p, from, d_b, budget, tally)?;
                 tau = (tau - d_b / lambda).max(0.0);
                 if p.energy_ev < cutoff {
                     continue;
                 }
-                let outward = p.dir[0] > 0.0;
-                let n_layers = self.layers.len();
-                let face = match (outward, p.layer) {
-                    (false, 0) => Some(Face::Front),
-                    (true, l) if l + 1 == n_layers => Some(Face::Back),
-                    _ => None,
-                };
-                match face {
-                    None if outward => p.layer += 1,
-                    None => p.layer -= 1,
-                    Some(face) => {
-                        let sp = &self.species[p.species];
-                        let e_s = match face {
-                            Face::Front => sp.barrier_front_ev,
-                            Face::Back => sp.barrier_back_ev,
-                        };
-                        match kinematics::refract_out(p.energy_ev, p.dir, e_s) {
+                match ex.outcome {
+                    ExitOutcome::Enter { region, pos } => {
+                        p.layer = region;
+                        p.pos = pos;
+                    }
+                    ExitOutcome::Escape { face, normal } => {
+                        let mi = self.geometry.material_index(p.layer);
+                        let e_s = self.barriers[mi * self.species.len() + p.species];
+                        match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {
                             Some((e_out, dir_out)) => {
                                 budget.surface_barrier += p.energy_ev - e_out;
                                 p.energy_ev = e_out;
@@ -1024,11 +1063,20 @@ impl<'a> Bca<'a> {
                                     (Face::Front, true) => budget.backscattered += e_out,
                                     (Face::Front, false) => budget.sputtered += e_out,
                                     (Face::Back, _) => budget.transmitted += e_out,
+                                    (Face::Side, _) => budget.lateral += e_out,
                                 }
                                 tally.escaped(&p, face);
                                 return Ok(());
                             }
-                            None => p.dir[0] = -p.dir[0],
+                            None => {
+                                // Specular reflection about the face normal.
+                                let dn = p.dir[0] * normal[0]
+                                    + p.dir[1] * normal[1]
+                                    + p.dir[2] * normal[2];
+                                for (d, n) in p.dir.iter_mut().zip(normal) {
+                                    *d -= 2.0 * dn * n;
+                                }
+                            }
                         }
                     }
                 }
@@ -1089,7 +1137,7 @@ impl<'a> Bca<'a> {
         budget: &mut EnergyBudget,
         tally: &mut T,
     ) -> Result<BinaryOutcome, StoppingError> {
-        let elem = &self.layers[p.layer].elems[j];
+        let elem = &self.lay(p.layer).elems[j];
         let pair = self.pairs[p.species * self.species.len() + elem.species];
         let e0 = p.energy_ev;
         let eps = e0 * pair.eps_per_ev;
@@ -1124,7 +1172,11 @@ impl<'a> Bca<'a> {
     fn partner_beyond_surface(&self, p: &Particle, b: f64, azimuth: (f64, f64)) -> bool {
         // sin and cos of `azimuth + pi` are the negatives.
         let offset = kinematics::rotate_sc(p.dir, (1.0, 0.0), (-azimuth.0, -azimuth.1));
-        p.pos[0] + b * offset[0] < self.stack.layers()[0].front_m()
+        self.geometry.in_vacuum([
+            p.pos[0] + b * offset[0],
+            p.pos[1] + b * offset[1],
+            p.pos[2] + b * offset[2],
+        ])
     }
 
     /// One collision step: the `weak_collisions` simultaneous weak
@@ -1172,7 +1224,7 @@ impl<'a> Bca<'a> {
         let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
         let (t, incoming, phi) = self.binary(p, j, b, azimuth, budget, tally)?;
 
-        let elem = &self.layers[p.layer].elems[j];
+        let elem = &self.lay(p.layer).elems[j];
         if t > elem.e_d_ev && t > elem.e_b_ev {
             let e_r = t - elem.e_b_ev;
             if elem.e_b_ev > 0.0 {
@@ -1208,6 +1260,7 @@ impl<'a> Bca<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::geometry::Stack;
     use crate::ion::scattering::TableSpec;
     use crate::material::Material;
 
