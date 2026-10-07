@@ -50,6 +50,8 @@ seen.
 validation/data/ranges/<id>.json      one dataset: metadata + moments
 validation/data/ranges/<id>.csv       optional depth profile (depth_nm,value)
 validation/data/sputtering/<id>.json  one measured sputter-yield set: metadata + points
+validation/data/optical/<id>.toml     measured optical energy-loss functions (ELF)
+                                      and the scripts that ingested them
 validation/data/digitize/             scripts that digitized a figure (not run
                                       by the harness; may need numpy/Pillow/scipy),
                                       and their cross-check records

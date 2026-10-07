@@ -21,6 +21,9 @@ The input schema, the output files and the reproducibility guarantees are in
 | Source | What |
 |---|---|
 | `src/main.rs` | Argument parsing, input loading and the run |
+| `src/lib.rs` | The pieces other front ends reuse (the Python bindings call the same code) |
+| `src/sim.rs` | Runs a resolved ion input on a rayon pool of the requested size |
+| `src/dynamic.rs` | Runs a `[dynamic]` input: the fluence-stepping loop |
 | `src/output.rs` | `summary.json` and the CSV profiles |
 | `src/tally.rs` | The tally the CLI runs, built on the library's tallies |
 | `src/electron.rs` | Electron runs: table building, transport, `electron_summary.json` and the electron CSV files |
