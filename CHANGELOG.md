@@ -13,9 +13,12 @@ one version).
   `SubshellBindingTable`) are attributed to inner-shell ionization channels,
   with secondary energy `ω - E_B`, and channel-resolved inverse mean free
   paths. The occupancy-weighted split of one optical ELF is our own
-  assumption, stated in the docs.
+  assumption, stated in the docs; the constructor is named
+  `unsourced_occupancy_weighted` for that reason (follow-up #135).
 - `electron::inelastic::ExchangeCorrection`: optional Born-Ochkur exchange for
-  `SinglePolePenn` below a stated energy (`ω <= T'/2`). Off by default.
+  `SinglePolePenn` below a stated energy (`ω <= T'/2`). Off by default. Inner-shell channels
+  use the exchange denominator `T - W = T' - ω + B` of de Vera et al. (2022),
+  eq. (32).
 
 ### Changed
 

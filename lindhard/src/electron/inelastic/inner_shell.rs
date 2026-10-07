@@ -3,7 +3,7 @@
 //!
 //! # Source and what is ours
 //!
-//! The structure follows the open account in M. A. Quinto *et al.*, Int. J.
+//! The structure follows the open account in P. de Vera *et al.*, Int. J.
 //! Mol. Sci. 23, 6121 (2022), doi:10.3390/ijms23116121 (PMC9181504), Section
 //! 3, eqs. (32) and (35): the secondary-electron spectrum of a material is the
 //! sum of an outer-shell (valence) term, built from the loss function at
@@ -15,7 +15,9 @@
 //! contributes only for `ω >= B_j`.
 //!
 //! **The partition of one optical ELF between channels is our own model
-//! assumption, not a published rule.** The cited account has a separate loss
+//! assumption, not a published rule, so the only constructor is named
+//! [`ChannelPartition::unsourced_occupancy_weighted`] and there is no default
+//! partition.** The cited account has a separate loss
 //! function per shell (from atomic or TDDFT data), which a single optical ELF
 //! does not provide. Here, at the loss `ω`, the optical ELF is divided among
 //! all subshells with `B <= ω` in proportion to `x_a n_s`, the number of
@@ -35,7 +37,10 @@
 //! `f_channel(ω) p(T, ω)` over the allowed losses, where `p` is the DIIMFP of
 //! [`SinglePolePenn`], with the optional exchange factor `1 + F` and the
 //! indistinguishability limit `ω <= (T' + B)/2` (valence: `B = 0`) of the
-//! source, eq. (35). They add up to the total by construction.
+//! source, eq. (35). The exchange factor for shell `j` uses the source's
+//! denominator `T - W = T' - ω + B_j` (eq. (32), `ω = W + B_j`); the direct
+//! term keeps the Penn prefactor `1/(π T')` rather than the source's
+//! `1/(T + 2B_j)` (see the penn module docs). They add up to the total by construction.
 
 use super::penn::{hartree_ev, SinglePolePenn};
 use super::quadrature::{integrate_segments, GaussLegendre};
@@ -101,11 +106,18 @@ pub struct ChannelPartition {
 }
 
 impl ChannelPartition {
-    /// The partition for a target with `composition` = `(Z, atoms per formula
+    /// The occupancy-weighted partition for a target with `composition` = `(Z, atoms per formula
     /// unit)`, with binding energies from `table`; subshells with
     /// `E_B < valence_cutoff_ev` are valence. Every `Z` must be tabulated and
     /// the amounts finite and positive; `Z` may not repeat.
-    pub fn new(
+    ///
+    /// **This is an unsourced model assumption.** Splitting one optical ELF
+    /// among shells in proportion to occupancy is not a published rule (the
+    /// source uses a separate ELF per shell; see the module docs and issue
+    /// #135). The name says so on purpose: use it only knowing that the
+    /// channel shares, and the inner-shell secondary yields built on them, are
+    /// not a validated physical result.
+    pub fn unsourced_occupancy_weighted(
         table: &SubshellBindingTable,
         composition: &[(u8, f64)],
         valence_cutoff_ev: f64,
@@ -277,7 +289,9 @@ impl ChannelPartition {
         let knots = model.optical_elf().energy_ev();
         let edges: Vec<f64> = self.all.iter().map(|&(eb, _)| eb).collect();
 
-        let integrate = |lo: f64, hi: f64, frac: &dyn Fn(f64) -> f64| -> f64 {
+        // `b_ev` is the channel's binding energy: the exchange denominator is
+        // `T - W = T' - ω + B` (penn module docs).
+        let integrate = |lo: f64, hi: f64, b_ev: f64, frac: &dyn Fn(f64) -> f64| -> f64 {
             if hi.partial_cmp(&lo) != Some(std::cmp::Ordering::Greater) {
                 return 0.0;
             }
@@ -299,7 +313,8 @@ impl ChannelPartition {
                         return [0.0];
                     }
                     // per bohr per hartree -> per m per eV; dω is in eV.
-                    let p = model.diimfp_core_au(t_au, w / h, exchange) / (BOHR_RADIUS * h);
+                    let p = model.diimfp_core_au(t_au, w / h, exchange.then_some(b_ev / h))
+                        / (BOHR_RADIUS * h);
                     [f * p]
                 },
                 &breaks,
@@ -314,15 +329,18 @@ impl ChannelPartition {
                 energy_ev
             }
         };
-        let valence_per_m = integrate(0.0, top(0.0), &|w| self.valence_fraction(w));
+        let valence_per_m = integrate(0.0, top(0.0), 0.0, &|w| self.valence_fraction(w));
         let shells_per_m = self
             .inner
             .iter()
             .enumerate()
             .map(|(i, s)| {
-                integrate(s.binding_energy_ev, top(s.binding_energy_ev), &|w| {
-                    self.shell_fraction(w, i)
-                })
+                integrate(
+                    s.binding_energy_ev,
+                    top(s.binding_energy_ev),
+                    s.binding_energy_ev,
+                    &|w| self.shell_fraction(w, i),
+                )
             })
             .collect();
         Ok(ChannelInverseImfp {

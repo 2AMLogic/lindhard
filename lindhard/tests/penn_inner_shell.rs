@@ -48,7 +48,7 @@ fn synthetic_table() -> SubshellBindingTable {
 }
 
 fn partition() -> ChannelPartition {
-    ChannelPartition::new(&synthetic_table(), &[(14, 1.0)], 50.0).unwrap()
+    ChannelPartition::unsourced_occupancy_weighted(&synthetic_table(), &[(14, 1.0)], 50.0).unwrap()
 }
 
 fn rel(a: f64, b: f64) -> f64 {
@@ -110,7 +110,8 @@ fn compound_weights_use_atoms_per_formula_unit() {
     let b = AtomBindings::new(2, vec![shell("K", 90.0, 2.0)]).unwrap();
     let t = SubshellBindingTable::new(SYNTHETIC, vec![a, b]).unwrap();
     // H2He: weights 2*1 (Z=1, 60 eV) and 1*2 (Z=2, 90 eV); cutoff 50: both inner.
-    let p = ChannelPartition::new(&t, &[(1, 2.0), (2, 1.0)], 50.0).unwrap();
+    let p =
+        ChannelPartition::unsourced_occupancy_weighted(&t, &[(1, 2.0), (2, 1.0)], 50.0).unwrap();
     assert_eq!(p.inner_shells().len(), 2);
     assert!((p.shell_fraction(70.0, 0) - 1.0).abs() < 1e-15);
     assert!((p.shell_fraction(100.0, 0) - 0.5).abs() < 1e-15);
@@ -303,13 +304,15 @@ fn results_are_bit_identical_across_thread_counts() {
 #[test]
 fn rejects_invalid_inputs() {
     let t = synthetic_table();
-    assert!(ChannelPartition::new(&t, &[], 50.0).is_err());
-    assert!(ChannelPartition::new(&t, &[(14, 1.0)], f64::NAN).is_err());
-    assert!(ChannelPartition::new(&t, &[(14, 1.0)], -1.0).is_err());
-    assert!(ChannelPartition::new(&t, &[(14, 0.0)], 50.0).is_err());
-    assert!(ChannelPartition::new(&t, &[(14, 1.0), (14, 1.0)], 50.0).is_err());
+    assert!(ChannelPartition::unsourced_occupancy_weighted(&t, &[], 50.0).is_err());
+    assert!(ChannelPartition::unsourced_occupancy_weighted(&t, &[(14, 1.0)], f64::NAN).is_err());
+    assert!(ChannelPartition::unsourced_occupancy_weighted(&t, &[(14, 1.0)], -1.0).is_err());
+    assert!(ChannelPartition::unsourced_occupancy_weighted(&t, &[(14, 0.0)], 50.0).is_err());
+    assert!(
+        ChannelPartition::unsourced_occupancy_weighted(&t, &[(14, 1.0), (14, 1.0)], 50.0).is_err()
+    );
     assert!(matches!(
-        ChannelPartition::new(&t, &[(8, 1.0)], 50.0),
+        ChannelPartition::unsourced_occupancy_weighted(&t, &[(8, 1.0)], 50.0),
         Err(ElectronDataError::Invalid { .. })
     ));
 }

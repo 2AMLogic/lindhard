@@ -70,7 +70,7 @@
 //! # Optional exchange correction (Born-Ochkur)
 //!
 //! [`ExchangeCorrection`] makes the primary and the struck electron
-//! indistinguishable. The source is the open account in M. A. Quinto *et al.*,
+//! indistinguishable. The source is the open account in P. de Vera *et al.*,
 //! Int. J. Mol. Sci. 23, 6121 (2022), doi:10.3390/ijms23116121 (PMC9181504),
 //! Section 3 ("ionis-SDCS"), eqs. (32)-(35), which in turn cites Ochkur, Sov.
 //! Phys.-JETP 20, 1175 (1965) and Rudge, Rev. Mod. Phys. 40, 564 (1968)
@@ -79,17 +79,20 @@
 //!
 //! * the exchange term of the DIIMFP is the direct one with the integrand
 //!   multiplied by `1 + F(q)`, with the Born-Ochkur factor
-//!   `F = -x + x²`, `x = (q²/2) / (T' - ω)` (their `F_xc^ionis`; `ħ = m = 1`;
-//!   the printed denominator is `T - W` with `W` the energy of the emitted
-//!   electron, which is `T' - ω` for the valence channel here, where there is
-//!   no binding energy to subtract);
+//!   `F = -x + x²`, `x = (q²/2) / (T - W)` (their `F_xc^ionis`, eq. (32);
+//!   `ħ = m = 1`), where `W` is the energy of the emitted electron. For a
+//!   channel with binding energy `B` the loss is `ω = W + B` (eq. (34)), so
+//!   `T - W = T' - ω + B`; the kernel takes `B` as an argument and the
+//!   valence channel of this model uses `B = 0`, where `T - W = T' - ω`.
+//!   Using `B = 0` for the valence channel is a deliberate simplification: the
+//!   source uses a `B(T)` there;
 //! * the exchange integration limits in `q` are `sqrt(2T') ± sqrt(2(T' - ω))`,
 //!   the same as the direct ones for a channel with no binding energy;
 //! * the loss is limited by indistinguishability to `ω <= (T' + B)/2`
 //!   (eq. (35) text, `W+ = (T - B)/2` for the emitted electron); the valence
-//!   channel of this model has `B = 0`, so `ω <= T'/2`, which is also the
-//!   `ω_max` of the SSPA* variant of S2017. With the factor, `x <= 1` over the
-//!   whole range, so `F` is bounded, `-1/4 <= F <= 0`.
+//!   channel has `B = 0`, so `ω <= T'/2`, which is also the `ω_max` of the
+//!   SSPA* variant of S2017. With the factor, `x <= 1` over the whole range
+//!   for `B = 0`, so `F` is bounded, `-1/4 <= F <= 0`.
 //!
 //! The correction is optional and applied only for kinetic energies below the
 //! energy given to [`ExchangeCorrection::new`]; at and above it the model is the
@@ -97,10 +100,12 @@
 //! correction at that energy. The total is then evaluated by direct numerical
 //! integration over `ω` of the DIIMFP (no closed form), with the outer
 //! tolerance `100 × rel_tol` since each DIIMFP value is itself an integral.
-//! The prefactor `1/(T + 2B)` of the direct term in the source is `1/T'`
-//! here (`B = 0`). **Not read:** whether the printed `T - W` in `x` is
-//! intended as `T - E` for inner shells; the inner-shell channels
-//! (`inner_shell`) use the same `x` with `T' - ω`.
+//! **Direct-term prefactor.** The source's direct term has the prefactor
+//! `1/(T + 2B_j)`; the Penn DIIMFP used here has `1/(π T')` for every channel.
+//! We keep the Penn form for the direct term and apply only the exchange
+//! factor `1 + F` of eq. (32) with its `T - W` denominator, so for inner shells
+//! the model is **not** the source's eq. (32) in full: only the exchange
+//! kernel and the `ω <= (T' + B)/2` limit are taken from it.
 //!
 //! # How the integrals are done
 //!
@@ -306,10 +311,11 @@ fn imfp_kernel(wp: f64, c: f64, qa: f64, qb: f64) -> f64 {
     0.5 * ((g(ya, qa) / ya) / (g(yb, qb) / yb)).ln()
 }
 
-/// The Born-Ochkur exchange factor `F = x² - x`, `x = (q²/2)/(T' - ω)`, in
-/// atomic units (see the module docs). `T' - ω` must be positive.
-fn ochkur_factor(q: f64, tp_minus_w: f64) -> f64 {
-    let x = 0.5 * q * q / tp_minus_w;
+/// The Born-Ochkur exchange factor `F = x² - x`, `x = (q²/2)/(T - W)`, in
+/// atomic units (see the module docs), where `T - W` is the primary energy
+/// less the emitted electron's energy (`T' - ω + B`). It must be positive.
+fn ochkur_factor(q: f64, t_minus_w: f64) -> f64 {
+    let x = 0.5 * q * q / t_minus_w;
     x * x - x
 }
 
@@ -518,17 +524,21 @@ impl SinglePolePenn {
         if exchange && w > 0.5 * (t + self.fermi) {
             return 0.0;
         }
-        self.diimfp_core_au(t, w, exchange)
+        self.diimfp_core_au(t, w, exchange.then_some(0.0))
     }
 
     /// `p(T, ω)` in atomic units, with the exchange factor `1 + F` in the
-    /// integrand if `exchange`; no limit on `ω` other than `ω <= T`.
-    pub(crate) fn diimfp_core_au(&self, t: f64, w: f64, exchange: bool) -> f64 {
+    /// integrand if `exchange` is `Some(b)`, where `b` is the binding energy
+    /// (hartree) of the channel, so that the exchange denominator is
+    /// `T - W = T' - ω + b`; no limit on `ω` other than `ω <= T`.
+    pub(crate) fn diimfp_core_au(&self, t: f64, w: f64, exchange: Option<f64>) -> f64 {
         if !(w > 0.0 && w <= t) {
             return 0.0;
         }
-        if exchange && (t + self.fermi - w).partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
-            return 0.0;
+        if let Some(b) = exchange {
+            if (t + self.fermi - w + b).partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
+                return 0.0;
+            }
         }
         let n = self.w.len();
         let (wmin, wmax) = (self.w[0], self.w[n - 1]);
@@ -558,7 +568,7 @@ impl SinglePolePenn {
             }
         }
         breaks.push(hi.ln());
-        let tp_minus_w = tp - w;
+        let t_minus_w = exchange.map(|b| tp - w + b);
         let integral = integrate_segments(
             &self.gl,
             &mut |u: f64| {
@@ -567,10 +577,9 @@ impl SinglePolePenn {
                     Some(w0) => {
                         let base =
                             self.elf_au(w0) / (1.0 + PI * q * q / (6.0 * fermi_wavenumber(w0)));
-                        if exchange {
-                            [base * (1.0 + ochkur_factor(q, tp_minus_w))]
-                        } else {
-                            [base]
+                        match t_minus_w {
+                            Some(d) => [base * (1.0 + ochkur_factor(q, d))],
+                            None => [base],
                         }
                     }
                     None => [0.0],
@@ -630,7 +639,7 @@ impl SinglePolePenn {
         let r = integrate_segments(
             &self.gl,
             &mut |x: f64| {
-                let p = self.diimfp_core_au(t, x, true);
+                let p = self.diimfp_core_au(t, x, Some(0.0));
                 [p, x * p]
             },
             &breaks,
@@ -750,5 +759,44 @@ mod tests {
         let qt = q2_at_pole_energy(wp, c, t).sqrt();
         assert!(phi(qb).abs() < 1e-10 || (qb - qt).abs() < 1e-12 * qt);
         assert!(allowed_q(wp, c, 0.5, 1.0).is_none());
+    }
+
+    /// Eq. (32) of de Vera et al.: with `T = 400`, `B = 150` and `ω = 200` eV
+    /// (`E_F = 0`), `W = ω - B = 50` eV and `T - W = 350` eV, not the `200` eV
+    /// of `T' - ω`.
+    #[test]
+    fn exchange_factor_uses_primary_energy_less_emitted_energy() {
+        let h = hartree_ev();
+        let (t, b, w) = (400.0 / h, 150.0 / h, 200.0 / h);
+        let t_minus_w = t - (w - b);
+        assert!((t_minus_w * h - 350.0).abs() < 1e-9);
+        for q in [0.5, 2.0, 5.0] {
+            let x = 0.5 * q * q / (350.0 / h);
+            let want = -x + x * x;
+            let got = ochkur_factor(q, t_minus_w);
+            assert!((got - want).abs() <= 1e-14 * want.abs(), "{q}: {got}");
+            // The wrong denominator would give a different factor.
+            let wrong = ochkur_factor(q, t - w);
+            assert!((wrong - want).abs() > 1e-3 * want.abs(), "{q}");
+        }
+    }
+
+    #[test]
+    fn diimfp_exchange_depends_on_binding_energy() {
+        use crate::electron::inelastic::{DrudeLorentz, DrudeLorentzOscillator};
+        let elf = DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
+            .unwrap()
+            .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
+            .unwrap();
+        let m = SinglePolePenn::new(elf);
+        let h = hartree_ev();
+        let (t, w, b) = (400.0 / h, 200.0 / h, 150.0 / h);
+        let direct = m.diimfp_core_au(t, w, None);
+        let b0 = m.diimfp_core_au(t, w, Some(0.0));
+        let bj = m.diimfp_core_au(t, w, Some(b));
+        assert!(direct > 0.0 && b0 > 0.0 && bj > 0.0);
+        assert!((bj / b0 - 1.0).abs() > 1e-3, "{bj} vs {b0}");
+        // F is in (-1/4, 0] only where x <= 1; the factor always stays finite.
+        assert!(bj.is_finite());
     }
 }
