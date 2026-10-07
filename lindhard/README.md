@@ -1,8 +1,8 @@
 # lindhard (library)
 
 The library crate. All the physics lives here; the
-[`lindhard` command](../lindhard-cli/README.md) and future bindings sit on
-top of it. Design: [`../docs/architecture.md`](../docs/architecture.md).
+[`lindhard` command](https://github.com/2AMLogic/lindhard/blob/main/lindhard-cli/README.md) and future bindings sit on
+top of it. Design: [`docs/architecture.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/architecture.md).
 
 ## Modules (`src/`)
 
@@ -16,7 +16,7 @@ top of it. Design: [`../docs/architecture.md`](../docs/architecture.md).
 | `input` | The run description (beam, target, materials, physics, run size), parsed from TOML |
 | `ion::potential` | Screened-Coulomb interatomic potentials |
 | `ion::scattering` | Classical elastic scattering: quadrature, magic formula, lookup table |
-| `ion::stopping` | Electronic stopping from published formulas: Lindhard-Scharff, Oen-Robinson and their mix, Bethe-Bloch, Bragg additivity, straggling, user tables ([`../docs/stopping-models.md`](../docs/stopping-models.md)) |
+| `ion::stopping` | Electronic stopping from published formulas: Lindhard-Scharff, Oen-Robinson and their mix, Bethe-Bloch, Bragg additivity, straggling, user tables ([`docs/stopping-models.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/stopping-models.md)) |
 | `ion::bca` | Amorphous BCA transport in a 1D layered target, with full recoil cascades |
 | `ion::damage` | Displacement damage: Lindhard partition, NRT, Kinchin-Pease |
 | `tally` | Histograms, mergeable moments, Pearson IV and dual-Pearson fits, and the full ion tally (range, damage, escapes) |
@@ -25,6 +25,6 @@ top of it. Design: [`../docs/architecture.md`](../docs/architecture.md).
 
 - `tests/`: integration tests, including determinism across thread counts.
 - `tests/validation/`: the level-1 validation harness, a `cargo test` target
-  ([`../docs/validation.md`](../docs/validation.md)).
+  ([`docs/validation.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md)).
 - `benches/`: criterion benches, local only
-  ([`../docs/benchmarks.md`](../docs/benchmarks.md)).
+  ([`docs/benchmarks.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/benchmarks.md)).

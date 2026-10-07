@@ -95,5 +95,9 @@ Do not describe the operator's downstream applications in this repo either.
   (bit-identical tallies on 1, 2 and 8 threads); the helpers are in
   `lindhard::rng`.
 - Physics constants and model choices cite their source in a doc comment.
+- User-visible changes (behaviour, input/output formats, CLI flags, public API,
+  packaging) add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md)
+  ([Keep a Changelog](https://keepachangelog.com/) style). Internal refactors,
+  tests and docs-only changes need no entry.
 - One PR per issue. PRs are reviewed by Loom's Judge and merged by Champion,
   using merge commits.

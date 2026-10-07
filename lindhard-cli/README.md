@@ -1,7 +1,7 @@
 # lindhard-cli
 
 The `lindhard` binary: one TOML input in, `summary.json` and CSV profiles out.
-It is a thin front end over the [`lindhard`](../lindhard/README.md) library.
+It is a thin front end over the [`lindhard`](https://github.com/2AMLogic/lindhard/blob/main/lindhard/README.md) library.
 
 | Subcommand | What |
 |---|---|
@@ -15,8 +15,8 @@ cargo run --release -p lindhard-cli -- run examples/b_5keV_si.toml --out out/b_5
 ```
 
 The input schema, the output files and the reproducibility guarantees are in
-[`../docs/cli.md`](../docs/cli.md). Example inputs are in
-[`../examples/`](../examples/README.md).
+[`docs/cli.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/cli.md). Example inputs are in
+[`examples/`](https://github.com/2AMLogic/lindhard/blob/main/examples/README.md).
 
 | Source | What |
 |---|---|
