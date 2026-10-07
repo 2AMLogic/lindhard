@@ -76,6 +76,17 @@ What it covers:
   (the weak transfers made within the outer ring radius of it). It is wide,
   but a negative control shows the engine without weak collisions misses it
   in every case.
+- **Elastic cross sections vs published partial waves (#93, not yet
+  active).** `sigma_el` and `sigma_tr1` for C, Si, Cu and Au at 1 and 10 keV
+  against Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409
+  (2004), computed with the same DHFS potential and the exchange setting the
+  reference states; tolerance 5 % at 1 keV and 2 % at 10 keV, and a failure
+  records the measured gap rather than widening the band
+  (`lindhard/tests/electron_elastic_reference.rs`). **No reference value is
+  committed**: the paper could not be opened and the C, Si and Au DHFS
+  coefficients are not in the tree (#130), so all eight cases are skipped and
+  reported as skipped (`lindhard/tests/data/elastic_reference.toml`,
+  provenance row). Nothing here has been validated yet.
 - **Electrons (M1, not yet).** Elastic total cross sections from our
   partial-wave Mott solution against published Mott values at spot energies;
   the dielectric model's f-sum and perfect-screening sum rules.
