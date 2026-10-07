@@ -4,6 +4,7 @@ comments, so a rerun is idempotent:
 
     <!-- validation:level1:begin --> ... <!-- validation:level1:end -->
     <!-- validation:level2:begin --> ... <!-- validation:level2:end -->
+    <!-- validation:electron-oracles:begin --> ... <!-- validation:electron-oracles:end -->
     <!-- validation:level3:begin --> ... <!-- validation:level3:end -->
     <!-- validation:level3-sputter:begin --> ... <!-- validation:level3-sputter:end -->
     <!-- validation:level3-sputter-crosscheck:begin --> ... <!-- validation:level3-sputter-crosscheck:end -->
@@ -99,6 +100,105 @@ def level2() -> str:
         "A speed ratio > 1 means lindhard is faster: end-to-end is process wall clock at the run's ion "
         "count, marginal removes fixed setup costs (see each summary's `timing`). Every row's settings, "
         "both sides' values and the full list of mismatches are in its file under "
+        "`validation/oracles/summaries/`."
+    )
+    return "\n".join(lines)
+
+
+ELECTRON_PROBLEMS = ROOT / "validation" / "oracles" / "electron_problems.json"
+ELECTRON_ORACLES = (("Nebula", "nebula"), ("Geant4 MicroElec", "geant4_microelec"))
+
+
+def electron_oracles() -> str:
+    """The matched-problem table of the electron oracles (#150), from the
+    committed `lindhard-electron-<problem>.json` and `<oracle>-<problem>.json`
+    summaries that validation/oracles/run_electron.py writes. One row per code
+    and problem: each metric with its batch-means standard error, and on an
+    oracle's row the difference lindhard minus oracle (absolute for the
+    yields, relative for the lengths) with its combined standard error and z.
+    The tolerance column applies the rule stored in the summary itself."""
+    if not ELECTRON_PROBLEMS.exists():
+        return "_No electron problems defined._"
+    spec = json.loads(ELECTRON_PROBLEMS.read_text())
+    lines = [
+        "| Problem | Code (version, commit) | Histories | η | δ | Primary depth (nm) | r50 (nm) | Tolerance (vs Nebula) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+
+    def val(x, se, digits: int) -> str:
+        if x is None:
+            return "n/a"
+        return f"{x:.{digits}f} ± {se:.{digits}f}" if se is not None else f"{x:.{digits}f}"
+
+    def diff(c: dict, metric: str) -> str:
+        if metric in ("eta", "delta"):
+            d, se, z = c.get(f"{metric}_abs_diff"), c.get(f"{metric}_abs_diff_se"), c.get(f"{metric}_z")
+            if d is None:
+                return ""
+            s = f"{d:+.3f}" + (f" ± {se:.3f}" if se is not None else "")
+        else:
+            key = metric.removesuffix("_nm")
+            d, se, z = c.get(f"{key}_rel_diff"), c.get(f"{key}_rel_diff_se"), c.get(f"{key}_z")
+            if d is None:
+                return ""
+            s = f"{100 * d:+.1f} %" + (f" ± {100 * se:.1f} %" if se is not None else "")
+        return f"<br>Δ {s}" + (f" ({abs(z):.1f}σ)" if z is not None else "")
+
+    any_row = False
+    for p in spec["problems"]:
+        pid = p["id"]
+        ours_path = SUMMARIES / f"lindhard-electron-{pid}.json"
+        if not ours_path.exists():
+            lines.append(f"| `{pid}` | lindhard | - | not run | not run | not run | not run | - |")
+            continue
+        any_row = True
+        o = json.loads(ours_path.read_text())
+        v, se = o["values"], o["std_err"]
+        lines.append(
+            f"| `{pid}` | lindhard ({o['lindhard_version']}) | {o['histories']} "
+            f"| {val(v['eta'], se['eta'], 3)} | {val(v['delta'], se['delta'], 3)} "
+            f"| {val(v['primary_depth_nm'], se['primary_depth_nm'], 1)} | {val(v['r50_nm'], se['r50_nm'], 1)} | - |"
+        )
+        for name, slug in ELECTRON_ORACLES:
+            path = SUMMARIES / f"{slug}-{pid}.json"
+            if not path.exists():
+                why = ("not applicable (MicroElec: silicon only)"
+                       if slug == "geant4_microelec" and not p.get("geant4_material") else "**not run**")
+                lines.append(f"| `{pid}` | {name} | - | {why} | | | | - |")
+                continue
+            s = json.loads(path.read_text())
+            if s.get("format") != "lindhard-oracle-electron-summary/1" or s.get("lindhard_version") != o["lindhard_version"]:
+                sys.exit(f"error: {path.name} is not a lindhard-oracle-electron-summary/1 of the same lindhard run "
+                         f"as {ours_path.name}; rerun validation/oracles/run_electron.py for {pid}")
+            ov, ose, c = s["oracle_values"], s["oracle_values"]["std_err"], s["comparison"]
+            t = s["tolerance"]
+            if t.get("applies"):
+                verdict = []
+                for m, label in (("eta", "η"), ("r50_nm", "r50")):
+                    ok = t["checks"][m]["pass"]
+                    verdict.append(f"{label} " + ("n/a" if ok is None else "pass" if ok else "**FAIL**"))
+                tol = ", ".join(verdict)
+            else:
+                tol = "reported only"
+            commit = s.get("oracle_commit", "")[:7]
+            lines.append(
+                f"| `{pid}` | {name} ({s['oracle_version']}{', ' + commit if commit else ''}) | {s['histories']['oracle']} "
+                f"| {val(ov['eta'], ose['eta'], 3)}{diff(c, 'eta')} "
+                f"| {val(ov['delta'], ose['delta'], 3)}{diff(c, 'delta')} "
+                f"| {val(ov['primary_depth_nm'], ose['primary_depth_nm'], 1)}{diff(c, 'primary_depth_nm')} "
+                f"| {val(ov['r50_nm'], ose['r50_nm'], 1)}{diff(c, 'r50_nm')} | {tol} |"
+            )
+    if not any_row:
+        return "_No electron oracle summaries committed yet; see \"Electron oracles\" above._"
+    lines.append("")
+    lines.append(
+        "Values are pooled over all histories, ± the batch-means standard error "
+        f"({spec['batches']} batches). Δ is lindhard minus the oracle: absolute for η and δ, relative "
+        "for the lengths, ± the combined standard error, with the difference in units of it in brackets. "
+        "η and δ split the front-face escapes at 50 eV (vacuum energy). r50 is the radius of the cylinder "
+        "about the beam axis that holds half the energy deposited. Tolerances (vs Nebula at 5 and 20 keV "
+        f"only): |Δη| ≤ {spec['tolerances']['eta_abs']} and |Δr50| ≤ {100 * spec['tolerances']['r50_rel']:.0f} %. "
+        "Every summary's settings and its list of differing inputs are in its file under "
         "`validation/oracles/summaries/`."
     )
     return "\n".join(lines)
@@ -764,6 +864,7 @@ def main() -> int:
     if args.level1:
         text = splice(text, "level1", args.level1.read_text())
     text = splice(text, "level2", level2())
+    text = splice(text, "electron-oracles", electron_oracles())
     text = splice(text, "level3", level3())
     text = splice(text, "level3-sputter", level3_sputter())
     text = splice(text, "level3-sputter-crosscheck", level3_sputter_crosscheck())
