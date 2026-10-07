@@ -623,8 +623,9 @@ of the commands above runs an oracle.
 - **Sputtering:** published yields vs. energy and angle. Ar → Si, Cu, Ag
   and Au at normal incidence, 0.2 to 10 keV, are in (#69, #70, below); the
   angular dependence is not yet.
-- **Electrons (M1):** published backscatter coefficients η(E, Z), SE yields
-  δ(E), and resist-exposure PSF measurements.
+- **Electrons (M1):** published backscatter coefficients η(E, Z) (C, Al, Si,
+  Cu and Au at normal incidence, 1 to 30 keV, are in (#148, below); compared
+  for Al and Cu only), SE yields δ(E), and resist-exposure PSF measurements.
 
 Datasets live in `validation/data/` with the schema and rules in
 [`../validation/data/README.md`](../validation/data/README.md);
@@ -1104,6 +1105,139 @@ numbers show; they do not identify a cause (electronic share, #61, see
 "Investigation of the low sputter yield" in section 2; surface
 binding; the impact-parameter limit; target structure), and no parameter
 was adjusted to these data. The angular dependence is not covered.
+
+### Backscatter coefficient η(E, Z) (#148)
+
+**Data.** 57 measured sets for C, Al, Si (one of them amorphous), Cu and Au,
+one file per original measurement, transcribed from the tables of D. C. Joy,
+"A Database of Electron-Solid Interactions", revision 01-01 (2001), read in
+the copy the Internet Archive kept of the author's site, and cited to the
+measurements Joy's reference list names. Every point was read a second time
+from the independent Akbari (2022) database on Zenodo: 362 of 380 points are
+identical, and the rest are listed per set. Joy states no uncertainty,
+incidence angle or energy threshold per set; the files say so, the stored
+uncertainty is the rounding of the printed value, and the sets are taken as
+normal incidence on bulk targets with the usual 50 eV threshold. Provenance,
+the Crossref checks and the sets that could not be attributed (Akbari-only,
+not stored) are in [`data-provenance.md`](data-provenance.md); the schema is
+in [`../validation/data/README.md`](../validation/data/README.md).
+
+**Runs.** `validation/experiments/backscatter.py` runs the committed CLI
+inputs `validation/experiments/backscatter/eta_{al,cu}.toml` (an
+`[electron]` input; as committed, the 10 keV run) at each comparison
+energy. η is the number of electrons leaving the front face with at least
+50 eV, per primary; its σ is binomial. The model, and how it differs from
+the issue's "full model":
+
+- **Elastic:** Mott cross sections from our partial-wave solver with the
+  Furness-McCarthy exchange and the correlation-polarization corrections
+  (polarizabilities from Schwerdtfeger and Nagle 2019), but on the
+  **Thomas-Fermi Yukawa stand-in potential**: the DHFS coefficient table is
+  still a gap (#130), and it is the only potential that runs.
+- **Inelastic:** the **single-pole** Penn algorithm on the measured optical
+  ELF of Hagemann, Gudat and Kunz (1975). The full Penn model was tried (Al,
+  2 keV, 5 grid points per decade, two threads) and had not finished its
+  tables after 15 minutes, so a 1 to 30 keV sweep with it is out of reach on
+  this hardware. There is no separate inner-shell channel: the transport loop
+  has none yet, and the shells enter only through the optical ELF.
+- **No secondaries, transparent surface:** no band parameters of Al or Cu
+  are committed. With the 50 eV cutoff no electron that could still count
+  towards η is dropped, but fast secondaries (above 50 eV, which a measured
+  η includes) are not generated.
+- **Only Al and Cu are compared.** C, Si and Au have no committed optical
+  ELF (inventory in [`data-provenance.md`](data-provenance.md); Si is #125),
+  so they have no input. Their measured data are tabulated below for when
+  one exists: adding `eta_<el>.toml` is all that is needed.
+
+The pass/fail rule is the issue's initial tolerance: at E ≥ 5 keV,
+|η − measured median| ≤ 0.05 absolute; below 5 keV values are reported only.
+It is pinned in `backscatter.py` and was neither loosened nor tightened.
+
+<!-- validation:level3-backscatter:begin -->
+lindhard 0.0.1 (6629260), 100000 primaries per run, seed 1; the model and its gaps are listed above. Measured: per energy, each stored set's point within 2 % of it (at most one per set), median and min-max over the sets.
+
+| Target | E (keV) | Sets | Measured median | Measured min-max | lindhard eta ± σ | lindhard - median | Pass (E ≥ 5 keV: abs. diff. ≤ 0.05) |
+|---|---|---|---|---|---|---|---|
+| C | 1 | 2 | 0.105 | 0.076-0.133 | not run (no optical ELF committed) | - | - |
+| C | 2 | 3 | 0.077 | 0.071-0.107 | not run (no optical ELF committed) | - | - |
+| C | 3 | 3 | 0.086 | 0.063-0.088 | not run (no optical ELF committed) | - | - |
+| C | 4 | 2 | 0.073 | 0.058-0.089 | not run (no optical ELF committed) | - | - |
+| C | 5 | 5 | 0.082 | 0.058-0.086 | not run (no optical ELF committed) | - | not evaluated |
+| C | 10 | 4 | 0.071 | 0.066-0.074 | not run (no optical ELF committed) | - | not evaluated |
+| C | 15 | 2 | 0.062 | 0.057-0.068 | not run (no optical ELF committed) | - | not evaluated |
+| C | 20 | 4 | 0.060 | 0.049-0.064 | not run (no optical ELF committed) | - | not evaluated |
+| C | 30 | 4 | 0.056 | 0.050-0.060 | not run (no optical ELF committed) | - | not evaluated |
+| Al | 1 | 6 | 0.204 | 0.134-0.235 | 0.1919 ± 0.0012 | -0.012 | (reported only) |
+| Al | 2 | 5 | 0.170 | 0.140-0.203 | 0.1666 ± 0.0012 | -0.003 | (reported only) |
+| Al | 3 | 7 | 0.161 | 0.132-0.213 | 0.1570 ± 0.0012 | -0.004 | (reported only) |
+| Al | 4 | 4 | 0.168 | 0.131-0.191 | 0.1512 ± 0.0011 | -0.017 | (reported only) |
+| Al | 5 | 8 | 0.163 | 0.135-0.200 | 0.1472 ± 0.0011 | -0.016 | pass |
+| Al | 10 | 5 | 0.150 | 0.140-0.188 | 0.1376 ± 0.0011 | -0.012 | pass |
+| Al | 15 | 4 | 0.149 | 0.137-0.171 | 0.1317 ± 0.0011 | -0.018 | pass |
+| Al | 20 | 4 | 0.144 | 0.139-0.164 | 0.1299 ± 0.0011 | -0.014 | pass |
+| Al | 30 | 5 | 0.149 | 0.135-0.155 | 0.1275 ± 0.0011 | -0.021 | pass |
+| Si | 1 | 3 | 0.228 | 0.210-0.235 | not run (no optical ELF committed) | - | - |
+| Si | 2 | 2 | 0.207 | 0.204-0.210 | not run (no optical ELF committed) | - | - |
+| Si | 3 | 3 | 0.200 | 0.192-0.212 | not run (no optical ELF committed) | - | - |
+| Si | 4 | 3 | 0.200 | 0.189-0.204 | not run (no optical ELF committed) | - | - |
+| Si | 5 | 5 | 0.197 | 0.184-0.206 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 10 | 5 | 0.186 | 0.174-0.200 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 15 | 2 | 0.180 | 0.163-0.197 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 20 | 4 | 0.167 | 0.159-0.194 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 30 | 4 | 0.161 | 0.145-0.190 | not run (no optical ELF committed) | - | not evaluated |
+| Cu | 1 | 5 | 0.381 | 0.265-0.438 | 0.3334 ± 0.0015 | -0.048 | (reported only) |
+| Cu | 2 | 5 | 0.379 | 0.301-0.419 | 0.3161 ± 0.0015 | -0.063 | (reported only) |
+| Cu | 3 | 6 | 0.341 | 0.309-0.406 | 0.3098 ± 0.0015 | -0.031 | (reported only) |
+| Cu | 4 | 4 | 0.325 | 0.306-0.340 | 0.3047 ± 0.0015 | -0.020 | (reported only) |
+| Cu | 5 | 8 | 0.324 | 0.298-0.398 | 0.3025 ± 0.0015 | -0.021 | pass |
+| Cu | 10 | 7 | 0.318 | 0.290-0.357 | 0.2983 ± 0.0014 | -0.020 | pass |
+| Cu | 15 | 3 | 0.311 | 0.310-0.335 | 0.2970 ± 0.0014 | -0.014 | pass |
+| Cu | 20 | 6 | 0.310 | 0.290-0.339 | 0.2973 ± 0.0014 | -0.013 | pass |
+| Cu | 30 | 5 | 0.311 | 0.291-0.319 | 0.2957 ± 0.0014 | -0.015 | pass |
+| Au | 1 | 3 | 0.395 | 0.289-0.419 | not run (no optical ELF committed) | - | - |
+| Au | 2 | 3 | 0.428 | 0.373-0.450 | not run (no optical ELF committed) | - | - |
+| Au | 3 | 4 | 0.433 | 0.414-0.464 | not run (no optical ELF committed) | - | - |
+| Au | 4 | 4 | 0.455 | 0.443-0.461 | not run (no optical ELF committed) | - | - |
+| Au | 5 | 7 | 0.459 | 0.430-0.489 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 10 | 5 | 0.476 | 0.470-0.501 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 15 | 3 | 0.484 | 0.482-0.514 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 20 | 5 | 0.485 | 0.480-0.516 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 30 | 5 | 0.512 | 0.481-0.521 | not run (no optical ELF committed) | - | not evaluated |
+
+**Verdict at E ≥ 5 keV (tolerance 0.05 absolute, generated):**
+
+- C: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
+- Al: 5 of 5 energies pass; largest abs. diff. -0.021 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Si: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
+- Cu: 5 of 5 energies pass; largest abs. diff. -0.021 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Au: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
+
+**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the correlation-polarization corrections switched off one at a time and together (same seed and primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value for independent runs. The variants share the seed, so their noise is correlated and the true σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, not a conservative test of it.
+
+| Target | E (keV) | exchange + polarization (baseline) | exchange only | polarization only | no corrections | baseline - no corrections |
+|---|---|---|---|---|---|---|
+| Al | 1 | 0.1919 ± 0.0012 | 0.1936 ± 0.0012 | 0.1907 ± 0.0012 | 0.1908 ± 0.0012 | +0.0012 (+0.7 σ) |
+| Al | 10 | 0.1376 ± 0.0011 | 0.1374 ± 0.0011 | 0.1366 ± 0.0011 | 0.1371 ± 0.0011 | +0.0005 (+0.3 σ) |
+| Cu | 1 | 0.3334 ± 0.0015 | 0.3329 ± 0.0015 | 0.3284 ± 0.0015 | 0.3305 ± 0.0015 | +0.0029 (+1.4 σ) |
+| Cu | 10 | 0.2983 ± 0.0014 | 0.2983 ± 0.0014 | 0.2970 ± 0.0014 | 0.2973 ± 0.0014 | +0.0010 (+0.5 σ) |
+
+Largest effect of the two corrections together: 0.0029 (1.4 σ, Cu at 1 keV); every difference is within 2 σ of the independent-run bound. Because the runs are correlated, that does not show the effect is zero; the measured differences (at most 0.0029 in η) are small next to the 0.05 tolerance and the measured spread, with the stand-in potential the corrections are solved on.
+
+Per-run values: `validation/experiments/backscatter_results.json`; datasets: `validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md).
+<!-- validation:level3-backscatter:end -->
+
+**Limits.** Al and Cu meet the tolerance at every energy from 5 to 30 keV,
+but lindhard is below the measured median at every compared energy, by
+0.012 to 0.021 at 5 keV and above. That offset is not attributed here. Two
+known parts of the model act on it: the elastic potential is the
+Thomas-Fermi Yukawa stand-in, not DHFS, and fast secondaries above 50 eV
+(counted in a measured η) are not generated. The measured sets are mostly
+1954 to 1997 work on surfaces of unstated condition, and at most energies
+they spread by more than the offset. Since only two of the five elements could
+be run, the tolerance was not tightened from the measured spread, and no
+model parameter was adjusted to these data. The comparison of C, Si and Au,
+and a run with the full Penn model, wait for their optical data and for
+faster full-Penn tables.
 
 ## Reporting
 

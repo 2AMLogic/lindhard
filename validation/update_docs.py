@@ -8,6 +8,7 @@ comments, so a rerun is idempotent:
     <!-- validation:level3-sputter:begin --> ... <!-- validation:level3-sputter:end -->
     <!-- validation:level3-sputter-crosscheck:begin --> ... <!-- validation:level3-sputter-crosscheck:end -->
     <!-- validation:level3-sputter-summary:begin --> ... <!-- validation:level3-sputter-summary:end -->
+    <!-- validation:level3-backscatter:begin --> ... <!-- validation:level3-backscatter:end -->
 
 Level 1 comes from the Markdown the harness writes (LINDHARD_VALIDATION_OUT),
 level 2 from the committed oracle summaries, level 3 from
@@ -43,6 +44,7 @@ DOC = ROOT / "docs" / "validation.md"
 SUMMARIES = ROOT / "validation" / "oracles" / "summaries"
 RESULTS = ROOT / "validation" / "experiments" / "results.json"
 SPUTTER_DATA = ROOT / "validation" / "data" / "sputtering"
+BACKSCATTER_RESULTS = ROOT / "validation" / "experiments" / "backscatter_results.json"
 
 sys.path.insert(0, str(ROOT / "validation" / "experiments"))
 import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
@@ -753,6 +755,108 @@ def level3_sputter_summary() -> str:
     return "\n".join(lines)
 
 
+def level3_backscatter() -> str:
+    """The electron backscatter coefficient table and the elastic-correction
+    sensitivity (#148), from validation/experiments/backscatter_results.json.
+    Pass/fail is the rule pinned in backscatter.py (|eta - median| <= tolerance
+    at E >= pass_min_kev, every element); nothing else is judged here."""
+    if not BACKSCATTER_RESULTS.is_file():
+        return "No committed results yet: run `validation/experiments/backscatter.py`."
+    r = json.loads(BACKSCATTER_RESULTS.read_text())
+    tol, emin = r["tolerance"], r["pass_min_kev"]
+    lines = [
+        f"{r['lindhard']}, {r['histories']} primaries per run, seed {r['seed']}; "
+        "the model and its gaps are listed above. Measured: per energy, each stored set's "
+        f"point within {100 * r['group_tolerance']:g} % of it (at most one per set), median and "
+        "min-max over the sets.",
+        "",
+        f"| Target | E (keV) | Sets | Measured median | Measured min-max | lindhard eta ± σ | lindhard - median | "
+        f"Pass (E ≥ {emin:g} keV: abs. diff. ≤ {tol:g}) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    verdicts = {}
+    for t in r["targets"]:
+        tv = verdicts.setdefault(t["target"], {"pass": 0, "fail": 0, "ungraded": 0, "worst": None,
+                                               "below": 0, "above": 0, "compared": 0})
+        for g in t["groups"]:
+            e = g["energy_kev"]
+            run = t["runs"].get(f"{e:g}")
+            if g["sets"] == 0 and run is None:
+                continue
+            med = "-" if g["median"] is None else f"{g['median']:.3f}"
+            band = "-" if g["median"] is None else f"{g['min']:.3f}-{g['max']:.3f}"
+            if run is None:
+                sim, diff = "not run (no optical ELF committed)", "-"
+                verdict = "not evaluated" if e >= emin else "-"
+                if e >= emin and g["sets"]:
+                    tv["ungraded"] += 1
+            else:
+                sim = f"{run['eta']:.4f} ± {run['eta_se']:.4f}"
+                if g["median"] is None:
+                    diff, verdict = "-", "no measurement"
+                else:
+                    d = run["eta"] - g["median"]
+                    diff = f"{d:+.3f}"
+                    tv["compared"] += 1
+                    tv["below" if d < 0 else "above"] += 1
+                    if e < emin:
+                        verdict = "(reported only)"
+                    else:
+                        ok = abs(d) <= tol
+                        verdict = "pass" if ok else "**FAIL**"
+                        tv["pass" if ok else "fail"] += 1
+                        if tv["worst"] is None or abs(d) > abs(tv["worst"][1]):
+                            tv["worst"] = (e, d)
+            lines.append(f"| {t['target']} | {e:g} | {g['sets']} | {med} | {band} | {sim} | {diff} | {verdict} |")
+    lines += ["", f"**Verdict at E ≥ {emin:g} keV (tolerance {tol:g} absolute, generated):**", ""]
+    for t in r["targets"]:
+        v = verdicts[t["target"]]
+        if v["pass"] + v["fail"] == 0:
+            lines.append(f"- {t['target']}: not evaluated ({v['ungraded']} measured energies; no committed input, "
+                         "because no optical ELF of it is committed).")
+        else:
+            worst = f"; largest abs. diff. {v['worst'][1]:+.3f} at {v['worst'][0]:g} keV" if v["worst"] else ""
+            lines.append(f"- {t['target']}: {v['pass']} of {v['pass'] + v['fail']} energies pass"
+                         + (", **the tolerance is not met**" if v["fail"] else "") + worst
+                         + f". Over all {v['compared']} compared energies (1 to 30 keV) lindhard is below the "
+                         f"measured median at {v['below']} and above it at {v['above']}.")
+    sens = [t for t in r["targets"] if t["sensitivity"]]
+    if sens:
+        labels = {v["id"]: v["label"] for v in r["variants"]}
+        order = [v["id"] for v in r["variants"]]
+        lines += [
+            "",
+            "**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the "
+            "correlation-polarization corrections switched off one at a time and together (same seed and "
+            "primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value "
+            "for independent runs. The variants share the seed, so their noise is correlated and the true "
+            "σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, "
+            "not a conservative test of it.",
+            "",
+            "| Target | E (keV) | " + " | ".join(labels[i] for i in order) + " | baseline - no corrections |",
+            "|---|---|" + "---|" * len(order) + "---|",
+        ]
+        effects = []
+        for t in sens:
+            for e, row in t["sensitivity"].items():
+                cells = [f"{row[i]['eta']:.4f} ± {row[i]['eta_se']:.4f}" for i in order]
+                d = row["both"]["eta"] - row["none"]["eta"]
+                se = math.hypot(row["both"]["eta_se"], row["none"]["eta_se"])
+                lines.append(f"| {t['target']} | {e} | " + " | ".join(cells) + f" | {d:+.4f} ({d / se:+.1f} σ) |")
+                effects.append((abs(d), abs(d / se), t["target"], e))
+        big = max(effects)
+        lines += ["", f"Largest effect of the two corrections together: {big[0]:.4f} ({big[1]:.1f} σ, "
+                  f"{big[2]} at {big[3]} keV); "
+                  + ("every difference is within 2 σ of the independent-run bound. Because the runs are "
+                     "correlated, that does not show the effect is zero; the measured differences (at most "
+                     f"{big[0]:.4f} in η) are small next to the 0.05 tolerance and the measured spread, with "
+                     "the stand-in potential the corrections are solved on."
+                     if all(x[1] < 2 for x in effects) else "at least one difference exceeds 2 σ.")]
+    lines += ["", "Per-run values: `validation/experiments/backscatter_results.json`; datasets: "
+              "`validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md)."]
+    return "\n".join(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--level1", type=Path, help="Markdown table written by the level-1 harness")
@@ -768,6 +872,7 @@ def main() -> int:
     text = splice(text, "level3-sputter", level3_sputter())
     text = splice(text, "level3-sputter-crosscheck", level3_sputter_crosscheck())
     text = splice(text, "level3-sputter-summary", level3_sputter_summary())
+    text = splice(text, "level3-backscatter", level3_backscatter())
     if args.check:
         if text != old:
             print(f"error: {DOC.relative_to(ROOT)} is not what validation/update_docs.py generates from the committed "

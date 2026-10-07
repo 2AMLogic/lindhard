@@ -15,6 +15,7 @@ validation/run.sh [--experiments] [--oracles]
 | `oracle-runs/` | 2, 3 | Raw runs, regenerated locally; **gitignored** |
 | `data/` | 3 | Published measurements with citations ([schema](data/README.md)); `data/digitize/` holds the scripts that digitized figures |
 | `experiments/run.py` | 3 | Checks each dataset's provenance, runs `lindhard` on it with the defaults and with the stopping inputs varied; writes `experiments/results.json` |
+| `experiments/backscatter.py`, `experiments/backscatter/` | 3 | Electron backscatter coefficient vs measurements (#148): checks `data/backscatter/`, runs the committed `[electron]` inputs at 1 to 30 keV and the elastic-correction sensitivity; writes `experiments/backscatter_results.json` (`run.sh --backscatter`) |
 | `lib/lindhard_cli.py` | 2, 3 | Builds and drives the `lindhard` command |
 | `update_docs.py` | all | Splices the tables into `docs/validation.md` between marker comments |
 | `check_manual_coverage.py` | docs | Fails if a variant of a model-selecting enum is not named in the physics manual (`book/src/models/`); run in CI |
