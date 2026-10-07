@@ -5,9 +5,10 @@
 //! differential cross section `DCS(theta)`, the total elastic cross section
 //! `sigma_el`, the first transport cross section `sigma_tr1` and the Sherman
 //! function, all at **one** kinetic energy and for a potential given as a
-//! function. Energy-grid tables for a material are in [`table`] (issue #90);
-//! exchange and polarization corrections and condensed phases are follow-up
-//! issues.
+//! function. Optional Furness-McCarthy exchange and correlation-polarization
+//! corrections (issue #91), off by default, are in [`corrections`]
+//! ([`solve_corrected`]). Energy-grid tables for a material are in [`table`]
+//! (issue #90); condensed phases are a follow-up issue.
 //!
 //! # Units
 //!
@@ -46,7 +47,10 @@
 //!   as `r_s` is well below the classical turning point: `r_s` is placed so
 //!   that the contamination is below `exp(-120)` at the turning point (but
 //!   never below a floor of `1e-10/(1+Z)` bohr, where the leading-order
-//!   point-Coulomb or regular power-series start is accurate). The integrator
+//!   point-Coulomb or regular power-series start is accurate). That estimate
+//!   assumes power-law growth and is optimistic for `|kappa|` of several
+//!   hundred; potentials that report [`ScreenedPotential::long_range`] use a
+//!   WKB criterion instead (see `wkb_start`). The integrator
 //!   is the Gragg-Bulirsch-Stoer modified-midpoint method with polynomial
 //!   extrapolation in `h^2` (Stoer & Bulirsch, *Introduction to Numerical
 //!   Analysis*), substep sequence 2, 4, 6, 8 (order 8), with a step set from
@@ -97,9 +101,9 @@
 //! [`Yukawa`] and [`SquareWell`] are analytically tractable. [`SalvatDhfs`] is
 //! the analytic Dirac-Hartree-Fock-Slater screening function of Salvat,
 //! Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987),
-//! doi:10.1103/PhysRevA.36.467; **its Z=1..92 coefficient table is a
-//! documented placeholder** (the paper is closed access and could not be
-//! read), see the type and `docs/data-provenance.md`.
+//! doi:10.1103/PhysRevA.36.467; **its Z=1..92 coefficient table is not in
+//! this tree yet** (a follow-up issue; the paper has since been read in an
+//! open repository copy for #91), see the type and `docs/data-provenance.md`.
 //!
 //! # Determinism
 //!
@@ -109,6 +113,12 @@
 
 use crate::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, FINE_STRUCTURE, HARTREE_ENERGY};
 use rayon::prelude::*;
+
+pub mod corrections;
+pub use corrections::{
+    solve_corrected, CorrectedPotential, CorrectionMetadata, Corrections, CorrelationPolarization,
+    ElectronDensity, PolarizationCutoff,
+};
 
 /// Square metres per bohr squared (`a0^2`, [`BOHR_RADIUS`] squared).
 pub const BOHR2_TO_M2: f64 = BOHR_RADIUS * BOHR_RADIUS;
@@ -170,6 +180,32 @@ pub trait ScreenedPotential: Sync {
 
     /// A length over which `V` changes appreciably, bohr. It caps the step.
     fn length_scale(&self) -> f64;
+
+    /// True when the potential has a long-range tail (such as the `r^-4`
+    /// polarization tail of [`CorrectedPotential`]) that high partial waves
+    /// feel near their classical turning points. The solver then places the
+    /// start of the outward integration by a WKB criterion on a refined
+    /// turning point (see [`ElasticSolver::phase_shift`]). The default,
+    /// `false`, keeps the step-1 start rule unchanged, so existing results are
+    /// bit-identical.
+    fn long_range(&self) -> bool {
+        false
+    }
+
+    /// The kinetic energy (eV) this potential was built for, when it depends
+    /// on one (such as [`CorrectedPotential`], whose exchange and polarization
+    /// cutoff use the energy). [`ElasticSolver::new`] rejects any other solver
+    /// energy. The default, `None`, accepts every energy.
+    fn bound_energy_ev(&self) -> Option<f64> {
+        None
+    }
+
+    /// Which corrections the potential includes; copied into
+    /// [`ElasticResult::corrections`] by [`solve`]. The default reports both
+    /// off.
+    fn correction_metadata(&self) -> CorrectionMetadata {
+        CorrectionMetadata::default()
+    }
 
     /// Radius beyond which the potential is neglected: the smallest radius on
     /// a geometric grid (ratio 1.05, from `length_scale`) with
@@ -292,11 +328,13 @@ impl ScreenedPotential for SquareWell {
 /// `V(r) = -(Z/r) sum_i A_i exp(-alpha_i r)` with `sum_i A_i = 1`
 /// (neutral atom), `r` in bohr.
 ///
-/// **The functional form is recalled from the issue text and not verified**
-/// (the paper is closed access: Unpaywall reports no open copy, and the
-/// publisher answers a bot challenge). **The coefficient table for Z = 1..92
-/// is not in this tree**: no value was available from a source that could be
-/// opened, and coefficients are never entered from memory.
+/// The form is the paper's Eq. (11) (screening function) inserted in its
+/// Eq. (1); its Eq. (12) gives the electron density used by
+/// [`ElectronDensity`]. Both were checked (issue #91) in the open copy of the
+/// paper in the University of Barcelona repository (diposit.ub.edu; the
+/// publisher's copy is closed). **The coefficient table for Z = 1..92 is not
+/// in this tree**: it was unavailable when this type was written (#17) and
+/// entering it is a follow-up; coefficients are never entered from memory.
 /// [`SalvatDhfs::for_element`] therefore returns
 /// [`ElasticError::ScreeningCoefficientsUnavailable`]; a caller who holds the
 /// table can use [`SalvatDhfs::from_coefficients`].
@@ -517,6 +555,50 @@ fn bs_step(f: &impl Fn(f64, Pair) -> Pair, r: f64, y: Pair, h: f64) -> Pair {
     tab[3][3]
 }
 
+/// WKB amplitude exponent required between the start radius and the turning
+/// point for [`ScreenedPotential::long_range`] potentials: the irregular
+/// solution admixed by an imprecise start is suppressed by `exp(-2 W)`, here
+/// `exp(-60)`.
+const WKB_START_EXPONENT: f64 = 30.0;
+
+/// Start radius for a long-range potential. The step-1 rule
+/// `r_t exp(-60/|kappa|)` assumes the power-law growth of a free wave deep
+/// inside the barrier; for `|kappa|` of several hundred it lands within a few
+/// per cent of the turning point, and the 5 % grid on which `r_t` is found can
+/// even put it past the turning point, so the start error is not suppressed
+/// (measured: phase errors up to 0.25 rad for `l ~ 1250` with a polarization
+/// tail). Here the turning point is refined by bisection and the start is moved
+/// inward until `W = \int sqrt(-q) dr >= WKB_START_EXPONENT` (midpoint rule on
+/// a geometric grid of ratio 0.99), or to `r_floor`.
+fn wkb_start(q_of: &impl Fn(f64) -> f64, r_t: f64, r_floor: f64, r_match: f64) -> f64 {
+    // Refine the first sign change of q below the grid value r_t.
+    let mut hi = r_t;
+    let mut lo = (r_t / 1.05).max(r_floor);
+    if q_of(lo) < 0.0 && q_of(hi) > 0.0 {
+        for _ in 0..60 {
+            let mid = 0.5 * (lo + hi);
+            if q_of(mid) > 0.0 {
+                hi = mid;
+            } else {
+                lo = mid;
+            }
+        }
+    } else {
+        lo = r_t;
+    }
+    let mut r = lo;
+    let mut w = 0.0;
+    while w < WKB_START_EXPONENT && r > r_floor {
+        let next = (r * 0.99).max(r_floor);
+        let q = q_of(0.5 * (r + next));
+        if q < 0.0 {
+            w += (-q).sqrt() * (r - next);
+        }
+        r = next;
+    }
+    r.min(0.5 * r_match)
+}
+
 /// Mott partial-wave data at one energy: phase shifts and the amplitudes built
 /// from them.
 #[derive(Debug, Clone, PartialEq)]
@@ -695,6 +777,9 @@ pub struct ElasticResult {
     pub sigma_el: f64,
     /// First transport cross section, bohr^2.
     pub sigma_tr1: f64,
+    /// Which exchange / correlation-polarization corrections the potential
+    /// included ([`solve`] reports both off).
+    pub corrections: CorrectionMetadata,
 }
 
 /// Radial Dirac solver at one kinetic energy.
@@ -720,6 +805,16 @@ impl<'a> ElasticSolver<'a> {
                 "energy",
                 format!("{energy_ev} eV (need finite, > 0)"),
             ));
+        }
+        if let Some(bound) = pot.bound_energy_ev() {
+            if bound != energy_ev {
+                return Err(invalid(
+                    "energy",
+                    format!(
+                        "{energy_ev} eV does not match the potential's bound energy {bound} eV"
+                    ),
+                ));
+            }
         }
         if opts.step_scale.is_nan() || opts.step_scale <= 0.0 || opts.step_scale > 4.0 {
             return Err(invalid(
@@ -806,9 +901,13 @@ impl<'a> ElasticSolver<'a> {
             }
             r *= 1.05;
         }
-        let r_s = (r_t * (-60.0 / kap.abs()).exp())
-            .max(r_floor)
-            .min(0.5 * self.r_match);
+        let r_s = if pot.long_range() {
+            wkb_start(&q_of, r_t, r_floor, self.r_match)
+        } else {
+            (r_t * (-60.0 / kap.abs()).exp())
+                .max(r_floor)
+                .min(0.5 * self.r_match)
+        };
 
         // Starting values.
         let y0: Pair = if z > 0.0 {
@@ -971,6 +1070,7 @@ pub fn solve(
         sigma_el: pw.sigma_el(),
         sigma_tr1: pw.sigma_tr1(),
         partial_waves: pw,
+        corrections: pot.correction_metadata(),
     })
 }
 
