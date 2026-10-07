@@ -11,12 +11,15 @@
 //! power and the sum rules of the optical input. [`transport`] is the
 //! event-by-event loop over layered stacks on those tables; [`secondary`] makes
 //! secondary electrons at its inelastic events and [`boundary`] holds the
-//! per-layer band parameters and the potential step at faces. The models that
-//! fill the tables from first principles are later work.
+//! per-layer band parameters and the potential step at faces. [`phonon`] holds
+//! the opt-in insulator channels the loop can add per layer (Fröhlich
+//! LO-phonon scattering, polaron trapping). The models that fill the tables
+//! from first principles are later work.
 
 pub mod boundary;
 pub mod data;
 pub mod elastic;
 pub mod inelastic;
+pub mod phonon;
 pub mod secondary;
 pub mod transport;

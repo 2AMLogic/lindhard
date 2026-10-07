@@ -59,6 +59,16 @@ one version).
   log-spaced knots, with power-law segments kept as a labelled comparison
   (Cu passes, Al N_eff +7.5 % against the authors' own +4.5 %) (#98 in
   part). Si is a documented gap.
+- `electron::phonon`: opt-in insulator channels for the electron loop.
+  `FrohlichPhonon` (Fröhlich LO-phonon emission and absorption inverse mean
+  free paths and angular distribution, after Llacer and Garwin (1969), as
+  restated by Ding et al., Sci. Technol. Adv. Mater. 22, 932 (2021)), with a
+  cited SiO₂ preset, and `PolaronTrapping` (`C exp(-γE)`, after Ganachaud and
+  Mokrani (1995); `C`, `γ` are caller inputs). `Transport::with_insulator_channels`
+  switches them on per layer (all layers default to none); `LayerMetadata`
+  gains `phonon` and `polaron`. New `Fate::PolaronTrapped`, `PhononEvent`,
+  `ElectronTally::phonon` and `ElectronTally::polaron_trapped` hooks, and
+  `SummaryTally` counters for phonon events and trapped energy.
 - `geometry::Geometry`, the engine-facing target trait, implemented by `Stack`
   and the new `geometry::VoxelGrid` (regular 3D grid of material indices,
   periodic or vacuum boundaries per axis, exact 3D DDA traversal that

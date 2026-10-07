@@ -134,6 +134,17 @@
 //!   deposit` event by event, and the secondary's energy is counted once,
 //!   where it ends.
 //!
+//! - With the opt-in insulator channels of a layer
+//!   ([`crate::electron::phonon`]), an LO-phonon emission gives `ħω` to the
+//!   lattice (deposited where it happens), an absorption takes `ħω` from it
+//!   (the `phonon_absorbed` source, added to the left side of the balance),
+//!   and an electron trapped as a polaron deposits its whole remaining energy
+//!   where it is trapped (the `polaron` deposit). The balance is then
+//!   `incident + fermi_sea + phonon_absorbed = deposited + escaped + trapped +
+//!   barrier`, with `deposited` including `phonon_emitted` and `polaron`.
+//!   Polaron traps are not counted in the stopping points, which are
+//!   electrons that fell below the stopping threshold.
+//!
 //! Without a secondary model and without the step barrier, `fermi_sea` and
 //! `barrier` are zero and the balance is `incident = deposited + escaped +
 //! trapped`.
@@ -151,7 +162,9 @@ use serde::{Deserialize, Serialize};
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
 use crate::electron::secondary::{SecondaryEvent, SecondaryModel};
-use crate::electron::transport::{Boundary, ElectronState, ElectronTally, Face, Fate, Transport};
+use crate::electron::transport::{
+    Boundary, ElectronState, ElectronTally, Face, Fate, PhononEvent, Transport,
+};
 
 /// Default SE/BSE energy split, eV: an escaping electron below this energy is
 /// in the secondary (slow) class, at or above it in the backscattered (fast)
@@ -363,6 +376,9 @@ struct Budget {
     event_cap: f64,
     fermi_sea: f64,
     barrier: f64,
+    phonon_emitted: f64,
+    phonon_absorbed: f64,
+    polaron: f64,
 }
 
 impl Budget {
@@ -377,13 +393,16 @@ impl Budget {
         self.event_cap += o.event_cap;
         self.fermi_sea += o.fermi_sea;
         self.barrier += o.barrier;
+        self.phonon_emitted += o.phonon_emitted;
+        self.phonon_absorbed += o.phonon_absorbed;
+        self.polaron += o.polaron;
     }
 
     fn report(&self) -> ElectronEnergyBudget {
-        let deposited = self.inelastic + self.residual;
+        let deposited = self.inelastic + self.residual + self.phonon_emitted + self.polaron;
         let escaped = self.escaped_front + self.escaped_back;
         let trapped = self.no_interaction + self.absorbed + self.event_cap;
-        let source = self.incident + self.fermi_sea;
+        let source = self.incident + self.fermi_sea + self.phonon_absorbed;
         let sink = deposited + escaped + trapped + self.barrier;
         let relative_imbalance = if source > 0.0 {
             (sink - source).abs() / source
@@ -404,6 +423,9 @@ impl Budget {
             event_cap_ev: self.event_cap,
             fermi_sea_ev: self.fermi_sea,
             barrier_ev: self.barrier,
+            phonon_emitted_ev: self.phonon_emitted,
+            phonon_absorbed_ev: self.phonon_absorbed,
+            polaron_ev: self.polaron,
             relative_imbalance,
         }
     }
@@ -747,6 +769,29 @@ impl ElectronTally for FullElectronTally {
         self.deposit(primary, local);
     }
 
+    fn phonon(
+        &mut self,
+        after: &ElectronState,
+        kind: PhononEvent,
+        hbar_omega_ev: f64,
+        _theta: f64,
+    ) {
+        self.last = Some(*after);
+        match kind {
+            PhononEvent::Emission => {
+                self.budget.phonon_emitted += hbar_omega_ev;
+                self.deposit(after, hbar_omega_ev);
+            }
+            PhononEvent::Absorption => self.budget.phonon_absorbed += hbar_omega_ev,
+        }
+    }
+
+    fn polaron_trapped(&mut self, at: &ElectronState) {
+        self.last = None;
+        self.budget.polaron += at.energy_ev;
+        self.deposit(at, at.energy_ev);
+    }
+
     fn interface(&mut self, at: &ElectronState, _from_layer: usize, _to_layer: usize) {
         self.last = Some(*at);
     }
@@ -829,6 +874,7 @@ impl ElectronTally for FullElectronTally {
             Fate::Escaped(Face::Back) => self.fates.escaped_back += 1,
             Fate::Absorbed => self.fates.absorbed += 1,
             Fate::Trapped => self.fates.trapped += 1,
+            Fate::PolaronTrapped => self.fates.polaron_trapped += 1,
             Fate::EventCap => {
                 self.fates.event_capped += 1;
                 let primary = if self.in_secondary {
@@ -946,6 +992,9 @@ pub struct FateCounts {
     pub trapped: u64,
     /// Cut off by the collision cap.
     pub event_capped: u64,
+    /// Trapped as a polaron (an opt-in insulator channel).
+    #[serde(default)]
+    pub polaron_trapped: u64,
 }
 
 impl FateCounts {
@@ -956,16 +1005,22 @@ impl FateCounts {
         self.absorbed += o.absorbed;
         self.trapped += o.trapped;
         self.event_capped += o.event_capped;
+        self.polaron_trapped += o.polaron_trapped;
     }
 }
 
 /// The energy balance, eV, summed over all histories and every electron of
 /// them (see [the module docs](self#the-energy-balance)):
-/// `incident + fermi_sea = deposited + escaped + trapped + barrier`, with
+/// `incident + fermi_sea + phonon_absorbed = deposited + escaped + trapped +
+/// barrier`, with
 ///
-/// - `deposited = inelastic + residual`: energy left in the solid at
-///   inelastic events, plus the energy electrons had left when they fell
-///   below the stopping threshold;
+/// - `deposited = inelastic + residual + phonon_emitted + polaron`: energy
+///   left in the solid at inelastic events, plus the energy electrons had
+///   left when they fell below the stopping threshold, plus the `ħω` given to
+///   the lattice at LO-phonon emissions, plus the whole remaining energy of
+///   electrons trapped as polarons;
+/// - `phonon_absorbed`: the `ħω` electrons took from the lattice at LO-phonon
+///   absorptions (a source; zero without the insulator channels);
 /// - `escaped = escaped_front + escaped_back`;
 /// - `trapped = no_interaction + absorbed + event_cap`: energy still carried
 ///   by electrons that ended in the target without falling below the
@@ -1011,6 +1066,17 @@ pub struct ElectronEnergyBudget {
     /// Kinetic energy taken by the potential steps, the sum of `-ΔU` over
     /// face transmissions (signed).
     pub barrier_ev: f64,
+    /// `ħω` given to the lattice by LO-phonon emission (part of
+    /// `deposited_ev`).
+    #[serde(default)]
+    pub phonon_emitted_ev: f64,
+    /// `ħω` taken from the lattice by LO-phonon absorption (a source).
+    #[serde(default)]
+    pub phonon_absorbed_ev: f64,
+    /// Remaining energy of electrons trapped as polarons (part of
+    /// `deposited_ev`).
+    #[serde(default)]
+    pub polaron_ev: f64,
     /// `|deposited + escaped + trapped + barrier - incident - fermi_sea| /
     /// (incident + fermi_sea)` (0 with no incident energy).
     pub relative_imbalance: f64,
