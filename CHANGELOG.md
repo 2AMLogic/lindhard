@@ -65,6 +65,15 @@ one version).
   IAEA-NDS-224 Rev. 1), embedded in the library with its credit notice, under
   the operator ruling linked from `docs/data-provenance.md`. Its coverage test
   runs in the default test run.
+- `electron::inelastic`: the single-pole Penn model (`SinglePolePenn`), built
+  from a user-supplied `OpticalElf`, with the momentum-dependent loss
+  function, the DIIMFP, the inelastic mean free path and the stopping power
+  (nonrelativistic kinematics, stated integration tolerance); a sum-rule
+  report for any optical ELF (`SumRuleReport`: f-sum `N_eff(W)`, `P_eff`,
+  mean excitation energy); nonrelativistic Bethe stopping
+  (`inelastic::bethe`); and an analytic Drude-Lorentz ELF with closed-form
+  sum rules (`DrudeLorentz`) as a synthetic fixture. Example
+  `penn_sum_rules` and bench `penn`.
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and
