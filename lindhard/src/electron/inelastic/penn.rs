@@ -859,4 +859,43 @@ mod tests {
         assert!(phi(qb).abs() < 1e-10 || (qb - qt).abs() < 1e-12 * qt);
         assert!(allowed_q(wp, c, 0.5, 1.0).is_none());
     }
+
+    /// Eq. (32) of de Vera et al.: with `T = 400`, `B = 150` and `ω = 200` eV
+    /// (`E_F = 0`), `W = ω - B = 50` eV and `T - W = 350` eV, not the `200` eV
+    /// of `T' - ω`.
+    #[test]
+    fn exchange_factor_uses_primary_energy_less_emitted_energy() {
+        let h = hartree_ev();
+        let (t, b, w) = (400.0 / h, 150.0 / h, 200.0 / h);
+        let t_minus_w = t - (w - b);
+        assert!((t_minus_w * h - 350.0).abs() < 1e-9);
+        for q in [0.5, 2.0, 5.0] {
+            let x = 0.5 * q * q / (350.0 / h);
+            let want = -x + x * x;
+            let got = ochkur_factor(0.5 * q * q, t_minus_w);
+            assert!((got - want).abs() <= 1e-14 * want.abs(), "{q}: {got}");
+            // The wrong denominator would give a different factor.
+            let wrong = ochkur_factor(0.5 * q * q, t - w);
+            assert!((wrong - want).abs() > 1e-3 * want.abs(), "{q}");
+        }
+    }
+
+    #[test]
+    fn diimfp_exchange_depends_on_binding_energy() {
+        use crate::electron::inelastic::{DrudeLorentz, DrudeLorentzOscillator};
+        let elf = DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
+            .unwrap()
+            .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
+            .unwrap();
+        let m = SinglePolePenn::new(elf);
+        let h = hartree_ev();
+        let (t, w, b) = (400.0 / h, 200.0 / h, 150.0 / h);
+        let direct = m.diimfp_core_au(t, w, false, 0.0);
+        let b0 = m.diimfp_core_au(t, w, true, 0.0);
+        let bj = m.diimfp_core_au(t, w, true, b);
+        assert!(direct > 0.0 && b0 > 0.0 && bj > 0.0);
+        assert!((bj / b0 - 1.0).abs() > 1e-3, "{bj} vs {b0}");
+        // Without exchange the binding energy does not enter.
+        assert_eq!(m.diimfp_core_au(t, w, false, b), direct);
+    }
 }
