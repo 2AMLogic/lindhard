@@ -21,6 +21,7 @@
 
 pub mod bethe;
 pub mod bragg;
+pub mod dataset;
 pub mod lindhard_scharff;
 pub mod mix;
 pub mod oen_robinson;
@@ -32,7 +33,7 @@ use crate::elements::element;
 use crate::units::J_PER_EV;
 
 /// Errors from stopping models, tables and Bragg sums.
-#[derive(Debug, thiserror::Error, PartialEq)]
+#[derive(Debug, Clone, thiserror::Error, PartialEq)]
 pub enum StoppingError {
     /// Energy was not finite and positive.
     #[error("energy must be finite and positive, got {0} eV")]
@@ -66,6 +67,15 @@ pub enum StoppingError {
     /// A user table is malformed.
     #[error("invalid stopping table: {0}")]
     InvalidTable(String),
+    /// A line of a stopping dataset ([`dataset`]) is malformed or fails
+    /// validation.
+    #[error("stopping dataset, line {line}: {reason}")]
+    InvalidDataset {
+        /// 1-based line number in the source text.
+        line: usize,
+        /// What is wrong with the line.
+        reason: String,
+    },
     /// A user table was queried outside its energy range.
     #[error("energy {energy_ev} eV outside table range [{min_ev}, {max_ev}] eV")]
     OutOfTableRange {
