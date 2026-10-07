@@ -18,6 +18,7 @@
   - [Validity ranges and declined terms](models/stopping-validity.md)
 - [BCA transport and free-flight conventions](models/bca.md)
 - [Displacement damage](models/damage.md)
+- [Dynamic composition](models/dynamic-composition.md)
 
 # User guide
 

@@ -43,6 +43,7 @@ ENUMS: list[tuple[str, str, str | None]] = [
     ("lindhard/src/input.rs", "FreePathChoice", "free_path"),
     ("lindhard/src/ion/bca/mod.rs", "MeanFreePath", None),
     ("lindhard/src/ion/bca/mod.rs", "ElectronicLoss", None),
+    ("lindhard/src/ion/dynamic.rs", "Relaxation", None),
 ]
 
 VARIANT_RE = re.compile(r"^([A-Z][A-Za-z0-9]*)\s*(?:[,({=]|$)")
