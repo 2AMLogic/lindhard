@@ -5,8 +5,9 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
+use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
-use lindhard_cli::{dynamic, output, sim};
+use lindhard_cli::{dynamic, electron, output, sim};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -30,15 +31,17 @@ enum Command {
         /// Input TOML file.
         input: PathBuf,
     },
-    /// Run an input file and write summary.json and CSV profiles.
+    /// Run an input file and write summary.json and CSV profiles
+    /// (electron_summary.json and electron_*.csv for an `[electron]` input).
     Run {
         /// Input TOML file.
         input: PathBuf,
         /// Output directory (created if missing; files in it are overwritten).
         #[arg(long, short)]
         out: PathBuf,
-        /// Override `run.ions` (echoed in the output).
-        #[arg(long)]
+        /// Override `run.ions`, or `run.histories` of an electron run
+        /// (echoed in the output).
+        #[arg(long, visible_alias = "histories")]
         ions: Option<u64>,
         /// Override `run.seed` (echoed in the output).
         #[arg(long)]
@@ -49,17 +52,123 @@ enum Command {
     },
 }
 
-fn load(path: &Path) -> Result<Input> {
-    let text =
-        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    Input::from_toml_str(&text).with_context(|| format!("{}: invalid input", path.display()))
+fn read(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))
+}
+
+fn load(path: &Path, text: &str) -> Result<Input> {
+    Input::from_toml_str(text).with_context(|| format!("{}: invalid input", path.display()))
+}
+
+/// The input file's directory: relative data paths resolve against it.
+fn base_dir(path: &Path) -> &Path {
+    path.parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
+}
+
+fn load_electron(path: &Path, text: &str) -> Result<ElectronInput> {
+    ElectronInput::from_toml_str(text).with_context(|| format!("{}: invalid input", path.display()))
+}
+
+fn resolve_electron(path: &Path, input: &ElectronInput) -> Result<ResolvedElectron> {
+    let r = input
+        .resolve_in(base_dir(path))
+        .with_context(|| format!("{}: invalid input", path.display()))?;
+    for w in &r.warnings {
+        eprintln!("warning: {w}");
+    }
+    Ok(r)
+}
+
+fn check_electron(path: &Path, text: &str) -> Result<()> {
+    let input = load_electron(path, text)?;
+    let r = resolve_electron(path, &input)?;
+    let b = &r.input.electron.beam;
+    println!("{}: OK (electron run)", path.display());
+    println!(
+        "  beam: electrons at {} eV, tilt {} deg, azimuth {} deg; {} histories, seed {}",
+        b.energy_ev, b.tilt_deg, b.azimuth_deg, r.input.run.histories, r.input.run.seed
+    );
+    for (i, (g, &m)) in r.stack.layers().iter().zip(&r.layer_material).enumerate() {
+        let extent = if g.back_m().is_finite() {
+            format!("{} nm", g.thickness_m() * 1e9)
+        } else {
+            "semi-infinite".to_string()
+        };
+        println!("  layer {i}: {}, {extent}", r.materials[m].name);
+    }
+    for m in &r.materials {
+        println!(
+            "  {}: optical ELF {} ({})",
+            m.name,
+            m.optical_elf_file.path,
+            m.optical_elf.provenance()
+        );
+    }
+    let g = &r.table_energy_ev;
+    println!(
+        "  tables: {} energies, {} to {} eV",
+        g.len(),
+        g[0],
+        g[g.len() - 1]
+    );
+    for m in r.models() {
+        println!("  {}: {}", m.role, m.name);
+    }
+    Ok(())
+}
+
+fn run_electron(
+    path: &Path,
+    text: &str,
+    out: &Path,
+    histories: Option<u64>,
+    seed: Option<u64>,
+    threads: Option<usize>,
+) -> Result<()> {
+    let mut input = load_electron(path, text)?;
+    if let Some(n) = histories {
+        input.run.histories = n;
+    }
+    if let Some(s) = seed {
+        input.run.seed = s;
+    }
+    if threads.is_some() {
+        input.run.threads = threads;
+    }
+    let r = resolve_electron(path, &input)?;
+    let sim = electron::simulate_electron(&r, input.run.threads)?;
+    std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
+    let write = |name: &str, text: String| -> Result<()> {
+        let p = out.join(name);
+        std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
+    };
+    write(electron::SUMMARY_FILE, electron::summary_json(&r, &sim)?)?;
+    write(electron::SPECTRA_FILE, electron::spectra_csv(&sim.report))?;
+    write(electron::TABLES_FILE, electron::tables_csv(&r, &sim))?;
+    if let Some(t) = electron::cartesian_csv(&sim.report) {
+        write(electron::CARTESIAN_FILE, t)?;
+    }
+    if let Some(t) = electron::cylindrical_csv(&sim.report) {
+        write(electron::CYLINDRICAL_FILE, t)?;
+    }
+    let y = &sim.report.yields;
+    eprintln!(
+        "{} electrons: eta {:.4}, delta {:.4}, energy balance residual {:.2e}; wrote {}",
+        sim.report.histories,
+        y.backscatter_eta,
+        y.secondary_delta,
+        sim.report.budget.relative_imbalance,
+        out.display()
+    );
+    Ok(())
 }
 
 fn resolve(path: &Path, input: &Input) -> Result<Resolved> {
     // Relative [stopping] table paths are relative to the input file.
-    let base = path.parent().filter(|p| !p.as_os_str().is_empty());
     let r = input
-        .resolve_in(base.unwrap_or(Path::new(".")))
+        .resolve_in(base_dir(path))
         .with_context(|| format!("{}: invalid input", path.display()))?;
     for w in &r.warnings {
         eprintln!("warning: {w}");
@@ -68,7 +177,11 @@ fn resolve(path: &Path, input: &Input) -> Result<Resolved> {
 }
 
 fn check(path: &Path) -> Result<()> {
-    let input = load(path)?;
+    let text = read(path)?;
+    if ElectronInput::is_electron_toml(&text) {
+        return check_electron(path, &text);
+    }
+    let input = load(path, &text)?;
     let r = resolve(path, &input)?;
     let b = &r.input.beam;
     println!("{}: OK", path.display());
@@ -125,7 +238,11 @@ fn run(
     seed: Option<u64>,
     threads: Option<usize>,
 ) -> Result<()> {
-    let mut input = load(path)?;
+    let text = read(path)?;
+    if ElectronInput::is_electron_toml(&text) {
+        return run_electron(path, &text, out, ions, seed, threads);
+    }
+    let mut input = load(path, &text)?;
     if let Some(n) = ions {
         input.run.ions = n;
     }

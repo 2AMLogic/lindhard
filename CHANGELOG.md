@@ -9,6 +9,22 @@ one version).
 
 ### Added
 
+- Electron run mode in `lindhard-cli`: an input with an `[electron]` table
+  (beam, transport cutoff and escape rule, Kieft-Bosch secondaries, step
+  barrier, Mott elastic with optional exchange and correlation-polarization
+  corrections, single-pole Penn, full Penn or Mermin-ELF inelastic, per-material
+  optical ELF files and band, phonon and polaron parameters, tally grids) runs
+  the electron transport with the full electron tally and writes
+  `electron_summary.json` (the `ElectronReport`, every model choice and every
+  data provenance, with file SHA-256s) and `electron_escape_spectra.csv`,
+  `electron_deposition_{cylindrical,cartesian}.csv` and `electron_tables.csv`.
+  Data without a provenance is refused. Schema types:
+  `lindhard::input::electron`; `--histories` is an alias of `--ions`. Example:
+  `examples/electron/e_10keV_si.toml` (synthetic ELF and band data). Library
+  plumbing for it: `electron::inelastic::table::build_inelastic_table_for_model`
+  (energy-loss tables for any `PennInelastic` model) and
+  `electron::elastic::table::AtomicElastic::compute_corrected` /
+  `ThomasFermiYukawa::yukawa` (elastic tables with the corrections).
 - Fluence-dependent targets: `ion::dynamic::DynamicRun`, a fluence stepping
   loop on `CompositionGrid` with fixed or adaptive steps (bounded relative
   composition change per step, with reject and retry), and `InventoryTally`,

@@ -3,11 +3,16 @@
 ```text
 lindhard check input.toml                  # parse and validate, no transport
 lindhard run input.toml --out dir/         # run, write dir/summary.json and CSVs
+                                           # (dir/electron_summary.json for [electron])
 lindhard run input.toml --out dir/ --ions 200 --seed 7 --threads 4
 lindhard --version                         # crate version and git describe
 ```
 
-`--ions` and `--seed` override `run.ions` and `run.seed`; the override is what
+An input with a top-level `[electron]` table is an electron run (see
+"Electron runs" below); every other input is an ion run.
+
+`--ions` and `--seed` override `run.ions` and `run.seed` (`--ions`, or its
+alias `--histories`, overrides `run.histories` of an electron run); the override is what
 the output echoes. `--threads` overrides `run.threads` and never changes the
 results. Invalid input exits non-zero with a message naming the offending key
 (`target.layers[0].thickness_nm: -5 nm must be finite and positive`), and
@@ -226,6 +231,137 @@ the range histogram, the dual-Pearson fit and the defect profiles. Particles
 outside any grid are counted in explicit underflow and overflow entries, never
 dropped. Every count and per-ion value is for the same incident ions.
 
+### Electron runs (`[electron]`)
+
+An input with an `[electron]` table runs the low-energy electron engine
+(`lindhard::electron::transport`) instead of the ion BCA, with the full
+electron tally (`lindhard::tally::FullElectronTally`). It exposes what the
+library does and adds no physics; every choice and every data provenance is
+written to the output, so a result can be reproduced from its own header. The
+schema types are `lindhard::input::electron`. `[materials]` and `[target]`
+are the ion run's tables (above); `[beam]`, `[physics]`, `[stopping]`,
+`[tally]` and `[dynamic]` are not accepted. Example:
+[`../examples/electron/e_10keV_si.toml`](../examples/electron/e_10keV_si.toml).
+
+```toml
+[electron.beam]
+energy_ev = 10000.0
+
+[electron.transport]
+cutoff_ev = 1.0
+cutoff_reference = "vacuum-level"
+secondaries = "kieft-bosch"
+boundary = "step-barrier"
+
+[electron.elastic]
+potential = "thomas-fermi-yukawa"
+
+[electron.inelastic]
+model = "penn-single-pole"
+
+[electron.materials.Si]
+optical_elf = "si_elf.toml"
+band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0, provenance = "..." }
+
+[target]
+substrate = "Si"
+
+[run]
+histories = 1000
+seed = 1
+```
+
+**`[electron.beam]`**
+
+| Key | Default | Meaning |
+|---|---|---|
+| `energy_ev` | required | Kinetic energy of the primaries, eV: the vacuum energy with `boundary = "step-barrier"`, the energy inside the first layer otherwise |
+| `tilt_deg` | 0 | Polar angle from the surface normal, `[0, 90)` |
+| `azimuth_deg` | 0 | Azimuth of the incidence plane |
+
+Primaries start on the front face at `y = z = 0` (just outside it with the
+step barrier).
+
+**`[electron.transport]`** (`lindhard::electron::transport::TransportConfig`)
+
+| Key | Default | Choices |
+|---|---|---|
+| `cutoff_ev` | required | An electron stops below this energy |
+| `cutoff_reference` | `"band-bottom"` | `band-bottom`; `vacuum-level` (the threshold is `U + cutoff`: electrons that can no longer leave are not followed) |
+| `escape_rule` | `"both-faces"` | `both-faces`; `front-only` (the back face absorbs) |
+| `max_events` | 10000000 | Collision and reflection cap per electron |
+| `secondaries` | `"off"` | `off`; `kieft-bosch` (Kieft and Bosch 2008) |
+| `instantaneous_momentum`, `momentum_conservation` | `true` | Options of `kieft-bosch`; an error with `off` |
+| `boundary` | `"transparent"` | `transparent`; `step-barrier` (inner-potential step with quantum transmission and refraction) |
+| `quantum_transmission`, `refraction` | `true` | Options of `step-barrier`; an error with `transparent` |
+
+**`[electron.elastic]`**
+
+| Key | Default | Choices |
+|---|---|---|
+| `model` | `"mott"` | `mott`: Mott cross sections from radial-Dirac partial waves, independent-atom additivity (`electron::elastic::table`) |
+| `potential` | required | `thomas-fermi-yukawa`: the Thomas-Fermi Yukawa **stand-in**; `salvat-dhfs`: the Salvat et al. (1987) DHFS potentials, whose coefficient table is a documented gap (`data-provenance.md`), so a run with it fails |
+| `exchange` | `false` | Furness-McCarthy exchange correction |
+| `correlation_polarization` | absent (off) | A table: `polarizability.<Sym> = { bohr3 = ..., source = "..." }` for every target element (the source is required), optional `b_pol_squared` (absent: Seltzer's rule, which needs every table energy above 50 eV) and `outer_radius_bohr` (50) |
+
+The corrections are solved per grid energy with the stand-in's own Poisson
+density (`AtomicElastic::compute_corrected`); the elastic table's `model` and
+`provenance` strings name them and every polarizability with its source.
+
+**`[electron.inelastic]`**
+
+| Key | Default | Choices |
+|---|---|---|
+| `model` | `"penn-single-pole"` | `penn-single-pole`, `penn-full`, `mermin-melf` (`electron::inelastic::PennAlgorithm`). The full Penn and Mermin models integrate numerically and build tables far more slowly |
+| `fermi_energy_ev` | 0 | Fermi energy of the model, eV |
+
+**`[electron.tables]`**: one log-spaced energy grid shared by the elastic and
+inelastic tables of every material.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `min_energy_ev` | 10 | Lowest grid energy, eV |
+| `max_energy_ev` | the beam energy (plus the largest inner potential with the step barrier) | Highest grid energy, eV |
+| `points_per_decade` | 20 | Minimum points per decade |
+
+The transport holds the rates of the first and last rows beyond the grid;
+a grid that starts above the lowest stopping threshold or ends below the
+largest possible energy warns.
+
+**`[electron.materials.<name>]`**: the electron data of each material the
+target uses, keyed by the name the target gives it (a `[materials]` key or an
+element symbol; an inline target material is an error in an electron run).
+Every name the target uses needs an entry; an unused entry warns.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `optical_elf` | required | Path of an optical ELF file, relative to the input file's directory, in the `lindhard::electron::data::OpticalElf` TOML form (`material`, `provenance`, `energy_ev`, `elf`). It is read with that type's loader, so **a file without a provenance is refused**, as is any invalid table |
+| `band` | none | Band parameters, required with `kieft-bosch`, `step-barrier` or `vacuum-level`: `{ kind = "metal", fermi_ev, work_function_ev, provenance }`, `{ kind = "insulator", valence_band_width_ev, band_gap_ev, affinity_ev, provenance }` or `{ kind = "free-electron-metal", valence_electrons_per_atom, work_function_ev, provenance }` (`lindhard::electron::boundary::BandStructure`; a blank provenance is refused) |
+| `phonon` | none (off) | Fröhlich LO-phonon channel, polar insulators only: `{ hbar_omega_ev, eps_static, eps_high_frequency, temperature_k, provenance }`, or `{ preset = "sio2-63mev" \| "sio2-153mev", temperature_k }` (the library's cited SiO₂ values) |
+| `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
+
+No optical or band data of any real material is committed
+([`data-provenance.md`](data-provenance.md)); the data files are the user's,
+and their terms are the user's concern. Subshell binding-energy tables
+(`SubshellBindingTable`) have no key yet: the transport loop does not use
+inner-shell channels, so there is nothing to feed them to (see "extending"
+below).
+
+**`[electron.tally]`** (`lindhard::tally::ElectronTallyConfig`)
+
+| Key | Default | Meaning |
+|---|---|---|
+| `se_bse_split_ev` | 50 | Escaping electrons below it are slow (secondary), at or above it fast (backscattered) |
+| `escape_energy_max_ev` | beam energy | Upper edge of the escape-energy spectra (from 0), eV |
+| `escape_energy_bins` | 100 | Escape-energy bins |
+| `escape_polar_max_deg` | 90 | Upper edge of the polar-angle spectra (from 0, at most 180), degrees from the outward normal |
+| `escape_polar_bins` | 18 | Polar-angle bins |
+| `cartesian` | none | Deposition grid `{ x, y, z }`, each `{ lo_nm, hi_nm, bins }` (`x` is depth) |
+| `cylindrical` | none | Deposition grid `{ r, depth }` about the beam axis, each `{ lo_nm, hi_nm, bins }` (`r.lo_nm >= 0`) |
+
+**`[run]`** of an electron run: `histories` (required), `seed` (required) and
+`threads` (all cores; not echoed, never changes results).
+
 <!-- ANCHOR_END: input -->
 
 ## Output
@@ -318,15 +454,55 @@ initial target), one row per step and slab: `step`, `slab` (0 is the front),
 `atoms_per_cm2_<Sym>` and `fraction_<Sym>` (atom fraction). Slabs that
 emptied are gone from later steps.
 
+### Electron runs: `electron_summary.json` and `electron_*.csv`
+
+An electron run writes these instead of the ion files.
+
+`electron_summary.json` (format `{"name": "lindhard-electron-summary",
+"version": 1}`):
+
+| Key | Content |
+|---|---|
+| `software` | As for an ion run |
+| `input` | The input as run: defaults filled in (including `tables.max_energy_ev`, `tally.escape_energy_max_ev` and the secondary and barrier options), CLI overrides applied, `run.threads` removed. Deserializes to `lindhard::input::electron::ElectronInput` |
+| `physics.models` | Every model in use: `role`, `name`, `citation` (transport loop, elastic model and potential, corrections, inelastic model, secondaries, barrier, phonon and polaron channels, SE/BSE split) |
+| `physics.transport` | The engine's `RunMetadata`: cutoff and its reference, escape rule, event cap, secondary and boundary models, seed, histories, chunk size, the primary, and per layer its extent (m), the `model` and `provenance` strings of both tables, the band parameters, phonon and polaron channels with their provenance |
+| `physics.target` | Each layer: extent (nm), atom density and the resolved material |
+| `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes |
+| `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `budget` (the energy balance and its `relative_imbalance`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points`. The histograms and grid cells are in the CSV files, not here |
+| `files` | Names of the CSV files (`null` if not written) |
+| `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
+
+`electron_escape_spectra.csv`: `face,spectrum,class,lo,hi,count,per_primary_per_unit`.
+For each face (`front`, `back`): the energy spectrum of all escaping electrons
+(`spectrum = energy_ev`, `class = all`, eV) and the polar-angle spectrum of
+each class (`polar_deg`, `slow` or `fast`, degrees from the outward normal).
+Each spectrum ends with `-inf` and `inf` rows for entries outside the grid,
+with empty densities. The density is per primary per eV or per degree.
+
+`electron_deposition_cylindrical.csv` (with `tally.cylindrical`):
+`ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,energy_ev,ev_per_primary_per_nm3`,
+one row per cell. `electron_deposition_cartesian.csv` (with
+`tally.cartesian`): `ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,energy_ev,ev_per_primary_per_nm3`.
+Energy deposited outside a grid is `outside_ev` in the summary.
+
+`electron_tables.csv`: `material,energy_ev,elastic_inverse_mfp_per_nm,inelastic_inverse_mfp_per_nm,inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm`,
+the tables the run used, per material and grid energy (the stopping power is
+`λ⁻¹ ⟨W⟩` of the stored loss distribution).
+
 ## Reproducibility
 
 Everything in `summary.json` except the trailing `run` object, and every CSV
 file, is a function of the input and the binary only: byte-identical for the
 same input and seed at any thread count (for a dynamic run: the same three
 files, with `run` the only thread-dependent part of `dynamic_summary.json`).
+For an electron run the same holds for `electron_summary.json` (apart from
+`run`) and every `electron_*.csv`: the tables are built bit-identically on any
+thread count, and histories run in chunks of a fixed size (16, recorded as
+`physics.transport.chunk_size`) merged in chunk order.
 `lindhard-cli/tests/examples.rs` checks this on 1 and 4 threads (1, 2 and 8
-for the dynamic example). Floats are written in shortest round-trip
-form.
+for the dynamic example; 1 and 4 for the electron example). Floats are
+written in shortest round-trip form.
 
 ## Compatibility and extension
 
@@ -341,4 +517,24 @@ keys, never by changing existing ones:
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes
   meaning.
+
+The electron schema and its output follow the same rules, with
+`lindhard-electron-summary` counting its versions separately:
+
+- A new library model becomes a new value of an existing key
+  (`electron.inelastic.model`, `electron.elastic.potential`,
+  `electron.transport.secondaries`, `electron.transport.boundary`, a `band`
+  `kind`, a `phonon` `preset`) and a new `physics.models` entry; existing
+  values keep their meaning and defaults never change.
+- New per-material data (for example a subshell binding-energy table, once
+  inner-shell channels reach the transport loop, or a precomputed
+  cross-section cache) becomes a new optional key of
+  `[electron.materials.<name>]` that names a file. It must be read with the
+  `lindhard::electron::data` loader of its type, so data without a
+  provenance is refused, and recorded under `physics.materials` with its
+  path, SHA-256 and provenance.
+- A new tally becomes a key under `[electron.tally]`, an object under
+  `results` and, for profiles, a new CSV file listed under `files`.
+- Every table keeps `deny_unknown_fields`, and every default is echoed, so
+  an input written today still means the same thing.
 <!-- ANCHOR_END: output -->
