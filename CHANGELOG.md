@@ -49,6 +49,35 @@ one version).
   `kinematics::refract_out_normal` applies the surface barrier along an
   arbitrary face normal. `Particle::layer` is now the region index (layer or
   flat voxel index). Stack runs are unchanged.
+- Secondary electrons and surface barriers in `electron::transport` (Kieft
+  and Bosch; equations from Verduin's thesis, TU Delft 2017; kinematics and
+  step ported from Nebula and the band model from cstool, BSD-3). New
+  `TransportConfig` fields, all off by default so existing runs are unchanged
+  bit for bit: `secondaries` (`SecondaryModel::KieftBosch`: one secondary of
+  energy `E_F + W - B` per inelastic event, Ivanchenko direction model,
+  pushed on the history's stack and transported in full), `boundary`
+  (`BoundaryModel::StepBarrier`: quantum-mechanical transmission, refraction
+  and reflection at every face by the inner-potential step, with the primary
+  incident from vacuum) and `cutoff_reference` (cutoff from the band bottom
+  or the vacuum level). Per-layer band parameters (`electron::boundary::
+  BandStructure`: Fermi energy and work function, or valence band width, band
+  gap and electron affinity, with a required provenance) go through
+  `Transport::with_band_structures`; no material defaults are built in (see
+  `docs/data-provenance.md`). New `ElectronTally` hooks with no-op defaults
+  (`secondary`, `barrier`, `reflected`, `begin_secondary`, `end_secondary`),
+  new `SummaryTally` counters, and the models and band parameters in
+  `RunMetadata`. `FullElectronTally` implements the new hooks and balances
+  with either model on: with a secondary model only the part of an inelastic
+  loss that no secondary carries away is deposited at the event, and the
+  budget gains a `fermi_sea_ev` source (the energy conduction electrons
+  already had) and a `barrier_ev` term (the sum of `-ΔU` over face
+  transmissions), so `incident + fermi_sea = deposited + escaped + trapped +
+  barrier`. Stops are told from trapped electrons by the per-layer stopping
+  threshold (new `Transport::stopping_thresholds_ev`, recorded as
+  `ElectronTallyMetadata::stopping_threshold_ev`), and an electron cut off by
+  the event cap is booked from its own last state, primary or secondary.
+  Reports of runs with both models off are unchanged apart from the three new
+  fields.
 - `electron::transport`: the event-by-event electron loop (Kieft and Bosch,
   J. Phys. D 41, 215310 (2008)) over layered stacks on elastic and inelastic
   `CrossSectionTable`s. `Transport::run` goes through `rng::run_particles`

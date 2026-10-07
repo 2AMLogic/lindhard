@@ -13,15 +13,18 @@
 //!
 //! # What is tallied
 //!
-//! - **Energy deposition.** An inelastic collision deposits its energy loss
-//!   `W` at the collision point. An electron whose energy falls below the
-//!   transport cutoff deposits what it has left at the point where it
-//!   stopped. Both go into a per-layer total and into optional 3D grids: a
+//! - **Energy deposition.** An inelastic collision deposits the energy it
+//!   leaves in the solid at the collision point: its whole loss `W` without a
+//!   secondary model, and with one only the part no secondary carries away
+//!   (see [the energy balance](#the-energy-balance)). An electron whose
+//!   energy falls below the stopping threshold of its layer deposits what it
+//!   has left at the point where it stopped. Both go into a per-layer total
+//!   and into optional 3D grids: a
 //!   Cartesian `x`-`y`-`z` grid ([`CartesianGrid`]) and a cylindrical `r`-`x`
 //!   grid about the beam axis ([`CylindricalGrid`]). Energy deposited outside
 //!   a grid is kept in that grid's `outside_ev`, so every grid sums to the
 //!   total deposited energy. Placing the loss at the collision point and the
-//!   sub-cutoff remainder at the stopping point is this crate's bookkeeping
+//!   sub-threshold remainder at the stopping point is this crate's bookkeeping
 //!   convention for a point-collision transport loop, not a physics model.
 //! - **Emission.** Every electron the `escaped` hook reports is counted at its
 //!   face, with its energy and its polar angle from the outward surface
@@ -37,9 +40,11 @@
 //!   entry point), plus the energy-weighted RMS radius. See
 //!   [`GenerationVolume`].
 //! - **Stopping points.** Unweighted moments of the depth and radial distance
-//!   of electrons that fell below the cutoff (an electron range distribution).
-//! - **Energy balance.** Incident = deposited + escaped + trapped, see
-//!   [`ElectronEnergyBudget`].
+//!   of electrons that fell below the stopping threshold (an electron range
+//!   distribution).
+//! - **Energy balance.** The incident energy plus the Fermi-sea source equals
+//!   the deposited, escaped, trapped and barrier terms, see
+//!   [the energy balance](#the-energy-balance) and [`ElectronEnergyBudget`].
 //!
 //! # The SE/BSE split
 //!
@@ -75,22 +80,63 @@
 //!
 //! - Emission is counted per `escaped` call, so secondaries that escape are
 //!   counted with the primaries, as the convention requires.
-//! - `stopped` is classified by energy: below the cutoff it is a deposit, at
-//!   or above the cutoff it is a trapped electron (the loop calls `stopped`
-//!   for [`Fate::Trapped`] too, and a trapped electron always has at least
-//!   the cutoff energy, because the loop checks the cutoff after every energy
-//!   change and a primary starts above it).
+//! - `stopped` is classified by energy against the stopping threshold of the
+//!   electron's layer ([`Transport::stopping_thresholds_ev`]: the cutoff, or
+//!   `U + cutoff` under
+//!   [`CutoffReference::VacuumLevel`](crate::electron::transport::CutoffReference::VacuumLevel)):
+//!   below it the electron stopped and its energy is a deposit, at or above
+//!   it the electron is trapped (the loop calls `stopped` for
+//!   [`Fate::Trapped`] too, and a trapped electron always has at least the
+//!   threshold energy, because the loop checks the threshold after every
+//!   energy change, a primary starts above it and a secondary below it is
+//!   not created).
 //! - `absorbed` (the back face under
 //!   [`EscapeRule::FrontOnly`](crate::electron::transport::EscapeRule::FrontOnly))
 //!   counts as trapped energy.
 //! - [`Fate::EventCap`] has no hook of its own, so the energy of the last
-//!   state seen in the history is counted as trapped at end of history.
+//!   state seen for the capped electron is counted as trapped: at
+//!   `end_secondary` for a secondary, at `end_history` for the primary. The
+//!   last state is kept per electron; the primary's is set aside when the
+//!   first secondary begins, so a secondary cannot overwrite it.
 //!
-//! Secondary generation will move part of an inelastic loss `W` from the
-//! deposit to a new electron. The tally does not double-count it as long as
-//! the deposit it receives through `inelastic` is the energy left in the solid
-//! (or the secondary's energy is subtracted where it is created). Every
-//! deposit goes through one private function, so that change is local.
+//! # The energy balance
+//!
+//! Inside a layer, kinetic energies are measured from the band bottom, and
+//! with [`BoundaryModel::StepBarrier`](crate::electron::transport::BoundaryModel::StepBarrier)
+//! an electron gains or loses the step `ΔU = U' - U` in inner potential at
+//! every face it gets through ([`crate::electron::boundary`]; `U = E_F + Φ`
+//! in a metal, Verduin's thesis Eq. 3.136, cited there). The primary's
+//! incident energy is its energy where it starts, its vacuum energy with the
+//! step barrier. Summed over all histories:
+//!
+//! ```text
+//! incident + fermi_sea = deposited + escaped + trapped + barrier
+//! ```
+//!
+//! - `barrier` is the sum of `-ΔU` over every face transmission (the
+//!   `barrier` hook): kinetic energy taken by the potential steps. It is
+//!   `-U` for a primary that enters (its vacuum energy becomes `E + U`
+//!   inside), `+U` for any electron that leaves through a surface, and
+//!   `-(U' - U)` at an interface. A primary reflected at entry changes
+//!   nothing and is counted as escaped with its incident energy.
+//! - With a secondary model, an inelastic event takes `W` from the electron
+//!   and liberates, if anything, an electron of kinetic energy
+//!   `E_SE = E_F + W - B` (Verduin Eq. 3.86, see
+//!   [`crate::electron::secondary`]), which the tally follows like any other
+//!   electron until it stops, escapes or is trapped. Per event
+//!   ([`SecondaryEvent`]) `W = secondary + binding + deposited`, with
+//!   `binding = B - E_F`. Only `deposited`, plus `binding` where it is
+//!   positive (an initial state below the band bottom), stays in the solid
+//!   at the event and is deposited there. Where `binding` is negative (a
+//!   conduction electron, as in a metal, which already had `E_F - B` above
+//!   the band bottom), the liberated electron brings `-binding` of its own:
+//!   that is the `fermi_sea` source term. So `W + fermi_sea = secondary +
+//!   deposit` event by event, and the secondary's energy is counted once,
+//!   where it ends.
+//!
+//! Without a secondary model and without the step barrier, `fermi_sea` and
+//! `barrier` are zero and the balance is `incident = deposited + escaped +
+//! trapped`.
 //!
 //! # Determinism
 //!
@@ -104,7 +150,8 @@ use serde::{Deserialize, Serialize};
 
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
-use crate::electron::transport::{ElectronState, ElectronTally, Face, Fate, Transport};
+use crate::electron::secondary::{SecondaryEvent, SecondaryModel};
+use crate::electron::transport::{Boundary, ElectronState, ElectronTally, Face, Fate, Transport};
 
 /// Default SE/BSE energy split, eV: an escaping electron below this energy is
 /// in the secondary (slow) class, at or above it in the backscattered (fast)
@@ -314,6 +361,8 @@ struct Budget {
     no_interaction: f64,
     absorbed: f64,
     event_cap: f64,
+    fermi_sea: f64,
+    barrier: f64,
 }
 
 impl Budget {
@@ -326,14 +375,18 @@ impl Budget {
         self.no_interaction += o.no_interaction;
         self.absorbed += o.absorbed;
         self.event_cap += o.event_cap;
+        self.fermi_sea += o.fermi_sea;
+        self.barrier += o.barrier;
     }
 
     fn report(&self) -> ElectronEnergyBudget {
         let deposited = self.inelastic + self.residual;
         let escaped = self.escaped_front + self.escaped_back;
         let trapped = self.no_interaction + self.absorbed + self.event_cap;
-        let relative_imbalance = if self.incident > 0.0 {
-            (deposited + escaped + trapped - self.incident).abs() / self.incident
+        let source = self.incident + self.fermi_sea;
+        let sink = deposited + escaped + trapped + self.barrier;
+        let relative_imbalance = if source > 0.0 {
+            (sink - source).abs() / source
         } else {
             0.0
         };
@@ -349,6 +402,8 @@ impl Budget {
             no_interaction_ev: self.no_interaction,
             absorbed_ev: self.absorbed,
             event_cap_ev: self.event_cap,
+            fermi_sea_ev: self.fermi_sea,
+            barrier_ev: self.barrier,
             relative_imbalance,
         }
     }
@@ -465,6 +520,11 @@ fn per(x: f64, n: u64) -> f64 {
 pub struct FullElectronTally {
     config: ElectronTallyConfig,
     cutoff_ev: f64,
+    /// Stopping threshold per layer, eV, from the transport.
+    thresholds: Vec<f64>,
+    /// Whether the transport runs a secondary model (then the `secondary`
+    /// hook, not `inelastic`, carries the deposit of an inelastic event).
+    secondaries: bool,
     histories: u64,
     fates: FateCounts,
     budget: Budget,
@@ -477,14 +537,20 @@ pub struct FullElectronTally {
     stop_radial: Moments,
     front: FaceAcc,
     back: FaceAcc,
-    /// Per-history scratch: the last state seen, for [`Fate::EventCap`]. Not
-    /// part of the result; cleared at every history boundary.
+    /// Per-history scratch, not part of the result and cleared at every
+    /// history boundary: the last state seen of the current electron, for
+    /// [`Fate::EventCap`] (`None` once it ended through a hook).
     last: Option<ElectronState>,
+    /// The primary's last state, set aside when the first secondary begins.
+    primary_last: Option<ElectronState>,
+    /// Whether the history has reached its secondaries.
+    in_secondary: bool,
 }
 
 impl FullElectronTally {
-    /// Empty tally for runs of `transport` (its cutoff classifies `stopped`
-    /// events, its stack sets the number of layers).
+    /// Empty tally for runs of `transport` (its per-layer stopping thresholds
+    /// classify `stopped` events, its secondary model decides which hook
+    /// carries an inelastic deposit, its stack sets the number of layers).
     pub fn new(
         transport: &Transport,
         config: ElectronTallyConfig,
@@ -518,6 +584,8 @@ impl FullElectronTally {
         Ok(Self {
             config,
             cutoff_ev: transport.config().cutoff_ev,
+            thresholds: transport.stopping_thresholds_ev().to_vec(),
+            secondaries: transport.config().secondaries != SecondaryModel::Off,
             histories: 0,
             fates: FateCounts::default(),
             budget: Budget::default(),
@@ -530,6 +598,8 @@ impl FullElectronTally {
             front: FaceAcc::new(&config),
             back: FaceAcc::new(&config),
             last: None,
+            primary_last: None,
+            in_secondary: false,
         })
     }
 
@@ -615,6 +685,7 @@ impl FullElectronTally {
                 se_bse_split_rule: SE_BSE_SPLIT_RULE.to_string(),
                 se_bse_split_source: SE_BSE_SPLIT_SOURCE.to_string(),
                 cutoff_ev: self.cutoff_ev,
+                stopping_threshold_ev: self.thresholds.clone(),
                 layers: self.layer_deposit_ev.len(),
                 config: self.config,
             },
@@ -638,6 +709,8 @@ impl ElectronTally for FullElectronTally {
     fn begin_history(&mut self, _index: u64, start: &ElectronState) {
         self.budget.incident += start.energy_ev;
         self.last = Some(*start);
+        self.primary_last = None;
+        self.in_secondary = false;
     }
 
     fn step(&mut self, _from: [f64; 3], end: &ElectronState, _length_m: f64) {
@@ -650,18 +723,65 @@ impl ElectronTally for FullElectronTally {
 
     fn inelastic(&mut self, after: &ElectronState, w_ev: f64) {
         self.last = Some(*after);
-        self.budget.inelastic += w_ev;
-        self.deposit(after, w_ev);
+        // With a secondary model the `secondary` hook that follows carries
+        // the part of `w_ev` left in the solid.
+        if !self.secondaries {
+            self.budget.inelastic += w_ev;
+            self.deposit(after, w_ev);
+        }
+    }
+
+    fn secondary(
+        &mut self,
+        primary: &ElectronState,
+        event: &SecondaryEvent,
+        _created: Option<&ElectronState>,
+    ) {
+        self.last = Some(*primary);
+        // `W = secondary + binding + deposited` (module docs): the created
+        // secondary is counted where it ends, a positive binding stays in
+        // the solid, a negative one is energy the liberated electron brings.
+        let local = event.deposited_ev + event.binding_ev.max(0.0);
+        self.budget.inelastic += local;
+        self.budget.fermi_sea += (-event.binding_ev).max(0.0);
+        self.deposit(primary, local);
     }
 
     fn interface(&mut self, at: &ElectronState, _from_layer: usize, _to_layer: usize) {
         self.last = Some(*at);
     }
 
+    fn barrier(&mut self, at: &ElectronState, _boundary: Boundary, delta_u_ev: f64) {
+        self.last = Some(*at);
+        self.budget.barrier -= delta_u_ev;
+    }
+
+    fn reflected(&mut self, at: &ElectronState, _boundary: Boundary) {
+        self.last = Some(*at);
+    }
+
+    fn begin_secondary(&mut self, start: &ElectronState, _generation: u32) {
+        if !self.in_secondary {
+            // The primary has ended; keep its last state for `end_history`.
+            self.primary_last = self.last.take();
+            self.in_secondary = true;
+        }
+        self.last = Some(*start);
+    }
+
+    fn end_secondary(&mut self, fate: Fate) {
+        if fate == Fate::EventCap {
+            if let Some(s) = self.last {
+                self.budget.event_cap += s.energy_ev;
+            }
+        }
+        self.last = None;
+    }
+
     fn stopped(&mut self, at: &ElectronState) {
         self.last = None;
         let e = at.energy_ev;
-        if e < self.cutoff_ev {
+        if e < self.thresholds[at.layer] {
             self.budget.residual += e;
             self.deposit(at, e);
             self.stop_depth.push(at.pos[0]);
@@ -711,22 +831,32 @@ impl ElectronTally for FullElectronTally {
             Fate::Trapped => self.fates.trapped += 1,
             Fate::EventCap => {
                 self.fates.event_capped += 1;
-                if let Some(s) = self.last {
+                let primary = if self.in_secondary {
+                    self.primary_last
+                } else {
+                    self.last
+                };
+                if let Some(s) = primary {
                     self.budget.event_cap += s.energy_ev;
                 }
             }
         }
         self.last = None;
+        self.primary_last = None;
+        self.in_secondary = false;
     }
 
     /// Field-wise merge.
     ///
     /// # Panics
-    /// If `other` was built with a different configuration, cutoff or stack.
+    /// If `other` was built with a different configuration, cutoff,
+    /// thresholds, secondary model or stack.
     fn merge(&mut self, o: Self) {
         assert!(
             self.config == o.config
                 && self.cutoff_ev == o.cutoff_ev
+                && self.thresholds == o.thresholds
+                && self.secondaries == o.secondaries
                 && self.layer_deposit_ev.len() == o.layer_deposit_ev.len(),
             "merging electron tallies built for different runs"
         );
@@ -774,7 +904,7 @@ pub struct ElectronReport {
     /// Energy-weighted moments of the deposition position; `None` if nothing
     /// was deposited.
     pub generation_volume: Option<GenerationVolume>,
-    /// Where electrons fell below the cutoff.
+    /// Where electrons fell below the stopping threshold.
     pub stopping_points: StoppingPoints,
 }
 
@@ -787,9 +917,13 @@ pub struct ElectronTallyMetadata {
     pub se_bse_split_rule: String,
     /// Where the split convention comes from.
     pub se_bse_split_source: String,
-    /// Transport cutoff, eV: `stopped` below it is a deposit, at or above it
-    /// a trapped electron.
+    /// Transport cutoff, eV, as configured (measured from the band bottom or
+    /// the vacuum level, see the run's
+    /// [`RunMetadata`](crate::electron::transport::RunMetadata)).
     pub cutoff_ev: f64,
+    /// Stopping threshold per layer, eV: a `stopped` electron below its
+    /// layer's threshold is a deposit, at or above it a trapped electron.
+    pub stopping_threshold_ev: Vec<f64>,
     /// Layers in the stack.
     pub layers: usize,
     /// The full tally configuration (grids and spectrum binnings).
@@ -800,7 +934,7 @@ pub struct ElectronTallyMetadata {
 /// [`Fate`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct FateCounts {
-    /// Fell below the cutoff in the target.
+    /// Fell below the stopping threshold in the target.
     pub stopped: u64,
     /// Left through the front face.
     pub escaped_front: u64,
@@ -825,16 +959,22 @@ impl FateCounts {
     }
 }
 
-/// The energy balance, eV, summed over all histories:
-/// `incident = deposited + escaped + trapped`, with
+/// The energy balance, eV, summed over all histories and every electron of
+/// them (see [the module docs](self#the-energy-balance)):
+/// `incident + fermi_sea = deposited + escaped + trapped + barrier`, with
 ///
-/// - `deposited = inelastic + residual`: inelastic losses, plus the energy
-///   electrons had left when they fell below the cutoff;
+/// - `deposited = inelastic + residual`: energy left in the solid at
+///   inelastic events, plus the energy electrons had left when they fell
+///   below the stopping threshold;
 /// - `escaped = escaped_front + escaped_back`;
 /// - `trapped = no_interaction + absorbed + event_cap`: energy still carried
-///   by electrons that ended in the target without falling below the cutoff
-///   (no interaction available, absorbed at the back face, or cut off by the
-///   collision cap).
+///   by electrons that ended in the target without falling below the
+///   threshold (no interaction available, absorbed at the back face, or cut
+///   off by the collision cap);
+/// - `fermi_sea`: the kinetic energy liberated secondaries already had (a
+///   source; zero without a secondary model);
+/// - `barrier`: the kinetic energy taken by the potential steps at the faces,
+///   the sum of `-ΔU` (signed; zero with transparent faces).
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
 pub struct ElectronEnergyBudget {
     /// Energy of the primaries.
@@ -843,12 +983,16 @@ pub struct ElectronEnergyBudget {
     pub deposited_ev: f64,
     /// Carried out of the target.
     pub escaped_ev: f64,
-    /// Carried by electrons that ended in the target above the cutoff.
+    /// Carried by electrons that ended in the target at or above the
+    /// stopping threshold.
     pub trapped_ev: f64,
-    /// Inelastic losses (part of `deposited_ev`).
+    /// Energy left in the solid at inelastic events (part of
+    /// `deposited_ev`): the loss `W` without a secondary model; with one,
+    /// [`SecondaryEvent::deposited_ev`] plus any positive
+    /// [`SecondaryEvent::binding_ev`].
     pub inelastic_ev: f64,
-    /// Remaining energy of electrons that fell below the cutoff (part of
-    /// `deposited_ev`).
+    /// Remaining energy of electrons that fell below the stopping threshold
+    /// (part of `deposited_ev`).
     pub residual_ev: f64,
     /// Out of the front face (part of `escaped_ev`).
     pub escaped_front_ev: f64,
@@ -861,8 +1005,14 @@ pub struct ElectronEnergyBudget {
     pub absorbed_ev: f64,
     /// Electrons cut off by the collision cap (part of `trapped_ev`).
     pub event_cap_ev: f64,
-    /// `|deposited + escaped + trapped - incident| / incident` (0 with no
-    /// incident energy).
+    /// Energy the liberated secondaries brought with them, the sum of
+    /// `-binding_ev` over events where it is negative (a source).
+    pub fermi_sea_ev: f64,
+    /// Kinetic energy taken by the potential steps, the sum of `-ΔU` over
+    /// face transmissions (signed).
+    pub barrier_ev: f64,
+    /// `|deposited + escaped + trapped + barrier - incident - fermi_sea| /
+    /// (incident + fermi_sea)` (0 with no incident energy).
     pub relative_imbalance: f64,
 }
 
@@ -994,10 +1144,11 @@ pub struct GenerationVolume {
     pub rms_radius_m: f64,
 }
 
-/// Where electrons fell below the cutoff (unweighted, one sample each).
+/// Where electrons fell below the stopping threshold (unweighted, one sample
+/// each).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StoppingPoints {
-    /// Electrons that fell below the cutoff.
+    /// Electrons that fell below the stopping threshold.
     pub stopped: u64,
     /// Depth moments, m; `None` with fewer than two.
     pub depth: Option<MomentSummary>,

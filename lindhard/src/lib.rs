@@ -9,8 +9,10 @@
 //! damage and escape statistics (`tally`). For electrons: the validated
 //! data boundary (`electron::data`), the single-pole Penn inelastic model with
 //! its sum-rule checks (`electron::inelastic`), the event loop on
-//! cross-section tables (`electron::transport`) and its deposition, yield and
-//! spectrum tally (`tally::electron`).
+//! cross-section tables (`electron::transport`) with secondary electrons
+//! (`electron::secondary`) and surface and interface barriers
+//! (`electron::boundary`), and its deposition, yield and spectrum tally
+//! (`tally::electron`).
 
 #![forbid(unsafe_code)]
 

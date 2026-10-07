@@ -7,10 +7,14 @@
 //! [`inelastic`] holds the dielectric-function models of inelastic
 //! scattering; so far the single-pole Penn algorithm, with its IMFP, stopping
 //! power and the sum rules of the optical input. [`transport`] is the
-//! event-by-event loop over layered stacks on those tables. The models that
+//! event-by-event loop over layered stacks on those tables; [`secondary`] makes
+//! secondary electrons at its inelastic events and [`boundary`] holds the
+//! per-layer band parameters and the potential step at faces. The models that
 //! fill the tables from first principles are later work.
 
+pub mod boundary;
 pub mod data;
 pub mod elastic;
 pub mod inelastic;
+pub mod secondary;
 pub mod transport;
