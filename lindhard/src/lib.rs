@@ -7,9 +7,10 @@
 //! BCA engine with full recoil cascades (`ion::bca`), damage models
 //! (`ion::damage`), and the tallies: moments, Pearson IV / dual-Pearson, range,
 //! damage and escape statistics (`tally`). For electrons: the validated
-//! data boundary (`electron::data`), the event loop on cross-section tables
-//! (`electron::transport`) and its deposition, yield and spectrum tally
-//! (`tally::electron`).
+//! data boundary (`electron::data`), the single-pole Penn inelastic model with
+//! its sum-rule checks (`electron::inelastic`), the event loop on
+//! cross-section tables (`electron::transport`) and its deposition, yield and
+//! spectrum tally (`tally::electron`).
 
 #![forbid(unsafe_code)]
 
