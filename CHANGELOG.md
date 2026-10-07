@@ -22,9 +22,11 @@ one version).
 
 - Optical ELF datasets for Al and Cu (`validation/data/optical/`, Hagemann,
   Gudat and Kunz 1975, read through the CC0 refractiveindex.info
-  transcription), with a sum-rule test. Cu passes the 5 % checks; Al fails
-  them by 10 to 12 %, pinned and explained in the test (#98). Si is a
-  documented gap.
+  transcription and checked against the scanned tables of DESY report
+  SR-74/7), with a sum-rule test using power-law quadrature between knots.
+  Cu passes both 5 % checks; Al passes the perfect-screening rule and misses
+  the f-sum rule at +7.5 % (the authors' own value is +4.5 %), pinned and
+  explained in the test (#98). Si is a documented gap.
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and
