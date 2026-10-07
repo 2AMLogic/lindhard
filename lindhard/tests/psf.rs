@@ -320,6 +320,10 @@ fn integral(psf: &GaussianPsf) -> f64 {
     s * q
 }
 
+// Under `PsfNormalization::SlabTotal` the energy is fixed to the slab energy, so this
+// checks the normalisation of the coded forms, not the quality of the fit. The
+// fit-quality reading of the criterion is
+// `a_free_scale_integrates_to_the_slab_energy_when_the_form_fits`.
 #[test]
 fn fitted_psf_integrates_to_the_slab_energy_within_one_percent() {
     let r = run(4, 4_000);
