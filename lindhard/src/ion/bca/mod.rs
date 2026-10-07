@@ -217,7 +217,7 @@ use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
 use crate::ion::stopping::mix::EquipartitionMix;
 use crate::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::material::EnergyKind;
-use crate::rng::{run_particles, ParticleRng};
+use crate::rng::{run_particles_range, ParticleRng};
 use crate::units::J_PER_EV;
 
 /// Largest [`BcaConfig::weak_collisions`]: "up to three additional weak
@@ -345,7 +345,7 @@ pub struct BcaConfig {
     pub primary_surface_binding_ev: f64,
     /// Run seed for [`crate::rng::stream`].
     pub seed: u64,
-    /// Histories per work chunk for [`run_particles`]; fixes the summation
+    /// Histories per work chunk for [`crate::rng::run_particles`]; fixes the summation
     /// order, so keep it independent of the thread count. Default 64.
     pub chunk_size: u64,
 }
@@ -847,14 +847,30 @@ impl<'a> Bca<'a> {
         T: BcaTally,
         N: Fn() -> T + Sync,
     {
+        self.run_range(0, self.beam.count, new_tally)
+    }
+
+    /// [`Bca::run`] for the global primary indices
+    /// `first_index..first_index + count` (instead of `0..beam.count`):
+    /// primary `first_index + k` uses the stream
+    /// `stream(seed, first_index + k)` and reports that index to the tally
+    /// hooks. A run cut into consecutive ranges draws exactly the histories of
+    /// one longer run; this is what lets the fluence steps of a dynamic run
+    /// continue the global stream. `run` is `run_range(0, beam.count, ..)`.
+    pub fn run_range<T, N>(&self, first_index: u64, count: u64, new_tally: N) -> Result<T, BcaError>
+    where
+        T: BcaTally,
+        N: Fn() -> T + Sync,
+    {
         struct Acc<T> {
             tally: T,
             err: Option<(u64, StoppingError)>,
             buffers: HistoryBuffers,
         }
-        let acc = run_particles(
+        let acc = run_particles_range(
             self.config.seed,
-            self.beam.count,
+            first_index,
+            count,
             self.config.chunk_size,
             || Acc {
                 tally: new_tally(),

@@ -10,6 +10,8 @@ angles in degrees.
 | [`as_50keV_si_sio2.toml`](as_50keV_si_sio2.toml) | 50 keV As into Si through a 10 nm SiO₂ screen: a compound material, a finite layer over a substrate, and per-element energy overrides |
 | [`ar_1keV_cu.toml`](ar_1keV_cu.toml) | 1 keV Ar onto Cu at normal incidence: backscattering and sputtering, with escape spectra and lateral profiles |
 
+| [`dynamic/as_1keV_si_film.toml`](dynamic/as_1keV_si_film.toml) | 1 keV As into a 10 nm Si film on Si with a `[dynamic]` table: the target composition and thickness change with fluence (adaptive steps, 2 nm slabs); writes `dynamic_*.csv` |
+
 ```sh
 cargo run -p lindhard-cli -- check examples/b_5keV_si.toml
 cargo run --release -p lindhard-cli -- run examples/b_5keV_si.toml --out out/b_5keV_si

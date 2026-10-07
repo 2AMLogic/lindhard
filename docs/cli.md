@@ -164,6 +164,41 @@ bytes, the table's `provenance` string, `ion_z`, `ion_mass_amu`, `target_z`
 and the energy range. `physics.models` lists each as `user-table` with the path
 and provenance as its source. The key is absent without `[stopping]`.
 
+### `[dynamic]` (optional)
+
+Makes the run fluence-dependent: the target composition is updated as the
+fluence builds up (sputter erosion, build-up of implanted atoms). Without the
+table nothing changes: the run, its output files and its bytes are those of a
+static run. The model, its conventions and its limits are in
+`lindhard::ion::dynamic` and the book chapter on dynamic composition.
+
+`run.ions` is the number of histories of the **whole** run and
+`fluence_cm2` the fluence they represent, so each ion stands for
+`fluence_cm2 / run.ions` ions/cm². The ions are delivered in steps; after each
+step the grid is updated from that step's events (a recoil is subtracted where
+it is created and added where it stops, a stopped beam ion is added, an
+escaped atom is a loss; the substrate is an immutable reservoir) and relaxed.
+Primary `i` of the run always uses the random stream `(seed, i)`, whatever the
+step sizes and thread count.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `fluence_cm2` | required | Total fluence of the run, ions/cm² |
+| `ions_per_step` | required | Ions per step; with `max_change`, the largest and first step |
+| `max_change` | absent (fixed steps) | Adaptive steps: largest relative composition change of a slab per step, the largest absolute change in atoms/m² of one element in one slab, divided by that slab's atoms/m². A larger step is discarded and retried from the same first ion with fewer ions, which consumes no ions of the run; the step doubles again after a step below half the bound |
+| `min_ions_per_step` | 1 | Adaptive only: the smallest step. At this size a step is accepted whatever its change, and a removal beyond what a slab holds is capped at what it holds (`clamped` column). A fixed run that removes more than a slab holds fails, naming the slab: use smaller steps or `max_change` |
+| `slab_nm` | one slab per layer | Split each finite layer into equal slabs at most this thick; the composition is tracked per slab |
+| `relaxation` | `"ideal-mixing"` | How thickness follows inventory: `"ideal-mixing"` (additive atomic volumes) or `"fixed-number-density"` |
+| `number_density_cm3` | none | Total atom density, atoms/cm³; required with `"fixed-number-density"` |
+| `atomic_volume_nm3.<Sym>` | elemental solid volume from the element table | Atomic volume, nm³/atom, per element (ideal mixing). Required for an element with no tabulated solid density (a gas) |
+| `energies.<Sym>` | `[physics.energies.<Sym>]`, then element defaults | `e_d_ev`, `e_b_ev`, `e_s_ev` of an element that enters the target during the run (the beam species, for example). Elements already in a layer keep that layer's energies |
+
+The front surface stays at `x = 0`: erosion and swelling move the interior
+interfaces and the back face of the slabs, not the front surface (the
+`surface_nm` column is that fixed frame, always 0). Depths in the output are
+measured from it. A dynamic run needs `E_d` for every element that can occur,
+including the beam species. The Python bindings run static inputs only.
+
 ### `[run]`
 
 | Key | Default | Meaning |
@@ -257,12 +292,40 @@ state of every primary, by history index. `fate` is `stopped`,
 `backscattered` or `transmitted`; for escaped primaries the position is on the
 face and the energy and direction are outside the target. `x` is depth.
 
+### Dynamic runs (`[dynamic]`)
+
+A run with a `[dynamic]` table writes `dynamic_summary.json`,
+`dynamic_steps.csv` and `dynamic_composition.csv` instead of the static files.
+
+`dynamic_summary.json` (format `lindhard-dynamic-summary`): the echoed
+`input` (with `dynamic`), `physics`-model list `models`, the `species`,
+`totals` (ions, steps, rejected attempts, fluence, slab count and thickness
+before and after, yields per ion), `files` and the timing `run` object.
+
+`dynamic_steps.csv`: one row per accepted step; step 0 is the initial target.
+`step`, `first_index` (global index of the step's first ion), `ions`,
+`ions_done`, `fluence_cm2` (delivered so far), `attempts` (more than 1 if the
+adaptive bound rejected the step), `max_change`, `clamped`, `removed_slabs`
+(slabs that emptied), `n_slabs`, `surface_nm` (the fixed front surface, always
+0), `thickness_nm` (total of the finite slabs), then cumulative counts since
+the start: `cum_backscattered`, `cum_transmitted`, `cum_stopped_in_target`,
+`cum_stopped_in_substrate`, `cum_sputtered`, `sputter_yield` (atoms per ion so
+far), `cum_recoils_transmitted` and `cum_sputtered_<Sym>` per element.
+
+`dynamic_composition.csv`: the slab profile after every step (step 0 is the
+initial target), one row per step and slab: `step`, `slab` (0 is the front),
+`front_nm`, `back_nm`, `thickness_nm`, then per element
+`atoms_per_cm2_<Sym>` and `fraction_<Sym>` (atom fraction). Slabs that
+emptied are gone from later steps.
+
 ## Reproducibility
 
 Everything in `summary.json` except the trailing `run` object, and every CSV
 file, is a function of the input and the binary only: byte-identical for the
-same input and seed at any thread count. `lindhard-cli/tests/examples.rs`
-checks this on 1 and 4 threads. Floats are written in shortest round-trip
+same input and seed at any thread count (for a dynamic run: the same three
+files, with `run` the only thread-dependent part of `dynamic_summary.json`).
+`lindhard-cli/tests/examples.rs` checks this on 1 and 4 threads (1, 2 and 8
+for the dynamic example). Floats are written in shortest round-trip
 form.
 
 ## Compatibility and extension

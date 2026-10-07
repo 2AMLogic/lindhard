@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use lindhard::input::{Input, Resolved};
-use lindhard_cli::{output, sim};
+use lindhard_cli::{dynamic, output, sim};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -98,6 +98,15 @@ fn check(path: &Path) -> Result<()> {
             g.material().atom_number_density() * 1e-6
         );
     }
+    if let Some(d) = &r.input.dynamic {
+        println!(
+            "  dynamic: {} ions/cm^2 in steps of {}{}",
+            d.fluence_cm2,
+            d.ions_per_step,
+            d.max_change
+                .map_or(String::new(), |c| format!(" (adaptive, max change {c})"))
+        );
+    }
     for m in r.models() {
         if m.name == "user-table" {
             // A user table is identified by its file: "path: provenance".
@@ -131,6 +140,10 @@ fn run(
         bail!("--threads must be at least 1");
     }
 
+    if r.input.dynamic.is_some() {
+        return run_dynamic(&r, input.run.threads, out);
+    }
+
     let sim::Simulation {
         tally,
         table,
@@ -162,6 +175,37 @@ fn run(
         s.backscattered,
         s.transmitted,
         s.sputtered,
+        out.display()
+    );
+    Ok(())
+}
+
+/// A run with a `[dynamic]` section: the fluence-step time series and
+/// composition profiles instead of the static profiles.
+fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
+    let d = dynamic::simulate_dynamic(r, threads)?;
+    std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
+    let write = |name: &str, text: String| -> Result<()> {
+        let p = out.join(name);
+        std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
+    };
+    write(
+        output::DYNAMIC_SUMMARY_FILE,
+        output::dynamic_summary_json(r, &d)?,
+    )?;
+    write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(&d))?;
+    write(
+        output::DYNAMIC_COMPOSITION_FILE,
+        output::dynamic_composition_csv(&d),
+    )?;
+    let last = d.steps.last().expect("step 0");
+    eprintln!(
+        "{} ions in {} steps ({} attempts rejected): {} sputtered atoms, {} slabs left; wrote {}",
+        last.ions_done,
+        last.step,
+        d.rejected_attempts,
+        last.cumulative.sputtered_total(),
+        last.slabs.len(),
         out.display()
     );
     Ok(())

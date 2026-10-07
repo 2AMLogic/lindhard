@@ -571,3 +571,113 @@ fn recoil_species_tables_are_checked_before_the_run() {
     assert!(s.contains("user-table (si.toml: Lindhard-Scharff"), "{s}");
     run(&input, &dir.join("out"), &["--ions", "50"]);
 }
+
+// ---- [dynamic] ---------------------------------------------------------------
+
+fn dynamic_example() -> PathBuf {
+    examples_dir().join("dynamic/as_1keV_si_film.toml")
+}
+
+#[test]
+fn dynamic_example_checks_runs_and_writes_a_time_series() {
+    let ex = dynamic_example();
+    ok(&lindhard(&["check", ex.to_str().unwrap()]));
+    let out = scratch("dynamic-example");
+    run(&ex, &out, &["--ions", "600"]);
+
+    let s = json(&out.join("dynamic_summary.json"));
+    assert_eq!(s["format"]["name"], "lindhard-dynamic-summary");
+    assert_eq!(s["input"]["run"]["ions"], 600);
+    assert!(s["input"]["dynamic"]["fluence_cm2"].as_f64().unwrap() > 0.0);
+    let echo: lindhard::input::Input = serde_json::from_value(s["input"].clone()).unwrap();
+    echo.resolve().unwrap();
+    assert!(!out.join("summary.json").exists(), "no static outputs");
+
+    let steps = std::fs::read_to_string(out.join("dynamic_steps.csv")).unwrap();
+    let header: Vec<_> = steps.lines().next().unwrap().split(',').collect();
+    let col = |n: &str| header.iter().position(|h| *h == n).unwrap();
+    let rows: Vec<Vec<&str>> = steps
+        .lines()
+        .skip(1)
+        .map(|l| l.split(',').collect())
+        .collect();
+    assert_eq!(rows[0][col("step")], "0");
+    assert_eq!(
+        rows.len() as u64 - 1,
+        s["totals"]["steps"].as_u64().unwrap()
+    );
+    // Accepted steps tile the global primary indices 0..ions.
+    let mut next = 0u64;
+    for r in &rows[1..] {
+        assert_eq!(r[col("first_index")].parse::<u64>().unwrap(), next);
+        next += r[col("ions")].parse::<u64>().unwrap();
+        assert_eq!(r[col("ions_done")].parse::<u64>().unwrap(), next);
+        assert_eq!(r[col("surface_nm")], "0.0");
+    }
+    assert_eq!(next, 600);
+    // Cumulative sputtering by element adds up to the total.
+    let last = rows.last().unwrap();
+    let by_el: u64 = header
+        .iter()
+        .enumerate()
+        .filter(|(_, h)| h.starts_with("cum_sputtered_"))
+        .map(|(i, _)| last[i].parse::<u64>().unwrap())
+        .sum();
+    assert_eq!(by_el, last[col("cum_sputtered")].parse::<u64>().unwrap());
+
+    let comp = std::fs::read_to_string(out.join("dynamic_composition.csv")).unwrap();
+    let n_steps = rows.len();
+    assert!(comp.lines().count() > n_steps, "at least one slab per step");
+    let h: Vec<_> = comp.lines().next().unwrap().split(',').collect();
+    assert!(h.contains(&"fraction_As") && h.contains(&"atoms_per_cm2_Si"));
+}
+
+#[test]
+fn dynamic_output_is_byte_identical_across_thread_counts() {
+    let ex = dynamic_example();
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    let mut outs = Vec::new();
+    for threads in ["1", "2", "8"] {
+        let out = scratch(&format!("dynamic-det-{threads}"));
+        run(&ex, &out, &["--ions", "500", "--threads", threads]);
+        outs.push(out);
+    }
+    for o in &outs[1..] {
+        for f in ["dynamic_steps.csv", "dynamic_composition.csv"] {
+            assert_eq!(read(&outs[0], f), read(o, f), "{f}");
+        }
+        assert_eq!(
+            deterministic_part(&read(&outs[0], "dynamic_summary.json")),
+            deterministic_part(&read(o, "dynamic_summary.json"))
+        );
+    }
+}
+
+#[test]
+fn static_runs_are_unchanged_without_a_dynamic_section() {
+    let out = scratch("static-no-dynamic");
+    run(
+        &examples_dir().join("b_5keV_si.toml"),
+        &out,
+        &["--ions", "100"],
+    );
+    let s = json(&out.join("summary.json"));
+    assert!(s["input"].get("dynamic").is_none());
+    assert!(!out.join("dynamic_steps.csv").exists());
+}
+
+#[test]
+fn invalid_dynamic_settings_fail_naming_the_field() {
+    let base = format!("{GOOD}\n[dynamic]\nfluence_cm2 = 1.0e15\nions_per_step = 5\n");
+    let e = fails("dyn-fluence", &base.replace("1.0e15", "-1.0"));
+    assert!(e.contains("dynamic.fluence_cm2"), "{e}");
+    let e = fails("dyn-key", &base.replace("ions_per_step", "ions_each"));
+    assert!(e.contains("ions_each"), "{e}");
+    let e = fails("dyn-min", &format!("{base}min_ions_per_step = 2\n"));
+    assert!(e.contains("dynamic.min_ions_per_step"), "{e}");
+    let e = fails(
+        "dyn-density",
+        &format!("{base}relaxation = \"fixed-number-density\"\n"),
+    );
+    assert!(e.contains("dynamic.number_density_cm3"), "{e}");
+}
