@@ -191,6 +191,18 @@ one version).
   `penn_full_vs_single_pole`, bench group
   `penn_single_pole_vs_full_8_energies`. Penn (1987) and Lindhard (1954)
   were not opened; see `docs/data-provenance.md`.
+- `electron::inelastic::MerminPenn`, `MerminGas`, `fit_mermin_oscillators`:
+  the Mermin relaxation-time dielectric function (formula as in de Vera et
+  al., Int. J. Mol. Sci. 23, 6121 (2022), eq. (4); γ -> 0 reproduces the
+  Lindhard function to 1e-8), a deterministic MELF-GOS fit of oscillators
+  (non-negative amplitudes, energies, widths) to an `OpticalElf` that reports
+  the parameters, residuals, f-sum and `P_eff` (`MerminFit`), and an inelastic
+  model (loss function, DIIMFP, IMFP, stopping power) on the fit.
+  `PennAlgorithm::Mermin` (label `mermin-melf`) selects it beside the single
+  pole and the full Penn algorithm, `PennInelastic::try_new` / `mermin` build
+  it, and `model_identity` records the choice and the fitted parameters.
+  Mermin (1970) was not opened and the threshold step of the MELF is not
+  implemented; see `docs/data-provenance.md`.
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and

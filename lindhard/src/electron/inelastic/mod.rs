@@ -29,13 +29,22 @@
 //! pole costs milliseconds; [`model`] selects either per material and gives
 //! the string to record in the metadata of derived tables.
 //!
-//! Mermin fits and relativistic kinematics are later work.
+//! The **Mermin-ELF model** ([`mermin`], [`mermin_fit`]) fits a sum of
+//! Mermin oscillators to the optical ELF (the MELF-GOS approach: amplitudes
+//! constrained non-negative, fit residuals and sum rules reported) and
+//! extends it to finite momentum with the Mermin relaxation-time dielectric
+//! function; it is the third option of [`model`] beside the single pole and
+//! the full Penn algorithm.
+//!
+//! Relativistic kinematics are later work.
 
 pub mod bethe;
 pub mod drude;
 pub mod full_penn;
 pub mod inner_shell;
 pub mod lindhard_gas;
+pub mod mermin;
+pub mod mermin_fit;
 pub mod model;
 pub mod penn;
 mod quadrature;
@@ -48,6 +57,10 @@ pub use inner_shell::{
     Channel, ChannelDiimfp, ChannelInverseImfp, InnerShell, ShellResolvedChannels,
 };
 pub use lindhard_gas::{LindhardGas, LindhardPlasmon};
+pub use mermin::{MerminGas, MerminPenn, DEFAULT_MERMIN_TOLERANCE};
+pub use mermin_fit::{
+    fit_mermin_oscillators, FitWeighting, MerminFit, MerminFitOptions, MAX_OSCILLATORS,
+};
 pub use model::{PennAlgorithm, PennInelastic};
 pub use penn::{
     born_ochkur_factor, ExchangeCorrection, InelasticPoint, SinglePolePenn,
