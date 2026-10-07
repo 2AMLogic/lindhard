@@ -19,34 +19,38 @@
 //! # Quadrature
 //!
 //! The integrals are taken over the tabulated knots only (nothing is
-//! extrapolated) with **piecewise power-law (log-log) segments**: between
-//! knots `f(E) = f_i (E / E_i)^b`, integrated exactly. The trapezoid rule is
-//! computed too and printed, but not gated on. The reasons, all measured on
-//! these tables:
+//! extrapolated). The check gated first is the one for the representation a
+//! consumer gets: `OpticalElf::elf()` interpolates the ELF **linearly**
+//! between knots (`lerp_on_grid`), so `Int E ELF dE` and `Int ELF / E dE` are
+//! integrated exactly for a piecewise-linear ELF (`linear_elf`). A
+//! **power-law (log-log)** segment rule is computed as a second, separately
+//! named gate, a comparison with the source (not what the library serves).
+//! The trapezoid rule is printed, not gated. Measured on these tables:
 //!
 //! - The published knots are spaced roughly logarithmically over eight
 //!   decades (1 meV to 120 keV, several knots per decade), and the integrands
 //!   follow power laws between them over most of that range (Drude region,
 //!   x-ray tails between edges). A chord across a convex power-law segment
 //!   overestimates its integral; on a log-spaced grid the error does not
-//!   shrink at high energy.
-//! - Measured against the authors' own integration: the report's tables
-//!   print a cumulative `N-EFF` from `eps2` (its Eq. 6) on the same rows.
-//!   Integrating `eps2 = 2nk` from the transcribed rows, log-log comes closer
-//!   to that column than the trapezoid in every stretch of the Al table
-//!   (below 16 eV: 2.70 and 2.88 against 2.564; 72.9 eV to 1.55 keV: +9.25 and
-//!   +9.34 against +9.056; 1.55 to 120 keV: +1.66 and +1.85 against +1.601),
-//!   and in total for Cu (27.79 and 29.78 against 27.505 at 50 keV).
-//! - With the trapezoid, Al's `P_eff` comes out 1.100; almost all of the
-//!   excess is the two chords on either side of the sharp 15 eV plasmon peak
-//!   (0.5 eV knots). With log-log it is 0.999.
+//!   shrink at high energy. So the linear representation overshoots: Al
+//!   P_eff 1.094 and N_eff 1.138, Cu N_eff 1.073; the power-law rule gives
+//!   0.999 and 1.075 for Al, 0.999 and 0.958 for Cu.
+//! - Against the authors' own integration: the report's tables print a
+//!   cumulative `N-EFF` from `eps2` (its Eq. 6) on the same rows. Integrating
+//!   `eps2 = 2nk` from the transcribed rows, log-log comes closer to that
+//!   column than the trapezoid in every stretch of the Al table (below 16 eV:
+//!   2.70 and 2.88 against 2.564; 72.9 eV to 1.55 keV: +9.25 and +9.34
+//!   against +9.056; 1.55 to 120 keV: +1.66 and +1.85 against +1.601), and in
+//!   total for Cu (27.79 and 29.78 against 27.505 at 50 keV). So the
+//!   power-law numbers are the better estimate of the underlying data, and
+//!   the linear numbers the right description of what `elf()` returns.
 //!
-//! Over 16 to 72.9 eV, where the knots are dense, both rules reproduce the
+//! Over 16 to 72.9 eV, where the knots are dense, the rules agree with the
 //! report's `N-EFF` increment (0.273 and 0.275 against 0.274), which also
 //! confirms that the NIST densities above match the authors' normalisation
 //! to better than 1 %.
 //!
-//! The tolerance is 5 %. A material that misses it is listed in
+//! The tolerance is 5 %. A check that misses it is listed in
 //! `known_failures` with the measured value pinned and the reason; the test
 //! then asserts that the failure is still exactly that one, so it can neither
 //! be hidden nor drift unnoticed. Run with `--nocapture` to print every
@@ -58,6 +62,11 @@ use std::path::PathBuf;
 
 const TOL: f64 = 0.05;
 
+/// Linear `ELF` between knots, exactly integrated: what `OpticalElf::elf()` serves.
+const LIBRARY: &str = "library (linear)";
+/// Power-law `ELF` between knots: source-side comparison.
+const POWER_LAW: &str = "power-law";
+
 struct Case {
     file: &'static str,
     z: f64,
@@ -67,12 +76,13 @@ struct Case {
     /// DESY report SR-74/7, Table 10 (errata sheet, PDF p. 3). For comparison
     /// only; printed, not asserted.
     authors_n_eff: f64,
-    /// Which checks are expected to fail, with the reason: `(check, pinned
-    /// value, half-width of the pinned band, explanation)`.
-    known_failures: &'static [(&'static str, f64, f64, &'static str)],
+    /// Which checks are expected to fail, with the reason: `(rule, check,
+    /// pinned value, half-width of the pinned band, explanation)`.
+    known_failures: &'static [(&'static str, &'static str, f64, f64, &'static str)],
 }
 
-const AL_N_EFF_EXCESS: &str = "measured: N_eff = 13.98 for Z = 13 (+7.5 %), log-log on the 148 \
+const AL_N_EFF_EXCESS: &str =
+    "measured with power-law segments: N_eff = 13.98 for Z = 13 (+7.5 %) on the 148 \
      published knots, no extrapolation above 120 keV. The authors' own value from the same \
      function is 13.6 (+4.5 %; DESY report SR-74/7, Table 10), which they attribute to less \
      accurate absorption data from 200 to 500 eV (report p. 15: 'overestimation of n_eff by 0.5 \
@@ -84,6 +94,26 @@ const AL_N_EFF_EXCESS: &str = "measured: N_eff = 13.98 for Z = 13 (+7.5 %), log-
      add about 3 %; neither is a transcription error (29 n, k readings checked against the \
      scanned tables, validation/data/optical/secondread_hagemann1975.json)";
 
+const AL_LINEAR_EXCESS: &str = "measured: with the linear interpolation `OpticalElf::elf()` \
+     serves, integrated exactly over the 148 published knots, Al gives P_eff = 1.094 and N_eff = \
+     14.79 for Z = 13 (+13.8 %). The same knots with power-law segments give P_eff = 0.999 and \
+     N_eff = 13.98 (AL_N_EFF_EXCESS), so the P_eff excess and about half of the N_eff excess \
+     (0.82 of 1.79 electrons) belong to the representation, not the data. By energy, the linear \
+     minus power-law N_eff difference is +0.30 electrons from 10 to 30 eV (chords across the \
+     sharp 15 eV plasmon peak) and +0.50 from 100 eV to 10 keV (the sparse x-ray knots); \
+     nothing elsewhere. The remaining +7.5 % is the data and the printed knots, as explained \
+     there. A consumer that integrates this table with `elf()` on a coarse grid inherits the \
+     chord overshoot; the fix is a denser table (follow-up), not a different integrator";
+
+const CU_LINEAR_EXCESS: &str = "measured: with the linear interpolation `OpticalElf::elf()` \
+     serves, integrated exactly over the 149 published knots, Cu gives N_eff = 31.11 for Z = 29 \
+     (+7.3 %), against 27.80 (-4.1 %) with power-law segments and 27.6 in the authors' Table 10. \
+     The whole 3.31 electron difference lies above 100 eV (+0.87 from 100 eV to 1 keV, +2.07 \
+     from 1 to 10 keV, +0.37 above), where the knots are a few per decade across the L and K \
+     edges (about 0.93 and 9 keV) and the integrand falls as a power law between them, so \
+     chords overshoot. P_eff is unaffected (1.002), since the screening integral is dominated \
+     by the Drude region, which the table samples densely. Not a data error";
+
 const CASES: [Case; 2] = [
     Case {
         file: "al_elf_hagemann1975.toml",
@@ -91,7 +121,11 @@ const CASES: [Case; 2] = [
         z_over_a: 0.48181,
         density_g_cm3: 2.699,
         authors_n_eff: 13.6,
-        known_failures: &[("N_eff/Z", 1.075, 0.003, AL_N_EFF_EXCESS)],
+        known_failures: &[
+            (LIBRARY, "N_eff/Z", 1.138, 0.003, AL_LINEAR_EXCESS),
+            (LIBRARY, "P_eff", 1.094, 0.003, AL_LINEAR_EXCESS),
+            (POWER_LAW, "N_eff/Z", 1.075, 0.003, AL_N_EFF_EXCESS),
+        ],
     },
     Case {
         file: "cu_elf_hagemann1975.toml",
@@ -99,7 +133,7 @@ const CASES: [Case; 2] = [
         z_over_a: 0.45636,
         density_g_cm3: 8.960,
         authors_n_eff: 27.6,
-        known_failures: &[],
+        known_failures: &[(LIBRARY, "N_eff/Z", 1.073, 0.003, CU_LINEAR_EXCESS)],
     },
 ];
 
@@ -131,14 +165,67 @@ fn power_law(x0: f64, x1: f64, f0: f64, f1: f64) -> f64 {
     f0 * x0 * l * g
 }
 
+/// Exact `(Int E y dE, Int y / E dE)` over `[e0, e1]` for `y` linear in `E`
+/// through `(e0, y0)` and `(e1, y1)`: the representation
+/// `OpticalElf::elf()` serves (`lerp_on_grid`). With `h = e1 - e0` and
+/// `b = (y0 e1 - y1 e0) / h` (the intercept):
+/// `Int E y dE = h (y0 (2 e0 + e1) + y1 (e0 + 2 e1)) / 6` and
+/// `Int y / E dE = (y1 - y0) + b ln(e1 / e0)`.
+fn linear_elf(e0: f64, e1: f64, y0: f64, y1: f64) -> (f64, f64) {
+    let h = e1 - e0;
+    let b = (y0 * e1 - y1 * e0) / h;
+    (
+        h * (y0 * (2.0 * e0 + e1) + y1 * (e0 + 2.0 * e1)) / 6.0,
+        (y1 - y0) + b * (h / e0).ln_1p(),
+    )
+}
+
+/// The same pair with a power-law `ELF` between knots (source-side
+/// comparison, not what the library serves).
+fn power_law_elf(e0: f64, e1: f64, y0: f64, y1: f64) -> (f64, f64) {
+    (
+        power_law(e0, e1, e0 * y0, e1 * y1),
+        power_law(e0, e1, y0 / e0, y1 / e1),
+    )
+}
+
+/// The same pair with the trapezoid rule on each integrand.
+fn trapezoid_elf(e0: f64, e1: f64, y0: f64, y1: f64) -> (f64, f64) {
+    (
+        trapezoid(e0, e1, e0 * y0, e1 * y1),
+        trapezoid(e0, e1, y0 / e0, y1 / e1),
+    )
+}
+
+type Rule = fn(f64, f64, f64, f64) -> (f64, f64);
+
 /// `(Int E ELF dE, Int ELF / E dE)` over the knots with the given segment rule.
-fn integrals(e: &[f64], y: &[f64], seg: fn(f64, f64, f64, f64) -> f64) -> (f64, f64) {
+fn integrals(e: &[f64], y: &[f64], seg: Rule) -> (f64, f64) {
     let (mut f_sum, mut p_sum) = (0.0, 0.0);
     for i in 0..e.len() - 1 {
-        f_sum += seg(e[i], e[i + 1], e[i] * y[i], e[i + 1] * y[i + 1]);
-        p_sum += seg(e[i], e[i + 1], y[i] / e[i], y[i + 1] / e[i + 1]);
+        let (f, p) = seg(e[i], e[i + 1], y[i], y[i + 1]);
+        f_sum += f;
+        p_sum += p;
     }
     (f_sum, p_sum)
+}
+
+#[test]
+fn linear_segment_is_exact_for_linear_elf() {
+    for (a, b) in [(0.0, 3.0), (2.0, 0.0), (-0.5, 4.0), (1.5, -2.0)] {
+        let (e0, e1) = (2.0f64, 5.0f64);
+        let (f, p) = linear_elf(e0, e1, a * e0 + b, a * e1 + b);
+        let f_exact = a * (e1.powi(3) - e0.powi(3)) / 3.0 + b * (e1 * e1 - e0 * e0) / 2.0;
+        let p_exact = a * (e1 - e0) + b * (e1 / e0).ln();
+        assert!(
+            (f / f_exact - 1.0).abs() < 1e-12,
+            "{a} {b}: {f} vs {f_exact}"
+        );
+        assert!(
+            (p / p_exact - 1.0).abs() < 1e-12,
+            "{a} {b}: {p} vs {p_exact}"
+        );
+    }
 }
 
 #[test]
@@ -172,42 +259,54 @@ fn optical_elf_sum_rules() {
         let wp = plasma_energy_ev(n);
         let f_norm = 2.0 / (std::f64::consts::PI * wp * wp);
         let p_norm = 2.0 / std::f64::consts::PI;
-        let (f_ll, p_ll) = integrals(e, y, power_law);
-        let (f_tr, p_tr) = integrals(e, y, trapezoid);
-        let (n_eff_over_z, p_eff) = (f_norm * f_ll, p_norm * p_ll);
-        eprintln!(
-            "{}: top {:.4e} eV; log-log N_eff = {:.3} of Z = {} (ratio {:.4}), P_eff = {:.4}; \
-             trapezoid (not gated) N_eff = {:.3}, P_eff = {:.4}; authors (Table 10) N_eff = {}",
-            t.material(),
-            e[e.len() - 1],
-            n_eff_over_z * case.z,
-            case.z,
-            n_eff_over_z,
-            p_eff,
-            f_norm * f_tr * case.z,
-            p_norm * p_tr,
-            case.authors_n_eff
-        );
-        for (name, value) in [("N_eff/Z", n_eff_over_z), ("P_eff", p_eff)] {
-            let within = (value - 1.0).abs() <= TOL;
-            match case.known_failures.iter().find(|k| k.0 == name) {
-                None => assert!(
-                    within,
-                    "{} {name} = {value:.4}, outside 5 % of 1",
-                    t.material()
-                ),
-                Some((_, pinned, band, why)) => {
-                    eprintln!("  KNOWN FAILURE {name} = {value:.4}: {why}");
-                    assert!(
-                        !within,
-                        "{} {name} now passes ({value:.4}): update the table",
+        let rules: [(&str, Rule, bool); 3] = [
+            (LIBRARY, linear_elf, true),
+            (POWER_LAW, power_law_elf, true),
+            ("trapezoid", trapezoid_elf, false),
+        ];
+        for (rule, seg, gated) in rules {
+            let (f, p) = integrals(e, y, seg);
+            let (n_eff_over_z, p_eff) = (f_norm * f, p_norm * p);
+            eprintln!(
+                "{} [{rule}{}]: top {:.4e} eV; N_eff = {:.3} of Z = {} (ratio {:.4}), \
+                 P_eff = {:.4}; authors (Table 10) N_eff = {}",
+                t.material(),
+                if gated { "" } else { ", not gated" },
+                e[e.len() - 1],
+                n_eff_over_z * case.z,
+                case.z,
+                n_eff_over_z,
+                p_eff,
+                case.authors_n_eff
+            );
+            if !gated {
+                continue;
+            }
+            for (name, value) in [("N_eff/Z", n_eff_over_z), ("P_eff", p_eff)] {
+                let within = (value - 1.0).abs() <= TOL;
+                let known = case
+                    .known_failures
+                    .iter()
+                    .find(|k| k.0 == rule && k.1 == name);
+                match known {
+                    None => assert!(
+                        within,
+                        "{} [{rule}] {name} = {value:.4}, outside 5 % of 1",
                         t.material()
-                    );
-                    assert!(
-                        (value - pinned).abs() <= *band,
-                        "{} {name} = {value:.4}, pinned {pinned}",
-                        t.material()
-                    );
+                    ),
+                    Some((_, _, pinned, band, why)) => {
+                        eprintln!("  KNOWN FAILURE [{rule}] {name} = {value:.4}: {why}");
+                        assert!(
+                            !within,
+                            "{} [{rule}] {name} now passes ({value:.4}): update the table",
+                            t.material()
+                        );
+                        assert!(
+                            (value - pinned).abs() <= *band,
+                            "{} [{rule}] {name} = {value:.4}, pinned {pinned}",
+                            t.material()
+                        );
+                    }
                 }
             }
         }
