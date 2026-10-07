@@ -87,6 +87,15 @@ What it covers:
   coefficients are not in the tree (#130), so all eight cases are skipped and
   reported as skipped (`lindhard/tests/data/elastic_reference.toml`,
   provenance row). Nothing here has been validated yet.
+- **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
+  Cu, built from the committed Hagemann optical ELFs (#98) with the Fermi
+  energies of the reference, against Tanuma, Powell & Penn, Surf. Interface
+  Anal. 43, 689 (2011), Table 4, at the rows nearest 100 eV, 1 keV and
+  10 keV; tolerance 20 % near 100 eV and 10 % near 1 and 10 keV, pinned in
+  `lindhard/tests/electron_imfp_tpp.rs` (fixture
+  `lindhard/tests/data/imfp_tpp2011.toml`, provenance row). All six cases
+  pass; the table is under "Inelastic mean free paths vs TPP 2011" below.
+  Si waits for its optical data (#125).
 - **Electrons (M1, not yet).** Elastic total cross sections from our
   partial-wave Mott solution against published Mott values at spot energies;
   the dielectric model's f-sum and perfect-screening sum rules.
@@ -197,6 +206,57 @@ Level 1, `full` statistics, `lindhard` 0.0.1.
   below `E_d` moves on instead of filling the site it emptied. NRT's 0.8
   came from BCA calculations of this kind (Robinson and Torrens, Phys. Rev. B
   9 (1974) 5008).
+
+### Inelastic mean free paths vs TPP 2011 (#99)
+
+Ours: `FullPenn` (full Penn algorithm at every energy, integration tolerance
+1e-3) on `validation/data/optical/{al,cu}_elf_hagemann1975.toml`, Fermi
+energy 11.2 eV (Al) and 8.7 eV (Cu) from TPP 2011 Table 1. TPP: Tanuma,
+Powell & Penn, Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522,
+Table 4, read in the authors' original manuscript (NIMS MDR,
+doi:10.48505/nims.3238; the published version was not reachable, so a value
+changed in review would not show here). Table 4 is on a 10 % logarithmic
+grid, so the rows used are 99.5, 992.3 and 9897.1 eV, and the model is
+evaluated at exactly those energies. Relative difference is ours / TPP - 1.
+Measured 2026-10-07 by
+`cargo test -p lindhard --test electron_imfp_tpp -- --nocapture`.
+
+| Material | E (eV) | Ours (Å) | TPP (Å) | Relative difference | Tolerance | Result |
+|---|---|---|---|---|---|---|
+| Al | 99.5 | 4.28 | 4.56 | -6.2 % | 20 % | pass |
+| Al | 992.3 | 19.76 | 21.2 | -6.8 % | 10 % | pass |
+| Al | 9897.1 | 132.8 | 143.6 | -7.5 % | 10 % | pass |
+| Cu | 99.5 | 5.16 | 5.00 | +3.1 % | 20 % | pass |
+| Cu | 992.3 | 16.50 | 16.6 | -0.6 % | 10 % | pass |
+| Cu | 9897.1 | 103.4 | 104.8 | -1.3 % | 10 % | pass |
+
+Reading the table (reported, not tuned):
+
+- **Al runs about 7 % short at every energy.** This matches what is known
+  about the input rather than the model: served with the linear
+  interpolation of `OpticalElf::elf()`, the Al table overshoots the f-sum by
+  13.8 % (N_eff 14.79 for Z = 13) and the perfect-screening sum by 9.4 %
+  (`lindhard/tests/optical_sumrule.rs`), and a larger ELF gives a shorter
+  IMFP. TPP 2011 report an f-sum error of +0.9 % for their Al ELF (Table 3).
+  The gap is inside the tolerance at all three energies but uses three
+  quarters of it at 10 keV; a denser or power-law-served Al table is the
+  expected fix, not a change to the model.
+- **Cu agrees to 1 % at 1 and 10 keV and 3 % at 100 eV.** Its served ELF
+  overshoots the f-sum by 7.3 %, but the whole excess of the linear over the
+  power-law reading lies above 100 eV, across the L and K edges
+  (`optical_sumrule.rs`), and its perfect-screening sum is 1.002. TPP 2011
+  used the same Hagemann measurement for 1-95 eV and Henke et al. above
+  102 eV (their Table 2), f-sum error -1.5 % (their Table 3). Why the
+  inner-shell excess moves the IMFP so little was not isolated.
+- **Algorithm.** TPP 2011 used the full Penn algorithm up to 300 eV and the
+  single-pole approximation from 330 eV, and report the two differ by
+  < 0.2 % at 300 eV (graphite); ours is full Penn throughout, and our own
+  full / single-pole IMFP ratio on a synthetic Drude ELF is 1.002 at 1 keV
+  (`full_penn` module docs). Our full Penn procedure is our reading of
+  Shinotsuka et al. (2017), not Penn's formulae, and is least constrained
+  below 200 eV, where TPP 2011 also expect larger uncertainties; the 100 eV
+  rows here do not show a larger gap than the others.
+- Si is not compared: no Si valence-region optical data is committed (#125).
 
 ## 2. Code-to-code oracles (local harness, summaries committed)
 

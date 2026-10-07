@@ -1,0 +1,91 @@
+# Published IMFPs for the inelastic validation of issue #99
+# (tests/electron_imfp_tpp.rs): Al and Cu at the Table 4 rows nearest
+# 100 eV, 1 keV and 10 keV.
+#
+# Source: S. Tanuma, C. J. Powell and D. R. Penn, "Calculations of electron
+# inelastic mean free paths. IX. Data for 41 elemental solids over the 50 eV
+# to 30 keV range", Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522.
+#
+# Copy actually read: the authors' original manuscript (pre-review, dated
+# 18 March 2010) deposited at the NIMS Materials Data Repository,
+# doi:10.48505/nims.3238 (https://mdr.nims.go.jp/datasets/f9222d77-030b-44e8-b8d5-5661ab007778),
+# files IMFP_IX__March_18__2010_st.3.pdf (Table 4, manuscript pp. 37-48 of 60)
+# and IMFP_IX__March_18__2010_st.pdf (Table 1, p. 32 of 60). Read 2026-10-07,
+# from the rendered page images (each value checked against the text layer
+# too). The published version (Wiley) answered 403 and was not seen, so the
+# page numbers are those of the manuscript, not of the journal, and a value
+# changed in review would not show here.
+#
+# Table 4 is tabulated on a grid with 10 % logarithmic steps, so the rows
+# nearest the nominal energies are 99.5, 992.3 and 9897.1 eV. The model is
+# evaluated at exactly those energies; nothing is interpolated. Energies are
+# kinetic energies above the Fermi level (manuscript p. 5).
+#
+# Tolerances are fixed by the issue: 20 % near 100 eV, 10 % near 1 and 10 keV.
+
+[tolerance]
+rel_at_100_ev = 0.20
+rel_at_1000_ev = 0.10
+rel_at_10000_ev = 0.10
+
+[reference]
+source = "Tanuma, Powell & Penn, Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522"
+copy_read = "Authors' original manuscript (18 March 2010), NIMS MDR doi:10.48505/nims.3238, read 2026-10-07"
+status = "values committed (cited facts, operator ruling #34)"
+
+# Fermi energies: TPP Table 1, "a parameter used in the IMFP calculations"
+# (manuscript p. 6). Used here as the reference's stated setting, as the
+# kinematics of `FullPenn::with_fermi_energy_ev` take it.
+[[material]]
+symbol = "Al"
+optical = "al_elf_hagemann1975.toml"
+fermi_energy_ev = 11.2
+fermi_cite = "TPP 2011 Table 1, row Al, column E_F (manuscript p. 32 of 60)"
+
+[[material]]
+symbol = "Cu"
+optical = "cu_elf_hagemann1975.toml"
+fermi_energy_ev = 8.7
+fermi_cite = "TPP 2011 Table 1, row Cu, column E_F (manuscript p. 32 of 60)"
+
+[[case]]
+material = "Al"
+nominal_energy_ev = 100.0
+energy_ev = 99.5
+imfp_angstrom = 4.56
+cite = "TPP 2011 Table 4 (continued), column Al, row 99.5 eV (manuscript p. 39 of 60)"
+
+[[case]]
+material = "Al"
+nominal_energy_ev = 1000.0
+energy_ev = 992.3
+imfp_angstrom = 21.2
+cite = "TPP 2011 Table 4 (continued), column Al, row 992.3 eV (manuscript p. 39 of 60)"
+
+[[case]]
+material = "Al"
+nominal_energy_ev = 10000.0
+energy_ev = 9897.1
+imfp_angstrom = 143.6
+cite = "TPP 2011 Table 4 (continued), column Al, row 9897.1 eV (manuscript p. 40 of 60)"
+
+[[case]]
+material = "Cu"
+nominal_energy_ev = 100.0
+energy_ev = 99.5
+imfp_angstrom = 5.00
+cite = "TPP 2011 Table 4 (continued), column Cu, row 99.5 eV (manuscript p. 41 of 60)"
+
+[[case]]
+material = "Cu"
+nominal_energy_ev = 1000.0
+energy_ev = 992.3
+imfp_angstrom = 16.6
+cite = "TPP 2011 Table 4 (continued), column Cu, row 992.3 eV (manuscript p. 41 of 60)"
+
+[[case]]
+material = "Cu"
+nominal_energy_ev = 10000.0
+energy_ev = 9897.1
+imfp_angstrom = 104.8
+cite = "TPP 2011 Table 4 (continued), column Cu, row 9897.1 eV (manuscript p. 42 of 60)"
