@@ -327,6 +327,26 @@ def write_elf(problem: dict, mat: dict, work: Path) -> str:
     return name
 
 
+REDACTED = "read at run time from the cstool parameter file named in `materials`; not committed"
+
+
+def redact_settings(settings: dict) -> dict:
+    """Remove every value that comes from cstool's material files from the
+    run metadata kept in a summary: the band parameters echoed in the input,
+    and the table's upper energy (the beam energy plus the inner potential).
+    Those numbers cite no source (docs/data-provenance.md), so they never
+    enter the tree; the summaries record the files' SHA-256 instead."""
+    s = json.loads(json.dumps(settings))
+    el = s.get("input", {}).get("electron", {})
+    for m in el.get("materials", {}).values():
+        band = m.get("band")
+        if isinstance(band, dict):
+            m["band"] = {k: (v if k in ("kind", "provenance") else REDACTED) for k, v in band.items()}
+    if "max_energy_ev" in el.get("tables", {}):
+        el["tables"]["max_energy_ev"] = REDACTED
+    return s
+
+
 def run_lindhard(problem: dict, spec: dict, mat: dict, binary: Path, histories: int) -> tuple[dict, dict]:
     b = spec["batches"]
     work = RUNS / "lindhard" / problem["id"]
@@ -371,7 +391,7 @@ def run_lindhard(problem: dict, spec: dict, mat: dict, binary: Path, histories: 
             }
     res = acc.result()
     res["wall_s"] = time.perf_counter() - t0
-    return res, settings
+    return res, redact_settings(settings)
 
 
 # ---------------------------------------------------------------------------

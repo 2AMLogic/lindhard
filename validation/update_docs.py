@@ -128,6 +128,8 @@ def electron_oracles() -> str:
     def val(x, se, digits: int) -> str:
         if x is None:
             return "n/a"
+        if digits == 1 and abs(x) < 100:
+            digits = 2  # lengths below 100 nm: one more decimal, so that the error shows
         return f"{x:.{digits}f} ± {se:.{digits}f}" if se is not None else f"{x:.{digits}f}"
 
     def diff(c: dict, metric: str) -> str:
@@ -155,7 +157,7 @@ def electron_oracles() -> str:
         o = json.loads(ours_path.read_text())
         v, se = o["values"], o["std_err"]
         lines.append(
-            f"| `{pid}` | lindhard ({o['lindhard_version']}) | {o['histories']} "
+            f"| `{pid}` | lindhard ({o['lindhard_version'].removeprefix('lindhard ')}) | {o['histories']} "
             f"| {val(v['eta'], se['eta'], 3)} | {val(v['delta'], se['delta'], 3)} "
             f"| {val(v['primary_depth_nm'], se['primary_depth_nm'], 1)} | {val(v['r50_nm'], se['r50_nm'], 1)} | - |"
         )
