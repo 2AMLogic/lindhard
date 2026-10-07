@@ -11,6 +11,7 @@ validation/run.sh [--experiments] [--oracles]
 |---|---|---|
 | `../lindhard/tests/validation/` | 1 | Analytic and internal checks; a `cargo test` target, run in CI |
 | `oracles/run.py`, `oracles/problems.json` | 2 | Runs `lindhard` and user-installed oracles (RustBCA, OpenTRIM) on matched problems |
+| `oracles/run_electron.py`, `oracles/electron_problems.json`, `oracles/geant4_microelec/` | 2 | Electron comparison: runs `lindhard` and user-installed Nebula and Geant4 MicroElec (through our own Geant4 application) on matched electron problems ([docs](../docs/validation.md#electron-oracles-nebula-and-geant4-microelec-150)) |
 | `oracles/summaries/` | 2 | Committed comparison summaries (scalar summary metrics only; [format](oracles/summaries/README.md)) |
 | `oracle-runs/` | 2, 3 | Raw runs, regenerated locally; **gitignored** |
 | `data/` | 3 | Published measurements with citations ([schema](data/README.md)); `data/digitize/` holds the scripts that digitized figures |

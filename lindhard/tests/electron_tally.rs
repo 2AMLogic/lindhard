@@ -183,6 +183,9 @@ fn balance_closes_with_stopping_and_backscatter_in_a_substrate() {
     assert_eq!(r.back.count, 0);
     assert_eq!(r.budget.trapped_ev, 0.0);
     assert_eq!(r.stopping_points.stopped, r.fates.stopped);
+    // Without secondaries every stopping point is a primary's.
+    assert_eq!(r.stopping_points.primaries.stopped, r.fates.stopped);
+    assert_eq!(r.stopping_points.primaries.depth, r.stopping_points.depth);
     let g = r.generation_volume.unwrap();
     assert!(g.mean_m[0] > 0.0 && g.std_dev_m[0] > 0.0 && g.rms_radius_m > 0.0);
 }

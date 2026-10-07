@@ -1,0 +1,107 @@
+{
+  "format": "lindhard-oracle-electron-summary/1",
+  "problem": "e_5keV_cu",
+  "oracle": "Nebula",
+  "oracle_version": "v1.0.2-1-ga50a8e8",
+  "oracle_commit": "a50a8e83207980ed221ac83cfe874751d39b86a9",
+  "oracle_source": "https://github.com/Nebula-simulator/nebula",
+  "oracle_build": "cmake -DCMAKE_BUILD_TYPE=Release, AppleClang 21.0.0, CPU only (no CUDA); material files by cstool 0c739eb with ELSEPA compiled by gfortran from the archive the cstool docs link (doi:10.17632/5zzrz874tt.1)",
+  "oracle_license": "BSD-3-Clause (Tier A); run unmodified (CPU build, nebula_cpu_edep) with material files compiled by its cstool (BSD-3-Clause) from cstool's own parameter files; cstool calls ELSEPA (Tier C: run unmodified, locally, only inside this toolchain; none of its output is committed) for the Mott cross sections. Only scalar summaries are committed",
+  "lindhard_version": "lindhard 0.0.1 (6ffd486)",
+  "date": "2026-10-07",
+  "host": "Darwin arm64, 18 logical CPUs, load average 12.0 at start",
+  "histories": {
+    "lindhard": 10000,
+    "oracle": 10000
+  },
+  "batches": 10,
+  "lindhard": {
+    "eta": 0.3959,
+    "delta": 0.8491,
+    "primary_depth_nm": 43.3077,
+    "r50_nm": 27.7849,
+    "std_err": {
+      "eta": 0.00688549,
+      "delta": 0.0193933,
+      "primary_depth_nm": 0.29321,
+      "r50_nm": 0.258826
+    }
+  },
+  "oracle_values": {
+    "eta": 0.3985,
+    "delta": 0.2726,
+    "primary_depth_nm": null,
+    "r50_nm": 31.5551,
+    "std_err": {
+      "eta": 0.00421176,
+      "delta": 0.00382158,
+      "primary_depth_nm": null,
+      "r50_nm": 0.240658
+    }
+  },
+  "comparison": {
+    "eta_abs_diff": -0.0026,
+    "eta_abs_diff_se": 0.00807149,
+    "eta_z": -0.322122,
+    "delta_abs_diff": 0.5765,
+    "delta_abs_diff_se": 0.0197662,
+    "delta_z": 29.1659,
+    "r50_rel_diff": -0.119482,
+    "r50_rel_diff_se": 0.0106007,
+    "r50_z": -11.2711
+  },
+  "tolerance": {
+    "applies": true,
+    "source": "#150 acceptance criteria (operator, 2026-10-07): initial tolerances vs Nebula, the closest model. Loosening needs operator sign-off.",
+    "checks": {
+      "eta": {
+        "limit_abs": 0.03,
+        "diff": -0.0026,
+        "pass": true
+      },
+      "r50_nm": {
+        "limit_rel": 0.15,
+        "diff": -0.119482,
+        "pass": true
+      }
+    }
+  },
+  "wall_s": {
+    "lindhard": 71.5925,
+    "oracle": 13.4248
+  },
+  "materials": {
+    "cstool_source": "https://github.com/Nebula-simulator/cstool",
+    "cstool_commit": "0c739eb3fcc3fe5297e74c601ac4a9546db596cf",
+    "parameter_file": "data/materials/copper.yaml",
+    "parameter_file_sha256": "03e68d97866c91619a53a73c8b69021c643ee80bbd706e4e7b5bd495374cb99a",
+    "elf_file": "data/materials/elf/df_Cu.dat",
+    "elf_file_sha256": "a046c21f7b5cd25edffd53691811ae64d72a153001bfbc7bafa972076047e22a"
+  },
+  "oracle_settings": {
+    "executable": "nebula_cpu_edep (CPU, all hardware threads; Nebula's documentation: results are reproducible only on one thread, so agreement is statistical)",
+    "nebula_reports": "Nebula version 1.0.2",
+    "physics": "as compiled in (Nebula physics_config.h at the commit above): full Penn inelastic with secondaries, Kieft elastic (ELSEPA Mott above 200 eV, acoustic phonon below 100 eV, interpolated between, with acoustic-phonon and atomic-recoil losses), quantum transmission and refraction at the surface, no empirical interface absorption",
+    "material_file": "copper.mat",
+    "material_sha256": "9ba18d2c4764f2369d92f6e2398efddcdbcf34da98b02f0bc9c46b93e9d83a09",
+    "energy_threshold_ev": 0.0,
+    "seed": 1,
+    "geometry": "surface z = 0, detector z = +10.0 nm, terminator z = -100000.0 nm, half width 100000.0 nm; primaries from z = +5.0 nm along -z",
+    "deposit": "energy lost per scattering event at the event position (all electrons), from the nebula_cpu_edep deposit stream"
+  },
+  "matched": [
+    "optical ELF: the same cstool ELF file on both sides (lindhard reads it at run time)",
+    "band parameters (Fermi energy and work function, or valence width, gap and affinity) from the same cstool parameter file, so the same inner potential",
+    "Kieft-Bosch secondary model; step barrier with quantum transmission and refraction",
+    "stopping at the vacuum level (Nebula energy-threshold 0; lindhard vacuum-level cutoff 0.01 eV)",
+    "SE/BSE split 50 eV on the vacuum energy, E = 50 eV counted as backscattered",
+    "normal incidence, primaries entering at the beam axis"
+  ],
+  "mismatches": [
+    "inelastic model: Nebula runs the full Penn algorithm (Nebula physics_config.h, full_penn; tables by cstool) with inner-shell ionization energies from the ENDF/B photo-atomic data cstool downloads (cstool/endf/) and cstool's Fermi correction (energy loss below K - E_F, cstool/dielectric_function/compile.py); lindhard runs the single-pole Penn approximation with its model Fermi energy 0 and no inner-shell channels, the loss clamp W <= E - E_F being applied by its transport. lindhard's own full Penn model was not used: one Si table build at 5 keV did not finish within 60 min on this host, against about 20 s for the single-pole tables (docs/validation.md)",
+    "elastic model: Nebula uses Mott cross sections from ELSEPA as cstool calls it (cstool/mott/mott.py and elsepa_input.py: Dirac-Fock electron density, Fermi nuclear charge distribution, Furness-McCarthy exchange, LDA correlation-polarization, muffin-tin model for Z other than 1, 7 and 8, full partial-wave calculation) above 200 eV and acoustic-phonon scattering below 100 eV, interpolated between (Nebula physics/kieft/elastic.h), with acoustic-phonon and atomic-recoil energy losses (physics_config.h); lindhard uses Mott cross sections of its Thomas-Fermi Yukawa stand-in potential, free atom, with Furness-McCarthy exchange, no correlation-polarization and no phonon or recoil losses (the Salvat DHFS coefficients and the muffin-tin option are documented gaps)",
+    "energy deposition: Nebula's deposit stream gives the energy each electron loses at each event, so a secondary's energy is counted where its parent lost it and again along its own track, and the remaining energy of an electron dropped below the vacuum level is not in it; lindhard deposits only what no secondary carries away, plus the remaining energy where an electron stops. r50 is therefore a loss-weighted radius for Nebula and a deposit-weighted one for lindhard",
+    "primary penetration depth: Nebula's outputs do not distinguish primaries from secondaries, so it has no value for this metric",
+    "random-number streams differ; agreement is statistical only"
+  ]
+}
