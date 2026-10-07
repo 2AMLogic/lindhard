@@ -20,6 +20,12 @@ one version).
 
 ### Added
 
+- `electron::transport`: the event-by-event electron loop (Kieft and Bosch,
+  J. Phys. D 41, 215310 (2008)) over layered stacks on elastic and inelastic
+  `CrossSectionTable`s. `Transport::run` goes through `rng::run_particles`
+  (bit-identical at any thread count) and returns the tally with `RunMetadata`
+  recording the energy cutoff and escape rule; per-event results go through
+  the `ElectronTally` hook trait.
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and
