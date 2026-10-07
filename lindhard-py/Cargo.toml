@@ -22,5 +22,4 @@ lindhard-cli = { path = "../lindhard-cli", version = "0.0.1" }
 pyo3 = { version = "0.29", features = ["abi3-py39"] }
 numpy = "0.29"
 serde = { version = "1.0.229", features = ["derive"] }
-serde_json = "1.0.151"
 toml = "1.1.6"
