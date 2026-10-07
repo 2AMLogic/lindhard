@@ -7,7 +7,10 @@
 //!
 //! Both are built from [`SinglePolePenn`] only; no data and no equation beyond
 //! the model of [`super::penn`] enter here (the elementary kinematics of a
-//! binary collision aside, see below).
+//! binary collision aside, see below). [`build_inelastic_table_for_model`]
+//! runs the same energy-loss table procedure on any of the three models of
+//! [`super::model::PennInelastic`] (single pole, full Penn, Mermin-ELF),
+//! using that model's own DIIMFP and inverse IMFP; nothing else changes.
 //!
 //! # Energy-loss table
 //!
@@ -90,6 +93,7 @@
 //! Samplers consume uniforms `u` supplied by the caller (for example from
 //! [`crate::rng::stream`]) and keep no state of their own.
 
+use super::model::PennInelastic;
 use super::penn::{hartree_ev, SinglePolePenn};
 use crate::constants::BOHR_RADIUS;
 use crate::electron::data::{
@@ -361,18 +365,52 @@ pub fn default_probability_grid() -> Vec<f64> {
         .expect("valid default grid")
 }
 
+/// What the table builder needs from an ELF-extension model: the lowest
+/// tabulated ELF energy (below which the DIIMFP is zero), the DIIMFP and the
+/// inverse IMFP. Implemented for [`SinglePolePenn`] and for every model of
+/// [`PennInelastic`]; the table is built the same way for each (module docs).
+trait LossModel: Sync {
+    fn elf_min_ev(&self) -> f64;
+    fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError>;
+    fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError>;
+}
+
+impl LossModel for SinglePolePenn {
+    fn elf_min_ev(&self) -> f64 {
+        self.optical_elf().energy_ev()[0]
+    }
+    fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
+        self.diimfp_per_m_ev(energy_ev, loss_ev)
+    }
+    fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
+        Ok(self.imfp_and_stopping(energy_ev)?.inverse_imfp_per_m)
+    }
+}
+
+impl LossModel for PennInelastic {
+    fn elf_min_ev(&self) -> f64 {
+        self.optical_elf().energy_ev()[0]
+    }
+    fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
+        self.diimfp_per_m_ev(energy_ev, loss_ev)
+    }
+    fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
+        Ok(self.imfp_and_stopping(energy_ev)?.inverse_imfp_per_m)
+    }
+}
+
 /// The loss density of one energy.
-fn loss_density(
-    penn: &SinglePolePenn,
+fn loss_density<M: LossModel>(
+    penn: &M,
     energy_ev: f64,
     inverse_mfp: f64,
     tol: f64,
 ) -> Result<LinearDensity, InelasticTableError> {
-    let w_lo = penn.optical_elf().energy_ev()[0];
+    let w_lo = penn.elf_min_ev();
     let f = |s: f64| {
         let w = s.exp().min(energy_ev);
-        // diimfp_per_m_ev only fails for non-finite input.
-        penn.diimfp_per_m_ev(energy_ev, w).unwrap_or(0.0) * w
+        // The DIIMFP only fails for non-finite input.
+        penn.diimfp(energy_ev, w).unwrap_or(0.0) * w
     };
     let d = adaptive_density(
         &f,
@@ -575,45 +613,8 @@ pub fn build_inelastic_table(
 ) -> Result<CrossSectionTable, InelasticTableError> {
     check_no_exchange(penn)?;
     check_options(options)?;
+    let (inverse_mfp_per_m, probability, quantiles) = loss_rows(penn, options)?;
     let energy = &options.energy_ev;
-    // Rows in parallel, collected in grid order; the lowest failing energy
-    // is the reported error whatever the thread count.
-    type Row = Result<(f64, Option<LinearDensity>), InelasticTableError>;
-    let results: Vec<Row> = energy
-        .par_iter()
-        .map(|&e| {
-            let pt = penn.imfp_and_stopping(e)?;
-            if pt.inverse_imfp_per_m > 0.0 {
-                let d = loss_density(penn, e, pt.inverse_imfp_per_m, options.density_tolerance)?;
-                Ok((pt.inverse_imfp_per_m, Some(d)))
-            } else {
-                Ok((0.0, None))
-            }
-        })
-        .collect();
-    let mut inverse_mfp_per_m = Vec::with_capacity(energy.len());
-    let mut rows: Vec<Option<LinearDensity>> = Vec::with_capacity(energy.len());
-    for r in results {
-        let (inv, d) = r?;
-        inverse_mfp_per_m.push(inv);
-        rows.push(d);
-    }
-    let probability = &options.probability;
-    let quantiles: Vec<Vec<f64>> = rows
-        .par_iter()
-        .zip(energy.par_iter())
-        .map(|(r, &e)| match r {
-            Some(d) => probability
-                .iter()
-                .map(|&u| loss_quantile(d, e, u))
-                .collect(),
-            None => Vec::new(),
-        })
-        .collect();
-    let (probability, quantiles) = match options.refine_tolerance {
-        Some(tol) => refine_probability(&rows, energy, probability.clone(), quantiles, tol),
-        None => (probability.clone(), quantiles),
-    };
     let elf = penn.optical_elf();
     let model = format!(
         "lindhard {} electron::inelastic::table: single-pole Penn DIIMFP (nonrelativistic), \
@@ -645,6 +646,111 @@ pub fn build_inelastic_table(
         probability,
         quantiles,
     })?)
+}
+
+/// Build the inelastic energy-loss table of any of the three ELF-extension
+/// models ([`PennInelastic`]: single-pole Penn, full Penn or Mermin-ELF) on
+/// the grid of `options`, by the same procedure as [`build_inelastic_table`]
+/// (module docs), with that model's DIIMFP and inverse IMFP in place of the
+/// single pole's. For [`PennInelastic::SinglePole`] the rows are those of
+/// [`build_inelastic_table`]; only the `model` and `provenance` strings
+/// differ, and they carry [`PennInelastic::model_identity`], so a table
+/// names the algorithm it was built with.
+///
+/// The full Penn and Mermin models evaluate their DIIMFP by numerical
+/// integration, so a table of either costs far more than a single-pole table
+/// on the same grid.
+pub fn build_inelastic_table_for_model(
+    model: &PennInelastic,
+    material: &Material,
+    options: &InelasticTableOptions,
+) -> Result<CrossSectionTable, InelasticTableError> {
+    if let PennInelastic::SinglePole(p) = model {
+        check_no_exchange(p)?;
+    }
+    check_options(options)?;
+    let (inverse_mfp_per_m, probability, quantiles) = loss_rows(model, options)?;
+    let energy = &options.energy_ev;
+    let elf = model.optical_elf();
+    let identity = model.model_identity();
+    let model_text = format!(
+        "lindhard {} electron::inelastic::table: {identity} DIIMFP, \
+         W inverse CDF from an adaptive piecewise-linear density in ln W",
+        env!("CARGO_PKG_VERSION")
+    );
+    let provenance = format!(
+        "computed by lindhard {} from published formulas (see electron::inelastic docs); \
+         model: {identity}; optical ELF: {} ({}); density tolerance {}; \
+         {} energies {}..{} eV; {} probability points",
+        env!("CARGO_PKG_VERSION"),
+        elf.material(),
+        elf.provenance(),
+        options.density_tolerance,
+        energy.len(),
+        energy[0],
+        energy[energy.len() - 1],
+        probability.len()
+    );
+    Ok(CrossSectionTable::new(CrossSectionTableParts {
+        model: model_text,
+        material: material_identity(material),
+        provenance,
+        axis: SamplingAxis::InelasticEnergyLoss,
+        energy_ev: energy.clone(),
+        inverse_mfp_per_m,
+        probability,
+        quantiles,
+    })?)
+}
+
+/// Inverse mean free paths, the (refined) probability grid and the quantile
+/// rows of a table of `penn` on the grid of `options` (already checked).
+type LossRows = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
+
+fn loss_rows<M: LossModel>(
+    penn: &M,
+    options: &InelasticTableOptions,
+) -> Result<LossRows, InelasticTableError> {
+    let energy = &options.energy_ev;
+    // Rows in parallel, collected in grid order; the lowest failing energy
+    // is the reported error whatever the thread count.
+    type Row = Result<(f64, Option<LinearDensity>), InelasticTableError>;
+    let results: Vec<Row> = energy
+        .par_iter()
+        .map(|&e| {
+            let inv = penn.inverse_imfp(e)?;
+            if inv > 0.0 {
+                let d = loss_density(penn, e, inv, options.density_tolerance)?;
+                Ok((inv, Some(d)))
+            } else {
+                Ok((0.0, None))
+            }
+        })
+        .collect();
+    let mut inverse_mfp_per_m = Vec::with_capacity(energy.len());
+    let mut rows: Vec<Option<LinearDensity>> = Vec::with_capacity(energy.len());
+    for r in results {
+        let (inv, d) = r?;
+        inverse_mfp_per_m.push(inv);
+        rows.push(d);
+    }
+    let probability = &options.probability;
+    let quantiles: Vec<Vec<f64>> = rows
+        .par_iter()
+        .zip(energy.par_iter())
+        .map(|(r, &e)| match r {
+            Some(d) => probability
+                .iter()
+                .map(|&u| loss_quantile(d, e, u))
+                .collect(),
+            None => Vec::new(),
+        })
+        .collect();
+    let (probability, quantiles) = match options.refine_tolerance {
+        Some(tol) => refine_probability(&rows, energy, probability.clone(), quantiles, tol),
+        None => (probability.clone(), quantiles),
+    };
+    Ok((inverse_mfp_per_m, probability, quantiles))
 }
 
 // ---------------------------------------------------------------------------

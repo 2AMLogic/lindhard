@@ -8,7 +8,7 @@ that delivers it ([`../WORK_PLAN.md`](../WORK_PLAN.md)).
 One library crate, `lindhard`, holds all the physics. Front ends sit on top of
 it:
 
-- `lindhard-cli`: TOML input, JSON/CSV output (M0).
+- `lindhard-cli`: TOML input, JSON/CSV output (M0); an `[electron]` input runs the electron engine (M1).
 - `lindhard-py`: pyo3/maturin Python package, NumPy arrays out (bindings built; PyPI wheels in M3). It reuses the CLI's driver, tallies and writers (`lindhard-cli` is also a small library), so a Python run and a command run of the same input and seed agree bit for bit; it adds no physics and no second copy of the TOML schema.
 - WASM build for in-browser range calculators (M3).
 

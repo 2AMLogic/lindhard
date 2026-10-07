@@ -378,3 +378,30 @@ fn full_default_grid_recovers_sigma_tr1() {
         assert!(err < 1e-3, "Z={z}: {err:.3e} at {at} eV");
     }
 }
+
+#[test]
+fn corrected_atomic_results_feed_the_table() {
+    use lindhard::electron::elastic::Corrections;
+    let grid = log_energy_grid(100.0, 1.0e4, 1.0).unwrap();
+    let y = ThomasFermiYukawa::yukawa(14).unwrap();
+    let desc = ThomasFermiYukawa.description();
+    let opts = SolverOptions::default();
+    // Both corrections off: exactly the uncorrected rows.
+    let plain = AtomicElastic::compute(14, &y, &desc, &grid, opts).unwrap();
+    let off =
+        AtomicElastic::compute_corrected(14, &y, &y, &desc, &grid, &Corrections::none(), opts)
+            .unwrap();
+    assert_eq!(plain, off);
+    // Exchange on: different rows (larger cross sections at low energy), and
+    // they combine into a table that carries the description.
+    let c = Corrections {
+        exchange: true,
+        correlation_polarization: None,
+    };
+    let desc_x = format!("{desc}; exchange on (test)");
+    let x = AtomicElastic::compute_corrected(14, &y, &y, &desc_x, &grid, &c, opts).unwrap();
+    assert!(x.rows()[0].sigma_el() > plain.rows()[0].sigma_el());
+    let m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
+    let t = combine(&m, &[x], &default_probability_grid(), None).unwrap();
+    assert!(t.model().contains("exchange on (test)"));
+}

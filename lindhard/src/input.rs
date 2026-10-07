@@ -32,6 +32,10 @@
 //! [`Input::resolve`] validates the whole description and turns it into the
 //! engine's types ([`Resolved`]); [`Resolved::models`] lists every model in
 //! use with its citation, for the output metadata.
+//!
+//! An electron run is described by a different document, with an
+//! `[electron]` table and the same `[materials]` and `[target]`; its schema is
+//! [`electron`].
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -52,6 +56,8 @@ use crate::ion::stopping::lindhard_scharff::LindhardScharff;
 use crate::ion::stopping::table::{StoppingTable, TableOverride};
 use crate::ion::stopping::{ElectronicStopping, Ion};
 use crate::material::{EnergyKind, Material, MaterialSpec};
+
+pub mod electron;
 
 /// Errors from reading or validating an [`Input`].
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -581,6 +587,59 @@ pub const TABLE_SPEC: TableSpec = TableSpec {
     per_decade: 32,
 };
 
+/// Resolve a [`MaterialRef`] against the `[materials]` table: a key of
+/// `materials`, else an element symbol (the pure element at its tabulated
+/// density), or an inline table. `field` names the key in errors. Shared by
+/// the ion input and the electron input ([`electron`]).
+pub(crate) fn resolve_material(
+    materials: &BTreeMap<String, MaterialSpec>,
+    field: &str,
+    r: &MaterialRef,
+) -> Result<ResolvedLayer, InputError> {
+    match r {
+        MaterialRef::Inline(spec) => Material::try_from(spec.clone())
+            .map(|material| ResolvedLayer {
+                source: "inline".into(),
+                material,
+            })
+            .map_err(|e| invalid(field, e.to_string())),
+        MaterialRef::Name(name) => {
+            if let Some(spec) = materials.get(name) {
+                let mut material = Material::try_from(spec.clone())
+                    .map_err(|e| invalid(format!("materials.{name}"), e.to_string()))?;
+                if material.name().is_none() {
+                    material = material.with_name(name.clone());
+                }
+                return Ok(ResolvedLayer {
+                    source: name.clone(),
+                    material,
+                });
+            }
+            let el = element_by_symbol(name).ok_or_else(|| {
+                invalid(
+                    field,
+                    format!(
+                        "unknown material {name:?}: not a key of [materials] \
+                         and not an element symbol"
+                    ),
+                )
+            })?;
+            let material = Material::from_atom_fractions(&[(el.z, 1.0)], None)
+                .map_err(|e| {
+                    invalid(
+                        field,
+                        format!("element {name}: {e}; define it in [materials] with a density"),
+                    )
+                })?
+                .with_name(name.clone());
+            Ok(ResolvedLayer {
+                source: name.clone(),
+                material,
+            })
+        }
+    }
+}
+
 fn finite_pos(v: f64) -> bool {
     v.is_finite() && v > 0.0
 }
@@ -898,48 +957,7 @@ impl Input {
     }
 
     fn material(&self, field: &str, r: &MaterialRef) -> Result<ResolvedLayer, InputError> {
-        match r {
-            MaterialRef::Inline(spec) => Material::try_from(spec.clone())
-                .map(|material| ResolvedLayer {
-                    source: "inline".into(),
-                    material,
-                })
-                .map_err(|e| invalid(field, e.to_string())),
-            MaterialRef::Name(name) => {
-                if let Some(spec) = self.materials.get(name) {
-                    let mut material = Material::try_from(spec.clone())
-                        .map_err(|e| invalid(format!("materials.{name}"), e.to_string()))?;
-                    if material.name().is_none() {
-                        material = material.with_name(name.clone());
-                    }
-                    return Ok(ResolvedLayer {
-                        source: name.clone(),
-                        material,
-                    });
-                }
-                let el = element_by_symbol(name).ok_or_else(|| {
-                    invalid(
-                        field,
-                        format!(
-                            "unknown material {name:?}: not a key of [materials] \
-                             and not an element symbol"
-                        ),
-                    )
-                })?;
-                let material = Material::from_atom_fractions(&[(el.z, 1.0)], None)
-                    .map_err(|e| {
-                        invalid(
-                            field,
-                            format!("element {name}: {e}; define it in [materials] with a density"),
-                        )
-                    })?
-                    .with_name(name.clone());
-                Ok(ResolvedLayer {
-                    source: name.clone(),
-                    material,
-                })
-            }
-        }
+        resolve_material(&self.materials, field, r)
     }
 
     /// Validate everything and build the engine's inputs. Errors name the

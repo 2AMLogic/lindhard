@@ -6,7 +6,7 @@ It is a thin front end over the [`lindhard`](https://github.com/2AMLogic/lindhar
 | Subcommand | What |
 |---|---|
 | `lindhard check <input.toml>` | Parse and validate the input, no transport |
-| `lindhard run <input.toml> --out <dir>` | Run it and write `summary.json` and the CSV profiles to `<dir>`; `--ions`, `--seed` and `--threads` override the input (threads never change the results) |
+| `lindhard run <input.toml> --out <dir>` | Run it and write `summary.json` and the CSV profiles to `<dir>` (`electron_summary.json` and `electron_*.csv` for an input with an `[electron]` table); `--ions` (alias `--histories`), `--seed` and `--threads` override the input (threads never change the results) |
 
 From the repository root:
 
@@ -23,5 +23,6 @@ The input schema, the output files and the reproducibility guarantees are in
 | `src/main.rs` | Argument parsing, input loading and the run |
 | `src/output.rs` | `summary.json` and the CSV profiles |
 | `src/tally.rs` | The tally the CLI runs, built on the library's tallies |
+| `src/electron.rs` | Electron runs: table building, transport, `electron_summary.json` and the electron CSV files |
 | `build.rs` | Stamps `git describe` into `--version` |
 | `tests/` | End-to-end tests of the binary |

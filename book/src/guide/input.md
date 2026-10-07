@@ -2,7 +2,8 @@
 
 An input file is TOML with these tables: `[beam]`, `[materials]` (optional),
 `[target]`, `[physics]`, `[stopping]` (optional), `[run]` and `[tally]`
-(optional). The physics behind each `[physics]` choice is in the
+(optional). An electron run has an `[electron]` table instead of `[beam]`,
+`[physics]` and `[tally]` (section "Electron runs" below). The physics behind each `[physics]` choice is in the
 [physics manual](../models/overview.md): [potentials](../models/potentials.md)
 and [screening lengths](../models/screening-lengths.md),
 [electronic stopping](../models/stopping.md), the
