@@ -2,6 +2,7 @@
 
 pub mod bca;
 pub mod damage;
+pub mod dynamic;
 pub mod potential;
 pub mod scattering;
 pub mod stopping;
