@@ -1,0 +1,2801 @@
+{
+ "format": "lindhard-backscatter-crosscheck/1",
+ "primary": "D. C. Joy, 'A Database of Electron-Solid Interactions', revision 01-01 (2001), database.doc (SHA-256 9445f8ddbebb72892a30e2e3bb5c77dac3b4d5b36790287e7c0ce658afd25fd7), Section 2(a) 'Backscattered Electron Yield Data, for elements'; published description: D. C. Joy, Scanning 17, 270 (1995), doi:10.1002/sca.4950170501 (not opened); http://web.archive.org/web/20040320063526/http://web.utk.edu:80/~srcutk/database.doc",
+ "second_read": "F. Akbari, Zenodo doi:10.5281/zenodo.7810951 (CC-BY 4.0), 'Energy dependence (csv).rar' (SHA-256 e35d11553720b6d122e129928993448e7f6456f189a21ad640ec15b1d7846987)",
+ "method": "Each Joy set is matched to the Akbari set (same element table) that shares most (E, eta) points; every Joy point is then looked up at the same printed energy. agree: |eta_akbari - eta_joy| <= 0.0005 (Akbari prints eta in % to 0.1). Joy's values are the stored ones; Akbari's are recorded here only as the re-read",
+ "sets": [
+  {
+   "id": "eta_c_hunger1979",
+   "joy_set": "Reference (1)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "6",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "3.9",
+     "eta_joy": "0.083",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.082",
+     "eta_akbari": "0.082",
+     "agree": true
+    },
+    {
+     "energy_kev": "7.5",
+     "eta_joy": "0.071",
+     "eta_akbari": "0.071",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.066",
+     "eta_akbari": "0.066",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.2",
+     "eta_joy": "0.057",
+     "eta_akbari": "0.057",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.2",
+     "eta_joy": "0.049",
+     "eta_akbari": "0.049",
+     "agree": true
+    },
+    {
+     "energy_kev": "31.0",
+     "eta_joy": "0.051",
+     "eta_akbari": "0.051",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.0",
+     "eta_joy": "0.049",
+     "eta_akbari": "0.049",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_bishop1963",
+   "joy_set": "Data set #2       Reference (6)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "12",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.085",
+     "eta_akbari": "0.085",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.072",
+     "eta_akbari": "0.072",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.061",
+     "eta_akbari": "0.061",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.06",
+     "eta_akbari": "0.06",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_philibert1963",
+   "joy_set": "Data set #3        Reference (7)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "13",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "4.5",
+     "eta_joy": "0.083",
+     "eta_akbari": "0.083",
+     "agree": true
+    },
+    {
+     "energy_kev": "11.0",
+     "eta_joy": "0.059",
+     "eta_akbari": "0.059",
+     "agree": true
+    },
+    {
+     "energy_kev": "28.0",
+     "eta_joy": "0.052",
+     "eta_akbari": "0.052",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_heinrich1966",
+   "joy_set": "Data set #4      Reference (8)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "14",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.069",
+     "eta_akbari": "0.069",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.06",
+     "eta_akbari": "0.06",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.052",
+     "eta_akbari": "0.052",
+     "agree": true
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.054",
+     "eta_akbari": "0.054",
+     "agree": true
+    },
+    {
+     "energy_kev": "49.0",
+     "eta_joy": "0.052",
+     "eta_akbari": "0.052",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_neubert1980",
+   "joy_set": "Data set #5      Reference (13)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "8",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.068",
+     "eta_akbari": "0.068",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.064",
+     "eta_akbari": "0.064",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.06",
+     "eta_akbari": "0.06",
+     "agree": true
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.056",
+     "eta_akbari": "0.056",
+     "agree": true
+    },
+    {
+     "energy_kev": "50.0",
+     "eta_joy": "0.055",
+     "eta_akbari": "0.055",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_sternglass1954",
+   "joy_set": "Data set #6       Reference (34)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "26",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.2",
+     "eta_joy": "0.076",
+     "eta_akbari": "0.076",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.4",
+     "eta_joy": "0.081",
+     "eta_akbari": "0.081",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.074",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "1.2",
+     "eta_joy": "0.0714",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "1.4",
+     "eta_joy": "0.071",
+     "eta_akbari": "0.071",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.65",
+     "eta_joy": "0.066",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "2.05",
+     "eta_joy": "0.066",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "2.25",
+     "eta_joy": "0.066",
+     "eta_akbari": null,
+     "agree": false
+    }
+   ]
+  },
+  {
+   "id": "eta_c_palluel1947",
+   "joy_set": "Data set #7      Reference (35)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "16",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.0771",
+     "eta_akbari": "0.077",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.0857",
+     "eta_akbari": "0.086",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.0886",
+     "eta_akbari": "0.089",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.0857",
+     "eta_akbari": "0.086",
+     "agree": true
+    },
+    {
+     "energy_kev": "6.0",
+     "eta_joy": "0.0834",
+     "eta_akbari": "0.083",
+     "agree": true
+    },
+    {
+     "energy_kev": "8.0",
+     "eta_joy": "0.08",
+     "eta_akbari": "0.08",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.0743",
+     "eta_akbari": "0.074",
+     "agree": true
+    },
+    {
+     "energy_kev": "12.0",
+     "eta_joy": "0.071",
+     "eta_akbari": "0.071",
+     "agree": true
+    },
+    {
+     "energy_kev": "14.0",
+     "eta_joy": "0.0685",
+     "eta_akbari": "0.068",
+     "agree": true
+    },
+    {
+     "energy_kev": "16.0",
+     "eta_joy": "0.0674",
+     "eta_akbari": "0.067",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_wittry1966",
+   "joy_set": "Data set #8       Reference (68)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "17",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.082",
+     "eta_akbari": "0.082",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.05",
+     "eta_akbari": "0.05",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_bronstein1969",
+   "joy_set": "Data set #9       Reference (106)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "18",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.288",
+     "eta_joy": "0.149",
+     "eta_akbari": "0.149",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.4",
+     "eta_joy": "0.153",
+     "eta_akbari": "0.153",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.5",
+     "eta_joy": "0.15",
+     "eta_akbari": "0.15",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.6",
+     "eta_joy": "0.147",
+     "eta_akbari": "0.147",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.14",
+     "eta_akbari": "0.14",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.133",
+     "eta_akbari": "0.133",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.107",
+     "eta_akbari": "0.107",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.088",
+     "eta_akbari": "0.088",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_c_elgomati1997",
+   "joy_set": "Data set #10    Reference (107)",
+   "akbari_csv": "C.csv",
+   "akbari_set": "1",
+   "akbari_comment": "cleaned sample",
+   "points": [
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.076",
+     "eta_akbari": "0.076",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.5",
+     "eta_joy": "0.071",
+     "eta_akbari": "0.071",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.071",
+     "eta_akbari": "0.071",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.064",
+     "eta_akbari": "0.064",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.063",
+     "eta_akbari": "0.063",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.5",
+     "eta_joy": "0.063",
+     "eta_akbari": "0.063",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.058",
+     "eta_akbari": "0.058",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.5",
+     "eta_joy": "0.058",
+     "eta_akbari": "0.058",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.058",
+     "eta_akbari": "0.058",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_reimer1980",
+   "joy_set": "Reference (2)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "10",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.192",
+     "eta_akbari": "0.192",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.161",
+     "eta_akbari": "0.161",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.153",
+     "eta_akbari": "0.153",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.15",
+     "eta_akbari": "0.15",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.15",
+     "eta_akbari": "0.15",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.148",
+     "eta_akbari": "0.148",
+     "agree": true
+    },
+    {
+     "energy_kev": "25.0",
+     "eta_joy": "0.148",
+     "eta_akbari": "0.148",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.144",
+     "eta_akbari": "0.14",
+     "agree": false
+    }
+   ]
+  },
+  {
+   "id": "eta_al_bongeler1993",
+   "joy_set": "Data set #2      Reference (4)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "2",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.198",
+     "eta_akbari": "0.198",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.195",
+     "eta_akbari": "0.195",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.2",
+     "eta_joy": "0.189",
+     "eta_akbari": "0.189",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.4",
+     "eta_joy": "0.182",
+     "eta_akbari": "0.182",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.6",
+     "eta_joy": "0.179",
+     "eta_akbari": "0.179",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.8",
+     "eta_joy": "0.175",
+     "eta_akbari": "0.175",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.17",
+     "eta_akbari": "0.17",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.168",
+     "eta_akbari": "0.168",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.157",
+     "eta_akbari": "0.157",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.5",
+     "eta_joy": "0.152",
+     "eta_akbari": "0.152",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.151",
+     "eta_akbari": "0.151",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.148",
+     "eta_akbari": "0.148",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_shimizu1974",
+   "joy_set": "Data set #3       Reference (5)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "11",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.2346",
+     "eta_akbari": "0.235",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.2132",
+     "eta_akbari": "0.213",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.20",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.1875",
+     "eta_akbari": "0.187",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_bishop1963",
+   "joy_set": "Data set #4     Reference (6)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "12",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.186",
+     "eta_akbari": "0.186",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.177",
+     "eta_akbari": "0.177",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.15",
+     "eta_akbari": "0.15",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_philibert1963",
+   "joy_set": "Data set #5     Reference (7)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "13",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "4.5",
+     "eta_joy": "0.181",
+     "eta_akbari": "0.181",
+     "agree": true
+    },
+    {
+     "energy_kev": "11.0",
+     "eta_joy": "0.133",
+     "eta_akbari": "0.133",
+     "agree": true
+    },
+    {
+     "energy_kev": "28.0",
+     "eta_joy": "0.130",
+     "eta_akbari": "0.13",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_heinrich1966",
+   "joy_set": "Data set #6      Reference (8)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "14",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.149",
+     "eta_akbari": "0.149",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_neubert1980",
+   "joy_set": "Data set #7      Reference (13)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "8",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.171",
+     "eta_akbari": "0.171",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.164",
+     "eta_akbari": "0.164",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.155",
+     "eta_akbari": "0.156",
+     "agree": false
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.151",
+     "eta_akbari": "0.151",
+     "agree": true
+    },
+    {
+     "energy_kev": "50.0",
+     "eta_joy": "0.147",
+     "eta_akbari": "0.147",
+     "agree": true
+    },
+    {
+     "energy_kev": "60.0",
+     "eta_joy": "0.146",
+     "eta_akbari": "0.146",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_kanter1961",
+   "joy_set": "Data set #8      Reference (14)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "22",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.14",
+     "eta_akbari": "0.14",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.133",
+     "eta_akbari": "0.133",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.132",
+     "eta_akbari": "0.132",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.131",
+     "eta_akbari": "0.131",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.135",
+     "eta_akbari": "0.135",
+     "agree": true
+    },
+    {
+     "energy_kev": "6.0",
+     "eta_joy": "0.137",
+     "eta_akbari": "0.137",
+     "agree": true
+    },
+    {
+     "energy_kev": "8.0",
+     "eta_joy": "0.142",
+     "eta_akbari": "0.142",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.14",
+     "eta_akbari": "0.14",
+     "agree": true
+    },
+    {
+     "energy_kev": "12.5",
+     "eta_joy": "0.14",
+     "eta_akbari": "0.14",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.137",
+     "eta_akbari": "0.137",
+     "agree": true
+    },
+    {
+     "energy_kev": "17.5",
+     "eta_joy": "0.139",
+     "eta_akbari": "0.139",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.139",
+     "eta_akbari": "0.139",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_drescher1970",
+   "joy_set": "Data set #9      Reference (15)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "15",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "9.3",
+     "eta_joy": "0.175",
+     "eta_akbari": "0.175",
+     "agree": true
+    },
+    {
+     "energy_kev": "17.3",
+     "eta_joy": "0.159",
+     "eta_akbari": "0.159",
+     "agree": true
+    },
+    {
+     "energy_kev": "25.2",
+     "eta_joy": "0.151",
+     "eta_akbari": "0.151",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.5",
+     "eta_joy": "0.155",
+     "eta_akbari": "0.155",
+     "agree": true
+    },
+    {
+     "energy_kev": "62.1",
+     "eta_joy": "0.137",
+     "eta_akbari": "0.137",
+     "agree": true
+    },
+    {
+     "energy_kev": "81.8",
+     "eta_joy": "0.135",
+     "eta_akbari": "0.135",
+     "agree": true
+    },
+    {
+     "energy_kev": "102.2",
+     "eta_joy": "0.133",
+     "eta_akbari": null,
+     "agree": false
+    }
+   ]
+  },
+  {
+   "id": "eta_al_cosslett1965",
+   "joy_set": "Data set #10     Reference (22)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "3",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.14",
+     "eta_akbari": "0.14",
+     "agree": true
+    },
+    {
+     "energy_kev": "45.0",
+     "eta_joy": "0.15",
+     "eta_akbari": "0.15",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_palluel1947",
+   "joy_set": "Data set  #11    Reference (35)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "16",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.134",
+     "eta_akbari": "0.134",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.146",
+     "eta_akbari": "0.146",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.154",
+     "eta_akbari": "0.154",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.158",
+     "eta_akbari": "0.158",
+     "agree": true
+    },
+    {
+     "energy_kev": "7.5",
+     "eta_joy": "0.153",
+     "eta_akbari": "0.153",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.149",
+     "eta_akbari": "0.149",
+     "agree": true
+    },
+    {
+     "energy_kev": "12.5",
+     "eta_joy": "0.151",
+     "eta_akbari": "0.151",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.149",
+     "eta_akbari": "0.149",
+     "agree": true
+    },
+    {
+     "energy_kev": "17.5",
+     "eta_joy": "0.151",
+     "eta_akbari": "0.151",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_wittry1966",
+   "joy_set": "Data set #12     Reference (68)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "17",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.168",
+     "eta_akbari": "0.168",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.135",
+     "eta_akbari": "0.135",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_bronstein1969",
+   "joy_set": "Data set #13     Reference (106)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "18",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.1",
+     "eta_joy": "0.19",
+     "eta_akbari": "0.19",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.2",
+     "eta_joy": "0.224",
+     "eta_akbari": "0.224",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.3",
+     "eta_joy": "0.235",
+     "eta_akbari": "0.235",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.4",
+     "eta_joy": "0.237",
+     "eta_akbari": "0.237",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.6",
+     "eta_joy": "0.234",
+     "eta_akbari": "0.234",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.226",
+     "eta_akbari": "0.226",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.217",
+     "eta_akbari": "0.217",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.20",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.191",
+     "eta_akbari": "0.191",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.185",
+     "eta_akbari": "0.185",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_al_elgomati1997",
+   "joy_set": "Data set #14     Reference (107)",
+   "akbari_csv": "Al.csv",
+   "akbari_set": "1",
+   "akbari_comment": "cleaned sample",
+   "points": [
+    {
+     "energy_kev": "0.5",
+     "eta_joy": "0.216",
+     "eta_akbari": "0.215",
+     "agree": false
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.212",
+     "eta_akbari": "0.212",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.5",
+     "eta_joy": "0.206",
+     "eta_akbari": "0.206",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.203",
+     "eta_akbari": "0.203",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.202",
+     "eta_akbari": "0.201",
+     "agree": false
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.197",
+     "eta_akbari": "0.197",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.5",
+     "eta_joy": "0.195",
+     "eta_akbari": "0.195",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.191",
+     "eta_akbari": "0.191",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.5",
+     "eta_joy": "0.188",
+     "eta_akbari": "0.188",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.185",
+     "eta_akbari": "0.184",
+     "agree": false
+    },
+    {
+     "energy_kev": "6.0",
+     "eta_joy": "0.180",
+     "eta_akbari": "0.18",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_hunger1979",
+   "joy_set": "Reference (1)",
+   "akbari_csv": "Si.csv",
+   "akbari_set": "6",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "3.93",
+     "eta_joy": "0.204",
+     "eta_akbari": "0.204",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.188",
+     "eta_akbari": "0.188",
+     "agree": true
+    },
+    {
+     "energy_kev": "7.5",
+     "eta_joy": "0.182",
+     "eta_akbari": "0.182",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.174",
+     "eta_akbari": "0.174",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.2",
+     "eta_joy": "0.163",
+     "eta_akbari": "0.163",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.159",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "31.0",
+     "eta_joy": "0.152",
+     "eta_akbari": "0.152",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.0",
+     "eta_joy": "0.144",
+     "eta_akbari": "0.144",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_reimer1980",
+   "joy_set": "Data set #2      Reference (2)",
+   "akbari_csv": "Si.csv",
+   "akbari_set": "10",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.235",
+     "eta_akbari": "0.235",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.212",
+     "eta_akbari": "0.212",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.206",
+     "eta_akbari": "0.206",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.2",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.197",
+     "eta_akbari": "0.197",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.194",
+     "eta_akbari": "0.194",
+     "agree": true
+    },
+    {
+     "energy_kev": "25.0",
+     "eta_joy": "0.192",
+     "eta_akbari": "0.192",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.19",
+     "eta_akbari": "0.19",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_bishop1963",
+   "joy_set": "Data set #3      Reference (6)",
+   "akbari_csv": "Si.csv",
+   "akbari_set": "12",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.197",
+     "eta_akbari": "0.197",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.186",
+     "eta_akbari": "0.186",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.169",
+     "eta_akbari": "0.169",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.162",
+     "eta_akbari": "0.162",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_heinrich1966",
+   "joy_set": "Data set #4        Reference (8)",
+   "akbari_csv": "Si.csv",
+   "akbari_set": "14",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.174",
+     "eta_akbari": "0.174",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.164",
+     "eta_akbari": "0.164",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.159",
+     "eta_akbari": "0.159",
+     "agree": true
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.153",
+     "eta_akbari": "0.153",
+     "agree": true
+    },
+    {
+     "energy_kev": "49.0",
+     "eta_joy": "0.15",
+     "eta_akbari": "0.15",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_drescher1970",
+   "joy_set": "Data set #5      Reference (15)",
+   "akbari_csv": "Si.csv",
+   "akbari_set": "15",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "9.3",
+     "eta_joy": "0.183",
+     "eta_akbari": "0.183",
+     "agree": true
+    },
+    {
+     "energy_kev": "17.3",
+     "eta_joy": "0.178",
+     "eta_akbari": "0.178",
+     "agree": true
+    },
+    {
+     "energy_kev": "25.2",
+     "eta_joy": "0.165",
+     "eta_akbari": "0.165",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.5",
+     "eta_joy": "0.155",
+     "eta_akbari": "0.155",
+     "agree": true
+    },
+    {
+     "energy_kev": "62.1",
+     "eta_joy": "0.149",
+     "eta_akbari": "0.149",
+     "agree": true
+    },
+    {
+     "energy_kev": "81.8",
+     "eta_joy": "0.145",
+     "eta_akbari": "0.145",
+     "agree": true
+    },
+    {
+     "energy_kev": "102.2",
+     "eta_joy": "0.145",
+     "eta_akbari": "0.145",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_wittry1966",
+   "joy_set": "Data set #6      Reference (68)",
+   "akbari_csv": "Si.csv",
+   "akbari_set": "17",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.184",
+     "eta_akbari": "0.184",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.145",
+     "eta_akbari": "0.145",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_bronstein1969",
+   "joy_set": "Data set #7      Reference (106)",
+   "akbari_csv": "Si.csv",
+   "akbari_set": "18",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.2",
+     "eta_joy": "0.252",
+     "eta_akbari": "0.252",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.3",
+     "eta_joy": "0.263",
+     "eta_akbari": "0.263",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.4",
+     "eta_joy": "0.255",
+     "eta_akbari": "0.255",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.6",
+     "eta_joy": "0.241",
+     "eta_akbari": "0.241",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.231",
+     "eta_akbari": "0.231",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.228",
+     "eta_akbari": "0.228",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.204",
+     "eta_akbari": "0.204",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.192",
+     "eta_akbari": "0.192",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.189",
+     "eta_akbari": "0.189",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_si_joy1996_amorphous",
+   "joy_set": "Reference (86)",
+   "akbari_csv": "Si-a.csv",
+   "akbari_set": "38",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "10.000",
+     "eta_joy": "0.190",
+     "eta_akbari": "0.19",
+     "agree": true
+    },
+    {
+     "energy_kev": "7.0000",
+     "eta_joy": "0.200",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.000",
+     "eta_joy": "0.200",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.00",
+     "eta_joy": "0.200",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.000",
+     "eta_joy": "0.200",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.000",
+     "eta_joy": "0.210",
+     "eta_akbari": "0.21",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.500",
+     "eta_joy": "0.210",
+     "eta_akbari": "0.21",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.000",
+     "eta_joy": "0.210",
+     "eta_akbari": "0.21",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.700",
+     "eta_joy": "0.210",
+     "eta_akbari": "0.21",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.500",
+     "eta_joy": "0.210",
+     "eta_akbari": "0.21",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_hunger1979",
+   "joy_set": "Reference (1)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "6",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "3.93",
+     "eta_joy": "0.329",
+     "eta_akbari": "0.329",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.323",
+     "eta_akbari": "0.323",
+     "agree": true
+    },
+    {
+     "energy_kev": "7.5",
+     "eta_joy": "0.317",
+     "eta_akbari": "0.317",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.316",
+     "eta_akbari": "0.316",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.2",
+     "eta_joy": "0.31",
+     "eta_akbari": "0.31",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.2",
+     "eta_joy": "0.306",
+     "eta_akbari": "0.306",
+     "agree": true
+    },
+    {
+     "energy_kev": "31.0",
+     "eta_joy": "0.301",
+     "eta_akbari": "0.301",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.0",
+     "eta_joy": "0.295",
+     "eta_akbari": "0.295",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_reimer1980",
+   "joy_set": "Data set #2     Reference (2)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "10",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    },
+    {
+     "energy_kev": "25.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_moncrieff1976",
+   "joy_set": "Data set #3        Reference (3)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "28",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.259",
+     "eta_akbari": "0.259",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.265",
+     "eta_akbari": "0.265",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.2",
+     "eta_joy": "0.268",
+     "eta_akbari": "0.268",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.4",
+     "eta_joy": "0.268",
+     "eta_akbari": "0.268",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.6",
+     "eta_joy": "0.279",
+     "eta_akbari": "0.279",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.301",
+     "eta_akbari": "0.301",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.306",
+     "eta_akbari": "0.306",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.309",
+     "eta_akbari": "0.309",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.5",
+     "eta_joy": "0.313",
+     "eta_akbari": "0.313",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.306",
+     "eta_akbari": "0.306",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.325",
+     "eta_akbari": "0.325",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_shimizu1974",
+   "joy_set": "Data set #4      Reference (5)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "11",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.4375",
+     "eta_akbari": "0.437",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.419",
+     "eta_akbari": "0.419",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.3989",
+     "eta_akbari": "0.399",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.3842",
+     "eta_akbari": "0.384",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.3566",
+     "eta_akbari": "0.357",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_bishop1963",
+   "joy_set": "Data set #5      Reference (6)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "12",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.352",
+     "eta_akbari": "0.352",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.339",
+     "eta_akbari": "0.339",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.339",
+     "eta_akbari": "0.339",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.319",
+     "eta_akbari": "0.319",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_heinrich1966",
+   "joy_set": "Data set #6      Reference (8)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "14",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.318",
+     "eta_akbari": "0.318",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.309",
+     "eta_akbari": "0.309",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.306",
+     "eta_akbari": "0.306",
+     "agree": true
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.303",
+     "eta_akbari": "0.303",
+     "agree": true
+    },
+    {
+     "energy_kev": "49.0",
+     "eta_joy": "0.297",
+     "eta_akbari": "0.297",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_neubert1980",
+   "joy_set": "Data set #7       Reference (13)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "8",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "15.00",
+     "eta_joy": "0.335",
+     "eta_akbari": "0.335",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.328",
+     "eta_akbari": "0.328",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.319",
+     "eta_akbari": "0.321",
+     "agree": false
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.316",
+     "eta_akbari": "0.316",
+     "agree": true
+    },
+    {
+     "energy_kev": "50.0",
+     "eta_joy": "0.313",
+     "eta_akbari": "0.313",
+     "agree": true
+    },
+    {
+     "energy_kev": "60.0",
+     "eta_joy": "0.311",
+     "eta_akbari": "0.311",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_drescher1970",
+   "joy_set": "Data set #8     Reference (15)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "15",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "9.3",
+     "eta_joy": "0.313",
+     "eta_akbari": "0.313",
+     "agree": true
+    },
+    {
+     "energy_kev": "17.3",
+     "eta_joy": "0.310",
+     "eta_akbari": "0.31",
+     "agree": true
+    },
+    {
+     "energy_kev": "25.2",
+     "eta_joy": "0.307",
+     "eta_akbari": "0.307",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.5",
+     "eta_joy": "0.301",
+     "eta_akbari": "0.301",
+     "agree": true
+    },
+    {
+     "energy_kev": "62.1",
+     "eta_joy": "0.299",
+     "eta_akbari": "0.299",
+     "agree": true
+    },
+    {
+     "energy_kev": "81.8",
+     "eta_joy": "0.294",
+     "eta_akbari": "0.294",
+     "agree": true
+    },
+    {
+     "energy_kev": "102.2",
+     "eta_joy": "0.291",
+     "eta_akbari": "0.291",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_cosslett1965",
+   "joy_set": "Data set #9      Reference (22)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "3",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.29",
+     "eta_akbari": "0.29",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.29",
+     "eta_akbari": "0.29",
+     "agree": true
+    },
+    {
+     "energy_kev": "45.0",
+     "eta_joy": "0.30",
+     "eta_akbari": "0.3",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_koshikawa1973",
+   "joy_set": "Data set #10     Reference (23)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "27",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.5",
+     "eta_joy": "0.40",
+     "eta_akbari": "0.409",
+     "agree": false
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.43",
+     "eta_akbari": "0.43",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.406",
+     "eta_akbari": "0.406",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.406",
+     "eta_akbari": "0.406",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.398",
+     "eta_akbari": "0.398",
+     "agree": true
+    },
+    {
+     "energy_kev": "6.0",
+     "eta_joy": "0.381",
+     "eta_akbari": "0.381",
+     "agree": true
+    },
+    {
+     "energy_kev": "7.0",
+     "eta_joy": "0.366",
+     "eta_akbari": "0.366",
+     "agree": true
+    },
+    {
+     "energy_kev": "8.0",
+     "eta_joy": "0.368",
+     "eta_akbari": "0.368",
+     "agree": true
+    },
+    {
+     "energy_kev": "9.0",
+     "eta_joy": "0.358",
+     "eta_akbari": "0.358",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.356",
+     "eta_akbari": "0.356",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_sternglass1954",
+   "joy_set": "Data set #11     Reference (34)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "26",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.4",
+     "eta_joy": "0.268",
+     "eta_akbari": "0.268",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.65",
+     "eta_joy": "0.269",
+     "eta_akbari": "0.269",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.825",
+     "eta_joy": "0.276",
+     "eta_akbari": "0.276",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.05",
+     "eta_joy": "0.276",
+     "eta_akbari": "0.276",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.45",
+     "eta_joy": "0.275",
+     "eta_akbari": "0.275",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.65",
+     "eta_joy": "0.281",
+     "eta_akbari": "0.281",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.92",
+     "eta_joy": "0.281",
+     "eta_akbari": "0.281",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_wittry1966",
+   "joy_set": "Data set #12     Reference (68)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "17",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.298",
+     "eta_akbari": "0.298",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.291",
+     "eta_akbari": "0.291",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_bronstein1969",
+   "joy_set": "Data set #13      Reference (106)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "18",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.1",
+     "eta_joy": "0.146",
+     "eta_akbari": "0.146",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.2",
+     "eta_joy": "0.284",
+     "eta_akbari": "0.284",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.3",
+     "eta_joy": "0.339",
+     "eta_akbari": "0.339",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.4",
+     "eta_joy": "0.356",
+     "eta_akbari": "0.356",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.6",
+     "eta_joy": "0.375",
+     "eta_akbari": "0.375",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.384",
+     "eta_akbari": "0.384",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.381",
+     "eta_akbari": "0.381",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.5",
+     "eta_joy": "0.384",
+     "eta_akbari": "0.384",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.379",
+     "eta_akbari": "0.379",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.361",
+     "eta_akbari": "0.361",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.34",
+     "eta_akbari": "0.34",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_cu_elgomati1997",
+   "joy_set": "Data set  #14     Reference (107)",
+   "akbari_csv": "Cu.csv",
+   "akbari_set": "1",
+   "akbari_comment": "cleaned sample",
+   "points": [
+    {
+     "energy_kev": "0.61",
+     "eta_joy": "0.275",
+     "eta_akbari": "0.275",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.718",
+     "eta_joy": "0.29",
+     "eta_akbari": "0.29",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.785",
+     "eta_joy": "0.307",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "0.9",
+     "eta_joy": "0.308",
+     "eta_akbari": "0.308",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.31",
+     "eta_akbari": "0.31",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.5",
+     "eta_joy": "0.317",
+     "eta_akbari": "0.317",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.322",
+     "eta_akbari": "0.322",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.321",
+     "eta_akbari": "0.321",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.321",
+     "eta_akbari": "0.321",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.321",
+     "eta_akbari": "0.321",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.321",
+     "eta_akbari": "0.321",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.5",
+     "eta_joy": "0.323",
+     "eta_akbari": "0.323",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.319",
+     "eta_akbari": "0.319",
+     "agree": true
+    },
+    {
+     "energy_kev": "6.0",
+     "eta_joy": "0.321",
+     "eta_akbari": "0.321",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_hunger1979",
+   "joy_set": "Reference (1)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "6",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "3.93",
+     "eta_joy": "0.45",
+     "eta_akbari": "0.45",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.469",
+     "eta_akbari": "0.469",
+     "agree": true
+    },
+    {
+     "energy_kev": "7.5",
+     "eta_joy": "0.465",
+     "eta_akbari": "0.465",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.476",
+     "eta_akbari": "0.476",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.2",
+     "eta_joy": "0.484",
+     "eta_akbari": "0.484",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.2",
+     "eta_joy": "0.485",
+     "eta_akbari": "0.485",
+     "agree": true
+    },
+    {
+     "energy_kev": "31.0",
+     "eta_joy": "0.49",
+     "eta_akbari": "0.49",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.0",
+     "eta_joy": "0.494",
+     "eta_akbari": "0.494",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_reimer1980",
+   "joy_set": "Data set #2       Reference (2)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "10",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.415",
+     "eta_akbari": "0.415",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.448",
+     "eta_akbari": "0.448",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.471",
+     "eta_akbari": "0.471",
+     "agree": true
+    },
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.482",
+     "eta_akbari": "0.482",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.482",
+     "eta_akbari": "0.482",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.482",
+     "eta_akbari": "0.482",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_bongeler1993",
+   "joy_set": "Data set #3       Reference (4)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "2",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.245",
+     "eta_akbari": "0.245",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.289",
+     "eta_akbari": "0.289",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.2",
+     "eta_joy": "0.325",
+     "eta_akbari": "0.325",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.4",
+     "eta_joy": "0.339",
+     "eta_akbari": "0.339",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.6",
+     "eta_joy": "0.349",
+     "eta_akbari": "0.349",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.8",
+     "eta_joy": "0.376",
+     "eta_akbari": "0.376",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.373",
+     "eta_akbari": "0.373",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.386",
+     "eta_akbari": "0.386",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.414",
+     "eta_akbari": "0.414",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.5",
+     "eta_joy": "0.428",
+     "eta_akbari": "0.428",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.443",
+     "eta_akbari": "0.443",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.459",
+     "eta_akbari": "0.459",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_bishop1963",
+   "joy_set": "Data set #4      Reference (6)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "12",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.489",
+     "eta_akbari": "0.489",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.501",
+     "eta_akbari": "0.501",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.521",
+     "eta_akbari": "0.521",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_heinrich1966",
+   "joy_set": "Data set #5      Reference (8)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "14",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.483",
+     "eta_akbari": "0.483",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.506",
+     "eta_akbari": "0.506",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.512",
+     "eta_akbari": "0.512",
+     "agree": true
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.51",
+     "eta_akbari": "0.51",
+     "agree": true
+    },
+    {
+     "energy_kev": "49.0",
+     "eta_joy": "0.511",
+     "eta_akbari": "0.511",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_neubert1980",
+   "joy_set": "Data set #6     Reference (13)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "8",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "15.0",
+     "eta_joy": "0.514",
+     "eta_akbari": "0.514",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.516",
+     "eta_akbari": "0.516",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.519",
+     "eta_akbari": "0.519",
+     "agree": true
+    },
+    {
+     "energy_kev": "40.0",
+     "eta_joy": "0.521",
+     "eta_akbari": "0.521",
+     "agree": true
+    },
+    {
+     "energy_kev": "50.0",
+     "eta_joy": "0.523",
+     "eta_akbari": "0.523",
+     "agree": true
+    },
+    {
+     "energy_kev": "60.0",
+     "eta_joy": "0.525",
+     "eta_akbari": "0.525",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_drescher1970",
+   "joy_set": "Data set #7      Reference (15)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "15",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "9.3",
+     "eta_joy": "0.478",
+     "eta_akbari": "0.478",
+     "agree": true
+    },
+    {
+     "energy_kev": "17.3",
+     "eta_joy": "0.492",
+     "eta_akbari": "0.492",
+     "agree": true
+    },
+    {
+     "energy_kev": "25.2",
+     "eta_joy": "0.501",
+     "eta_akbari": "0.501",
+     "agree": true
+    },
+    {
+     "energy_kev": "41.5",
+     "eta_joy": "0.507",
+     "eta_akbari": "0.507",
+     "agree": true
+    },
+    {
+     "energy_kev": "62.1",
+     "eta_joy": "0.513",
+     "eta_akbari": "0.513",
+     "agree": true
+    },
+    {
+     "energy_kev": "81.8",
+     "eta_joy": "0.51",
+     "eta_akbari": "0.51",
+     "agree": true
+    },
+    {
+     "energy_kev": "102.2",
+     "eta_joy": "0.513",
+     "eta_akbari": "0.513",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_cosslett1965",
+   "joy_set": "Data set #8     Reference (22)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "3",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.43",
+     "eta_akbari": "0.43",
+     "agree": true
+    },
+    {
+     "energy_kev": "10.0",
+     "eta_joy": "0.47",
+     "eta_akbari": "0.47",
+     "agree": true
+    },
+    {
+     "energy_kev": "20.0",
+     "eta_joy": "0.48",
+     "eta_akbari": "0.48",
+     "agree": true
+    },
+    {
+     "energy_kev": "45.0",
+     "eta_joy": "0.5",
+     "eta_akbari": "0.5",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_wittry1966",
+   "joy_set": "Data set #9      Reference (68)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "17",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.432",
+     "eta_akbari": "0.432",
+     "agree": true
+    },
+    {
+     "energy_kev": "30.0",
+     "eta_joy": "0.481",
+     "eta_akbari": "0.481",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_bronstein1969",
+   "joy_set": "Data set #10      Reference (106)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "18",
+   "akbari_comment": "",
+   "points": [
+    {
+     "energy_kev": "0.1",
+     "eta_joy": "0.082",
+     "eta_akbari": "0.082",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.2",
+     "eta_joy": "0.14",
+     "eta_akbari": "0.14",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.3",
+     "eta_joy": "0.20",
+     "eta_akbari": "0.2",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.4",
+     "eta_joy": "0.256",
+     "eta_akbari": "0.256",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.6",
+     "eta_joy": "0.357",
+     "eta_akbari": "0.357",
+     "agree": true
+    },
+    {
+     "energy_kev": "0.8",
+     "eta_joy": "0.407",
+     "eta_akbari": "0.407",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.419",
+     "eta_akbari": "0.419",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.45",
+     "eta_akbari": "0.45",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.464",
+     "eta_akbari": "0.464",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.461",
+     "eta_akbari": "0.461",
+     "agree": true
+    }
+   ]
+  },
+  {
+   "id": "eta_au_elgomati1997",
+   "joy_set": "Data set #11     Reference (107)",
+   "akbari_csv": "Au.csv",
+   "akbari_set": "1",
+   "akbari_comment": "cleaned sample",
+   "points": [
+    {
+     "energy_kev": "0.61",
+     "eta_joy": "0.367",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "0.9",
+     "eta_joy": "0.387",
+     "eta_akbari": "0.387",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.0",
+     "eta_joy": "0.395",
+     "eta_akbari": "0.395",
+     "agree": true
+    },
+    {
+     "energy_kev": "1.51",
+     "eta_joy": "0.411",
+     "eta_akbari": null,
+     "agree": false
+    },
+    {
+     "energy_kev": "2.0",
+     "eta_joy": "0.428",
+     "eta_akbari": "0.428",
+     "agree": true
+    },
+    {
+     "energy_kev": "2.5",
+     "eta_joy": "0.444",
+     "eta_akbari": "0.444",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.0",
+     "eta_joy": "0.451",
+     "eta_akbari": "0.451",
+     "agree": true
+    },
+    {
+     "energy_kev": "3.5",
+     "eta_joy": "0.455",
+     "eta_akbari": "0.455",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.0",
+     "eta_joy": "0.459",
+     "eta_akbari": "0.459",
+     "agree": true
+    },
+    {
+     "energy_kev": "4.5",
+     "eta_joy": "0.458",
+     "eta_akbari": "0.458",
+     "agree": true
+    },
+    {
+     "energy_kev": "5.0",
+     "eta_joy": "0.461",
+     "eta_akbari": "0.461",
+     "agree": true
+    },
+    {
+     "energy_kev": "6.0",
+     "eta_joy": "0.471",
+     "eta_akbari": "0.471",
+     "agree": true
+    }
+   ]
+  }
+ ]
+}
