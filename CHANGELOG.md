@@ -69,6 +69,20 @@ one version).
   gains `phonon` and `polaron`. New `Fate::PolaronTrapped`, `PhononEvent`,
   `ElectronTally::phonon` and `ElectronTally::polaron_trapped` hooks, and
   `SummaryTally` counters for phonon events and trapped energy.
+- `electron::elastic` exchange and correlation-polarization corrections
+  (#91), both off by default: `solve_corrected` and `CorrectedPotential` add
+  Furness-McCarthy local exchange and the Salvat (2003) correlation-polarization
+  potential (Perdew-Zunger LDA correlation joined to a Buckingham
+  `-alpha_d/(2(r^2+d^2)^2)` tail, Seltzer's cutoff or a caller-set `b_pol^2`)
+  to a static potential at one energy. The atomic electron density is an
+  explicit input (`ElectronDensity`, implemented for `SalvatDhfs` and `Yukawa`
+  by their Poisson densities) and the dipole polarizability is a caller input
+  with a required citation. `ElasticResult` gains a `corrections` field
+  (`CorrectionMetadata`) recording which corrections, model identifiers and
+  inputs were used; `solve` reports both off. `ScreenedPotential` gains
+  `long_range()` (default `false`); with it the solver places the start of the
+  outward integration by a WKB criterion. With both corrections off results
+  are bit-identical to before.
 - `geometry::Geometry`, the engine-facing target trait, implemented by `Stack`
   and the new `geometry::VoxelGrid` (regular 3D grid of material indices,
   periodic or vacuum boundaries per axis, exact 3D DDA traversal that

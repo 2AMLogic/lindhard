@@ -3,7 +3,9 @@
 //! [`data`] holds the validated types the electron engine consumes (optical
 //! energy-loss functions, subshell binding energies and precomputed
 //! cross-section tables). [`elastic`] solves the radial Dirac equation for one
-//! screened potential at one energy (phase shifts, Mott cross sections);
+//! screened potential at one energy (phase shifts, Mott cross sections), with
+//! optional Furness-McCarthy exchange and correlation-polarization corrections
+//! built from an explicit atomic electron density (both off by default);
 //! [`elastic::table`] turns it into elastic cross-section tables for a
 //! material.
 //! [`inelastic`] holds the dielectric-function models of inelastic
