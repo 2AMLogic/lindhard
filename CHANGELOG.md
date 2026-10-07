@@ -26,6 +26,19 @@ one version).
 
 ### Added
 
+- `geometry::Geometry`, the engine-facing target trait, implemented by `Stack`
+  and the new `geometry::VoxelGrid` (regular 3D grid of material indices,
+  periodic or vacuum boundaries per axis, exact 3D DDA traversal that
+  truncates the free path at a material change; `Geometry::flight` also
+  reports the region a flight without an event ends in, so the particle's
+  region follows it across same-material voxel faces). `Bca::new` now takes any
+  `&dyn Geometry` (a `&Stack` still works) and `Bca::with_entry_point` picks
+  the incident point. `Face::Side` and `EnergyBudget::lateral` account for
+  escapes through the lateral faces of a voxel grid; `Face` moved to
+  `geometry` (still re-exported from `ion::bca`) and gained that variant;
+  `kinematics::refract_out_normal` applies the surface barrier along an
+  arbitrary face normal. `Particle::layer` is now the region index (layer or
+  flat voxel index). Stack runs are unchanged.
 - `electron::transport`: the event-by-event electron loop (Kieft and Bosch,
   J. Phys. D 41, 215310 (2008)) over layered stacks on elastic and inelastic
   `CrossSectionTable`s. `Transport::run` goes through `rng::run_particles`

@@ -8,8 +8,8 @@ import numpy.typing as npt
 
 __version__: str
 
-FATE_NAMES: tuple[str, str, str]
-"""Names of the codes in ``RunResult.ions["fate"]``: stopped, backscattered, transmitted."""
+FATE_NAMES: tuple[str, str, str, str]
+"""Names of the codes in ``RunResult.ions["fate"]``: stopped, backscattered, transmitted, lateral."""
 
 class LindhardError(Exception):
     """Base class of every exception raised by lindhard."""
