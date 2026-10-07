@@ -553,6 +553,12 @@ impl ScreenedPotential for CorrectedPotential<'_> {
     fn long_range(&self) -> bool {
         self.cp.is_some() || self.stat.long_range()
     }
+    fn bound_energy_ev(&self) -> Option<f64> {
+        Some(self.energy_ev)
+    }
+    fn correction_metadata(&self) -> CorrectionMetadata {
+        self.meta.clone()
+    }
     fn matching_radius(&self, threshold: f64) -> f64 {
         if !self.exchange && self.cp.is_none() {
             return self.stat.matching_radius(threshold);
@@ -586,7 +592,5 @@ pub fn solve_corrected(
         return solve(pot, energy_ev, thetas, opts);
     }
     let corrected = CorrectedPotential::new(pot, density, energy_ev, corrections)?;
-    let mut result = solve(&corrected, energy_ev, thetas, opts)?;
-    result.corrections = corrected.meta.clone();
-    Ok(result)
+    solve(&corrected, energy_ev, thetas, opts)
 }

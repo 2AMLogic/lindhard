@@ -192,6 +192,21 @@ pub trait ScreenedPotential: Sync {
         false
     }
 
+    /// The kinetic energy (eV) this potential was built for, when it depends
+    /// on one (such as [`CorrectedPotential`], whose exchange and polarization
+    /// cutoff use the energy). [`ElasticSolver::new`] rejects any other solver
+    /// energy. The default, `None`, accepts every energy.
+    fn bound_energy_ev(&self) -> Option<f64> {
+        None
+    }
+
+    /// Which corrections the potential includes; copied into
+    /// [`ElasticResult::corrections`] by [`solve`]. The default reports both
+    /// off.
+    fn correction_metadata(&self) -> CorrectionMetadata {
+        CorrectionMetadata::default()
+    }
+
     /// Radius beyond which the potential is neglected: the smallest radius on
     /// a geometric grid (ratio 1.05, from `length_scale`) with
     /// `|r V(r)| < threshold` that also lies beyond every breakpoint.
@@ -791,6 +806,16 @@ impl<'a> ElasticSolver<'a> {
                 format!("{energy_ev} eV (need finite, > 0)"),
             ));
         }
+        if let Some(bound) = pot.bound_energy_ev() {
+            if bound != energy_ev {
+                return Err(invalid(
+                    "energy",
+                    format!(
+                        "{energy_ev} eV does not match the potential's bound energy {bound} eV"
+                    ),
+                ));
+            }
+        }
         if opts.step_scale.is_nan() || opts.step_scale <= 0.0 || opts.step_scale > 4.0 {
             return Err(invalid(
                 "step_scale",
@@ -1045,7 +1070,7 @@ pub fn solve(
         sigma_el: pw.sigma_el(),
         sigma_tr1: pw.sigma_tr1(),
         partial_waves: pw,
-        corrections: CorrectionMetadata::default(),
+        corrections: pot.correction_metadata(),
     })
 }
 

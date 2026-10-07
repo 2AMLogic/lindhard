@@ -426,6 +426,46 @@ fn poisson_densities_integrate_to_z() {
 }
 
 #[test]
+fn corrected_potential_rejects_a_mismatched_solver_energy() {
+    let pot = tf_yukawa(6.0);
+    let c = Corrections {
+        exchange: true,
+        correlation_polarization: Some(fixture_cp(20.0)),
+    };
+    let corrected = CorrectedPotential::new(&pot, &pot, 100.0, &c).unwrap();
+    let opts = SolverOptions::default();
+    assert!(matches!(
+        ElasticSolver::new(&corrected, 10_000.0, opts),
+        Err(ElasticError::Invalid { .. })
+    ));
+    assert!(solve(&corrected, 10_000.0, &[], opts).is_err());
+    assert!(ElasticSolver::new(&corrected, 100.0, opts).is_ok());
+    assert!(corrected.solver(opts).is_ok());
+    // An unbound potential accepts any energy.
+    assert!(ElasticSolver::new(&pot, 10_000.0, opts).is_ok());
+}
+
+#[test]
+fn trait_based_solve_of_a_corrected_potential_records_its_corrections() {
+    let pot = tf_yukawa(6.0);
+    let c = Corrections {
+        exchange: true,
+        correlation_polarization: Some(fixture_cp(20.0)),
+    };
+    let corrected = CorrectedPotential::new(&pot, &pot, 500.0, &c).unwrap();
+    let r = solve(
+        &corrected,
+        corrected.energy_ev(),
+        &[],
+        SolverOptions::default(),
+    )
+    .unwrap();
+    assert_eq!(r.corrections, *corrected.metadata());
+    assert!(r.corrections.exchange.is_some());
+    assert!(r.corrections.correlation_polarization.is_some());
+}
+
+#[test]
 fn every_option_combination_is_recorded() {
     let pot = tf_yukawa(6.0);
     let thetas = [0.0, 1.0, PI];
