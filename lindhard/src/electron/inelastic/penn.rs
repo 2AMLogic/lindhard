@@ -75,7 +75,7 @@
 //! Section 3 ("ionis-SDCS"), eqs. (32)-(35), which in turn cites Ochkur, Sov.
 //! Phys.-JETP 20, 1175 (1965) and Rudge, Rev. Mod. Phys. 40, 564 (1968)
 //! (neither read here) and takes the energy-dependent setup from the authors'
-//! earlier work (their ref. [42], not read). From that account:
+//! earlier work (their ref. 42, not read). From that account:
 //!
 //! * the exchange term of the DIIMFP is the direct one with the integrand
 //!   multiplied by `1 + F(q)`, with the Born-Ochkur factor
