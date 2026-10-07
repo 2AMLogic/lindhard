@@ -39,12 +39,34 @@
 //!   marked "calculated" there, U "~18.95". The table names no allotrope
 //!   except graphite for C. All populated entries checked on 2026-10-07
 //!   (#15; the PDF's SHA-256 is recorded in `docs/data-provenance.md`), and
-//!   37 values set to the printed ones. Exceptions, still **not verified**
-//!   to their stored digits:
-//!   C 2.267 (printed as the range 1.9-2.3), Cr 7.15 (printed as 7.18-7.20,
-//!   so the stored value lies **outside** it), Mn 7.44 (the upper end of the
-//!   printed range 7.21-7.44), Au 19.30 (printed "~19.3"), and Ra 5.0 and
-//!   Ac 10.07 (no density printed). Si keeps 2.329: the booklet prints 2.33
+//!   37 values set to the printed ones. Four entries the booklet does not pin
+//!   were checked on 2026-10-07 (#15) against other open primary
+//!   compilations, all U.S. government reports:
+//!   - Cr 7.20 (was 7.15, which lay **outside** the booklet's printed range
+//!     7.18-7.20): the upper end of that range, and the density "calculated
+//!     from the NBS lattice constant", 7.200 at 25 °C, in H. E. Swanson,
+//!     R. K. Fuyat and G. M. Ugrinic, *Standard X-ray Diffraction Powder
+//!     Patterns*, NBS Circular 539, Vol. V (1955), p. 20
+//!     (<https://nvlpubs.nist.gov/nistpubs/Legacy/circ/nbscircular539v5.pdf>).
+//!     This is an X-ray (crystal) density.
+//!   - Au 19.30: the booklet prints "~19.3"; NBS Circular 539, Vol. I
+//!     (Swanson and Tatge, 1953), p. 33, prints 19.302 at 25 °C from its
+//!     lattice constant
+//!     (<https://nvlpubs.nist.gov/nistpubs/Legacy/circ/nbscircular539v1.pdf>).
+//!   - Ra 5.0: no density in the booklet; "a specific gravity of
+//!     approximately 5.0" in H. W. Kirby and M. L. Salutsky, *The
+//!     Radiochemistry of Radium*, NAS-NS 3057 (1964), p. 3, citing the
+//!     International Critical Tables (<https://www.osti.gov/servlets/purl/4560824>).
+//!   - Ac 10.07: no density in the booklet; the crystal density of fcc Ac
+//!     metal (a = 5.311 Å), Table 4, p. 11, of J. D. Farr, A. L. Giorgi,
+//!     M. G. Bowman and R. K. Money, "The crystal structure of actinium metal
+//!     and actinium hydride", Los Alamos report LA-1545 (1953)
+//!     (<https://www.osti.gov/servlets/purl/4397640>), published as
+//!     J. Inorg. Nucl. Chem. 18, 42 (1961).
+//!
+//!   Still **not verified** to their stored digits: C 2.267 (printed as the
+//!   range 1.9-2.3) and Mn 7.44 (the upper end of the printed range
+//!   7.21-7.44). Si keeps 2.329: the booklet prints 2.33
 //!   at 25 °C, and 2.329 is the crystal density `M(Si) / V_m(Si)` from the
 //!   CODATA 2022 "molar volume of silicon" (1.205 883 199e-5 m³/mol,
 //!   <https://physics.nist.gov/cuu/Constants/Table/allascii.txt>) for any
@@ -187,7 +209,7 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     el(21, "Sc", 44.955907, false, Some(2.989), None, None),
     el(22, "Ti", 47.867, false, Some(4.54), Some(4.85), Some(30.0)),
     el(23, "V", 50.9415, false, Some(6.11), Some(5.31), Some(40.0)),
-    el(24, "Cr", 51.9961, false, Some(7.15), Some(4.1), Some(40.0)),
+    el(24, "Cr", 51.9961, false, Some(7.20), Some(4.1), Some(40.0)),
     el(25, "Mn", 54.938043, false, Some(7.44), None, None),
     el(26, "Fe", 55.845, false, Some(7.874), Some(4.28), Some(40.0)),
     el(
@@ -471,6 +493,41 @@ mod tests {
         // precision, its second decimal is not verified.
         let au = by("Au").density_g_cm3.unwrap();
         assert!((au - 19.3).abs() < 0.05, "{au}");
+    }
+
+    /// Densities the X-Ray Data Booklet does not pin, checked against other
+    /// open primary compilations (read 2026-10-07; see the module docs and
+    /// `docs/data-provenance.md`), g/cm³.
+    #[test]
+    fn densities_match_other_primary_compilations() {
+        // NBS Circular 539 Vol. I (1953), p. 33: Au 19.302 at 25 °C from the
+        // lattice constant; the booklet prints "~19.3". Agrees to the stored
+        // digits.
+        let au = by("Au").density_g_cm3.unwrap();
+        assert!((au - 19.302).abs() < 0.005, "{au}");
+        // NBS Circular 539 Vol. V (1955), p. 20: Cr 7.200 at 25 °C from the
+        // lattice constant, the upper end of the booklet's 7.18-7.20.
+        // Corrected in #15 (was 7.15, outside that range).
+        let cr = by("Cr").density_g_cm3.unwrap();
+        assert_eq!(cr, 7.20);
+        assert!((7.18..=7.20).contains(&cr));
+        // Kirby and Salutsky, NAS-NS 3057 (1964), p. 3: Ra "approximately
+        // 5.0". Reviewer-flagged; unchanged.
+        assert_eq!(by("Ra").density_g_cm3, Some(5.0));
+        // Farr et al., LA-1545 (1953), Table 4: Ac 10.07 (fcc, a = 5.311 Å).
+        assert_eq!(by("Ac").density_g_cm3, Some(10.07));
+    }
+
+    /// The Ac entry is the crystal density of its fcc cell as LA-1545 prints
+    /// it: 4 atoms of mass number 227 in a cube of edge 5.311 Å, rounded to
+    /// the printed 10.07 g/cm³ (the report's a carries +- 0.010 Å).
+    #[test]
+    fn actinium_density_matches_its_lattice_constant() {
+        use crate::constants::AVOGADRO;
+        let ac = by("Ac");
+        let a_cm = 5.311e-8;
+        let rho = 4.0 * ac.atomic_weight / (AVOGADRO * a_cm * a_cm * a_cm);
+        assert!((rho - ac.density_g_cm3.unwrap()).abs() < 0.01, "{rho}");
     }
 
     /// Si: the CODATA 2022 "molar volume of silicon", V_m(Si) =
