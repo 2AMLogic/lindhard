@@ -6,7 +6,14 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-readme = "../README.md"
+readme = "README.md"
+include = [
+    "/src/**",
+    "/build.rs",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+]
 categories = ["command-line-utilities", "science", "simulation"]
 build = "build.rs"
 

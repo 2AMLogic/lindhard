@@ -6,7 +6,17 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
-readme = "../README.md"
+readme = "README.md"
+include = [
+    "/src/**",
+    # The manifest declares a harness-less `validation` test and three benches,
+    # so their sources must ship or the packaged manifest has dangling targets.
+    "/tests/**",
+    "/benches/**",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+]
 keywords = ["ion-implantation", "monte-carlo", "bca", "stopping-power", "physics"]
 categories = ["science", "simulation"]
 

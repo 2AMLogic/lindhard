@@ -90,3 +90,31 @@ jobs:
         run: cargo clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
+
+  package:
+    name: Package (cargo package / publish --dry-run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Review the file list of each crate
+        run: |
+          set -euo pipefail
+          for crate in lindhard lindhard-cli; do
+            echo "::group::cargo package --list -p $crate"
+            cargo package --list -p "$crate" | tee "/tmp/$crate.list"
+            echo "::endgroup::"
+            for f in LICENSE CHANGELOG.md README.md Cargo.toml; do
+              grep -qx "$f" "/tmp/$crate.list" || { echo "::error::$crate archive lacks $f"; exit 1; }
+            done
+            if grep -E '^(\.loom|\.github|docs|validation|examples)/' "/tmp/$crate.list"; then
+              echo "::error::$crate archive contains files outside the allowlist"; exit 1
+            fi
+          done
+      - name: cargo publish --dry-run (both crates, credential-free, nothing uploaded)
+        # --workspace packages and verifies the crates together, resolving
+        # lindhard-cli's `lindhard = "0.0.1"` against the freshly packaged
+        # library, so it works before the first publication. Needs cargo >= 1.90.
+        run: cargo publish --dry-run --workspace
