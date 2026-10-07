@@ -1,0 +1,26 @@
+[package]
+name = "lindhard-py"
+description = "Python bindings for lindhard (pyo3, built with maturin)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+readme = "README.md"
+# Shipped to PyPI by maturin, never to crates.io.
+publish = false
+
+[lib]
+# The Python package is `lindhard`; the compiled module is `lindhard._lindhard`.
+# The Rust library is named differently from the `lindhard` crate it wraps.
+name = "_lindhard"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+lindhard = { workspace = true }
+lindhard-cli = { path = "../lindhard-cli", version = "0.0.1" }
+pyo3 = { version = "0.29", features = ["abi3-py39"] }
+numpy = "0.29"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+toml = "1.1.6"

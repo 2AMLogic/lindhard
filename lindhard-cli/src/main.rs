@@ -1,22 +1,12 @@
 //! The `lindhard` command: one TOML input in, `summary.json` and CSV profiles
 //! out. Input schema and output layout: `docs/cli.md`.
 
-mod output;
-mod tally;
-
 use std::path::{Path, PathBuf};
-use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use lindhard::input::{Input, Resolved};
-use lindhard::ion::bca::Bca;
-use lindhard::ion::potential::Potential;
-use lindhard::ion::scattering::ScatteringTable;
-
-use lindhard::tally::IonTally;
-
-use crate::tally::{ion_tally_config, CliTally};
+use lindhard_cli::{output, sim};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -141,53 +131,18 @@ fn run(
         bail!("--threads must be at least 1");
     }
 
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(input.run.threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
-
-    // The angle table depends on the screening function and length only (the
-    // engine works in reduced variables), so the Z pair here is immaterial.
-    let t0 = Instant::now();
-    let z2 = r.layers[0].material.components()[0].z();
-    let pot = Potential::new(r.screening, f64::from(r.beam.ion.z()), f64::from(z2))
-        .with_length(r.screening_length);
-    let table = ScatteringTable::build(&pot, &r.table_spec);
-    let table_build_s = t0.elapsed().as_secs_f64();
-
-    let stopping = r.stopping_model();
-    let bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
-        .context("setting up the transport engine")?;
-    let tally_spec = &r.input.tally;
-    let ion_proto = IonTally::new(&r.stack, &bca.species_z(), ion_tally_config(&r)?)
-        .context("setting up the ion tally")?;
-    let t1 = Instant::now();
-    let tally = pool
-        .install(|| {
-            bca.run(|| {
-                CliTally::new(
-                    tally_spec.depth_bin_nm * 1e-9,
-                    tally_spec.depth_bins,
-                    tally_spec.per_ion,
-                    ion_proto.clone(),
-                )
-            })
-        })
-        .context("transport failed")?;
-    let transport_s = t1.elapsed().as_secs_f64();
+    let sim::Simulation {
+        tally,
+        table,
+        report,
+        info,
+    } = sim::simulate(&r, input.run.threads)?;
 
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let write = |name: &str, text: String| -> Result<()> {
         let p = out.join(name);
         std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
     };
-    let info = output::RunInfo {
-        threads: pool.current_num_threads(),
-        table_build_s,
-        transport_s,
-        ions_per_s: tally.summary.histories as f64 / transport_s.max(f64::MIN_POSITIVE),
-    };
-    let report = tally.ion.report(r.input.tally.dual_pearson);
     write(
         output::SUMMARY_FILE,
         output::summary_json(&r, &table, &tally, &report, info)?,

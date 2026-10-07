@@ -556,6 +556,7 @@ fn escaped_particles_are_outside_the_target() {
             let ok = match face {
                 Face::Front => p.pos[0] == 0.0 && p.dir[0] < 0.0,
                 Face::Back => p.pos[0] == self.back && p.dir[0] > 0.0,
+                Face::Side => unreachable!("a stack has no lateral faces"),
             };
             if !ok {
                 self.bad += 1;

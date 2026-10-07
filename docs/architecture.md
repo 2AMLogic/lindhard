@@ -9,7 +9,7 @@ One library crate, `lindhard`, holds all the physics. Front ends sit on top of
 it:
 
 - `lindhard-cli`: TOML input, JSON/CSV output (M0).
-- `lindhard-py`: pyo3/maturin wheels on PyPI (M3).
+- `lindhard-py`: pyo3/maturin Python package, NumPy arrays out (bindings built; PyPI wheels in M3). It reuses the CLI's driver, tallies and writers (`lindhard-cli` is also a small library), so a Python run and a command run of the same input and seed agree bit for bit; it adds no physics and no second copy of the TOML schema.
 - WASM build for in-browser range calculators (M3).
 
 Within the library, the shared core (materials, geometry, random numbers,
@@ -23,7 +23,7 @@ electron MC). The engines share the core and nothing else.
 | `units`, `constants` | SI internally; CODATA constants with citations | M0 |
 | `material` | Elements (Z, mass, density), compounds, mixtures; per-element displacement, lattice and surface binding energies, user-set with documented defaults | M0 |
 | `rng` | Counter-based streams keyed on (seed, particle index) so results do not depend on the thread count | M0 |
-| `geometry` | 1D layered target (M0); 2D/3D voxel and triangle mesh (M3); stacks taken from layout cross-sections (M3) | M0+ |
+| `geometry` | `Geometry` trait (regions, per-material data, exit-event along a flight); 1D layered `Stack` (M0); 3D `VoxelGrid` with exact DDA traversal, periodic or vacuum per axis; triangle mesh and stacks taken from layout cross-sections (M3) | M0+ |
 | `ion::potential` | Screening functions: ZBL universal, Kr-C, Molière, Lenz-Jensen; screening lengths | M0 |
 | `ion::scattering` | Scattering integral solved by Gauss–Mehler quadrature; precomputed (ε, b) tables; magic formula kept as a cross-check | M0 |
 | `ion::stopping` | Electronic stopping: Lindhard-Scharff, Oen-Robinson, Bethe-Bloch with corrections, user tables with provenance; Bragg additivity plus optional compound corrections. Validity ranges: [`stopping-models.md`](stopping-models.md) | M0 |
@@ -34,7 +34,7 @@ electron MC). The engines share the core and nothing else.
 | `electron::data` | Validated data the electron engine consumes: optical ELF tables, subshell binding energies (read from an ENDF-6 File 28 copy the user supplies), and versioned cross-section caches (inverse mean free path plus inverse CDFs of the elastic angle or inelastic energy loss). Every loader requires a provenance; serde reads run the same checks | M1 |
 | `electron::elastic` | Mott cross sections by our own partial-wave solution (not ELSEPA tables) | M1 |
 | `electron::inelastic` | Dielectric-function model (Lindhard / Mermin, Penn algorithm) built from optical data with provenance; SE generation; interface refraction | M1 |
-| `electron::transport` | Event-by-event MC from about 10 eV to 50 keV in layered and voxel targets | M1 |
+| `electron::transport` | Event-by-event MC from about 10 eV to 50 keV in layered and voxel targets. Layered stacks on `CrossSectionTable` inputs are implemented (exact layer-face crossings with path redraw, configurable cutoff and escape rule recorded in run metadata, `ElectronTally` hooks mirroring `ion::bca`); interface refraction, secondaries and phonon/polaron channels attach at the existing hooks later | M1 |
 | `tally` | Depth and lateral histograms, moments (Rp, ΔRp, γ, β), Pearson IV / dual-Pearson fits, damage and sputter/backscatter tallies (M0, `tally::ion` on the BCA hooks, plain-data `IonReport`); 3D grids, energy-deposition maps, PSF extraction (double/triple Gaussian α/β/η) (later) | M0/M1 |
 
 ## Performance plan

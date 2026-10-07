@@ -115,7 +115,21 @@ pub fn lab_projectile_sc(s: f64, c: f64, mu: f64) -> (f64, f64) {
 /// Returns `Some((energy outside, direction outside))`, or `None` if the
 /// particle cannot escape (the caller reflects it specularly).
 pub fn refract_out(e: f64, dir: [f64; 3], e_s: f64) -> Option<(f64, [f64; 3])> {
-    let c = dir[0].abs();
+    refract_out_normal(e, dir, [1.0f64.copysign(dir[0]), 0.0, 0.0], e_s)
+}
+
+/// [`refract_out`] through a face with outward unit normal `normal` (any
+/// orientation, not only the planar `x` faces): the normal component of the
+/// momentum is reduced, the tangential components are unchanged. The
+/// particle must be moving outward (`dir . normal > 0`) to escape.
+pub fn refract_out_normal(
+    e: f64,
+    dir: [f64; 3],
+    normal: [f64; 3],
+    e_s: f64,
+) -> Option<(f64, [f64; 3])> {
+    let dn = dir[0] * normal[0] + dir[1] * normal[1] + dir[2] * normal[2];
+    let c = dn.abs();
     let e_normal = e * c * c;
     if e_normal <= e_s {
         return None;
@@ -124,11 +138,15 @@ pub fn refract_out(e: f64, dir: [f64; 3], e_s: f64) -> Option<(f64, [f64; 3])> {
         return Some((e, dir));
     }
     let e_out = e - e_s;
-    // Momentum components scale with sqrt(energy): parallel unchanged,
+    // Momentum components scale with sqrt(energy): tangential unchanged,
     // normal from the reduced normal energy.
     let f_par = (e / e_out).sqrt();
-    let c_out = ((e_normal - e_s) / e_out).sqrt().copysign(dir[0]);
-    Some((e_out, normalize([c_out, dir[1] * f_par, dir[2] * f_par])))
+    let c_out = ((e_normal - e_s) / e_out).sqrt().copysign(dn);
+    let mut out = [0.0; 3];
+    for k in 0..3 {
+        out[k] = (dir[k] - dn * normal[k]) * f_par + c_out * normal[k];
+    }
+    Some((e_out, normalize(out)))
 }
 
 #[cfg(test)]
