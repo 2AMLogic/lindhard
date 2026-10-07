@@ -197,3 +197,43 @@ and, for a sputter-yield dataset, if it:
 
 `validation/experiments/test_run.py` (run by `validation/run.sh`) checks
 that each of these failures is caught.
+
+What the checker does **not** enforce (not schema rules at present): the
+nominal plotting range of a figure (the stored points span 196.3 to
+10 020 eV, and seven lie just outside 200-10 000 eV), any
+particular wording of free-text fields such as `terms`, `target_state` or
+`original_reference` (only that the required ones are non-empty), the
+presence of `crosscheck` or `reliability_note`, and the absence of
+additional top-level keys. Tightening any of these needs its own schema
+decision, not an incidental check.
+
+## Sensitivity scenarios (sputter yields, #78)
+
+The level-3 sputter summary in `docs/validation.md` compares lindhard with
+the median of **every** stored set; that is the baseline and it does not
+change. Below it, a generated table repeats the comparison with sets whose
+attribution or target state is doubtful left out. The scenarios are the
+named table `SENSITIVITY_SCENARIOS` in `validation/update_docs.py`: each
+row names existing dataset `id`s of one target and the place where the
+caveat is stored (the dataset's `target_state` or `original_reference`, or
+the "Titles that name another system" paragraph of `docs/validation.md`).
+Nothing is inferred from prose, and the datasets carry no exclusion marker.
+`update_docs.py` stops with a message naming the scenario if an `id` is
+unknown, listed twice, or belongs to another target, if a caveat source is
+not one of those three, or if two scenarios are identical.
+
+For each scenario the remaining sets of the target are filtered **first**,
+then regrouped by the unchanged `energy_groups` rule (2 % grouping, normal
+incidence, flagged points left out, median). Leaving a set out can
+therefore change a group's median and its representative energy, or remove
+the group. The code yields are the committed ones (`results.json`, and the
+RustBCA summaries where present): exact at a run energy, otherwise
+interpolated linearly in log E - log Y between the two bracketing run
+energies, for positive yields only. That interpolation approximates the
+committed code curve; it is not a new simulation and not an uncertainty
+estimate. Precomputed ratios are never interpolated and nothing is
+extrapolated: an energy outside the runs is listed as unsupported and the
+row is marked partial; a scenario with no remaining energies, or a code
+that was not run, is reported as unavailable. The no-exclusion row is
+recomputed by the same path and must reproduce the committed baseline to
+its printed precision, or `update_docs.py` stops.

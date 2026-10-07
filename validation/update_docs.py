@@ -18,7 +18,10 @@ committed digitizing cross-check records (validation/data/digitize/
 crosscheck_ar_*_nifs23.json, secondread_ar_*_am32.json). Every number in the
 sputter-yield interpretation, and every comparative word in it ("consistent
 with one common value", "monotonic", "flat", "between"), is computed here by a
-rule stated in the code next to it (#70). Called by validation/run.sh.
+rule stated in the code next to it (#70). The summary block ends with a
+sensitivity table: the same comparison with the sets named in
+SENSITIVITY_SCENARIOS left out, regrouped from the committed datasets (#78).
+Called by validation/run.sh.
 
 Usage: validation/update_docs.py [--level1 FILE] [--check]
 
@@ -39,6 +42,10 @@ ROOT = Path(__file__).resolve().parents[1]
 DOC = ROOT / "docs" / "validation.md"
 SUMMARIES = ROOT / "validation" / "oracles" / "summaries"
 RESULTS = ROOT / "validation" / "experiments" / "results.json"
+SPUTTER_DATA = ROOT / "validation" / "data" / "sputtering"
+
+sys.path.insert(0, str(ROOT / "validation" / "experiments"))
+import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
 
 
 def splice(text: str, name: str, body: str) -> str:
@@ -358,6 +365,205 @@ def level3_sputter_crosscheck() -> str:
     return "\n".join(lines).strip()
 
 
+# --- sensitivity of the summary to doubtful sets (#78) ---
+#
+# Each scenario leaves out existing datasets (by `id`, the file stem in validation/data/sputtering/)
+# of one target, for a doubt that is already documented: `caveat` names where (the dataset's own
+# `target_state` or `original_reference`, or the "Titles that name another system" paragraph of
+# docs/validation.md, section 3). These are sensitivity scenarios only: every stored set stays in
+# the baseline comparison, nothing is deleted, and whether an original reports the plotted Ar yield
+# is not settled here (the originals were not read). Inclusion is decided by this table only,
+# never by matching words in the datasets' prose.
+CAVEAT_DOC = "docs/validation.md"
+CAVEAT_SOURCES = ("target_state", "original_reference", CAVEAT_DOC)
+SENSITIVITY_SCENARIOS = (
+    {"target": "Si", "exclude": ("ar_si_sputter_poate1976",), "caveat": CAVEAT_DOC,
+     "reason": "cited paper's Crossref title names PtSi and NiSi"},
+    {"target": "Ag", "exclude": ("ar_ag_sputter_wehner1961",), "caveat": "original_reference",
+     "reason": "cited paper's Crossref title is Hg+ at 4-15 keV"},
+    {"target": "Ag", "exclude": ("ar_ag_sputter_okajima1981",), "caveat": CAVEAT_DOC,
+     "reason": "cited paper's Crossref title names O2+"},
+    {"target": "Au", "exclude": ("ar_au_sputter_robinson1967",), "caveat": "target_state",
+     "reason": "monocrystalline target per the original's title; a target-state doubt, not an attribution one"},
+    {"target": "Au", "exclude": ("ar_au_sputter_szymonski1978",), "caveat": "original_reference",
+     "reason": "cited paper's Crossref title is 6 keV Xe+ on an AgAu alloy"},
+    {"target": "Au", "exclude": ("ar_au_sputter_holloway1977",), "caveat": CAVEAT_DOC,
+     "reason": "cited paper's Crossref title names Cr in Au"},
+    {"target": "Au", "exclude": ("ar_au_sputter_robinson1967", "ar_au_sputter_szymonski1978",
+                                 "ar_au_sputter_holloway1977"), "caveat": "target_state, original_reference, " + CAVEAT_DOC,
+     "reason": "the three Au rows above together"},
+)
+
+
+def load_sputter_sets(directory: Path = SPUTTER_DATA) -> list[tuple[Path, dict]]:
+    """The committed sputter-yield datasets, read only (run.py --check validates them)."""
+    files = sorted(directory.glob("*.json")) if directory.is_dir() else []
+    return [(f, json.loads(f.read_text())) for f in files]
+
+
+def check_scenarios(scenarios, datasets) -> list[str]:
+    """Every problem with the scenario table, as actionable messages; empty if it is usable."""
+    by_id = {d.get("id"): d for _, d in datasets}
+    errs, seen = [], {}
+    for i, s in enumerate(scenarios):
+        where = f"SENSITIVITY_SCENARIOS[{i}] (target {s.get('target')!r})"
+        ids = list(s.get("exclude") or ())
+        if not ids:
+            errs.append(f"{where}: `exclude` is empty; the baseline is added automatically, list at least one dataset id")
+        for x in sorted({x for x in ids if ids.count(x) > 1}):
+            errs.append(f"{where}: dataset id {x!r} is listed more than once in `exclude`")
+        for x in ids:
+            d = by_id.get(x)
+            if d is None:
+                errs.append(f"{where}: unknown dataset id {x!r}; ids are the file stems of "
+                            "validation/data/sputtering/*.json")
+            elif d.get("target") != s.get("target"):
+                errs.append(f"{where}: dataset {x!r} is an {d.get('ion')} -> {d.get('target')} set, "
+                            f"not {s.get('target')}; move it to a scenario of its own target")
+        for c in (c.strip() for c in str(s.get("caveat", "")).split(",")):
+            if c not in CAVEAT_SOURCES:
+                errs.append(f"{where}: `caveat` {c!r} is not one of {', '.join(CAVEAT_SOURCES)}")
+            elif c != CAVEAT_DOC and len(ids) == 1 and ids[0] in by_id and not str(by_id[ids[0]].get(c, "")).strip():
+                errs.append(f"{where}: `caveat` names the dataset field {c!r}, which is empty in {ids[0]!r}")
+        if not str(s.get("reason", "")).strip():
+            errs.append(f"{where}: `reason` is empty")
+        key = (s.get("target"), frozenset(ids))
+        if ids and key in seen:
+            errs.append(f"{where}: same target and exclusions as SENSITIVITY_SCENARIOS[{seen[key]}]")
+        seen.setdefault(key, i)
+    return errs
+
+
+def code_yield(curve: dict, e: float):
+    """A code's yield at energy `e` from its committed runs `curve` (energy -> yield):
+    (yield, "exact") at a run energy; (yield, "interpolated") between the two bracketing run
+    energies, linear in log E - log Y (positive yields only); (None, why) otherwise. Never
+    extrapolates. An interpolated yield approximates the committed code curve; it is not a run."""
+    if e in curve:
+        y = curve[e]
+        return (y, "exact") if y > 0 else (None, "nonpositive yield")
+    lo = [x for x in curve if x < e]
+    hi = [x for x in curve if x > e]
+    if not lo or not hi:
+        return None, "outside the committed run energies"
+    e0, e1 = max(lo), min(hi)
+    y0, y1 = curve[e0], curve[e1]
+    if y0 <= 0 or y1 <= 0:
+        return None, "nonpositive yield"
+    f = math.log(e / e0) / math.log(e1 / e0)
+    return math.exp(math.log(y0) + f * math.log(y1 / y0)), "interpolated"
+
+
+def scenario_comparison(datasets, ion: str, target: str, exclude, curves: dict) -> dict:
+    """One scenario: the datasets of `target` minus `exclude`, grouped by the unchanged rule of
+    run.energy_groups (2 % grouping, incidence and flag rules, median), then each code's yield
+    (`curves`: name -> {energy: yield}, or None if that code was not run) over the new median.
+    The inputs are not modified."""
+    kept = [(p, d) for p, d in datasets if d["ion"] == ion and d["target"] == target and d["id"] not in set(exclude)]
+    groups = [g for g in experiments.energy_groups(kept) if (g["ion"], g["target"]) == (ion, target)]
+    out = {
+        "groups": groups,
+        "n_groups": len(groups),
+        "n_sets": len({s for g in groups for s in g["sets"]}),
+        "n_points": sum(g["n_points"] for g in groups),
+        "codes": {},
+    }
+    for name, curve in curves.items():
+        if curve is None:
+            out["codes"][name] = None
+            continue
+        ratios, missing, interpolated = [], [], 0
+        for g in groups:
+            y, how = code_yield(curve, g["energy_ev"])
+            if y is None:
+                missing.append((g["energy_ev"], how))
+            else:
+                ratios.append(y / g["yield_median"])
+                interpolated += how == "interpolated"
+        out["codes"][name] = {"ratios": ratios, "missing": missing, "interpolated": interpolated}
+    return out
+
+
+def ratio_summary(c, n_groups: int) -> str:
+    """Geometric mean (range) of one code's ratios, marked partial if any group is unsupported,
+    'unavailable' if there is nothing to compare; never a fabricated number."""
+    if c is None:
+        return "unavailable (not run)"
+    if not c["ratios"]:
+        return "unavailable (no energies)" if n_groups == 0 else "unavailable (no supported energy)"
+    s = f"{gmean(c['ratios']):.2f} ({min(c['ratios']):.2f}-{max(c['ratios']):.2f})"
+    if c["missing"]:
+        s += f", partial: {len(c['ratios'])} of {n_groups} energies"
+    return s
+
+
+def sputter_sensitivity(sp, targets, rb, datasets, scenarios=SENSITIVITY_SCENARIOS) -> list[str]:
+    """The generated sensitivity table (#78); [] if no scenario applies to a committed target."""
+    errs = check_scenarios(scenarios, datasets)
+    if errs:
+        sys.exit("error: " + "\n       ".join(errs))
+    ion = "Ar"
+    lines = [
+        "**Sensitivity to doubtful sets (scenarios, not a new baseline).** The table above keeps every stored set. "
+        "Below, the sets named in each row are left out *before* the measured points are regrouped by the same rule "
+        "(energies within 2 %, flagged points left out, median), so the median and the representative energy of a "
+        "group can change and a group whose only set is left out disappears. lindhard's and RustBCA's yields are the "
+        "committed runs: exact at a run energy, otherwise interpolated linearly in log E - log Y between the two "
+        "bracketing run energies (an approximation to the committed code curve, not a new run and not an "
+        "uncertainty); nothing is extrapolated, and an energy outside the runs is counted as unsupported. The "
+        "reasons are the caveats stored in each dataset's `target_state` or `original_reference`, or listed under "
+        "\"Titles that name another system\" above; none of the originals was read, so none is settled here.",
+        "",
+        "| Target | Left out | Caveat (where stored) | Energies (sets, points) | Interpolated | Unsupported "
+        "| lindhard K = 0 / median | RustBCA K = 0 / median |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    rows = 0
+    for t in targets:
+        sc = [s for s in scenarios if s["target"] == t]
+        if not sc:
+            continue
+        curves = {"lindhard": {r["energy_ev"]: r["lindhard_k0"] for r in sp["rows"] if r["target"] == t},
+                  "rustbca": {r["energy_ev"]: r["rustbca_k0"] for r in rb[t]["rows"]} if rb.get(t) else None}
+        base = scenario_comparison(datasets, ion, t, (), curves)
+        committed = [r for r in sp["rows"] if r["target"] == t]
+        # The no-exclusion scenario must reproduce the committed baseline: same groups, same
+        # medians, and the same printed geometric means; otherwise results.json is stale.
+        if [(g["energy_ev"], g["yield_median"], g["n_points"]) for g in base["groups"]] != \
+                [(r["energy_ev"], r["yield_median"], r["n_points"]) for r in committed]:
+            sys.exit(f"error: regrouping the committed Ar -> {t} datasets does not reproduce the groups in "
+                     f"{RESULTS.relative_to(ROOT)}; rerun validation/experiments/run.py")
+        printed = f"{gmean([r['lindhard_k0_over_median'] for r in committed]):.2f}"
+        if ratio_summary(base["codes"]["lindhard"], base["n_groups"]).split(" ")[0] != printed:
+            sys.exit(f"error: the Ar -> {t} no-exclusion scenario does not reproduce the printed K = 0 ratio {printed}")
+        for s in ({"exclude": (), "caveat": "-", "reason": "baseline"}, *sc):
+            r = base if not s["exclude"] else scenario_comparison(datasets, ion, t, s["exclude"], curves)
+            interp = r["codes"]["lindhard"]["interpolated"]
+            rb_c = r["codes"]["rustbca"]
+            left = "none (baseline)" if not s["exclude"] else ", ".join(f"`{x}`" for x in s["exclude"])
+            why = "-" if not s["exclude"] else f"{s['reason']} ({s['caveat']})"
+            interp_txt = f"{interp}" + ("" if rb_c is None or rb_c["interpolated"] == interp
+                                        else f" (RustBCA {rb_c['interpolated']})")
+            missing = [f"{name} at {e:g} eV ({how})" for name, c in r["codes"].items() if c for e, how in c["missing"]]
+            lines.append(
+                f"| {t} | {left} | {why} | {r['n_groups']} ({r['n_sets']}, {r['n_points']}) | {interp_txt} "
+                f"| {'; '.join(missing) if missing else 'none'} "
+                f"| {ratio_summary(r['codes']['lindhard'], r['n_groups'])} | {ratio_summary(rb_c, r['n_groups'])} |"
+            )
+            rows += 1
+    if not rows:
+        return []
+    lines += [
+        "",
+        "Geometric mean (range) over the regrouped energies, as in the table above; \"Interpolated\" counts the "
+        "energies whose code yield is interpolated rather than a committed run. The baseline rows are recomputed "
+        "by this regrouping and reproduce the table above to its printed precision (update_docs.py stops "
+        "otherwise). Scenarios: `SENSITIVITY_SCENARIOS` in `validation/update_docs.py`; semantics: "
+        "`validation/data/README.md`.",
+    ]
+    return lines
+
+
 def level3_sputter_summary() -> str:
     """The per-target summary table and the interpretation, every number and
     every comparative word computed here from results.json and the RustBCA
@@ -541,6 +747,9 @@ def level3_sputter_summary() -> str:
             + ("every target" if all(v < 1 for v in lr.values()) else ", ".join(t for t in have_rb if lr[t] < 1))
             + "; it stays **unexplained**."
         )
+    sens = sputter_sensitivity(sp, targets, rb, load_sputter_sets())
+    if sens:
+        lines += [""] + sens
     return "\n".join(lines)
 
 

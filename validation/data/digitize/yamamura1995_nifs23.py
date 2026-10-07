@@ -41,12 +41,16 @@ Method:
    on the matched ticks. The scans are sheared or rotated (on p. 49 the left
    edge leans about 0.5 deg, the bottom edge 0.02 deg), so log10 E is the
    bottom-axis fit and the top-axis fit blended linearly in y, and log10 Y the
-   left and right fits blended linearly in x. The right side of Fig. 310 has
-   no ticks in the scan; there the right-side fit is the left-side fit moved
-   along the mean slope of the fitted top and bottom edges (the panel is
-   rotated by about 0.6 deg). Using the left fit alone instead read all nine
-   compared Au points 4-9 % high, which is how the rotation was noticed; the
-   correction uses only the frame geometry. Residuals are printed.
+   left and right fits blended linearly in x. For Fig. 310 no right-side
+   ticks are used (none usable for the comb fit was found on that side of the
+   scan); there the right-side fit is the left-side fit moved along the mean
+   slope of the fitted top and bottom edges (the panel is rotated by about
+   0.6 deg). Using the left fit alone instead read all nine compared Au points
+   4-9 % high, which is how the rotation was noticed; the correction uses only
+   the frame geometry. The review of PR #77 (#78) reports three faint
+   remnants of right-side decade ticks near the rows of the tilt-corrected
+   fit; that qualitative cross-check is the review's, was not reproduced
+   here, and is not used. Residuals are printed.
 2. Symbols. Each figure uses its own letters (legend in each figure table's
    comment). Each symbol in a figure's seeds was read by eye from 6x to 10x
    zooms of the raster. The search was guided by where IPPJ-AM-32 puts the
@@ -165,8 +169,8 @@ AG = {"figure": "Fig. 209", "page": 71, "am32_page": 191, "shape": (2314, 1596),
 # E Colombie, F Weijsenfeld (1966), G Nenadovic, H Andersen, I Wittmaack, J Eernisse, K Colligon,
 # L Sletten, M Robinson, N Weijsenfeld (1967), O Fitch, P Fitch, Q Chenecrojian, R Brauer, S Oliva-Florio,
 # T Yamashita (1980), U Oechsner, V Holloway, W Ato, X Braun, Y Benninghoven, Z Szymonski, and a filled
-# triangle (written "^" here) for Yamashita (1982); no ACAT points. The right axis of this scan has no
-# ticks (right_ticks False).
+# triangle (written "^" here) for Yamashita (1982); no ACAT points. No right-axis ticks are used for this
+# scan (right_ticks False): none usable for the comb fit was found there (see the module docstring).
 AU_LETTER_OF = {"ar_au_sputter_almen1961": "A", "ar_au_sputter_laegreid1961": "B", "ar_au_sputter_patterson1962": "D",
                 "ar_au_sputter_robinson1967": "M", "ar_au_sputter_weijsenfeld1967": "N",
                 "ar_au_sputter_benninghoven1969": "Y", "ar_au_sputter_sletten1972": "L", "ar_au_sputter_oechsner1973": "U",
@@ -223,11 +227,11 @@ class Axes:
             self.fy_right, r = self._side(False, self.right, -1, -5 / span_y, -3.0, self.bottom)
             res.append(("right", r))
         else:
-            # No ticks on the right side of this scan: the right-side log10 Y fit is the
+            # No right-side ticks used for this scan: the right-side log10 Y fit is the
             # left-side fit moved along the mean slope of the fitted top and bottom edges.
             tilt = (self.edge_slope[True, -1] + self.edge_slope[True, +1]) / 2
             self.fy_right = (self.fy_left[0] - self.fy_left[1] * tilt * span_x, self.fy_left[1])
-            print(f"axis right: no ticks; left-side fit moved along the frame tilt ({tilt:+.4f} px/px)")
+            print(f"axis right: no right-side ticks used; left-side fit moved along the frame tilt ({tilt:+.4f} px/px)")
         allr = np.concatenate([r for _, r in res])
         self.rms = float(allr.std())
         for name, r in res:
