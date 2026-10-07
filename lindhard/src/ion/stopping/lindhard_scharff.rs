@@ -113,6 +113,22 @@ impl ElectronicStopping for LindhardScharff {
             * reduced_to_si_factor(ion, target_z, m2))
     }
 
+    fn sqrt_energy_coefficient(&self, ion: &Ion, target_z: u8) -> Option<f64> {
+        let m2 = target(target_z).ok()?.atomic_weight;
+        let factor = self.correction(target_z);
+        if !(factor.is_finite() && factor >= 0.0) {
+            return None;
+        }
+        // S = factor k_L sqrt(eps) f, with eps = E eps_per_ev (reduced_energy
+        // is linear in E), so S = [factor k_L sqrt(eps_per_ev) f] sqrt(E).
+        let eps_per_ev = reduced_energy(ion, target_z, m2, 1.0);
+        Some(
+            factor
+                * self.reduced_stopping(ion, target_z, m2, eps_per_ev)
+                * reduced_to_si_factor(ion, target_z, m2),
+        )
+    }
+
     fn validity(&self, ion: &Ion) -> ValidityRange {
         // v < v0 Z1^(2/3): E/A below about 25 keV Z1^(4/3).
         ValidityRange {
@@ -157,6 +173,31 @@ mod tests {
                 * v;
             assert!((s / dim - 1.0).abs() < 0.01, "{z1} {z2}: {}", s / dim);
         }
+    }
+
+    #[test]
+    fn sqrt_energy_coefficient_reproduces_stopping() {
+        for (z1, z2, corr) in [
+            (5u8, 14u8, 1.0),
+            (33, 14, 1.25),
+            (18, 29, 0.0),
+            (1, 79, 1.0),
+        ] {
+            let ion = Ion::new(z1).unwrap();
+            let m = LindhardScharff::new().with_correction(z2, corr);
+            let c = m.sqrt_energy_coefficient(&ion, z2).unwrap();
+            for e in [1.0, 37.0, 5.0e3, 2.0e5] {
+                let s = m.stopping(&ion, z2, e).unwrap();
+                assert!((c * e.sqrt() - s).abs() <= 1e-13 * s, "{z1} {z2} {e}");
+            }
+        }
+        let ion = Ion::new(5).unwrap();
+        // Failing configurations and unknown targets give no coefficient.
+        let bad = LindhardScharff::new().with_correction(14, f64::NAN);
+        assert!(bad.sqrt_energy_coefficient(&ion, 14).is_none());
+        assert!(LindhardScharff::new()
+            .sqrt_energy_coefficient(&ion, 0)
+            .is_none());
     }
 
     #[test]

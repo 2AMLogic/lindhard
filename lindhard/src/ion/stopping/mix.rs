@@ -34,6 +34,12 @@ impl EquipartitionMix {
         Ok(0.5 * self.ls.stopping(ion, target_z, energy_ev)?)
     }
 
+    /// `c` with `nonlocal_stopping(E) = c sqrt(E)`: half the Lindhard-Scharff
+    /// coefficient (see [`ElectronicStopping::sqrt_energy_coefficient`]).
+    pub fn nonlocal_sqrt_energy_coefficient(&self, ion: &Ion, target_z: u8) -> Option<f64> {
+        Some(0.5 * self.ls.sqrt_energy_coefficient(ion, target_z)?)
+    }
+
     /// Local loss at one collision, J: half of the OR local loss.
     pub fn local_loss(
         &self,
