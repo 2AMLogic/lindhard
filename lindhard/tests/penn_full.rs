@@ -102,14 +102,38 @@ fn a_peak_narrower_than_a_knot_subset_still_counts() {
     let table = OpticalElf::new("synthetic spike", "synthetic", energy, elf).unwrap();
     let f_opt = SumRuleReport::new(&table).f_sum_ev2;
     assert!(rel(f_opt, 21.0) < 1e-12, "{f_opt}");
-    for tol in [1e-2, 1e-3] {
+    // Reference at a tolerance well below the ones under test; the coarser
+    // runs must converge onto it as the tolerance tightens. Measured errors
+    // (synthetic spike, 500 eV): stopping 3.8e-6 at tol 1e-2 and 9.8e-8 at
+    // 1e-3; inverse IMFP 7.1e-6 and 1.9e-6. The bound of ten times the
+    // tolerance is loose on purpose; it fails if the spike is unsampled.
+    let at = |tol: f64| {
         let fpa = FullPenn::new(table.clone())
             .with_relative_tolerance(tol)
             .unwrap();
         let f = fpa.f_sum_ev2_at(0.5 / BOHR_RADIUS).unwrap();
+        let p = fpa.imfp_and_stopping(500.0).unwrap();
+        (f, p.stopping_ev_per_m, p.inverse_imfp_per_m)
+    };
+    let (_, s_ref, l_ref) = at(1e-5);
+    assert!(s_ref > 0.0 && l_ref > 0.0, "{s_ref} {l_ref}");
+    for tol in [1e-2, 1e-3] {
+        let (f, s, l) = at(tol);
+        eprintln!(
+            "tol {tol}: f-sum err {:.3e}, stopping err {:.3e}, 1/imfp err {:.3e}",
+            rel(f, f_opt),
+            rel(s, s_ref),
+            rel(l, l_ref)
+        );
         assert!(rel(f, f_opt) < 1e-2, "tol {tol}: {f} vs {f_opt}");
-        let s = fpa.stopping_power_ev_per_m(500.0).unwrap();
-        assert!(s > 0.0, "tol {tol}: stopping {s}");
+        assert!(
+            rel(s, s_ref) < 10.0 * tol,
+            "tol {tol}: stopping {s} vs {s_ref}"
+        );
+        assert!(
+            rel(l, l_ref) < 10.0 * tol,
+            "tol {tol}: 1/imfp {l} vs {l_ref}"
+        );
     }
 }
 
