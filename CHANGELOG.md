@@ -109,6 +109,14 @@ one version).
   function, `sigma_el`, `sigma_tr1`), with `Yukawa`, `SquareWell` and
   `SalvatDhfs` potentials. The Salvat et al. (1987) coefficient table is not
   yet in the tree (`SalvatDhfs::for_element` returns an error).
+- `electron::elastic::table`: elastic `CrossSectionTable`s for any `Material`
+  on a caller-chosen energy grid (default 10 eV to 50 keV, 20 points per
+  decade). Elements combine by independent-atom additivity; the DCS is held
+  in exact Legendre form and the shared probability grid is refined until the
+  `sigma_tr1` recovered from the stored inverse CDF matches the solver's (to
+  1e-3 at every grid energy, tested). The potential comes from a
+  `PotentialSource`; `ThomasFermiYukawa` is a stand-in until the DHFS table is
+  available, and the table's model and provenance strings say so.
 - `SubshellBindingTable::eadl2017()`: the committed Z=1..92 subshell binding
   energies and occupancies (EADL as distributed in EPICS2017; D. E. Cullen,
   IAEA-NDS-224 Rev. 1), embedded in the library with its credit notice, under

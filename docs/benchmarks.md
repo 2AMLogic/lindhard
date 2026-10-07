@@ -29,6 +29,8 @@ scattering table), so run-to-run differences are timing noise only.
 | `history.rs` | `history_100_ions_single_thread` | One history at a time (`Bca::history`) for B 5 keV, As 50 keV into Si and Ar 1 keV into Cu, 7 degrees off normal |
 | `history.rs` | `cascade_and_free_path_B_5keV_Si_1000_ions` | Full cascade vs ions only (`follow_recoils`), constant vs energy-dependent free path |
 | `history.rs` | `tally_overhead_B_5keV_Si_1000_ions` | The light `SummaryTally` vs the full `IonTally` (histograms, moments, damage, escapes) on the same histories |
+| `elastic.rs` | `elastic_solve` | One radial-Dirac partial-wave solve (Cu, Thomas-Fermi Yukawa stand-in) at 100 eV, 1 keV and 50 keV |
+| `elastic.rs` | `elastic_table` | A full `electron::elastic::table::build_elastic_table` for Si and Au: 75 energies from 10 eV to 50 keV, adaptive probability grid (same stand-in potential) |
 | `history.rs` | `throughput_<problem>_10k_ions` | 10^4 ions through `Bca::run` on explicit rayon pools of 1, 2, 4, ... up to the machine's parallelism |
 | `penn.rs` | `penn_spa_200_energies` | `SinglePolePenn::tabulate`: the electron IMFP and stopping power on a 200-point log grid from 10 eV to 50 keV, single-pole Penn model on a synthetic Drude plasmon ELF (20 eV, width 5 eV) tabulated at 1000 energies |
 
