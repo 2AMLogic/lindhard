@@ -810,12 +810,19 @@ IPPJ-AM-32's separate reads of those references. A read outside that range
 is reported as unexplained, whatever its size; none is beyond twice the
 combined uncertainty, so no point is flagged or excluded.
 
-One calibration finding is disclosed: the right side of Fig. 310 (Au) has
-no ticks in the scan. With log Y taken from the left side alone, all nine
-compared Au points read 4 to 9 % high, which is how the panel's rotation
-(about 0.6°, the same on its top and bottom edges) was noticed. The
-calibration now moves the left-side fit along that measured tilt; it uses
-only the frame geometry, and the table above is the result.
+One calibration finding is disclosed: the calibration of Fig. 310 (Au)
+uses no right-side ticks, because none usable for the comb fit was found on
+that side of the scan when it was digitized. With log Y taken from the left
+side alone, all nine compared Au points read 4 to 9 % high, which is how the
+panel's rotation (about 0.6°, the same on its top and bottom edges) was
+noticed. The calibration now moves the left-side fit along that measured
+tilt; it uses only the frame geometry, and the table above is the result.
+The review of PR #77 (#78) reports three faint remnants of right-side
+decade ticks in the raster, 1 to 2 px thick, lying nearer the rows of the
+tilt-corrected calibration than those of the left-side fit alone. That is a
+qualitative cross-check of the correction, attributed to the review: it was
+not reproduced when this text was written, and the calibration does not use
+those remnants.
 
 *Plausibility of the axes.* Where a Crossref title states an energy range,
 the stored points respect it: Koedam, "(40-240 eV)", has its Ag points at
@@ -991,6 +998,23 @@ Geometric mean over the merged energies of each target's ratio to the measured m
 - **Against the measured band**, lindhard K = 0 is below it at 15 of 15 energies (Si), 31 of 31 energies (Cu), 25 of 25 energies (Ag), 22 of 25 energies (Au), inside it at 0 (Si), 0 (Cu), 0 (Ag), 2 (Au) and above it at 0 (Si), 0 (Cu), 0 (Ag), 1 (Au).
 - **Weak collisions (K = 3)** give a lower lindhard yield than K = 0 at 96 of 96 energies; their geometric mean ratio to the median is 0.53 (Si), 0.29 (Cu), 0.24 (Ag), 0.30 (Au), further from the measured median than K = 0 for Si, Cu, Ag, Au. No default is changed here (#61).
 - **RustBCA (context, K = 0)**: Si: lindhard 0.66, RustBCA 1.07, the median 87 % of the log distance from lindhard toward RustBCA; Cu: lindhard 0.61, RustBCA 1.30, the median 65 % of the log distance from lindhard toward RustBCA; Ag: lindhard 0.43, RustBCA 0.89, the median not between them; Au: lindhard 0.53, RustBCA 1.16, the median 81 % of the log distance from lindhard toward RustBCA. RustBCA lies above the measured median at 11 of 15 energies (Si), 29 of 31 energies (Cu), 3 of 25 energies (Ag), 14 of 25 energies (Au). The measured median lies between the two codes' geometric means for Si, Cu, Au, and not for Ag; RustBCA's geometric mean is the nearer to the median for Si, Cu, Ag, Au. lindhard is 0.62 (Si), 0.47 (Cu), 0.48 (Ag), 0.46 (Au) of RustBCA (geometric mean over energies): the gap of #61 is present for every target; it stays **unexplained**.
+
+**Sensitivity to doubtful sets (scenarios, not a new baseline).** The table above keeps every stored set. Below, the sets named in each row are left out *before* the measured points are regrouped by the same rule (energies within 2 %, flagged points left out, median), so the median and the representative energy of a group can change and a group whose only set is left out disappears. lindhard's and RustBCA's yields are the committed runs: exact at a run energy, otherwise interpolated linearly in log E - log Y between the two bracketing run energies (an approximation to the committed code curve, not a new run and not an uncertainty); nothing is extrapolated, and an energy outside the runs is counted as unsupported. The reasons are the caveats stored in each dataset's `target_state` or `original_reference`, or listed under "Titles that name another system" above; none of the originals was read, so none is settled here.
+
+| Target | Left out | Caveat (where stored) | Energies (sets, points) | Interpolated | Unsupported | lindhard K = 0 / median | RustBCA K = 0 / median |
+|---|---|---|---|---|---|---|---|
+| Si | none (baseline) | - | 15 (4, 19) | 0 | none | 0.66 (0.36-0.92) | 1.07 (0.82-1.33) |
+| Si | `ar_si_sputter_poate1976` | cited paper's Crossref title names PtSi and NiSi (docs/validation.md) | 14 (3, 18) | 0 | none | 0.65 (0.36-0.92) | 1.05 (0.82-1.26) |
+| Ag | none (baseline) | - | 25 (9, 34) | 0 | none | 0.43 (0.33-0.51) | 0.89 (0.67-1.07) |
+| Ag | `ar_ag_sputter_wehner1961` | cited paper's Crossref title is Hg+ at 4-15 keV (original_reference) | 25 (8, 29) | 4 | lindhard at 196.8 eV (outside the committed run energies); rustbca at 196.8 eV (outside the committed run energies) | 0.44 (0.33-0.52), partial: 24 of 25 energies | 0.90 (0.67-1.09), partial: 24 of 25 energies |
+| Ag | `ar_ag_sputter_okajima1981` | cited paper's Crossref title names O2+ (docs/validation.md) | 24 (8, 33) | 0 | none | 0.44 (0.33-0.51) | 0.90 (0.68-1.07) |
+| Au | none (baseline) | - | 25 (12, 44) | 0 | none | 0.53 (0.30-1.13) | 1.16 (0.68-2.34) |
+| Au | `ar_au_sputter_robinson1967` | monocrystalline target per the original's title; a target-state doubt, not an attribution one (target_state) | 22 (11, 36) | 5 | none | 0.57 (0.30-1.13) | 1.23 (0.68-2.34) |
+| Au | `ar_au_sputter_szymonski1978` | cited paper's Crossref title is 6 keV Xe+ on an AgAu alloy (original_reference) | 25 (11, 43) | 0 | none | 0.54 (0.40-1.13) | 1.17 (0.78-2.34) |
+| Au | `ar_au_sputter_holloway1977` | cited paper's Crossref title names Cr in Au (docs/validation.md) | 25 (11, 43) | 1 | none | 0.53 (0.30-1.13) | 1.16 (0.68-2.34) |
+| Au | `ar_au_sputter_robinson1967`, `ar_au_sputter_szymonski1978`, `ar_au_sputter_holloway1977` | the three Au rows above together (target_state, original_reference, docs/validation.md) | 22 (9, 34) | 5 | none | 0.58 (0.40-1.13) | 1.25 (0.78-2.34) |
+
+Geometric mean (range) over the regrouped energies, as in the table above; "Interpolated" counts the energies whose code yield is interpolated rather than a committed run. The baseline rows are recomputed by this regrouping and reproduce the table above to its printed precision (update_docs.py stops otherwise). Scenarios: `SENSITIVITY_SCENARIOS` in `validation/update_docs.py`; semantics: `validation/data/README.md`.
 <!-- validation:level3-sputter-summary:end -->
 
 **Limits.** These are 1955 to 1982 measurements, read from figures, on
