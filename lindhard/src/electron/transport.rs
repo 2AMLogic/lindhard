@@ -396,7 +396,9 @@ pub trait ElectronTally: Send {
     fn end_secondary(&mut self, _fate: Fate) {}
 
     /// The electron fell below the stopping threshold (or was trapped) at
-    /// `at`.
+    /// `at`. A stop has `at.energy_ev` below the threshold of `at.layer`, a
+    /// trapped electron at least that energy
+    /// ([`Transport::stopping_thresholds_ev`]).
     fn stopped(&mut self, _at: &ElectronState) {}
 
     /// The electron left the target through `face`; `at.energy_ev` is the
@@ -751,6 +753,16 @@ impl Transport {
     /// The band parameters per layer, if given.
     pub fn band_structures(&self) -> Option<&[BandStructure]> {
         self.bands.as_deref()
+    }
+
+    /// The stopping threshold of each layer, eV: the cutoff under
+    /// [`CutoffReference::BandBottom`], `U + cutoff` under
+    /// [`CutoffReference::VacuumLevel`] (module docs). An electron reported
+    /// by [`ElectronTally::stopped`] with less energy than its layer's
+    /// threshold fell below it ([`Fate::Stopped`]); one with at least that
+    /// energy is [`Fate::Trapped`].
+    pub fn stopping_thresholds_ev(&self) -> &[f64] {
+        &self.threshold
     }
 
     fn step_barrier(&self) -> Option<(bool, bool)> {

@@ -3,7 +3,8 @@
 //! numbers chosen to exercise the code, not material data): per-event energy
 //! conservation, the secondary's direction model, the step transmission
 //! against the analytic formula, reflection below the barrier, the vacuum
-//! cutoff, run metadata and determinism across thread counts.
+//! cutoff, run metadata, determinism across thread counts, and the energy
+//! balance of `tally::electron` with both models on.
 
 use lindhard::electron::boundary::{BandModel, BandStructure};
 use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
@@ -14,6 +15,9 @@ use lindhard::electron::transport::{
 };
 use lindhard::geometry::Stack;
 use lindhard::material::Material;
+use lindhard::tally::{
+    Binning, CartesianGrid, CylindricalGrid, ElectronReport, ElectronTallyConfig, FullElectronTally,
+};
 
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
@@ -867,5 +871,326 @@ fn secondaries_and_barriers_are_bit_identical_across_thread_counts() {
             assert_eq!(x.to_bits(), y.to_bits());
         }
         assert_eq!(a, b);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The electron tally with secondaries and barriers
+// ---------------------------------------------------------------------------
+
+const NM: f64 = 1e-9;
+
+fn tally_config(e0: f64) -> ElectronTallyConfig {
+    let mut c = ElectronTallyConfig::new(
+        Binning::new(0.0, e0, 60).unwrap(),
+        Binning::new(0.0, std::f64::consts::FRAC_PI_2, 9).unwrap(),
+    );
+    c.cartesian = Some(CartesianGrid {
+        x: Binning::new(0.0, 30.0 * NM, 6).unwrap(),
+        y: Binning::new(-15.0 * NM, 15.0 * NM, 5).unwrap(),
+        z: Binning::new(-15.0 * NM, 15.0 * NM, 5).unwrap(),
+    });
+    c.cylindrical = Some(CylindricalGrid {
+        r: Binning::new(0.0, 15.0 * NM, 5).unwrap(),
+        depth: Binning::new(0.0, 30.0 * NM, 6).unwrap(),
+    });
+    c
+}
+
+/// The run the review measured: 500 primaries at 300 eV, seed 3.
+fn tally_run(t: &Transport) -> ElectronReport {
+    let proto = FullElectronTally::new(t, tally_config(300.0)).unwrap();
+    t.run(3, 500, 32, &Primary::normal(300.0), || proto.clone())
+        .unwrap()
+        .tally
+        .report()
+}
+
+fn near(a: f64, b: f64, rel: f64) -> bool {
+    (a - b).abs() <= rel * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
+}
+
+/// The balance `incident + fermi_sea = deposited + escaped + trapped +
+/// barrier` and the sums every report must satisfy.
+fn check_balance(r: &ElectronReport) {
+    let b = &r.budget;
+    assert!(
+        b.relative_imbalance < 1e-9,
+        "energy balance off by {} (relative): {b:?}",
+        b.relative_imbalance
+    );
+    assert!(near(
+        b.incident_ev + b.fermi_sea_ev,
+        b.deposited_ev + b.escaped_ev + b.trapped_ev + b.barrier_ev,
+        1e-9
+    ));
+    assert!(b.fermi_sea_ev >= 0.0);
+    assert!(near(b.deposited_ev, b.inelastic_ev + b.residual_ev, 1e-12));
+    let d = &r.deposition;
+    assert!(near(d.per_layer_ev.iter().sum(), b.deposited_ev, 1e-9));
+    for (cells, outside) in [
+        d.cartesian.as_ref().map(|g| (&g.energy_ev, g.outside_ev)),
+        d.cylindrical.as_ref().map(|g| (&g.energy_ev, g.outside_ev)),
+    ]
+    .into_iter()
+    .flatten()
+    {
+        assert!(cells.iter().all(|&e| e >= 0.0));
+        assert!(near(
+            cells.iter().sum::<f64>() + outside,
+            b.deposited_ev,
+            1e-9
+        ));
+    }
+    if let Some(g) = &r.generation_volume {
+        assert!(near(g.energy_ev, b.deposited_ev, 1e-9));
+    }
+    assert!(near(r.front.energy_ev, b.escaped_front_ev, 1e-12));
+    assert!(near(r.back.energy_ev, b.escaped_back_ev, 1e-12));
+    let f = &r.fates;
+    assert_eq!(
+        f.stopped + f.escaped_front + f.escaped_back + f.absorbed + f.trapped + f.event_capped,
+        r.histories
+    );
+}
+
+#[test]
+fn full_tally_balances_with_secondaries() {
+    // Band-bottom cutoff 8 eV, above both Fermi energies (5 and 7.5 eV).
+    let mut cfg = TransportConfig::new(8.0);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    let r = tally_run(&metal_on_insulator(cfg));
+    check_balance(&r);
+    let b = &r.budget;
+    // Both layers liberate conduction-band electrons (B - E_F < 0).
+    assert!(b.fermi_sea_ev > 0.0);
+    assert_eq!(b.barrier_ev, 0.0);
+    assert_eq!(b.trapped_ev, 0.0);
+    // Secondaries end in the tally: more stops than primaries, and slow
+    // electrons out of the front face.
+    assert!(r.stopping_points.stopped > r.fates.stopped);
+    assert!(r.front.slow.count > 0);
+    assert_eq!(r.metadata.stopping_threshold_ev, vec![8.0, 8.0]);
+}
+
+#[test]
+fn full_tally_balances_with_the_barrier_from_the_band_bottom() {
+    let mut cfg = TransportConfig::new(8.0);
+    cfg.boundary = BoundaryModel::STEP_BARRIER;
+    let r = tally_run(&metal_on_insulator(cfg));
+    check_balance(&r);
+    let b = &r.budget;
+    assert_eq!(b.fermi_sea_ev, 0.0);
+    // Every primary that got in paid -U = -9 eV, every escape got +U back.
+    assert!(b.barrier_ev != 0.0);
+    assert_eq!(b.trapped_ev, 0.0);
+    assert_eq!(r.stopping_points.stopped, r.fates.stopped);
+}
+
+#[test]
+fn full_tally_balances_with_the_barrier_from_the_vacuum_level() {
+    let mut cfg = TransportConfig::new(0.5);
+    cfg.boundary = BoundaryModel::STEP_BARRIER;
+    cfg.cutoff_reference = CutoffReference::VacuumLevel;
+    let r = tally_run(&metal_on_insulator(cfg));
+    check_balance(&r);
+    let b = &r.budget;
+    assert!(b.barrier_ev != 0.0);
+    // Stops between the cutoff and U + cutoff are stops, not trapped
+    // electrons: no layer here has a zero rate.
+    assert_eq!(b.trapped_ev, 0.0);
+    assert!(r.fates.stopped > 0 && b.residual_ev > 0.0);
+    assert_eq!(r.stopping_points.stopped, r.fates.stopped);
+    assert_eq!(r.metadata.stopping_threshold_ev, vec![9.5, 10.5]);
+}
+
+#[test]
+fn full_tally_balances_with_secondaries_and_barriers() {
+    let r = tally_run(&metal_on_insulator(full_physics()));
+    check_balance(&r);
+    let b = &r.budget;
+    assert!(b.fermi_sea_ev > 0.0 && b.barrier_ev != 0.0);
+    assert_eq!(b.trapped_ev, 0.0);
+    assert!(r.stopping_points.stopped > r.fates.stopped);
+    assert!(r.front.slow.count > 0 && r.front.fast.count > 0);
+}
+
+#[test]
+fn full_tally_balances_when_primaries_and_secondaries_hit_the_event_cap() {
+    let mut cfg = full_physics();
+    cfg.max_events = 6;
+    cfg.escape_rule = EscapeRule::FrontOnly;
+    let t = Transport::with_band_structures(
+        Stack::new(vec![(material(), 6e-9), (material(), 4e-9)], None).unwrap(),
+        vec![
+            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+        ],
+        vec![metal(), insulator()],
+        cfg,
+    )
+    .unwrap();
+    let r = tally_run(&t);
+    check_balance(&r);
+    assert!(r.fates.event_capped > 0 && r.budget.event_cap_ev > 0.0);
+    assert!(r.budget.absorbed_ev > 0.0);
+}
+
+#[test]
+fn full_tally_balances_with_a_binding_below_the_band_bottom() {
+    // Synthetic insulator with W_v = 1, E_g = 4, χ = 1 eV: E_F = 3 eV, so
+    // B - E_F = +1 eV and the liberated electron brings nothing; that 1 eV of
+    // each event stays in the solid.
+    let deep = BandStructure::new(
+        BandModel::Insulator {
+            valence_band_width_ev: 1.0,
+            band_gap_ev: 4.0,
+            affinity_ev: 1.0,
+        },
+        PROVENANCE,
+    )
+    .unwrap();
+    let mut cfg = TransportConfig::new(4.0);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    let t = Transport::with_band_structures(
+        Stack::semi_infinite(material()),
+        vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
+        vec![deep],
+        cfg,
+    )
+    .unwrap();
+    let r = tally_run(&t);
+    check_balance(&r);
+    assert_eq!(r.budget.fermi_sea_ev, 0.0);
+    assert!(r.stopping_points.stopped > r.fates.stopped);
+}
+
+fn at(x_nm: f64, energy_ev: f64, layer: usize) -> ElectronState {
+    ElectronState {
+        pos: [x_nm * NM, 0.0, 0.0],
+        dir: [1.0, 0.0, 0.0],
+        energy_ev,
+        layer,
+    }
+}
+
+/// A conduction electron liberated in the metal (`E_F = 5`, `B = 0`).
+fn metal_event(w: f64) -> SecondaryEvent {
+    SecondaryEvent {
+        loss_ev: w,
+        liberated: true,
+        secondary_ev: 5.0 + w,
+        binding_ev: -5.0,
+        deposited_ev: 0.0,
+    }
+}
+
+#[test]
+fn full_tally_keeps_a_capped_primary_apart_from_its_secondaries() {
+    let t = metal_on_insulator(full_physics());
+    let mut tally = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
+    // The primary enters (+9 eV), loses 100 eV to a 105 eV secondary and is
+    // cut off by the event cap at 209 eV; the secondary then escapes.
+    let mut vac = at(0.0, 300.0, 0);
+    tally.begin_history(0, &vac);
+    vac.energy_ev = 309.0;
+    tally.barrier(&vac, Boundary::Surface(Face::Front), 9.0);
+    tally.step([0.0; 3], &at(1.0, 309.0, 0), 1.0 * NM);
+    tally.inelastic(&at(1.0, 209.0, 0), 100.0);
+    let s = at(1.0, 105.0, 0);
+    tally.secondary(&at(1.0, 209.0, 0), &metal_event(100.0), Some(&s));
+    tally.begin_secondary(&s, 1);
+    let mut out = at(0.0, 105.0, 0);
+    out.dir = [-1.0, 0.0, 0.0];
+    tally.step(s.pos, &out, 1.0 * NM);
+    out.energy_ev = 96.0;
+    tally.barrier(&out, Boundary::Surface(Face::Front), -9.0);
+    tally.escaped(&out, Face::Front);
+    tally.end_secondary(Fate::Escaped(Face::Front));
+    tally.end_history(0, Fate::EventCap);
+    let r = tally.report();
+    check_balance(&r);
+    assert_eq!(r.budget.event_cap_ev, 209.0);
+    assert_eq!(r.budget.escaped_front_ev, 96.0);
+    assert_eq!(r.budget.fermi_sea_ev, 5.0);
+    assert_eq!(r.budget.barrier_ev, 0.0);
+    assert_eq!(r.budget.deposited_ev, 0.0);
+    assert_eq!(r.fates.event_capped, 1);
+}
+
+#[test]
+fn full_tally_counts_capped_secondaries_and_vacuum_level_stops() {
+    let t = metal_on_insulator(full_physics());
+    let mut tally = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
+    // The primary enters, loses 300 eV and stops at 9 eV, below the metal's
+    // threshold U + cutoff = 9.5 eV (but above the 0.5 eV cutoff itself);
+    // its 305 eV secondary is cut off by the event cap.
+    let mut vac = at(0.0, 300.0, 0);
+    tally.begin_history(0, &vac);
+    vac.energy_ev = 309.0;
+    tally.barrier(&vac, Boundary::Surface(Face::Front), 9.0);
+    tally.step([0.0; 3], &at(2.0, 309.0, 0), 2.0 * NM);
+    tally.inelastic(&at(2.0, 9.0, 0), 300.0);
+    let s = at(2.0, 305.0, 0);
+    tally.secondary(&at(2.0, 9.0, 0), &metal_event(300.0), Some(&s));
+    tally.stopped(&at(2.0, 9.0, 0));
+    tally.begin_secondary(&s, 1);
+    tally.step(s.pos, &at(3.0, 305.0, 0), 1.0 * NM);
+    tally.end_secondary(Fate::EventCap);
+    tally.end_history(0, Fate::Stopped);
+    let r = tally.report();
+    check_balance(&r);
+    assert_eq!(r.budget.residual_ev, 9.0);
+    assert_eq!(r.budget.no_interaction_ev, 0.0);
+    assert_eq!(r.budget.event_cap_ev, 305.0);
+    assert_eq!(r.budget.barrier_ev, -9.0);
+    assert_eq!(r.stopping_points.stopped, 1);
+    assert_eq!(r.fates.stopped, 1);
+}
+
+fn tally_threaded(threads: usize) -> ElectronReport {
+    let t = Transport::with_band_structures(
+        Stack::new(
+            vec![(material(), 5e-9), (material(), 8e-9)],
+            Some(material()),
+        )
+        .unwrap(),
+        vec![
+            pair(elastic_isotropic(3e-9), inelastic_frac(5e-9, 0.25)),
+            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
+            pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
+        ],
+        vec![metal(), insulator(), metal()],
+        full_physics(),
+    )
+    .unwrap();
+    let proto = FullElectronTally::new(&t, tally_config(400.0)).unwrap();
+    let primary = Primary {
+        energy_ev: 400.0,
+        direction: [1.0, 0.4, -0.1],
+    };
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap()
+        .install(|| {
+            t.run(0x5EC0, 600, 7, &primary, || proto.clone())
+                .unwrap()
+                .tally
+                .report()
+        })
+}
+
+#[test]
+fn full_tally_report_is_bit_identical_for_1_2_and_8_threads_with_both_models() {
+    let r1 = tally_threaded(1);
+    check_balance(&r1);
+    assert!(r1.budget.fermi_sea_ev > 0.0 && r1.budget.barrier_ev != 0.0);
+    assert!(r1.front.slow.count > 100);
+    let j1 = serde_json::to_string(&r1).unwrap();
+    for n in [2, 8] {
+        let r = tally_threaded(n);
+        assert_eq!(r1, r, "report differs on {n} threads");
+        assert_eq!(j1, serde_json::to_string(&r).unwrap());
     }
 }
