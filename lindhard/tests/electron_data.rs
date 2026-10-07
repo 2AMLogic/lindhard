@@ -4,8 +4,8 @@
 //!
 //! Every numeric fixture in this file is **synthetic**: made up for the tests,
 //! not physical data, and labelled so in its provenance string. The one test
-//! that reads real data (`eadl2017_binding_energies_cover_z_1_to_92`) reads a
-//! local file named by an environment variable; nothing from it is committed.
+//! that reads real data is the coverage test of the committed EADL2017 table
+//! (`eadl2017_binding_energies_cover_z_1_to_92`).
 
 use lindhard::electron::data::{
     AtomBindings, CrossSectionTable, CrossSectionTableParts, ElectronDataError, OpticalElf,
@@ -435,31 +435,41 @@ fn binding_table_validation_coverage_and_round_trip() {
     assert!(serde_json::from_str::<SubshellBindingTable>(&bad_json).is_err());
 }
 
-/// Reads a local copy of EADL2017 in ENDF-6 format, if the environment
-/// variable `LINDHARD_EADL2017` names one; otherwise the test is skipped.
-///
-/// The file is `EADL2017.ALL` from the EPICS2017 distribution
-/// (<https://www.nndc.bnl.gov/endf/epics/ENDF2017/EADL2017.ALL>). It is not
-/// committed: its redistribution terms are an open question
-/// (`docs/data-provenance.md`). The checks use no numbers copied from it:
-/// coverage, neutral-atom electron counts (enforced by the constructor),
-/// the K shell's presence and its growth with Z, and hydrogen's K binding
-/// energy against half the CODATA Hartree energy.
+/// Coverage of the committed EADL2017 table: always runs. Z = 1..92 present
+/// (occupancies sum to Z, enforced by the constructor), the K shell present
+/// and rising with Z, and hydrogen's K binding energy within 0.1 % of half
+/// the CODATA Hartree energy.
 #[test]
 fn eadl2017_binding_energies_cover_z_1_to_92() {
+    let t = SubshellBindingTable::eadl2017();
+    assert!(t.provenance().contains("IAEA-NDS-224"));
+    check_eadl2017_coverage(&t);
+}
+
+/// The same checks on a local copy of the source file named by
+/// `LINDHARD_EADL2017`, and the committed table must agree with it.
+#[test]
+fn eadl2017_committed_table_matches_local_source_file() {
     let Ok(path) = std::env::var("LINDHARD_EADL2017") else {
         eprintln!("skipped: set LINDHARD_EADL2017 to a local EADL2017.ALL to run");
         return;
     };
-    let t = SubshellBindingTable::from_endf6_mf28_file(
-        &path,
-        "EADL2017 (EPICS2017), D. E. Cullen, IAEA-NDS-224 Rev. 1 (2018), ENDF-6 file EADL2017.ALL, local copy",
-    )
-    .unwrap();
+    let t = SubshellBindingTable::from_endf6_mf28_file(&path, "EADL2017 local copy").unwrap();
+    check_eadl2017_coverage(&t);
+    assert_eq!(t.atoms(), SubshellBindingTable::eadl2017().atoms());
+}
+
+fn check_eadl2017_coverage(t: &SubshellBindingTable) {
     t.require_coverage(1..=92).unwrap();
     assert_eq!(t.atoms().len(), 92);
     let mut previous_k = 0.0;
     for a in t.atoms() {
+        let occupancy: f64 = a.shells().iter().map(|s| s.occupancy()).sum();
+        assert!(
+            (occupancy - f64::from(a.z())).abs() < 1e-9,
+            "occupancies of Z = {} sum to {occupancy}",
+            a.z()
+        );
         let k = a
             .binding_energy_ev(Subshell::K)
             .unwrap_or_else(|| panic!("Z = {} has no K shell", a.z()));

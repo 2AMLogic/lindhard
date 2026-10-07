@@ -57,6 +57,11 @@ one version).
   function, `sigma_el`, `sigma_tr1`), with `Yukawa`, `SquareWell` and
   `SalvatDhfs` potentials. The Salvat et al. (1987) coefficient table is not
   yet in the tree (`SalvatDhfs::for_element` returns an error).
+- `SubshellBindingTable::eadl2017()`: the committed Z=1..92 subshell binding
+  energies and occupancies (EADL as distributed in EPICS2017; D. E. Cullen,
+  IAEA-NDS-224 Rev. 1), embedded in the library with its credit notice, under
+  the operator ruling linked from `docs/data-provenance.md`. Its coverage test
+  runs in the default test run.
 - `Bca::history_in` and `HistoryBuffers`: `Bca::history` with caller-owned
   working memory, which allocates nothing in steady state.
 - `ScatteringTable::half_angle_tan`, `kinematics::rotate_sc` and

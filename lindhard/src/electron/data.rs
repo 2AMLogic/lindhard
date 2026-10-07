@@ -34,9 +34,10 @@
 //! API boundary: energies in eV (`_ev`), inverse mean free paths in m⁻¹
 //! (`_per_m`), angles in radians.
 //!
-//! No dataset is committed with this module; see `docs/data-provenance.md` for
-//! the binding-energy source and the optical-data inventory, and for which
-//! redistribution terms are still open.
+//! The EADL2017 binding-energy table is committed with this module
+//! ([`SubshellBindingTable::eadl2017`]). No optical data is; see
+//! `docs/data-provenance.md` for the sources and for which redistribution
+//! terms are still open.
 
 use serde::de::IgnoredAny;
 use serde::{Deserialize, Serialize};
@@ -122,6 +123,10 @@ pub enum ElectronDataError {
     #[error("I/O error: {0}")]
     Io(String),
 }
+
+/// The committed EADL2017 binding-energy table (see
+/// [`SubshellBindingTable::eadl2017`]); its header carries the credit.
+const EADL2017_TOML: &str = include_str!("eadl2017_binding.toml");
 
 type Result<T> = std::result::Result<T, ElectronDataError>;
 
@@ -793,6 +798,20 @@ impl SubshellBindingTable {
     /// Serialize to the TOML form.
     pub fn to_toml_string(&self) -> Result<String> {
         toml::to_string(self).map_err(|e| ElectronDataError::Parse(e.to_string()))
+    }
+
+    /// The committed EADL2017 table, Z = 1..92 (EADL as distributed in
+    /// EPICS2017; D. E. Cullen, IAEA-NDS-224 Rev. 1 (April 2018), issued by the
+    /// IAEA Nuclear Data Section and the NNDC). The data and the credit
+    /// notice are in `eadl2017_binding.toml`, embedded in the library; the
+    /// provenance row is in `docs/data-provenance.md`.
+    ///
+    /// # Panics
+    ///
+    /// Never in a correct build: the embedded file is validated by the test
+    /// suite.
+    pub fn eadl2017() -> Self {
+        Self::from_toml_str(EADL2017_TOML).expect("the embedded EADL2017 table is valid")
     }
 
     /// Read subshell binding energies and occupancies from ENDF-6 File 28
