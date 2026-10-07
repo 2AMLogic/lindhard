@@ -705,7 +705,7 @@ pub fn mean_one_minus_cos(probability: &[f64], quantiles: &[f64]) -> f64 {
 
 /// A one-line identity of the material: its name, if set, and its atom
 /// fractions and density.
-fn material_identity(material: &Material) -> String {
+pub(crate) fn material_identity(material: &Material) -> String {
     let comp: Vec<String> = material
         .components()
         .iter()
@@ -857,7 +857,7 @@ fn check_probability(p: &[f64]) -> Result<(), ElasticTableError> {
 }
 
 /// `ln(u/(1-u))`, with the small side of `u` and `1-u` at full precision.
-fn logit(u: f64) -> f64 {
+pub(crate) fn logit(u: f64) -> f64 {
     if u <= 0.5 {
         (u / (1.0 - u)).ln()
     } else {
@@ -866,7 +866,7 @@ fn logit(u: f64) -> f64 {
 }
 
 /// Inverse of [`logit`].
-fn logistic(t: f64) -> f64 {
+pub(crate) fn logistic(t: f64) -> f64 {
     if t <= 0.0 {
         let e = t.exp();
         e / (1.0 + e)

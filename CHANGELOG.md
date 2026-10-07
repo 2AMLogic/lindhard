@@ -42,6 +42,13 @@ one version).
 
 ### Added
 
+- Inelastic electron tables (`electron::inelastic::table`, #94):
+  `build_inelastic_table` builds a `CrossSectionTable` with
+  `SamplingAxis::InelasticEnergyLoss` (inverse mean free path and the inverse
+  CDF of the energy loss) from the single-pole Penn DIIMFP on a caller-chosen
+  energy grid, with `stopping_power_ev_per_m` recovering `S(E)` from it to
+  1e-3; `MomentumTransferSampler` draws the momentum transfer given `(E, W)`
+  and gives the deflection cosine.
 - Optical ELF datasets for Al and Cu (`validation/data/optical/`, Hagemann,
   Gudat and Kunz 1975, read through the CC0 refractiveindex.info
   transcription and checked against the scanned tables of DESY report

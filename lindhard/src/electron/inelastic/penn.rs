@@ -612,18 +612,59 @@ impl SinglePolePenn {
     /// `W = ω - b` (`b` the channel's binding energy, Hartree); no limit on
     /// `ω` other than `ω <= T`.
     pub(crate) fn diimfp_core_au(&self, t: f64, w: f64, exchange: bool, b: f64) -> f64 {
-        if !(w > 0.0 && w <= t) {
-            return 0.0;
-        }
         // T' - W, the Born-Ochkur denominator (module docs).
         let t_minus_emitted = t + self.fermi - w + b;
         if exchange && t_minus_emitted.partial_cmp(&0.0) != Some(std::cmp::Ordering::Greater) {
             return 0.0;
         }
+        let Some(breaks) = self.q_slice_breaks_au(t, w) else {
+            return 0.0;
+        };
+        let tp = t + self.fermi;
+        let integral = integrate_segments(
+            &self.gl,
+            &mut |u: f64| {
+                let base = self.q_integrand_au(w, u);
+                if exchange {
+                    let q = u.exp();
+                    [base * (1.0 + ochkur_factor(0.5 * q * q, t_minus_emitted))]
+                } else {
+                    [base]
+                }
+            },
+            &breaks,
+            self.rel_tol,
+        )[0];
+        integral / (PI * tp)
+    }
+
+    /// The `Im[-1/ε(q, ω)]` integrand of S2017 eq. (2) in `u = ln q` (`q` in
+    /// atomic units): `(dq/q) Im[-1/ε] = du Im[-1/ε]`. Zero where eq. (11) has
+    /// no root. This is the direct term only; [`Self::diimfp_core_au`]
+    /// multiplies it by the exchange factor `1 + F` where that applies.
+    pub(super) fn q_integrand_au(&self, w: f64, u: f64) -> f64 {
+        let q = u.exp();
+        match pole_plasma_frequency(q, w) {
+            Some(w0) => self.elf_au(w0) / (1.0 + PI * q * q / (6.0 * fermi_wavenumber(w0))),
+            None => 0.0,
+        }
+    }
+
+    /// Breakpoints in `ln q` (`q` in atomic units) of the momentum-transfer
+    /// integral of S2017 eq. (2) at kinetic energy `t` and loss `w`
+    /// (Hartree): the ends are the kinematic limits `q±` cut to the `q` where
+    /// `ω₀(q, ω)` lies in the tabulated range, with a break at every table
+    /// knot in between. `None` if the slice is empty (`w` outside
+    /// `(0, t]`, below the table, or no `q` allowed). The integrand is smooth
+    /// between breaks.
+    pub(super) fn q_slice_breaks_au(&self, t: f64, w: f64) -> Option<Vec<f64>> {
+        if !(w > 0.0 && w <= t) {
+            return None;
+        }
         let n = self.w.len();
         let (wmin, wmax) = (self.w[0], self.w[n - 1]);
         if w <= wmin {
-            return 0.0; // ω₀ < ω for q > 0, and ω₀ must be in the table
+            return None; // ω₀ < ω for q > 0, and ω₀ must be in the table
         }
         let tp = t + self.fermi;
         let k = (2.0 * tp).sqrt();
@@ -636,7 +677,7 @@ impl SinglePolePenn {
         let q_hi_table = q_of(wmin);
         let (lo, hi) = (q_minus.max(q_lo_table), q_plus.min(q_hi_table));
         if hi.is_nan() || hi <= lo {
-            return 0.0;
+            return None;
         }
         // Breakpoints in ln q at the knots strictly inside (lo, hi).
         let mut breaks = vec![lo.ln()];
@@ -648,27 +689,7 @@ impl SinglePolePenn {
             }
         }
         breaks.push(hi.ln());
-        let integral = integrate_segments(
-            &self.gl,
-            &mut |u: f64| {
-                let q = u.exp();
-                match pole_plasma_frequency(q, w) {
-                    Some(w0) => {
-                        let base =
-                            self.elf_au(w0) / (1.0 + PI * q * q / (6.0 * fermi_wavenumber(w0)));
-                        if exchange {
-                            [base * (1.0 + ochkur_factor(0.5 * q * q, t_minus_emitted))]
-                        } else {
-                            [base]
-                        }
-                    }
-                    None => [0.0],
-                }
-            },
-            &breaks,
-            self.rel_tol,
-        )[0];
-        integral / (PI * tp)
+        Some(breaks)
     }
 
     /// `(λ⁻¹, S)` at kinetic energy `t` (Hartree) above the Fermi level, in

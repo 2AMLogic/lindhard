@@ -20,8 +20,11 @@
 //! [`ExchangeCorrection`] makes the primary and the struck electron
 //! indistinguishable at low energy.
 //!
-//! The full Penn algorithm, Mermin fits, sampling tables and relativistic
-//! kinematics are later work.
+//! [`table`] builds the inelastic energy-loss `CrossSectionTable` and a
+//! momentum-transfer sampler from the model.
+//!
+//! The full Penn algorithm, Mermin fits and relativistic kinematics are
+//! later work.
 
 pub mod bethe;
 pub mod drude;
@@ -29,6 +32,7 @@ pub mod inner_shell;
 pub mod penn;
 mod quadrature;
 pub mod sum_rules;
+pub mod table;
 
 pub use drude::{DrudeLorentz, DrudeLorentzOscillator};
 pub use inner_shell::{
