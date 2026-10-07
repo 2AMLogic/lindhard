@@ -91,6 +91,29 @@ fn expanded_elf_keeps_the_optical_f_sum_at_every_momentum() {
 }
 
 #[test]
+fn a_peak_narrower_than_a_knot_subset_still_counts() {
+    // 1000 knots at 1..=1000 eV, zero except 1 at the 21 eV knot: a
+    // triangle on (20, 22) eV with exact optical f-sum 21 eV^2. A subset of
+    // knots that skipped it (and the quadrature that samples only between
+    // them) would report zero f-sum and zero stopping.
+    let energy: Vec<f64> = (1..=1000).map(f64::from).collect();
+    let mut elf = vec![0.0; 1000];
+    elf[20] = 1.0;
+    let table = OpticalElf::new("synthetic spike", "synthetic", energy, elf).unwrap();
+    let f_opt = SumRuleReport::new(&table).f_sum_ev2;
+    assert!(rel(f_opt, 21.0) < 1e-12, "{f_opt}");
+    for tol in [1e-2, 1e-3] {
+        let fpa = FullPenn::new(table.clone())
+            .with_relative_tolerance(tol)
+            .unwrap();
+        let f = fpa.f_sum_ev2_at(0.5 / BOHR_RADIUS).unwrap();
+        assert!(rel(f, f_opt) < 1e-2, "tol {tol}: {f} vs {f_opt}");
+        let s = fpa.stopping_power_ev_per_m(500.0).unwrap();
+        assert!(s > 0.0, "tol {tol}: stopping {s}");
+    }
+}
+
+#[test]
 fn integrating_the_loss_function_over_omega_gives_the_f_sum() {
     // The same sum rule through `loss_function` itself (plasmon term and
     // single-electron term of S2017 eq. (6) together), integrated over the

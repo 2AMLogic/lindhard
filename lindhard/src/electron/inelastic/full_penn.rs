@@ -69,11 +69,10 @@
 //! plasmon delta function if its energy is below `ω_c(q)`; the `q` integral
 //! is in `ln q`, split at the kinematic landmarks and at the momenta where
 //! the plasmon enters (`ω_pl = ω_c`) and leaves (cutoff) the allowed region;
-//! the outer integral is over a subset of at most [`OUTER_KNOTS`] knots of the
-//! table (the piecewise-linear table is dense, so omitting most of its kinks
-//! is an interpolation effect of the order of the table's own spacing, which
-//! is far below the default tolerance for the dense tables this is meant
-//! for). All three use the adaptive Gauss-Legendre quadrature of
+//! the outer integral is split at every knot of the
+//! table (the ELF is piecewise linear, and a feature narrower than the
+//! spacing of a subset of knots could be missed entirely by the adaptive
+//! quadrature, so no knot is dropped). All three use the adaptive Gauss-Legendre quadrature of
 //! `super::quadrature`, each with the tolerance of the model
 //! ([`DEFAULT_FULL_TOLERANCE`] = 1e-4): the result has a relative error of a
 //! few times that. The DIIMFP is the same integrals in the order `q`, `ω_p`
@@ -132,10 +131,6 @@ type Result<T> = std::result::Result<T, ElectronDataError>;
 /// Default relative tolerance of the integrals of the full Penn model.
 pub const DEFAULT_FULL_TOLERANCE: f64 = 1.0e-4;
 
-/// At most this many table knots are used as break points of the outer
-/// (`ω_p`) integral.
-pub const OUTER_KNOTS: usize = 64;
-
 const GL_ORDER: usize = 5;
 
 fn hartree_ev() -> f64 {
@@ -187,7 +182,7 @@ pub struct FullPenn {
     w: Vec<f64>,
     /// Tabulated ELF values.
     e: Vec<f64>,
-    /// The break points of the outer integral (a subset of `w`).
+    /// The break points of the outer integral (every knot of `w`).
     outer: Vec<f64>,
     fermi: f64,
     rel_tol: f64,
@@ -200,16 +195,7 @@ impl FullPenn {
         let h = hartree_ev();
         let w: Vec<f64> = elf.energy_ev().iter().map(|x| x / h).collect();
         let e = elf.elf_values().to_vec();
-        let n = w.len();
-        let outer: Vec<f64> = if n <= OUTER_KNOTS {
-            w.clone()
-        } else {
-            let mut v: Vec<f64> = (0..OUTER_KNOTS)
-                .map(|i| w[i * (n - 1) / (OUTER_KNOTS - 1)])
-                .collect();
-            v.dedup();
-            v
-        };
+        let outer: Vec<f64> = w.clone();
         Self {
             elf,
             w,

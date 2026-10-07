@@ -23,14 +23,30 @@
 //! A_c = (k_F² - a²)₊ - (k_F² - (a + q)²)₊,    a = ω/q - q/2,    ω > 0.
 //! ```
 //!
-//! The momentum integral behind the `ln` and `Θ` terms is the one written out
-//! (for a degenerate gas) in A. V. Latyshev and A. A. Yushkanov,
-//! arXiv:1212.6260, section 5 (the integral `B(k, z)`), which reduces to
-//! Lindhard's formula for zero collision frequency (their abstract and
-//! section 3). That text is an open-access preprint, not Lindhard's paper,
-//! and it was used only to confirm the structure; the **verification of this
-//! implementation is by the checks below, not by agreement with a source
-//! table**:
+//! These were compared with an opened source: A. V. Latyshev and A. A.
+//! Yushkanov, arXiv:1212.6260v1 (open-access preprint, PDF pages read
+//! 2026-10-07), section 5 "Degenerate plasma": the integral `B(k, z)` on
+//! p. 14 (`∝ ∫_{-1}^{1} (1 - P_x²) dP_x / ((P_x - z/k)² - (k/2)²)`, with
+//! `k = q/k_F`, `z = (ω + iν)/(k_F v_F)`), its closed form `b(k, z)` on
+//! pp. 14-15, and the dielectric function eq. (5.5″) on p. 15,
+//! `ε = 1 - (3 x_p²/4k²)(x + iy) b(k,z) b(k,0) / (x b(k,0) + i y b(k,z))`
+//! with `x_p = ω_p/(k_F v_F)`. Its abstract states that for collision
+//! frequency `ν -> 0` (`y -> 0`) the result is Lindhard's formula, which is
+//! then `ε = 1 - (3 x_p²/4k²) b(k, x)`. Compared numerically (atomic units,
+//! `v_F = k_F`, `ω_p² = 4 k_F³/(3π)`) at six `(k_F, q, ω)` points:
+//!
+//! * the real part above equals the closed form `b(k, z)` of p. 15 to
+//!   1e-10 (the `-2` and the two `ln` terms; their `ln` arguments are the
+//!   ones of `A(z ∓ u)` combined);
+//! * the imaginary part equals the residue (`+i0`) contribution of the
+//!   p. 14 integral at its two poles `P_x = z/k ± k/2` when they lie in
+//!   `[-1, 1]`, i.e. our `A_c/q³`, to 1e-15 (the printed closed form `b`
+//!   gives only the real part under principal-branch logarithms, so the
+//!   imaginary part is compared through the integral, not the closed form).
+//!
+//! This is a comparison with a secondary source that derives the formula, not
+//! with Lindhard's paper; the original equation numbers are not known here.
+//! The further checks are:
 //!
 //! * the imaginary part is derived here directly from the Fermi golden rule
 //!   (`Im ε = (4π/q²) π · 2 ∫ d³k/(2π)³ f_k (1 - f_{k+q}) δ(ω - ΔE)`, an
