@@ -25,7 +25,11 @@ code or data.
 > [`docs/validation.md`](docs/validation.md),
 > [`WORK_PLAN.md`](WORK_PLAN.md) for milestones and
 > [`docs/architecture.md`](docs/architecture.md) for the design. The electron
-> engine (M1) and crystalline targets (M2) are not started.
+> engine (M1) is in progress: Mott elastic and dielectric-function inelastic
+> cross sections, event-by-event transport with secondaries, surface barriers
+> and insulator losses, the electron tallies and a CLI `[electron]` run mode
+> have landed; PSF extraction and validation against published data are under
+> way. Crystalline targets (M2) are not started.
 
 ## Quick start
 
@@ -60,7 +64,7 @@ lindhard aims to be **permissive, embeddable, fast, reproducible and
 validated**:
 
 - MIT license, with no copyleft dependency anywhere in the build.
-- A library first; the CLI and later Python/WASM bindings sit on top of it.
+- A library first; the CLI and the Python bindings sit on top of it (WASM later).
 - Every ion runs on its own seeded random stream, so results do not depend on
   the thread count.
 - Every model is checked against analytic limits, independent codes and
@@ -83,6 +87,8 @@ cover both halves of this project.
 | [`lindhard-cli/`](lindhard-cli/README.md) | `lindhard` binary: TOML in, JSON/CSV out |
 | [`lindhard-py/`](lindhard-py/README.md) | `lindhard` Python package (pyo3 + maturin): NumPy arrays out, same TOML schema |
 | [`examples/`](examples/README.md) | Example CLI inputs |
+| [`book/`](book/README.md) | Source of the lindhard book (physics manual and user guide), built with mdBook |
+| [`tools/`](tools/README.md) | Developer tools: profiling helpers |
 | [`validation/`](validation/README.md) | Validation harness: oracle runner, experimental datasets, results |
 | [`docs/`](docs/README.md) | Design, physics and project documentation (index below) |
 
@@ -101,6 +107,8 @@ cover both halves of this project.
   first numbers.
 - [`docs/data-provenance.md`](docs/data-provenance.md): where every dataset
   comes from.
+- [`docs/python.md`](docs/python.md): the Python bindings.
+- [`docs/README.md`](docs/README.md): the full documentation index.
 - [`docs/prior-art.md`](docs/prior-art.md) and
   [`docs/history.md`](docs/history.md): the survey and the lineage.
 

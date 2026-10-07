@@ -17,6 +17,10 @@ validation/oracle-runs/
 # Local tool database (machine-local state, never committed)
 .squad/
 
+# Default output directory of the quick-start commands in README.md and
+# examples/README.md (`--out out/...`).
+/out/
+
 # Environment
 .env
 .env.local
