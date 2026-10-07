@@ -219,7 +219,7 @@ Crossref on 2026-10-06; the papers themselves were not read in this pass.
   knots, not a transcription error. A denser table (committing the report's
   printed ELF column, or a later Al source such as Shiles et al. (1980))
   would remove it; both are open. Si (no openable source across 6 to 30 eV;
-  tracked in #98's follow-up), SiO₂ (no valence-region source),
+  tracked in #125), SiO₂ (no valence-region source),
   PMMA-class resists and W remain to be sourced; candidates are in the
   inventory above.
 - Penn, Phys. Rev. B 35, 482 (1987): the single-pole Penn model is
