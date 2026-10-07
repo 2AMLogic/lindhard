@@ -14,15 +14,28 @@
 //! No optical data is committed (`docs/data-provenance.md`); every ELF comes
 //! from the caller.
 //!
-//! The full Penn algorithm, Mermin fits, sampling tables, inner shells with
-//! the exchange correction and relativistic kinematics are later work.
+//! [`inner_shell`] resolves the losses into a valence channel and
+//! inner-shell ionization channels (secondary energy `ω - B`), each from its
+//! own caller-supplied optical ELF, and the optional Born-Ochkur
+//! [`ExchangeCorrection`] makes the primary and the struck electron
+//! indistinguishable at low energy.
+//!
+//! The full Penn algorithm, Mermin fits, sampling tables and relativistic
+//! kinematics are later work.
 
 pub mod bethe;
 pub mod drude;
+pub mod inner_shell;
 pub mod penn;
 mod quadrature;
 pub mod sum_rules;
 
 pub use drude::{DrudeLorentz, DrudeLorentzOscillator};
-pub use penn::{InelasticPoint, SinglePolePenn, DEFAULT_RELATIVE_TOLERANCE};
+pub use inner_shell::{
+    Channel, ChannelDiimfp, ChannelInverseImfp, InnerShell, ShellResolvedChannels,
+};
+pub use penn::{
+    born_ochkur_factor, ExchangeCorrection, InelasticPoint, SinglePolePenn,
+    DEFAULT_RELATIVE_TOLERANCE,
+};
 pub use sum_rules::SumRuleReport;
