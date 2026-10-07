@@ -258,9 +258,70 @@ constants per ion and target pair; carry `cos` and `sin` of the angles instead
 of recomputing them from the angle; reduce the number of `normalize` calls).
 Only after those would a layout change be worth measuring, which is
 consistent with `architecture.md` ("do not do SoA/SIMD first"). Those
-optimizations are not made in this change, which is measurement only; they
-belong to #37 (profile-guided hot-path work, phase 1 of the performance
-epic #36) and should be re-profiled with the same script.
+optimizations were made in #37 (next section).
+
+## Hot-path work (#37)
+
+Phase 1 of the performance epic (#36): the three hot spots above, within
+the present layout. Nothing about the physics changed; every model keeps its
+citation.
+
+| Hot spot | Change |
+|---|---|
+| 1. Scattering-angle chain | The table already stores `ln tan(theta/2)`. `ScatteringTable::half_angle_tan` returns `tan(theta/2)` (one `exp`) and the collision derives everything else by algebra: `sin(theta/2) = t / sqrt(1 + t^2)`, `cos(theta/2) = 1 / sqrt(1 + t^2)`, the energy transfer `gamma E sin^2(theta/2)`, the projectile deflection `(sin psi, cos psi) = (sin theta, cos theta + mu) / norm` (`kinematics::lab_projectile_sc`) and the recoil deflection `phi = (pi - theta)/2`, whose sine and cosine are `cos(theta/2)` and `sin(theta/2)`. This removes `atan`, `atan2`, `sin(theta/2)`, `sin theta`, `cos theta` and the polar `sin_cos` of both rotations per collision. |
+| 2. Lindhard-Scharff stopping | `ElectronicStopping::sqrt_energy_coefficient` (defaulted to `None`) lets a model that is exactly `S = c sqrt(E)` say so. `Bca::new` sums `x_j c_j` over each layer's elements once per projectile species, so a flight costs one `sqrt`. The six `powf` per flight are gone. Models without that form (and any model that could fail) use the general Bragg path as before, so errors are still reported at evaluation. |
+| 3. `rotate` | `kinematics::rotate_sc` takes `(sin, cos)` pairs; the azimuth `sin_cos` is shared by the weak-collision surface test and the collision, and the recoil's `azimuth + pi` is the negated pair. The final `normalize` (square root and division) is replaced by the first-order renormalization `v (3 - \|v\|^2) / 2`, exact to 1e-32 for a unit vector perturbed by rounding; a test keeps 2x10^5 chained rotations unit to 1e-14. |
+
+`Bca::run` and the new `Bca::history_in` also reuse the particle stack and the
+per-flight scratch (`HistoryBuffers`) instead of allocating them per history,
+so the collision loop makes no heap allocation in steady state:
+[`lindhard/tests/alloc.rs`](../lindhard/tests/alloc.rs) installs a counting
+global allocator and checks zero allocations over 150 cascade histories
+(more than 10^4 collisions) in each of the constant free path, the
+energy-dependent free path with the equipartition electronic loss, and three
+weak collisions. A buffer grows only while it sees a cascade larger than any
+before it.
+
+**Bit-identity.** Results are not bit-identical to the previous commit,
+because the floating-point operations differ (about 1e-16 relative per
+quantity); a particle history is chaotic, so single histories diverge, but the
+distributions do not: the level-1 validation harness (`cargo test -p lindhard
+--test validation`) and the BCA integration tests pass unchanged. They remain
+bit-identical across thread counts (`bit_identical_across_thread_counts` in
+`lindhard/tests/bca.rs`, 1, 2 and 8 threads, with and without weak
+collisions).
+
+**Measured.** 2026-10-07, Intel Xeon Platinum 8488C, 8 vCPUs shared with
+other jobs (**load average 7 to 12 throughout**), rustc 1.99.0, release profile
+(`lto = "fat"`, `codegen-units = 1`), one rayon thread, criterion bench
+`history.rs` `throughput_<problem>_10k_ions/threads_1` (10^4 ions, seed 1,
+cascades on, 7 degrees off normal), `--sample-size 10`. The before binary
+(`301e436`) and the after binary were run alternately, three rounds each, so
+that load drift affects both; the table gives the median of the three
+estimates. Absolute numbers on this loaded host are not quotable; the ratio is
+the result (the rounds of one binary differed by up to 20 %).
+
+| Problem | Before (ions/s) | After (ions/s) | Ratio |
+|---|---|---|---|
+| B 5 keV into Si | 3.4 k | 8.3 k | 2.5x |
+| As 50 keV into Si | 0.37 k | 0.82 k | 2.2x |
+| Ar 1 keV into Cu | 16.9 k | 46.3 k | 2.7x |
+
+**Profile after** (same method and sampler as above, 5 x 10^4 ions of B 5 keV
+into Si on one thread, 6 565 samples; 7.3 k ions/s in the sampler build, against
+3.4 k ions/s in the profile above, taken on the same kind of loaded host). Flame
+graph: [`img/flamegraph-b-si-after.svg`](img/flamegraph-b-si-after.svg).
+
+| Before | After (share of all samples) |
+|---|---|
+| Stopping, 28 % (`powf` 20 %) | `electronic_nonlocal` 3.1 % |
+| Angle chain, about 34 % | `half_angle_tan` 23 % (of which `exp` and the two `ln` of the lookup are most) plus `lab_projectile_sc` 6.6 % |
+| `rotate`, 20 % (`sin_cos` 10 %, `normalize` 5.5 %) | `rotate_sc` 8.3 % (`normalize` 1.6 %); the remaining `sin_cos`, 14.6 %, is the azimuth, one per collision |
+
+libm calls are now about 31 % of the samples as self time (57 % before). What
+remains is the table lookup (two `ln` and one `exp` per collision) and the
+azimuth `sin_cos`. Those are the next candidates, ahead of any layout change;
+the SoA / SIMD verdict stays "not yet".
 
 ## Not yet covered
 
@@ -269,10 +330,6 @@ epic #36) and should be re-profiled with the same script.
   `validation/oracles/run.py` on an idle machine, one problem at a time, to
   replace them, and report ions/s at 1, 2, 4, ... N threads (the only
   scaling data here is 1 vs 28 threads on a loaded machine).
-* **The optimizations the profile names (#37).** Caching the
-  Lindhard-Scharff `powf` constants per ion and target pair, carrying
-  `sin`/`cos` through the scattering-angle chain, and fewer `normalize`
-  calls in `kinematics::rotate`; phase 1 of the performance epic #36.
 * **A like-for-like OpenTRIM comparison (#58)**, which needs an
   electronic-loss-off choice in lindhard's CLI.
 * **Profile of the all-thread run, and of the As and Ar problems.** The

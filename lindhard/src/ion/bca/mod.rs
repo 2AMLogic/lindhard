@@ -444,6 +444,13 @@ struct LayerData {
     /// Constant-convention p_max, m.
     p_const: f64,
     elems: Vec<ElemData>,
+    /// Per projectile species: `c` with `Σ_j x_j S_j(E) = c sqrt(E)` over the
+    /// layer's elements for the configured nonlocal model, if every element's
+    /// stopping has that form (see
+    /// [`ElectronicStopping::sqrt_energy_coefficient`]). The fractional
+    /// powers in the coefficient depend only on the ion and target, so they
+    /// are evaluated here once instead of at every flight.
+    loss_coef: Vec<Option<f64>>,
 }
 
 /// `ln beta_max` on a grid uniform in `ln eps`, for the energy-dependent
@@ -502,11 +509,34 @@ impl BetaMaxGrid {
     }
 }
 
-/// Per-history scratch space for the energy-dependent free path.
+/// What [`Bca::binary`] reports: the energy transfer `T`, the direction of
+/// the projectile before the collision, and the recoil's lab deflection as
+/// `(sin, cos)`.
+type BinaryOutcome = (f64, [f64; 3], (f64, f64));
+
+/// Per-flight scratch space for the per-element `p_max` and partner weights.
 #[derive(Default)]
 struct Scratch {
     p_max: Vec<f64>,
     cum: Vec<f64>,
+}
+
+/// Reusable working memory for [`Bca::history_in`]: the stack of particles
+/// still to be followed and the per-flight scratch. A history that runs in
+/// buffers which have already seen a cascade as large allocates nothing, so a
+/// worker thread allocates only while its buffers grow to the largest cascade
+/// it meets, not per history and not per collision.
+#[derive(Default)]
+pub struct HistoryBuffers {
+    pending: Vec<Particle>,
+    scratch: Scratch,
+}
+
+impl HistoryBuffers {
+    /// Empty buffers.
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 /// The nonlocal half of [`EquipartitionMix`] as an [`ElectronicStopping`]
@@ -522,6 +552,9 @@ impl ElectronicStopping for MixNonLocal {
     }
     fn validity(&self, ion: &Ion) -> ValidityRange {
         self.0.validity(ion)
+    }
+    fn sqrt_energy_coefficient(&self, ion: &Ion, target_z: u8) -> Option<f64> {
+        self.0.nonlocal_sqrt_energy_coefficient(ion, target_z)
     }
 }
 
@@ -664,7 +697,28 @@ impl<'a> Bca<'a> {
                 ell: n.powf(-1.0 / 3.0),
                 p_const: 1.0 / (PI * n.powf(2.0 / 3.0)).sqrt(),
                 elems,
+                loss_coef: Vec::new(),
             });
+        }
+        let mix = MixNonLocal(EquipartitionMix::new());
+        {
+            let model: &dyn ElectronicStopping = match config.electronic {
+                ElectronicLoss::NonLocal => stopping,
+                ElectronicLoss::EquipartitionLsOr => &mix,
+            };
+            for lay in &mut layers {
+                lay.loss_coef = species
+                    .iter()
+                    .map(|sp| {
+                        // Same order as the Bragg sum.
+                        let mut sum = 0.0;
+                        for e in &lay.elems {
+                            sum += e.fraction * model.sqrt_energy_coefficient(&sp.ion, e.z)?;
+                        }
+                        Some(sum)
+                    })
+                    .collect();
+            }
         }
         // Face barriers from the materials at the faces.
         let front = stack.layers().first().expect("non-empty").material();
@@ -705,7 +759,7 @@ impl<'a> Bca<'a> {
             stack,
             config,
             stopping,
-            mix: MixNonLocal(EquipartitionMix::new()),
+            mix,
             table,
             screening: tp.screening,
             species,
@@ -744,6 +798,7 @@ impl<'a> Bca<'a> {
         struct Acc<T> {
             tally: T,
             err: Option<(u64, StoppingError)>,
+            buffers: HistoryBuffers,
         }
         let acc = run_particles(
             self.config.seed,
@@ -752,12 +807,13 @@ impl<'a> Bca<'a> {
             || Acc {
                 tally: new_tally(),
                 err: None,
+                buffers: HistoryBuffers::new(),
             },
             |acc: &mut Acc<T>, rng, i| {
                 if acc.err.is_some() {
                     return;
                 }
-                if let Err(e) = self.history(&mut acc.tally, rng, i) {
+                if let Err(e) = self.history_in(&mut acc.buffers, &mut acc.tally, rng, i) {
                     acc.err = Some((i, e));
                 }
             },
@@ -783,12 +839,27 @@ impl<'a> Bca<'a> {
         rng: &mut ParticleRng,
         index: u64,
     ) -> Result<EnergyBudget, StoppingError> {
+        self.history_in(&mut HistoryBuffers::new(), tally, rng, index)
+    }
+
+    /// [`Bca::history`] in caller-owned working memory. Identical results;
+    /// reusing `buffers` across histories removes the per-history
+    /// allocations ([`Bca::run`] does this per worker chunk).
+    pub fn history_in<T: BcaTally>(
+        &self,
+        buffers: &mut HistoryBuffers,
+        tally: &mut T,
+        rng: &mut ParticleRng,
+        index: u64,
+    ) -> Result<EnergyBudget, StoppingError> {
         tally.begin_history(index);
         let mut budget = EnergyBudget {
             incident: self.beam.energy_ev,
             ..EnergyBudget::default()
         };
-        let mut pending = vec![Particle {
+        let HistoryBuffers { pending, scratch } = buffers;
+        pending.clear();
+        pending.push(Particle {
             species: 0,
             z: self.beam.ion.z(),
             mass_amu: self.beam.ion.mass_amu(),
@@ -797,10 +868,9 @@ impl<'a> Bca<'a> {
             dir: self.beam.direction(),
             layer: 0,
             generation: 0,
-        }];
-        let mut scratch = Scratch::default();
+        });
         while let Some(p) = pending.pop() {
-            self.transport(p, rng, &mut pending, &mut budget, tally, &mut scratch)?;
+            self.transport(p, rng, pending, &mut budget, tally, scratch)?;
         }
         tally.end_history(index, &budget);
         Ok(budget)
@@ -859,14 +929,22 @@ impl<'a> Bca<'a> {
         if len <= 0.0 {
             return Ok(());
         }
-        let model: &dyn ElectronicStopping = match self.config.electronic {
-            ElectronicLoss::NonLocal => self.stopping,
-            ElectronicLoss::EquipartitionLsOr => &self.mix,
+        let lay = &self.layers[p.layer];
+        let s = match lay.loss_coef[p.species] {
+            // `c sqrt(E)`; the `E > 0` test keeps a non-physical energy on the
+            // general path, which reports it.
+            Some(c) if p.energy_ev > 0.0 && p.energy_ev.is_finite() => c * p.energy_ev.sqrt(),
+            _ => {
+                let model: &dyn ElectronicStopping = match self.config.electronic {
+                    ElectronicLoss::NonLocal => self.stopping,
+                    ElectronicLoss::EquipartitionLsOr => &self.mix,
+                };
+                let material = self.stack.layers()[p.layer].material();
+                let ion = &self.species[p.species].ion;
+                bragg_cross_section_per_atom(model, &NoCorrection, ion, material, p.energy_ev)?
+            }
         };
-        let material = self.stack.layers()[p.layer].material();
-        let ion = &self.species[p.species].ion;
-        let s = bragg_cross_section_per_atom(model, &NoCorrection, ion, material, p.energy_ev)?;
-        let de = (self.layers[p.layer].n * s * len / J_PER_EV).min(p.energy_ev);
+        let de = (lay.n * s * len / J_PER_EV).min(p.energy_ev);
         if de > 0.0 {
             p.energy_ev -= de;
             budget.electronic_nonlocal += de;
@@ -967,12 +1045,13 @@ impl<'a> Bca<'a> {
         }
     }
 
-    fn theta(&self, eps: f64, beta: f64) -> f64 {
+    /// `tan(theta / 2)` for the centre-of-mass angle at `(eps, beta)`.
+    fn half_angle_tan(&self, eps: f64, beta: f64) -> f64 {
         // Outside the tabulated energy range fall back to direct quadrature
         // (deterministic, just slower).
         self.table
-            .theta(eps, beta)
-            .unwrap_or_else(|| theta_quadrature(self.screening, eps, beta))
+            .half_angle_tan(eps, beta)
+            .unwrap_or_else(|| (0.5 * theta_quadrature(self.screening, eps, beta)).tan())
     }
 
     /// Partner element index, by stoichiometry (weighted by `p_max^2` for
@@ -989,31 +1068,39 @@ impl<'a> Bca<'a> {
 
     /// One binary collision of `p`, at its current energy and direction,
     /// with element `j` of its layer at impact parameter `b` and azimuth
-    /// `azimuth`. Deflects `p`, removes the transfer `T` and, under
-    /// [`ElectronicLoss::EquipartitionLsOr`], the local electronic loss (clamped
-    /// to the energy left), and returns `(T, incoming direction, recoil lab
-    /// angle)`.
+    /// azimuth `(sin, cos)` = `azimuth`. Deflects `p`, removes the transfer `T`
+    /// and, under [`ElectronicLoss::EquipartitionLsOr`], the local electronic
+    /// loss (clamped to the energy left), and returns `(T, incoming
+    /// direction, recoil lab angle as (sin, cos))`.
+    ///
+    /// The angles are carried as sines and cosines: with `t = tan(theta/2)`
+    /// from the table, `sin(theta/2) = t / sqrt(1 + t^2)` and `cos(theta/2) =
+    /// 1 / sqrt(1 + t^2)` give the energy transfer, the projectile deflection
+    /// ([`kinematics::lab_projectile_sc`]) and the recoil deflection
+    /// `phi = (pi - theta) / 2`, `(sin, cos) = (cos(theta/2), sin(theta/2))`
+    /// with one square root and no `atan`, `atan2`, `sin` or `cos`.
     #[allow(clippy::too_many_arguments)]
     fn binary<T: BcaTally>(
         &self,
         p: &mut Particle,
         j: usize,
         b: f64,
-        azimuth: f64,
+        azimuth: (f64, f64),
         budget: &mut EnergyBudget,
         tally: &mut T,
-    ) -> Result<(f64, [f64; 3], f64), StoppingError> {
+    ) -> Result<BinaryOutcome, StoppingError> {
         let elem = &self.layers[p.layer].elems[j];
         let pair = self.pairs[p.species * self.species.len() + elem.species];
         let e0 = p.energy_ev;
         let eps = e0 * pair.eps_per_ev;
         let beta = b / pair.a;
-        let theta = self.theta(eps, beta);
-        let half = (0.5 * theta).sin();
-        let t = (pair.gamma * e0 * half * half).min(e0);
-        let (psi, phi) = kinematics::lab_angles(theta, pair.mu);
+        let tan_half = self.half_angle_tan(eps, beta);
+        let c = 1.0 / (1.0 + tan_half * tan_half).sqrt();
+        let s = tan_half * c;
+        let t = (pair.gamma * e0 * s * s).min(e0);
+        let psi = kinematics::lab_projectile_sc(s, c, pair.mu);
         let incoming = p.dir;
-        p.dir = kinematics::rotate(incoming, psi, azimuth);
+        p.dir = kinematics::rotate_sc(incoming, psi, azimuth);
         p.energy_ev -= t;
 
         if self.config.electronic == ElectronicLoss::EquipartitionLsOr {
@@ -1026,7 +1113,7 @@ impl<'a> Bca<'a> {
                 tally.electronic(p, p.pos, ElectronicChannel::Local, q);
             }
         }
-        Ok((t, incoming, phi))
+        Ok((t, incoming, (c, s)))
     }
 
     /// Whether the partner of a weak collision of `p` at impact parameter
@@ -1034,8 +1121,9 @@ impl<'a> Bca<'a> {
     /// in vacuum. The partner sits at distance `b` from the path on the side
     /// opposite to the deflection, where a hard collision sends its recoil:
     /// at `b rotate(dir, pi/2, azimuth + pi)` from the collision site.
-    fn partner_beyond_surface(&self, p: &Particle, b: f64, azimuth: f64) -> bool {
-        let offset = kinematics::rotate(p.dir, 0.5 * PI, azimuth + PI);
+    fn partner_beyond_surface(&self, p: &Particle, b: f64, azimuth: (f64, f64)) -> bool {
+        // sin and cos of `azimuth + pi` are the negatives.
+        let offset = kinematics::rotate_sc(p.dir, (1.0, 0.0), (-azimuth.0, -azimuth.1));
         p.pos[0] + b * offset[0] < self.stack.layers()[0].front_m()
     }
 
@@ -1064,7 +1152,7 @@ impl<'a> Bca<'a> {
         for k in 1..=self.config.weak_collisions {
             let j = Self::draw_partner(rng, scratch);
             let b = scratch.p_max[j] * (f64::from(k) + Self::uniform(rng)).sqrt();
-            let azimuth = 2.0 * PI * Self::uniform(rng);
+            let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
             if self.partner_beyond_surface(p, b, azimuth) {
                 continue;
             }
@@ -1081,7 +1169,7 @@ impl<'a> Bca<'a> {
         // without weak collisions (module docs).
         let j = Self::draw_partner(rng, scratch);
         let b = scratch.p_max[j] * Self::uniform(rng).sqrt();
-        let azimuth = 2.0 * PI * Self::uniform(rng);
+        let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
         let (t, incoming, phi) = self.binary(p, j, b, azimuth, budget, tally)?;
 
         let elem = &self.layers[p.layer].elems[j];
@@ -1098,7 +1186,7 @@ impl<'a> Bca<'a> {
                 mass_amu: sp.ion.mass_amu(),
                 energy_ev: e_r,
                 pos: p.pos,
-                dir: kinematics::rotate(incoming, phi, azimuth + PI),
+                dir: kinematics::rotate_sc(incoming, phi, (-azimuth.0, -azimuth.1)),
                 layer: p.layer,
                 generation: p.generation + 1,
             };
@@ -1215,7 +1303,7 @@ mod tests {
         let beyond = |p: &Particle| {
             azimuths
                 .clone()
-                .filter(|&az| bca.partner_beyond_surface(p, b, az))
+                .filter(|&az| bca.partner_beyond_surface(p, b, az.sin_cos()))
                 .count() as f64
                 / n as f64
         };
@@ -1232,7 +1320,10 @@ mod tests {
         for az in azimuths {
             let deflected = kinematics::rotate(p.dir, 0.3, az);
             if deflected[0].abs() > 1e-6 {
-                assert_eq!(bca.partner_beyond_surface(&p, b, az), deflected[0] > 0.0);
+                assert_eq!(
+                    bca.partner_beyond_surface(&p, b, az.sin_cos()),
+                    deflected[0] > 0.0
+                );
             }
         }
     }

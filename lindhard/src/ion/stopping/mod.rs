@@ -194,6 +194,21 @@ pub trait ElectronicStopping {
 
     /// Advisory validity range for this ion.
     fn validity(&self, ion: &Ion) -> ValidityRange;
+
+    /// If this model is exactly `S(E) = c sqrt(E)` for this ion and target
+    /// (the velocity-proportional Lindhard-Scharff form), return `c` in
+    /// J m² eV^(-1/2); `None` (the default) otherwise.
+    ///
+    /// A model that returns `Some(c)` promises that
+    /// [`stopping`](Self::stopping) succeeds for every finite positive energy
+    /// and equals `c sqrt(E)` to rounding. A caller that evaluates the model
+    /// many times for one ion and target (the collision loop) can then
+    /// compute `c`, which involves several fractional powers, once. Return
+    /// `None` whenever [`stopping`](Self::stopping) could fail, so the error
+    /// is still reported at evaluation.
+    fn sqrt_energy_coefficient(&self, _ion: &Ion, _target_z: u8) -> Option<f64> {
+        None
+    }
 }
 
 /// Convert J m² per atom to eV·10⁻¹⁵ cm² per atom (1e-15 cm² = 1e-19 m²).
