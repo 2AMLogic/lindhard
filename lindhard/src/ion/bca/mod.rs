@@ -3,15 +3,16 @@
 //!
 //! # Model
 //!
-//! The target is any [`Geometry`]: a [`Stack`](crate::geometry::Stack) of layers or a
-//! [`VoxelGrid`](crate::geometry::VoxelGrid), whose regions are homogeneous,
-//! structureless (amorphous). A particle alternates straight free flights and binary elastic
-//! collisions with target atoms, losing energy continuously to electrons along
-//! each flight. This is the amorphous-target BCA of J. P. Biersack and L. G.
-//! Haggmark, Nucl. Instrum. Methods 174 (1980) 257 (TRIM), within the general
-//! BCA framework of M. T. Robinson and I. M. Torrens, Phys. Rev. B 9 (1974)
-//! 5008 and the treatment in W. Eckstein, *Computer Simulation of Ion-Solid
-//! Interactions* (Springer, 1991). Everything here is implemented from those
+//! The target is any [`Geometry`]: a [`Stack`](crate::geometry::Stack) of
+//! layers or a [`VoxelGrid`](crate::geometry::VoxelGrid), whose regions are
+//! homogeneous, structureless (amorphous). A particle alternates straight
+//! free flights and binary elastic collisions with target atoms, losing
+//! energy continuously to electrons along each flight. This is the
+//! amorphous-target BCA of J. P. Biersack and L. G. Haggmark, Nucl. Instrum.
+//! Methods 174 (1980) 257 (TRIM), within the general BCA framework of M. T.
+//! Robinson and I. M. Torrens, Phys. Rev. B 9 (1974) 5008 and the treatment
+//! in W. Eckstein, *Computer Simulation of Ion-Solid Interactions*
+//! (Springer, 1991). Everything here is implemented from those
 //! publications; no code from the Tier B/C programs named in
 //! `CONTRIBUTING.md` was consulted.
 //!
@@ -62,15 +63,16 @@
 //! A flight is drawn as a dimensionless number of mean free paths `tau` and
 //! converted to a length with the local `lambda`. When a flight reaches a
 //! change of material (or a periodic wrap of a voxel grid) it is truncated
-//! exactly there, with the same unused-optical-depth rule; a voxel face
-//! between voxels of one material is not an event. At an interface it is
-//! truncated exactly there, the electronic loss for the
-//! truncated length is applied, the material is switched, and the flight
-//! continues in the new layer with the **unused** part `tau - s/lambda` (the
-//! flight is not redrawn). The collision then happens in the layer where the
-//! flight ends, with a partner and `p_max` from that layer. For exponential
-//! paths this is exact by memorylessness; for the constant path it means a
-//! layer split of one material changes nothing but floating-point rounding,
+//! exactly there, the electronic loss for the truncated length is applied,
+//! the material is switched, and the flight continues in the new region
+//! with the **unused** part `tau - s/lambda` (the flight is not redrawn). A
+//! voxel face between voxels of one material is not an event; the region a
+//! flight ends in is still tracked ([`Geometry::flight`]), so the collision,
+//! its tallies and its recoils carry the region of the collision site. The
+//! collision happens in the material where the flight ends, with a partner
+//! and `p_max` from that material. For exponential paths this is exact by
+//! memorylessness; for the constant path it means a layer split of one
+//! material changes nothing but floating-point rounding,
 //! which the `split_layer_is_equivalent` test checks.
 //!
 //! # Weak collisions (optional)
@@ -208,7 +210,7 @@ use std::f64::consts::PI;
 
 use rand_core::Rng;
 
-use crate::geometry::{ExitOutcome, Geometry};
+use crate::geometry::{ExitOutcome, Flight, Geometry};
 use crate::ion::potential::{Potential, Screening};
 use crate::ion::scattering::{closest_approach, theta_quadrature, ScatteringTable};
 use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
@@ -619,9 +621,10 @@ impl<'a> Bca<'a> {
     /// * Target atoms use, at each face, the `E_s` of their element in the
     ///   material they leave from; an element absent from that material uses
     ///   its `E_s` in the first material that contains it.
-    /// * `geometry` is a [`Stack`](crate::geometry::Stack) or a [`VoxelGrid`](crate::geometry::VoxelGrid)
-    ///   (or any other [`Geometry`]); its default entry point must lie in the
-    ///   target ([`Bca::with_entry_point`] changes it).
+    /// * `geometry` is a [`Stack`](crate::geometry::Stack) or a
+    ///   [`VoxelGrid`](crate::geometry::VoxelGrid) (or any other
+    ///   [`Geometry`]); its default entry point must lie in the target
+    ///   ([`Bca::with_entry_point`] changes it).
     pub fn new(
         beam: Beam,
         geometry: &'a dyn Geometry,
@@ -1036,59 +1039,66 @@ impl<'a> Bca<'a> {
             let lambda = self.flight(&p, lay, scratch);
             let s = tau * lambda;
 
-            if let Some(ex) = self.geometry.exit(p.layer, p.pos, p.dir, s) {
-                // Truncate at the event; keep the unused part of the flight.
-                let d_b = ex.distance;
-                let from = p.pos;
-                p.pos = ex.at;
-                self.electronic_nonlocal(&mut p, from, d_b, budget, tally)?;
-                tau = (tau - d_b / lambda).max(0.0);
-                if p.energy_ev < cutoff {
+            let ex = match self.geometry.flight(p.layer, p.pos, p.dir, s) {
+                Flight::Event(ex) => ex,
+                Flight::Clear { region } => {
+                    // The whole flight is in one material, but it may have
+                    // crossed same-material faces (voxels of one block):
+                    // take the region it ends in before colliding, so the
+                    // next flight, the tallies and any recoil start from the
+                    // right one.
+                    let from = p.pos;
+                    Self::advance(&mut p, s);
+                    p.layer = region;
+                    self.electronic_nonlocal(&mut p, from, s, budget, tally)?;
+                    if p.energy_ev >= cutoff {
+                        self.collide(&mut p, rng, scratch, pending, budget, tally)?;
+                        tau = self.draw_tau(rng, false);
+                    }
                     continue;
                 }
-                match ex.outcome {
-                    ExitOutcome::Enter { region, pos } => {
-                        p.layer = region;
-                        p.pos = pos;
-                    }
-                    ExitOutcome::Escape { face, normal } => {
-                        let mi = self.geometry.material_index(p.layer);
-                        let e_s = self.barriers[mi * self.species.len() + p.species];
-                        match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {
-                            Some((e_out, dir_out)) => {
-                                budget.surface_barrier += p.energy_ev - e_out;
-                                p.energy_ev = e_out;
-                                p.dir = dir_out;
-                                match (face, p.is_primary()) {
-                                    (Face::Front, true) => budget.backscattered += e_out,
-                                    (Face::Front, false) => budget.sputtered += e_out,
-                                    (Face::Back, _) => budget.transmitted += e_out,
-                                    (Face::Side, _) => budget.lateral += e_out,
-                                }
-                                tally.escaped(&p, face);
-                                return Ok(());
+            };
+            // Truncate at the event; keep the unused part of the flight.
+            let d_b = ex.distance;
+            let from = p.pos;
+            p.pos = ex.at;
+            self.electronic_nonlocal(&mut p, from, d_b, budget, tally)?;
+            tau = (tau - d_b / lambda).max(0.0);
+            if p.energy_ev < cutoff {
+                continue;
+            }
+            match ex.outcome {
+                ExitOutcome::Enter { region, pos } => {
+                    p.layer = region;
+                    p.pos = pos;
+                }
+                ExitOutcome::Escape { face, normal } => {
+                    let mi = self.geometry.material_index(p.layer);
+                    let e_s = self.barriers[mi * self.species.len() + p.species];
+                    match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {
+                        Some((e_out, dir_out)) => {
+                            budget.surface_barrier += p.energy_ev - e_out;
+                            p.energy_ev = e_out;
+                            p.dir = dir_out;
+                            match (face, p.is_primary()) {
+                                (Face::Front, true) => budget.backscattered += e_out,
+                                (Face::Front, false) => budget.sputtered += e_out,
+                                (Face::Back, _) => budget.transmitted += e_out,
+                                (Face::Side, _) => budget.lateral += e_out,
                             }
-                            None => {
-                                // Specular reflection about the face normal.
-                                let dn = p.dir[0] * normal[0]
-                                    + p.dir[1] * normal[1]
-                                    + p.dir[2] * normal[2];
-                                for (d, n) in p.dir.iter_mut().zip(normal) {
-                                    *d -= 2.0 * dn * n;
-                                }
+                            tally.escaped(&p, face);
+                            return Ok(());
+                        }
+                        None => {
+                            // Specular reflection about the face normal.
+                            let dn =
+                                p.dir[0] * normal[0] + p.dir[1] * normal[1] + p.dir[2] * normal[2];
+                            for (d, n) in p.dir.iter_mut().zip(normal) {
+                                *d -= 2.0 * dn * n;
                             }
                         }
                     }
                 }
-                continue;
-            }
-
-            let from = p.pos;
-            Self::advance(&mut p, s);
-            self.electronic_nonlocal(&mut p, from, s, budget, tally)?;
-            if p.energy_ev >= cutoff {
-                self.collide(&mut p, rng, scratch, pending, budget, tally)?;
-                tau = self.draw_tau(rng, false);
             }
         }
     }

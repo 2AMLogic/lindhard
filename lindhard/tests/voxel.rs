@@ -6,7 +6,9 @@
 use std::sync::OnceLock;
 
 use lindhard::geometry::{Boundary, Geometry, Stack, VoxelGrid};
-use lindhard::ion::bca::{Bca, BcaConfig, BcaError, Beam, SummaryTally};
+use lindhard::ion::bca::{
+    Bca, BcaConfig, BcaError, BcaTally, Beam, LatticeDeposit, Particle, SummaryTally,
+};
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
@@ -229,6 +231,81 @@ fn vacuum_side_faces_conserve_energy_and_count_escapes() {
         t.primaries_stopped + t.backscattered + t.transmitted + t.lateral,
         t.histories
     );
+}
+
+/// Checks that every collision-site event (lattice deposit, recoil) carries
+/// a region whose material is the material at its position.
+struct RegionCheck<'g> {
+    grid: &'g VoxelGrid,
+    checked: u64,
+    mismatched: u64,
+}
+
+impl RegionCheck<'_> {
+    fn check(&mut self, at: [f64; 3], region: usize) {
+        self.checked += 1;
+        let here = self.grid.locate(at).map(|r| self.grid.material_index(r));
+        if here != Some(self.grid.material_index(region)) {
+            self.mismatched += 1;
+        }
+    }
+}
+
+impl BcaTally for RegionCheck<'_> {
+    fn lattice(&mut self, at: [f64; 3], region: usize, _: LatticeDeposit, _: f64) {
+        self.check(at, region);
+    }
+
+    fn recoil(&mut self, r: &Particle) {
+        self.check(r.pos, r.layer);
+    }
+
+    fn merge(&mut self, o: Self) {
+        self.checked += o.checked;
+        self.mismatched += o.mismatched;
+    }
+}
+
+#[test]
+fn collision_sites_carry_the_region_they_are_in() {
+    // Regression: a flight that crosses only same-material voxel faces is
+    // not truncated, but the particle's region must still follow it, or a
+    // later turn misses a material interface and recoils and tallies report
+    // the wrong region. A block of one material (x < 3) beside a
+    // checkerboard of two, vacuum all round, cascades on.
+    let ls = LindhardScharff::new();
+    let n = 6;
+    let mut cells = Vec::new();
+    for k in 0..n {
+        for j in 0..n {
+            for i in 0..n {
+                cells.push(u32::from(i >= 3 && (i + j + k) % 2 == 0));
+            }
+        }
+    }
+    let grid = VoxelGrid::new(
+        vec![si(), sio2()],
+        [n; 3],
+        [NM; 3],
+        cells,
+        [Boundary::Vacuum; 3],
+    )
+    .unwrap();
+    let mut cfg = BcaConfig::new(5.0, 1.0);
+    cfg.seed = 11;
+    let mut b = beam(400);
+    b.ion = Ion::new(14).unwrap();
+    b.polar_rad = 0.5;
+    let bca = Bca::new(b, &grid, cfg, &ls, table()).unwrap();
+    let t = bca
+        .run(|| RegionCheck {
+            grid: &grid,
+            checked: 0,
+            mismatched: 0,
+        })
+        .unwrap();
+    assert!(t.checked > 1000, "too few collision events ({})", t.checked);
+    assert_eq!(t.mismatched, 0, "of {} events", t.checked);
 }
 
 #[test]

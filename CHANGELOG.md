@@ -23,7 +23,9 @@ one version).
 - `geometry::Geometry`, the engine-facing target trait, implemented by `Stack`
   and the new `geometry::VoxelGrid` (regular 3D grid of material indices,
   periodic or vacuum boundaries per axis, exact 3D DDA traversal that
-  truncates the free path at a material change). `Bca::new` now takes any
+  truncates the free path at a material change; `Geometry::flight` also
+  reports the region a flight without an event ends in, so the particle's
+  region follows it across same-material voxel faces). `Bca::new` now takes any
   `&dyn Geometry` (a `&Stack` still works) and `Bca::with_entry_point` picks
   the incident point. `Face::Side` and `EnergyBudget::lateral` account for
   escapes through the lateral faces of a voxel grid; `Face` moved to

@@ -124,7 +124,9 @@ pub trait BcaTally: Send {
     ) {
     }
 
-    /// Nuclear energy `energy_ev` left in the lattice at `at` in region `layer` (the layer index of a stack, the flat voxel index of a voxel grid).
+    /// Nuclear energy `energy_ev` left in the lattice at `at` in region
+    /// `layer` (the layer index of a stack, the flat voxel index of a voxel
+    /// grid).
     fn lattice(&mut self, _at: [f64; 3], _layer: usize, _kind: LatticeDeposit, _energy_ev: f64) {}
 
     /// A target atom was displaced (transfer above `E_d`); `recoil` is its

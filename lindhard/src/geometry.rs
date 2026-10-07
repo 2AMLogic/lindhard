@@ -162,6 +162,23 @@ pub struct Exit {
     pub outcome: ExitOutcome,
 }
 
+/// The outcome of a flight query, [`Geometry::flight`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Flight {
+    /// An event happens within the flight limit (see [`Geometry::exit`]).
+    Event(Exit),
+    /// No event within the limit: the whole flight stays in one material,
+    /// and ends in `region`. This may differ from the starting region when
+    /// the flight crossed faces between regions of the same material (voxels
+    /// of one block). A face reached exactly at the limit counts as crossed,
+    /// so `region` is the region the particle is entering there, the same
+    /// directional ownership as an [`ExitOutcome::Enter`].
+    Clear {
+        /// The region containing the end of the flight.
+        region: usize,
+    },
+}
+
 /// The engine-facing description of a target. See the module docs for the
 /// contract. Implemented by [`Stack`] and [`VoxelGrid`].
 pub trait Geometry: Sync {
@@ -193,6 +210,19 @@ pub trait Geometry: Sync {
     /// `dir` must be a finite unit vector; a zero or non-finite direction
     /// returns `None`.
     fn exit(&self, region: usize, pos: [f64; 3], dir: [f64; 3], limit: f64) -> Option<Exit>;
+
+    /// [`Geometry::exit`], also reporting the region the flight ends in when
+    /// there is no event, so a transport engine can keep its particle's
+    /// region consistent with its position after crossing same-material
+    /// faces. The default suits a geometry whose regions are each a whole
+    /// material run along every flight (a [`Stack`], where leaving a layer is
+    /// always an event): without an event the region is unchanged.
+    fn flight(&self, region: usize, pos: [f64; 3], dir: [f64; 3], limit: f64) -> Flight {
+        match self.exit(region, pos, dir, limit) {
+            Some(e) => Flight::Event(e),
+            None => Flight::Clear { region },
+        }
+    }
 
     /// Whether `pos` lies outside the target in vacuum, used to skip weak-
     /// collision partners that would lie beyond a surface. For a [`Stack`]
@@ -562,8 +592,20 @@ impl Geometry for VoxelGrid {
     }
 
     fn exit(&self, region: usize, pos: [f64; 3], dir: [f64; 3], limit: f64) -> Option<Exit> {
+        match self.flight(region, pos, dir, limit) {
+            Flight::Event(e) => Some(e),
+            Flight::Clear { .. } => None,
+        }
+    }
+
+    /// The traversal behind [`Geometry::exit`]. Without an event, the region
+    /// is the voxel the DDA has reached at the limit: same-material faces up
+    /// to and including the limit have been crossed, so a flight ending
+    /// exactly on a face is in the voxel beyond it along `dir`. A periodic
+    /// wrap is always an event, so a clear flight never wraps.
+    fn flight(&self, region: usize, pos: [f64; 3], dir: [f64; 3], limit: f64) -> Flight {
         if !dir.iter().all(|d| d.is_finite()) || dir == [0.0; 3] {
-            return None;
+            return Flight::Clear { region };
         }
         let home = self.cells[region];
         let mut cell = self.voxel_of(region);
@@ -595,7 +637,9 @@ impl Geometry for VoxelGrid {
         loop {
             let t = t_next[0].min(t_next[1]).min(t_next[2]);
             if t.is_nan() || t > limit {
-                return None;
+                return Flight::Clear {
+                    region: self.flat_unchecked(cell),
+                };
             }
             let mut at = [
                 pos[0] + t * dir[0],
@@ -652,7 +696,7 @@ impl Geometry for VoxelGrid {
                 };
                 let mut normal = [0.0; 3];
                 normal[axis] = if positive { 1.0 } else { -1.0 };
-                return Some(Exit {
+                return Flight::Event(Exit {
                     distance: t,
                     at,
                     outcome: ExitOutcome::Escape { face, normal },
@@ -662,7 +706,7 @@ impl Geometry for VoxelGrid {
             if wrapped || self.cells[next] != home {
                 // A periodic image is the same voxel set: ownership puts the
                 // wrapped coordinate in the voxel just entered.
-                return Some(Exit {
+                return Flight::Event(Exit {
                     distance: t,
                     at,
                     outcome: ExitOutcome::Enter {
@@ -963,6 +1007,61 @@ mod tests {
         let e = g1.exit(0, [0.5, 1.0, 1.0], [-1.0, 0.0, 0.0], 10.0).unwrap();
         assert_eq!(e.distance, 0.5);
         assert_eq!(enter(&e), (0, [2.0, 1.0, 1.0]));
+    }
+
+    #[test]
+    fn clear_flight_reports_the_region_it_ends_in() {
+        // Regression: [2, 2, 1] voxels, material 1 only in voxel (1, 1, 0).
+        let g = grid([2, 2, 1], [V; 3], |i, j, _| u32::from(i == 1 && j == 1));
+        let (x, y) = ([1.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+        // One unit along +x crosses only a same-material face: no event, but
+        // the flight ends in voxel (1, 0, 0).
+        let f = g.flight(0, [0.5; 3], x, 1.0);
+        assert_eq!(f, Flight::Clear { region: 1 });
+        assert!(g.exit(0, [0.5; 3], x, 1.0).is_none());
+        // Turning to +y from there meets the material interface at y = 1.
+        let e = g.exit(1, [1.5, 0.5, 0.5], y, 1.0).unwrap();
+        assert_eq!(e.distance, 0.5);
+        assert_eq!(enter(&e), (3, [1.5, 1.0, 0.5]));
+        // The stale starting region would miss it (x-cell 0 has no y change).
+        assert!(g.exit(0, [1.5, 0.5, 0.5], y, 1.0).is_none());
+
+        // Directional ownership: a flight ending exactly on a face is in the
+        // voxel beyond it along the direction, as for an `Enter`.
+        assert_eq!(g.flight(0, [0.5; 3], x, 0.5), Flight::Clear { region: 1 });
+        let back = [-1.0, 0.0, 0.0];
+        assert_eq!(
+            g.flight(1, [1.5, 0.5, 0.5], back, 0.5),
+            Flight::Clear { region: 0 }
+        );
+        // Short of the face: unchanged. Degenerate direction: unchanged.
+        assert_eq!(g.flight(0, [0.5; 3], x, 0.25), Flight::Clear { region: 0 });
+        assert_eq!(
+            g.flight(1, [1.5; 3], [0.0; 3], 9.0),
+            Flight::Clear { region: 1 }
+        );
+
+        // Periodic: after a wrap the particle sits on the upper face in the
+        // last voxel (`locate` would give voxel 0); a clear flight from there
+        // keeps that ownership, and reaching the wrap is always an event.
+        let p = grid([2, 1, 1], [P, P, P], |_, _, _| 0);
+        assert_eq!(p.locate([2.0, 0.5, 0.5]), Some(0));
+        assert_eq!(
+            p.flight(1, [2.0, 0.5, 0.5], back, 0.25),
+            Flight::Clear { region: 1 }
+        );
+        assert!(matches!(
+            p.flight(1, [1.5, 0.5, 0.5], x, 0.5),
+            Flight::Event(Exit {
+                outcome: ExitOutcome::Enter { region: 0, .. },
+                ..
+            })
+        ));
+
+        // A stack keeps its region: leaving a layer is always an event.
+        let s = Stack::new(vec![(si(), 1.0), (c(), 2.0)], None).unwrap();
+        assert_eq!(s.flight(0, [0.5; 3], x, 0.25), Flight::Clear { region: 0 });
+        assert!(matches!(s.flight(0, [0.5; 3], x, 0.5), Flight::Event(_)));
     }
 
     #[test]
