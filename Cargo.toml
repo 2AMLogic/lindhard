@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["lindhard", "lindhard-cli"]
+members = ["lindhard", "lindhard-cli", "lindhard-py"]
 
 [workspace.package]
 version = "0.0.1"

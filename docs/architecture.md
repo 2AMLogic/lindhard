@@ -9,7 +9,7 @@ One library crate, `lindhard`, holds all the physics. Front ends sit on top of
 it:
 
 - `lindhard-cli`: TOML input, JSON/CSV output (M0).
-- `lindhard-py`: pyo3/maturin wheels on PyPI (M3).
+- `lindhard-py`: pyo3/maturin Python package, NumPy arrays out (bindings built; PyPI wheels in M3). It reuses the CLI's driver, tallies and writers (`lindhard-cli` is also a small library), so a Python run and a command run of the same input and seed agree bit for bit; it adds no physics and no second copy of the TOML schema.
 - WASM build for in-browser range calculators (M3).
 
 Within the library, the shared core (materials, geometry, random numbers,

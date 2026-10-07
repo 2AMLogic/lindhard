@@ -531,6 +531,12 @@ impl Input {
         toml::from_str(text).map_err(|e| InputError::Parse(e.to_string()))
     }
 
+    /// The input as a TOML document in the same schema [`Input::from_toml_str`]
+    /// reads: parsing the text gives back an equal [`Input`].
+    pub fn to_toml_string(&self) -> Result<String, InputError> {
+        toml::to_string(self).map_err(|e| InputError::Parse(e.to_string()))
+    }
+
     /// The input as echoed into output metadata: defaults filled in, and
     /// `run.threads` removed (it does not affect results).
     pub fn echo(&self) -> Input {
