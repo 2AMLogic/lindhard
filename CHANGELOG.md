@@ -26,8 +26,6 @@ one version).
   `kinematics::lab_projectile_sc`.
 - `ElectronicStopping::sqrt_energy_coefficient` (defaulted, so existing
   implementations are unaffected), implemented by `LindhardScharff`.
-### Added
-
 - Packaging metadata for both crates: `include` allowlists, crate-local
   README, LICENSE and CHANGELOG in each archive, and a CI `package` job that
   runs `cargo package` and `cargo publish --dry-run`.
