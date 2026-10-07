@@ -66,7 +66,14 @@
 //!
 //!   Still **not verified** to their stored digits: C 2.267 (printed as the
 //!   range 1.9-2.3) and Mn 7.44 (the upper end of the printed range
-//!   7.21-7.44). Si keeps 2.329: the booklet prints 2.33
+//!   7.21-7.44). For Mn, the X-ray density of alpha-Mn, "(calculated) 7.475
+//!   g/cm³" at 25 °C (a = 8.9121 Å, Z = 58), is printed in M. C. Morris
+//!   et al., *Standard X-ray Diffraction Powder Patterns*, NBS Monograph 25,
+//!   Section 17 (1980), p. 50
+//!   (<https://nvlpubs.nist.gov/nistpubs/Legacy/MONO/nbsmonograph25-17.pdf>,
+//!   checked 2026-10-07, #15). It lies above the booklet's range, so unlike
+//!   Cr it does not pin a value inside that range; 7.44 is kept, unverified.
+//!   Si keeps 2.329: the booklet prints 2.33
 //!   at 25 °C, and 2.329 is the crystal density `M(Si) / V_m(Si)` from the
 //!   CODATA 2022 "molar volume of silicon" (1.205 883 199e-5 m³/mol,
 //!   <https://physics.nist.gov/cuu/Constants/Table/allascii.txt>) for any
@@ -85,7 +92,10 @@
 //!   usual binary-collision convention (Sigmund, Phys. Rev. 184, 383 (1969)),
 //!   **not** a measured surface barrier. Elements without an entry are `None`:
 //!   the user must set `E_s` explicitly rather than have one invented.
-//!   **Not verified against Kittel** (the book could not be reached). Checked
+//!   **Not verified against Kittel** (the book could not be reached; the
+//!   publisher's free excerpts of the 8th edition, its contents and index,
+//!   place the cohesive-energy table on p. 50 of chapter 3 but do not
+//!   include that page). Checked
 //!   instead against L. Brewer, "The cohesive energies of the elements",
 //!   report LBL-3720 (1975), Table I, energy of atomization to the gaseous
 //!   ground state at 0 K in kcal/gram-atom (<https://www.osti.gov/servlets/purl/7187973>):
@@ -100,7 +110,9 @@
 //!   conventions for damage accounting, not measured properties of a specific
 //!   crystal direction. `None` where no convention value is recorded.
 //!   **Not verified**: the standard could not be reached (see
-//!   `docs/data-provenance.md`).
+//!   `docs/data-provenance.md`). The values are also not those of the
+//!   Greenwood-Smither compilation used by SPECTER and NJOY (they differ for
+//!   Al, Ti, Cu, Nb and Ag), which is not E521 either.
 
 /// One element of the periodic table with its default data.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -528,6 +540,28 @@ mod tests {
         let a_cm = 5.311e-8;
         let rho = 4.0 * ac.atomic_weight / (AVOGADRO * a_cm * a_cm * a_cm);
         assert!((rho - ac.density_g_cm3.unwrap()).abs() < 0.01, "{rho}");
+    }
+
+    /// Mn is not pinned by any source read so far. The X-Ray Data Booklet
+    /// prints the range 7.21-7.44; NBS Monograph 25, Section 17 (1980), p. 50,
+    /// prints the alpha-Mn X-ray density "(calculated) 7.475 g/cm³" at 25 °C
+    /// from a = 8.9121 Å and Z = 58 atoms per cell (volume printed as
+    /// 707.85 Å³). That page is reproduced here from its printed lattice
+    /// constant with CODATA 2022 N_A and the CIAAW weight; it lies above the
+    /// booklet's range, so the stored upper end, 7.44, is kept and stays
+    /// unverified.
+    #[test]
+    fn manganese_density_is_bounded_but_not_pinned() {
+        use crate::constants::AVOGADRO;
+        let mn = by("Mn");
+        let a_cm: f64 = 8.9121e-8;
+        assert!((a_cm * a_cm * a_cm * 1e24 - 707.85).abs() < 0.005);
+        let rho_x = 58.0 * mn.atomic_weight / (AVOGADRO * a_cm * a_cm * a_cm);
+        assert!((rho_x - 7.475).abs() < 0.0005, "{rho_x}");
+        let stored = mn.density_g_cm3.unwrap();
+        assert_eq!(stored, 7.44);
+        assert!((7.21..=7.44).contains(&stored));
+        assert!(rho_x > 7.44);
     }
 
     /// Si: the CODATA 2022 "molar volume of silicon", V_m(Si) =
