@@ -1051,3 +1051,100 @@ fn stale_file_that_cannot_be_removed_is_a_contextual_error() {
         "{err}"
     );
 }
+
+/// Minimal RFC 4180 parser: records of fields, quoted fields may contain
+/// commas, CR, LF and doubled quotes.
+fn parse_csv(text: &str) -> Vec<Vec<String>> {
+    let (mut rows, mut row, mut f) = (Vec::new(), Vec::new(), String::new());
+    let (mut quoted, mut chars) = (false, text.chars().peekable());
+    while let Some(c) = chars.next() {
+        match (quoted, c) {
+            (true, '"') if chars.peek() == Some(&'"') => {
+                chars.next();
+                f.push('"');
+            }
+            (true, '"') => quoted = false,
+            (true, _) => f.push(c),
+            (false, '"') => quoted = true,
+            (false, ',') => row.push(std::mem::take(&mut f)),
+            (false, '\n') => {
+                row.push(std::mem::take(&mut f));
+                rows.push(std::mem::take(&mut row));
+            }
+            (false, _) => f.push(c),
+        }
+    }
+    assert!(!quoted, "unterminated quoted field");
+    assert!(f.is_empty() && row.is_empty(), "missing final newline");
+    rows
+}
+
+#[test]
+fn electron_tables_csv_encodes_material_names() {
+    let dir = scratch("electron-csv-names");
+    let src = std::fs::read_to_string(electron_example()).unwrap();
+    std::fs::copy(
+        examples_dir().join("electron/synthetic_plasmon_elf.toml"),
+        dir.join("synthetic_plasmon_elf.toml"),
+    )
+    .unwrap();
+    // Two quoted TOML keys: a comma, and commas with embedded quotes. (Line
+    // breaks are rejected by the material-identity check, so they cannot
+    // reach the table; the encoder's unit test covers them.)
+    let film = "Si,film";
+    let sub = "Si \"q\", \"\"r\"\"";
+    let mat = |name: &str| {
+        let m = "[electron.materials.Si]";
+        let body = src.split(m).nth(1).unwrap();
+        let body = body.split("\n\n").next().unwrap();
+        let key = name.replace('\\', "\\\\").replace('"', "\\\"");
+        let key = key.replace('\r', "\\r").replace('\n', "\\n");
+        format!("[electron.materials.\"{key}\"]{body}\n\n")
+    };
+    let key = |name: &str| {
+        let k = name.replace('"', "\\\"").replace('\r', "\\r");
+        k.replace('\n', "\\n")
+    };
+    let head = src.split("[electron.materials.Si]").next().unwrap();
+    let tail = src.split("[electron.tally]").nth(1).unwrap();
+    let tail = tail.split("[target]").next().unwrap();
+    let text = format!(
+        "{head}{}{}[electron.tally]{tail}\n\
+         [materials.\"{}\"]\ndensity_g_cm3 = 2.33\nelements = [{{ symbol = \"Si\", atom_fraction = 1.0 }}]\n\n\
+         [materials.\"{}\"]\ndensity_g_cm3 = 2.33\nelements = [{{ symbol = \"Si\", atom_fraction = 1.0 }}]\n\n\
+         [target]\nsubstrate = \"{}\"\n\n[[target.layers]]\nmaterial = \"{}\"\nthickness_nm = 20.0\n\n\
+         [run]\nhistories = 10\nseed = 1\n",
+        mat(film),
+        mat(sub),
+        key(film),
+        key(sub),
+        key(sub),
+        key(film),
+    );
+    let input = dir.join("in.toml");
+    std::fs::write(&input, text).unwrap();
+    let out = dir.join("out");
+    run(&input, &out, &[]);
+    let csv = std::fs::read_to_string(out.join("electron_tables.csv")).unwrap();
+    let rows = parse_csv(&csv);
+    assert_eq!(rows[0].len(), 6);
+    assert_eq!(rows[0][0], "material");
+    let mut seen = std::collections::BTreeSet::new();
+    for r in &rows[1..] {
+        assert_eq!(r.len(), 6, "{r:?}");
+        seen.insert(r[0].clone());
+        assert!(r[1].parse::<f64>().unwrap() > 0.0);
+        for c in [3, 4, 5] {
+            assert!(r[c].parse::<f64>().unwrap().is_finite(), "{r:?}");
+        }
+        assert!(r[2].is_empty() || r[2].parse::<f64>().unwrap().is_finite());
+    }
+    let want: std::collections::BTreeSet<String> =
+        [film, sub].iter().map(|s| s.to_string()).collect();
+    assert_eq!(seen, want);
+    // Both materials share the Si data, so their numeric columns agree.
+    let n = (rows.len() - 1) / 2;
+    for i in 1..=n {
+        assert_eq!(rows[i][1..], rows[i + n][1..]);
+    }
+}

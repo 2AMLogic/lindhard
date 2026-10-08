@@ -529,6 +529,16 @@ pub fn cylindrical_csv(report: &ElectronReport) -> Option<String> {
     Some(out)
 }
 
+/// A CSV text field per RFC 4180: quoted, with embedded quotes doubled, when
+/// it contains a comma, double quote, CR or LF; otherwise unchanged.
+fn csv_field(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.contains([',', '"', '\r', '\n']) {
+        format!("\"{}\"", s.replace('"', "\"\"")).into()
+    } else {
+        s.into()
+    }
+}
+
 /// `electron_tables.csv`: the inverse mean free paths of the tables the run
 /// used, per material and grid energy, and the inelastic mean loss and
 /// stopping power implied by the stored loss distribution.
@@ -555,7 +565,7 @@ pub fn tables_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> String {
             writeln!(
                 out,
                 "{},{e:?},{el},{:?},{mean:?},{:?}",
-                m.name,
+                csv_field(&m.name),
                 inv * NM,
                 inv * mean * NM
             )
@@ -563,4 +573,18 @@ pub fn tables_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> String {
         }
     }
     out
+}
+
+#[cfg(test)]
+mod csv_tests {
+    use super::csv_field;
+
+    #[test]
+    fn simple_names_are_unchanged_and_special_ones_quoted() {
+        assert_eq!(csv_field("Si"), "Si");
+        assert_eq!(csv_field("SiO2 film"), "SiO2 film");
+        assert_eq!(csv_field("a,b"), "\"a,b\"");
+        assert_eq!(csv_field("a\"b"), "\"a\"\"b\"");
+        assert_eq!(csv_field("a\r\nb\nc"), "\"a\r\nb\nc\"");
+    }
 }
