@@ -74,7 +74,7 @@ pub enum StepPolicy {
         ions_per_step: u64,
     },
     /// Steps start at `max_ions_per_step`, shrink when the composition change
-    /// exceeds `max_change` and grow back (see the [module docs](self)).
+    /// exceeds `max_change` and grow back (see the [module docs](super)).
     Adaptive {
         /// Largest and initial step, at least `min_ions_per_step`.
         max_ions_per_step: u64,
@@ -122,10 +122,10 @@ pub struct StepRecord {
     /// Attempts made at this `first_index` (1 if never rejected).
     pub attempts: u32,
     /// Largest relative composition change of the step (see the
-    /// [module docs](self)).
+    /// [module docs](super)).
     pub max_change: f64,
     /// `(slab, element)` removals that were capped at what the slab held (see
-    /// the [module docs](self)); 0 for a step that needed no capping.
+    /// the [module docs](super)); 0 for a step that needed no capping.
     pub clamped: u32,
     /// Event counts of the step.
     pub yields: Yields,
@@ -133,7 +133,7 @@ pub struct StepRecord {
     pub removed_slabs: Vec<usize>,
 }
 
-/// A fluence-stepped run. See the [module docs](self).
+/// A fluence-stepped run. See the [module docs](super).
 pub struct DynamicRun<'a> {
     grid: CompositionGrid,
     beam: Beam,

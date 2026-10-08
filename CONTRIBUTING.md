@@ -81,7 +81,8 @@ Do not describe the operator's downstream applications in this repo either.
 
 ## Everything else
 
-- Rust stable, `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green.
+- Rust stable, `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green, and
+  `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` clean.
 - `#![forbid(unsafe_code)]` in the library stays. SIMD goes through safe
   crates (`wide`), not intrinsics.
 - No C/Fortran dependencies in the default build.
