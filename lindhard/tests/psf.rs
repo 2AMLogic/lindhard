@@ -406,13 +406,13 @@ fn profile_and_fit_are_bit_identical_for_1_2_and_8_threads() {
     };
     let r1 = run(1, 1_500);
     let f1 = fit_of(&r1);
-    let j1 = f1.to_json().unwrap();
+    let j1 = serde_json::to_string_pretty(&f1).unwrap();
     for n in [2, 8] {
         let r = run(n, 1_500);
         assert_eq!(r1, r, "report differs on {n} threads");
         let f = fit_of(&r);
         assert_eq!(f1, f, "PSF fit differs on {n} threads");
-        assert_eq!(j1, f.to_json().unwrap());
+        assert_eq!(j1, serde_json::to_string_pretty(&f).unwrap());
         assert_eq!(f1.profile_csv(), f.profile_csv());
         assert_eq!(f1.parameters_csv(), f.parameters_csv());
     }
@@ -460,7 +460,7 @@ fn csv_and_json_export() {
     let v: f64 = alpha.split(',').nth(2).unwrap().parse().unwrap();
     assert_eq!(v, report.fits[0].psf.alpha_m);
 
-    let json = report.to_json().unwrap();
+    let json = serde_json::to_string_pretty(&report).unwrap();
     let back: PsfReport = serde_json::from_str(&json).unwrap();
     assert_eq!(back.fits.len(), 2);
     assert_eq!(back.fits[0].model, PsfModel::DoubleGaussian);

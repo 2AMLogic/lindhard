@@ -37,7 +37,8 @@ one version).
   Gaussian (Rosa Figueiro (2015) eq. (72)) by weighted least squares on the
   bin energies, with `E` fixed to the slab energy by default or free, and
   returns the parameters, covariance, reduced χ² and residuals. `PsfReport`
-  exports the profile and fits as JSON and CSV. The CLI does not expose it
+  exports the profile and fits as CSV and derives `Serialize`/`Deserialize`
+  for callers to write JSON. The CLI does not expose it
   yet.
 - Fluence-dependent targets: `ion::dynamic::DynamicRun`, a fluence stepping
   loop on `CompositionGrid` with fixed or adaptive steps (bounded relative

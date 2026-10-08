@@ -16,7 +16,7 @@
 //!   energy balance, and its plain-data [`ElectronReport`].
 //! * [`psf`]: the radial point-spread function of a pencil beam in a depth
 //!   slab (log radial bins, per-history errors) and its double- and
-//!   triple-Gaussian fits, with JSON and CSV export.
+//!   triple-Gaussian fits, with CSV export and serde derives.
 //!
 //! Every accumulator here merges deterministically: integer counts are exact
 //! sums, and floating-point accumulators are combined in the order the caller

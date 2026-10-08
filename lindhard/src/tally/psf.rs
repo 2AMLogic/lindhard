@@ -117,10 +117,10 @@
 //!
 //! # Export
 //!
-//! [`PsfReport`] holds a profile and its fits, serialises to JSON
-//! ([`PsfReport::to_json`]), and writes the profile with the fitted model per
-//! bin ([`PsfReport::profile_csv`]) and the parameters with their errors
-//! ([`PsfReport::parameters_csv`]) as CSV. Lengths are in metres, energies in
+//! [`PsfReport`] holds a profile and its fits, derives `Serialize` and
+//! `Deserialize` (callers serialise it, as for the other reports), and writes
+//! the profile with the fitted model per bin ([`PsfReport::profile_csv`]) and
+//! the parameters with their errors ([`PsfReport::parameters_csv`]) as CSV. Lengths are in metres, energies in
 //! eV, areal densities in eV/m².
 
 use serde::{Deserialize, Serialize};
@@ -167,9 +167,6 @@ pub enum PsfError {
     /// PSF parameters are not positive and finite, or do not match the model.
     #[error("invalid PSF parameters: {0}")]
     Parameters(String),
-    /// JSON serialisation failed.
-    #[error("JSON export failed: {0}")]
-    Json(String),
 }
 
 /// Log-spaced radial bins: bin 0 is the disc `[0, r_min)`, bins `1..=bins`
@@ -1247,12 +1244,6 @@ pub struct PsfReport {
 }
 
 impl PsfReport {
-    /// Pretty-printed JSON of the profile and the fits. Non-finite numbers
-    /// (none in a valid profile or fit) would be written as `null`.
-    pub fn to_json(&self) -> Result<String, PsfError> {
-        serde_json::to_string_pretty(self).map_err(|e| PsfError::Json(e.to_string()))
-    }
-
     /// The profile as CSV, one row per bin, with the model energy of each fit
     /// (`model_<model>_ev`) and the areal densities. Columns: `r_lo_m`,
     /// `r_hi_m`, `r_center_m`, `area_m2`, `energy_ev`, `std_err_ev`,
