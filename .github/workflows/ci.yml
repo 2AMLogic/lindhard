@@ -186,7 +186,14 @@ jobs:
         run: |
           python -m venv .venv
           . .venv/bin/activate
-          pip install "maturin>=1.7,<2" numpy pytest
+          pip install "maturin>=1.7,<2" numpy pytest "mypy>=2,<3"
           cd lindhard-py
           maturin develop
           pytest
+      - name: stubs match the compiled extension (stubtest)
+        # Naming the package covers both .pyi files; also naming
+        # lindhard._lindhard makes mypy report a duplicate module.
+        run: |
+          . .venv/bin/activate
+          cd lindhard-py
+          python -m mypy.stubtest lindhard
