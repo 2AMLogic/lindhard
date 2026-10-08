@@ -6,7 +6,9 @@
 //! potentials and scattering integral, electronic stopping, and the amorphous
 //! BCA engine with full recoil cascades (`ion::bca`), damage models
 //! (`ion::damage`), and the tallies: moments, Pearson IV / dual-Pearson, range,
-//! damage and escape statistics (`tally`). For electrons: the validated
+//! damage and escape statistics (`tally`), and the crystal-target data model
+//! (`ion::crystal`: cubic lattices, wafer and beam orientation, divergence).
+//! For electrons: the validated
 //! data boundary (`electron::data`), the single-pole Penn inelastic model with
 //! its sum-rule checks (`electron::inelastic`), the event loop on
 //! cross-section tables (`electron::transport`) with secondary electrons
