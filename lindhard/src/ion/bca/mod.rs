@@ -205,8 +205,8 @@
 //!
 //! # Not modelled here (see the issue tracker)
 //!
-//! Thermal vibration, damage accumulation and impact-parameter-dependent
-//! stopping in crystal regions (the lattice there is static and perfect),
+//! Damage accumulation and impact-parameter-dependent stopping in crystal
+//! regions (the lattice there is perfect, static or thermally vibrating),
 //! target composition changes with fluence, and refraction of the incident
 //! beam at the entrance surface (negligible at keV energies).
 
@@ -214,9 +214,10 @@ pub mod crystal;
 pub mod kinematics;
 pub mod tally;
 
-pub use crystal::CrystalTarget;
+pub use crystal::{CrystalMetadata, CrystalTarget, Thermal, ThermalMetadata};
 pub use tally::{BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, SummaryTally};
 
+use std::collections::HashMap;
 use std::f64::consts::PI;
 
 use rand_core::Rng;
@@ -559,6 +560,24 @@ struct Scratch {
     cands: Vec<crystal::Candidate>,
     last: Vec<crystal::SiteId>,
     targets: Vec<crystal::Partner>,
+    /// Thermal crystals: the static site of each entry of `cands` (whose
+    /// positions are displaced), a sort buffer, and the displacements of the
+    /// sites met on the current flight line (`displaced_line`: crystal and
+    /// direction bits), with the buffer that replaces them after a search.
+    homes: Vec<[f64; 3]>,
+    encounter: Vec<(crystal::Candidate, [f64; 3])>,
+    displaced: HashMap<crystal::SiteId, [f64; 3]>,
+    displaced_next: HashMap<crystal::SiteId, [f64; 3]>,
+    displaced_line: Option<(usize, [u64; 3])>,
+}
+
+impl Scratch {
+    /// Forget the displaced sites: the next crystal search starts a new
+    /// encounter.
+    fn new_line(&mut self) {
+        self.displaced.clear();
+        self.displaced_line = None;
+    }
 }
 
 /// Reusable working memory for [`Bca::history_in`]: the stack of particles
@@ -573,6 +592,9 @@ pub struct HistoryBuffers {
     /// Crystal regions: this history's random lattice translation per
     /// crystal (empty when there are none).
     shifts: Vec<[f64; 3]>,
+    /// Thermal crystals: this history's stream of site displacements
+    /// (`None` when no crystal vibrates).
+    thermal_rng: Option<ParticleRng>,
 }
 
 impl HistoryBuffers {
@@ -956,6 +978,7 @@ impl<'a> Bca<'a> {
             pending,
             scratch,
             shifts,
+            thermal_rng,
         } = buffers;
         // Each crystal's lattice is translated by a random vector for every
         // history (the beam samples all positions of the unit cell). The
@@ -978,6 +1001,17 @@ impl<'a> Bca<'a> {
                 ]);
             }
         }
+        // Thermal displacements of lattice sites come from a third copy of
+        // the stream, at word 2^66: like the shifts, a segment neither the
+        // transport draws nor the shifts reach, so turning vibration on
+        // changes no other draw of the history.
+        *thermal_rng = if self.crystals.iter().any(|c| c.is_thermal()) {
+            let mut trng = rng.clone();
+            trng.set_word_pos(1u128 << 66);
+            Some(trng)
+        } else {
+            None
+        };
         pending.clear();
         pending.push(Particle {
             species: 0,
@@ -990,7 +1024,16 @@ impl<'a> Bca<'a> {
             generation: 0,
         });
         while let Some(p) = pending.pop() {
-            self.transport(p, rng, pending, &mut budget, tally, scratch, shifts)?;
+            self.transport(
+                p,
+                rng,
+                pending,
+                &mut budget,
+                tally,
+                scratch,
+                shifts,
+                thermal_rng,
+            )?;
         }
         tally.end_history(index, &budget);
         Ok(budget)
@@ -1096,10 +1139,12 @@ impl<'a> Bca<'a> {
         tally: &mut T,
         scratch: &mut Scratch,
         shifts: &[[f64; 3]],
+        thermal_rng: &mut Option<ParticleRng>,
     ) -> Result<(), StoppingError> {
         let cutoff = self.species[p.species].cutoff_ev;
         let mut tau = self.draw_tau(rng, p.is_primary());
         scratch.last.clear();
+        scratch.new_line();
         loop {
             if p.energy_ev < cutoff {
                 budget.rest += p.energy_ev;
@@ -1107,13 +1152,23 @@ impl<'a> Bca<'a> {
                 return Ok(());
             }
             if let Some(ci) = self.crystal_at(p.layer) {
-                if self.crystal_step(ci, shifts[ci], &mut p, pending, budget, tally, scratch)? {
+                if self.crystal_step(
+                    ci,
+                    shifts[ci],
+                    &mut p,
+                    pending,
+                    budget,
+                    tally,
+                    scratch,
+                    thermal_rng,
+                )? {
                     return Ok(());
                 }
                 if self.crystal_at(p.layer).is_none() {
                     // Left the crystal for an amorphous region: a fresh flight.
                     tau = self.draw_tau(rng, false);
                     scratch.last.clear();
+                    scratch.new_line();
                 }
                 continue;
             }

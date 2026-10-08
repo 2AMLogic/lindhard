@@ -252,16 +252,38 @@ impl ThermalVibration {
     /// [`Self::rms_1d`], in metres. Consumes exactly six `u64` words from
     /// `rng`.
     pub fn sample_displacement(&self, rng: &mut ParticleRng) -> [f64; 3] {
-        let s = self.rms_1d();
-        let mut out = [0.0; 3];
-        for c in &mut out {
-            // u1 in (0, 1] so that ln is finite; u2 in [0, 1).
-            let u1 = 1.0 - unit(rng);
-            let u2 = unit(rng);
-            *c = s * (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
-        }
-        out
+        sample_gaussian_3d(self.rms_1d(), rng)
     }
+
+    /// Thermal part of [`Self::mean_square_1d`] alone, without the zero-point
+    /// term: `u1^2 - 3 hbar^2 / (4 m k_B Theta_D)`, in m^2 (0 at `T = 0`).
+    /// Not a physical amplitude (zero-point motion is always present); it
+    /// exists so that a test can switch the zero-point term off.
+    pub fn thermal_only_mean_square_1d(&self) -> f64 {
+        let m = self.mass_amu * ATOMIC_MASS_UNIT;
+        let pref = 3.0 * HBAR * HBAR / (m * BOLTZMANN * self.theta_d_k);
+        if self.temperature_k > 0.0 {
+            let x = self.theta_d_k / self.temperature_k;
+            pref * (debye_d1(x) / x)
+        } else {
+            0.0
+        }
+    }
+}
+
+/// Three independent Gaussian components of standard deviation `sigma` (m),
+/// by Box-Muller (module docs). Consumes exactly six `u64` words from `rng`
+/// whatever `sigma` is; `sigma = 0` gives components equal to zero (possibly
+/// `-0.0`).
+pub fn sample_gaussian_3d(sigma: f64, rng: &mut ParticleRng) -> [f64; 3] {
+    let mut out = [0.0; 3];
+    for c in &mut out {
+        // u1 in (0, 1] so that ln is finite; u2 in [0, 1).
+        let u1 = 1.0 - unit(rng);
+        let u2 = unit(rng);
+        *c = sigma * (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
+    }
+    out
 }
 
 /// `u1^2` in m^2 for Debye temperature (K), mass (u), temperature (K).
@@ -435,6 +457,18 @@ mod tests {
         let rms3 = (s3 / n as f64).sqrt();
         assert!((rms1 / v.rms_1d() - 1.0).abs() < 0.01, "{rms1}");
         assert!((rms3 / v.rms_3d() - 1.0).abs() < 0.01, "{rms3}");
+    }
+
+    #[test]
+    fn thermal_only_is_total_minus_zero_point() {
+        for &t in &[0.0, 50.0, 300.0, 600.0] {
+            let v = ThermalVibration::new(THETA_D_SI, 28.085, t).unwrap();
+            let want = v.mean_square_1d() - v.zero_point_mean_square_1d();
+            let got = v.thermal_only_mean_square_1d();
+            assert!((got - want).abs() <= 1e-12 * v.mean_square_1d(), "T={t}");
+        }
+        let cold = ThermalVibration::new(THETA_D_SI, 28.085, 0.0).unwrap();
+        assert_eq!(cold.thermal_only_mean_square_1d(), 0.0);
     }
 
     #[test]

@@ -38,7 +38,9 @@ The presets and their lattice constants (every value has a row in
 
 The lattice is rigid: no thermal expansion is applied, and the temperature
 is metadata of the cited value. Thermal vibration is the separate Debye
-model in `ion::crystal::debye`.
+model in `ion::crystal::debye`; the target temperature it uses is an input of
+the crystal flight model (`CrystalTarget::thermal`, see `ion::bca::crystal`),
+not this temperature.
 
 Miller indices `(hkl)` and directions `[uvw]` refer to the conventional cubic
 cell. The plane normal is the reciprocal lattice vector
@@ -121,8 +123,8 @@ limiting distribution, Marsaglia, Tsang and Wang, J. Stat. Softw. 8(18)
 
 ## Not here yet
 
-Hexagonal lattices (wurtzite, 4H/6H-SiC), the collision search
-through lattice sites (including its use of thermal displacements), and any
-input-file schema for crystals are later steps. D. S. Gemmell, Rev. Mod. Phys. 46, 129 (1974), is
+Hexagonal lattices (wurtzite, 4H/6H-SiC) and any input-file schema for
+crystals are later steps. The collision search through lattice sites, and its
+use of thermal displacements, are in `ion::bca::crystal`. D. S. Gemmell, Rev. Mod. Phys. 46, 129 (1974), is
 the issue's background reference for channeling; it was not opened for this
 step and nothing here rests on it.

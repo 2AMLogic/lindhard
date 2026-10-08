@@ -102,6 +102,15 @@ pub fn path_metrics(origin: [f64; 3], dir: [f64; 3], site: [f64; 3]) -> (f64, f6
     (s, q[0] * q[0] + q[1] * q[1] + q[2] * q[2])
 }
 
+/// The unit direction the search uses for `direction` (any finite, non-zero
+/// vector), computed exactly as in [`LatticeSearch::search_into`], so that a
+/// caller can evaluate [`path_metrics`] on other points with the same bits.
+pub fn unit_direction(direction: [f64; 3]) -> [f64; 3] {
+    let norm2 = direction.iter().map(|x| x * x).sum::<f64>();
+    let n = norm2.sqrt();
+    [direction[0] / n, direction[1] / n, direction[2] / n]
+}
+
 /// Position of basis site `f` (fractions of the cell edge) in cell `cell`.
 /// Shared by the search and by reference scans.
 pub fn site_position(a: f64, cell: [i64; 3], f: [f64; 3]) -> [f64; 3] {
@@ -182,8 +191,7 @@ impl LatticeSearch {
             return Err(bad("length", "must be finite and non-negative"));
         }
         out.clear();
-        let n = norm2.sqrt();
-        let d = [direction[0] / n, direction[1] / n, direction[2] / n];
+        let d = unit_direction(direction);
         let a = self.a;
         let pad = p_max + PAD_REL * a;
         let spad = PAD_REL * a;

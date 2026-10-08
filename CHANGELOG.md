@@ -9,6 +9,19 @@ one version).
 
 ### Added
 
+- Thermal vibration in the crystal flight model (#181): `CrystalTarget::thermal`
+  / `with_thermal(Thermal { temperature_k, debye_temperature_k,
+  include_zero_point })` displaces every lattice site the particle meets by an
+  uncorrelated Gaussian of the Debye amplitude (`ion::crystal::debye`), drawn
+  once per encounter from a dedicated segment of the history's random stream.
+  Static crystals (`thermal: None`) and amorphous runs are bit-identical to
+  before; `T = 0` without the zero-point term reproduces the static lattice bit
+  for bit. The target temperature and the per-species amplitudes are in the
+  new run metadata, `Bca::crystal_metadata` (`CrystalMetadata`, serialisable).
+  B 5 keV along <110> in Si: the tail beyond twice the amorphous Rp falls from
+  0.876 (0 K) to 0.833 (300 K) and 0.758 (600 K). At 7 degrees tilt, 22 degrees
+  twist the dRp ratio to amorphous is 1.42 (B 5 keV) and 1.81 (As 30 keV) at
+  300 K: vibration does not remove that tail.
 - `Bca::with_crystal` and `CrystalTarget` (`ion::bca::crystal`): the crystal
   flight model of the BCA engine (#180). The partner model is chosen per
   region (amorphous, or sites of a `Lattice` in a given `Orientation`);
