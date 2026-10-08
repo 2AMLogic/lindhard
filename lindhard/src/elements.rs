@@ -90,18 +90,24 @@
 //!   chapter 3 (cohesive energies of the elements), which is the enthalpy of
 //!   atomization at 0 K. Using it as the surface binding energy `E_s` is the
 //!   usual binary-collision convention (Sigmund, Phys. Rev. 184, 383 (1969)),
-//!   **not** a measured surface barrier. Elements without an entry are `None`:
-//!   the user must set `E_s` explicitly rather than have one invented.
-//!   **Not verified against Kittel** (the book could not be reached; the
-//!   publisher's free excerpts of the 8th edition, its contents and index,
-//!   place the cohesive-energy table on p. 50 of chapter 3 but do not
-//!   include that page). Checked
-//!   instead against L. Brewer, "The cohesive energies of the elements",
-//!   report LBL-3720 (1975), Table I, energy of atomization to the gaseous
-//!   ground state at 0 K in kcal/gram-atom (<https://www.osti.gov/servlets/purl/7187973>):
-//!   32 of the 35 populated values agree with it to the printed digit; Li
-//!   and Mg differ by one in the last digit and B is 5.81 here against
-//!   5.77 eV there (see `docs/data-provenance.md`).
+//!   **not** a measured surface barrier. Elements left `None` must have
+//!   `E_s` set explicitly by the user rather than have one invented.
+//!   **Verified** on 2026-10-07 (#15) against Table 1 "Cohesive energies",
+//!   chapter 3, p. 50 of the 8th edition (Wiley, 2005, ISBN 0-471-41526-X;
+//!   edition, publisher and ISBN read from the title and copyright pages of
+//!   the copy used, see `docs/data-provenance.md`). The table prints each
+//!   element in kJ/mol, eV/atom and kcal/mol ("energy required to form
+//!   separated neutral atoms in their ground electronic state from the solid
+//!   at 0 K at 1 atm. The data were supplied by Prof. Leo Brewer."); the
+//!   eV/atom value is used, to the digits printed. All 35 populated entries
+//!   were compared: 33 equal the printed value, and Na (was 1.11) and K (was
+//!   0.93) were set to the printed 1.113 and 0.934. The table also prints
+//!   values for elements left `None` here (among them N, O, P, S, Sc, Mn,
+//!   Se, the rare gases and most lanthanides and actinides); those defaults
+//!   stay unset, since #15 audits the populated entries only. Earlier
+//!   cross-check, kept as a test: L. Brewer, "The cohesive energies of the
+//!   elements", report LBL-3720 (1975), Table I, kcal/gram-atom
+//!   (<https://www.osti.gov/servlets/purl/7187973>).
 //! * **Displacement energy** (`default_displacement_ev`): threshold
 //!   displacement energies as recommended in ASTM E521 ("Standard Practice for
 //!   Investigating the Effects of Neutron Radiation Damage Using Charged-Particle
@@ -200,7 +206,7 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     el(8, "O", 15.999, false, None, None, None),
     el(9, "F", 18.998403162, false, None, None, None),
     el(10, "Ne", 20.1797, false, None, None, None),
-    el(11, "Na", 22.98976928, false, Some(0.971), Some(1.11), None),
+    el(11, "Na", 22.98976928, false, Some(0.971), Some(1.113), None),
     el(12, "Mg", 24.305, false, Some(1.738), Some(1.51), None),
     el(
         13,
@@ -216,7 +222,7 @@ pub static ELEMENTS: [Element; NUM_ELEMENTS] = [
     el(16, "S", 32.06, false, Some(2.07), None, None),
     el(17, "Cl", 35.45, false, None, None, None),
     el(18, "Ar", 39.95, false, None, None, None),
-    el(19, "K", 39.0983, false, Some(0.862), Some(0.93), None),
+    el(19, "K", 39.0983, false, Some(0.862), Some(0.934), None),
     el(20, "Ca", 40.078, false, Some(1.55), Some(1.84), None),
     el(21, "Sc", 44.955907, false, Some(2.989), None, None),
     el(22, "Ti", 47.867, false, Some(4.54), Some(4.85), Some(30.0)),
@@ -451,10 +457,71 @@ mod tests {
         }
     }
 
+    /// `E_s` against the cited source: C. Kittel, *Introduction to Solid State
+    /// Physics*, 8th ed. (Wiley, 2005), ch. 3, Table 1 "Cohesive energies",
+    /// p. 50, eV/atom row, to the digits printed (read 2026-10-07, #15).
+    /// Every populated entry is listed, so a new or changed default fails
+    /// here until it is checked against the table.
+    #[test]
+    // Sn's cohesive energy (3.14 eV) is data, not pi.
+    #[allow(clippy::approx_constant)]
+    fn surface_binding_matches_kittel_8th_ed_table_1() {
+        let kittel: [(&str, f64); 35] = [
+            ("Li", 1.63),
+            ("Be", 3.32),
+            ("B", 5.81),
+            ("C", 7.37),
+            ("Na", 1.113), // corrected in #15 (was 1.11)
+            ("Mg", 1.51),
+            ("Al", 3.39),
+            ("Si", 4.63),
+            ("K", 0.934), // corrected in #15 (was 0.93)
+            ("Ca", 1.84),
+            ("Ti", 4.85),
+            ("V", 5.31),
+            ("Cr", 4.10),
+            ("Fe", 4.28),
+            ("Co", 4.39),
+            ("Ni", 4.44),
+            ("Cu", 3.49),
+            ("Zn", 1.35),
+            ("Ga", 2.81),
+            ("Ge", 3.85),
+            ("As", 2.96),
+            ("Zr", 6.25),
+            ("Nb", 7.57),
+            ("Mo", 6.82),
+            ("Pd", 3.89),
+            ("Ag", 2.95),
+            ("Cd", 1.16),
+            ("In", 2.52),
+            ("Sn", 3.14),
+            ("Sb", 2.75),
+            ("Ta", 8.10),
+            ("W", 8.90),
+            ("Pt", 5.84),
+            ("Au", 3.81),
+            ("Pb", 2.03),
+        ];
+        for (sym, ev) in kittel {
+            assert_eq!(by(sym).default_surface_binding_ev, Some(ev), "{sym}");
+        }
+        let populated = ELEMENTS
+            .iter()
+            .filter(|e| e.default_surface_binding_ev.is_some())
+            .count();
+        assert_eq!(populated, kittel.len());
+        // Kittel prints O 2.60 and P 3.43 eV/atom, but these defaults are
+        // unset by design (#15 audits populated entries only); the user sets
+        // E_s for them.
+        assert_eq!(by("O").default_surface_binding_ev, None);
+        assert_eq!(by("P").default_surface_binding_ev, None);
+    }
+
     /// Cross-check of `E_s` against L. Brewer, LBL-3720 (1975), Table I,
     /// atomization energy to the gaseous ground state at 0 K, kcal/gram-atom
-    /// (<https://www.osti.gov/servlets/purl/7187973>). This is not the cited
-    /// Kittel edition, which could not be reached; see the module docs.
+    /// (<https://www.osti.gov/servlets/purl/7187973>), a second source
+    /// beside the cited Kittel table (whose data Brewer supplied).
     /// 1 kcal/mol = 4184 J / (e N_A) eV per atom (thermochemical calorie).
     #[test]
     fn surface_binding_cross_checks_against_brewer_lbl_3720() {
@@ -469,14 +536,11 @@ mod tests {
                 kcal * kcal_ev
             );
         }
-        // B (beta): Brewer 133 +- 3 kcal = 5.77 +- 0.13 eV; the table's 5.81 is
-        // inside that uncertainty but not equal to it. Unresolved until the
-        // Kittel edition is seen.
+        // B (beta): Brewer 133 +- 3 kcal = 5.77 +- 0.13 eV; the stored 5.81 is
+        // Kittel's printed value (Table 1 also prints 134 kcal/mol for B),
+        // inside Brewer's uncertainty.
         let b = by("B").default_surface_binding_ev.unwrap();
         assert!((b - 133.0 * kcal_ev).abs() <= 3.0 * kcal_ev, "{b}");
-        // O is a gas; P has no entry. Both stay unset by design.
-        assert_eq!(by("O").default_surface_binding_ev, None);
-        assert_eq!(by("P").default_surface_binding_ev, None);
     }
 
     /// Densities as printed in the X-Ray Data Booklet, LBNL/PUB-490 Rev. 3
