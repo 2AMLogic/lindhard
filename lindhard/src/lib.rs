@@ -1,20 +1,19 @@
 //! `lindhard` — clean-room Monte Carlo transport of ions and electrons in matter.
 //!
-//! The roadmap and module plan are in `docs/architecture.md`. Implemented so
-//! far: the shared core (units, constants, the element table, materials, the 1D
-//! layered geometry and deterministic random streams), the ion screening
-//! potentials and scattering integral, electronic stopping, and the amorphous
-//! BCA engine with full recoil cascades (`ion::bca`), damage models
-//! (`ion::damage`), and the tallies: moments, Pearson IV / dual-Pearson, range,
-//! damage and escape statistics (`tally`), and the crystal-target data model
-//! (`ion::crystal`: cubic lattices, wafer and beam orientation, divergence).
-//! For electrons: the validated
-//! data boundary (`electron::data`), the single-pole Penn inelastic model with
-//! its sum-rule checks (`electron::inelastic`), the event loop on
-//! cross-section tables (`electron::transport`) with secondary electrons
-//! (`electron::secondary`) and surface and interface barriers
-//! (`electron::boundary`), and its deposition, yield and spectrum tally
-//! (`tally::electron`).
+//! Roadmap, milestone status and the module plan are in `docs/architecture.md`.
+//! Each module's own documentation is the maintained description of what it
+//! provides:
+//!
+//! * [`constants`]: physical constants in SI units, each with its source.
+//! * [`electron`]: electron transport, from validated data to tallies.
+//! * [`elements`]: the per-element data table, Z = 1..=92.
+//! * [`geometry`]: the `Geometry` trait and the layered, voxel and mesh targets.
+//! * [`input`]: the TOML run description (beam, target, physics, run size).
+//! * [`ion`]: ion transport, screening, stopping, damage and crystal targets.
+//! * [`material`]: elements combined into materials with their energies.
+//! * [`rng`]: deterministic per-particle random streams and the parallel driver.
+//! * [`tally`]: histograms, moments, distributions and other result statistics.
+//! * [`units`]: unit conventions and conversions.
 
 #![forbid(unsafe_code)]
 
