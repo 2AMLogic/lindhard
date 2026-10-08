@@ -500,8 +500,10 @@ fn invalid_slab_scalars_and_depth_bounds_are_rejected_as_profile_errors() {
         ("total_std_err_ev < 0", |p| p.total_std_err_ev = -1.0),
         ("beyond_ev = NaN", |p| p.beyond_ev = f64::NAN),
         ("beyond_ev < 0", |p| {
-            p.total_ev -= 2.0 * p.beyond_ev;
-            p.beyond_ev = -p.beyond_ev;
+            // Kept consistent with total_ev, so only the sign is wrong.
+            p.beyond_ev -= 1.0;
+            p.total_ev -= 1.0;
+            assert!(p.beyond_ev < 0.0 && p.total_ev > 0.0);
         }),
         ("beyond_std_err_ev = NaN", |p| {
             p.beyond_std_err_ev = f64::NAN
@@ -514,7 +516,7 @@ fn invalid_slab_scalars_and_depth_bounds_are_rejected_as_profile_errors() {
         ("depth_lo_m = NaN", |p| p.depth_lo_m = f64::NAN),
         ("depth_hi_m = inf", |p| p.depth_hi_m = f64::INFINITY),
     ];
-    assert!(valid.beyond_ev > 0.0, "the fixture needs beyond_ev > 0");
+    assert_eq!(valid.beyond_ev, 0.0, "the fixture changed");
     for (name, mutate) in cases {
         let mut p = valid.clone();
         mutate(&mut p);
