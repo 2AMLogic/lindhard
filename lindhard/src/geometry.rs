@@ -1,5 +1,5 @@
 //! Target geometry: the engine-facing [`Geometry`] trait, the 1D layered
-//! [`Stack`] and the 3D [`VoxelGrid`].
+//! [`Stack`], the 3D [`VoxelGrid`] and the triangle-mesh [`MeshGeometry`].
 //!
 //! # Coordinates
 //!
@@ -56,9 +56,21 @@
 //! target through several vacuum faces, the face of the lowest axis (`x`,
 //! then `y`, then `z`) is reported.
 
+//! # Triangle meshes
+//!
+//! [`MeshGeometry`] (module [`mesh`]) is a set of closed STL/OBJ triangle
+//! solids, one region each, with a BVH for ray queries. Its overlap, surface
+//! and tolerance rules, the `Face` mapping of its escapes, the loaders and the
+//! watertightness rules are in the [`mesh`] module docs.
+
+mod bvh;
+pub mod mesh;
+
+pub use mesh::{MeshGeometry, TriMesh};
+
 use crate::material::Material;
 
-/// Errors from building a [`Stack`] or a [`VoxelGrid`].
+/// Errors from building a [`Stack`], a [`VoxelGrid`] or a [`MeshGeometry`].
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum GeometryError {
     /// No layers and no substrate.
@@ -113,6 +125,75 @@ pub enum GeometryError {
         index: u32,
         /// Number of materials supplied.
         n_materials: usize,
+    },
+    /// A mesh geometry needs at least one solid.
+    #[error("a mesh geometry needs at least one solid")]
+    NoSolids,
+    /// A solid names a material that does not exist.
+    #[error(
+        "solid {solid} has material index {index}, but there are only {n_materials} materials"
+    )]
+    SolidMaterialOutOfRange {
+        /// Solid index (listing order).
+        solid: usize,
+        /// Offending material index.
+        index: u32,
+        /// Number of materials supplied.
+        n_materials: usize,
+    },
+    /// A mesh file could not be parsed. `line` is 1-based (0 for a binary file).
+    #[error("{format} parse error (line {line}): {message}")]
+    MeshParse {
+        /// `"STL"` or `"OBJ"`.
+        format: &'static str,
+        /// Line number, or 0 when not applicable.
+        line: usize,
+        /// What was wrong.
+        message: String,
+    },
+    /// The file-unit scale of a mesh loader was not finite and positive.
+    #[error("mesh unit scale {unit_m} m is invalid: must be finite and positive")]
+    MeshInvalidScale {
+        /// Offending value.
+        unit_m: f64,
+    },
+    /// A mesh has no triangles.
+    #[error("the mesh has no triangles")]
+    MeshEmpty,
+    /// A mesh vertex coordinate is NaN or infinite.
+    #[error("triangle {triangle} has a non-finite coordinate")]
+    MeshNonFinite {
+        /// Triangle index (file order).
+        triangle: usize,
+    },
+    /// A triangle has zero (or negligible) area.
+    #[error("triangle {triangle} is degenerate (zero area): vertices {vertices:?}")]
+    MeshDegenerateTriangle {
+        /// Triangle index (file order).
+        triangle: usize,
+        /// Its three vertex positions, m.
+        vertices: [[f64; 3]; 3],
+    },
+    /// An edge belongs to only one triangle: the mesh is not watertight.
+    #[error("mesh is not watertight: edge {edge:?} has no neighbouring triangle traversing it in the opposite direction")]
+    MeshEdgeNotShared {
+        /// The two vertex positions, m.
+        edge: [[f64; 3]; 2],
+    },
+    /// Two triangles traverse an edge in the same direction (inconsistent
+    /// orientation, or more than two triangles on the edge).
+    #[error(
+        "mesh orientation is inconsistent: edge {edge:?} is traversed twice in the same direction"
+    )]
+    MeshInconsistentOrientation {
+        /// The two vertex positions, m.
+        edge: [[f64; 3]; 2],
+    },
+    /// The signed volume is not positive: the normals point inward.
+    #[error("mesh has signed volume {volume_m3} m^3: triangles must be counter-clockwise seen from outside")]
+    MeshNotOutward {
+        /// The signed volume, m^3.
+        volume_m3: f64,
     },
 }
 
