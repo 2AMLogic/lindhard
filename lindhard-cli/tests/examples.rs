@@ -930,3 +930,124 @@ fn tuning_none_is_bit_identical_and_unknown_sets_are_rejected() {
     );
     assert!(e.contains("physics.tuning") && e.contains("made-up"), "{e}");
 }
+
+/// Rewrites `text` with `from` replaced by `to`, asserting it was present.
+fn replaced(text: &str, from: &str, to: &str) -> String {
+    assert!(text.contains(from), "{from:?} not in input");
+    text.replacen(from, to, 1)
+}
+
+fn sentinel(out: &Path) -> PathBuf {
+    let p = out.join("user_notes.txt");
+    std::fs::write(&p, "keep").unwrap();
+    p
+}
+
+#[test]
+fn rerun_removes_stale_per_ion_csv_and_keeps_unrelated_files() {
+    let dir = scratch("reuse-ions");
+    let out = dir.join("out");
+    let mk = |per_ion: bool| {
+        let input = dir.join(format!("in-{per_ion}.toml"));
+        std::fs::write(&input, format!("{GOOD}\n[tally]\nper_ion = {per_ion}\n")).unwrap();
+        input
+    };
+    run(&mk(true), &out, &["--ions", "50"]);
+    let note = sentinel(&out);
+    let ions = out.join("ions.csv");
+    assert!(ions.exists());
+    run(&mk(false), &out, &["--ions", "50"]);
+    assert!(!ions.exists(), "stale ions.csv survived");
+    assert!(json(&out.join("summary.json"))["files"]["ions"].is_null());
+    assert!(note.exists());
+    // A missing optional file is harmless on a further disabled rerun.
+    run(&mk(false), &out, &["--ions", "50"]);
+    assert!(note.exists());
+    run(&mk(true), &out, &["--ions", "50"]);
+    let text = std::fs::read_to_string(&ions).unwrap();
+    assert_eq!(text.lines().count(), 51);
+    assert!(!json(&out.join("summary.json"))["files"]["ions"].is_null());
+    assert!(note.exists());
+}
+
+#[test]
+fn rerun_removes_stale_electron_deposition_csvs() {
+    let dir = scratch("reuse-electron");
+    let out = dir.join("out");
+    let ex_dir = electron_example().parent().unwrap().to_path_buf();
+    let src = std::fs::read_to_string(electron_example()).unwrap();
+    let src = replaced(
+        &src,
+        "\"synthetic_plasmon_elf.toml\"",
+        &format!("{:?}", ex_dir.join("synthetic_plasmon_elf.toml")),
+    );
+    let cyl = "[electron.tally.cylindrical]\nr = { lo_nm = 0.0, hi_nm = 1000.0, bins = 20 }\n\
+               depth = { lo_nm = 0.0, hi_nm = 2000.0, bins = 40 }\n";
+    let cart = "[electron.tally.cartesian]\nx = { lo_nm = 0.0, hi_nm = 2000.0, bins = 4 }\n\
+                y = { lo_nm = -500.0, hi_nm = 500.0, bins = 2 }\n\
+                z = { lo_nm = -500.0, hi_nm = 500.0, bins = 2 }\n";
+    let without = replaced(&src, cyl, "");
+    let input = |name: &str, with_cyl: bool, with_cart: bool| {
+        let mut t = without.clone();
+        if with_cyl {
+            t = replaced(&t, "[target]", &format!("{cyl}\n[target]"));
+        }
+        if with_cart {
+            t = replaced(&t, "[target]", &format!("{cart}\n[target]"));
+        }
+        let p = dir.join(format!("{name}.toml"));
+        std::fs::write(&p, t).unwrap();
+        p
+    };
+    let both = input("both", true, true);
+    let only_cyl = input("cyl", true, false);
+    let only_cart = input("cart", false, true);
+    let none = input("none", false, false);
+    let cy = out.join("electron_deposition_cylindrical.csv");
+    let ca = out.join("electron_deposition_cartesian.csv");
+    let summary = out.join("electron_summary.json");
+    let args = ["--histories", "32"];
+    let steps: [(&Path, bool, bool); 6] = [
+        (&both, true, true),
+        (&only_cyl, true, false),
+        (&only_cart, false, true),
+        (&none, false, false),
+        (&none, false, false),
+        (&both, true, true),
+    ];
+    let mut note = None;
+    for (inp, want_cyl, want_cart) in steps {
+        run(inp, &out, &args);
+        let note = note.get_or_insert_with(|| sentinel(&out));
+        assert_eq!(cy.exists(), want_cyl, "cylindrical for {inp:?}");
+        assert_eq!(ca.exists(), want_cart, "cartesian for {inp:?}");
+        let s = json(&summary);
+        assert_eq!(!s["files"]["deposition_cylindrical"].is_null(), want_cyl);
+        assert_eq!(!s["files"]["deposition_cartesian"].is_null(), want_cart);
+        assert!(note.exists());
+    }
+}
+
+#[test]
+fn stale_file_that_cannot_be_removed_is_a_contextual_error() {
+    let dir = scratch("reuse-undeletable");
+    let out = dir.join("out");
+    let input = dir.join("in.toml");
+    std::fs::write(&input, format!("{GOOD}\n[tally]\nper_ion = false\n")).unwrap();
+    // A directory under the reserved name cannot be removed as a file.
+    std::fs::create_dir_all(out.join("ions.csv")).unwrap();
+    let o = lindhard(&[
+        "run",
+        input.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+        "--ions",
+        "20",
+    ]);
+    assert!(!o.status.success());
+    let err = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        err.contains("removing stale") && err.contains("ions.csv"),
+        "{err}"
+    );
+}

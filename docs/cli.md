@@ -507,6 +507,19 @@ Energy deposited outside a grid is `outside_ev` in the summary.
 the tables the run used, per material and grid energy (the stopping power is
 `λ⁻¹ ⟨W⟩` of the stored loss distribution).
 
+## Reusing an output directory
+
+`--out` may name an existing directory; the run overwrites the files it
+writes and creates the directory if needed. The CLI also owns the reserved
+optional file names of the run's mode. After a successful run, an optional
+file the run did not produce is removed if present: `ions.csv` (without
+`tally.per_ion`), and `electron_deposition_cartesian.csv` or
+`electron_deposition_cylindrical.csv` (without the matching deposition grid).
+A missing file is not an error; a failed removal is, and names the path. The
+summary is written last and lists only files that exist. Other files in the
+directory are never touched, and no cleanup happens between ion, electron and
+dynamic runs. Do not keep your own data under a reserved name.
+
 ## Reproducibility
 
 Everything in `summary.json` except the trailing `run` object, and every CSV
