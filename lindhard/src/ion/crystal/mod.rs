@@ -36,17 +36,23 @@
 //! Thermal vibration of lattice atoms is the Debye model in [`debye`]
 //! (displacement sampling only; it is not yet used by the engine).
 //!
-//! Hexagonal lattices (wurtzite GaN, 4H/6H-SiC) and the collision search
-//! through lattice sites are later steps and are not here.
+//! [`search`] finds the lattice sites within an impact parameter of a path
+//! segment by walking unit cells, ordered along the path (geometry only; the
+//! engine does not call it yet).
+//!
+//! Hexagonal lattices (wurtzite GaN, 4H/6H-SiC) and the use of the search in
+//! the binary-collision flight model are later steps and are not here.
 
 pub mod debye;
 pub mod divergence;
 pub mod lattice;
 pub mod orientation;
+pub mod search;
 
 pub use divergence::Divergence;
 pub use lattice::{Lattice, LatticeConstant, Site, Structure};
 pub use orientation::Orientation;
+pub use search::{Candidate, LatticeSearch};
 
 /// Errors from building lattices, orientations and divergence models.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -76,6 +82,14 @@ pub enum CrystalError {
         reference: [i32; 3],
         /// The offending zone-law sum.
         dot: i64,
+    },
+    /// A lattice-search argument was invalid.
+    #[error("invalid search {name}: {why}")]
+    InvalidSearch {
+        /// Which argument.
+        name: &'static str,
+        /// The rule it broke.
+        why: &'static str,
     },
     /// An angle was out of range or not finite.
     #[error("invalid {name} {value} rad: {why}")]

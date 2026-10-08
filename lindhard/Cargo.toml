@@ -63,3 +63,7 @@ harness = false
 [[bench]]
 name = "electron"
 harness = false
+
+[[bench]]
+name = "crystal_search"
+harness = false
