@@ -4,6 +4,35 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-08
 
+- **PR #219**: feat: ship es-sputter-ar-v1 opt-in E_s tuning set with fit record (#80)
+- **PR #216**: test: pin fixed-seed golden results for cross-platform reproducibility
+- **PR #212**: ci: add rustdoc job and fix rustdoc warnings (#191, #119)
+- **PR #211**: fix(cli): encode material names in electron table CSV (#207)
+- **PR #210**: docs: replace stale crate-doc status paragraph with a stable module map
+- **PR #209**: ci: check the declared MSRV in a dedicated msrv job
+- **PR #208**: feat(bca): crystal flight model with per-region partner selection
+- **PR #206**: fix(cli): remove stale optional CSVs when reusing an output directory
+- **PR #203**: validation: Au secondary-electron yield delta(E), bounds and barrier inputs (#149)
+- **PR #202**: feat(input): opt-in E_s tuning-set plumbing (#80, plumbing only)
+- **PR #197**: feat(geometry): triangle-mesh solids (STL/OBJ) with a BVH
+- **PR #196**: docs(provenance): terms record for IAEA and NIST stopping-power data (#34)
+- **PR #189**: feat(crystal): unit-cell lattice neighbour search (#20)
+- **PR #187**: feat(crystal): cubic lattice model and wafer/beam orientation (#19)
+- **Issue #213** (closed): Test: pin fixed-seed golden results so the CI OS matrix checks cross-platform reproducibility
+- **Issue #207** (closed): CLI: escape material identifiers in electron table CSV exports
+- **Issue #200** (closed): Docs: replace stale 'implemented so far' crate docs in lib.rs with a stable module map
+- **Issue #191** (closed): CI: build rustdoc with warnings denied so doc-comment breakage cannot land
+- **Issue #190** (closed): CI: check the declared MSRV (rust-version 1.85) in a dedicated job
+- **Issue #185** (closed): CLI: remove stale optional CSVs when reusing an output directory
+- **Issue #180** (closed): [Epic #12] Crystal step 20b: crystal flight model in the BCA engine
+- **Issue #159** (closed): Guard refinement: resolve ephemeral TMPDIR writes in worktree sessions
+- **Issue #158** (closed): Guard telemetry disposition: retain stash scope protection for lint command
+- **Issue #119** (closed): rustdoc: private intra-doc link in Lenz-Jensen docs fails cargo doc -D warnings
+- **Issue #80** (closed): Opt-in experiment-tuned mode: phenomenological correction factors behind an on/off flag
+- **Issue #34** (closed): [Epic #33] Data-terms review: IAEA stopping database and NIST SRD (PSTAR/ASTAR/ESTAR)
+- **Issue #27** (closed): [Epic #25] Triangle-mesh solids (STL/OBJ) with a BVH
+- **Issue #20** (closed): [Epic #12] Crystal step 20a: lattice neighbor search (candidate collision partners along a path)
+- **Issue #19** (closed): [Epic #12] Crystal step 19a: cubic lattice model and wafer/beam orientation
 - **PR #186**: feat(crystal): Debye thermal-displacement model and sampling (#21)
 - **PR #183**: docs: record resist PSF validation gap and sources tried
 - **PR #182**: docs(WORK_PLAN): M2 Phase 1 may run alongside M0's remaining verification
