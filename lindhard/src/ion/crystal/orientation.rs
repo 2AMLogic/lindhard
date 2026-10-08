@@ -49,7 +49,7 @@
 //! cubic crystal: K. Nordlund, F. Djurabekova and G. Hobler, "Large fraction
 //! of crystal directions leads to ion channeling", Phys. Rev. B 94, 214109
 //! (2016), doi:10.1103/PhysRevB.94.214109, Sec. II B, p. 214109-3, set up a
-//! cell "with a [001] surface normal and tilting (θ) and twisting (ϕ) the
+//! cell "with a \[001\] surface normal and tilting (θ) and twisting (ϕ) the
 //! incoming ion direction", and reach `[011]` at `θ = 45°, ϕ = 0°` and
 //! `[111]` at `θ = 54.73°, ϕ = 45°`: their twist is zero towards an in-plane
 //! `<100>` axis. With `n = [001]` and `r = [010]` our convention gives the

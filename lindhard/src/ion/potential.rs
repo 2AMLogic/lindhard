@@ -43,7 +43,7 @@ pub enum Screening {
     /// doi:10.1007/BF01342151. Polynomial form and argument scale as tabulated
     /// in W. Moller, *Fundamentals of Ion-Solid Interaction*, HZDR-073
     /// (Helmholtz-Zentrum Dresden-Rossendorf, 2017), p. 11, eq. (28); see
-    /// [`LJ_P`] for the verification status.
+    /// `LJ_P` (private; see its comment in the source) for the verification status.
     LenzJensen,
 }
 
