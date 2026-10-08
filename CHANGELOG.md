@@ -9,6 +9,12 @@ one version).
 
 ### Added
 
+- `[physics] tuning = "none" | "<set>"`: opt-in phenomenological
+  surface-binding-energy multiplier sets for static single-element ion runs
+  (`input::TuningSet`). `"none"` and omission are bit-for-bit unchanged;
+  `summary.json` gains `physics.tuning` (set, version, original and effective
+  `E_s`) only when a set is used. Plumbing only: no calibrated set ships yet,
+  so any name is rejected as unknown (#80).
 - `geometry::MeshGeometry` and `geometry::TriMesh`: targets of closed triangle
   solids, each tagged with a material, loaded from STL (ASCII or binary) or
   OBJ with a watertightness check (every edge shared by two consistently
