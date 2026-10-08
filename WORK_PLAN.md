@@ -21,7 +21,10 @@ Prioritized roadmap of upcoming work, maintained by the Guide role.
 
 Alongside the milestones run release engineering and docs, the permissive
 stopping-data library, and performance work. Order: M0 first. M1 Phase 1
-can start alongside it (it needs only materials and the RNG). M2 follows M0.
+can start alongside it (it needs only materials and the RNG). M2 follows M0's
+engine: M2 Phase 1 may run alongside M0's remaining data verification and
+validation datasets (#15, #51), which do not touch the code it builds on
+(operator ruling, 2026-10-08, on #12).
 The rest run as capacity allows.
 
 <!-- guide:plan-body:start -->
