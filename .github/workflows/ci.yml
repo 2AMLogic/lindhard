@@ -45,6 +45,8 @@ jobs:
       - name: docs/validation.md is what validation/update_docs.py generates
         # Python standard library only; reads committed files, runs no simulation.
         run: python3 validation/update_docs.py --check
+      - name: docs/benchmarks.md electron tables match the committed summaries
+        run: python3 validation/oracles/bench_electron.py --update-docs --check
 
   dependency-policy:
     name: Dependency licenses & sources (cargo-deny)

@@ -22,7 +22,12 @@
 mod electron_common;
 
 use criterion::{criterion_group, criterion_main, Criterion, Throughput};
+use std::cell::OnceCell;
 use std::hint::black_box;
+
+use lindhard::electron::transport::Transport;
+use lindhard::input::electron::ResolvedElectron;
+use lindhard::tally::FullElectronTally;
 
 use electron_common as ec;
 
@@ -69,16 +74,23 @@ fn bench_transport(c: &mut Criterion) {
     let pools: Vec<_> = counts.iter().map(|&n| pool(n)).collect();
     let one = pool(1);
     for p in &ec::PROBLEMS {
-        let (r, _) = ec::problem_input(p, p.bench_histories).expect("electron input");
-        let tables = one.install(|| ec::tables(&r)).expect("tables");
-        let (t, proto) = ec::transport(&r, &tables).expect("transport");
+        // Built on first use, so a filtered run (`-- e_1keV_si`) only pays
+        // for the tables of the problems it measures.
+        let state: OnceCell<(ResolvedElectron, Transport, FullElectronTally)> = OnceCell::new();
+        let setup = || {
+            let (r, _) = ec::problem_input(p, p.bench_histories).expect("electron input");
+            let tables = one.install(|| ec::tables(&r)).expect("tables");
+            let (t, proto) = ec::transport(&r, &tables).expect("transport");
+            (r, t, proto)
+        };
         let n = p.bench_histories;
         let mut g = c.benchmark_group(format!("electron_transport_{}", p.id));
         g.sample_size(10);
         g.throughput(Throughput::Elements(n));
         for (&k, pool) in counts.iter().zip(&pools) {
             g.bench_function(format!("threads_{k}"), |b| {
-                b.iter(|| pool.install(|| ec::run(&r, &t, &proto, black_box(n)).unwrap()))
+                let (r, t, proto) = state.get_or_init(setup);
+                b.iter(|| pool.install(|| ec::run(r, t, proto, black_box(n)).unwrap()))
             });
         }
         g.finish();

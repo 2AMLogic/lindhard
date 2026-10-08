@@ -691,6 +691,9 @@ with full Penn is left for when tables can be reused across runs (#168).
 v1.0.2-1-ga50a8e8 (commit `a50a8e8`, cstool commit `0c739eb`) and Geant4
 v11.4.3 (commit `2ee379e`, G4EMLOW 8.8; the models it reports for the
 region are `G4MicroElecElasticModel` and `G4MicroElecInelasticModel`).
+The speed side of these problems (electrons/s, thread scaling, determinism at
+every thread count, the Nebula CPU timing) is in
+[`benchmarks.md`](benchmarks.md), "Electron engine (#152)".
 
 **Tolerances (vs Nebula, 5 and 20 keV): all eight checks pass.** |Δη| is at
 most 0.025 and |Δr50| at most 13.0 %. Notes on every difference that is
