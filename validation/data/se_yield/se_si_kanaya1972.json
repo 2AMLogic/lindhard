@@ -1,0 +1,25 @@
+{
+  "kind": "se_yield",
+  "id": "se_si_kanaya1972",
+  "target": "Si",
+  "target_state": "as compiled; crystalline or not, and surface state, not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 300.0,
+      "energy_kev_printed": "0.3",
+      "yield": 0.85,
+      "yield_printed": "0.85"
+    }
+  ],
+  "original_reference": "Kanaya K and Kawakatsu M, (1972), J. Phys. D. Appl. Phys. 5, 1727",
+  "compilation_reference_number": 26,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Si' heading, data set #5 of 9 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

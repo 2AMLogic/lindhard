@@ -1476,6 +1476,209 @@ core regions (#125) committed with provenance rows, and a measured PSF in an
 openable source, cited to its table or figure (digitized values with the
 second-read discipline of the sputter datasets).
 
+### Secondary-electron yield δ(E): Al, Cu, Si and Au (#149)
+
+**What is compared.** δ(E) is the number of electrons that leave the front
+face with energy below 50 eV per incident electron (normal incidence, 100 eV
+to 5 keV). The simulation is `lindhard`'s electron engine
+([`cli.md`](cli.md), "Electron runs"); the measurements are those compiled by
+D. C. Joy, *A database on electron-solid interactions* (Revision 01-01,
+2001; cf. Scanning 17, 270 (1995)), Section 1(a), which cites every set to its
+original paper. Each of its 44 sets for Al, Cu, Si and Au is stored as one file
+in `validation/data/se_yield/`, with a row in
+[`data-provenance.md`](data-provenance.md); sets are never merged. The second
+compilation named in the issue (Lin and Joy, Surf. Interface Anal. 37, 895
+(2005)) is closed access and was not opened.
+
+**What the data are, and are not.** Joy applies no quality selection and
+warns that the secondary-yield data are in a worse state than the
+backscatter data; the sets for one material differ by factors of several (Al:
+peak values from 0.6 to 3.2 among the sets that start at the peak; see the
+spread columns below). The compilation does not give the angle of incidence of
+any set, nor, per set, the energy below which an electron counts as
+secondary (usually 0 to 50 eV; some early work 0 to 70 or 100 eV; its
+reference 20 is flagged 30 to 100 eV). Normal incidence for the measured
+sets is therefore *unconfirmed*, not assumed to hold. Surface condition is
+not given either, and δ is sensitive to it.
+
+**The reference statistic**, written down before the simulations were
+looked at: a data set *resolves the maximum* if it has at least five points
+and its largest tabulated yield is not at its lowest or highest energy; its
+(E_max, δ_max) is that tabulated point (nothing fitted). The *measured
+median* is the median over the resolving sets of E_max and, separately, of
+δ_max (the mean of the two where only two resolve). Sets that do not resolve
+the maximum, which includes every set that starts above the peak, are listed and
+not used. With only two to three resolving sets per material the median is a
+weak anchor and the min and max are printed next to it.
+
+One amendment was made after the simulated values had been seen, and is
+stated here so it can be judged: the maximum must also lie in the compared
+range, 100 eV to 5 keV. As first written the rule counted `se_al_czaja1966`,
+which was measured only from 10 to 40 keV and whose largest tabulated
+yield (0.265, at 15 keV) is not the low-energy maximum of δ(E). Under the
+first rule the Al measured median was E_max 400 eV and δ_max 0.642, which put
+the Al default curve at exactly the factor-2 edge of the energy bound
+(800 / 400) and 1086 % above in δ_max. Under the amended rule it is 350 eV and
+1.406, and the default curve fails both Al bounds. The amendment makes the
+result worse, not better; no Cu, Si or Au set changes status.
+
+**Inputs of the simulation, and what is not in them.**
+
+- Optical data: the committed Al and Cu energy-loss functions of Hagemann,
+  Gudat and Kunz (1975) (#98). **Si and Au cannot be simulated**: no Si ELF
+  could be sourced (#98) and no Au file was ingested, so those two materials
+  appear as measurements only.
+- Elastic scattering: Mott partial waves with the Thomas-Fermi Yukawa
+  **stand-in** potential; the DHFS table is a documented gap
+  ([`data-provenance.md`](data-provenance.md)). Muffin-tin is deferred
+  ([`muffin-tin-deferral.md`](muffin-tin-deferral.md)).
+- Barrier: #115 has not landed, so the work function and valence electron
+  count are caller-supplied, with their sources and the fact that the
+  primary table (CRC Handbook) was not opened, in
+  [`data-provenance.md`](data-provenance.md). Work functions are given as
+  ranges by that table; the `phi-low` and `phi-high` configurations run its
+  two ends and the default uses their mean. The Fermi energy is the
+  free-electron value from the valence count.
+- Inelastic scattering: the model of each row. The model's own Fermi energy
+  (`[electron.inelastic] fermi_energy_ev`) is left at the library default,
+  0 eV, in every configuration (the run metadata print `E_F = 0 eV` in the
+  inelastic table's model string); it is not the band's Fermi energy, which
+  only the secondary model and the barrier use. It was not varied here.
+- Secondary generation: Kieft and Bosch (2008) as implemented
+  (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
+  level (`cutoff_reference = "vacuum-level"`) unless a row says otherwise.
+  The `cutoff-band-bottom` row follows electrons down to 1 eV above the
+  Fermi level instead (Al 12.66 eV, Cu 8.05 eV above the band bottom; the
+  library refuses a band-bottom threshold at or below the Fermi energy when
+  secondaries are on), so it also counts the electrons that leave with less
+  than 1 eV, which the default drops.
+- Statistics: 2000 histories per point, seed 1, two threads.
+- Oracle codes were **not run for δ(E)**. The electron oracle harness
+  exists (#150, "Electron oracles" in section 2, which reports δ for Si
+  and Cu at 1 to 20 keV). What is missing for #149 is a δ(E) oracle run for
+  Al and Cu from 100 eV to 5 keV. No oracle is installed on the host that
+  produced these results; that is the reason for this pass only.
+
+**Initial bounds** (issue #149; tightening is allowed, loosening needs
+operator sign-off): for the *default* configuration (single-pole Penn, the
+library's default inelastic model), E_max within a factor of 2 of the measured
+median E_max, and δ_max within 50 % of the measured median δ_max. Everything
+else in the tables is reported, not gated.
+`validation/experiments/se_yield.py --check` evaluates them against the
+committed results.
+
+<!-- validation:level3-se-yield:begin -->
+**Reference data** (Joy's compilation, one row per original measurement; the maximum is the tabulated point, not a fit; a set resolves the maximum if it has at least 5 points and the maximum is interior to it and lies in the compared range, 100 eV to 5 keV):
+
+| Material | Sets | Resolving | Measured median E_max (eV) [min, max] | Measured median δ_max [min, max] | Not resolving (listed, not used) |
+|---|---|---|---|---|---|
+| Al | 12 | 2: `se_al_bronstein1969` (300 eV, 0.642), `se_al_bruining1938` (400 eV, 2.170) | 350 [300, 400] | 1.406 [0.642, 2.170] | 10 sets |
+| Cu | 12 | 3: `se_cu_bronstein1969` (800 eV, 1.034), `se_cu_bruining1938` (800 eV, 1.276), `se_cu_septier1985` (250 eV, 1.573) | 800 [250, 800] | 1.276 [1.034, 1.573] | 9 sets |
+| Si | 10 | 2: `se_si_dione1973` (550 eV, 0.980), `se_si_dionne1975` (300 eV, 1.167) | 425 [300, 550] | 1.074 [0.980, 1.167] | 8 sets |
+| Au | 10 | 2: `se_au_bronstein1969` (800 eV, 1.395), `se_au_rothwell1988` (700 eV, 1.540) | 750 [700, 800] | 1.468 [1.395, 1.540] | 8 sets |
+
+**Simulated δ(E)** (`lindhard 0.0.1 (6629260)`; seed 1; histories per run in the results file; δ = electrons escaping the front face below 50 eV per primary). Statistical error: the Poisson floor √N_slow/N is in the results file and understates the true error by the cascade correlation.
+
+**Al**
+
+| Configuration | 100 | 150 | 200 | 300 | 400 | 600 | 800 | 1000 | 1500 | 2000 | 3000 | 5000 | E_max (eV) | δ_max |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `default`: single-pole Penn, barrier on (mid work function), vacuum-level cutoff | 2.571 | 3.405 | 4.195 | 5.537 | 6.497 | 7.584 | 7.612 | 7.272 | 6.153 | 4.885 | 3.288 | 2.075 | 800 | 7.612 |
+| `phi-low`: as default, work function at the low end of the cited range | 2.636 | 3.513 | 4.317 | 5.675 | 6.689 | 7.878 | 7.905 | 7.574 | 6.524 | 5.236 | 3.415 | 2.201 | 800 | 7.905 |
+| `phi-high`: as default, work function at the high end of the cited range | 2.528 | 3.311 | 4.051 | 5.316 | 6.298 | 7.335 | 7.244 | 7.041 | 5.954 | 4.599 | 3.155 | 2.038 | 600 | 7.335 |
+| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 4.546 | 6.580 | 8.489 | 11.821 | 14.836 | 18.758 | 20.520 | 20.543 | 18.258 | 15.072 | 10.023 | 5.970 | 1000 | 20.543 |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 2.671 | 3.543 | 4.399 | 5.785 | 6.782 | 8.011 | 8.045 | 7.758 | 6.881 | 5.411 | 3.672 | 2.342 | 800 | 8.045 |
+| `mermin`: Mermin (MELF), barrier on (mid work function), vacuum-level cutoff | 0.824 |  | 1.109 |  | 1.288 |  | 0.928 |  | 0.620 |  | 0.308 |  | 400 | 1.288 |
+
+Not run for Al: `penn-full` (full Penn, barrier on (mid work function), vacuum-level cutoff). The reason is given in the text below the tables.
+
+**Cu**
+
+| Configuration | 100 | 150 | 200 | 300 | 400 | 600 | 800 | 1000 | 1500 | 2000 | 3000 | 5000 | E_max (eV) | δ_max |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `default`: single-pole Penn, barrier on (mid work function), vacuum-level cutoff | 1.200 | 1.467 | 1.667 | 1.765 | 1.812 | 1.812 | 1.639 | 1.538 | 1.290 | 1.043 | 0.836 | 0.520 | 600 | 1.812 |
+| `phi-low`: as default, work function at the low end of the cited range | 1.288 | 1.611 | 1.764 | 1.907 | 1.966 | 1.960 | 1.835 | 1.728 | 1.417 | 1.176 | 0.893 | 0.554 | 400 | 1.966 |
+| `phi-high`: as default, work function at the high end of the cited range | 1.137 | 1.393 | 1.496 | 1.584 | 1.635 | 1.633 | 1.500 | 1.389 | 1.185 | 0.958 | 0.740 | 0.498 | 400 | 1.635 |
+| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 2.244 | 2.986 | 3.340 | 3.742 | 3.830 | 3.838 | 3.830 | 3.521 | 2.917 | 2.356 | 1.679 | 1.234 | 600 | 3.838 |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 1.215 | 1.553 | 1.676 | 1.804 | 1.861 | 1.858 | 1.704 |  |  |  |  |  | 400; not run at 1000, 1500, 2000, 3000, 5000 eV | 1.861 |
+| `mermin`: Mermin (MELF), barrier on (mid work function), vacuum-level cutoff | 1.226 |  | 1.724 |  | 1.939 |  | 1.867 |  | 1.395 |  | 0.840 |  | 400 | 1.939 |
+
+Not run for Cu: `penn-full` (full Penn, barrier on (mid work function), vacuum-level cutoff). The reason is given in the text below the tables.
+
+**Si**: not run (no optical energy-loss function is committed for Si; `docs/data-provenance.md`, optical data inventory).
+
+**Au**: not run (no optical energy-loss function is committed for Au; `docs/data-provenance.md`, optical data inventory).
+
+**Initial bounds** (default configuration; gated by `validation/experiments/se_yield.py --check`):
+
+| Material | Simulated E_max (eV) | Measured median E_max (eV) | Ratio | Within factor 2 | Simulated δ_max | Measured median δ_max | Deviation | Within 50 % |
+|---|---|---|---|---|---|---|---|---|
+| Al | 800 | 350 | 2.29 | **NO** | 7.612 | 1.406 | +441 % | **NO** |
+| Cu | 600 | 800 | 0.75 | yes | 1.812 | 1.276 | +42 % | yes |
+| Si | not run | 425 | - | - | not run | 1.07 | - | - |
+| Au | not run | 750 | - | - | not run | 1.47 | - | - |
+<!-- validation:level3-se-yield:end -->
+
+**What the numbers show** (as of 2026-10-08; nothing was adjusted to these
+data):
+
+- **Cu passes both initial bounds, Al fails both.** The Cu default curve
+  peaks at δ_max 1.81 (600 eV), 42 % above the measured median and inside
+  the factor-2 energy bound. The Al default curve peaks at δ_max 7.6
+  (800 eV): more than three times the largest Al maximum in the compilation
+  (2.17) and more than ten times the smaller one (0.642). The failure is
+  reported as it stands and the bounds are not loosened. #173 tracks it.
+- **The model spread is large for Al and small for Cu.** With the Mermin
+  model in place of the single-pole Penn default, everything else equal, the
+  Al maximum drops to 1.29 (400 eV), inside the measured range, and the Cu
+  maximum moves to 1.94 (400 eV), within 7 % of the default. The single-pole
+  default and Mermin differ by a factor of about 6 for Al at the maximum.
+  This places the Al overestimate in the inelastic model at low energy as
+  configured here (including the inelastic Fermi energy of 0 eV, see the
+  inputs), but these runs do not identify its cause, and Mermin agreeing
+  better for Al is not evidence that it is right: Al has only two resolving
+  sets, 3.4 times apart.
+- **#150 reports a δ excess against Nebula for Si and Cu as well.** In
+  "Electron oracles" (section 2), lindhard's δ is 2.7 to 7.1 times
+  Nebula's at every energy and in both elements (`e_1keV_si` and
+  `e_5keV_si` among them), with the same default single-pole model, the
+  same escape barrier and the same secondary model on both sides. That is context for #173; the two sections
+  together do not identify a cause, and no cause is inferred here.
+- **Full Penn is missing** from the side-by-side. One Al run at 200 eV, the
+  smallest table, had not finished building its inelastic table after
+  45 minutes on two threads (2026-10-08) and was stopped. The configuration
+  is defined in `se_yield.py` (`penn-full`, 200 and 800 eV) and can be added
+  on a machine with the time for it.
+- **The barrier matters more than its parameters.** Removing the barrier
+  (transparent boundary) multiplies δ at the maximum by 2.7 (Al) and 2.1
+  (Cu). Moving the work function across the range of its cited table
+  changes δ_max by about ±4 % (Al) and ±9 to 10 % (Cu).
+- **The cutoff reference matters little.** Following electrons to 1 eV
+  above the Fermi level instead of 1 eV above the vacuum level raises the Al
+  maximum by 6 % (8.05, still at 800 eV) and the Cu maximum by 3 % (1.86,
+  at 400 instead of 600 eV, a shift within the noise of a flat top). The
+  row is complete for Al; for Cu it was run from 100 to 800 eV only, because
+  each point costs minutes to over an hour on two threads (electrons trapped
+  under the barrier are followed until they drop below the cutoff).
+- **Si and Au** have measured sets and reference statistics but no
+  simulation (no optical ELF; see the inputs).
+- The statistical error is small next to these differences: the Poisson
+  floor √N_slow/N is at most 4 % of δ (Al Mermin at 3 keV) and under 2 %
+  near every maximum, though it understates the true error (cascade
+  correlation). The energy of the maximum is resolved only to the energy
+  grid.
+
+What the comparison cannot say: the resolving measured sets differ among
+themselves by up to a factor of 3.4 in δ_max (Al; surface condition,
+cutoff definition, incidence not stated), so even a curve inside the bounds
+is checked only coarsely.
+
+**Follow-up.** #173 tracks the Al overestimate of the default model. The
+open gaps are full Penn (cost; table reuse is tracked in #168), Si
+(no valence ELF; #125), Au (no optical ELF; untracked), the cited barrier
+parameters (#115), and a δ(E) oracle run for Al and Cu, 100 eV to 5 keV
+(the #150 harness exists; none was run in this pass).
+
 ## Reporting
 
 The tables above are the committed summary metrics. A release note states

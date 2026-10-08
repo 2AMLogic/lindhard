@@ -1,0 +1,61 @@
+{
+  "kind": "se_yield",
+  "id": "se_si_dione1973",
+  "target": "Si",
+  "target_state": "as compiled; crystalline or not, and surface state, not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 220.0,
+      "energy_kev_printed": "0.22",
+      "yield": 0.39,
+      "yield_printed": "0.39"
+    },
+    {
+      "energy_ev": 330.0,
+      "energy_kev_printed": "0.33",
+      "yield": 0.59,
+      "yield_printed": "0.59"
+    },
+    {
+      "energy_ev": 550.0,
+      "energy_kev_printed": "0.55",
+      "yield": 0.98,
+      "yield_printed": "0.98"
+    },
+    {
+      "energy_ev": 770.0,
+      "energy_kev_printed": "0.77",
+      "yield": 0.95,
+      "yield_printed": "0.95"
+    },
+    {
+      "energy_ev": 1100.0,
+      "energy_kev_printed": "1.10",
+      "yield": 0.89,
+      "yield_printed": "0.89"
+    },
+    {
+      "energy_ev": 1320.0,
+      "energy_kev_printed": "1.32",
+      "yield": 0.84,
+      "yield_printed": "0.84"
+    },
+    {
+      "energy_ev": 1650.0,
+      "energy_kev_printed": "1.65",
+      "yield": 0.79,
+      "yield_printed": "0.79"
+    }
+  ],
+  "original_reference": "Dione G F, (1973), J. appl. Phys  44, 5361",
+  "compilation_reference_number": 10,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Si' heading, data set #2 of 9 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}
