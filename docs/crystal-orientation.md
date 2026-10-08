@@ -1,7 +1,7 @@
 # Crystal targets: lattice, wafer orientation and beam divergence
 
-This page states the conventions of `lindhard::ion::crystal` (step 19a of the
-M2 crystal plan): how a cubic lattice is described, how the beam direction in
+This page states the conventions of `lindhard::ion::crystal` (steps 19a and
+19b of the M2 crystal plan): how a cubic or hexagonal lattice is described, how the beam direction in
 the lab becomes a direction in the crystal, and how beam divergence is
 sampled. It is a data model only; the transport engine does not read it yet.
 The code docs (`lattice`, `orientation` and `divergence` modules) carry the
@@ -119,10 +119,72 @@ NIST/SEMATECH e-Handbook, section 1.3.5.16; p-value from Kolmogorov's
 limiting distribution, Marsaglia, Tsang and Wang, J. Stat. Softw. 8(18)
 (2003), section 3).
 
+## Hexagonal lattices
+
+Wurtzite and the SiC polytypes 4H and 6H (space group P6₃mc, No. 186) use
+the hexagonal primitive vectors of Mehl et al. (2017), pp. 423, 425 and 427:
+
+```text
+a1 = (a/2, −√3 a/2, 0),   a2 = (a/2, √3 a/2, 0),   a3 = (0, 0, c).
+```
+
+So in the crystal frame `z` is the `c` axis `[0001]` and `x` is `[11-20]`
+(`a1 + a2`). The hexagonal cell is primitive and is the conventional cell for
+indices; its volume is `(√3/2) a² c`.
+
+| Structure | Prototype | Sites (lattice coordinates of `a1, a2, a3`) | Source |
+|---|---|---|---|
+| Wurtzite (B4), `Lattice::wurtzite` | `AB_hP4_186_b_b` | first species `(1/3, 2/3, 0)`, `(2/3, 1/3, 1/2)`; second `(1/3, 2/3, u)`, `(2/3, 1/3, 1/2 + u)` | Mehl et al. (2017), p. 425 |
+| 4H (B5) | `AB_hP8_186_ab_ab` | Si, C on 2a `(0, 0, z)`, `(0, 0, 1/2 + z)` and 2b `(1/3, 2/3, z)`, `(2/3, 1/3, 1/2 + z)`; four `z` | Mehl et al. (2017), p. 423 |
+| 6H (B6) | `AB_hP12_186_ab_a2b` | Si, C on 2a and two sets of 2b; six `z` | Mehl et al. (2017), p. 427 |
+
+`u` is the cation-anion bond length along `[0001]` in units of `c`
+(Bernardini, Fiorentini and Vanderbilt, Phys. Rev. B 56, R10024 (1997)).
+`Lattice::polytype(z_a, z_b, "ABCB", a, c, u, T)` builds the ideal crystal of
+any close-packed stacking: with `n` letters, bilayer `k` has its cation on
+column A = `(0, 0)`, B = `(1/3, 2/3)` or C = `(2/3, 1/3)` at height `k c/n`
+and its anion straight above at `k c/n + 2u c/n` (our generalisation: `u` in
+units of the two-bilayer height, so `3/8` is ideal for every `n`, and `"BC"`
+is the wurtzite above). The Ramsdell number is the count of bilayers per `c`.
+
+| Preset | `a` | `c` | Internal parameters | Temperature | Source |
+|---|---|---|---|---|---|
+| `Lattice::gallium_nitride()` | 3.189 Å | 5.178 Å | `u = 1/4 + a²/(3c²)` (**placeholder**, equal bond lengths) | 300 K | Ioffe NSM archive, citing Qian et al. (1996); primary not opened |
+| `Lattice::silicon_carbide_4h()` | 3.08051 Å | 10.0848 Å | `z = 0, 0.18784, 0.24982, 0.43671` | not stated | Bauer et al., Acta Cryst. A 57, 60 (2001), via Mehl et al. (2017), pp. 423, 733 |
+| `Lattice::silicon_carbide_6h()` | 3.08129 Å | 15.11976 Å | `z = 0, 0.1254, 0.16675, 0.29215, 0.8335, −0.0415` | not stated | Bauer et al. (2001), via Mehl et al. (2017), pp. 427, 734 |
+
+No measured GaN `u` could be opened, so the GaN preset uses the geometric
+value at which all four bonds of an atom have one length (derived in the
+`lattice` docs; `3/8` at `c/a = √(8/3)`). It is a placeholder, recorded as a
+gap in [`data-provenance.md`](data-provenance.md); pass a measured `u` to
+`Lattice::wurtzite` to replace it.
+
+### Four-index (Miller-Bravais) indices
+
+* The basal axes are `a1`, `a2` and `a3' = −(a1 + a2)`; the fourth axis is
+  `c`.
+* A plane `(hkil)` needs `h + k + i = 0`; `(hkl)` are its Miller indices and
+  its normal is `h b1 + k b2 + l b3` (Wikipedia "Miller index", revision
+  1378193236, section "Hexagonal and rhombohedral structures").
+* A direction `[uvtw]` is the vector `u a1 + v a2 + t a3' + w c` with
+  `u + v + t = 0`; substituting `a3'` gives the three-index direction
+  `[u − t, v − t, w]` (derived). The four-index zone law
+  `hu + kv + it + lw = 0` is then the three-index one.
+
+So `[0001]` is `(0, 0, 1)` and `[11-20]` is `(1, 0, 0)` in the crystal frame
+(tested to 1e-12 for all three presets). `Orientation::new_miller_bravais`
+takes the wafer cut `(hkil)` and the reference `[uvtw]`, for example
+`(0001)` with `[11-20]` (c-plane) or `(11-20)` with `[0001]` (a-plane), and
+otherwise follows the conventions above.
+
+The lattice search walks rectangular cells: the cube for cubic lattices, and
+for hexagonal ones the orthohexagonal cell spanned by `a1 + a2`, `a2 − a1`
+and `c` (edges `a`, `√3 a`, `c`), which holds each basis site twice.
+
 ## Not here yet
 
-Hexagonal lattices (wurtzite, 4H/6H-SiC), the collision search
-through lattice sites (including its use of thermal displacements), and any
-input-file schema for crystals are later steps. D. S. Gemmell, Rev. Mod. Phys. 46, 129 (1974), is
-the issue's background reference for channeling; it was not opened for this
-step and nothing here rests on it.
+The use of the collision search in the transport engine (including thermal
+displacements) and any input-file schema for crystals are later steps.
+D. S. Gemmell, Rev. Mod. Phys. 46, 129 (1974), is the background reference
+of #19 and #179 for channeling; it was not opened for either step and
+nothing here rests on it.
