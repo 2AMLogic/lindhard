@@ -17,7 +17,9 @@
 //!
 //! **Source.** The expression is the Debye-model evaluation of the harmonic
 //! mean-square displacement, `2W(q) = q^2 <u_x^2>` with
-//! `<u_x^2> = (hbar^2 / (6 m)) * int g(w) coth(hbar w / 2 k_B T) / w dw`,
+//! `<u_x^2> = (hbar / (6 m)) * int g(w) coth(hbar w / 2 k_B T) / w dw`
+//! (w is angular frequency; g(w) is the per-atom density of states normalised
+//! to three modes, `int_0^{w_D} g dw = 3`),
 //! as in N. W. Ashcroft and N. D. Mermin, *Solid State Physics* (Holt,
 //! Rinehart and Winston, 1976), Appendix L. We could not open the printed
 //! book; the equation was read in the form given in the "Mean squared
@@ -31,7 +33,7 @@
 //! paper either, so its equation number is not cited here and its text was
 //! not consulted. As an independent check of the transcription, the unit
 //! tests integrate the `coth` form directly with the Debye density of states
-//! `g(w) = 3 w^2 / w_D^2` and compare it with the closed form.
+//! `g(w) = 9 w^2 / w_D^3` (so `int_0^{w_D} g dw = 3`) and compare it with the closed form.
 //!
 //! **Limits.** `T -> 0`: `u1^2 -> 3 hbar^2 / (4 m k_B Theta_D)` (zero-point).
 //! `T >> Theta_D`: `D1(x) -> 1 - x/4 + x^2/36 - ...`, so
@@ -354,8 +356,8 @@ mod tests {
     }
 
     /// Direct integration of the harmonic coth form with the Debye density of
-    /// states g(w) = 3 w^2 / w_D^2: u1^2 = (hbar^2/(6 m)) int g(w) coth(..)/w dw
-    /// in the normalisation where int g = 3 (per atom, per 3 branches).
+    /// states g(w) = 9 w^2 / w_D^3 (w angular frequency, normalised so int_0^{w_D} g dw = 3
+    /// modes per atom): u1^2 = (hbar/(6 m)) int g(w) coth(hbar w/2kT) / w dw.
     #[test]
     fn matches_coth_integral_with_debye_dos() {
         let (theta, mass) = (640.0, 28.085);
@@ -364,14 +366,14 @@ mod tests {
             // Variable y = hbar w / (k T) in (0, x]; w = y kT/hbar, w_D = x kT/hbar.
             let x = theta / t;
             let kt = BOLTZMANN * t;
-            // int_0^{wD} (3 w^2/wD^3 ... ) : g normalised to 3 modes -> 9 w^2/wD^3.
-            // u1^2 = (hbar/(2 m)) * (1/3) * int g(w) coth(y/2)/w dw
+            // g normalised to 3 modes: int_0^{wD} 9 w^2/wD^3 dw = 3.
+            // u1^2 = (hbar/(6 m)) * int g(w) coth(y/2)/w dw
             let integrand = |y: f64| {
                 if y < 1e-9 {
                     // y coth(y/2) -> 2 as y -> 0.
                     return 9.0 * 2.0 / (x * x * x) / (kt / HBAR);
                 }
-                // g(w) dw / w = 9 w dw / wD^3 = 9 y dy / x^3 / (kT/hbar)... in units:
+                // g(w) dw / w = 9 w dw / wD^3 = 9 y dy / (x^3 kT/hbar), using:
                 // w dw / wD^3 = y dy / (x^3 (kT/hbar)).
                 9.0 * y / (x * x * x) / (kt / HBAR) * (y / 2.0).tanh().recip()
             };
