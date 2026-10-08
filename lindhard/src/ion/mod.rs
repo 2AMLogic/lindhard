@@ -1,4 +1,5 @@
-//! Ion transport: screened potentials, scattering, stopping, the BCA engine.
+//! Ion transport: screened potentials, scattering, stopping, the BCA engine,
+//! and the crystal-target data model (`crystal`).
 
 pub mod bca;
 pub mod crystal;

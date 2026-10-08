@@ -14,6 +14,7 @@ from this directory rather than copying them, so edit them here.
 | [`python.md`](python.md) | The `lindhard` Python package: classes, NumPy outputs, TOML round trip, error mapping |
 | [`stopping-models.md`](stopping-models.md) | Electronic stopping models, their validity ranges, sources, and the terms declined or deferred |
 | [`stopping-data-format.md`](stopping-data-format.md) | The CSV format for measured stopping points (per-point citation and uncertainty), its validation rules, and the model comparison |
+| [`crystal-orientation.md`](crystal-orientation.md) | Crystal targets: the cubic lattice model, the tilt/twist/wafer-rotation conventions (with a figure) and beam divergence sampling |
 | [`muffin-tin-deferral.md`](muffin-tin-deferral.md) | Why the muffin-tin potential for condensed targets is deferred, and what lifts the deferral |
 | [`validation.md`](validation.md) | The three validation levels (analytic, oracle, experiment), current results and known deviations |
 | [`benchmarks.md`](benchmarks.md) | How to run the benches, what they measure, and first numbers |

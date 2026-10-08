@@ -13,6 +13,14 @@ one version).
   the zero-point term) and per-atom Gaussian displacement sampling on the
   particle's RNG stream; Debye temperatures of Si, Ge, GaAs and 3C-SiC as
   cited defaults (#21).
+- `lindhard::ion::crystal` (#19): the cubic crystal data model, not yet
+  used by the transport engine. `Lattice` with diamond and zincblende
+  constructors and cited presets (Si, Ge, GaAs, 3C-SiC; lattice constants
+  with their temperature), Miller-index plane normals and number densities;
+  `Orientation`, the lab-to-crystal rotation from tilt, twist and wafer
+  rotation about an explicit in-plane reference direction; and `Divergence`,
+  Gaussian or uniform-cone beam divergence drawn from the per-particle random
+  stream. Conventions and a figure: `docs/crystal-orientation.md`.
 - `ElectronReport.stopping_points.primaries` (`PrimaryStoppingPoints`): the
   depth and radial moments of the primaries alone that fell below the stopping
   threshold, i.e. the penetration depth of stopped primaries; written in the
