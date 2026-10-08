@@ -305,8 +305,9 @@ fn random_direction_matches_amorphous() {
 /// twist. Rp agrees with the amorphous result within 10 % for both ions; dRp
 /// does **not** within 15 % in a static lattice (a channeling tail, see the
 /// measured numbers in the `crystal` module docs): this test records that
-/// gap instead of asserting the unmet bound. Thermal vibration (step 21b)
-/// is expected to reduce the tail.
+/// gap instead of asserting the unmet bound. Thermal vibration (step 21b,
+/// #181) does not reduce the tail at this orientation: see
+/// `tests/crystal_thermal.rs`, `issue_orientation_7_22_at_300_k`.
 #[test]
 #[ignore = "statistical; run with --release -- --ignored"]
 fn issue_orientation_7_22_static_lattice() {

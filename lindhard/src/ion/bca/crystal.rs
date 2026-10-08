@@ -1,6 +1,6 @@
 //! The crystal flight model: collision partners taken from explicit lattice
 //! sites instead of a random impact parameter (step 20b of the M2 crystal
-//! plan).
+//! plan), optionally displaced by thermal vibration (step 21b).
 //!
 //! # Choosing the model per region
 //!
@@ -130,17 +130,120 @@
 //! orientation (the beam is only 2.6° to 2.7° from a {100} and a {110}
 //! plane), which widens dRp by 25 % and 88 %; the bulk of the profile (median,
 //! 90th percentile) matches the amorphous one. Thermal vibration (step 21b)
-//! is the intended remedy and has not been tried here. At 30°/17°, far from
+//! does **not** close it (next table). At 30°/17°, far from
 //! every low-index axis and plane, both bounds hold. The 7°/22° test records
 //! the gap instead of asserting the unmet bound.
+//!
+//! # Measured checks with thermal vibration (same set-up, `THETA_D_SI`, zero-point term on)
+//!
+//! `tests/crystal_thermal.rs` (statistical ones `#[ignore]`d; release build).
+//! "Tail" is the fraction of primaries deeper than twice the amorphous Rp
+//! (amorphous: 0.034 at 7°/22°, 0.041 at 30°/17°), with its binomial error.
+//!
+//! | Case | Static | 0 K | 300 K | 600 K |
+//! |---|---|---|---|---|
+//! | B 5 keV along <110>: Rp, nm | 121.0 | 111.7 | 94.3 | 75.8 |
+//! | B 5 keV along <110>: tail | 0.910 | 0.876 ± 0.005 | 0.833 ± 0.006 | 0.758 ± 0.007 |
+//! | B 5 keV, 30°/17°: Rp / dRp ratio | 0.97 / 1.09 | 0.99 / 1.15 | 1.00 / 1.20 | 0.99 / 1.15 |
+//! | As 30 keV, 30°/17°: Rp / dRp ratio | 0.93 / 1.13 | | 0.95 / 1.15 | |
+//! | B 5 keV, 7°/22°: Rp / dRp ratio | 1.07 / 1.25 | 1.13 / 1.41 | 1.14 / 1.42 | 1.10 / 1.29 |
+//! | As 30 keV, 7°/22°: Rp / dRp ratio | 1.01 / 1.88 | | 1.05 / 1.81 | |
+//!
+//! Along <110> the channeled tail falls with temperature, each step by more
+//! than five binomial standard errors (the #181 criterion asks for a
+//! monotonic decrease beyond the statistics). At the random direction the Rp
+//! ratio stays within 10 % at 300 K.
+//!
+//! **Off-axis directions get a slightly longer tail with vibration, not a
+//! shorter one.** At 7°/22° (B) and 30°/17°, the tail beyond twice the
+//! amorphous Rp grows from the static value as the amplitude rises from
+//! zero, peaks near `u1` ≈ 0.045-0.065 Å (0-300 K for Si), and falls again
+//! at higher amplitudes (B, 7°/22°: tail 0.080 static, 0.075 at `u1` ≈
+//! 0.0004 Å, 0.108 at 0 K, 0.115 at 300 K, 0.094 at 600 K, 0.076 at 1500 K;
+//! 4000 ions). The dependence is smooth in the amplitude, the same for seeds
+//! 1, 2 and 3 (B 7°/22° at 300 K: dRp ratio 1.42, 1.45, 1.39), and converged in
+//! the search parameters at 300 K (`q_max` = 0.01, 0.05, 0.1 nn and `p_max`
+//! = 1.5 nn spread the dRp ratio over 1.39-1.45 and Rp by under 1 %), so it
+//! is a property of the model as built, not of the thermal code path. Random
+//! kicks from displaced atoms can scatter an ion that starts outside a
+//! channel into it as well as out of it; which effect wins at a given
+//! direction and amplitude is not checked here against measured profiles.
+//! At 300 K the 7°/22° dRp ratio is 1.42 (B) and 1.81 (As), so the 15 %
+//! dRp bound at that orientation is not met by a vibrating lattice either; a
+//! lattice at 2.6° from a low-index plane is not expected to look amorphous
+//! in its tail. The 30°/17° dRp ratio, within 15 % for the static lattice,
+//! is 1.20 (B) and 1.15 (As) at 300 K.
 //!
 //! Electronic loss in a channel is the amorphous average (impact-parameter-
 //! dependent stopping is Phase 2), which makes the channeled ranges an upper
 //! bound on this effect.
 //!
+//! # Thermal vibration (step 21b)
+//!
+//! With [`CrystalTarget::thermal`] set, each lattice site the particle meets
+//! is displaced from its static position by a random vector `u` whose three
+//! Cartesian components are independent Gaussians of standard deviation
+//! `u1`, the one-dimensional RMS amplitude of the Debye model
+//! ([`crate::ion::crystal::debye`]) for the site's species at the target
+//! temperature [`Thermal::temperature_k`]. Displacements of different sites
+//! are uncorrelated; a correlated mode is not implemented. The issue that
+//! asked for this model (#181) names D. S. Gemmell, Rev. Mod. Phys. 46, 129
+//! (1974), doi:10.1103/RevModPhys.46.129, as its reference; that paper could
+//! not be opened, so nothing here is taken from it and none of its equations
+//! is cited. The amplitude and its source are those of the `debye` module.
+//!
+//! * **Encounter.** A site's displacement is drawn when the site first
+//!   appears in a search of the current *flight line* (a straight path of one
+//!   particle in one crystal) and is kept while the line goes on: the next
+//!   search segments of a channel see the same displaced atom. Any collision
+//!   ends the line (and so does a change of direction at a surface or
+//!   leaving the crystal), so every site met afterwards, by the projectile or
+//!   by a recoil, gets a fresh draw. A site is therefore displaced once per
+//!   encounter. Correlations in time (an atom met again later by the same
+//!   cascade) are not kept.
+//! * **What the displacement changes.** The impact parameter, the path
+//!   distance (so the order of the partners and the simultaneity test), the
+//!   direction `n_i` from the line to the atom, and so the deflection and the
+//!   recoil direction. A site's **region** (and so whether it is a partner at
+//!   all) and the **starting point of its recoil** are its static lattice
+//!   position, so that recoils, vacancies and tallies stay on lattice sites
+//!   and a recoil's own site is recognised as such; the difference is
+//!   `u1`, 0.065 Å for Si at 300 K (`THETA_D_SI`), against 2.35 Å between
+//!   neighbours.
+//! * **Search margin.** The static lattice is searched with the radius
+//!   `p_max + m` over the path range `[-m, L + q_max + m]`, with
+//!   `m =` [`THERMAL_MARGIN_U1`]` * u1` (largest `u1` of the crystal), and the
+//!   static selection rules (`0 <= s <= L + q_max`, `p <= p_max`) are then
+//!   applied to the displaced positions. A site whose displacement
+//!   perpendicular to the path exceeds `m` can be missed: the probability is
+//!   `exp(-m^2 / (2 u1^2)) = exp(-18)`, about `1.5e-8`, per site.
+//! * **Random numbers.** The displacements come from the history's
+//!   counter-based stream ([`crate::rng::stream`]), from a copy positioned at
+//!   word 2^66, a segment that neither the transport draws nor the lattice
+//!   translation (word 2^67) reach. Each displacement consumes exactly six
+//!   words ([`sample_gaussian_3d`]), drawn in the documented order of the
+//!   search results ([`crate::ion::crystal::search`], "Ordering"), and the
+//!   primary and its recoils share the stream in the order they are followed.
+//!   So a history's result depends only on `(seed, index)`, never on the
+//!   thread count, and turning vibration on changes no other draw.
+//! * **Static limit.** With every amplitude zero (`T = 0` and
+//!   [`Thermal::include_zero_point`] `= false`, a test switch) the thermal
+//!   code path gives the static model bit for bit
+//!   (`tests/crystal_thermal.rs`). With the zero-point term (the physical
+//!   case) `T = 0` still vibrates: `u1` = 0.045 Å for Si (0.088 Å at 600 K).
+//! * **Not changed.** The lattice constant is the cited one at its own
+//!   temperature (no thermal expansion), and the electronic loss is the same
+//!   as for the static lattice.
+//!
+//! DISPLATH (Tier A, above; same commit) also perturbs lattice atoms by
+//! independent Gaussian displacements of a Debye amplitude, but draws them
+//! once per cell and cascade (`LatticeSiteCoordinatesBase!` and
+//! `TemperatureToSigma` in `src/geometry.jl`); the per-encounter scheme here
+//! is this crate's, as #181 asks, and no DISPLATH code was ported for it.
+//!
 //! # What is not here
 //!
-//! The lattice is **static and perfect** (thermal vibration is step 21b) and
+//! The lattice is **perfect** (static, or vibrating as above) and
 //! stays perfect: a displaced atom leaves no vacancy, so a later particle can
 //! still collide with its site (dynamic damage, dechanneling and
 //! amorphization are later steps). There is no electronic-stopping dependence
@@ -154,9 +257,12 @@
 //! [`LatticeSearch`]: crate::ion::crystal::LatticeSearch
 
 use crate::geometry::Flight;
+use crate::ion::crystal::debye::{sample_gaussian_3d, ThermalVibration};
+use crate::ion::crystal::search::{compare, path_metrics, unit_direction};
 use crate::ion::crystal::{Lattice, LatticeSearch, Orientation};
 use crate::ion::scattering::closest_approach;
 use crate::ion::stopping::Ion;
+use crate::rng::ParticleRng;
 use crate::units::J_PER_EV;
 
 use super::{
@@ -167,6 +273,106 @@ pub(super) use crate::ion::crystal::Candidate;
 
 /// A lattice site: its conventional cell and index in the cell.
 pub(super) type SiteId = ([i64; 3], u8);
+
+/// Search margin of the thermal model, in units of the largest
+/// one-dimensional RMS displacement `u1` of the crystal's species (module
+/// docs, "Thermal vibration").
+pub const THERMAL_MARGIN_U1: f64 = 6.0;
+
+/// How [`Thermal`] displacements are sampled, as recorded in
+/// [`ThermalMetadata::sampling`].
+pub const THERMAL_SAMPLING: &str = "per-encounter, uncorrelated: each lattice site met along a \
+     straight flight line gets one isotropic Gaussian displacement (standard deviation u1 per \
+     Cartesian axis, Debye model) drawn from the history's thermal stream; redrawn after every \
+     collision";
+
+/// Thermal vibration of the lattice atoms of a [`CrystalTarget`] (step 21b;
+/// module docs, "Thermal vibration").
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct Thermal {
+    /// Target temperature, K (finite, `>= 0`). This sets the vibration
+    /// amplitude only: the lattice constant stays the cited value at its own
+    /// temperature ([`Lattice::temperature_k`]); no thermal expansion is
+    /// applied.
+    pub temperature_k: f64,
+    /// Debye temperature, K, used for every species of the crystal with that
+    /// species' own mass ([`crate::ion::crystal::debye`] module docs; the
+    /// `THETA_D_*` constants there are cited defaults).
+    pub debye_temperature_k: f64,
+    /// Include the zero-point term of the Debye amplitude (`true` for any
+    /// physical run). `false` keeps only the thermal part, so that `T = 0`
+    /// gives zero amplitude: a **test switch** (the static-lattice identity
+    /// test uses it), not a physical model.
+    pub include_zero_point: bool,
+}
+
+impl Thermal {
+    /// Vibration at `temperature_k` with Debye temperature
+    /// `debye_temperature_k`, zero-point term included.
+    pub fn new(temperature_k: f64, debye_temperature_k: f64) -> Self {
+        Self {
+            temperature_k,
+            debye_temperature_k,
+            include_zero_point: true,
+        }
+    }
+}
+
+/// Run metadata of one crystal of a [`Bca`] ([`Bca::crystal_metadata`]): what
+/// a result needs to be reproduced from its own header.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct CrystalMetadata {
+    /// Regions filled by this crystal.
+    pub regions: Vec<usize>,
+    /// Cubic lattice constant, m.
+    pub lattice_constant_m: f64,
+    /// Temperature of the cited lattice constant, K (not the target
+    /// temperature; see [`Thermal::temperature_k`]).
+    pub lattice_constant_temperature_k: f64,
+    /// Miller indices of the surface normal and the in-plane reference.
+    pub normal_hkl: [i32; 3],
+    /// Indices of the in-plane reference direction.
+    pub reference_uvw: [i32; 3],
+    /// Tilt, twist and wafer rotation, rad.
+    pub tilt_rad: f64,
+    /// Twist, rad.
+    pub twist_rad: f64,
+    /// Wafer rotation, rad.
+    pub wafer_rotation_rad: f64,
+    /// Search parameters in use, m.
+    pub p_max_m: f64,
+    /// Simultaneous-collision window, m.
+    pub q_max_m: f64,
+    /// Search segment length, m.
+    pub search_length_m: f64,
+    /// Thermal vibration; `None` for a static lattice.
+    pub thermal: Option<ThermalMetadata>,
+}
+
+/// The thermal part of [`CrystalMetadata`].
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct ThermalMetadata {
+    /// The input.
+    pub input: Thermal,
+    /// One-dimensional RMS displacement `u1` per species, as
+    /// `(Z, mass in u, u1 in m)`, in order of first appearance in the
+    /// lattice basis.
+    pub rms_1d_m: Vec<(u8, f64, f64)>,
+    /// Extra search radius and path margin, m ([`THERMAL_MARGIN_U1`] times
+    /// the largest `u1`).
+    pub search_margin_m: f64,
+    /// The sampling rule ([`THERMAL_SAMPLING`]).
+    pub sampling: &'static str,
+}
+
+/// Precomputed thermal data of one crystal.
+#[derive(Debug, Clone)]
+struct ThermalData {
+    meta: ThermalMetadata,
+    /// `u1` per conventional-cell site (index = [`Candidate::basis`]), m.
+    sigma: Vec<f64>,
+    margin: f64,
+}
 
 /// A site closer than this fraction of the lattice constant to the particle
 /// is the particle's own starting site, not a partner.
@@ -202,10 +408,13 @@ pub struct CrystalTarget {
     /// constant. Affects speed only (a segment with no partner is followed by
     /// another), never the result.
     pub search_length_m: Option<f64>,
+    /// Thermal vibration of the lattice atoms. Default `None`: a static,
+    /// perfect lattice (the 20b model, unchanged bit for bit).
+    pub thermal: Option<Thermal>,
 }
 
 impl CrystalTarget {
-    /// A crystal with the default search parameters.
+    /// A static crystal with the default search parameters.
     pub fn new(lattice: Lattice, orientation: Orientation) -> Self {
         Self {
             lattice,
@@ -213,7 +422,14 @@ impl CrystalTarget {
             p_max_m: None,
             q_max_m: None,
             search_length_m: None,
+            thermal: None,
         }
+    }
+
+    /// The same crystal with thermal vibration `thermal`.
+    pub fn with_thermal(mut self, thermal: Thermal) -> Self {
+        self.thermal = Some(thermal);
+        self
     }
 }
 
@@ -223,14 +439,21 @@ pub(super) struct CrystalData {
     search: LatticeSearch,
     orientation: Orientation,
     a: f64,
+    a_temperature_k: f64,
     p_max: f64,
     q_max: f64,
     search_len: f64,
+    thermal: Option<ThermalData>,
 }
 
 impl CrystalData {
     pub(super) fn lattice_constant(&self) -> f64 {
         self.a
+    }
+
+    /// Whether this crystal's sites vibrate (a thermal stream is needed).
+    pub(super) fn is_thermal(&self) -> bool {
+        self.thermal.is_some()
     }
 
     /// Crystal-frame position of a lab point for the history translation
@@ -373,6 +596,52 @@ impl<'a> Bca<'a> {
                 return Err(bad(format!("{name} = {v} must be finite and positive")));
             }
         }
+        let thermal = match target.thermal {
+            None => None,
+            Some(th) => {
+                // One Debye model per species, with the mass the engine uses
+                // for that species (the material's element in the first
+                // region; species data are shared by all regions).
+                let lay = self.lay(regions[0]);
+                let mut rms: Vec<(u8, f64, f64)> = Vec::new();
+                for (z, _) in lat.conventional_cell_sites() {
+                    if rms.iter().any(|r| r.0 == z) {
+                        continue;
+                    }
+                    let elem = lay
+                        .elems
+                        .iter()
+                        .find(|e| e.z == z)
+                        .expect("lattice elements were checked above");
+                    let mass = self.species[elem.species].ion.mass_amu();
+                    let v = ThermalVibration::new(th.debye_temperature_k, mass, th.temperature_k)
+                        .map_err(|e| bad(format!("thermal vibration: {e}")))?;
+                    let u1_sq = if th.include_zero_point {
+                        v.mean_square_1d()
+                    } else {
+                        v.thermal_only_mean_square_1d()
+                    };
+                    rms.push((z, mass, u1_sq.sqrt()));
+                }
+                let sigma: Vec<f64> = lat
+                    .conventional_cell_sites()
+                    .iter()
+                    .map(|(z, _)| rms.iter().find(|r| r.0 == *z).map_or(0.0, |r| r.2))
+                    .collect();
+                let u1_max = sigma.iter().copied().fold(0.0, f64::max);
+                let margin = THERMAL_MARGIN_U1 * u1_max;
+                Some(ThermalData {
+                    meta: ThermalMetadata {
+                        input: th,
+                        rms_1d_m: rms,
+                        search_margin_m: margin,
+                        sampling: THERMAL_SAMPLING,
+                    },
+                    sigma,
+                    margin,
+                })
+            }
+        };
         for &r in regions {
             self.region_crystal[r] = Some(ci);
         }
@@ -380,11 +649,39 @@ impl<'a> Bca<'a> {
             search: LatticeSearch::new(lat),
             orientation: target.orientation,
             a,
+            a_temperature_k: lat.temperature_k(),
             p_max,
             q_max,
             search_len,
+            thermal,
         });
         Ok(self)
+    }
+
+    /// Run metadata of every crystal ([`Bca::with_crystal`] order): lattice,
+    /// orientation, search parameters and the thermal model with its target
+    /// temperature. Empty for an amorphous engine.
+    pub fn crystal_metadata(&self) -> Vec<CrystalMetadata> {
+        self.crystals
+            .iter()
+            .enumerate()
+            .map(|(ci, cr)| CrystalMetadata {
+                regions: (0..self.region_crystal.len())
+                    .filter(|&r| self.region_crystal[r] == Some(ci))
+                    .collect(),
+                lattice_constant_m: cr.a,
+                lattice_constant_temperature_k: cr.a_temperature_k,
+                normal_hkl: cr.orientation.normal_hkl(),
+                reference_uvw: cr.orientation.reference_uvw(),
+                tilt_rad: cr.orientation.tilt_rad(),
+                twist_rad: cr.orientation.twist_rad(),
+                wafer_rotation_rad: cr.orientation.wafer_rotation_rad(),
+                p_max_m: cr.p_max,
+                q_max_m: cr.q_max,
+                search_length_m: cr.search_len,
+                thermal: cr.thermal.as_ref().map(|t| t.meta.clone()),
+            })
+            .collect()
     }
 
     /// The crystal of `region`, if it is a crystal region.
@@ -417,6 +714,7 @@ impl<'a> Bca<'a> {
         budget: &mut EnergyBudget,
         tally: &mut T,
         scratch: &mut Scratch,
+        trng: &mut Option<ParticleRng>,
     ) -> Result<bool, crate::ion::stopping::StoppingError> {
         let cr = &self.crystals[ci];
         let cutoff = self.species[p.species].cutoff_ev;
@@ -424,25 +722,108 @@ impl<'a> Bca<'a> {
             cands,
             last,
             targets,
+            homes,
+            encounter,
+            displaced,
+            displaced_next,
+            displaced_line,
             ..
         } = scratch;
         let o = cr.to_crystal(p.pos, shift);
         let d = cr.orientation.to_crystal(p.dir);
-        cr.search
-            .search_into(o, d, cr.p_max, cr.search_len + cr.q_max, cands)
-            .expect("particle state is finite");
+        let self_r2 = (SELF_REL * cr.a) * (SELF_REL * cr.a);
+        match &cr.thermal {
+            None => cr
+                .search
+                .search_into(o, d, cr.p_max, cr.search_len + cr.q_max, cands)
+                .expect("particle state is finite"),
+            Some(th) => {
+                // Thermal vibration (module docs): search the static lattice
+                // with a margin, displace every site found (once per
+                // encounter: a site keeps its displacement while the flight
+                // line is unchanged), then apply the static selection rules
+                // to the displaced positions.
+                let m = th.margin;
+                let dn = unit_direction(d);
+                let ob = [o[0] - m * dn[0], o[1] - m * dn[1], o[2] - m * dn[2]];
+                cr.search
+                    .search_into(
+                        ob,
+                        d,
+                        cr.p_max + m,
+                        cr.search_len + cr.q_max + 2.0 * m,
+                        cands,
+                    )
+                    .expect("particle state is finite");
+                let line = (ci, [d[0].to_bits(), d[1].to_bits(), d[2].to_bits()]);
+                if *displaced_line != Some(line) {
+                    displaced.clear();
+                    *displaced_line = Some(line);
+                }
+                let rng = trng
+                    .as_mut()
+                    .expect("a thermal crystal has a thermal stream");
+                displaced_next.clear();
+                encounter.clear();
+                let (pm2, len) = (cr.p_max * cr.p_max, cr.search_len + cr.q_max);
+                for c in cands.iter() {
+                    // The particle's own starting site (a recoil starts on its
+                    // static site) is never a partner.
+                    let (s0, p0sq) = path_metrics(o, dn, c.position);
+                    let p0 = p0sq.sqrt();
+                    if s0 * s0 + p0 * p0 < self_r2 {
+                        continue;
+                    }
+                    let id = (c.cell, c.basis);
+                    let u = match displaced.get(&id) {
+                        Some(&u) => u,
+                        None => sample_gaussian_3d(th.sigma[usize::from(c.basis)], rng),
+                    };
+                    displaced_next.insert(id, u);
+                    let r = [
+                        c.position[0] + u[0],
+                        c.position[1] + u[1],
+                        c.position[2] + u[2],
+                    ];
+                    let (s, p2) = path_metrics(o, dn, r);
+                    if s >= 0.0 && s <= len && p2 <= pm2 {
+                        encounter.push((
+                            Candidate {
+                                position: r,
+                                s,
+                                p: p2.sqrt(),
+                                ..*c
+                            },
+                            c.position,
+                        ));
+                    }
+                }
+                // Sites no longer in the window are behind the particle on
+                // this line and can never be found again.
+                std::mem::swap(displaced, displaced_next);
+                encounter.sort_by(|x, y| compare(&x.0, &y.0));
+                cands.clear();
+                homes.clear();
+                for &(c, h) in encounter.iter() {
+                    cands.push(c);
+                    homes.push(h);
+                }
+            }
+        }
+        let thermal = cr.thermal.is_some();
+        // Static (lattice-site) position of candidate `i`, crystal frame: the
+        // site's region and the recoil's starting point.
+        let home = |i: usize| if thermal { homes[i] } else { cands[i].position };
 
         // The nearest valid partner within one search segment.
-        let self_r2 = (SELF_REL * cr.a) * (SELF_REL * cr.a);
-        let usable = |c: &Candidate| -> Option<(usize, usize)> {
+        let usable = |i: usize| -> Option<(usize, usize)> {
+            let c = &cands[i];
             if c.s * c.s + c.p * c.p < self_r2 || last.contains(&(c.cell, c.basis)) {
                 return None;
             }
-            self.site_region(ci, cr.to_lab(c.position, shift), c.z)
+            self.site_region(ci, cr.to_lab(home(i), shift), c.z)
         };
-        let hit = cands
-            .iter()
-            .position(|c| c.s <= cr.search_len && usable(c).is_some());
+        let hit = (0..cands.len()).find(|&i| cands[i].s <= cr.search_len && usable(i).is_some());
         let limit = hit.map_or(cr.search_len, |i| cands[i].s);
 
         match self.geometry.flight(p.layer, p.pos, p.dir, limit) {
@@ -474,11 +855,11 @@ impl<'a> Bca<'a> {
         targets.clear();
         let s0 = cands[hit].s;
         let sp2 = cr.p_max * cr.p_max;
-        for c in &cands[hit..] {
+        for (i, c) in cands.iter().enumerate().skip(hit) {
             if c.s - s0 > cr.q_max {
                 break;
             }
-            let Some((region, j)) = usable(c) else {
+            let Some((region, j)) = usable(i) else {
                 continue;
             };
             let simultaneous = targets.iter().all(|t: &Partner| {
@@ -507,7 +888,7 @@ impl<'a> Bca<'a> {
                 s: c.s,
                 b: c.p,
                 n: kinematics::normalize(cr.orientation.to_lab(n_c)),
-                site: cr.to_lab(c.position, shift),
+                site: cr.to_lab(home(i), shift),
                 region,
                 j,
                 t: 0.0,
@@ -517,6 +898,10 @@ impl<'a> Bca<'a> {
         }
         last.clear();
         last.extend(targets.iter().map(|t| t.id));
+        // The collision ends this flight line: every site met after it is a
+        // new encounter with a fresh displacement.
+        displaced.clear();
+        *displaced_line = None;
         self.crystal_collide(p, targets, pending, budget, tally)?;
         Ok(false)
     }
