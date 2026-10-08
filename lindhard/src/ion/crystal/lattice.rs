@@ -160,6 +160,11 @@ pub struct HexagonalConstants {
     pub source: &'static str,
 }
 
+/// Longest stacking [`Lattice::polytype`] accepts. The orthohexagonal cell
+/// has `4n` sites, and `Candidate::basis` is a `u8`, so `n = 64` (256 sites)
+/// is the largest period whose site indices do not alias.
+pub const MAX_POLYTYPE_LAYERS: usize = 64;
+
 /// Silicon: `a = 5.431 020 511(89) x 10^-10 m`, in vacuum at 22.5 °C
 /// (295.65 K).
 ///
@@ -656,7 +661,7 @@ impl Lattice {
     ///
     /// # Errors
     /// [`CrystalError::InvalidStacking`] for a sequence shorter than 2 or
-    /// longer than 255 letters, a letter other than `A`, `B`, `C`, or two
+    /// longer than [`MAX_POLYTYPE_LAYERS`] (64) letters, a letter other than `A`, `B`, `C`, or two
     /// equal neighbours (cyclically: the last letter is followed by the
     /// first); [`CrystalError::InvalidInternalParameter`] for `u` outside
     /// `(0, 1/2)`; and the errors of [`Self::wurtzite`].
@@ -678,7 +683,10 @@ impl Lattice {
         if n < 2 {
             return Err(bad("needs at least two layers"));
         }
-        let layers = u8::try_from(n).map_err(|_| bad("at most 255 layers"))?;
+        if n > MAX_POLYTYPE_LAYERS {
+            return Err(bad("at most 64 layers"));
+        }
+        let layers = n as u8;
         let columns = letters
             .iter()
             .map(|&l| column(l).ok_or_else(|| bad("letters must be A, B or C")))
@@ -1192,7 +1200,10 @@ mod tests {
             Lattice::wurtzite(31, 7, 3e-10, 5e-10, 0.375, Some(-2.0)),
             Err(CrystalError::InvalidTemperature(-2.0))
         );
-        for bad in ["A", "AAB", "ABA", "ABD", ""] {
+        let too_long = "AB".repeat(MAX_POLYTYPE_LAYERS / 2 + 1);
+        let longest = "AB".repeat(MAX_POLYTYPE_LAYERS / 2);
+        assert!(Lattice::polytype(14, 6, &longest, 3e-10, 1e-9, 0.375, None).is_ok());
+        for bad in ["A", "AAB", "ABA", "ABD", "", too_long.as_str()] {
             assert!(
                 matches!(
                     Lattice::polytype(14, 6, bad, 3e-10, 1e-9, 0.375, None),

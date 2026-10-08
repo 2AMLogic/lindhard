@@ -36,7 +36,8 @@ one version).
   documented overlap, surface-ownership and tolerance rules (#27).
 - `ion::crystal` hexagonal lattices (#179): `Lattice::wurtzite` (a, c and the
   internal parameter u) and `Lattice::polytype` (ideal tetrahedral stacking
-  from an A/B/C sequence such as `"ABCB"`), with presets
+  from an A/B/C sequence such as `"ABCB"`, at most 64 letters so that
+  `Candidate::basis` stays a unique `u8` site index), with presets
   `Lattice::gallium_nitride()` (cited a, c; u is a documented geometric
   placeholder), `silicon_carbide_4h()` and `silicon_carbide_6h()` (measured
   sites). Four-index Miller-Bravais input: `plane_normal_hkil`,

@@ -5,7 +5,8 @@
 //! hexagonal crystal.
 
 use lindhard::ion::crystal::lattice::{
-    equal_bond_wurtzite_u, GAN_DENSITY_G_CM3, SIC_4H_DENSITY_G_CM3, SIC_6H_DENSITY_G_CM3,
+    equal_bond_wurtzite_u, GAN_DENSITY_G_CM3, MAX_POLYTYPE_LAYERS, SIC_4H_DENSITY_G_CM3,
+    SIC_6H_DENSITY_G_CM3,
 };
 use lindhard::ion::crystal::search::{compare, path_metrics, site_position_in};
 use lindhard::ion::crystal::{Candidate, CrystalError, Lattice, LatticeSearch, Orientation};
@@ -545,4 +546,30 @@ fn search_along_c_counts_the_layers() {
         .search([0.0, 0.0, 0.0], [0.0, 0.0, 1.0], 0.05 * a, 3.0 * c)
         .unwrap();
     assert!(empty.is_empty(), "{empty:?}");
+}
+
+/// `Candidate::basis` is a `u8`, so a polytype must not have more than
+/// `MAX_POLYTYPE_LAYERS` (64) letters: its orthohexagonal cell has `4n`
+/// sites. The longest accepted stacking keeps every site index distinct in a
+/// search; one letter pair more is rejected rather than wrapped.
+#[test]
+fn long_polytype_basis_indices_do_not_alias() {
+    let n = MAX_POLYTYPE_LAYERS;
+    let make = |stacking: &str| Lattice::polytype(14, 6, stacking, 3.0e-10, 1.0e-9, 0.375, None);
+    assert!(matches!(
+        make(&"AB".repeat(n / 2 + 1)),
+        Err(CrystalError::InvalidStacking { .. })
+    ));
+    let l = make(&"AB".repeat(n / 2)).unwrap();
+    assert_eq!(l.orthogonal_cell().1.len(), 4 * n);
+    let (a, c) = (l.lattice_constant(), l.lattice_constant_c());
+    let v = LatticeSearch::new(&l)
+        .search([0.0, 0.0, -0.01 * c], [0.0, 0.0, 1.0], 3.0 * a, 1.02 * c)
+        .unwrap();
+    assert!(v.iter().any(|x| x.basis >= 128), "high indices reached");
+    let mut keys: Vec<_> = v.iter().map(|x| (x.cell, x.basis)).collect();
+    let total = keys.len();
+    keys.sort_unstable();
+    keys.dedup();
+    assert_eq!(keys.len(), total, "a (cell, basis) pair repeats");
 }

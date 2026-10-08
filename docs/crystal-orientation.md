@@ -145,7 +145,9 @@ any close-packed stacking: with `n` letters, bilayer `k` has its cation on
 column A = `(0, 0)`, B = `(1/3, 2/3)` or C = `(2/3, 1/3)` at height `k c/n`
 and its anion straight above at `k c/n + 2u c/n` (our generalisation: `u` in
 units of the two-bilayer height, so `3/8` is ideal for every `n`, and `"BC"`
-is the wurtzite above). The Ramsdell number is the count of bilayers per `c`.
+is the wurtzite above). The Ramsdell number is the count of bilayers per `c`. At most 64 letters are
+accepted: the orthohexagonal search cell has `4n` sites and
+`Candidate::basis` is a `u8`.
 
 | Preset | `a` | `c` | Internal parameters | Temperature | Source |
 |---|---|---|---|---|---|
