@@ -365,6 +365,25 @@ class BackscatterGroups(unittest.TestCase):
         self.assertAlmostEqual(g["median"], 0.16)
         self.assertEqual((g["min"], g["max"]), (0.15, 0.17))
 
+    def test_reuse_needs_identical_input_and_version(self):
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            w = Path(tmp) / "Al_10keV_both"
+            v = "lindhard 0.0.1 (abc1234)"
+            self.assertFalse(self.b.reusable(w, "x = 1\n", v))  # nothing there
+            (w / "out").mkdir(parents=True)
+            (w / "input.toml").write_text("x = 1\n")
+            self.assertFalse(self.b.reusable(w, "x = 1\n", v))  # no summary (interrupted run)
+            (w / "out" / "electron_summary.json").write_text(
+                json.dumps({"software": {"git_describe": "abc1234"}}))
+            self.assertTrue(self.b.reusable(w, "x = 1\n", v))
+            self.assertFalse(self.b.reusable(w, "x = 2\n", v))  # input differs
+            self.assertFalse(self.b.reusable(w, "x = 1\n", "lindhard 0.0.1 (def5678)"))  # other binary
+            self.assertFalse(self.b.reusable(w, "x = 1\n", "lindhard 0.0.1 (xabc1234)"))
+            (w / "out" / "electron_summary.json").write_text("{")
+            self.assertFalse(self.b.reusable(w, "x = 1\n", v))  # truncated summary
+
     def test_empty_group(self):
         g = self.b.measured_group([self.ds("a", "Al", [(5000.0, 0.15)])], "Al", 10.0)
         self.assertEqual((g["sets"], g["median"], g["min"], g["max"]), (0, None, None, None))

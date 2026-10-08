@@ -28,7 +28,7 @@ Writes `validation/experiments/backscatter_results.json`, which
 `validation/update_docs.py` turns into the tables in docs/validation.md.
 
 Usage:
-    validation/experiments/backscatter.py [--histories N] [--threads N]
+    validation/experiments/backscatter.py [--histories N] [--threads N] [--reuse]
     validation/experiments/backscatter.py --check
 """
 
@@ -198,17 +198,37 @@ def variant_input(base: str, base_dir: Path, e_kev: float, histories: int,
     return t
 
 
-def run_one(binary: Path, text: str, workdir: Path, threads: int | None) -> dict:
-    workdir.mkdir(parents=True, exist_ok=True)
-    inp = workdir / "input.toml"
-    inp.write_text(text)
+def reusable(workdir: Path, text: str, version: str) -> bool:
+    """True if `workdir` holds a finished run of exactly `text` by the binary
+    whose `--version` is `version` ("lindhard X.Y.Z (<git describe>)"): the
+    stored input is byte-identical, its summary exists and names the same
+    git describe. Results do not depend on the thread count (a tested
+    invariant), so such a run is the run."""
+    inp, summary = workdir / "input.toml", workdir / "out" / "electron_summary.json"
+    if not (inp.is_file() and summary.is_file() and inp.read_text() == text):
+        return False
+    try:
+        described = json.loads(summary.read_text())["software"]["git_describe"]
+    except (json.JSONDecodeError, KeyError, TypeError):
+        return False
+    return isinstance(described, str) and bool(described) and version.endswith(f"({described})")
+
+
+def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
+            reuse_version: str | None = None) -> dict:
     out = workdir / "out"
-    cmd = [str(binary), "run", str(inp), "--out", str(out)]
-    if threads:
-        cmd += ["--threads", str(threads)]
-    proc = subprocess.run(cmd, capture_output=True, text=True)
-    if proc.returncode != 0:
-        lindhard_cli.die(f"lindhard failed on {inp}:\n{proc.stderr}")
+    if reuse_version is not None and reusable(workdir, text, reuse_version):
+        print(f"  reusing {workdir.name}", file=sys.stderr)
+    else:
+        workdir.mkdir(parents=True, exist_ok=True)
+        inp = workdir / "input.toml"
+        inp.write_text(text)
+        cmd = [str(binary), "run", str(inp), "--out", str(out)]
+        if threads:
+            cmd += ["--threads", str(threads)]
+        proc = subprocess.run(cmd, capture_output=True, text=True)
+        if proc.returncode != 0:
+            lindhard_cli.die(f"lindhard failed on {inp}:\n{proc.stderr}")
     s = json.loads((out / "electron_summary.json").read_text())
     r = s["results"]
     n = r["histories"]
@@ -232,12 +252,17 @@ def main() -> int:
     ap.add_argument("--histories", type=int, default=100000)
     ap.add_argument("--threads", type=int, default=None,
                     help="threads per run (results do not depend on it)")
+    ap.add_argument("--reuse", action="store_true",
+                    help="reuse a finished run under validation/oracle-runs/backscatter/ whose input is "
+                         "byte-identical and whose summary names this binary's version (resumes an "
+                         "interrupted sweep)")
     args = ap.parse_args()
     datasets = load_datasets()
     if args.check:
         print(f"{len(datasets)} backscatter datasets OK")
         return 0
     binary = lindhard_cli.lindhard_binary()
+    reuse = lindhard_cli.version(binary) if args.reuse else None
     targets = []
     for t in TARGETS:
         groups = [measured_group(datasets, t, e) for e in ENERGIES_KEV]
@@ -250,14 +275,14 @@ def main() -> int:
                 print(f"{t} {e:g} keV", file=sys.stderr)
                 text = variant_input(base, inp.parent, e, args.histories, True, True)
                 entry["runs"][f"{e:g}"] = run_one(
-                    binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_both", args.threads)
+                    binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_both", args.threads, reuse)
             for e in SENSITIVITY_ENERGIES_KEV:
                 row = {"both": entry["runs"][f"{e:g}"]}
                 for vid, _label, ex, pol in VARIANTS[1:]:
                     print(f"{t} {e:g} keV {vid}", file=sys.stderr)
                     text = variant_input(base, inp.parent, e, args.histories, ex, pol)
                     row[vid] = run_one(
-                        binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_{vid}", args.threads)
+                        binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_{vid}", args.threads, reuse)
                 entry["sensitivity"][f"{e:g}"] = row
         targets.append(entry)
     RESULTS.write_text(json.dumps({

@@ -1,6 +1,6 @@
 {
  "format": "lindhard-backscatter-results/1",
- "lindhard": "lindhard 0.0.1 (6629260)",
+ "lindhard": "lindhard 0.0.1 (4d4977b)",
  "histories": 100000,
  "seed": 1,
  "energies_kev": [
@@ -46,7 +46,7 @@
  "targets": [
   {
    "target": "C",
-   "input": null,
+   "input": "validation/experiments/backscatter/eta_c.toml",
    "groups": [
     {
      "energy_kev": 1.0,
@@ -275,8 +275,184 @@
      ]
     }
    ],
-   "runs": {},
-   "sensitivity": {}
+   "runs": {
+    "1": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.09472,
+     "eta_se": 0.0009260028164104038,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 2.086162567138672e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 30.187080128
+    },
+    "2": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.07433,
+     "eta_se": 0.0008294881017832623,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 3.2782554626464845e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 46.366209916
+    },
+    "3": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.06543,
+     "eta_se": 0.0007819777177132351,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.9868214925130209e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 54.109881634
+    },
+    "4": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.05984,
+     "eta_se": 0.0007500611601729555,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.4901161193847656e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 52.324521592
+    },
+    "5": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.05515,
+     "eta_se": 0.0007218620193638116,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 2.264976501464844e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 46.742891299
+    },
+    "10": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.04658,
+     "eta_se": 0.0006664105611408031,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 2.86102294921875e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 69.725084812
+    },
+    "15": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.04385,
+     "eta_se": 0.0006475119883060081,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.7484029134114584e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 121.594764851
+    },
+    "20": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.04189,
+     "eta_se": 0.0006335237004248538,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.7881393432617186e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 152.78548477
+    },
+    "30": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.04035,
+     "eta_se": 0.0006222690535451687,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 2.86102294921875e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 196.360199527
+    }
+   },
+   "sensitivity": {
+    "1": {
+     "both": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.09472,
+      "eta_se": 0.0009260028164104038,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.086162567138672e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 30.187080128
+     },
+     "exchange": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.09531,
+      "eta_se": 0.0009285795814037697,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.4901161193847656e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 15.048253349
+     },
+     "polarization": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.09297,
+      "eta_se": 0.000918295045723323,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 8.940696716308593e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 20.852000658
+     },
+     "none": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.09447,
+      "eta_se": 0.0009249076662024161,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 0.0,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 14.430791961
+     }
+    },
+    "10": {
+     "both": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.04658,
+      "eta_se": 0.0006664105611408031,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.86102294921875e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 69.725084812
+     },
+     "exchange": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.04682,
+      "eta_se": 0.0006680410735875452,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.0728836059570312e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 43.301516755
+     },
+     "polarization": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.04657,
+      "eta_se": 0.0006663425177789573,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 4.76837158203125e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; C: alpha_p = 11.3 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 6 C, recommended 11.3 +- 0.2 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 89.535061301
+     },
+     "none": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.04678,
+      "eta_se": 0.0006677696578911024,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.9073486328125e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 38.350775878
+     }
+    }
+   }
   },
   {
    "target": "Al",
@@ -606,179 +782,179 @@
    ],
    "runs": {
     "1": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.19192,
      "eta_se": 0.001245338161303989,
      "secondary_delta": 0.0,
      "relative_imbalance": 5.960464477539063e-16,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 34.799342656
+     "table_build_s": 46.290294023
     },
     "2": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.1666,
      "eta_se": 0.0011783227062227054,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.043081283569336e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 42.737070772
+     "table_build_s": 57.838782918
     },
     "3": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.15695,
      "eta_se": 0.0011502899525771752,
      "secondary_delta": 0.0,
      "relative_imbalance": 9.934107462565104e-16,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 48.448517432
+     "table_build_s": 52.826302573
     },
     "4": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.15119,
      "eta_se": 0.001132835309742771,
      "secondary_delta": 0.0,
      "relative_imbalance": 7.450580596923828e-16,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 58.588115066
+     "table_build_s": 59.929792775
     },
     "5": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.14722,
      "eta_se": 0.0011204743263457668,
      "secondary_delta": 0.0,
      "relative_imbalance": 0.0,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 66.812418409
+     "table_build_s": 64.632884869
     },
     "10": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.13757,
      "eta_se": 0.0010892405386323078,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.9073486328125e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 84.27598299
+     "table_build_s": 93.651868682
     },
     "15": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.13174,
      "eta_se": 0.0010695072341971325,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.5894571940104166e-16,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 110.614244436
+     "table_build_s": 144.984156932
     },
     "20": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.12994,
      "eta_se": 0.0010632760525846523,
      "secondary_delta": 0.0,
      "relative_imbalance": 3.814697265625e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 174.096711683
+     "table_build_s": 117.436885415
     },
     "30": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.12753,
      "eta_se": 0.001054827469778826,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.2715657552083333e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 202.579336238
+     "table_build_s": 153.046379585
     }
    },
    "sensitivity": {
     "1": {
      "both": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.19192,
       "eta_se": 0.001245338161303989,
       "secondary_delta": 0.0,
       "relative_imbalance": 5.960464477539063e-16,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 34.799342656
+      "table_build_s": 46.290294023
      },
      "exchange": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.19365,
       "eta_se": 0.0012495986455658473,
       "secondary_delta": 0.0,
       "relative_imbalance": 1.1920928955078125e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
-      "table_build_s": 19.382500612
+      "table_build_s": 22.457652938
      },
      "polarization": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.19072,
       "eta_se": 0.0012423601796580572,
       "secondary_delta": 0.0,
       "relative_imbalance": 1.043081283569336e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 24.467567275
+      "table_build_s": 20.599372248
      },
      "none": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.19076,
       "eta_se": 0.0012424597474365116,
       "secondary_delta": 0.0,
       "relative_imbalance": 1.4901161193847656e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
-      "table_build_s": 19.751767801
+      "table_build_s": 16.625793946
      }
     },
     "10": {
      "both": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.13757,
       "eta_se": 0.0010892405386323078,
       "secondary_delta": 0.0,
       "relative_imbalance": 1.9073486328125e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 84.27598299
+      "table_build_s": 93.651868682
      },
      "exchange": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.13741,
       "eta_se": 0.0010887079126193583,
       "secondary_delta": 0.0,
       "relative_imbalance": 2.503395080566406e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
-      "table_build_s": 44.912011831
+      "table_build_s": 41.527689216
      },
      "polarization": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.13657,
       "eta_se": 0.001085903472229461,
       "secondary_delta": 0.0,
       "relative_imbalance": 4.76837158203125e-16,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 65.14379298
+      "table_build_s": 67.546691459
      },
      "none": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.13705,
       "eta_se": 0.0010875076896279862,
       "secondary_delta": 0.0,
       "relative_imbalance": 1.7881393432617186e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
-      "table_build_s": 41.70347139
+      "table_build_s": 35.86953523
      }
     }
    }
@@ -1360,186 +1536,186 @@
    ],
    "runs": {
     "1": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.33344,
      "eta_se": 0.0014908311990295886,
      "secondary_delta": 0.0,
      "relative_imbalance": 5.960464477539063e-16,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 27.277354121
+     "table_build_s": 20.993122701
     },
     "2": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.31614,
      "eta_se": 0.0014703588011094435,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.341104507446289e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 35.466159045
+     "table_build_s": 29.55221221
     },
     "3": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.30982,
      "eta_se": 0.0014622980804199943,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.7881393432617186e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 39.490223336
+     "table_build_s": 36.567017295
     },
     "4": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.3047,
      "eta_se": 0.0014555339570068437,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.6391277313232423e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 44.408526186
+     "table_build_s": 55.958972214
     },
     "5": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.30253,
      "eta_se": 0.0014526031774025555,
      "secondary_delta": 0.0,
      "relative_imbalance": 8.344650268554687e-16,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 48.363270412
+     "table_build_s": 64.59771945
     },
     "10": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.29828,
      "eta_se": 0.0014467516773793627,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.430511474609375e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 69.245410468
+     "table_build_s": 86.928513836
     },
     "15": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.29698,
      "eta_se": 0.001444932107747627,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.9073486328125e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 105.960504815
+     "table_build_s": 86.702848193
     },
     "20": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.29732,
      "eta_se": 0.001445409345479681,
      "secondary_delta": 0.0,
      "relative_imbalance": 2.6226043701171873e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 109.896452506
+     "table_build_s": 106.784682391
     },
     "30": {
-     "version": "6629260",
+     "version": "4d4977b",
      "histories": 100000,
      "eta": 0.29574,
      "eta_se": 0.0014431834685860283,
      "secondary_delta": 0.0,
      "relative_imbalance": 1.7484029134114584e-15,
      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-     "table_build_s": 141.062498699
+     "table_build_s": 141.719113574
     }
    },
    "sensitivity": {
     "1": {
      "both": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.33344,
       "eta_se": 0.0014908311990295886,
       "secondary_delta": 0.0,
       "relative_imbalance": 5.960464477539063e-16,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 27.277354121
+      "table_build_s": 20.993122701
      },
      "exchange": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.33286,
       "eta_se": 0.0014901819365433203,
       "secondary_delta": 0.0,
       "relative_imbalance": 2.086162567138672e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
-      "table_build_s": 14.691838183
+      "table_build_s": 12.306970271
      },
      "polarization": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.32842,
       "eta_se": 0.0014851272793939246,
       "secondary_delta": 0.0,
       "relative_imbalance": 4.470348358154296e-16,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 20.90238186
+      "table_build_s": 18.860785736
      },
      "none": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.3305,
       "eta_se": 0.001487513865481596,
       "secondary_delta": 0.0,
       "relative_imbalance": 7.450580596923828e-16,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
-      "table_build_s": 15.930118536
+      "table_build_s": 16.109555259
      }
     },
     "10": {
      "both": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.29828,
       "eta_se": 0.0014467516773793627,
       "secondary_delta": 0.0,
       "relative_imbalance": 1.430511474609375e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 69.245410468
+      "table_build_s": 86.928513836
      },
      "exchange": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.29826,
       "eta_se": 0.0014467237898092367,
       "secondary_delta": 0.0,
       "relative_imbalance": 8.344650268554687e-16,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
-      "table_build_s": 38.063944496
+      "table_build_s": 38.929361799
      },
      "polarization": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.29699,
       "eta_se": 0.001444946157820422,
       "secondary_delta": 0.0,
       "relative_imbalance": 1.430511474609375e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
-      "table_build_s": 61.786111317
+      "table_build_s": 75.21322077
      },
      "none": {
-      "version": "6629260",
+      "version": "4d4977b",
       "histories": 100000,
       "eta": 0.29729,
       "eta_se": 0.0014453672747782827,
       "secondary_delta": 0.0,
       "relative_imbalance": 3.0994415283203126e-15,
       "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
-      "table_build_s": 36.170521113
+      "table_build_s": 39.205239061
      }
     }
    }
   },
   {
    "target": "Au",
-   "input": null,
+   "input": "validation/experiments/backscatter/eta_au.toml",
    "groups": [
     {
      "energy_kev": 1.0,
@@ -1818,8 +1994,184 @@
      ]
     }
    ],
-   "runs": {},
-   "sensitivity": {}
+   "runs": {
+    "1": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.26463,
+     "eta_se": 0.001394994491386973,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.6391277313232423e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 28.615296346
+    },
+    "2": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.39771,
+     "eta_se": 0.001547697502420935,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.1920928955078125e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 33.803460767
+    },
+    "3": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.42402,
+     "eta_se": 0.0015627765022548808,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.986821492513021e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 41.33779127
+    },
+    "4": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.42966,
+     "eta_se": 0.0015654145917296158,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 2.2351741790771483e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 48.049637848
+    },
+    "5": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.43462,
+     "eta_se": 0.0015675632542261253,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.430511474609375e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 52.947881331
+    },
+    "10": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.44743,
+     "eta_se": 0.0015723752576913693,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 2.86102294921875e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 89.98621891
+    },
+    "15": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.45607,
+     "eta_se": 0.0015750243017172783,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 4.76837158203125e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 110.029397239
+    },
+    "20": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.46217,
+     "eta_se": 0.0015766067712020015,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 0.0,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 116.109220764
+    },
+    "30": {
+     "version": "4d4977b",
+     "histories": 100000,
+     "eta": 0.47109,
+     "eta_se": 0.0015784936233637437,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 4.450480143229166e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 155.60317848
+    }
+   },
+   "sensitivity": {
+    "1": {
+     "both": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.26463,
+      "eta_se": 0.001394994491386973,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.6391277313232423e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 28.615296346
+     },
+     "exchange": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.26711,
+      "eta_se": 0.001399150627702393,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 8.940696716308593e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 12.552314661
+     },
+     "polarization": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.25062,
+      "eta_se": 0.0013704364837525305,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.2351741790771483e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 20.741324389
+     },
+     "none": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.24985,
+      "eta_se": 0.0013690324229177334,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.682209014892578e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 12.29644929
+     }
+    },
+    "10": {
+     "both": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.44743,
+      "eta_se": 0.0015723752576913693,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.86102294921875e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 89.98621891
+     },
+     "exchange": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.44744,
+      "eta_se": 0.0015723786007193052,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 4.76837158203125e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 28.647156364
+     },
+     "polarization": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.44684,
+      "eta_se": 0.0015721768806339826,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.0265579223632813e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 61.783759536
+     },
+     "none": {
+      "version": "4d4977b",
+      "histories": 100000,
+      "eta": 0.44773,
+      "eta_se": 0.0015724752688039327,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.980232238769531e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 35.590419042
+     }
+    }
+   }
   }
  ]
 }

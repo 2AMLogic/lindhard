@@ -288,7 +288,10 @@ Status (2026-10-05, #51):
   stored as cited facts under the #34 ruling, as the sputter yields are. The
   comparison runs where an optical ELF is committed: Al and Cu (#98), and
   glassy C and Au (#148, rows above). Si has none (#125, inventory below), so
-  its measured data are tabulated but not compared.
+  its measured data are tabulated but not compared. The committed
+  `validation/experiments/backscatter_results.json` holds only lindhard's own
+  η per run (and the measured groups formed from the sets above); no oracle
+  output enters it.
 
 Oracle comparison summaries
 (`validation/oracles/summaries/`) hold scalar summary metrics of local oracle
