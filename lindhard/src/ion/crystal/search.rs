@@ -8,8 +8,8 @@
 //! geometric first step of a binary-collision search on explicit atom
 //! positions (Robinson and Torrens, Phys. Rev. B 9, 5008 (1974),
 //! doi:10.1103/PhysRevB.9.5008, describe the method; only the paper is used
-//! here, no code). Nothing in the binary-collision engine reads this module
-//! yet.
+//! here, no code). The crystal flight model of the binary-collision engine
+//! ([`crate::ion::bca::crystal`]) calls it for every flight segment.
 //!
 //! # Geometry and units
 //!

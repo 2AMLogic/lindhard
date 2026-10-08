@@ -9,6 +9,18 @@ one version).
 
 ### Added
 
+- `Bca::with_crystal` and `CrystalTarget` (`ion::bca::crystal`): the crystal
+  flight model of the BCA engine (#180). The partner model is chosen per
+  region (amorphous, or sites of a `Lattice` in a given `Orientation`);
+  amorphous regions and runs are bit-identical to before (a test compares
+  complete reports). Partners come from the lattice neighbour search, nearest
+  by path distance, with simultaneous partners merged by momentum balance
+  (criterion after DISPLATH, MIT, see `THIRD_PARTY_LICENSES.md`); the lattice
+  is static and perfect, with a random translation per history. B 5 keV along
+  <110> reaches 6.1 times the amorphous Rp; at 7 degrees tilt and 22 degrees
+  twist a static lattice keeps a channeling tail (dRp 1.25 times the
+  amorphous value for B 5 keV, 1.88 for As 30 keV; Rp within 10 %). Criterion
+  bench `crystal_flight`: about 17 times slower than amorphous at 7/22.
 - `[physics] tuning = "none" | "<set>"`: opt-in phenomenological
   surface-binding-energy multiplier sets for static single-element ion runs
   (`input::TuningSet`). `"none"` and omission are bit-for-bit unchanged;

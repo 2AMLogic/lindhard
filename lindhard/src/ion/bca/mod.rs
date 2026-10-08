@@ -196,14 +196,25 @@
 //! are kept by the tally [`crate::tally::IonTally`] from the events reported
 //! here ([`crate::ion::damage`] has the models).
 //!
+//! # Crystal regions
+//!
+//! Everything above is the amorphous partner model. [`Bca::with_crystal`]
+//! switches chosen regions to the crystal flight model (partners from an
+//! explicit lattice, in [`crystal`]); the other regions, and engines that do
+//! not call it, are untouched and bit-identical to the amorphous engine.
+//!
 //! # Not modelled here (see the issue tracker)
 //!
-//! Crystal structure, target composition changes with fluence, and refraction
-//! of the incident beam at the entrance surface (negligible at keV energies).
+//! Thermal vibration, damage accumulation and impact-parameter-dependent
+//! stopping in crystal regions (the lattice there is static and perfect),
+//! target composition changes with fluence, and refraction of the incident
+//! beam at the entrance surface (negligible at keV energies).
 
+pub mod crystal;
 pub mod kinematics;
 pub mod tally;
 
+pub use crystal::CrystalTarget;
 pub use tally::{BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, SummaryTally};
 
 use std::f64::consts::PI;
@@ -542,6 +553,12 @@ type BinaryOutcome = (f64, [f64; 3], (f64, f64));
 struct Scratch {
     p_max: Vec<f64>,
     cum: Vec<f64>,
+    /// Crystal flight model: the lattice sites found by the last search, the
+    /// sites hit by the previous collision, and the partners of the current
+    /// collision step.
+    cands: Vec<crystal::Candidate>,
+    last: Vec<crystal::SiteId>,
+    targets: Vec<crystal::Partner>,
 }
 
 /// Reusable working memory for [`Bca::history_in`]: the stack of particles
@@ -553,6 +570,9 @@ struct Scratch {
 pub struct HistoryBuffers {
     pending: Vec<Particle>,
     scratch: Scratch,
+    /// Crystal regions: this history's random lattice translation per
+    /// crystal (empty when there are none).
+    shifts: Vec<[f64; 3]>,
 }
 
 impl HistoryBuffers {
@@ -603,6 +623,11 @@ pub struct Bca<'a> {
     /// `pairs[projectile species * n_species + target species]`.
     pairs: Vec<PairData>,
     beta_max: Option<BetaMaxGrid>,
+    /// Crystal partner models ([`Bca::with_crystal`]); empty for an
+    /// amorphous target.
+    crystals: Vec<crystal::CrystalData>,
+    /// Index into `crystals` by region; empty when there are no crystals.
+    region_crystal: Vec<Option<usize>>,
 }
 
 fn finite_nonneg(v: f64) -> bool {
@@ -806,6 +831,8 @@ impl<'a> Bca<'a> {
             barriers,
             pairs,
             beta_max,
+            crystals: Vec::new(),
+            region_crystal: Vec::new(),
         })
     }
 
@@ -925,7 +952,32 @@ impl<'a> Bca<'a> {
             incident: self.beam.energy_ev,
             ..EnergyBudget::default()
         };
-        let HistoryBuffers { pending, scratch } = buffers;
+        let HistoryBuffers {
+            pending,
+            scratch,
+            shifts,
+        } = buffers;
+        // Each crystal's lattice is translated by a random vector for every
+        // history (the beam samples all positions of the unit cell). The
+        // shifts come from a copy of this history's stream positioned at word
+        // 2^67, half the ChaCha period: a segment the transport draws below
+        // can never reach. So the transport stream is the same with or
+        // without crystals, and a particle that never enters a crystal
+        // region sees exactly the draws of the amorphous engine
+        // (`tests/crystal_amorphous_identity.rs`).
+        shifts.clear();
+        if !self.crystals.is_empty() {
+            let mut srng = rng.clone();
+            srng.set_word_pos(1u128 << 67);
+            for cr in &self.crystals {
+                let a = cr.lattice_constant();
+                shifts.push([
+                    a * Self::uniform(&mut srng),
+                    a * Self::uniform(&mut srng),
+                    a * Self::uniform(&mut srng),
+                ]);
+            }
+        }
         pending.clear();
         pending.push(Particle {
             species: 0,
@@ -938,7 +990,7 @@ impl<'a> Bca<'a> {
             generation: 0,
         });
         while let Some(p) = pending.pop() {
-            self.transport(p, rng, pending, &mut budget, tally, scratch)?;
+            self.transport(p, rng, pending, &mut budget, tally, scratch, shifts)?;
         }
         tally.end_history(index, &budget);
         Ok(budget)
@@ -1034,6 +1086,7 @@ impl<'a> Bca<'a> {
     }
 
     /// Follow one particle until it stops or escapes; push its recoils.
+    #[allow(clippy::too_many_arguments)]
     fn transport<T: BcaTally>(
         &self,
         mut p: Particle,
@@ -1042,14 +1095,27 @@ impl<'a> Bca<'a> {
         budget: &mut EnergyBudget,
         tally: &mut T,
         scratch: &mut Scratch,
+        shifts: &[[f64; 3]],
     ) -> Result<(), StoppingError> {
         let cutoff = self.species[p.species].cutoff_ev;
         let mut tau = self.draw_tau(rng, p.is_primary());
+        scratch.last.clear();
         loop {
             if p.energy_ev < cutoff {
                 budget.rest += p.energy_ev;
                 tally.stopped(&p);
                 return Ok(());
+            }
+            if let Some(ci) = self.crystal_at(p.layer) {
+                if self.crystal_step(ci, shifts[ci], &mut p, pending, budget, tally, scratch)? {
+                    return Ok(());
+                }
+                if self.crystal_at(p.layer).is_none() {
+                    // Left the crystal for an amorphous region: a fresh flight.
+                    tau = self.draw_tau(rng, false);
+                    scratch.last.clear();
+                }
+                continue;
             }
             let lay = self.lay(p.layer);
             let lambda = self.flight(&p, lay, scratch);
@@ -1083,40 +1149,56 @@ impl<'a> Bca<'a> {
             if p.energy_ev < cutoff {
                 continue;
             }
-            match ex.outcome {
-                ExitOutcome::Enter { region, pos } => {
-                    p.layer = region;
-                    p.pos = pos;
-                }
-                ExitOutcome::Escape { face, normal } => {
-                    let mi = self.geometry.material_index(p.layer);
-                    let e_s = self.barriers[mi * self.species.len() + p.species];
-                    match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {
-                        Some((e_out, dir_out)) => {
-                            budget.surface_barrier += p.energy_ev - e_out;
-                            p.energy_ev = e_out;
-                            p.dir = dir_out;
-                            match (face, p.is_primary()) {
-                                (Face::Front, true) => budget.backscattered += e_out,
-                                (Face::Front, false) => budget.sputtered += e_out,
-                                (Face::Back, _) => budget.transmitted += e_out,
-                                (Face::Side, _) => budget.lateral += e_out,
-                            }
-                            tally.escaped(&p, face);
-                            return Ok(());
+            if self.apply_event(&mut p, ex.outcome, budget, tally) {
+                return Ok(());
+            }
+        }
+    }
+
+    /// Apply the outcome of a geometry event to `p`, which is already at the
+    /// event point with the electronic loss of the segment taken: enter the
+    /// next region, or reach a surface and escape (returns `true`, the
+    /// particle is finished) or reflect specularly (returns `false`).
+    fn apply_event<T: BcaTally>(
+        &self,
+        p: &mut Particle,
+        outcome: ExitOutcome,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) -> bool {
+        match outcome {
+            ExitOutcome::Enter { region, pos } => {
+                p.layer = region;
+                p.pos = pos;
+            }
+            ExitOutcome::Escape { face, normal } => {
+                let mi = self.geometry.material_index(p.layer);
+                let e_s = self.barriers[mi * self.species.len() + p.species];
+                match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {
+                    Some((e_out, dir_out)) => {
+                        budget.surface_barrier += p.energy_ev - e_out;
+                        p.energy_ev = e_out;
+                        p.dir = dir_out;
+                        match (face, p.is_primary()) {
+                            (Face::Front, true) => budget.backscattered += e_out,
+                            (Face::Front, false) => budget.sputtered += e_out,
+                            (Face::Back, _) => budget.transmitted += e_out,
+                            (Face::Side, _) => budget.lateral += e_out,
                         }
-                        None => {
-                            // Specular reflection about the face normal.
-                            let dn =
-                                p.dir[0] * normal[0] + p.dir[1] * normal[1] + p.dir[2] * normal[2];
-                            for (d, n) in p.dir.iter_mut().zip(normal) {
-                                *d -= 2.0 * dn * n;
-                            }
+                        tally.escaped(p, face);
+                        return true;
+                    }
+                    None => {
+                        // Specular reflection about the face normal.
+                        let dn = p.dir[0] * normal[0] + p.dir[1] * normal[1] + p.dir[2] * normal[2];
+                        for (d, n) in p.dir.iter_mut().zip(normal) {
+                            *d -= 2.0 * dn * n;
                         }
                     }
                 }
             }
         }
+        false
     }
 
     /// `tan(theta / 2)` for the centre-of-mass angle at `(eps, beta)`.
@@ -1250,12 +1332,44 @@ impl<'a> Bca<'a> {
         let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
         let (t, incoming, phi) = self.binary(p, j, b, azimuth, budget, tally)?;
 
-        let elem = &self.lay(p.layer).elems[j];
+        self.emit_recoil(
+            p.generation,
+            p.pos,
+            p.layer,
+            j,
+            t,
+            || kinematics::rotate_sc(incoming, phi, (-azimuth.0, -azimuth.1)),
+            pending,
+            budget,
+            tally,
+        );
+        Ok(())
+    }
+
+    /// Dispose of the energy `t` transferred to element `j` of the material
+    /// of `layer` at `pos`: a displaced atom (if `t` exceeds both `E_d` and
+    /// `E_b`; it starts with `t - E_b` along `recoil_dir()` and is followed
+    /// or stopped as configured), otherwise heat in the lattice. The same
+    /// criterion for the amorphous and the crystal flight model.
+    #[allow(clippy::too_many_arguments)]
+    fn emit_recoil<T: BcaTally>(
+        &self,
+        parent_generation: u32,
+        pos: [f64; 3],
+        layer: usize,
+        j: usize,
+        t: f64,
+        recoil_dir: impl FnOnce() -> [f64; 3],
+        pending: &mut Vec<Particle>,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) {
+        let elem = &self.lay(layer).elems[j];
         if t > elem.e_d_ev && t > elem.e_b_ev {
             let e_r = t - elem.e_b_ev;
             if elem.e_b_ev > 0.0 {
                 budget.lattice += elem.e_b_ev;
-                tally.lattice(p.pos, p.layer, LatticeDeposit::Binding, elem.e_b_ev);
+                tally.lattice(pos, layer, LatticeDeposit::Binding, elem.e_b_ev);
             }
             let sp = &self.species[elem.species];
             let r = Particle {
@@ -1263,10 +1377,10 @@ impl<'a> Bca<'a> {
                 z: elem.z,
                 mass_amu: sp.ion.mass_amu(),
                 energy_ev: e_r,
-                pos: p.pos,
-                dir: kinematics::rotate_sc(incoming, phi, (-azimuth.0, -azimuth.1)),
-                layer: p.layer,
-                generation: p.generation + 1,
+                pos,
+                dir: recoil_dir(),
+                layer,
+                generation: parent_generation + 1,
             };
             tally.recoil(&r);
             if self.config.follow_recoils && e_r >= sp.cutoff_ev {
@@ -1277,9 +1391,8 @@ impl<'a> Bca<'a> {
             }
         } else if t > 0.0 {
             budget.lattice += t;
-            tally.lattice(p.pos, p.layer, LatticeDeposit::Subthreshold, t);
+            tally.lattice(pos, layer, LatticeDeposit::Subthreshold, t);
         }
-        Ok(())
     }
 }
 
