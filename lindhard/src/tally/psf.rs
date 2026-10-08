@@ -454,8 +454,22 @@ pub struct RadialProfile {
 }
 
 impl RadialProfile {
-    /// Checks that the arrays are consistent: edges start at 0 and increase,
-    /// one energy and one error per bin, all finite, errors non-negative.
+    /// Relative tolerance of the check that `total_ev` equals the bin
+    /// energies plus `beyond_ev` (see [`RadialProfile::validate`]).
+    ///
+    /// [`RadialAccumulator`] sums the same deposits into the bins and into the
+    /// slab total, but in a different order, so the two agree only to
+    /// floating-point rounding: a naive sum of `n` non-negative terms is off
+    /// by at most about `n ε` relative (`ε ≈ 1.1e-16`), well below `1e-6` for
+    /// any feasible number of histories.
+    pub const TOTAL_REL_TOLERANCE: f64 = 1e-6;
+
+    /// Checks that the profile is consistent: edges start at 0 and increase,
+    /// one energy and one error per bin, all finite, errors non-negative; the
+    /// depth slab finite with `depth_lo_m < depth_hi_m`; `beyond_ev`,
+    /// `total_ev` and their errors finite and non-negative; and `total_ev`
+    /// equal to the bin energies plus `beyond_ev` within
+    /// [`RadialProfile::TOTAL_REL_TOLERANCE`] relative.
     pub fn validate(&self) -> Result<(), PsfError> {
         let bad = |s: &str| Err(PsfError::Profile(s.to_string()));
         let n = self.energy_ev.len();
@@ -470,6 +484,30 @@ impl RadialProfile {
             || !self.std_err_ev.iter().all(|e| e.is_finite() && *e >= 0.0)
         {
             return bad("edges, energies and errors must be finite, errors non-negative");
+        }
+        if !(self.depth_lo_m.is_finite()
+            && self.depth_hi_m.is_finite()
+            && self.depth_lo_m < self.depth_hi_m)
+        {
+            return bad("depth bounds must be finite with depth_lo_m < depth_hi_m");
+        }
+        let scalars = [
+            self.beyond_ev,
+            self.beyond_std_err_ev,
+            self.total_ev,
+            self.total_std_err_ev,
+        ];
+        if !scalars.iter().all(|v| v.is_finite() && *v >= 0.0) {
+            return bad(
+                "beyond_ev, beyond_std_err_ev, total_ev and total_std_err_ev \
+                 must be finite and non-negative",
+            );
+        }
+        let parts = self.energy_ev.iter().sum::<f64>() + self.beyond_ev;
+        let scale =
+            self.energy_ev.iter().map(|e| e.abs()).sum::<f64>() + self.beyond_ev + self.total_ev;
+        if (self.total_ev - parts).abs() > Self::TOTAL_REL_TOLERANCE * scale {
+            return bad("total_ev must equal the bin energies plus beyond_ev");
         }
         Ok(())
     }
@@ -1046,9 +1084,11 @@ pub fn fit_psf(
     if options.normalization == PsfNormalization::SlabTotal {
         covariance[0][0] = profile.total_std_err_ev * profile.total_std_err_ev;
     }
-    if !free
-        .iter()
-        .all(|&j| covariance[j][j].is_finite() && covariance[j][j] > 0.0)
+    // Every variance finite; those of the fitted parameters also positive
+    // (the fixed `E` of `SlabTotal` carries the slab total's variance, which
+    // is 0 for fewer than two histories).
+    if !(0..np).all(|j| covariance[j][j].is_finite())
+        || !free.iter().all(|&j| covariance[j][j] > 0.0)
     {
         return Err(PsfError::Singular);
     }

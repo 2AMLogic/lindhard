@@ -17,8 +17,8 @@ use lindhard::material::Material;
 use lindhard::rng::stream;
 use lindhard::tally::{
     fit_psf, Binning, CylindricalGrid, ElectronReport, ElectronTallyConfig, FullElectronTally,
-    GaussianPsf, LogRadialBinning, PsfConfig, PsfFit, PsfFitOptions, PsfModel, PsfNormalization,
-    PsfReport, RadialProfile,
+    GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
+    PsfNormalization, PsfReport, RadialProfile,
 };
 use rand_core::Rng;
 
@@ -481,4 +481,62 @@ fn too_few_bins_and_empty_profiles_are_rejected() {
     let acc = lindhard::tally::RadialAccumulator::new(cfg).unwrap();
     let p = acc.profile();
     assert!(fit_psf(&p, PsfModel::DoubleGaussian, &PsfFitOptions::default()).is_err());
+}
+
+/// Each mutation of an otherwise valid profile's slab scalars or depth bounds
+/// is rejected as `PsfError::Profile` by `validate` and by `fit_psf`, for
+/// both normalisations, before the fit runs.
+#[test]
+fn invalid_slab_scalars_and_depth_bounds_are_rejected_as_profile_errors() {
+    let truth = &double_sets()[0];
+    let valid = noisy_profile(truth, bins(), 7);
+    type Mutation = fn(&mut RadialProfile);
+    let cases: [(&str, Mutation); 14] = [
+        ("total_ev = NaN", |p| p.total_ev = f64::NAN),
+        ("total_ev = inf", |p| p.total_ev = f64::INFINITY),
+        ("total_ev < 0", |p| p.total_ev = -p.total_ev),
+        ("total_ev inconsistent", |p| p.total_ev *= 1.01),
+        ("total_std_err_ev = NaN", |p| p.total_std_err_ev = f64::NAN),
+        ("total_std_err_ev < 0", |p| p.total_std_err_ev = -1.0),
+        ("beyond_ev = NaN", |p| p.beyond_ev = f64::NAN),
+        ("beyond_ev < 0", |p| {
+            p.total_ev -= 2.0 * p.beyond_ev;
+            p.beyond_ev = -p.beyond_ev;
+        }),
+        ("beyond_std_err_ev = NaN", |p| {
+            p.beyond_std_err_ev = f64::NAN
+        }),
+        ("beyond_std_err_ev < 0", |p| p.beyond_std_err_ev = -1.0),
+        ("depth bounds reversed", |p| {
+            std::mem::swap(&mut p.depth_lo_m, &mut p.depth_hi_m)
+        }),
+        ("depth bounds equal", |p| p.depth_hi_m = p.depth_lo_m),
+        ("depth_lo_m = NaN", |p| p.depth_lo_m = f64::NAN),
+        ("depth_hi_m = inf", |p| p.depth_hi_m = f64::INFINITY),
+    ];
+    assert!(valid.beyond_ev > 0.0, "the fixture needs beyond_ev > 0");
+    for (name, mutate) in cases {
+        let mut p = valid.clone();
+        mutate(&mut p);
+        assert!(
+            matches!(p.validate(), Err(PsfError::Profile(_))),
+            "{name}: validate gave {:?}",
+            p.validate()
+        );
+        for normalization in [PsfNormalization::SlabTotal, PsfNormalization::Free] {
+            let opts = PsfFitOptions {
+                normalization,
+                ..PsfFitOptions::default()
+            };
+            let r = fit_psf(&p, PsfModel::DoubleGaussian, &opts);
+            assert!(
+                matches!(r, Err(PsfError::Profile(_))),
+                "{name}, {normalization:?}: fit_psf gave {r:?}"
+            );
+        }
+    }
+    // The unmutated profile still fits, with finite errors throughout.
+    let fit = fit_psf(&valid, PsfModel::DoubleGaussian, &PsfFitOptions::default()).unwrap();
+    assert!(fit.std_errors.iter().all(|e| e.is_finite()));
+    assert!(fit.covariance.iter().flatten().all(|c| c.is_finite()));
 }
