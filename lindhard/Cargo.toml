@@ -9,7 +9,7 @@ rust-version.workspace = true
 readme = "README.md"
 include = [
     "/src/**",
-    # The manifest declares a harness-less `validation` test and six benches,
+    # The manifest declares a harness-less `validation` test and seven benches,
     # so their sources must ship or the packaged manifest has dangling targets.
     "/tests/**",
     "/benches/**",
@@ -66,4 +66,8 @@ harness = false
 
 [[bench]]
 name = "crystal_search"
+harness = false
+
+[[bench]]
+name = "mesh"
 harness = false

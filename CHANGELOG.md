@@ -9,6 +9,13 @@ one version).
 
 ### Added
 
+- `geometry::MeshGeometry` and `geometry::TriMesh`: targets of closed triangle
+  solids, each tagged with a material, loaded from STL (ASCII or binary) or
+  OBJ with a watertightness check (every edge shared by two consistently
+  oriented triangles, no degenerate triangles, positive volume; a bad mesh is
+  rejected with an error naming an edge). Ray queries use a binned-SAH BVH and
+  a watertight ray-triangle test; the target implements `Geometry` with
+  documented overlap, surface-ownership and tolerance rules (#27).
 - `ion::crystal::search`: `LatticeSearch`, the lattice sites within `p_max` of
   a path segment found by walking unit cells (no global atom list), each with
   its impact parameter, path distance, species and cell/basis index, ordered
