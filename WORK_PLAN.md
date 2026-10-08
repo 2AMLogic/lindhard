@@ -32,7 +32,7 @@ The rest run as capacity allows.
 
 Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
 
-_None._
+- **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
 
 ## Operator Priority
 
@@ -45,15 +45,12 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
-- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement
-- **#181**: [Epic #12] Crystal step 21b: thermal vibrations in the lattice search
-- **#218**: Declare lint policy once in [workspace.lints] and opt all crates in
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#227**: CI: stubtest the lindhard-py .pyi stubs against the compiled extension
 
 ## PRs Awaiting Review
 
@@ -66,6 +63,7 @@ _None._
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
+- **#228**: ci: stubtest the lindhard-py .pyi stubs against the compiled extension
 
 ## Proposed
 
@@ -81,11 +79,13 @@ Issues carrying `loom:curated`.
 - **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
+- **#227**: CI: stubtest the lindhard-py .pyi stubs against the compiled extension *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#192**: Test: malformed and hostile input values must error, never panic or hang *(architect)*
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(architect)*
+- **#226**: Crystal flight: impact-parameter-dependent (Oen-Robinson) electronic loss for channeled ions (Epic #12, Phase 2) *(architect)*
 
 ## Epics
 
@@ -103,14 +103,14 @@ Issues carrying `loom:curated`.
 
 | Tier | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 1 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 4 |
-| In Progress (`loom:building`) | 0 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 1 |
-| Curated | 10 |
-| Architect / Hermit proposals | 2 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 11 |
+| Architect / Hermit proposals | 3 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
 

@@ -4,6 +4,10 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-08
 
+- **PR #224**: feat(crystal): thermal vibration in the lattice collision search (#181)
+- **PR #223**: Declare lint policy once in [workspace.lints] (#218)
+- **Issue #218** (closed): Declare lint policy once in [workspace.lints] and opt all crates in
+- **Issue #181** (closed): [Epic #12] Crystal step 21b: thermal vibrations in the lattice search
 - **PR #219**: feat: ship es-sputter-ar-v1 opt-in E_s tuning set with fit record (#80)
 - **PR #216**: test: pin fixed-seed golden results for cross-platform reproducibility
 - **PR #212**: ci: add rustdoc job and fix rustdoc warnings (#191, #119)
