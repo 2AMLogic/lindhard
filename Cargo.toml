@@ -17,6 +17,12 @@ lindhard = { path = "lindhard", version = "0.0.1" }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 
+[workspace.lints.rust]
+# `deny`, not `forbid`: a `forbid` cannot be narrowed, and the allocation-count
+# test (lindhard/tests/alloc.rs) must implement `GlobalAlloc`, which is unsafe.
+# The library keeps its own crate-level `#![forbid(unsafe_code)]`.
+unsafe_code = "deny"
+
 [profile.release]
 codegen-units = 1
 lto = "fat"
