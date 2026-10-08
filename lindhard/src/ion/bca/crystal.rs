@@ -29,8 +29,10 @@
 //!
 //! The crystal position of a lab point `r` is `R r + u`, with `R` the
 //! orientation's rotation and `u` a translation drawn uniformly from the cube
-//! `[0, a)^3` once per primary history (three uniform numbers, before
-//! anything else), shared by the primary and all its recoils. A beam of finite
+//! `[0, a)^3` once per primary history (three uniform numbers per crystal,
+//! drawn from a copy of the history's stream positioned at word 2^67, so the
+//! transport draws are the same with or without crystals), shared by the
+//! primary and all its recoils. A beam of finite
 //! width samples all positions of the unit cell, so this is the static
 //! equivalent of a random entry point; it also makes the surface termination
 //! random. Lattice sites that lie outside the target (in front of the surface)
