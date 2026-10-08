@@ -162,25 +162,19 @@ fn density_differences(l: &Lattice, rho_g_cm3: f64, z: [u8; 2]) -> [f64; 3] {
     ]
 }
 
-/// Atom number density against the `material` module.
+/// Atom number density against the `material` module: the cases that agree.
 ///
 /// * 6H-SiC: the Ioffe archive density 3.21 g/cm³ (300 K) is printed to
 ///   three figures, half a unit in the last place is 1.56e-3 relative; the
 ///   cell parameters (`a = 3.08129 Å`, `c = 15.11976 Å`) add under 2e-6 and
 ///   the Si and C standard-weight intervals about 5e-5. Tolerance 1.7e-3.
 ///   Found: +1.05e-3.
-/// * 4H-SiC: against the archive's 3.211 g/cm³ (half a unit: 1.6e-4) the
-///   lattice is +7.52e-4 denser, outside the printed precision. The two
-///   numbers are different measurements (Bauer et al. 2001 cell, Gomes de
-///   Mesquita 1967 density, per the archive) and the cell's temperature is
-///   not stated; the difference is **pinned** here, not passed off as
-///   agreement, and recorded in `docs/data-provenance.md`.
-/// * GaN: the archive's 6.15 g/cm³ is 0.85 % above the X-ray density of the
-///   archive's own `a` and `c` (lattice/material - 1 = -8.52e-3), far outside
-///   its printed precision (8e-4). Pinned likewise; a gap in the provenance
-///   doc.
+///
+/// Issue #179 asks for agreement within the cited precision. Only 6H meets
+/// it with the sources that could be opened; 4H and GaN are in
+/// [`number_density_discrepancies_are_recorded_gaps`], which does not claim it.
 #[test]
-fn number_density_against_the_material_module() {
+fn number_density_agrees_with_the_material_module_6h() {
     for rel in density_differences(
         &Lattice::silicon_carbide_6h(),
         SIC_6H_DENSITY_G_CM3,
@@ -188,6 +182,25 @@ fn number_density_against_the_material_module() {
     ) {
         assert!(rel.abs() < 1.7e-3, "6H relative difference {rel:e}");
     }
+}
+
+/// **Not an agreement test.** Regression pins on two known, unresolved
+/// disagreements between sources, so that a change to a cell or a density is
+/// noticed. The acceptance criterion of #179 (density within the cited
+/// precision) is **not met** for these presets, and the test must not be read
+/// as meeting it. Neither constant was adjusted to hide the offset; both are
+/// listed under Open questions in `docs/data-provenance.md`.
+///
+/// * 4H-SiC: against the archive's 3.211 g/cm³ (half a unit: 1.6e-4) the
+///   lattice is +7.52e-4 denser, outside the printed precision. The two
+///   numbers are different measurements (Bauer et al. 2001 cell, Gomes de
+///   Mesquita 1967 density, per the archive) and the cell's temperature is
+///   not stated.
+/// * GaN: the archive's 6.15 g/cm³ is 0.85 % above the X-ray density of the
+///   archive's own `a` and `c` (lattice/material - 1 = -8.52e-3), far outside
+///   its printed precision (8e-4).
+#[test]
+fn number_density_discrepancies_are_recorded_gaps() {
     for rel in density_differences(
         &Lattice::silicon_carbide_4h(),
         SIC_4H_DENSITY_G_CM3,
