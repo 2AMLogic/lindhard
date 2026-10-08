@@ -923,12 +923,95 @@ fn tuning_none_is_bit_identical_and_unknown_sets_are_rejected() {
         deterministic_part(&summaries[1])
     );
 
-    // No set ships yet, so any name is unknown.
+    // A name the registry does not know is rejected.
     let e = fails(
         "unknown-tuning",
         &GOOD.replace("[physics]", "[physics]\ntuning = \"made-up\""),
     );
     assert!(e.contains("physics.tuning") && e.contains("made-up"), "{e}");
+}
+
+#[test]
+fn shipped_tuning_set_is_deterministic_and_equals_an_explicit_override() {
+    // The shipped pilot set on the Ar -> Cu example: identical physical output
+    // on 1, 2 and 8 threads; the same results as an untuned run with the
+    // effective E_s given explicitly (the set multiplies the resolved E_s once
+    // and changes nothing else); and the metadata in summary.json.
+    let set = lindhard::input::ES_SPUTTER_AR_V1;
+    let text = std::fs::read_to_string(examples_dir().join("ar_1keV_cu.toml")).unwrap();
+    let tuned = replaced(
+        &text,
+        "[physics]",
+        &format!("[physics]\ntuning = \"{}\"", set.name),
+    );
+    let mut outs = Vec::new();
+    for threads in ["1", "2", "8"] {
+        let dir = scratch(&format!("tuning-set-{threads}"));
+        let input = dir.join("input.toml");
+        std::fs::write(&input, &tuned).unwrap();
+        run(&input, &dir, &["--ions", "300", "--threads", threads]);
+        outs.push(dir);
+    }
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    for o in &outs[1..] {
+        assert_eq!(
+            deterministic_part(&read(&outs[0], "summary.json")),
+            deterministic_part(&read(o, "summary.json"))
+        );
+        for f in ["depth_profile.csv", "ions.csv", "escape_spectra.csv"] {
+            assert_eq!(read(&outs[0], f), read(o, f), "{f}");
+        }
+    }
+    let s = json(&outs[0].join("summary.json"));
+    let t = &s["physics"]["tuning"];
+    assert_eq!(t["set"], set.name);
+    assert_eq!(t["version"], set.version);
+    assert_eq!(t["quantity"], "surface-binding-energy");
+    let c = &t["components"][0];
+    let k = set.e_s_factors.iter().find(|p| p.0 == "Cu").unwrap().1;
+    assert_eq!(c["element"], "Cu");
+    assert_eq!(c["factor"].as_f64().unwrap(), k);
+    let original = c["e_s_original_ev"].as_f64().unwrap();
+    // summary.json rounds floats when written, so compare within that; the
+    // explicit run below uses the unrounded product the engine applies.
+    let effective = original * k;
+    let reported = c["e_s_effective_ev"].as_f64().unwrap();
+    assert!(
+        (reported - effective).abs() < 1e-9 * effective,
+        "{reported} vs {effective}"
+    );
+    assert_eq!(s["input"]["physics"]["tuning"], set.name);
+
+    // The same run untuned, with E_s = the effective value set explicitly.
+    let explicit = format!("{text}\n[physics.energies.Cu]\ne_s_ev = {effective:?}\n");
+    let dir = scratch("tuning-set-explicit");
+    let input = dir.join("input.toml");
+    std::fs::write(&input, explicit).unwrap();
+    run(&input, &dir, &["--ions", "300", "--threads", "2"]);
+    let e = json(&dir.join("summary.json"));
+    assert!(e["physics"].get("tuning").is_none());
+    assert_eq!(s["results"], e["results"]);
+    for f in ["depth_profile.csv", "ions.csv", "escape_spectra.csv"] {
+        assert_eq!(read(&outs[0], f), read(&dir, f), "{f}");
+    }
+
+    // Other beams and unlisted elements are rejected.
+    let e = fails(
+        "tuning-other-ion",
+        &replaced(&tuned, "ion = \"Ar\"", "ion = \"Xe\""),
+    );
+    assert!(
+        e.contains("physics.tuning") && e.contains("beam ion"),
+        "{e}"
+    );
+    let e = fails(
+        "tuning-other-target",
+        &replaced(&tuned, "substrate = \"Cu\"", "substrate = \"Ni\""),
+    );
+    assert!(
+        e.contains("physics.tuning") && e.contains("no factor for Ni"),
+        "{e}"
+    );
 }
 
 /// Rewrites `text` with `from` replaced by `to`, asserting it was present.

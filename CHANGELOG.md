@@ -25,8 +25,19 @@ one version).
   surface-binding-energy multiplier sets for static single-element ion runs
   (`input::TuningSet`). `"none"` and omission are bit-for-bit unchanged;
   `summary.json` gains `physics.tuning` (set, version, original and effective
-  `E_s`) only when a set is used. Plumbing only: no calibrated set ships yet,
-  so any name is rejected as unknown (#80).
+  `E_s`) only when a set is used (#80).
+- First shipped tuning set, `es-sputter-ar-v1` (#80): per-element `E_s`
+  multipliers for Ar sputtering of Si, Cu, Ag and Au, a phenomenological
+  calibration (not a published model value) fitted to measured yields only, by
+  a deterministic grid search on training sets with a held-out evaluation
+  (`validation/experiments/run.py --fit-tuning`, record in
+  `validation/experiments/tuning_results.json` and `docs/data-provenance.md`).
+  A tuning set now also names the beam species and energy range it was fitted
+  for: other beams and unlisted target elements are rejected, an energy
+  outside the range or a tilted beam is warned about. Untuned results stay the
+  primary level-3 comparison; default physics is unchanged. Held-out error
+  falls for all four targets, but the Ag factor sits at the fit grid's lower
+  bound and the factors absorb the whole yield deficit, whatever its cause.
 - `geometry::MeshGeometry` and `geometry::TriMesh`: targets of closed triangle
   solids, each tagged with a material, loaded from STL (ASCII or binary) or
   OBJ with a watertightness check (every edge shared by two consistently

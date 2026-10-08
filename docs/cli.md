@@ -102,14 +102,25 @@ per-element factor fitted to measured data. Rules: the factor multiplies the
 *resolved* `E_s` (an explicit `[physics.energies]` or material value if given,
 else the elemental default), once per layer, after overrides; the global
 element table and the collision algorithm are untouched. The pilot supports
-static ion runs on single-element layers only; compounds and `[dynamic]`
-targets are rejected, as are unknown set names. `summary.json` then has
-`physics.tuning` with the set, its version and provenance, and per layer the
-original `E_s`, the factor and the effective `E_s`. Tuned results must be
-reported next to, never in place of, untuned ones. No set ships yet: the
-selection and reporting plumbing is in place, and any name is currently an
-"unknown tuning set" error until a calibration with a held-out evaluation is
-merged (see `docs/data-provenance.md`).
+static ion runs on single-element layers only, with a beam species the set
+was fitted for and target elements the set lists; compounds, `[dynamic]`
+targets, other beams, unlisted elements and unknown set names are rejected
+with a `physics.tuning` error. A beam energy outside the set's fitted range,
+or a tilted beam, runs with a warning (an extrapolation). `summary.json` then
+has `physics.tuning` with the set, its version and provenance, and per layer
+the original `E_s`, the factor and the effective `E_s`. Tuned results must be
+reported next to, never in place of, untuned ones.
+
+Shipped sets (fit record and held-out scores: `docs/data-provenance.md`,
+"Tuning factor sets"; a new version ships under a new name):
+
+| Set | Beam | Elements | Fitted energies | Fitted under |
+|---|---|---|---|---|
+| `es-sputter-ar-v1` | Ar | Si, Cu, Ag, Au | 196 to 10020 eV, normal incidence | the matched level-3 sputter settings (`docs/validation.md`, section 3) |
+
+The factors are a calibration of yields under those settings; other settings
+(potential, `E_d`, cutoffs, weak collisions) were not part of the fit, and
+the set does not claim better accuracy for them.
 
 ### `[stopping]`
 
