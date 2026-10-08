@@ -12,6 +12,7 @@ cargo bench -p lindhard                      # everything (several minutes)
 cargo bench -p lindhard --bench scattering   # one file
 cargo bench -p lindhard --bench history -- 'history_'   # filter by name
 cargo bench -p lindhard --bench history -- --quick      # fast, rough
+cargo bench -p lindhard --bench electron     # electron engine (slow: each table build takes tens of seconds)
 cargo bench --no-run                         # compile only
 ```
 
@@ -33,6 +34,8 @@ scattering table), so run-to-run differences are timing noise only.
 | `elastic.rs` | `elastic_table` | A full `electron::elastic::table::build_elastic_table` for Si and Au: 75 energies from 10 eV to 50 keV, adaptive probability grid (same stand-in potential) |
 | `history.rs` | `throughput_<problem>_10k_ions` | 10^4 ions through `Bca::run` on explicit rayon pools of 1, 2, 4, ... up to the machine's parallelism |
 | `penn.rs` | `penn_spa_200_energies` | `SinglePolePenn::tabulate`: the electron IMFP and stopping power on a 200-point log grid from 10 eV to 50 keV, single-pole Penn model on a synthetic Drude plasmon ELF (20 eV, width 5 eV) tabulated at 1000 energies |
+| `electron.rs` | `electron_tables_<Si\|Cu>` | The electron cross-section table build, timed separately from the transport: `elastic` (Mott, Thomas-Fermi Yukawa stand-in with exchange) and `inelastic` (single-pole Penn) for the material, on the grid of its 20 keV problem (10 eV to the beam energy plus the inner potential, 20 points per decade), one thread; `thrpt` is grid energies/s |
+| `electron.rs` | `electron_transport_<problem>` | The #150 matched problems (`e_1keV_si` ... `e_20keV_cu`): 1000, 200 or 50 primaries (1, 5, 20 keV) through `Transport::run` with the full tally and the full physics (secondaries, step barrier, cutoff 0.01 eV above the vacuum level), tables built beforehand; one thread, or each count in `LINDHARD_BENCH_THREADS`; `thrpt` is electrons/s. Synthetic material data unless `LINDHARD_BENCH_ELECTRON_INPUTS` is set (section "Electron engine" below) |
 | `penn.rs` | `penn_single_pole_vs_full_8_energies` | `SinglePolePenn::tabulate` against `FullPenn::tabulate` (default tolerance 1e-4) on 8 log-spaced energies from 10 eV to 50 keV, same synthetic Drude ELF at 1000 energies; the full model is about three orders of magnitude slower per energy (about 2 s against 2 ms per energy, 17.7 s against 15 ms for the 8 energies, on a loaded shared host) |
 
 Free-path selection is measured through the engine (constant vs
@@ -327,8 +330,157 @@ remains is the table lookup (two `ln` and one `exp` per collision) and the
 azimuth `sin_cos`. Those are the next candidates, ahead of any layout change;
 the SoA / SIMD verdict stays "not yet".
 
+## Electron engine (#152)
+
+The transport rate of the electron engine (electrons, i.e. primaries with
+all their secondaries, per second), its thread scaling, and the comparison with
+Nebula's CPU build, on the matched problems of #150
+([`../validation/oracles/electron_problems.json`](../validation/oracles/electron_problems.json):
+electrons at normal incidence into bulk Si and bulk Cu at 1, 5 and 20 keV),
+with the physics lindhard runs there: Mott elastic scattering on the
+Thomas-Fermi Yukawa stand-in with exchange, single-pole Penn inelastic,
+Kieft-Bosch secondaries, the step barrier with quantum transmission and
+refraction, cutoff 0.01 eV above the vacuum level, tables from 10 eV at 20
+points per decade, escape spectra and a 10^4-bin radial deposition grid. This
+is a benchmark only; optimisations go to the performance epic (#36) with the
+profile that motivates them.
+
+**Tools.**
+
+* `cargo bench -p lindhard --bench electron`: the Criterion benches of the
+  table above. By default their material data are **synthetic** (the Drude
+  plasmon ELF of the other electron benches and the synthetic band parameters
+  of the electron tests; `lindhard/benches/electron_common`), because no
+  optical or band data of real materials is in this tree. With
+  `LINDHARD_BENCH_ELECTRON_INPUTS` set to the directory that
+  `validation/oracles/bench_electron.py --write-inputs` prints, they run on
+  the matched inputs (cstool's files, read at run time, as in #150).
+  `LINDHARD_BENCH_THREADS=1,2,4` adds thread counts.
+* `cargo run --release -p lindhard --example electron_scaling -- --problem
+  e_5keV_si --histories 2000 --threads 1,2,4 --repeat 3` (or `--input
+  <file>`): builds the tables once (timed separately), runs the same
+  primaries with the same seed on explicit pools of each thread count and
+  prints wall times, electrons/s, speedup and parallel efficiency
+  (`speedup x first count / count`).
+* `CSTOOL_SRC=<cstool clone> validation/oracles/bench_electron.py --threads
+  1,2,4 --repeat 3`: writes lindhard's matched inputs exactly as
+  `run_electron.py` does, runs `electron_scaling` on each, times Nebula's CPU
+  build on the same primaries when `NEBULA_BIN` and `NEBULA_MATERIALS` are set
+  (deposit stream discarded; Nebula's own `Simulation` time), and writes one
+  scalar summary per problem,
+  `validation/oracles/summaries/bench-electron-<problem>.json` (format in
+  [`../validation/oracles/summaries/README.md`](../validation/oracles/summaries/README.md)).
+  `--update-docs` rebuilds the tables below from the committed summaries;
+  CI runs it with `--check`.
+
+**Determinism.** `electron_scaling` hashes the full tally report (SHA-256 of
+its JSON) after every run and fails if the digest differs between thread
+counts or repeats. Every row below with "same report: yes" is that check
+passing at that thread count. `lindhard/tests/electron_bench_determinism.rs`
+checks the benchmark fixture itself (all physics on, coarse grid) on 1 and 2
+threads in CI.
+
+<!-- electron-bench:begin (generated by validation/oracles/bench_electron.py --update-docs) -->
+**lindhard, thread scaling** (`bench-electron-<problem>.json`; transport only, tables built once beforehand; median of the repeats; efficiency = speedup x 1 / threads).
+
+| Problem | Histories | Threads | Wall (s) | Electrons/s | Speedup | Efficiency | Same report | Tables (s): elastic + inelastic | Load at start / end | Host, date |
+|---|---|---|---|---|---|---|---|---|---|---|
+| `e_1keV_si` | 20000 | 1 | 12.9 | 1.55e+03 | 1 | 1 | yes | 2.5 + 31.7 | 22.5 / 22.8 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_1keV_si` | 20000 | 2 | 6.79 | 2.95e+03 | 1.9 | 0.951 | yes | 2.5 + 31.7 | 22.5 / 22.8 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_5keV_si` | 10000 | 1 | 31.5 | 318 | 1 | 1 | yes | 4.23 + 45.6 | 22.8 / 23.8 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_5keV_si` | 10000 | 2 | 21.6 | 462 | 1.46 | 0.728 | yes | 4.23 + 45.6 | 22.8 / 23.8 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_20keV_si` | 4000 | 1 | 64.3 | 62.3 | 1 | 1 | yes | 9.62 + 61.5 | 23.8 / 24.7 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_20keV_si` | 4000 | 2 | 38.9 | 103 | 1.65 | 0.827 | yes | 9.62 + 61.5 | 23.8 / 24.7 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_1keV_cu` | 20000 | 1 | 19.8 | 1.01e+03 | 1 | 1 | yes | 2.16 + 10.7 | 24.7 / 17.1 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_1keV_cu` | 20000 | 2 | 10.9 | 1.84e+03 | 1.82 | 0.911 | yes | 2.16 + 10.7 | 24.7 / 17.1 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_5keV_cu` | 10000 | 1 | 51.9 | 193 | 1 | 1 | yes | 3.53 + 16.6 | 17.1 / 22.1 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_5keV_cu` | 10000 | 2 | 34.3 | 291 | 1.51 | 0.757 | yes | 3.53 + 16.6 | 17.1 / 22.1 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_20keV_cu` | 4000 | 1 | 63.3 | 63.2 | 1 | 1 | yes | 8.9 + 25.7 | 22.1 / 13.1 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+| `e_20keV_cu` | 4000 | 2 | 42.5 | 94.2 | 1.49 | 0.745 | yes | 8.9 + 25.7 | 22.1 / 13.1 | Intel(R) Xeon(R) Platinum 8488C, 4 cores / 8 threads; 2026-10-08 |
+
+Not measured (placeholders, see the caveats below): 4 threads on every problem.
+
+**lindhard vs Nebula CPU, transport rate** (`bench-electron-<problem>.json`):
+
+Not measured yet: no `bench-electron-*.json` summary has a Nebula timing (see the caveats).
+
+**End-to-end wall time of the #150 comparison runs** (`nebula-<problem>.json`, `wall_s`; not re-run here). lindhard: 10 batch processes, each building its tables and running a tenth of the histories; Nebula: one process, material loading included, its deposit stream read by `run_electron.py`. Not a transport-rate comparison.
+
+| Problem | Histories | lindhard wall (s) | Nebula wall (s) | Nebula end-to-end electrons/s | Nebula version | Host, load at start, date |
+|---|---|---|---|---|---|---|
+| `e_1keV_si` | 20000 | 69.94 | 13.84 | 1.45e+03 | v1.0.2-1-ga50a8e8 | Darwin arm64, 18 logical CPUs, load average 12.0 at start, 2026-10-07 |
+| `e_5keV_si` | 10000 | 134.1 | 27.28 | 367 | v1.0.2-1-ga50a8e8 | Darwin arm64, 18 logical CPUs, load average 12.0 at start, 2026-10-07 |
+| `e_20keV_si` | 4000 | 257.5 | 36.36 | 110 | v1.0.2-1-ga50a8e8 | Darwin arm64, 18 logical CPUs, load average 12.0 at start, 2026-10-07 |
+| `e_1keV_cu` | 20000 | 34.32 | 5.487 | 3.64e+03 | v1.0.2-1-ga50a8e8 | Darwin arm64, 18 logical CPUs, load average 12.0 at start, 2026-10-07 |
+| `e_5keV_cu` | 10000 | 71.59 | 13.42 | 745 | v1.0.2-1-ga50a8e8 | Darwin arm64, 18 logical CPUs, load average 12.0 at start, 2026-10-07 |
+| `e_20keV_cu` | 4000 | 128.3 | 20.31 | 197 | v1.0.2-1-ga50a8e8 | Darwin arm64, 18 logical CPUs, load average 12.0 at start, 2026-10-07 |
+<!-- electron-bench:end -->
+
+**Caveats, as measured.**
+
+* **Not a quiet machine.** The lindhard rows were taken on 2026-10-08 at
+  `0942eb2` (rustc 1.97.1, release profile with `lto = "fat"`,
+  `codegen-units = 1`, matched inputs from cstool `0c739eb`). The host is a shared
+  virtual machine, Intel Xeon Platinum 8488C, 4 physical cores with 2
+  hardware threads each, running unrelated jobs throughout: the load average
+  was 13.1 to 24.7 at the starts and ends of the problems, above the core
+  count the whole time, and our processes ran at nice 10. The repeats of one
+  thread count differed by up to 45 % (`e_5keV_cu`, 2 threads, 28.2 to
+  40.7 s). Absolute rates and efficiencies from this host are not quotable.
+* **The scaling curve stops at 2 threads.** This host's usage rules limit a
+  job to 2 threads, and with every core already busy a 4-thread run would
+  measure contention for cores, not the engine's scaling. The 4-thread
+  (physical-core) rows are therefore placeholders ("Not measured" above).
+  The 2-thread efficiencies (0.73 to 0.95) were measured with other jobs
+  competing for the same cores and say nothing yet about how the engine
+  scales.
+* **Determinism held at every thread count measured**: the report digest is
+  equal at 1 and 2 threads and across the three repeats, on all six problems.
+* **Table build.** One thread, 13 s (`e_1keV_cu`) to 71 s (`e_20keV_si`)
+  per material and grid on this host, mostly the inelastic table. It is paid
+  once per run, before the transport, and is not in the transport rates.
+* **Nebula was not run for #152.** (1) Nebula needs material files compiled
+  by its cstool, and cstool calls ELSEPA, a Fortran program. This host has
+  no Fortran compiler, and installing one is outside its usage rules (the
+  compiled files may not be committed either). (2) `nebula_cpu_edep` starts
+  one thread per hardware thread (`std::thread::hardware_concurrency()` in
+  `source/cpu_energydep.cpp` at `a50a8e8`) and has no option to change it.
+  That is 8 here, above the 2-thread limit. No like-for-like Nebula rate
+  exists yet. The tooling is in place: `bench_electron.py` times Nebula when
+  `NEBULA_BIN` and `NEBULA_MATERIALS` are set.
+* **The #150 wall times are not a rate comparison.** They come from a
+  different machine (Darwin arm64, 18 logical CPUs, load average 12.0, all
+  threads on both sides) and from the comparison runs, not from a benchmark.
+  lindhard's figure includes ten table builds, and Nebula's includes material
+  loading and our reading of its deposit stream. They are listed because
+  they are the only Nebula timings committed so far. Do not divide them
+  into a speed ratio.
+* **Different physics means different work per history.** Even a
+  like-for-like timing compares full Penn with inner shells and ELSEPA Mott
+  with phonon and recoil losses (Nebula) against single-pole Penn and the
+  Thomas-Fermi Yukawa Mott stand-in (lindhard): see the mismatch list of
+  `docs/validation.md`, "Electron oracles". Any ratio depends on hardware,
+  compiler and build flags as well.
+
+**Still to measure, on a quiet machine** (nothing else running; record the
+load average, as the summaries do):
+
+```sh
+export CSTOOL_SRC=<cstool clone> NEBULA_BIN=<nebula_cpu_edep> \
+       NEBULA_MATERIALS=<cstool-compiled .mat files> NEBULA_SRC=<nebula clone>
+validation/oracles/bench_electron.py --threads 1,2,4,...,<physical cores>,<logical CPUs> --repeat 3
+validation/oracles/bench_electron.py --update-docs
+```
+
+That run replaces the six summaries. It gives the 1..N curve up to the
+physical cores, adds the logical-CPU count that Nebula always uses, so the
+Nebula ratio is at equal threads, and fills the Nebula table above.
+
 ## Not yet covered
 
+* **Electron engine on a quiet machine (#152).** The thread-scaling curve
+  beyond 2 threads and the Nebula CPU timing; see "Still to measure" in the
+  electron section above.
 * **A quiet-machine re-measure of the oracle comparison, and a thread-scaling
   curve (#76).** The numbers above were taken under load (30 to 66); re-run
   `validation/oracles/run.py` on an idle machine, one problem at a time, to

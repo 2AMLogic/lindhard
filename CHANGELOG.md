@@ -19,6 +19,15 @@ one version).
   `validation/oracles/geant4_microelec/`) on 1, 5 and 20 keV electrons into Si
   and Cu, and `docs/validation.md` tabulates η, δ, the primary penetration
   depth and the 50 %-energy radius from the committed scalar summaries.
+- Electron engine benchmarks (#152): Criterion benches
+  (`cargo bench -p lindhard --bench electron`) for the transport rate at 1, 5
+  and 20 keV into Si and Cu and, separately, the cross-section table build;
+  the `electron_scaling` example (wall time, electrons/s and parallel
+  efficiency on 1..N threads, with a tally-report digest check at every
+  count); and `validation/oracles/bench_electron.py`, which runs them (and
+  Nebula's CPU build, when configured) on the #150 matched problems and
+  writes the scalar `bench-electron-*.json` summaries and the tables of
+  `docs/benchmarks.md`.
 - Documented gap for the PMMA optical ELF (#147): Ritsko et al. (1978) and the
   Henke tail could not be opened on 2026-10-07, so no dataset is committed;
   `docs/data-provenance.md` records what was tried and what is needed.
