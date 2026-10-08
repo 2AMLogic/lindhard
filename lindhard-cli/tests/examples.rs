@@ -900,6 +900,37 @@ fn electron_data_without_provenance_is_refused() {
     assert!(e.contains("electron.materials.Si.band"), "{e}");
 }
 
+#[test]
+fn tuning_none_is_bit_identical_and_unknown_sets_are_rejected() {
+    // `tuning = "none"` is the default: same physical output, same echo, and
+    // no `physics.tuning` block.
+    let text = std::fs::read_to_string(examples_dir().join("ar_1keV_cu.toml")).unwrap();
+    let tuned = text.replace("[physics]", "[physics]\ntuning = \"none\"");
+    assert_ne!(text, tuned, "example has a [physics] table");
+    let mut summaries = Vec::new();
+    for (name, body) in [("plain", &text), ("none", &tuned)] {
+        let dir = scratch(&format!("tuning-{name}"));
+        let input = dir.join("input.toml");
+        std::fs::write(&input, body).unwrap();
+        run(&input, &dir, &["--ions", "100", "--threads", "2"]);
+        summaries.push(std::fs::read_to_string(dir.join("summary.json")).unwrap());
+        assert!(json(&dir.join("summary.json"))["physics"]
+            .get("tuning")
+            .is_none());
+    }
+    assert_eq!(
+        deterministic_part(&summaries[0]),
+        deterministic_part(&summaries[1])
+    );
+
+    // No set ships yet, so any name is unknown.
+    let e = fails(
+        "unknown-tuning",
+        &GOOD.replace("[physics]", "[physics]\ntuning = \"made-up\""),
+    );
+    assert!(e.contains("physics.tuning") && e.contains("made-up"), "{e}");
+}
+
 /// Rewrites `text` with `from` replaced by `to`, asserting it was present.
 fn replaced(text: &str, from: &str, to: &str) -> String {
     assert!(text.contains(from), "{from:?} not in input");

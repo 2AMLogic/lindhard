@@ -373,6 +373,87 @@ pub struct PhysicsSpec {
     /// in every layer after the material's own values (so they win).
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub energies: BTreeMap<String, EnergyOverride>,
+    /// Opt-in phenomenological calibration: `"none"` (default) or the name of
+    /// a versioned factor set ([`TuningSet`]). Not a published model choice.
+    /// See [`TuningSet`] for what it scales and where it applies.
+    #[serde(default = "default_tuning", skip_serializing_if = "is_no_tuning")]
+    pub tuning: String,
+}
+
+/// The `tuning` value that leaves the physics untouched.
+pub const NO_TUNING: &str = "none";
+
+fn default_tuning() -> String {
+    NO_TUNING.to_string()
+}
+
+fn is_no_tuning(s: &String) -> bool {
+    s == NO_TUNING
+}
+
+/// A named, immutable, versioned set of phenomenological surface-binding
+/// energy multipliers (the pilot of the opt-in "experiment-tuned" mode).
+///
+/// This is calibration, not a published model choice: the factors stand for
+/// the uncertain planar-barrier convention (`E_s` = cohesive energy). Each
+/// record names its measured source data and fit recipe in `provenance`
+/// (and in `docs/data-provenance.md`). Rules, all enforced on resolution:
+///
+/// - Only `[physics] tuning = "<name>"` selects a set; omission and `"none"`
+///   change nothing, and the echoed input is then identical to an untuned one.
+/// - A factor multiplies the *resolved* `E_s` of its element (the explicit
+///   `[physics.energies]` / material value if present, else the elemental
+///   default), exactly once per layer component, after overrides. The global
+///   element table and the collision algorithm are never touched.
+/// - Pilot scope: ion runs on single-element layers only. Compounds, a
+///   `[dynamic]` target and electron input are rejected.
+/// - Both the original and the effective energies are reported in
+///   `summary.json` (`physics.tuning`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct TuningSet {
+    /// Name used in `[physics] tuning`.
+    pub name: &'static str,
+    /// Version of this set; a changed factor is a new version, never an edit.
+    pub version: u32,
+    /// `E_s` multiplier by element symbol. Elements not listed keep their `E_s`.
+    pub e_s_factors: &'static [(&'static str, f64)],
+    /// Source measurements and fit procedure, in one line.
+    pub provenance: &'static str,
+}
+
+/// The sets that ship with the engine. Empty until a calibration with a
+/// reproducible fit record and held-out evaluation is merged; the plumbing is
+/// exercised with synthetic sets in tests only.
+pub const TUNING_SETS: &[TuningSet] = &[];
+
+/// One component's tuning, as applied.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TunedEnergy {
+    /// Index into [`Resolved::layers`].
+    pub layer: usize,
+    /// Element symbol.
+    pub element: String,
+    /// Resolved `E_s` before the factor, eV.
+    pub e_s_original_ev: f64,
+    /// The multiplier (1 when the set has no entry for the element).
+    pub factor: f64,
+    /// `E_s` used by the run, eV.
+    pub e_s_effective_ev: f64,
+}
+
+/// What a tuning set did to a run; present in [`Resolved`] only when enabled.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct TuningReport {
+    /// Set name.
+    pub set: String,
+    /// Set version.
+    pub version: u32,
+    /// The set's provenance line.
+    pub provenance: String,
+    /// Always `"surface-binding-energy"` in the pilot.
+    pub quantity: &'static str,
+    /// Per layer component.
+    pub components: Vec<TunedEnergy>,
 }
 
 /// `[run]`: history count, seed and threads.
@@ -571,6 +652,8 @@ pub struct Resolved {
     pub stopping_tables: Vec<LoadedStoppingTable>,
     /// Non-fatal advice (e.g. beam energy outside a model's validity range).
     pub warnings: Vec<String>,
+    /// The tuning applied, if `[physics] tuning` named a set.
+    pub tuning: Option<TuningReport>,
 }
 
 /// Scattering-table grid used for every run: `per_decade` points per decade
@@ -969,6 +1052,16 @@ impl Input {
     /// Like [`Input::resolve`], with relative `[stopping]` table paths taken
     /// relative to `base_dir` (the directory of the input file).
     pub fn resolve_in(&self, base_dir: &Path) -> Result<Resolved, InputError> {
+        self.resolve_with_sets(base_dir, TUNING_SETS)
+    }
+
+    /// [`Input::resolve_in`] against an explicit registry of tuning sets
+    /// (tests use synthetic sets; production uses [`TUNING_SETS`]).
+    pub fn resolve_with_sets(
+        &self,
+        base_dir: &Path,
+        sets: &[TuningSet],
+    ) -> Result<Resolved, InputError> {
         let mut warnings = Vec::new();
 
         // Beam.
@@ -1100,6 +1193,8 @@ impl Input {
                 ));
             }
         }
+
+        let tuning = self.apply_tuning(sets, &mut layers, &mut warnings)?;
 
         let mut finite = Vec::with_capacity(thick.len());
         let mut it = layers.iter();
@@ -1278,7 +1373,90 @@ impl Input {
             table_spec: TABLE_SPEC,
             stopping_tables,
             warnings,
+            tuning,
         })
+    }
+
+    /// Apply `[physics] tuning` to the resolved layers (see [`TuningSet`]).
+    fn apply_tuning(
+        &self,
+        sets: &[TuningSet],
+        layers: &mut [ResolvedLayer],
+        warnings: &mut Vec<String>,
+    ) -> Result<Option<TuningReport>, InputError> {
+        let name = self.physics.tuning.as_str();
+        if name == NO_TUNING {
+            return Ok(None);
+        }
+        let f = "physics.tuning";
+        let set = sets.iter().find(|s| s.name == name).ok_or_else(|| {
+            let known: Vec<&str> = sets.iter().map(|s| s.name).collect();
+            invalid(
+                f,
+                format!("unknown tuning set {name:?}; use \"none\" or one of {known:?}"),
+            )
+        })?;
+        if self.dynamic.is_some() {
+            return Err(invalid(
+                f,
+                "tuning is not supported with a [dynamic] target (pilot: static single-element layers)",
+            ));
+        }
+        let mut factors = BTreeMap::new();
+        for &(sym, k) in set.e_s_factors {
+            let el = element_by_symbol(sym)
+                .ok_or_else(|| invalid(f, format!("set {name:?} names unknown element {sym:?}")))?;
+            if !(k.is_finite() && k > 0.0) {
+                return Err(invalid(
+                    f,
+                    format!("set {name:?}: factor for {sym} is {k}; must be finite and positive"),
+                ));
+            }
+            if factors.insert(el.z, k).is_some() {
+                return Err(invalid(f, format!("set {name:?} lists {sym} twice")));
+            }
+        }
+        for (i, l) in layers.iter().enumerate() {
+            if l.material.components().len() != 1 {
+                return Err(invalid(
+                    f,
+                    format!(
+                        "tuning supports single-element layers only; layer {i} ({}) is a compound",
+                        l.source
+                    ),
+                ));
+            }
+        }
+        let mut components = Vec::with_capacity(layers.len());
+        for (i, l) in layers.iter_mut().enumerate() {
+            let z = l.material.components()[0].z();
+            let sym = crate::elements::element(z).expect("validated").symbol;
+            let original = l.material.surface_binding_energy_ev(z).expect("set");
+            let factor = factors.get(&z).copied().unwrap_or(1.0);
+            let effective = original * factor;
+            l.material
+                .set_surface_binding_energy_ev(z, effective)
+                .map_err(|e| invalid(f, format!("layer {i}: effective E_s of {sym}: {e}")))?;
+            components.push(TunedEnergy {
+                layer: i,
+                element: sym.to_string(),
+                e_s_original_ev: original,
+                factor,
+                e_s_effective_ev: effective,
+            });
+        }
+        if components.iter().all(|c| c.factor == 1.0) {
+            warnings.push(format!(
+                "tuning set {name:?} has no factor for any element in the target; nothing changed"
+            ));
+        }
+        Ok(Some(TuningReport {
+            set: set.name.to_string(),
+            version: set.version,
+            provenance: set.provenance.to_string(),
+            quantity: "surface-binding-energy",
+            components,
+        }))
     }
 }
 
@@ -1770,5 +1948,135 @@ seed = 2
             assert!(names.contains(&n), "{names:?}");
         }
         assert!(r.models().iter().all(|m| !m.citation.is_empty()));
+    }
+
+    // Tuning plumbing. The sets below are synthetic fixtures, not fitted
+    // coefficients.
+    const FIX: TuningSet = TuningSet {
+        name: "fixture",
+        version: 3,
+        e_s_factors: &[("Si", 1.25), ("Ag", 0.5)],
+        provenance: "synthetic test fixture",
+    };
+
+    fn with_tuning(text: &str, name: &str) -> Input {
+        let mut i = Input::from_toml_str(text).unwrap();
+        i.physics.tuning = name.to_string();
+        i
+    }
+
+    fn resolve_fix(i: &Input, sets: &[TuningSet]) -> Result<Resolved, InputError> {
+        i.resolve_with_sets(Path::new("."), sets)
+    }
+
+    fn es(r: &Resolved, layer: usize, z: u8) -> f64 {
+        r.layers[layer]
+            .material
+            .surface_binding_energy_ev(z)
+            .unwrap()
+    }
+
+    #[test]
+    fn tuning_none_and_omitted_are_identical() {
+        let a = Input::from_toml_str(B_SI).unwrap().resolve().unwrap();
+        let b = with_tuning(B_SI, "none").resolve().unwrap();
+        assert!(a.tuning.is_none() && b.tuning.is_none());
+        assert_eq!(es(&a, 0, 14), es(&b, 0, 14));
+        assert_eq!(
+            toml::to_string(&a.input).unwrap(),
+            toml::to_string(&b.input).unwrap()
+        );
+        assert!(!toml::to_string(&a.input).unwrap().contains("tuning"));
+    }
+
+    #[test]
+    fn tuning_multiplies_resolved_default_once() {
+        let base = Input::from_toml_str(B_SI).unwrap().resolve().unwrap();
+        let r = resolve_fix(&with_tuning(B_SI, "fixture"), &[FIX]).unwrap();
+        let t = r.tuning.as_ref().unwrap();
+        assert_eq!((t.set.as_str(), t.version), ("fixture", 3));
+        assert_eq!(t.components.len(), 1);
+        let c = &t.components[0];
+        assert_eq!(c.e_s_original_ev, es(&base, 0, 14));
+        assert_eq!(c.factor, 1.25);
+        assert_eq!(c.e_s_effective_ev, es(&r, 0, 14));
+        assert_eq!(c.e_s_effective_ev, c.e_s_original_ev * 1.25);
+        assert_eq!(
+            toml::to_string(&r.input)
+                .unwrap()
+                .matches("fixture")
+                .count(),
+            1
+        );
+    }
+
+    #[test]
+    fn tuning_acts_on_explicit_override_and_each_layer() {
+        let text = B_SI.replace("e_d_ev = 15.0", "e_d_ev = 15.0\ne_s_ev = 4.0").replace(
+            "[target]\nsubstrate = \"Si\"\n",
+            "[target]\nsubstrate = \"Si\"\n[[target.layers]]\nmaterial = \"Si\"\nthickness_nm = 5.0\n",
+        );
+        let r = resolve_fix(&with_tuning(&text, "fixture"), &[FIX]).unwrap();
+        let t = r.tuning.unwrap();
+        assert_eq!(t.components.len(), 2);
+        for c in &t.components {
+            assert_eq!(c.e_s_original_ev, 4.0);
+            assert_eq!(c.e_s_effective_ev, 5.0);
+        }
+    }
+
+    #[test]
+    fn tuning_rejections() {
+        let fe = |i: &Input, sets: &[TuningSet]| resolve_fix(i, sets).unwrap_err();
+        let e = fe(&with_tuning(B_SI, "nope"), &[FIX]);
+        assert_eq!(field(&e), "physics.tuning");
+        assert!(e.to_string().contains("unknown tuning set"), "{e}");
+        // The shipped registry has no sets yet.
+        assert_eq!(
+            field(&err(&B_SI.replace("[run]", "[run]\n").replace(
+                "recoil_cutoff_ev = 2.0",
+                "recoil_cutoff_ev = 2.0\ntuning = \"fixture\""
+            ))),
+            "physics.tuning"
+        );
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            let factors: &'static [(&str, f64)] = Box::leak(Box::new([("Si", bad)]));
+            let s = TuningSet {
+                e_s_factors: factors,
+                ..FIX
+            };
+            assert_eq!(
+                field(&fe(&with_tuning(B_SI, "fixture"), &[s])),
+                "physics.tuning"
+            );
+        }
+        let unknown_el = TuningSet {
+            e_s_factors: &[("Xx", 1.0)],
+            ..FIX
+        };
+        assert!(fe(&with_tuning(B_SI, "fixture"), &[unknown_el])
+            .to_string()
+            .contains("Xx"));
+        let dup = TuningSet {
+            e_s_factors: &[("Si", 1.0), ("Si", 2.0)],
+            ..FIX
+        };
+        assert!(fe(&with_tuning(B_SI, "fixture"), &[dup])
+            .to_string()
+            .contains("twice"));
+        // Compound layer.
+        let compound = B_SI.replace(
+            "[target]\nsubstrate = \"Si\"\n",
+            "[materials.SiO2]\ndensity_g_cm3 = 2.2\nelements = [\n  { symbol = \"Si\", atom_fraction = 1.0 },\n  { symbol = \"O\", atom_fraction = 2.0, e_d_ev = 20.0, e_s_ev = 2.0 },\n]\n[target]\nsubstrate = \"SiO2\"\n",
+        );
+        let e = fe(&with_tuning(&compound, "fixture"), &[FIX]);
+        assert!(e.to_string().contains("single-element"), "{e}");
+        // Unset energy stays an error, not a default.
+        let none_set = TuningSet {
+            e_s_factors: &[("Si", 1.0)],
+            ..FIX
+        };
+        let r = resolve_fix(&with_tuning(B_SI, "fixture"), &[none_set]).unwrap();
+        assert!(r.warnings.iter().any(|w| w.contains("nothing changed")));
     }
 }
