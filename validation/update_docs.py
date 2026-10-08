@@ -49,6 +49,7 @@ BACKSCATTER_RESULTS = ROOT / "validation" / "experiments" / "backscatter_results
 
 sys.path.insert(0, str(ROOT / "validation" / "experiments"))
 import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
+import se_yield  # noqa: E402  (secondary-electron yield tables, #149)
 
 
 def splice(text: str, name: str, body: str) -> str:
@@ -976,6 +977,7 @@ def main() -> int:
     text = splice(text, "level3-sputter-crosscheck", level3_sputter_crosscheck())
     text = splice(text, "level3-sputter-summary", level3_sputter_summary())
     text = splice(text, "level3-backscatter", level3_backscatter())
+    text = splice(text, "level3-se-yield", se_yield.markdown(se_yield.load_datasets(), se_yield.load_results()))
     if args.check:
         if text != old:
             print(f"error: {DOC.relative_to(ROOT)} is not what validation/update_docs.py generates from the committed "

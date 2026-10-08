@@ -1,0 +1,91 @@
+{
+  "kind": "se_yield",
+  "id": "se_cu_bronstein1969",
+  "target": "Cu",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 100.0,
+      "energy_kev_printed": "0.1",
+      "yield": 0.564,
+      "yield_printed": "0.564"
+    },
+    {
+      "energy_ev": 190.0,
+      "energy_kev_printed": "0.19",
+      "yield": 0.716,
+      "yield_printed": "0.716"
+    },
+    {
+      "energy_ev": 300.0,
+      "energy_kev_printed": "0.3",
+      "yield": 0.846,
+      "yield_printed": "0.846"
+    },
+    {
+      "energy_ev": 400.0,
+      "energy_kev_printed": "0.4",
+      "yield": 0.933,
+      "yield_printed": "0.933"
+    },
+    {
+      "energy_ev": 600.0,
+      "energy_kev_printed": "0.6",
+      "yield": 1.024,
+      "yield_printed": "1.024"
+    },
+    {
+      "energy_ev": 800.0,
+      "energy_kev_printed": "0.8",
+      "yield": 1.034,
+      "yield_printed": "1.034"
+    },
+    {
+      "energy_ev": 1020.0,
+      "energy_kev_printed": "1.02",
+      "yield": 0.993,
+      "yield_printed": "0.993"
+    },
+    {
+      "energy_ev": 1500.0,
+      "energy_kev_printed": "1.5",
+      "yield": 0.881,
+      "yield_printed": "0.881"
+    },
+    {
+      "energy_ev": 2020.0,
+      "energy_kev_printed": "2.02",
+      "yield": 0.771,
+      "yield_printed": "0.771"
+    },
+    {
+      "energy_ev": 2500.0,
+      "energy_kev_printed": "2.5",
+      "yield": 0.702,
+      "yield_printed": "0.702"
+    },
+    {
+      "energy_ev": 3000.0,
+      "energy_kev_printed": "3.0",
+      "yield": 0.61,
+      "yield_printed": "0.61"
+    },
+    {
+      "energy_ev": 4000.0,
+      "energy_kev_printed": "4.0",
+      "yield": 0.498,
+      "yield_printed": "0.498"
+    }
+  ],
+  "original_reference": "Bronstein I M, and Fraiman B S, (1969), in Vtorichnaya Elektronnaya Emissiya , (Nauka: Moskva), p340",
+  "compilation_reference_number": 106,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Cu' heading, data set #12 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

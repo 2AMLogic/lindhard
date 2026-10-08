@@ -39,7 +39,9 @@ done
 # Every level-3 dataset must carry its provenance (validation/data/README.md).
 python3 validation/experiments/run.py --check
 python3 validation/experiments/backscatter.py --check
+python3 validation/experiments/se_yield.py --datasets
 python3 validation/experiments/test_run.py
+python3 validation/experiments/test_se_yield.py
 
 level1="$(mktemp "${TMPDIR:-/tmp}/lindhard-level1.XXXXXX")"
 trap 'rm -f "$level1"' EXIT

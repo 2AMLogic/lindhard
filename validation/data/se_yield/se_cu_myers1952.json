@@ -1,0 +1,97 @@
+{
+  "kind": "se_yield",
+  "id": "se_cu_myers1952",
+  "target": "Cu",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 0.15,
+      "energy_kev_printed": "0.00015",
+      "yield": 0.09,
+      "yield_printed": "0.09"
+    },
+    {
+      "energy_ev": 0.3,
+      "energy_kev_printed": "0.0003",
+      "yield": 0.08,
+      "yield_printed": "0.08"
+    },
+    {
+      "energy_ev": 0.78,
+      "energy_kev_printed": "0.00078",
+      "yield": 0.071,
+      "yield_printed": "0.071"
+    },
+    {
+      "energy_ev": 1.3,
+      "energy_kev_printed": "0.0013",
+      "yield": 0.067,
+      "yield_printed": "0.067"
+    },
+    {
+      "energy_ev": 2.26,
+      "energy_kev_printed": "0.00226",
+      "yield": 0.063,
+      "yield_printed": "0.063"
+    },
+    {
+      "energy_ev": 3.0,
+      "energy_kev_printed": "0.003",
+      "yield": 0.066,
+      "yield_printed": "0.066"
+    },
+    {
+      "energy_ev": 4.0,
+      "energy_kev_printed": "0.004",
+      "yield": 0.075,
+      "yield_printed": "0.075"
+    },
+    {
+      "energy_ev": 5.0,
+      "energy_kev_printed": "0.005",
+      "yield": 0.082,
+      "yield_printed": "0.082"
+    },
+    {
+      "energy_ev": 6.0,
+      "energy_kev_printed": "0.006",
+      "yield": 0.089,
+      "yield_printed": "0.089"
+    },
+    {
+      "energy_ev": 7.0,
+      "energy_kev_printed": "0.007",
+      "yield": 0.105,
+      "yield_printed": "0.105"
+    },
+    {
+      "energy_ev": 8.0,
+      "energy_kev_printed": "0.008",
+      "yield": 0.129,
+      "yield_printed": "0.129"
+    },
+    {
+      "energy_ev": 9.0,
+      "energy_kev_printed": "0.009",
+      "yield": 0.167,
+      "yield_printed": "0.167"
+    },
+    {
+      "energy_ev": 10.0,
+      "energy_kev_printed": "0.01",
+      "yield": 0.215,
+      "yield_printed": "0.215"
+    }
+  ],
+  "original_reference": "Myers H P, (1952), Proc.Roy.Soc., 215,  329",
+  "compilation_reference_number": 61,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Cu' heading, data set #11 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

@@ -1,0 +1,61 @@
+{
+  "kind": "se_yield",
+  "id": "se_al_bruining1938",
+  "target": "Al",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 50.0,
+      "energy_kev_printed": "0.05",
+      "yield": 1.0,
+      "yield_printed": "1.0"
+    },
+    {
+      "energy_ev": 100.0,
+      "energy_kev_printed": "0.1",
+      "yield": 1.32,
+      "yield_printed": "1.32"
+    },
+    {
+      "energy_ev": 200.0,
+      "energy_kev_printed": "0.2",
+      "yield": 1.93,
+      "yield_printed": "1.93"
+    },
+    {
+      "energy_ev": 300.0,
+      "energy_kev_printed": "0.3",
+      "yield": 2.14,
+      "yield_printed": "2.14"
+    },
+    {
+      "energy_ev": 400.0,
+      "energy_kev_printed": "0.4",
+      "yield": 2.17,
+      "yield_printed": "2.17"
+    },
+    {
+      "energy_ev": 500.0,
+      "energy_kev_printed": "0.5",
+      "yield": 2.1,
+      "yield_printed": "2.10"
+    },
+    {
+      "energy_ev": 600.0,
+      "energy_kev_printed": "0.6",
+      "yield": 1.98,
+      "yield_printed": "1.98"
+    }
+  ],
+  "original_reference": "Bruining H, and De Boer J M, (1938), Physica V, 17",
+  "compilation_reference_number": 21,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Al' heading, data set #8 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

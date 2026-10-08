@@ -41,6 +41,12 @@ derived from it, or any other code's output, however well known
   Internet Archive copy) by `backscatter/ingest_joy2001.py`, and re-read from
   the independent Akbari (2022) database
   (`backscatter/crosscheck_akbari2022.json`) (#148).
+- **Secondary-electron yields, Al, Cu, Si and Au:** `se_yield/se_<el>_<author><year>.json`,
+  44 measured sets (12 Al, 12 Cu, 10 Si including one amorphous, 10 Au),
+  transcribed from the tables of D. C. Joy's database (Revision 01-01, 2001)
+  by `digitize/joy_se_yield_ingest.py` (#149); one file per original
+  measurement, never merged. The compilation states no angle of incidence
+  and no per-set secondary-energy cutoff; see the schema below.
 - **P and As in amorphous Si:** open gaps (#51). What was searched, and why
   the one source found could not be used, is in
   [`docs/data-provenance.md`](../../docs/data-provenance.md).
@@ -223,6 +229,39 @@ Rules:
   sets enter the comparison.
 - A set whose original measurement cannot be named is not stored (the
   Akbari-only sets, `docs/data-provenance.md`).
+
+## Secondary-electron-yield schema (`se_yield/<id>.json`)
+
+One file per original measurement set (one reference, one material), id
+`se_<el>_<firstauthor><year>` (the author and year as the compilation's
+reference list prints them; a repeat gets `_2`).
+
+```json
+{
+  "kind": "se_yield", "id": "se_cu_septier1985", "target": "Cu",
+  "target_state": "as compiled; ...",
+  "incidence_deg": null, "incidence_note": "not stated by the compilation ...",
+  "points": [ { "energy_ev": 20.0, "energy_kev_printed": "0.02", "yield": 1.118, "yield_printed": "1.118" } ],
+  "original_reference": "reference-list entry as printed", "compilation_reference_number": 81,
+  "compilation": "...", "compilation_location": "Section 1(a), 'Copper' heading, data set #10 of 12",
+  "url": "...", "extraction": "...", "se_energy_range": "...", "terms": "...", "added": "YYYY-MM-DD"
+}
+```
+
+Rules:
+
+- Values are the compilation's, as printed (including duplicate energies and
+  the printed precision). Nothing is fitted, interpolated or normalised.
+- `incidence_deg` is a number, or `null` with an `incidence_note` when the
+  source does not say. The compilation says nothing about incidence, so every
+  file is `null`; the simulation uses normal incidence and the comparison
+  states that the measured sets' incidence is unconfirmed.
+- The statistic that is compared (the "measured median" of E_max and δ_max)
+  is defined in the docstring of `validation/experiments/se_yield.py` and in
+  `docs/validation.md`; it uses only data sets that resolve their maximum.
+- `validation/experiments/se_yield.py --check` requires the fields above, a
+  positive energy and yield in every point, and a row in
+  `docs/data-provenance.md` naming the `id`.
 
 ## Enforced
 
