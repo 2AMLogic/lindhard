@@ -298,5 +298,90 @@ class CommittedBaseline(unittest.TestCase):
         self.assertEqual(data, before)
 
 
+class BackscatterDatasetChecks(unittest.TestCase):
+    """The provenance enforcement of validation/experiments/backscatter.py (#148)."""
+
+    @classmethod
+    def setUpClass(cls):
+        import backscatter
+
+        cls.b = backscatter
+        files = sorted(backscatter.DATA.glob("eta_*.json"))
+        if not files:
+            raise unittest.SkipTest("no backscatter datasets")
+        cls.path = files[0]
+        cls.good = json.loads(cls.path.read_text())
+        cls.provenance = backscatter.PROVENANCE.read_text()
+
+    def errs(self, d, provenance=None):
+        return self.b.check_dataset(self.path, d, self.provenance if provenance is None else provenance)
+
+    def test_every_dataset_passes(self):
+        for f in sorted(self.b.DATA.glob("eta_*.json")):
+            self.assertEqual(self.b.check_dataset(f, json.loads(f.read_text()), self.provenance), [], f.name)
+
+    def test_failures_are_caught(self):
+        cases = [
+            (lambda d: d.update(kind="sputter_yield"), '`kind` must be "backscatter_coefficient"'),
+            (lambda d: d.pop("original_reference"), "`original_reference` missing or empty"),
+            (lambda d: d.pop("compilation_set"), "`compilation_set` missing or empty"),
+            (lambda d: d.update(id="other"), f"`id` 'other' differs from the file name {self.path.stem!r}"),
+            (lambda d: d.update(original_doi=None, url=""), "needs an `original_doi` or a `url` for the source that was read"),
+            (lambda d: d.pop("incidence_deg"), "`incidence_deg` must be a number (normal incidence = 0)"),
+            (lambda d: d.update(points=[]), "`points` missing or empty"),
+            (lambda d: d["points"][0].update(eta=1.2), "points[0].eta must be a number in (0, 1)"),
+            (lambda d: d["points"][0].update(eta_unc_abs=0.0), "points[0].eta_unc_abs must be a positive number"),
+            (lambda d: d["points"][0].update(energy_ev=-1.0), "points[0].energy_ev must be a positive number"),
+        ]
+        for mutate, msg in cases:
+            d = copy.deepcopy(self.good)
+            mutate(d)
+            self.assertIn(msg, self.errs(d), msg)
+        self.assertIn(f"no row in docs/data-provenance.md names `{self.good['id']}`", self.errs(self.good, provenance=""))
+
+
+class BackscatterGroups(unittest.TestCase):
+    def setUp(self):
+        import backscatter
+
+        self.b = backscatter
+
+    def ds(self, id_, target, energies_etas, incidence=0.0):
+        return {"id": id_, "target": target, "incidence_deg": incidence,
+                "points": [{"energy_ev": e, "eta": v} for e, v in energies_etas]}
+
+    def test_nearest_point_within_two_percent_one_per_set(self):
+        data = [
+            self.ds("a", "Al", [(9900.0, 0.15), (10100.0, 0.16)]),
+            self.ds("b", "Al", [(10150.0, 0.17)]),
+            self.ds("c", "Al", [(10300.0, 0.30)]),  # 3 %: outside
+            self.ds("d", "Cu", [(10000.0, 0.30)]),  # other target
+            self.ds("e", "Al", [(10000.0, 0.40)], incidence=45.0),  # not normal incidence
+        ]
+        g = self.b.measured_group(data, "Al", 10.0)
+        self.assertEqual(g["sets"], 2)
+        self.assertEqual([m["eta"] for m in g["members"]], [0.15, 0.17])
+        self.assertAlmostEqual(g["median"], 0.16)
+        self.assertEqual((g["min"], g["max"]), (0.15, 0.17))
+
+    def test_empty_group(self):
+        g = self.b.measured_group([self.ds("a", "Al", [(5000.0, 0.15)])], "Al", 10.0)
+        self.assertEqual((g["sets"], g["median"], g["min"], g["max"]), (0, None, None, None))
+
+    def test_variant_input_changes_only_the_named_keys(self):
+        base_path = self.b.INPUTS / "eta_al.toml"
+        base = base_path.read_text()
+        t = self.b.variant_input(base, base_path.parent, 2.0, 123, False, False)
+        self.assertIn("energy_ev = 2000.0\n", t)
+        self.assertIn("histories = 123\n", t)
+        self.assertIn("exchange = false\n", t)
+        self.assertNotIn("correlation_polarization", t.split("[electron.beam]")[1])
+        self.assertIn("[electron.inelastic]", t)
+        both = self.b.variant_input(base, base_path.parent, 10.0, 100000, True, True)
+        # The baseline variant at the committed energy is the committed input
+        # apart from the data path, made absolute.
+        self.assertEqual(both.replace(str((base_path.parent / "../../data/optical").resolve()), "../../data/optical"), base)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,181 @@
+{
+  "format": "lindhard-electron-run/1",
+  "problem": "e_5keV_si",
+  "lindhard_version": "lindhard 0.0.1 (6ffd486)",
+  "date": "2026-10-07",
+  "host": "Darwin arm64, 18 logical CPUs, load average 12.0 at start",
+  "histories": 10000,
+  "batches": 10,
+  "values": {
+    "eta": 0.2164,
+    "delta": 0.5889,
+    "primary_depth_nm": 150.084,
+    "r50_nm": 87.5763
+  },
+  "std_err": {
+    "eta": 0.00329039,
+    "delta": 0.0117837,
+    "primary_depth_nm": 0.712965,
+    "r50_nm": 0.782569
+  },
+  "primaries_stopped": 8276,
+  "wall_s": 134.061,
+  "materials": {
+    "cstool_source": "https://github.com/Nebula-simulator/cstool",
+    "cstool_commit": "0c739eb3fcc3fe5297e74c601ac4a9546db596cf",
+    "parameter_file": "data/materials/silicon.yaml",
+    "parameter_file_sha256": "d316a5015fc87cb03a0797b1e4e9417bace0513d8b7dda98b99cc03ec767a33f",
+    "elf_file": "data/materials/elf/df_Si.dat",
+    "elf_file_sha256": "7e434db9bdbd1311babd8b7d2b2084b570a0abd44fedfacc844b7dcdfa43b4c9"
+  },
+  "lindhard_settings": {
+    "software": {
+      "name": "lindhard",
+      "version": "0.0.1",
+      "git_describe": "6ffd486"
+    },
+    "models": [
+      {
+        "role": "electron transport",
+        "name": "event-by-event",
+        "citation": "Kieft and Bosch, J. Phys. D: Appl. Phys. 41, 215310 (2008), doi:10.1088/0022-3727/41/21/215310"
+      },
+      {
+        "role": "elastic scattering",
+        "name": "mott-partial-waves",
+        "citation": "Mott cross section from radial-Dirac phase shifts (electron::elastic), independent-atom additivity (electron::elastic::table)"
+      },
+      {
+        "role": "elastic potential",
+        "name": "thomas-fermi-yukawa",
+        "citation": "STAND-IN Yukawa potential with the Thomas-Fermi screening length a = 0.8853 a0 Z^(-1/3) (Firsov 1958; Lindhard, Scharff and Schiott 1963); not a DHFS atomic potential"
+      },
+      {
+        "role": "elastic exchange correction",
+        "name": "furness-mccarthy",
+        "citation": "Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)"
+      },
+      {
+        "role": "inelastic scattering",
+        "name": "penn-single-pole",
+        "citation": "single-pole Penn algorithm, Penn, Phys. Rev. B 35, 482 (1987), as written in Shinotsuka et al., Surf. Interface Anal. 49, 238 (2017), doi:10.1002/sia.6123, eqs. (7)-(13)"
+      },
+      {
+        "role": "secondary electrons",
+        "name": "kieft-bosch",
+        "citation": "Kieft and Bosch, J. Phys. D 41, 215310 (2008), as written out in Verduin, PhD thesis, TU Delft (2017), doi:10.4233/uuid:f214f594-a21f-4318-9f29-9776d60ab06c, Eqs. 3.86, 3.100-3.111; ported from Nebula (BSD-3-Clause)"
+      },
+      {
+        "role": "surface and interface barrier",
+        "name": "step-barrier",
+        "citation": "inner-potential step, Verduin, PhD thesis, TU Delft (2017), Eqs. 3.136, 3.139, 3.145; ported from Nebula (BSD-3-Clause)"
+      },
+      {
+        "role": "SE/BSE split",
+        "name": "energy-split",
+        "citation": "Chen, Zou, Mao, Khan, Tokesi and Ding, Sci. Rep. 12, 18201 (2022), doi:10.1038/s41598-022-20466-3 (Introduction; section Monte Carlo simulation), citing Niedrig, Scanning 1, 17 (1978); E = split is counted as backscattered, as Nebula's DETECTOR_GE50 flag (source/core/cpu_material_manager.h, commit a50a8e8) does"
+      }
+    ],
+    "transport": {
+      "cutoff_ev": 0.01,
+      "cutoff_reference": "vacuum-level",
+      "escape_rule": "both-faces",
+      "max_events": 10000000,
+      "secondaries": {
+        "model": "kieft-bosch",
+        "instantaneous_momentum": true,
+        "momentum_conservation": true
+      },
+      "boundary": {
+        "model": "step-barrier",
+        "quantum_transmission": true,
+        "refraction": true
+      },
+      "seed": 1,
+      "n_histories": 1000,
+      "chunk_size": 16,
+      "primary": {
+        "energy_ev": 5000.0,
+        "direction": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      }
+    },
+    "input": {
+      "electron": {
+        "beam": {
+          "energy_ev": 5000.0,
+          "tilt_deg": 0.0,
+          "azimuth_deg": 0.0
+        },
+        "transport": {
+          "cutoff_ev": 0.01,
+          "cutoff_reference": "vacuum-level",
+          "escape_rule": "both-faces",
+          "max_events": 10000000,
+          "secondaries": "kieft-bosch",
+          "instantaneous_momentum": true,
+          "momentum_conservation": true,
+          "boundary": "step-barrier",
+          "quantum_transmission": true,
+          "refraction": true
+        },
+        "elastic": {
+          "model": "mott",
+          "potential": "thomas-fermi-yukawa",
+          "exchange": true
+        },
+        "inelastic": {
+          "model": "penn-single-pole",
+          "fermi_energy_ev": 0.0
+        },
+        "tables": {
+          "min_energy_ev": 10.0,
+          "max_energy_ev": "read at run time from the cstool parameter file named in `materials`; not committed",
+          "points_per_decade": 20.0
+        },
+        "materials": {
+          "Si": {
+            "optical_elf": "si_elf_cstool.toml",
+            "band": {
+              "kind": "insulator",
+              "valence_band_width_ev": "read at run time from the cstool parameter file named in `materials`; not committed",
+              "band_gap_ev": "read at run time from the cstool parameter file named in `materials`; not committed",
+              "affinity_ev": "read at run time from the cstool parameter file named in `materials`; not committed",
+              "provenance": "oracle matching only: cstool data/materials/silicon.yaml (sha256 d316a5015fc87cb0), the parameters Nebula runs with; cited to no source, never committed (docs/data-provenance.md)"
+            }
+          }
+        },
+        "tally": {
+          "se_bse_split_ev": 50.0,
+          "escape_energy_max_ev": 5000.0,
+          "escape_energy_bins": 100,
+          "escape_polar_max_deg": 90.0,
+          "escape_polar_bins": 18,
+          "cylindrical": {
+            "r": {
+              "lo_nm": 0.0,
+              "hi_nm": 5000.0,
+              "bins": 10000
+            },
+            "depth": {
+              "lo_nm": 0.0,
+              "hi_nm": 100000000.0,
+              "bins": 1
+            }
+          }
+        }
+      },
+      "target": {
+        "substrate": "Si"
+      },
+      "run": {
+        "histories": 1000,
+        "seed": 1
+      }
+    },
+    "threads": 18
+  }
+}

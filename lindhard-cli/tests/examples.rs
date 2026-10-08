@@ -684,6 +684,34 @@ fn invalid_dynamic_settings_fail_naming_the_field() {
 
 // ---- electron runs -------------------------------------------------------------
 
+/// The committed inputs of the level-3 backscatter comparison (#148,
+/// `validation/experiments/backscatter/`) stay valid: `check` resolves them,
+/// including the measured optical ELFs they name (no run: their tables take
+/// minutes to build).
+#[test]
+fn backscatter_validation_inputs_check() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../validation/experiments/backscatter");
+    let mut inputs: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+        .collect();
+    inputs.sort();
+    assert_eq!(
+        inputs.len(),
+        2,
+        "expected eta_al.toml and eta_cu.toml, found {inputs:?}"
+    );
+    for input in &inputs {
+        let o = lindhard(&["check", input.to_str().unwrap()]);
+        ok(&o);
+        let stdout = String::from_utf8_lossy(&o.stdout);
+        assert!(stdout.contains("electron run"), "{input:?}: {stdout}");
+        assert!(stdout.contains("salvat-2003"), "{input:?}: corrections on");
+        assert!(stdout.contains("Hagemann"), "{input:?}: measured ELF");
+    }
+}
+
 fn electron_example() -> PathBuf {
     examples_dir().join("electron/e_10keV_si.toml")
 }

@@ -22,6 +22,29 @@ Format `lindhard-oracle-summary/2`:
 
 Format `/1` (no commit, no oracle values) was never committed.
 
+## Electron oracles: `lindhard-electron-<problem>.json`, `nebula-<problem>.json`, `geant4_microelec-<problem>.json`
+
+Written by `../run_electron.py` on the problems of `../electron_problems.json`
+(#150) and committed by hand after review; `validation/update_docs.py` builds
+the electron table of `docs/validation.md` from them.
+
+Format `lindhard-electron-run/1` (`lindhard-electron-<problem>.json`, our side
+alone): `problem`, `lindhard_version`, `date`, `host`, `histories`, `batches`,
+`values` and `std_err` of the four metrics (`eta`, `delta`,
+`primary_depth_nm`, `r50_nm`; standard errors by batch means),
+`primaries_stopped`, `wall_s`, `materials` (the cstool commit and the SHA-256
+of the parameter and ELF files read at run time; no values from them) and
+`lindhard_settings` (the run's own model and transport metadata).
+
+Format `lindhard-oracle-electron-summary/1` (`<oracle>-<problem>.json`): the
+fields of `lindhard-oracle-summary/2` above where they apply (`oracle*`,
+`lindhard_version`, `date`, `host`, `histories`, `lindhard`,
+`oracle_values`, `oracle_settings`, `matched`, `mismatches`), plus
+`comparison` (`eta_abs_diff`, `delta_abs_diff`, `primary_depth_rel_diff`,
+`r50_rel_diff`, each with `*_se` and `*_z`), `tolerance` (the #150 rule and,
+where it applies, pass or fail per metric), `wall_s` and, for Nebula,
+`materials`. A metric a code has no value for is `null`.
+
 ## Level-3 context: `rustbca-sputter_ar_<target>.json`
 
 Format `lindhard-oracle-sputter-summary/1`, written by

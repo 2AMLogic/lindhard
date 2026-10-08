@@ -35,7 +35,7 @@ pub use electron::{
     CartesianDeposition, CartesianGrid, CylindricalDeposition, CylindricalGrid, DepositionReport,
     ElectronEnergyBudget, ElectronReport, ElectronTallyConfig, ElectronTallyError,
     ElectronTallyMetadata, EmissionClass, FaceEmission, FateCounts, FullElectronTally,
-    GenerationVolume, StoppingPoints, Yields, SE_BSE_SPLIT_EV,
+    GenerationVolume, PrimaryStoppingPoints, StoppingPoints, Yields, SE_BSE_SPLIT_EV,
 };
 pub use hist::{Binning, BinningError, Histogram};
 pub use ion::{

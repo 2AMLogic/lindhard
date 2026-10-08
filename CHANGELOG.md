@@ -9,6 +9,16 @@ one version).
 
 ### Added
 
+- `ElectronReport.stopping_points.primaries` (`PrimaryStoppingPoints`): the
+  depth and radial moments of the primaries alone that fell below the stopping
+  threshold, i.e. the penetration depth of stopped primaries; written in the
+  CLI's `electron_summary.json` (#150).
+- Electron code-to-code comparison harness (#150):
+  `validation/oracles/run_electron.py` runs lindhard, Nebula and Geant4
+  MicroElec (through our own application in
+  `validation/oracles/geant4_microelec/`) on 1, 5 and 20 keV electrons into Si
+  and Cu, and `docs/validation.md` tabulates η, δ, the primary penetration
+  depth and the 50 %-energy radius from the committed scalar summaries.
 - Documented gap for the PMMA optical ELF (#147): Ritsko et al. (1978) and the
   Henke tail could not be opened on 2026-10-07, so no dataset is committed;
   `docs/data-provenance.md` records what was tried and what is needed.

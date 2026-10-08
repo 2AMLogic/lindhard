@@ -610,6 +610,155 @@ of the commands above runs an oracle.
   listing as Appendix 1. Use only the report body.
 - #78: the sensitivity of the level-3 ratios to doubtful datasets.
 
+### Electron oracles: Nebula and Geant4 MicroElec (#150)
+
+Matched problems
+([`../validation/oracles/electron_problems.json`](../validation/oracles/electron_problems.json)):
+electrons at normal incidence, entering at the beam axis, into bulk Si and
+bulk Cu at 1, 5 and 20 keV. Four scalar outputs: the backscatter yield η and
+the secondary yield δ (front-face escapes split at 50 eV of vacuum energy,
+`SE_BSE_SPLIT_EV`), the mean depth at which stopped primaries came to rest
+(`results.stopping_points.primaries` of `electron_summary.json`), and r50, the
+radius of the cylinder about the beam axis that holds half of the energy
+deposited in the target. Every code's histories are split into batches
+(lindhard: separate runs with consecutive seeds; the oracles: primary index
+modulo the batch count), and every standard error is the batch-means error.
+
+The oracles are installed and run unmodified outside this tree:
+
+- **Nebula** (BSD-3-Clause, Tier A), CPU build `nebula_cpu_edep`, with
+  material files compiled by its cstool. lindhard reads the **same** optical
+  ELF and band parameters at run time from the user's cstool clone, so the
+  dielectric input and the inner potential are matched; neither is
+  committed (see [`data-provenance.md`](data-provenance.md)). Nebula's
+  geometry and electron files follow its documentation ("Nebula geometry
+  format", "Nebula electron file format"); its deposit stream (energy lost
+  per event, not documented) was read from `cpu_energydep.cpp` at commit
+  `a50a8e8`. cstool calls ELSEPA (Tier C) for its Mott tables; ELSEPA was
+  run unmodified on the local machine only as part of that toolchain.
+- **Geant4 MicroElec** (oracle and papers only), through our own application
+  [`../validation/oracles/geant4_microelec/`](../validation/oracles/geant4_microelec/),
+  written from the Geant4 Book For Application Developers 11.4: a G4_Si slab
+  as its own region with `G4EmParameters::AddMicroElec`, on
+  `G4EmStandardPhysics_option4`. The Physics Reference Manual 11.4 ("The
+  MicroElec extension for microelectronics applications", Table 36 and the
+  paragraph above it) states that the models are valid for silicon only and
+  that electrons below 16.7 eV are killed with their energy deposited
+  locally. So there are no Cu rows, and δ counts only electrons that escape
+  from above 16.7 eV.
+
+```sh
+CSTOOL_SRC=/path/to/cstool-clone \
+NEBULA_BIN=/path/to/nebula/build/bin/nebula_cpu_edep NEBULA_SRC=/path/to/nebula-clone \
+NEBULA_MATERIALS=/path/to/compiled-mat-files \
+GEANT4_MICROELEC_BIN=/path/to/build/lindhard_microelec GEANT4_SRC=/path/to/geant4-clone \
+  validation/oracles/run_electron.py
+validation/oracles/run_electron.py --lindhard-only   # our side alone
+```
+
+lindhard runs the single-pole Penn inelastic model. Its full Penn model is
+the closer match to Nebula, but on this host one full-Penn Si table build at
+5 keV had not finished after 60 min (killed; the host was also compiling
+Geant4 at the time), against about 20 s for the
+single-pole tables, and every batch builds its own tables; the comparison
+with full Penn is left for when tables can be reused across runs (#168).
+
+**Inputs that differ** (each summary lists them in full under `mismatches`):
+
+- *Inelastic:* Nebula's full Penn algorithm with inner-shell ionization from
+  the ENDF/B photo-atomic data and cstool's Fermi correction; lindhard's
+  single-pole Penn with no inner-shell channels.
+- *Elastic:* Nebula's ELSEPA Mott cross sections (Dirac-Fock density,
+  exchange, LDA correlation-polarization, muffin-tin) above 200 eV and
+  acoustic-phonon scattering below 100 eV, interpolated between, with
+  phonon and recoil energy losses; lindhard's Mott cross sections of the
+  free-atom Thomas-Fermi Yukawa stand-in with exchange only, and no
+  quasi-elastic losses. Geant4 MicroElec: its own Si elastic and inelastic
+  models (Valentin et al. 2012).
+- *Deposited energy:* Nebula's stream gives the energy each electron loses
+  at each event, so a secondary's energy is counted where its parent lost
+  it and again along its own track, and the energy of electrons that stop
+  below the vacuum level is not in it. lindhard deposits only what no
+  secondary carries away, plus the remaining energy where an electron
+  stops. r50 is loss-weighted for Nebula and deposit-weighted for lindhard
+  and Geant4.
+- *Primary depth:* Nebula's tags pass to secondaries, so its output cannot
+  tell a primary from a secondary and it has no value for this metric.
+- *Surface:* Nebula and lindhard apply the same step barrier (quantum
+  transmission and refraction); the Geant4 setup has none.
+
+**Status:** run locally on 2026-10-07 (lindhard `6ffd486`) against Nebula
+v1.0.2-1-ga50a8e8 (commit `a50a8e8`, cstool commit `0c739eb`) and Geant4
+v11.4.3 (commit `2ee379e`, G4EMLOW 8.8; the models it reports for the
+region are `G4MicroElecElasticModel` and `G4MicroElecInelasticModel`).
+
+**Tolerances (vs Nebula, 5 and 20 keV): all eight checks pass.** |Δη| is at
+most 0.025 and |Δr50| at most 13.0 %. Notes on every difference that is
+beyond its tolerance, or beyond statistics where no tolerance applies:
+
+- **r50, 5 and 20 keV (within the 15 % tolerance, but 6σ to 13σ).**
+  lindhard's radius is 8 % to 13 % smaller than Nebula's for both
+  elements. Attributed to two of the differing inputs above, not separated
+  here: the two codes weight different energies (Nebula's per-event loss
+  counts a secondary's energy twice and leaves out electrons that stop below
+  the vacuum level; lindhard deposits net energy, including the Fermi-sea
+  energy of every secondary where it stops, see #123), and the elastic
+  cross sections that set the lateral spread differ (free-atom
+  Thomas-Fermi Yukawa stand-in against ELSEPA's muffin-tin Dirac-Fock
+  potential).
+- **r50, 1 keV (reported only): +23 % (Si) and +29 % (Cu).** The sign is the
+  opposite of 5 and 20 keV, so this is not one scale factor. At 1 keV r50 is
+  3 to 9 nm, where the secondaries' own spread and the sub-200-eV elastic
+  model (acoustic phonons in Nebula, Mott in lindhard) weigh most.
+  Unexplained beyond that.
+- **η, 20 keV (within tolerance): -0.025 (Si, 3.3σ) and -0.025 (Cu,
+  2.0σ).** Agreement at 1 and 5 keV is within statistics (at most 1.9σ).
+  The elastic model is the leading candidate: large-angle scattering at
+  10 to 20 keV comes from the inner part of the atomic potential, where the
+  Thomas-Fermi stand-in and the Dirac-Fock density differ most.
+- **δ (reported only): lindhard's is 2.7 to 7.1 times Nebula's at every
+  energy and in both elements (lindhard 2.17 vs 0.35 for Si at 1 keV).**
+  Not explained. The escape barrier, the secondary model and the band
+  parameters are the same on both sides, so the difference lies in how slow
+  electrons are transported: Nebula's quasi-elastic channel below 100 eV
+  (acoustic-phonon scattering with energy loss) against lindhard's Mott
+  cross sections down to 10 eV with no quasi-elastic loss, and full against
+  single-pole Penn at low energy. Neither is tested in isolation here. The
+  comparison with measured yields is #149.
+- **Geant4 MicroElec (reported only).** MicroElec gives η = 0.47 to 0.59 in
+  Si, two to three times both other codes, with correspondingly shallower
+  primaries and a smaller r50; δ is smaller because electrons below 16.7 eV
+  are killed. The application itself is not the cause: in a one-off local
+  check with `AddMicroElec` left out (plain `G4EmStandardPhysics_option4`,
+  5 keV Si, 2000 events), the same geometry and tallies gave η = 0.20. The
+  difference therefore lies in the MicroElec models (Valentin et al. 2012)
+  as Geant4 11.4.3 runs them; it is not investigated further here.
+
+<!-- validation:electron-oracles:begin -->
+| Problem | Code (version, commit) | Histories | η | δ | Primary depth (nm) | r50 (nm) | Tolerance (vs Nebula) |
+|---|---|---|---|---|---|---|---|
+| `e_1keV_si` | lindhard (0.0.1 (6ffd486)) | 20000 | 0.275 ± 0.003 | 2.172 ± 0.015 | 13.48 ± 0.05 | 9.22 ± 0.04 | - |
+| `e_1keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 20000 | 0.276 ± 0.003<br>Δ -0.001 ± 0.004 (0.2σ) | 0.347 ± 0.005<br>Δ +1.825 ± 0.016 (111.8σ) | n/a | 7.50 ± 0.04<br>Δ +22.9 % ± 0.8 % (29.3σ) | reported only |
+| `e_1keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e) | 20000 | 0.469 ± 0.005<br>Δ -0.193 ± 0.005 (35.5σ) | 0.119 ± 0.002<br>Δ +2.053 ± 0.016 (131.4σ) | 9.23 ± 0.04<br>Δ +46.0 % ± 0.9 % (50.0σ) | 5.71 ± 0.04<br>Δ +61.4 % ± 1.2 % (50.4σ) | reported only |
+| `e_5keV_si` | lindhard (0.0.1 (6ffd486)) | 10000 | 0.216 ± 0.003 | 0.589 ± 0.012 | 150.1 ± 0.7 | 87.58 ± 0.78 | - |
+| `e_5keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 10000 | 0.224 ± 0.005<br>Δ -0.007 ± 0.006 (1.3σ) | 0.090 ± 0.004<br>Δ +0.499 ± 0.012 (40.5σ) | n/a | 99.26 ± 0.57<br>Δ -11.8 % ± 0.9 % (12.6σ) | η pass, r50 pass |
+| `e_5keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e) | 10000 | 0.533 ± 0.004<br>Δ -0.317 ± 0.005 (59.2σ) | 0.026 ± 0.002<br>Δ +0.563 ± 0.012 (47.0σ) | 90.79 ± 0.62<br>Δ +65.3 % ± 1.4 % (47.7σ) | 65.09 ± 0.46<br>Δ +34.5 % ± 1.5 % (22.6σ) | reported only |
+| `e_20keV_si` | lindhard (0.0.1 (6ffd486)) | 4000 | 0.172 ± 0.006 | 0.162 ± 0.010 | 1589.8 ± 15.2 | 979.1 ± 7.3 | - |
+| `e_20keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 4000 | 0.197 ± 0.004<br>Δ -0.025 ± 0.008 (3.3σ) | 0.023 ± 0.002<br>Δ +0.139 ± 0.010 (13.3σ) | n/a | 1063.9 ± 12.1<br>Δ -8.0 % ± 1.2 % (6.4σ) | η pass, r50 pass |
+| `e_20keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e) | 4000 | 0.593 ± 0.006<br>Δ -0.421 ± 0.009 (49.4σ) | 0.008 ± 0.001<br>Δ +0.153 ± 0.010 (14.9σ) | 802.9 ± 14.4<br>Δ +98.0 % ± 4.0 % (24.4σ) | 588.8 ± 8.1<br>Δ +66.3 % ± 2.6 % (25.4σ) | reported only |
+| `e_1keV_cu` | lindhard (0.0.1 (6ffd486)) | 20000 | 0.500 ± 0.005 | 2.440 ± 0.024 | 5.03 ± 0.03 | 3.45 ± 0.01 | - |
+| `e_1keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 20000 | 0.488 ± 0.004<br>Δ +0.013 ± 0.007 (1.9σ) | 0.903 ± 0.011<br>Δ +1.537 ± 0.026 (58.4σ) | n/a | 2.67 ± 0.01<br>Δ +29.4 % ± 0.8 % (36.2σ) | reported only |
+| `e_1keV_cu` | Geant4 MicroElec | - | not applicable (MicroElec: silicon only) | | | | - |
+| `e_5keV_cu` | lindhard (0.0.1 (6ffd486)) | 10000 | 0.396 ± 0.007 | 0.849 ± 0.019 | 43.31 ± 0.29 | 27.78 ± 0.26 | - |
+| `e_5keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 10000 | 0.399 ± 0.004<br>Δ -0.003 ± 0.008 (0.3σ) | 0.273 ± 0.004<br>Δ +0.577 ± 0.020 (29.2σ) | n/a | 31.56 ± 0.24<br>Δ -11.9 % ± 1.1 % (11.3σ) | η pass, r50 pass |
+| `e_5keV_cu` | Geant4 MicroElec | - | not applicable (MicroElec: silicon only) | | | | - |
+| `e_20keV_cu` | lindhard (0.0.1 (6ffd486)) | 4000 | 0.326 ± 0.008 | 0.260 ± 0.016 | 397.8 ± 3.9 | 273.4 ± 3.3 | - |
+| `e_20keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 4000 | 0.351 ± 0.010<br>Δ -0.025 ± 0.013 (2.0σ) | 0.076 ± 0.004<br>Δ +0.183 ± 0.017 (11.0σ) | n/a | 314.2 ± 2.9<br>Δ -13.0 % ± 1.3 % (9.9σ) | η pass, r50 pass |
+| `e_20keV_cu` | Geant4 MicroElec | - | not applicable (MicroElec: silicon only) | | | | - |
+
+Values are pooled over all histories, ± the batch-means standard error (10 batches). Δ is lindhard minus the oracle: absolute for η and δ, relative for the lengths, ± the combined standard error, with the difference in units of it in brackets. η and δ split the front-face escapes at 50 eV (vacuum energy). r50 is the radius of the cylinder about the beam axis that holds half the energy deposited. Tolerances (vs Nebula at 5 and 20 keV only): |Δη| ≤ 0.03 and |Δr50| ≤ 15 %. Every summary's settings and its list of differing inputs are in its file under `validation/oracles/summaries/`.
+<!-- validation:electron-oracles:end -->
+
 ## 3. Experiment (the real bar)
 
 - **Ion ranges:** published SIMS and RBS depth profiles of B, BF₂, P, As and
@@ -623,8 +772,9 @@ of the commands above runs an oracle.
 - **Sputtering:** published yields vs. energy and angle. Ar → Si, Cu, Ag
   and Au at normal incidence, 0.2 to 10 keV, are in (#69, #70, below); the
   angular dependence is not yet.
-- **Electrons (M1):** published backscatter coefficients η(E, Z), SE yields
-  δ(E), and resist-exposure PSF measurements.
+- **Electrons (M1):** published backscatter coefficients η(E, Z) (C, Al, Si,
+  Cu and Au at normal incidence, 1 to 30 keV, are in (#148, below); compared
+  for Al and Cu only), SE yields δ(E), and resist-exposure PSF measurements.
 
 Datasets live in `validation/data/` with the schema and rules in
 [`../validation/data/README.md`](../validation/data/README.md);
@@ -1104,6 +1254,139 @@ numbers show; they do not identify a cause (electronic share, #61, see
 "Investigation of the low sputter yield" in section 2; surface
 binding; the impact-parameter limit; target structure), and no parameter
 was adjusted to these data. The angular dependence is not covered.
+
+### Backscatter coefficient η(E, Z) (#148)
+
+**Data.** 57 measured sets for C, Al, Si (one of them amorphous), Cu and Au,
+one file per original measurement, transcribed from the tables of D. C. Joy,
+"A Database of Electron-Solid Interactions", revision 01-01 (2001), read in
+the copy the Internet Archive kept of the author's site, and cited to the
+measurements Joy's reference list names. Every point was read a second time
+from the independent Akbari (2022) database on Zenodo: 362 of 380 points are
+identical, and the rest are listed per set. Joy states no uncertainty,
+incidence angle or energy threshold per set; the files say so, the stored
+uncertainty is the rounding of the printed value, and the sets are taken as
+normal incidence on bulk targets with the usual 50 eV threshold. Provenance,
+the Crossref checks and the sets that could not be attributed (Akbari-only,
+not stored) are in [`data-provenance.md`](data-provenance.md); the schema is
+in [`../validation/data/README.md`](../validation/data/README.md).
+
+**Runs.** `validation/experiments/backscatter.py` runs the committed CLI
+inputs `validation/experiments/backscatter/eta_{al,cu}.toml` (an
+`[electron]` input; as committed, the 10 keV run) at each comparison
+energy. η is the number of electrons leaving the front face with at least
+50 eV, per primary; its σ is binomial. The model, and how it differs from
+the issue's "full model":
+
+- **Elastic:** Mott cross sections from our partial-wave solver with the
+  Furness-McCarthy exchange and the correlation-polarization corrections
+  (polarizabilities from Schwerdtfeger and Nagle 2019), but on the
+  **Thomas-Fermi Yukawa stand-in potential**: the DHFS coefficient table is
+  still a gap (#130), and it is the only potential that runs.
+- **Inelastic:** the **single-pole** Penn algorithm on the measured optical
+  ELF of Hagemann, Gudat and Kunz (1975). The full Penn model was tried (Al,
+  2 keV, 5 grid points per decade, two threads) and had not finished its
+  tables after 15 minutes, so a 1 to 30 keV sweep with it is out of reach on
+  this hardware. There is no separate inner-shell channel: the transport loop
+  has none yet, and the shells enter only through the optical ELF.
+- **No secondaries, transparent surface:** no band parameters of Al or Cu
+  are committed. With the 50 eV cutoff no electron that could still count
+  towards η is dropped, but fast secondaries (above 50 eV, which a measured
+  η includes) are not generated.
+- **Only Al and Cu are compared.** C, Si and Au have no committed optical
+  ELF (inventory in [`data-provenance.md`](data-provenance.md); Si is #125),
+  so they have no input. Their measured data are tabulated below for when
+  one exists: adding `eta_<el>.toml` is all that is needed.
+
+The pass/fail rule is the issue's initial tolerance: at E ≥ 5 keV,
+|η − measured median| ≤ 0.05 absolute; below 5 keV values are reported only.
+It is pinned in `backscatter.py` and was neither loosened nor tightened.
+
+<!-- validation:level3-backscatter:begin -->
+lindhard 0.0.1 (6629260), 100000 primaries per run, seed 1; the model and its gaps are listed above. Measured: per energy, each stored set's point within 2 % of it (at most one per set), median and min-max over the sets.
+
+| Target | E (keV) | Sets | Measured median | Measured min-max | lindhard eta ± σ | lindhard - median | Pass (E ≥ 5 keV: abs. diff. ≤ 0.05) |
+|---|---|---|---|---|---|---|---|
+| C | 1 | 2 | 0.105 | 0.076-0.133 | not run (no optical ELF committed) | - | - |
+| C | 2 | 3 | 0.077 | 0.071-0.107 | not run (no optical ELF committed) | - | - |
+| C | 3 | 3 | 0.086 | 0.063-0.088 | not run (no optical ELF committed) | - | - |
+| C | 4 | 2 | 0.073 | 0.058-0.089 | not run (no optical ELF committed) | - | - |
+| C | 5 | 5 | 0.082 | 0.058-0.086 | not run (no optical ELF committed) | - | not evaluated |
+| C | 10 | 4 | 0.071 | 0.066-0.074 | not run (no optical ELF committed) | - | not evaluated |
+| C | 15 | 2 | 0.062 | 0.057-0.068 | not run (no optical ELF committed) | - | not evaluated |
+| C | 20 | 4 | 0.060 | 0.049-0.064 | not run (no optical ELF committed) | - | not evaluated |
+| C | 30 | 4 | 0.056 | 0.050-0.060 | not run (no optical ELF committed) | - | not evaluated |
+| Al | 1 | 6 | 0.204 | 0.134-0.235 | 0.1919 ± 0.0012 | -0.012 | (reported only) |
+| Al | 2 | 5 | 0.170 | 0.140-0.203 | 0.1666 ± 0.0012 | -0.003 | (reported only) |
+| Al | 3 | 7 | 0.161 | 0.132-0.213 | 0.1570 ± 0.0012 | -0.004 | (reported only) |
+| Al | 4 | 4 | 0.168 | 0.131-0.191 | 0.1512 ± 0.0011 | -0.017 | (reported only) |
+| Al | 5 | 8 | 0.163 | 0.135-0.200 | 0.1472 ± 0.0011 | -0.016 | pass |
+| Al | 10 | 5 | 0.150 | 0.140-0.188 | 0.1376 ± 0.0011 | -0.012 | pass |
+| Al | 15 | 4 | 0.149 | 0.137-0.171 | 0.1317 ± 0.0011 | -0.018 | pass |
+| Al | 20 | 4 | 0.144 | 0.139-0.164 | 0.1299 ± 0.0011 | -0.014 | pass |
+| Al | 30 | 5 | 0.149 | 0.135-0.155 | 0.1275 ± 0.0011 | -0.021 | pass |
+| Si | 1 | 3 | 0.228 | 0.210-0.235 | not run (no optical ELF committed) | - | - |
+| Si | 2 | 2 | 0.207 | 0.204-0.210 | not run (no optical ELF committed) | - | - |
+| Si | 3 | 3 | 0.200 | 0.192-0.212 | not run (no optical ELF committed) | - | - |
+| Si | 4 | 3 | 0.200 | 0.189-0.204 | not run (no optical ELF committed) | - | - |
+| Si | 5 | 5 | 0.197 | 0.184-0.206 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 10 | 5 | 0.186 | 0.174-0.200 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 15 | 2 | 0.180 | 0.163-0.197 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 20 | 4 | 0.167 | 0.159-0.194 | not run (no optical ELF committed) | - | not evaluated |
+| Si | 30 | 4 | 0.161 | 0.145-0.190 | not run (no optical ELF committed) | - | not evaluated |
+| Cu | 1 | 5 | 0.381 | 0.265-0.438 | 0.3334 ± 0.0015 | -0.048 | (reported only) |
+| Cu | 2 | 5 | 0.379 | 0.301-0.419 | 0.3161 ± 0.0015 | -0.063 | (reported only) |
+| Cu | 3 | 6 | 0.341 | 0.309-0.406 | 0.3098 ± 0.0015 | -0.031 | (reported only) |
+| Cu | 4 | 4 | 0.325 | 0.306-0.340 | 0.3047 ± 0.0015 | -0.020 | (reported only) |
+| Cu | 5 | 8 | 0.324 | 0.298-0.398 | 0.3025 ± 0.0015 | -0.021 | pass |
+| Cu | 10 | 7 | 0.318 | 0.290-0.357 | 0.2983 ± 0.0014 | -0.020 | pass |
+| Cu | 15 | 3 | 0.311 | 0.310-0.335 | 0.2970 ± 0.0014 | -0.014 | pass |
+| Cu | 20 | 6 | 0.310 | 0.290-0.339 | 0.2973 ± 0.0014 | -0.013 | pass |
+| Cu | 30 | 5 | 0.311 | 0.291-0.319 | 0.2957 ± 0.0014 | -0.015 | pass |
+| Au | 1 | 3 | 0.395 | 0.289-0.419 | not run (no optical ELF committed) | - | - |
+| Au | 2 | 3 | 0.428 | 0.373-0.450 | not run (no optical ELF committed) | - | - |
+| Au | 3 | 4 | 0.433 | 0.414-0.464 | not run (no optical ELF committed) | - | - |
+| Au | 4 | 4 | 0.455 | 0.443-0.461 | not run (no optical ELF committed) | - | - |
+| Au | 5 | 7 | 0.459 | 0.430-0.489 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 10 | 5 | 0.476 | 0.470-0.501 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 15 | 3 | 0.484 | 0.482-0.514 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 20 | 5 | 0.485 | 0.480-0.516 | not run (no optical ELF committed) | - | not evaluated |
+| Au | 30 | 5 | 0.512 | 0.481-0.521 | not run (no optical ELF committed) | - | not evaluated |
+
+**Verdict at E ≥ 5 keV (tolerance 0.05 absolute, generated):**
+
+- C: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
+- Al: 5 of 5 energies pass; largest abs. diff. -0.021 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Si: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
+- Cu: 5 of 5 energies pass; largest abs. diff. -0.021 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Au: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
+
+**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the correlation-polarization corrections switched off one at a time and together (same seed and primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value for independent runs. The variants share the seed, so their noise is correlated and the true σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, not a conservative test of it.
+
+| Target | E (keV) | exchange + polarization (baseline) | exchange only | polarization only | no corrections | baseline - no corrections |
+|---|---|---|---|---|---|---|
+| Al | 1 | 0.1919 ± 0.0012 | 0.1936 ± 0.0012 | 0.1907 ± 0.0012 | 0.1908 ± 0.0012 | +0.0012 (+0.7 σ) |
+| Al | 10 | 0.1376 ± 0.0011 | 0.1374 ± 0.0011 | 0.1366 ± 0.0011 | 0.1371 ± 0.0011 | +0.0005 (+0.3 σ) |
+| Cu | 1 | 0.3334 ± 0.0015 | 0.3329 ± 0.0015 | 0.3284 ± 0.0015 | 0.3305 ± 0.0015 | +0.0029 (+1.4 σ) |
+| Cu | 10 | 0.2983 ± 0.0014 | 0.2983 ± 0.0014 | 0.2970 ± 0.0014 | 0.2973 ± 0.0014 | +0.0010 (+0.5 σ) |
+
+Largest effect of the two corrections together: 0.0029 (1.4 σ, Cu at 1 keV); every difference is within 2 σ of the independent-run bound. Because the runs are correlated, that does not show the effect is zero; the measured differences (at most 0.0029 in η) are small next to the 0.05 tolerance and the measured spread, with the stand-in potential the corrections are solved on.
+
+Per-run values: `validation/experiments/backscatter_results.json`; datasets: `validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md).
+<!-- validation:level3-backscatter:end -->
+
+**Limits.** Al and Cu meet the tolerance at every energy from 5 to 30 keV,
+but lindhard is below the measured median at every compared energy, by
+0.012 to 0.021 at 5 keV and above. That offset is not attributed here. Two
+known parts of the model act on it: the elastic potential is the
+Thomas-Fermi Yukawa stand-in, not DHFS, and fast secondaries above 50 eV
+(counted in a measured η) are not generated. The measured sets are mostly
+1954 to 1997 work on surfaces of unstated condition, and at most energies
+they spread by more than the offset. Since only two of the five elements could
+be run, the tolerance was not tightened from the measured spread, and no
+model parameter was adjusted to these data. The comparison of C, Si and Au,
+and a run with the full Penn model, wait for their optical data and for
+faster full-Penn tables.
 
 ## Reporting
 

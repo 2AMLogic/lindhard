@@ -32,6 +32,13 @@ derived from it, or any other code's output, however well known
   `lindhard/tests/optical_sumrule.rs` (gated on the linear interpolation `elf()` serves: Al N_eff and P_eff and
   Cu N_eff miss 5 % and are pinned with their explanation; power-law segments
   are kept as a labelled comparison). Si: open gap.
+- **Electron backscatter coefficients, C, Al, Si, Cu and Au:**
+  `backscatter/eta_<el>_<author><year>.json`, 57 measured sets (one per
+  original measurement and element, 380 points, 0.1 to 102 keV), transcribed
+  from the tables of D. C. Joy's database (revision 01-01, 2001, read in its
+  Internet Archive copy) by `backscatter/ingest_joy2001.py`, and re-read from
+  the independent Akbari (2022) database
+  (`backscatter/crosscheck_akbari2022.json`) (#148).
 - **P and As in amorphous Si:** open gaps (#51). What was searched, and why
   the one source found could not be used, is in
   [`docs/data-provenance.md`](../../docs/data-provenance.md).
@@ -50,6 +57,7 @@ seen.
 validation/data/ranges/<id>.json      one dataset: metadata + moments
 validation/data/ranges/<id>.csv       optional depth profile (depth_nm,value)
 validation/data/sputtering/<id>.json  one measured sputter-yield set: metadata + points
+validation/data/backscatter/<id>.json one measured electron backscatter set: metadata + points
 validation/data/optical/<id>.toml     measured optical energy-loss functions (ELF)
                                       and the scripts that ingested them
 validation/data/digitize/             scripts that digitized a figure (not run
@@ -174,6 +182,46 @@ Rules:
   statistics (`energy_groups` in `validation/experiments/run.py`). No stored
   point is flagged at present.
 
+## Backscatter-coefficient schema (`backscatter/<id>.json`)
+
+One file per *original measurement set* and target, holding all its points;
+sets of the same (E, Z) are never merged or averaged in the files.
+`validation/experiments/backscatter.py` takes the median at run time.
+
+```json
+{
+  "kind": "backscatter_coefficient",
+  "id": "eta_<el>_<firstauthor><year>",
+  "target": "Al", "z": 13,
+  "target_state": "as stated by the source, or 'not stated'",
+  "incidence_deg": 0.0,
+  "incidence_note": "what the source says about the geometry",
+  "eta_threshold_note": "the SE/BSE energy split, if the source states it",
+  "points": [ { "energy_ev": 10000.0, "eta": 0.15, "eta_unc_abs": 0.005 } ],
+  "original_reference": "Authors, Journal Volume, Page (Year)",
+  "original_doi": "10.xxxx/... or null",
+  "original_reference_note": "Crossref check, discrepancies, 'not opened'",
+  "compilation": "the secondary source that was read",
+  "compilation_set": "where in it (heading, data set number)",
+  "compilation_reference_number": 2,
+  "url": "where the compilation was read",
+  "crosscheck": { "compilation": "...", "agreement": "...", "record": "..." },
+  "extraction": "how the numbers were taken, and what the uncertainty is",
+  "terms": "Facts, cited; ...",
+  "added": "YYYY-MM-DD"
+}
+```
+
+Rules:
+
+- `eta_unc_abs` is never zero. When the source gives no measurement
+  uncertainty, it is half a unit of the last printed digit and `extraction`
+  says so.
+- `incidence_deg` is required, as for sputter yields; only normal-incidence
+  sets enter the comparison.
+- A set whose original measurement cannot be named is not stored (the
+  Akbari-only sets, `docs/data-provenance.md`).
+
 ## Enforced
 
 `validation/experiments/run.py` (and `--check`, which `validation/run.sh`
@@ -196,6 +244,15 @@ and, for a sputter-yield dataset, if it:
   points, or a point without a positive `energy_ev`, `yield`,
   `energy_unc_rel` or `yield_unc_rel`;
 - has no row in `docs/data-provenance.md` that names its `id`.
+
+and, for a backscatter dataset (`validation/experiments/backscatter.py
+--check`), if it has a `kind` other than `backscatter_coefficient`, lacks a
+non-empty `id` (equal to the file name), `target`, `target_state`,
+`original_reference`, `compilation`, `compilation_set`, `extraction`, `terms`
+or `added`, or both of `original_doi` and `url`, has no positive integer `z`,
+no numeric `incidence_deg`, no points, a point without a positive
+`energy_ev` or `eta_unc_abs` or with `eta` outside (0, 1), or no row in
+`docs/data-provenance.md` that names its `id`.
 
 `validation/experiments/test_run.py` (run by `validation/run.sh`) checks
 that each of these failures is caught.

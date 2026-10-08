@@ -1,0 +1,1825 @@
+{
+ "format": "lindhard-backscatter-results/1",
+ "lindhard": "lindhard 0.0.1 (6629260)",
+ "histories": 100000,
+ "seed": 1,
+ "energies_kev": [
+  1.0,
+  2.0,
+  3.0,
+  4.0,
+  5.0,
+  10.0,
+  15.0,
+  20.0,
+  30.0
+ ],
+ "group_tolerance": 0.02,
+ "pass_min_kev": 5.0,
+ "tolerance": 0.05,
+ "variants": [
+  {
+   "id": "both",
+   "label": "exchange + polarization (baseline)",
+   "exchange": true,
+   "polarization": true
+  },
+  {
+   "id": "exchange",
+   "label": "exchange only",
+   "exchange": true,
+   "polarization": false
+  },
+  {
+   "id": "polarization",
+   "label": "polarization only",
+   "exchange": false,
+   "polarization": true
+  },
+  {
+   "id": "none",
+   "label": "no corrections",
+   "exchange": false,
+   "polarization": false
+  }
+ ],
+ "targets": [
+  {
+   "target": "C",
+   "input": null,
+   "groups": [
+    {
+     "energy_kev": 1.0,
+     "sets": 2,
+     "median": 0.10450000000000001,
+     "min": 0.076,
+     "max": 0.133,
+     "members": [
+      {
+       "id": "eta_c_bronstein1969",
+       "energy_ev": 1000.0,
+       "eta": 0.133
+      },
+      {
+       "id": "eta_c_elgomati1997",
+       "energy_ev": 1000.0,
+       "eta": 0.076
+      }
+     ]
+    },
+    {
+     "energy_kev": 2.0,
+     "sets": 3,
+     "median": 0.0771,
+     "min": 0.071,
+     "max": 0.107,
+     "members": [
+      {
+       "id": "eta_c_bronstein1969",
+       "energy_ev": 2000.0,
+       "eta": 0.107
+      },
+      {
+       "id": "eta_c_elgomati1997",
+       "energy_ev": 2000.0,
+       "eta": 0.071
+      },
+      {
+       "id": "eta_c_palluel1947",
+       "energy_ev": 2000.0,
+       "eta": 0.0771
+      }
+     ]
+    },
+    {
+     "energy_kev": 3.0,
+     "sets": 3,
+     "median": 0.0857,
+     "min": 0.063,
+     "max": 0.088,
+     "members": [
+      {
+       "id": "eta_c_bronstein1969",
+       "energy_ev": 3000.0,
+       "eta": 0.088
+      },
+      {
+       "id": "eta_c_elgomati1997",
+       "energy_ev": 3000.0,
+       "eta": 0.063
+      },
+      {
+       "id": "eta_c_palluel1947",
+       "energy_ev": 3000.0,
+       "eta": 0.0857
+      }
+     ]
+    },
+    {
+     "energy_kev": 4.0,
+     "sets": 2,
+     "median": 0.0733,
+     "min": 0.058,
+     "max": 0.0886,
+     "members": [
+      {
+       "id": "eta_c_elgomati1997",
+       "energy_ev": 4000.0,
+       "eta": 0.058
+      },
+      {
+       "id": "eta_c_palluel1947",
+       "energy_ev": 4000.0,
+       "eta": 0.0886
+      }
+     ]
+    },
+    {
+     "energy_kev": 5.0,
+     "sets": 5,
+     "median": 0.082,
+     "min": 0.058,
+     "max": 0.0857,
+     "members": [
+      {
+       "id": "eta_c_bishop1963",
+       "energy_ev": 5000.0,
+       "eta": 0.085
+      },
+      {
+       "id": "eta_c_elgomati1997",
+       "energy_ev": 5000.0,
+       "eta": 0.058
+      },
+      {
+       "id": "eta_c_hunger1979",
+       "energy_ev": 5000.0,
+       "eta": 0.082
+      },
+      {
+       "id": "eta_c_palluel1947",
+       "energy_ev": 5000.0,
+       "eta": 0.0857
+      },
+      {
+       "id": "eta_c_wittry1966",
+       "energy_ev": 5000.0,
+       "eta": 0.082
+      }
+     ]
+    },
+    {
+     "energy_kev": 10.0,
+     "sets": 4,
+     "median": 0.07050000000000001,
+     "min": 0.066,
+     "max": 0.0743,
+     "members": [
+      {
+       "id": "eta_c_bishop1963",
+       "energy_ev": 10000.0,
+       "eta": 0.072
+      },
+      {
+       "id": "eta_c_heinrich1966",
+       "energy_ev": 10000.0,
+       "eta": 0.069
+      },
+      {
+       "id": "eta_c_hunger1979",
+       "energy_ev": 10000.0,
+       "eta": 0.066
+      },
+      {
+       "id": "eta_c_palluel1947",
+       "energy_ev": 10000.0,
+       "eta": 0.0743
+      }
+     ]
+    },
+    {
+     "energy_kev": 15.0,
+     "sets": 2,
+     "median": 0.0625,
+     "min": 0.057,
+     "max": 0.068,
+     "members": [
+      {
+       "id": "eta_c_hunger1979",
+       "energy_ev": 15200.0,
+       "eta": 0.057
+      },
+      {
+       "id": "eta_c_neubert1980",
+       "energy_ev": 15000.0,
+       "eta": 0.068
+      }
+     ]
+    },
+    {
+     "energy_kev": 20.0,
+     "sets": 4,
+     "median": 0.0605,
+     "min": 0.049,
+     "max": 0.064,
+     "members": [
+      {
+       "id": "eta_c_bishop1963",
+       "energy_ev": 20000.0,
+       "eta": 0.061
+      },
+      {
+       "id": "eta_c_heinrich1966",
+       "energy_ev": 20000.0,
+       "eta": 0.06
+      },
+      {
+       "id": "eta_c_hunger1979",
+       "energy_ev": 20200.0,
+       "eta": 0.049
+      },
+      {
+       "id": "eta_c_neubert1980",
+       "energy_ev": 20000.0,
+       "eta": 0.064
+      }
+     ]
+    },
+    {
+     "energy_kev": 30.0,
+     "sets": 4,
+     "median": 0.055999999999999994,
+     "min": 0.05,
+     "max": 0.06,
+     "members": [
+      {
+       "id": "eta_c_bishop1963",
+       "energy_ev": 30000.0,
+       "eta": 0.06
+      },
+      {
+       "id": "eta_c_heinrich1966",
+       "energy_ev": 30000.0,
+       "eta": 0.052
+      },
+      {
+       "id": "eta_c_neubert1980",
+       "energy_ev": 30000.0,
+       "eta": 0.06
+      },
+      {
+       "id": "eta_c_wittry1966",
+       "energy_ev": 30000.0,
+       "eta": 0.05
+      }
+     ]
+    }
+   ],
+   "runs": {},
+   "sensitivity": {}
+  },
+  {
+   "target": "Al",
+   "input": "validation/experiments/backscatter/eta_al.toml",
+   "groups": [
+    {
+     "energy_kev": 1.0,
+     "sets": 6,
+     "median": 0.20350000000000001,
+     "min": 0.134,
+     "max": 0.2346,
+     "members": [
+      {
+       "id": "eta_al_bongeler1993",
+       "energy_ev": 1000.0,
+       "eta": 0.195
+      },
+      {
+       "id": "eta_al_bronstein1969",
+       "energy_ev": 1000.0,
+       "eta": 0.217
+      },
+      {
+       "id": "eta_al_elgomati1997",
+       "energy_ev": 1000.0,
+       "eta": 0.212
+      },
+      {
+       "id": "eta_al_palluel1947",
+       "energy_ev": 1000.0,
+       "eta": 0.134
+      },
+      {
+       "id": "eta_al_reimer1980",
+       "energy_ev": 1000.0,
+       "eta": 0.192
+      },
+      {
+       "id": "eta_al_shimizu1974",
+       "energy_ev": 1000.0,
+       "eta": 0.2346
+      }
+     ]
+    },
+    {
+     "energy_kev": 2.0,
+     "sets": 5,
+     "median": 0.17,
+     "min": 0.14,
+     "max": 0.203,
+     "members": [
+      {
+       "id": "eta_al_bongeler1993",
+       "energy_ev": 2000.0,
+       "eta": 0.17
+      },
+      {
+       "id": "eta_al_bronstein1969",
+       "energy_ev": 2000.0,
+       "eta": 0.2
+      },
+      {
+       "id": "eta_al_elgomati1997",
+       "energy_ev": 2000.0,
+       "eta": 0.203
+      },
+      {
+       "id": "eta_al_kanter1961",
+       "energy_ev": 2000.0,
+       "eta": 0.14
+      },
+      {
+       "id": "eta_al_palluel1947",
+       "energy_ev": 2000.0,
+       "eta": 0.146
+      }
+     ]
+    },
+    {
+     "energy_kev": 3.0,
+     "sets": 7,
+     "median": 0.161,
+     "min": 0.132,
+     "max": 0.2132,
+     "members": [
+      {
+       "id": "eta_al_bongeler1993",
+       "energy_ev": 3000.0,
+       "eta": 0.157
+      },
+      {
+       "id": "eta_al_bronstein1969",
+       "energy_ev": 3000.0,
+       "eta": 0.191
+      },
+      {
+       "id": "eta_al_elgomati1997",
+       "energy_ev": 3000.0,
+       "eta": 0.197
+      },
+      {
+       "id": "eta_al_kanter1961",
+       "energy_ev": 3000.0,
+       "eta": 0.132
+      },
+      {
+       "id": "eta_al_palluel1947",
+       "energy_ev": 3000.0,
+       "eta": 0.154
+      },
+      {
+       "id": "eta_al_reimer1980",
+       "energy_ev": 3000.0,
+       "eta": 0.161
+      },
+      {
+       "id": "eta_al_shimizu1974",
+       "energy_ev": 3000.0,
+       "eta": 0.2132
+      }
+     ]
+    },
+    {
+     "energy_kev": 4.0,
+     "sets": 4,
+     "median": 0.16799999999999998,
+     "min": 0.131,
+     "max": 0.191,
+     "members": [
+      {
+       "id": "eta_al_bongeler1993",
+       "energy_ev": 4000.0,
+       "eta": 0.151
+      },
+      {
+       "id": "eta_al_bronstein1969",
+       "energy_ev": 4000.0,
+       "eta": 0.185
+      },
+      {
+       "id": "eta_al_elgomati1997",
+       "energy_ev": 4000.0,
+       "eta": 0.191
+      },
+      {
+       "id": "eta_al_kanter1961",
+       "energy_ev": 4000.0,
+       "eta": 0.131
+      }
+     ]
+    },
+    {
+     "energy_kev": 5.0,
+     "sets": 8,
+     "median": 0.163,
+     "min": 0.135,
+     "max": 0.2,
+     "members": [
+      {
+       "id": "eta_al_bishop1963",
+       "energy_ev": 5000.0,
+       "eta": 0.186
+      },
+      {
+       "id": "eta_al_bongeler1993",
+       "energy_ev": 5000.0,
+       "eta": 0.148
+      },
+      {
+       "id": "eta_al_elgomati1997",
+       "energy_ev": 5000.0,
+       "eta": 0.185
+      },
+      {
+       "id": "eta_al_kanter1961",
+       "energy_ev": 5000.0,
+       "eta": 0.135
+      },
+      {
+       "id": "eta_al_palluel1947",
+       "energy_ev": 5000.0,
+       "eta": 0.158
+      },
+      {
+       "id": "eta_al_reimer1980",
+       "energy_ev": 5000.0,
+       "eta": 0.153
+      },
+      {
+       "id": "eta_al_shimizu1974",
+       "energy_ev": 5000.0,
+       "eta": 0.2
+      },
+      {
+       "id": "eta_al_wittry1966",
+       "energy_ev": 5000.0,
+       "eta": 0.168
+      }
+     ]
+    },
+    {
+     "energy_kev": 10.0,
+     "sets": 5,
+     "median": 0.15,
+     "min": 0.14,
+     "max": 0.1875,
+     "members": [
+      {
+       "id": "eta_al_bishop1963",
+       "energy_ev": 10000.0,
+       "eta": 0.177
+      },
+      {
+       "id": "eta_al_kanter1961",
+       "energy_ev": 10000.0,
+       "eta": 0.14
+      },
+      {
+       "id": "eta_al_palluel1947",
+       "energy_ev": 10000.0,
+       "eta": 0.149
+      },
+      {
+       "id": "eta_al_reimer1980",
+       "energy_ev": 10000.0,
+       "eta": 0.15
+      },
+      {
+       "id": "eta_al_shimizu1974",
+       "energy_ev": 10000.0,
+       "eta": 0.1875
+      }
+     ]
+    },
+    {
+     "energy_kev": 15.0,
+     "sets": 4,
+     "median": 0.1495,
+     "min": 0.137,
+     "max": 0.171,
+     "members": [
+      {
+       "id": "eta_al_kanter1961",
+       "energy_ev": 15000.0,
+       "eta": 0.137
+      },
+      {
+       "id": "eta_al_neubert1980",
+       "energy_ev": 15000.0,
+       "eta": 0.171
+      },
+      {
+       "id": "eta_al_palluel1947",
+       "energy_ev": 15000.0,
+       "eta": 0.149
+      },
+      {
+       "id": "eta_al_reimer1980",
+       "energy_ev": 15000.0,
+       "eta": 0.15
+      }
+     ]
+    },
+    {
+     "energy_kev": 20.0,
+     "sets": 4,
+     "median": 0.14400000000000002,
+     "min": 0.139,
+     "max": 0.164,
+     "members": [
+      {
+       "id": "eta_al_cosslett1965",
+       "energy_ev": 20000.0,
+       "eta": 0.14
+      },
+      {
+       "id": "eta_al_kanter1961",
+       "energy_ev": 20000.0,
+       "eta": 0.139
+      },
+      {
+       "id": "eta_al_neubert1980",
+       "energy_ev": 20000.0,
+       "eta": 0.164
+      },
+      {
+       "id": "eta_al_reimer1980",
+       "energy_ev": 20000.0,
+       "eta": 0.148
+      }
+     ]
+    },
+    {
+     "energy_kev": 30.0,
+     "sets": 5,
+     "median": 0.149,
+     "min": 0.135,
+     "max": 0.155,
+     "members": [
+      {
+       "id": "eta_al_bishop1963",
+       "energy_ev": 30000.0,
+       "eta": 0.15
+      },
+      {
+       "id": "eta_al_heinrich1966",
+       "energy_ev": 30000.0,
+       "eta": 0.149
+      },
+      {
+       "id": "eta_al_neubert1980",
+       "energy_ev": 30000.0,
+       "eta": 0.155
+      },
+      {
+       "id": "eta_al_reimer1980",
+       "energy_ev": 30000.0,
+       "eta": 0.144
+      },
+      {
+       "id": "eta_al_wittry1966",
+       "energy_ev": 30000.0,
+       "eta": 0.135
+      }
+     ]
+    }
+   ],
+   "runs": {
+    "1": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.19192,
+     "eta_se": 0.001245338161303989,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 5.960464477539063e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 34.799342656
+    },
+    "2": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.1666,
+     "eta_se": 0.0011783227062227054,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.043081283569336e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 42.737070772
+    },
+    "3": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.15695,
+     "eta_se": 0.0011502899525771752,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 9.934107462565104e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 48.448517432
+    },
+    "4": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.15119,
+     "eta_se": 0.001132835309742771,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 7.450580596923828e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 58.588115066
+    },
+    "5": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.14722,
+     "eta_se": 0.0011204743263457668,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 0.0,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 66.812418409
+    },
+    "10": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.13757,
+     "eta_se": 0.0010892405386323078,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.9073486328125e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 84.27598299
+    },
+    "15": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.13174,
+     "eta_se": 0.0010695072341971325,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.5894571940104166e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 110.614244436
+    },
+    "20": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.12994,
+     "eta_se": 0.0010632760525846523,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 3.814697265625e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 174.096711683
+    },
+    "30": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.12753,
+     "eta_se": 0.001054827469778826,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.2715657552083333e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 202.579336238
+    }
+   },
+   "sensitivity": {
+    "1": {
+     "both": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.19192,
+      "eta_se": 0.001245338161303989,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 5.960464477539063e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 34.799342656
+     },
+     "exchange": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.19365,
+      "eta_se": 0.0012495986455658473,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.1920928955078125e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 19.382500612
+     },
+     "polarization": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.19072,
+      "eta_se": 0.0012423601796580572,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.043081283569336e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 24.467567275
+     },
+     "none": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.19076,
+      "eta_se": 0.0012424597474365116,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.4901161193847656e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 19.751767801
+     }
+    },
+    "10": {
+     "both": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.13757,
+      "eta_se": 0.0010892405386323078,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.9073486328125e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 84.27598299
+     },
+     "exchange": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.13741,
+      "eta_se": 0.0010887079126193583,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.503395080566406e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 44.912011831
+     },
+     "polarization": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.13657,
+      "eta_se": 0.001085903472229461,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 4.76837158203125e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 65.14379298
+     },
+     "none": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.13705,
+      "eta_se": 0.0010875076896279862,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.7881393432617186e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 41.70347139
+     }
+    }
+   }
+  },
+  {
+   "target": "Si",
+   "input": null,
+   "groups": [
+    {
+     "energy_kev": 1.0,
+     "sets": 3,
+     "median": 0.228,
+     "min": 0.21,
+     "max": 0.235,
+     "members": [
+      {
+       "id": "eta_si_bronstein1969",
+       "energy_ev": 1000.0,
+       "eta": 0.228
+      },
+      {
+       "id": "eta_si_joy1996_amorphous",
+       "energy_ev": 1000.0,
+       "eta": 0.21
+      },
+      {
+       "id": "eta_si_reimer1980",
+       "energy_ev": 1000.0,
+       "eta": 0.235
+      }
+     ]
+    },
+    {
+     "energy_kev": 2.0,
+     "sets": 2,
+     "median": 0.207,
+     "min": 0.204,
+     "max": 0.21,
+     "members": [
+      {
+       "id": "eta_si_bronstein1969",
+       "energy_ev": 2000.0,
+       "eta": 0.204
+      },
+      {
+       "id": "eta_si_joy1996_amorphous",
+       "energy_ev": 2000.0,
+       "eta": 0.21
+      }
+     ]
+    },
+    {
+     "energy_kev": 3.0,
+     "sets": 3,
+     "median": 0.2,
+     "min": 0.192,
+     "max": 0.212,
+     "members": [
+      {
+       "id": "eta_si_bronstein1969",
+       "energy_ev": 3000.0,
+       "eta": 0.192
+      },
+      {
+       "id": "eta_si_joy1996_amorphous",
+       "energy_ev": 3000.0,
+       "eta": 0.2
+      },
+      {
+       "id": "eta_si_reimer1980",
+       "energy_ev": 3000.0,
+       "eta": 0.212
+      }
+     ]
+    },
+    {
+     "energy_kev": 4.0,
+     "sets": 3,
+     "median": 0.2,
+     "min": 0.189,
+     "max": 0.204,
+     "members": [
+      {
+       "id": "eta_si_bronstein1969",
+       "energy_ev": 4000.0,
+       "eta": 0.189
+      },
+      {
+       "id": "eta_si_hunger1979",
+       "energy_ev": 3930.0,
+       "eta": 0.204
+      },
+      {
+       "id": "eta_si_joy1996_amorphous",
+       "energy_ev": 4000.0,
+       "eta": 0.2
+      }
+     ]
+    },
+    {
+     "energy_kev": 5.0,
+     "sets": 5,
+     "median": 0.197,
+     "min": 0.184,
+     "max": 0.206,
+     "members": [
+      {
+       "id": "eta_si_bishop1963",
+       "energy_ev": 5000.0,
+       "eta": 0.197
+      },
+      {
+       "id": "eta_si_hunger1979",
+       "energy_ev": 5000.0,
+       "eta": 0.188
+      },
+      {
+       "id": "eta_si_joy1996_amorphous",
+       "energy_ev": 5000.0,
+       "eta": 0.2
+      },
+      {
+       "id": "eta_si_reimer1980",
+       "energy_ev": 5000.0,
+       "eta": 0.206
+      },
+      {
+       "id": "eta_si_wittry1966",
+       "energy_ev": 5000.0,
+       "eta": 0.184
+      }
+     ]
+    },
+    {
+     "energy_kev": 10.0,
+     "sets": 5,
+     "median": 0.186,
+     "min": 0.174,
+     "max": 0.2,
+     "members": [
+      {
+       "id": "eta_si_bishop1963",
+       "energy_ev": 10000.0,
+       "eta": 0.186
+      },
+      {
+       "id": "eta_si_heinrich1966",
+       "energy_ev": 10000.0,
+       "eta": 0.174
+      },
+      {
+       "id": "eta_si_hunger1979",
+       "energy_ev": 10000.0,
+       "eta": 0.174
+      },
+      {
+       "id": "eta_si_joy1996_amorphous",
+       "energy_ev": 10000.0,
+       "eta": 0.19
+      },
+      {
+       "id": "eta_si_reimer1980",
+       "energy_ev": 10000.0,
+       "eta": 0.2
+      }
+     ]
+    },
+    {
+     "energy_kev": 15.0,
+     "sets": 2,
+     "median": 0.18,
+     "min": 0.163,
+     "max": 0.197,
+     "members": [
+      {
+       "id": "eta_si_hunger1979",
+       "energy_ev": 15200.0,
+       "eta": 0.163
+      },
+      {
+       "id": "eta_si_reimer1980",
+       "energy_ev": 15000.0,
+       "eta": 0.197
+      }
+     ]
+    },
+    {
+     "energy_kev": 20.0,
+     "sets": 4,
+     "median": 0.1665,
+     "min": 0.159,
+     "max": 0.194,
+     "members": [
+      {
+       "id": "eta_si_bishop1963",
+       "energy_ev": 20000.0,
+       "eta": 0.169
+      },
+      {
+       "id": "eta_si_heinrich1966",
+       "energy_ev": 20000.0,
+       "eta": 0.164
+      },
+      {
+       "id": "eta_si_hunger1979",
+       "energy_ev": 20000.0,
+       "eta": 0.159
+      },
+      {
+       "id": "eta_si_reimer1980",
+       "energy_ev": 20000.0,
+       "eta": 0.194
+      }
+     ]
+    },
+    {
+     "energy_kev": 30.0,
+     "sets": 4,
+     "median": 0.1605,
+     "min": 0.145,
+     "max": 0.19,
+     "members": [
+      {
+       "id": "eta_si_bishop1963",
+       "energy_ev": 30000.0,
+       "eta": 0.162
+      },
+      {
+       "id": "eta_si_heinrich1966",
+       "energy_ev": 30000.0,
+       "eta": 0.159
+      },
+      {
+       "id": "eta_si_reimer1980",
+       "energy_ev": 30000.0,
+       "eta": 0.19
+      },
+      {
+       "id": "eta_si_wittry1966",
+       "energy_ev": 30000.0,
+       "eta": 0.145
+      }
+     ]
+    }
+   ],
+   "runs": {},
+   "sensitivity": {}
+  },
+  {
+   "target": "Cu",
+   "input": "validation/experiments/backscatter/eta_cu.toml",
+   "groups": [
+    {
+     "energy_kev": 1.0,
+     "sets": 5,
+     "median": 0.381,
+     "min": 0.265,
+     "max": 0.4375,
+     "members": [
+      {
+       "id": "eta_cu_bronstein1969",
+       "energy_ev": 1000.0,
+       "eta": 0.381
+      },
+      {
+       "id": "eta_cu_elgomati1997",
+       "energy_ev": 1000.0,
+       "eta": 0.31
+      },
+      {
+       "id": "eta_cu_koshikawa1973",
+       "energy_ev": 1000.0,
+       "eta": 0.43
+      },
+      {
+       "id": "eta_cu_moncrieff1976",
+       "energy_ev": 1000.0,
+       "eta": 0.265
+      },
+      {
+       "id": "eta_cu_shimizu1974",
+       "energy_ev": 1000.0,
+       "eta": 0.4375
+      }
+     ]
+    },
+    {
+     "energy_kev": 2.0,
+     "sets": 5,
+     "median": 0.379,
+     "min": 0.301,
+     "max": 0.419,
+     "members": [
+      {
+       "id": "eta_cu_bronstein1969",
+       "energy_ev": 2000.0,
+       "eta": 0.379
+      },
+      {
+       "id": "eta_cu_elgomati1997",
+       "energy_ev": 2000.0,
+       "eta": 0.322
+      },
+      {
+       "id": "eta_cu_koshikawa1973",
+       "energy_ev": 2000.0,
+       "eta": 0.406
+      },
+      {
+       "id": "eta_cu_moncrieff1976",
+       "energy_ev": 2000.0,
+       "eta": 0.301
+      },
+      {
+       "id": "eta_cu_shimizu1974",
+       "energy_ev": 2000.0,
+       "eta": 0.419
+      }
+     ]
+    },
+    {
+     "energy_kev": 3.0,
+     "sets": 6,
+     "median": 0.34099999999999997,
+     "min": 0.309,
+     "max": 0.406,
+     "members": [
+      {
+       "id": "eta_cu_bronstein1969",
+       "energy_ev": 3000.0,
+       "eta": 0.361
+      },
+      {
+       "id": "eta_cu_elgomati1997",
+       "energy_ev": 3000.0,
+       "eta": 0.321
+      },
+      {
+       "id": "eta_cu_koshikawa1973",
+       "energy_ev": 3000.0,
+       "eta": 0.406
+      },
+      {
+       "id": "eta_cu_moncrieff1976",
+       "energy_ev": 3000.0,
+       "eta": 0.309
+      },
+      {
+       "id": "eta_cu_reimer1980",
+       "energy_ev": 3000.0,
+       "eta": 0.311
+      },
+      {
+       "id": "eta_cu_shimizu1974",
+       "energy_ev": 3000.0,
+       "eta": 0.3989
+      }
+     ]
+    },
+    {
+     "energy_kev": 4.0,
+     "sets": 4,
+     "median": 0.325,
+     "min": 0.306,
+     "max": 0.34,
+     "members": [
+      {
+       "id": "eta_cu_bronstein1969",
+       "energy_ev": 4000.0,
+       "eta": 0.34
+      },
+      {
+       "id": "eta_cu_elgomati1997",
+       "energy_ev": 4000.0,
+       "eta": 0.321
+      },
+      {
+       "id": "eta_cu_hunger1979",
+       "energy_ev": 3930.0,
+       "eta": 0.329
+      },
+      {
+       "id": "eta_cu_moncrieff1976",
+       "energy_ev": 4000.0,
+       "eta": 0.306
+      }
+     ]
+    },
+    {
+     "energy_kev": 5.0,
+     "sets": 8,
+     "median": 0.324,
+     "min": 0.298,
+     "max": 0.398,
+     "members": [
+      {
+       "id": "eta_cu_bishop1963",
+       "energy_ev": 5000.0,
+       "eta": 0.352
+      },
+      {
+       "id": "eta_cu_elgomati1997",
+       "energy_ev": 5000.0,
+       "eta": 0.319
+      },
+      {
+       "id": "eta_cu_hunger1979",
+       "energy_ev": 5000.0,
+       "eta": 0.323
+      },
+      {
+       "id": "eta_cu_koshikawa1973",
+       "energy_ev": 5000.0,
+       "eta": 0.398
+      },
+      {
+       "id": "eta_cu_moncrieff1976",
+       "energy_ev": 5000.0,
+       "eta": 0.325
+      },
+      {
+       "id": "eta_cu_reimer1980",
+       "energy_ev": 5000.0,
+       "eta": 0.311
+      },
+      {
+       "id": "eta_cu_shimizu1974",
+       "energy_ev": 5000.0,
+       "eta": 0.3842
+      },
+      {
+       "id": "eta_cu_wittry1966",
+       "energy_ev": 5000.0,
+       "eta": 0.298
+      }
+     ]
+    },
+    {
+     "energy_kev": 10.0,
+     "sets": 7,
+     "median": 0.318,
+     "min": 0.29,
+     "max": 0.3566,
+     "members": [
+      {
+       "id": "eta_cu_bishop1963",
+       "energy_ev": 10000.0,
+       "eta": 0.339
+      },
+      {
+       "id": "eta_cu_cosslett1965",
+       "energy_ev": 10000.0,
+       "eta": 0.29
+      },
+      {
+       "id": "eta_cu_heinrich1966",
+       "energy_ev": 10000.0,
+       "eta": 0.318
+      },
+      {
+       "id": "eta_cu_hunger1979",
+       "energy_ev": 10000.0,
+       "eta": 0.316
+      },
+      {
+       "id": "eta_cu_koshikawa1973",
+       "energy_ev": 10000.0,
+       "eta": 0.356
+      },
+      {
+       "id": "eta_cu_reimer1980",
+       "energy_ev": 10000.0,
+       "eta": 0.311
+      },
+      {
+       "id": "eta_cu_shimizu1974",
+       "energy_ev": 10000.0,
+       "eta": 0.3566
+      }
+     ]
+    },
+    {
+     "energy_kev": 15.0,
+     "sets": 3,
+     "median": 0.311,
+     "min": 0.31,
+     "max": 0.335,
+     "members": [
+      {
+       "id": "eta_cu_hunger1979",
+       "energy_ev": 15200.0,
+       "eta": 0.31
+      },
+      {
+       "id": "eta_cu_neubert1980",
+       "energy_ev": 15000.0,
+       "eta": 0.335
+      },
+      {
+       "id": "eta_cu_reimer1980",
+       "energy_ev": 15000.0,
+       "eta": 0.311
+      }
+     ]
+    },
+    {
+     "energy_kev": 20.0,
+     "sets": 6,
+     "median": 0.31,
+     "min": 0.29,
+     "max": 0.339,
+     "members": [
+      {
+       "id": "eta_cu_bishop1963",
+       "energy_ev": 20000.0,
+       "eta": 0.339
+      },
+      {
+       "id": "eta_cu_cosslett1965",
+       "energy_ev": 20000.0,
+       "eta": 0.29
+      },
+      {
+       "id": "eta_cu_heinrich1966",
+       "energy_ev": 20000.0,
+       "eta": 0.309
+      },
+      {
+       "id": "eta_cu_hunger1979",
+       "energy_ev": 20200.0,
+       "eta": 0.306
+      },
+      {
+       "id": "eta_cu_neubert1980",
+       "energy_ev": 20000.0,
+       "eta": 0.328
+      },
+      {
+       "id": "eta_cu_reimer1980",
+       "energy_ev": 20000.0,
+       "eta": 0.311
+      }
+     ]
+    },
+    {
+     "energy_kev": 30.0,
+     "sets": 5,
+     "median": 0.311,
+     "min": 0.291,
+     "max": 0.319,
+     "members": [
+      {
+       "id": "eta_cu_bishop1963",
+       "energy_ev": 30000.0,
+       "eta": 0.319
+      },
+      {
+       "id": "eta_cu_heinrich1966",
+       "energy_ev": 30000.0,
+       "eta": 0.306
+      },
+      {
+       "id": "eta_cu_neubert1980",
+       "energy_ev": 30000.0,
+       "eta": 0.319
+      },
+      {
+       "id": "eta_cu_reimer1980",
+       "energy_ev": 30000.0,
+       "eta": 0.311
+      },
+      {
+       "id": "eta_cu_wittry1966",
+       "energy_ev": 30000.0,
+       "eta": 0.291
+      }
+     ]
+    }
+   ],
+   "runs": {
+    "1": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.33344,
+     "eta_se": 0.0014908311990295886,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 5.960464477539063e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 27.277354121
+    },
+    "2": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.31614,
+     "eta_se": 0.0014703588011094435,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.341104507446289e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 35.466159045
+    },
+    "3": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.30982,
+     "eta_se": 0.0014622980804199943,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.7881393432617186e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 39.490223336
+    },
+    "4": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.3047,
+     "eta_se": 0.0014555339570068437,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.6391277313232423e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 44.408526186
+    },
+    "5": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.30253,
+     "eta_se": 0.0014526031774025555,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 8.344650268554687e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 48.363270412
+    },
+    "10": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.29828,
+     "eta_se": 0.0014467516773793627,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.430511474609375e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 69.245410468
+    },
+    "15": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.29698,
+     "eta_se": 0.001444932107747627,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.9073486328125e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 105.960504815
+    },
+    "20": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.29732,
+     "eta_se": 0.001445409345479681,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 2.6226043701171873e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 109.896452506
+    },
+    "30": {
+     "version": "6629260",
+     "histories": 100000,
+     "eta": 0.29574,
+     "eta_se": 0.0014431834685860283,
+     "secondary_delta": 0.0,
+     "relative_imbalance": 1.7484029134114584e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 141.062498699
+    }
+   },
+   "sensitivity": {
+    "1": {
+     "both": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.33344,
+      "eta_se": 0.0014908311990295886,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 5.960464477539063e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 27.277354121
+     },
+     "exchange": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.33286,
+      "eta_se": 0.0014901819365433203,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 2.086162567138672e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 14.691838183
+     },
+     "polarization": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.32842,
+      "eta_se": 0.0014851272793939246,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 4.470348358154296e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 20.90238186
+     },
+     "none": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.3305,
+      "eta_se": 0.001487513865481596,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 7.450580596923828e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 15.930118536
+     }
+    },
+    "10": {
+     "both": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.29828,
+      "eta_se": 0.0014467516773793627,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.430511474609375e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 69.245410468
+     },
+     "exchange": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.29826,
+      "eta_se": 0.0014467237898092367,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 8.344650268554687e-16,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2)",
+      "table_build_s": 38.063944496
+     },
+     "polarization": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.29699,
+      "eta_se": 0.001444946157820422,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 1.430511474609375e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential; corrections: correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+      "table_build_s": 61.786111317
+     },
+     "none": {
+      "version": "6629260",
+      "histories": 100000,
+      "eta": 0.29729,
+      "eta_se": 0.0014453672747782827,
+      "secondary_delta": 0.0,
+      "relative_imbalance": 3.0994415283203126e-15,
+      "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: STAND-IN Yukawa potential -(Z/r) exp(-r/a) with Thomas-Fermi length a = 0.8853 a0 Z^(-1/3); not a DHFS atomic potential",
+      "table_build_s": 36.170521113
+     }
+    }
+   }
+  },
+  {
+   "target": "Au",
+   "input": null,
+   "groups": [
+    {
+     "energy_kev": 1.0,
+     "sets": 3,
+     "median": 0.395,
+     "min": 0.289,
+     "max": 0.419,
+     "members": [
+      {
+       "id": "eta_au_bongeler1993",
+       "energy_ev": 1000.0,
+       "eta": 0.289
+      },
+      {
+       "id": "eta_au_bronstein1969",
+       "energy_ev": 1000.0,
+       "eta": 0.419
+      },
+      {
+       "id": "eta_au_elgomati1997",
+       "energy_ev": 1000.0,
+       "eta": 0.395
+      }
+     ]
+    },
+    {
+     "energy_kev": 2.0,
+     "sets": 3,
+     "median": 0.428,
+     "min": 0.373,
+     "max": 0.45,
+     "members": [
+      {
+       "id": "eta_au_bongeler1993",
+       "energy_ev": 2000.0,
+       "eta": 0.373
+      },
+      {
+       "id": "eta_au_bronstein1969",
+       "energy_ev": 2000.0,
+       "eta": 0.45
+      },
+      {
+       "id": "eta_au_elgomati1997",
+       "energy_ev": 2000.0,
+       "eta": 0.428
+      }
+     ]
+    },
+    {
+     "energy_kev": 3.0,
+     "sets": 4,
+     "median": 0.433,
+     "min": 0.414,
+     "max": 0.464,
+     "members": [
+      {
+       "id": "eta_au_bongeler1993",
+       "energy_ev": 3000.0,
+       "eta": 0.414
+      },
+      {
+       "id": "eta_au_bronstein1969",
+       "energy_ev": 3000.0,
+       "eta": 0.464
+      },
+      {
+       "id": "eta_au_elgomati1997",
+       "energy_ev": 3000.0,
+       "eta": 0.451
+      },
+      {
+       "id": "eta_au_reimer1980",
+       "energy_ev": 3000.0,
+       "eta": 0.415
+      }
+     ]
+    },
+    {
+     "energy_kev": 4.0,
+     "sets": 4,
+     "median": 0.4545,
+     "min": 0.443,
+     "max": 0.461,
+     "members": [
+      {
+       "id": "eta_au_bongeler1993",
+       "energy_ev": 4000.0,
+       "eta": 0.443
+      },
+      {
+       "id": "eta_au_bronstein1969",
+       "energy_ev": 4000.0,
+       "eta": 0.461
+      },
+      {
+       "id": "eta_au_elgomati1997",
+       "energy_ev": 4000.0,
+       "eta": 0.459
+      },
+      {
+       "id": "eta_au_hunger1979",
+       "energy_ev": 3930.0,
+       "eta": 0.45
+      }
+     ]
+    },
+    {
+     "energy_kev": 5.0,
+     "sets": 7,
+     "median": 0.459,
+     "min": 0.43,
+     "max": 0.489,
+     "members": [
+      {
+       "id": "eta_au_bishop1963",
+       "energy_ev": 5000.0,
+       "eta": 0.489
+      },
+      {
+       "id": "eta_au_bongeler1993",
+       "energy_ev": 5000.0,
+       "eta": 0.459
+      },
+      {
+       "id": "eta_au_cosslett1965",
+       "energy_ev": 5000.0,
+       "eta": 0.43
+      },
+      {
+       "id": "eta_au_elgomati1997",
+       "energy_ev": 5000.0,
+       "eta": 0.461
+      },
+      {
+       "id": "eta_au_hunger1979",
+       "energy_ev": 5000.0,
+       "eta": 0.469
+      },
+      {
+       "id": "eta_au_reimer1980",
+       "energy_ev": 5000.0,
+       "eta": 0.448
+      },
+      {
+       "id": "eta_au_wittry1966",
+       "energy_ev": 5000.0,
+       "eta": 0.432
+      }
+     ]
+    },
+    {
+     "energy_kev": 10.0,
+     "sets": 5,
+     "median": 0.476,
+     "min": 0.47,
+     "max": 0.501,
+     "members": [
+      {
+       "id": "eta_au_bishop1963",
+       "energy_ev": 10000.0,
+       "eta": 0.501
+      },
+      {
+       "id": "eta_au_cosslett1965",
+       "energy_ev": 10000.0,
+       "eta": 0.47
+      },
+      {
+       "id": "eta_au_heinrich1966",
+       "energy_ev": 10000.0,
+       "eta": 0.483
+      },
+      {
+       "id": "eta_au_hunger1979",
+       "energy_ev": 10000.0,
+       "eta": 0.476
+      },
+      {
+       "id": "eta_au_reimer1980",
+       "energy_ev": 10000.0,
+       "eta": 0.471
+      }
+     ]
+    },
+    {
+     "energy_kev": 15.0,
+     "sets": 3,
+     "median": 0.484,
+     "min": 0.482,
+     "max": 0.514,
+     "members": [
+      {
+       "id": "eta_au_hunger1979",
+       "energy_ev": 15200.0,
+       "eta": 0.484
+      },
+      {
+       "id": "eta_au_neubert1980",
+       "energy_ev": 15000.0,
+       "eta": 0.514
+      },
+      {
+       "id": "eta_au_reimer1980",
+       "energy_ev": 15000.0,
+       "eta": 0.482
+      }
+     ]
+    },
+    {
+     "energy_kev": 20.0,
+     "sets": 5,
+     "median": 0.485,
+     "min": 0.48,
+     "max": 0.516,
+     "members": [
+      {
+       "id": "eta_au_cosslett1965",
+       "energy_ev": 20000.0,
+       "eta": 0.48
+      },
+      {
+       "id": "eta_au_heinrich1966",
+       "energy_ev": 20000.0,
+       "eta": 0.506
+      },
+      {
+       "id": "eta_au_hunger1979",
+       "energy_ev": 20200.0,
+       "eta": 0.485
+      },
+      {
+       "id": "eta_au_neubert1980",
+       "energy_ev": 20000.0,
+       "eta": 0.516
+      },
+      {
+       "id": "eta_au_reimer1980",
+       "energy_ev": 20000.0,
+       "eta": 0.482
+      }
+     ]
+    },
+    {
+     "energy_kev": 30.0,
+     "sets": 5,
+     "median": 0.512,
+     "min": 0.481,
+     "max": 0.521,
+     "members": [
+      {
+       "id": "eta_au_bishop1963",
+       "energy_ev": 30000.0,
+       "eta": 0.521
+      },
+      {
+       "id": "eta_au_heinrich1966",
+       "energy_ev": 30000.0,
+       "eta": 0.512
+      },
+      {
+       "id": "eta_au_neubert1980",
+       "energy_ev": 30000.0,
+       "eta": 0.519
+      },
+      {
+       "id": "eta_au_reimer1980",
+       "energy_ev": 30000.0,
+       "eta": 0.482
+      },
+      {
+       "id": "eta_au_wittry1966",
+       "energy_ev": 30000.0,
+       "eta": 0.481
+      }
+     ]
+    }
+   ],
+   "runs": {},
+   "sensitivity": {}
+  }
+ ]
+}
