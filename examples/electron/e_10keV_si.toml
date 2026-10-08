@@ -1,0 +1,60 @@
+# 10 keV electrons into silicon at normal incidence: an electron run.
+#
+# Run:   lindhard run examples/electron/e_10keV_si.toml --out out/e_10keV_si
+# Check: lindhard check examples/electron/e_10keV_si.toml
+#
+# Schema: docs/cli.md, "Electron runs". Energies are in eV, lengths in nm,
+# angles in degrees.
+#
+# SYNTHETIC DATA. The target is Si (composition and density from the element
+# table), but the electron data are not Si's: the optical ELF is a synthetic
+# Drude-Lorentz plasmon (synthetic_plasmon_elf.toml) and the band parameters
+# below are round numbers chosen for the example. No optical or band data of
+# real materials is committed (docs/data-provenance.md). The output shows what
+# a run reports, not what silicon does.
+
+[electron.beam]
+energy_ev = 10000.0
+tilt_deg = 0.0
+
+[electron.transport]
+# Electrons that can no longer leave the target are not followed: the cutoff
+# is measured from the vacuum level (Nebula's rule).
+cutoff_ev = 1.0
+cutoff_reference = "vacuum-level"
+secondaries = "kieft-bosch"
+boundary = "step-barrier"
+
+[electron.elastic]
+model = "mott"
+# The only potential that runs today is a stand-in (docs/data-provenance.md).
+potential = "thomas-fermi-yukawa"
+exchange = false
+
+[electron.inelastic]
+model = "penn-single-pole"
+
+[electron.tables]
+# A coarse grid keeps the example quick; the library default is 20 points per
+# decade.
+min_energy_ev = 10.0
+points_per_decade = 8.0
+
+[electron.materials.Si]
+optical_elf = "synthetic_plasmon_elf.toml"
+band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0, provenance = "SYNTHETIC round numbers for the CLI example (examples/electron/e_10keV_si.toml), not band parameters of Si" }
+
+[electron.tally]
+escape_energy_bins = 100
+escape_polar_bins = 18
+
+[electron.tally.cylindrical]
+r = { lo_nm = 0.0, hi_nm = 1000.0, bins = 20 }
+depth = { lo_nm = 0.0, hi_nm = 2000.0, bins = 40 }
+
+[target]
+substrate = "Si"
+
+[run]
+histories = 1000
+seed = 1

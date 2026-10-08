@@ -2,6 +2,139 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-08
+
+- **PR #171**: chore: adopt the 2AMLogic Renovate preset
+
+### 2026-10-07
+
+- **PR #170**: Electron oracle comparison vs Nebula and Geant4 MicroElec on matched problems (#150)
+- **PR #167**: validation: backscatter coefficient eta(E, Z) vs published measurements (#148)
+- **PR #166**: chore: resync installed Loom surfaces to 0.19.874
+- **PR #164**: chore: resync installed Repo Skills to 0.21.2
+- **PR #163**: chore: repo hygiene fixes (2026-10-07)
+- **PR #161**: docs: PMMA optical ELF source could not be opened; gap recorded (#147)
+- **PR #154**: feat(cli): [electron] run mode with electron_summary.json and CSV output
+- **PR #153**: docs: record that the JSP 2004 reprint has no sigma_el/sigma_tr1 table for C, Si, Cu, Au (Part of #93)
+- **PR #144**: Inelastic validation: full Penn IMFPs vs TPP 2011 for Al and Cu (#99)
+- **PR #143**: feat(electron): Mermin dielectric function and MELF oscillator fit (#96)
+- **PR #142**: Elastic validation harness vs partial-wave values (#93): placeholder, no reference values
+- **PR #141**: chore(py): remove unused serde_json dependency from lindhard-py
+- **PR #140**: validation: sputter sensitivity to doubtful sets; Fig. 310 tick wording (#78)
+- **PR #139**: docs: #61 sputter-yield investigation summary and reproduction recipe
+- **PR #138**: Fluence stepping loop for dynamic composition (#24)
+- **PR #136**: electron::inelastic::table: energy-loss CrossSectionTable and q sampler (#94)
+- **PR #134**: electron: shell-resolved inner-shell channels and Born-Ochkur exchange for the Penn model
+- **PR #133**: electron::inelastic: full Penn algorithm over Lindhard dielectric functions
+- **PR #132**: feat(electron::elastic): exchange and correlation-polarization corrections (#91)
+- **PR #129**: docs: defer the muffin-tin potential, record the gap (#92)
+- **PR #128**: data: cross-check Mn density (NBS Monograph 25); record Kittel and E521 access attempts (#15)
+- **PR #126**: Electron transport: Frohlich phonon scattering and polaron trapping channels
+- **PR #124**: docs: move Salvat DHFS and elastic-solver rows into the provenance inventory table
+- **PR #122**: electron::elastic::table: energy-grid elastic CrossSectionTables (#90)
+- **PR #118**: feat: single-pole Penn DIIMFP, IMFP and stopping from an OpticalElf
+- **PR #117**: loom: enable per-worktree cargo target dirs (#114)
+- **PR #116**: electron: secondary electrons, step barrier and interface refraction (#101)
+- **PR #113**: tally::electron: 3D deposition grids, eta/delta yields, escape spectra (#103)
+- **PR #110**: data: check Cr, Au, Ra, Ac densities against NBS and AEC reports (#15)
+- **PR #109**: electron::elastic: radial Dirac partial-wave solver (#17)
+- **PR #108**: electron::transport: event loop in layered stacks on CrossSectionTable inputs
+- **PR #107**: Commit Al and Cu optical ELF datasets with sum-rule test (#98)
+- **PR #106**: Commit EADL2017 subshell binding energies (Z=1..92)
+- **PR #105**: data: check element densities against the X-Ray Data Booklet (CRC 80th ed.); record E_d access gaps
+- **PR #104**: Voxel-grid geometry: Geometry trait, VoxelGrid and exact 3D DDA crossing
+- **PR #88**: perf: collision hot path - sin/cos angle chain, cached stopping coefficient, reused buffers (#37)
+- **PR #86**: Stopping-data format, loader and model comparison (#35)
+- **PR #85**: docs: add the lindhard book (physics manual and user guide) with CI build and Pages deploy
+- **PR #84**: lindhard-py: pyo3 bindings with NumPy outputs
+- **PR #83**: Composition-depth grid with volume relaxation (ion::dynamic)
+- **PR #82**: Make both crates publish-ready: allowlists, CHANGELOG, CI package job
+- **Issue #150** (closed): [Epic #11] Validation: oracle comparison vs Nebula and Geant4 MicroElec on matched problems
+- **Issue #147** (closed): [Epic #11] Commit PMMA optical ELF (Ritsko et al. 1978) as a cited measurement
+- **Issue #145** (closed): [Epic #11] CLI: [electron] input section and electron report output
+- **Issue #137** (closed): Remove unused serde_json dependency from lindhard-py
+- **Issue #114** (closed): Loom config: enable per-worktree cargo target dirs (cargo.perWorktreeTargetDir)
+- **Issue #112** (closed): docs/data-provenance.md: Salvat DHFS and elastic-solver rows sit under Open questions instead of the inventory table
+- **Issue #103** (closed): [Epic #11] Electron transport, step 4: electron tallies — 3D deposition grid, BSE/SE yields and spectra
+- **Issue #102** (closed): [Epic #11] Electron transport, step 3: insulator losses — Fröhlich phonon scattering and polaron trapping
+- **Issue #101** (closed): [Epic #11] Electron transport, step 2: secondary-electron generation, surface barrier and interface refraction
+- **Issue #100** (closed): [Epic #11] Electron transport, step 1: event-by-event loop in layered stacks on CrossSectionTable inputs
+- **Issue #99** (closed): [Epic #11] Inelastic validation: IMFPs vs Tanuma–Powell–Penn for Al and Cu
+- **Issue #98** (closed): [Epic #11] Commit first optical ELF datasets (Si, Al, Cu) as cited measurements
+- **Issue #97** (closed): [Epic #11] Penn inelastic, step 5: inner-shell ionization channel and slow-electron exchange correction
+- **Issue #96** (closed): [Epic #11] Penn inelastic, step 4: Mermin-ELF oscillator fit to optical data
+- **Issue #95** (closed): [Epic #11] Penn inelastic, step 3: full Penn algorithm (Lindhard-function extension)
+- **Issue #94** (closed): [Epic #11] Penn inelastic, step 2: energy-loss and angle sampling tables into CrossSectionTable
+- **Issue #92** (closed): [Epic #11] Mott elastic, step 4: muffin-tin potential for condensed targets (or a documented deferral)
+- **Issue #91** (closed): [Epic #11] Mott elastic, step 3: exchange and correlation-polarization corrections
+- **Issue #90** (closed): [Epic #11] Mott elastic, step 2: energy-grid elastic tables into CrossSectionTable
+- **Issue #78** (closed): Validation level 3: report the sensitivity of the sputter ratios to doubtful sets; Fig. 310 tick wording; checker gaps (follow-up to #70)
+- **Issue #74** (closed): Commit EADL2017 subshell binding energies once their redistribution terms are ruled on
+- **Issue #61** (closed): Investigate low sputter yields: Ar 1 keV -> Cu is 2.2x below RustBCA even with E_d = E_s (follow-up to #50)
+- **Issue #37** (closed): [Epic #36] Profile-guided hot-path optimization
+- **Issue #35** (closed): [Epic #33] Experimental stopping-data format and loader
+- **Issue #32** (closed): [Epic #30] Physics manual + user guide (mdBook)
+- **Issue #31** (closed): [Epic #30] Publish-readiness: packageable crates, cargo publish --dry-run in CI, CHANGELOG
+- **Issue #29** (closed): [Epic #28] lindhard-py: pyo3 bindings with NumPy outputs
+- **Issue #26** (closed): [Epic #25] Voxel-grid geometry
+- **Issue #24** (closed): [Epic #22] Fluence stepping loop
+- **Issue #23** (closed): [Epic #22] Composition–depth grid with volume relaxation
+- **Issue #18** (closed): [Epic #11] Penn inelastic, step 1: single-pole Penn DIIMFP, IMFP and stopping from an OpticalElf
+- **Issue #17** (closed): [Epic #11] Mott elastic, step 1: radial Dirac partial-wave solver for a screened potential
+
+### 2026-10-06
+
+- **PR #77**: feat: measured Ar -> Si, Ag, Au sputter yields with per-target comparison and generated interpretation
+- **PR #75**: feat(electron): validated electron::data types for ELF, subshell binding energies and cross-section caches
+- **PR #73**: docs: oracle ions/s comparison and profile (#9)
+- **PR #72**: data: verify constants and atomic weights against CODATA 2022 and CIAAW; record E_s, density, E_d gaps
+- **PR #71**: Level 3: measured Ar -> Cu sputter yields with independent double-check (#69)
+- **PR #68**: docs: reflect #64 (opt-in weak collisions) in README and WORK_PLAN
+- **PR #67**: bca: optional TRIDYN weak collisions beyond p_max, with an LNST partition check (#64)
+- **PR #66**: docs: refresh README status and WORK_PLAN (post #62, #61)
+- **Issue #70** (closed): Validation level 3: measured Ar sputtering yields for Si, Ag and Au (follow-up to #69)
+- **Issue #69** (closed): Validation level 3: measured Ar sputtering yields (Cu, Si, Ag, Au) from open compilations
+- **Issue #64** (closed): BCA: nuclear loss truncated at p_max while electronic loss is not, which over-damps low-energy recoils
+- **Issue #16** (closed): [Epic #11] Electron interaction data model + optical ELF provenance
+- **Issue #9** (closed): Benchmarks: hot-path criterion benches + ions/s vs oracles
+
+### 2026-10-05
+
+- **PR #63**: docs: repo hygiene pass (README status, stale refs, WORK_PLAN, directory READMEs)
+- **PR #62**: Validation level 3: B-in-a-Si range data, provenance enforcement, stopping-input attribution
+- **PR #60**: Docs: Biersack-Varelas join documented, not implemented (#44)
+- **PR #59**: Validation level 2: RustBCA and OpenTRIM oracle adapters and first committed summaries
+- **PR #57**: docs: verify screening lengths and impulse-approximation citation against primary sources
+- **PR #56**: CLI: user-supplied stopping tables via [stopping]
+- **PR #54**: CLI: tally outputs (range, damage, sputtering, escapes)
+- **PR #53**: Add hot-path benches, thread-scaling throughput and benchmarks doc
+- **PR #52**: Validation harness: level-1 checks in CI, oracle and experiment scaffolding (part of #8)
+- **PR #49**: Stopping: single-oscillator density effect; document declined Barkas/shell/straggling terms
+- **PR #48**: Tallies: range moments, Pearson IV / dual-Pearson, damage (NRT vs cascade), sputter/backscatter
+- **PR #47**: CLI: TOML input, check/run, JSON/CSV output with full physics metadata
+- **PR #46**: Amorphous 1D-layered BCA engine with full recoil cascades
+- **PR #43**: Deterministic per-particle RNG streams + parallel driver
+- **PR #42**: Electronic stopping models from published formulas (LS, OR, Bethe-Bloch, joined) + Bragg additivity
+- **PR #40**: Screened interatomic potentials and scattering integral (#3)
+- **PR #39**: docs: historical note, from the 1947 neutron histories to lindhard
+- **PR #38**: WORK_PLAN: full roadmap (9 epics, Phase 1 issues filed)
+- **PR #14**: Materials, units and physical constants
+- **Issue #55** (closed): CLI: user-supplied stopping tables
+- **Issue #50** (closed): Validation level 2: RustBCA and OpenTRIM oracle adapters and first committed summaries (follow-up to #8)
+- **Issue #44** (closed): Biersack-Varelas interpolation joining low- and high-energy stopping (deferred from #4)
+- **Issue #41** (closed): Stopping: add Barkas, shell and density-effect terms and a Chu/Yang-type straggling correction from cleanly sourced formulas
+- **Issue #7** (closed): CLI: TOML input, JSON/CSV output with full physics metadata
+- **Issue #6** (closed): Tallies: range moments, Pearson IV / dual-Pearson, damage (NRT vs full cascade), sputter/backscatter
+- **Issue #5** (closed): Amorphous 1D-layered BCA engine with full recoil cascades
+- **Issue #4** (closed): Electronic stopping models from published formulas (LS, OR, Bethe-Bloch, Biersack-Varelas) + Bragg additivity
+- **Issue #3** (closed): Screened interatomic potentials + scattering integral (quadrature, magic formula, lookup tables)
+- **Issue #2** (closed): Deterministic per-particle RNG streams + parallel driver
+- **Issue #1** (closed): Materials, units and physical constants
+
+### 2026-10-04
+
+- **PR #13**: Public from 2026-10-04: drop private-until-M0 wording, full CI matrix
+
 ## 2026-10-07
 
 - `lindhard-py` (#29): Python bindings with pyo3 and maturin. The classes

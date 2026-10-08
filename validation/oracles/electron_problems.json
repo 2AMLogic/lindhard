@@ -1,0 +1,40 @@
+{
+  "format": "lindhard-electron-problems/1",
+  "description": "Matched electron problems for the code-to-code comparison of #150 (docs/validation.md, 'Electron oracles: Nebula and Geant4 MicroElec'): electrons at normal incidence into bulk Si and bulk Cu at 1, 5 and 20 keV. Read by validation/oracles/run_electron.py. The material parameters (optical ELF, band structure) are not stored here: both lindhard and Nebula read them at run time from the user's cstool clone (CSTOOL_SRC), so nothing of them enters this tree.",
+  "metrics": {
+    "eta": "backscatter yield: electrons leaving the front face with E >= 50 eV (vacuum energy) per primary",
+    "delta": "secondary yield: electrons leaving the front face with E < 50 eV per primary",
+    "primary_depth_nm": "mean depth (along the beam) at which the primaries that stopped in the target came to rest",
+    "r50_nm": "radius about the beam axis of the cylinder that contains 50 % of the energy deposited in the target (over all depths)"
+  },
+  "split_ev": 50.0,
+  "tolerances": {
+    "source": "#150 acceptance criteria (operator, 2026-10-07): initial tolerances vs Nebula, the closest model. Loosening needs operator sign-off.",
+    "reference_oracle": "Nebula",
+    "energies_ev": [5000.0, 20000.0],
+    "eta_abs": 0.03,
+    "r50_rel": 0.15,
+    "report_only": "delta, primary_depth_nm, every 1 keV result, and every Geant4 MicroElec result are reported without pass/fail"
+  },
+  "lindhard": {
+    "inelastic_model": "penn-single-pole",
+    "elastic_potential": "thomas-fermi-yukawa",
+    "exchange": true,
+    "secondaries": "kieft-bosch",
+    "boundary": "step-barrier",
+    "cutoff_reference": "vacuum-level",
+    "cutoff_ev": 0.01,
+    "min_energy_ev": 10.0,
+    "points_per_decade": 20.0
+  },
+  "batches": 10,
+  "seed": 1,
+  "problems": [
+    {"id": "e_1keV_si", "element": "Si", "cstool_material": "silicon.yaml", "nebula_material": "silicon.mat", "geant4_material": "G4_Si", "energy_ev": 1000.0, "histories": 20000, "rmax_nm": 1000.0, "rbins": 10000},
+    {"id": "e_5keV_si", "element": "Si", "cstool_material": "silicon.yaml", "nebula_material": "silicon.mat", "geant4_material": "G4_Si", "energy_ev": 5000.0, "histories": 10000, "rmax_nm": 5000.0, "rbins": 10000},
+    {"id": "e_20keV_si", "element": "Si", "cstool_material": "silicon.yaml", "nebula_material": "silicon.mat", "geant4_material": "G4_Si", "energy_ev": 20000.0, "histories": 4000, "rmax_nm": 20000.0, "rbins": 10000},
+    {"id": "e_1keV_cu", "element": "Cu", "cstool_material": "copper.yaml", "nebula_material": "copper.mat", "geant4_material": null, "energy_ev": 1000.0, "histories": 20000, "rmax_nm": 1000.0, "rbins": 10000},
+    {"id": "e_5keV_cu", "element": "Cu", "cstool_material": "copper.yaml", "nebula_material": "copper.mat", "geant4_material": null, "energy_ev": 5000.0, "histories": 10000, "rmax_nm": 5000.0, "rbins": 10000},
+    {"id": "e_20keV_cu", "element": "Cu", "cstool_material": "copper.yaml", "nebula_material": "copper.mat", "geant4_material": null, "energy_ev": 20000.0, "histories": 4000, "rmax_nm": 20000.0, "rbins": 10000}
+  ]
+}

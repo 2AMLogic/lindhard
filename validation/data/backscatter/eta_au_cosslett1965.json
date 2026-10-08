@@ -1,0 +1,47 @@
+{
+  "kind": "backscatter_coefficient",
+  "id": "eta_au_cosslett1965",
+  "target": "Au",
+  "z": 79,
+  "target_state": "not stated by the compilation (no sample preparation, surface condition or thickness is given per set)",
+  "incidence_deg": 0.0,
+  "incidence_note": "not stated by the compilation, which tabulates the yield against energy only; taken as normal incidence on a bulk target",
+  "eta_threshold_note": "the compilation does not state the energy threshold that separates backscattered from secondary electrons per set; the conventional 50 eV is assumed",
+  "points": [
+    {
+      "energy_ev": 5000.0,
+      "eta": 0.43,
+      "eta_unc_abs": 0.005
+    },
+    {
+      "energy_ev": 10000.0,
+      "eta": 0.47,
+      "eta_unc_abs": 0.005
+    },
+    {
+      "energy_ev": 20000.0,
+      "eta": 0.48,
+      "eta_unc_abs": 0.005
+    },
+    {
+      "energy_ev": 45000.0,
+      "eta": 0.5,
+      "eta_unc_abs": 0.05
+    }
+  ],
+  "original_reference": "V. E. Cosslett and R. N. Thomas, Brit. J. Appl. Phys. 16, 774 (1965)",
+  "original_doi": null,
+  "original_reference_note": "page as printed by Joy; Crossref has Cosslett and Thomas, Brit. J. Appl. Phys. 16, 779-796 (1965), 'Multiple scattering of 5-30 keV electrons in evaporated metal films III: Backscattering and absorption', doi:10.1088/0508-3443/16/6/303, probably this paper (first page differs), so no DOI is asserted; the original was not opened",
+  "compilation": "D. C. Joy, 'A Database of Electron-Solid Interactions', revision 01-01 (2001), database.doc (SHA-256 9445f8ddbebb72892a30e2e3bb5c77dac3b4d5b36790287e7c0ce658afd25fd7), Section 2(a) 'Backscattered Electron Yield Data, for elements'; published description: D. C. Joy, Scanning 17, 270 (1995), doi:10.1002/sca.4950170501 (not opened)",
+  "compilation_set": "Gold (Z=79), 'Data set #8 Reference (22)'",
+  "compilation_reference_number": 22,
+  "url": "http://web.archive.org/web/20040320063526/http://web.utk.edu:80/~srcutk/database.doc",
+  "crosscheck": {
+    "compilation": "F. Akbari, Zenodo doi:10.5281/zenodo.7810951 (CC-BY 4.0), 'Energy dependence (csv).rar' (SHA-256 e35d11553720b6d122e129928993448e7f6456f189a21ad640ec15b1d7846987)",
+    "agreement": "4 of 4 points re-read identically (to the 0.1 % rounding of the Akbari table) in Akbari set 3 of Au.csv",
+    "record": "validation/data/backscatter/crosscheck_akbari2022.json"
+  },
+  "extraction": "transcribed from the compilation's table (text of the Word file, extracted by validation/data/backscatter/ingest_joy2001.py); E in keV times 1000, eta as printed. The compilation gives no measurement uncertainty; eta_unc_abs is half a unit of the last printed digit (the table's rounding), not an experimental error",
+  "terms": "Facts, cited (operator ruling #34: published measurements may be committed as cited reference facts)",
+  "added": "2026-10-07"
+}

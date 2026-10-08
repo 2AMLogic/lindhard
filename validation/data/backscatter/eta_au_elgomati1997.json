@@ -1,0 +1,87 @@
+{
+  "kind": "backscatter_coefficient",
+  "id": "eta_au_elgomati1997",
+  "target": "Au",
+  "z": 79,
+  "target_state": "not stated by the compilation (no sample preparation, surface condition or thickness is given per set)",
+  "incidence_deg": 0.0,
+  "incidence_note": "not stated by the compilation, which tabulates the yield against energy only; taken as normal incidence on a bulk target",
+  "eta_threshold_note": "the compilation does not state the energy threshold that separates backscattered from secondary electrons per set; the conventional 50 eV is assumed",
+  "points": [
+    {
+      "energy_ev": 610.0,
+      "eta": 0.367,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 900.0,
+      "eta": 0.387,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 1000.0,
+      "eta": 0.395,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 1510.0,
+      "eta": 0.411,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 2000.0,
+      "eta": 0.428,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 2500.0,
+      "eta": 0.444,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 3000.0,
+      "eta": 0.451,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 3500.0,
+      "eta": 0.455,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 4000.0,
+      "eta": 0.459,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 4500.0,
+      "eta": 0.458,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 5000.0,
+      "eta": 0.461,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 6000.0,
+      "eta": 0.471,
+      "eta_unc_abs": 0.0005
+    }
+  ],
+  "original_reference": "M. M. El Gomati and A. M. D. Assad, Proc. 5th European Workshop on Microbeam Analysis (1997), in press when compiled",
+  "original_doi": null,
+  "original_reference_note": "proceedings 'in press' in the compilation, no DOI found; the original was not opened",
+  "compilation": "D. C. Joy, 'A Database of Electron-Solid Interactions', revision 01-01 (2001), database.doc (SHA-256 9445f8ddbebb72892a30e2e3bb5c77dac3b4d5b36790287e7c0ce658afd25fd7), Section 2(a) 'Backscattered Electron Yield Data, for elements'; published description: D. C. Joy, Scanning 17, 270 (1995), doi:10.1002/sca.4950170501 (not opened)",
+  "compilation_set": "Gold (Z=79), 'Data set #11 Reference (107)'",
+  "compilation_reference_number": 107,
+  "url": "http://web.archive.org/web/20040320063526/http://web.utk.edu:80/~srcutk/database.doc",
+  "crosscheck": {
+    "compilation": "F. Akbari, Zenodo doi:10.5281/zenodo.7810951 (CC-BY 4.0), 'Energy dependence (csv).rar' (SHA-256 e35d11553720b6d122e129928993448e7f6456f189a21ad640ec15b1d7846987)",
+    "agreement": "10 of 12 points re-read identically (to the 0.1 % rounding of the Akbari table) in Akbari set 1 ('cleaned sample') of Au.csv; differing: 0.61 keV Joy 0.367 vs Akbari no point at this energy; 1.51 keV Joy 0.411 vs Akbari no point at this energy (Joy's value is stored)",
+    "record": "validation/data/backscatter/crosscheck_akbari2022.json"
+  },
+  "extraction": "transcribed from the compilation's table (text of the Word file, extracted by validation/data/backscatter/ingest_joy2001.py); E in keV times 1000, eta as printed. The compilation gives no measurement uncertainty; eta_unc_abs is half a unit of the last printed digit (the table's rounding), not an experimental error",
+  "terms": "Facts, cited (operator ruling #34: published measurements may be committed as cited reference facts)",
+  "added": "2026-10-07"
+}

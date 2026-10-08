@@ -83,6 +83,12 @@
 //! `provenance` strings name the potential, so a stand-in table never reads
 //! as DHFS.
 //!
+//! The optional exchange and correlation-polarization corrections
+//! ([`super::corrections`]) enter through
+//! [`AtomicElastic::compute_corrected`], which rebuilds the corrected
+//! potential at each grid energy; the caller's description then names the
+//! corrections too.
+//!
 //! # Determinism
 //!
 //! Energies are solved in parallel with rayon and collected in grid order;
@@ -91,6 +97,7 @@
 //! reported for the lowest failing energy, whatever the thread count. Tables
 //! are bit-identical on any number of threads (tested).
 
+use super::corrections::{CorrectedPotential, Corrections, ElectronDensity};
 use super::{
     gauss_legendre, ElasticError, ElasticSolver, PartialWaves, SalvatDhfs, ScreenedPotential,
     SolverOptions, Yukawa, BOHR2_TO_M2,
@@ -188,8 +195,12 @@ pub trait PotentialSource: Sync {
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct ThomasFermiYukawa;
 
-impl PotentialSource for ThomasFermiYukawa {
-    fn potential(&self, z: u8) -> Result<Box<dyn ScreenedPotential>, ElasticError> {
+impl ThomasFermiYukawa {
+    /// The stand-in potential of element `z`. A [`Yukawa`] is also an
+    /// [`ElectronDensity`] (its Poisson density), which is what the optional
+    /// exchange and correlation-polarization corrections need
+    /// ([`AtomicElastic::compute_corrected`]).
+    pub fn yukawa(z: u8) -> Result<Yukawa, ElasticError> {
         let zf = f64::from(z);
         if z == 0 {
             return Err(ElasticError::Invalid {
@@ -198,7 +209,13 @@ impl PotentialSource for ThomasFermiYukawa {
             });
         }
         let a = crate::ion::potential::thomas_fermi_constant() / zf.cbrt();
-        Ok(Box::new(Yukawa::new(zf, a)?))
+        Yukawa::new(zf, a)
+    }
+}
+
+impl PotentialSource for ThomasFermiYukawa {
+    fn potential(&self, z: u8) -> Result<Box<dyn ScreenedPotential>, ElasticError> {
+        Ok(Box::new(Self::yukawa(z)?))
     }
 
     fn description(&self) -> String {
@@ -492,6 +509,53 @@ impl AtomicElastic {
         let results: Vec<Result<AtomicElasticRow, ElasticError>> = energy_ev
             .par_iter()
             .map(|&e| AtomicElasticRow::solve(pot, e, solver))
+            .collect();
+        let mut rows = Vec::with_capacity(results.len());
+        for (r, &e) in results.into_iter().zip(energy_ev) {
+            rows.push(r.map_err(|source| ElasticTableError::Solve {
+                z,
+                energy_ev: e,
+                source,
+            })?);
+        }
+        Ok(Self {
+            z,
+            potential: description.to_string(),
+            solver,
+            rows,
+        })
+    }
+
+    /// As [`AtomicElastic::compute`], with the optional exchange and
+    /// correlation-polarization corrections of
+    /// [`super::corrections`] added to the static potential `pot` at every
+    /// energy (the corrected potential depends on the energy, so it is
+    /// rebuilt per grid point with [`CorrectedPotential::new`]). `density` is
+    /// the atomic electron density the corrections need. With both
+    /// corrections off this is [`AtomicElastic::compute`] (bit-identical
+    /// rows). `description` names the potential **and** the corrections; it
+    /// becomes the table's `model` and `provenance` (via [`combine`]), and
+    /// every element of one table must share it.
+    pub fn compute_corrected(
+        z: u8,
+        pot: &dyn ScreenedPotential,
+        density: &dyn ElectronDensity,
+        description: &str,
+        energy_ev: &[f64],
+        corrections: &Corrections,
+        solver: SolverOptions,
+    ) -> Result<Self, ElasticTableError> {
+        if corrections.is_none() {
+            return Self::compute(z, pot, description, energy_ev, solver);
+        }
+        check_grid(energy_ev)?;
+        let results: Vec<Result<AtomicElasticRow, ElasticError>> = energy_ev
+            .par_iter()
+            .map(|&e| {
+                let corrected = CorrectedPotential::new(pot, density, e, corrections)?;
+                let pw = corrected.solver(solver)?.partial_waves()?;
+                Ok(AtomicElasticRow::from_partial_waves(e, &pw))
+            })
             .collect();
         let mut rows = Vec::with_capacity(results.len());
         for (r, &e) in results.into_iter().zip(energy_ev) {

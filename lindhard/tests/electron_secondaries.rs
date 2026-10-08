@@ -969,6 +969,8 @@ fn full_tally_balances_with_secondaries() {
     // Secondaries end in the tally: more stops than primaries, and slow
     // electrons out of the front face.
     assert!(r.stopping_points.stopped > r.fates.stopped);
+    // The primary-only stopping points are exactly the stopped histories.
+    assert_eq!(r.stopping_points.primaries.stopped, r.fates.stopped);
     assert!(r.front.slow.count > 0);
     assert_eq!(r.metadata.stopping_threshold_ev, vec![8.0, 8.0]);
 }

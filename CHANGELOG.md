@@ -9,6 +9,35 @@ one version).
 
 ### Added
 
+- `ElectronReport.stopping_points.primaries` (`PrimaryStoppingPoints`): the
+  depth and radial moments of the primaries alone that fell below the stopping
+  threshold, i.e. the penetration depth of stopped primaries; written in the
+  CLI's `electron_summary.json` (#150).
+- Electron code-to-code comparison harness (#150):
+  `validation/oracles/run_electron.py` runs lindhard, Nebula and Geant4
+  MicroElec (through our own application in
+  `validation/oracles/geant4_microelec/`) on 1, 5 and 20 keV electrons into Si
+  and Cu, and `docs/validation.md` tabulates η, δ, the primary penetration
+  depth and the 50 %-energy radius from the committed scalar summaries.
+- Documented gap for the PMMA optical ELF (#147): Ritsko et al. (1978) and the
+  Henke tail could not be opened on 2026-10-07, so no dataset is committed;
+  `docs/data-provenance.md` records what was tried and what is needed.
+- Electron run mode in `lindhard-cli`: an input with an `[electron]` table
+  (beam, transport cutoff and escape rule, Kieft-Bosch secondaries, step
+  barrier, Mott elastic with optional exchange and correlation-polarization
+  corrections, single-pole Penn, full Penn or Mermin-ELF inelastic, per-material
+  optical ELF files and band, phonon and polaron parameters, tally grids) runs
+  the electron transport with the full electron tally and writes
+  `electron_summary.json` (the `ElectronReport`, every model choice and every
+  data provenance, with file SHA-256s) and `electron_escape_spectra.csv`,
+  `electron_deposition_{cylindrical,cartesian}.csv` and `electron_tables.csv`.
+  Data without a provenance is refused. Schema types:
+  `lindhard::input::electron`; `--histories` is an alias of `--ions`. Example:
+  `examples/electron/e_10keV_si.toml` (synthetic ELF and band data). Library
+  plumbing for it: `electron::inelastic::table::build_inelastic_table_for_model`
+  (energy-loss tables for any `PennInelastic` model) and
+  `electron::elastic::table::AtomicElastic::compute_corrected` /
+  `ThomasFermiYukawa::yukawa` (elastic tables with the corrections).
 - Fluence-dependent targets: `ion::dynamic::DynamicRun`, a fluence stepping
   loop on `CompositionGrid` with fixed or adaptive steps (bounded relative
   composition change per step, with reject and retry), and `InventoryTally`,

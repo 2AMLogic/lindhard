@@ -41,7 +41,8 @@
 //!   [`GenerationVolume`].
 //! - **Stopping points.** Unweighted moments of the depth and radial distance
 //!   of electrons that fell below the stopping threshold (an electron range
-//!   distribution).
+//!   distribution), and the same moments for the primaries alone
+//!   ([`PrimaryStoppingPoints`]: the penetration depth of stopped primaries).
 //! - **Energy balance.** The incident energy plus the Fermi-sea source equals
 //!   the deposited, escaped, trapped and barrier terms, see
 //!   [the energy balance](#the-energy-balance) and [`ElectronEnergyBudget`].
@@ -557,6 +558,9 @@ pub struct FullElectronTally {
     generation: [WeightedMoments; 4],
     stop_depth: Moments,
     stop_radial: Moments,
+    /// The subset of `stop_depth` / `stop_radial` that are primaries.
+    primary_stop_depth: Moments,
+    primary_stop_radial: Moments,
     front: FaceAcc,
     back: FaceAcc,
     /// Per-history scratch, not part of the result and cleared at every
@@ -617,6 +621,8 @@ impl FullElectronTally {
             generation: [WeightedMoments::default(); 4],
             stop_depth: Moments::new(),
             stop_radial: Moments::new(),
+            primary_stop_depth: Moments::new(),
+            primary_stop_radial: Moments::new(),
             front: FaceAcc::new(&config),
             back: FaceAcc::new(&config),
             last: None,
@@ -722,6 +728,11 @@ impl FullElectronTally {
                 stopped: self.stop_depth.n,
                 depth: self.stop_depth.summary(),
                 radial: self.stop_radial.summary(),
+                primaries: PrimaryStoppingPoints {
+                    stopped: self.primary_stop_depth.n,
+                    depth: self.primary_stop_depth.summary(),
+                    radial: self.primary_stop_radial.summary(),
+                },
             },
         }
     }
@@ -829,8 +840,15 @@ impl ElectronTally for FullElectronTally {
         if e < self.thresholds[at.layer] {
             self.budget.residual += e;
             self.deposit(at, e);
+            let r = at.pos[1].hypot(at.pos[2]);
             self.stop_depth.push(at.pos[0]);
-            self.stop_radial.push(at.pos[1].hypot(at.pos[2]));
+            self.stop_radial.push(r);
+            if !self.in_secondary {
+                // The primary is followed to its end before any secondary
+                // begins, so this is the primary stopping.
+                self.primary_stop_depth.push(at.pos[0]);
+                self.primary_stop_radial.push(r);
+            }
         } else {
             self.budget.no_interaction += e;
         }
@@ -923,6 +941,8 @@ impl ElectronTally for FullElectronTally {
         }
         self.stop_depth.merge(&o.stop_depth);
         self.stop_radial.merge(&o.stop_radial);
+        self.primary_stop_depth.merge(&o.primary_stop_depth);
+        self.primary_stop_radial.merge(&o.primary_stop_radial);
         self.front.merge(&o.front);
         self.back.merge(&o.back);
     }
@@ -1215,6 +1235,25 @@ pub struct GenerationVolume {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct StoppingPoints {
     /// Electrons that fell below the stopping threshold.
+    pub stopped: u64,
+    /// Depth moments, m; `None` with fewer than two.
+    pub depth: Option<MomentSummary>,
+    /// Moments of the distance from the beam axis, m.
+    pub radial: Option<MomentSummary>,
+    /// The primaries among `stopped`: those that fell below the threshold
+    /// before any secondary of their history began (the transport follows a
+    /// history's primary to its end first), i.e. histories whose fate is
+    /// [`Fate::Stopped`]. Absent from reports written before it existed.
+    #[serde(default)]
+    pub primaries: PrimaryStoppingPoints,
+}
+
+/// Where the primaries fell below the stopping threshold (unweighted, one
+/// sample per stopped primary): the penetration depth of stopped primaries,
+/// as compared with other codes in `docs/validation.md`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct PrimaryStoppingPoints {
+    /// Primaries that fell below the stopping threshold.
     pub stopped: u64,
     /// Depth moments, m; `None` with fewer than two.
     pub depth: Option<MomentSummary>,

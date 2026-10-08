@@ -681,3 +681,221 @@ fn invalid_dynamic_settings_fail_naming_the_field() {
     );
     assert!(e.contains("dynamic.number_density_cm3"), "{e}");
 }
+
+// ---- electron runs -------------------------------------------------------------
+
+/// The committed inputs of the level-3 backscatter comparison (#148,
+/// `validation/experiments/backscatter/`) stay valid: `check` resolves them,
+/// including the measured optical ELFs they name (no run: their tables take
+/// minutes to build).
+#[test]
+fn backscatter_validation_inputs_check() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../validation/experiments/backscatter");
+    let mut inputs: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+        .collect();
+    inputs.sort();
+    assert_eq!(
+        inputs.len(),
+        2,
+        "expected eta_al.toml and eta_cu.toml, found {inputs:?}"
+    );
+    for input in &inputs {
+        let o = lindhard(&["check", input.to_str().unwrap()]);
+        ok(&o);
+        let stdout = String::from_utf8_lossy(&o.stdout);
+        assert!(stdout.contains("electron run"), "{input:?}: {stdout}");
+        assert!(stdout.contains("salvat-2003"), "{input:?}: corrections on");
+        assert!(stdout.contains("Hagemann"), "{input:?}: measured ELF");
+    }
+}
+
+fn electron_example() -> PathBuf {
+    examples_dir().join("electron/e_10keV_si.toml")
+}
+
+/// Sum of column `col` of a CSV text's data rows whose first columns start
+/// with `prefix`.
+fn csv_sum(text: &str, prefix: &str, col: usize) -> f64 {
+    text.lines()
+        .skip(1)
+        .filter(|l| l.starts_with(prefix))
+        .map(|l| l.split(',').nth(col).unwrap().parse::<f64>().unwrap())
+        .sum()
+}
+
+#[test]
+fn electron_example_checks_runs_and_reports() {
+    let ex = electron_example();
+    let o = lindhard(&["check", ex.to_str().unwrap()]);
+    ok(&o);
+    assert!(String::from_utf8_lossy(&o.stdout).contains("electron run"));
+    let out = scratch("electron-example");
+    run(&ex, &out, &["--histories", "40"]);
+    assert!(!out.join("summary.json").exists(), "no ion outputs");
+
+    let s = json(&out.join("electron_summary.json"));
+    assert_eq!(s["format"]["name"], "lindhard-electron-summary");
+    assert_eq!(s["software"]["version"], lindhard::VERSION);
+    assert_eq!(s["input"]["run"]["histories"], 40, "override echoed");
+    assert!(s["input"]["run"].get("threads").is_none());
+    // The echoed input is complete: it deserializes and resolves (data paths
+    // against the example's directory).
+    let echo: lindhard::input::electron::ElectronInput =
+        serde_json::from_value(s["input"].clone()).unwrap();
+    assert_eq!(echo.run.histories, 40);
+    echo.resolve_in(&examples_dir().join("electron")).unwrap();
+    assert!(
+        echo.electron.tables.max_energy_ev.is_some(),
+        "defaults filled"
+    );
+
+    // Every model choice and every data provenance is in the header.
+    let p = &s["physics"];
+    let models = p["models"].as_array().unwrap();
+    for name in [
+        "thomas-fermi-yukawa",
+        "penn-single-pole",
+        "kieft-bosch",
+        "step-barrier",
+    ] {
+        assert!(models.iter().any(|m| m["name"] == name), "{name}");
+    }
+    let mat = &p["materials"][0];
+    assert!(mat["optical_elf"]["provenance"]
+        .as_str()
+        .unwrap()
+        .contains("synthetic"));
+    assert_eq!(mat["optical_elf"]["sha256"].as_str().unwrap().len(), 64);
+    assert!(mat["band"]["provenance"]
+        .as_str()
+        .unwrap()
+        .contains("SYNTHETIC"));
+    assert!(mat["elastic_table"]["model"]
+        .as_str()
+        .unwrap()
+        .contains("STAND-IN"));
+    assert_eq!(p["transport"]["n_histories"], 40);
+    assert_eq!(p["transport"]["chunk_size"], 16);
+
+    // Results: fates add up, the energy balance closes, yields agree.
+    let r = &s["results"];
+    assert_eq!(r["histories"], 40);
+    let fates: u64 = r["fates"]
+        .as_object()
+        .unwrap()
+        .values()
+        .map(|v| v.as_u64().unwrap())
+        .sum();
+    assert_eq!(fates, 40);
+    assert!(r["budget"]["relative_imbalance"].as_f64().unwrap() < 1e-9);
+    let front = &r["front"];
+    let eta = r["yields"]["backscatter_eta"].as_f64().unwrap();
+    assert!((eta - front["fast"]["count"].as_f64().unwrap() / 40.0).abs() < 1e-12);
+
+    // CSV files against the summary.
+    let csv = |key: &str| {
+        let name = s["files"][key].as_str().unwrap();
+        std::fs::read_to_string(out.join(name)).unwrap()
+    };
+    let spectra = csv("escape_spectra");
+    for face in ["front", "back"] {
+        let n = r[face]["count"].as_f64().unwrap();
+        assert_eq!(csv_sum(&spectra, &format!("{face},energy_ev,all,"), 5), n);
+        for class in ["slow", "fast"] {
+            assert_eq!(
+                csv_sum(&spectra, &format!("{face},polar_deg,{class},"), 5),
+                r[face][class]["count"].as_f64().unwrap(),
+                "{face} {class}"
+            );
+        }
+    }
+    let cyl = csv("deposition_cylindrical");
+    let inside = r["deposition"]["cylindrical"]["inside_ev"]
+        .as_f64()
+        .unwrap();
+    assert!((csv_sum(&cyl, "", 6) / inside - 1.0).abs() < 1e-9);
+    assert!(s["files"]["deposition_cartesian"].is_null());
+    let tables = csv("tables");
+    let n_grid = mat["inelastic_table"]["energies"].as_u64().unwrap() as usize;
+    assert_eq!(tables.lines().count(), 1 + n_grid);
+}
+
+#[test]
+fn electron_output_is_byte_identical_across_thread_counts() {
+    // 80 histories are five chunks of 16, so the threads really interleave.
+    let ex = electron_example();
+    let mut outs = Vec::new();
+    for threads in ["1", "4"] {
+        let out = scratch(&format!("electron-det-{threads}"));
+        run(&ex, &out, &["--histories", "80", "--threads", threads]);
+        outs.push(out);
+    }
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    let (a, b) = (
+        read(&outs[0], "electron_summary.json"),
+        read(&outs[1], "electron_summary.json"),
+    );
+    assert_eq!(deterministic_part(&a), deterministic_part(&b));
+    assert_eq!(
+        json(&outs[0].join("electron_summary.json"))["run"]["threads"],
+        1
+    );
+    assert_eq!(
+        json(&outs[1].join("electron_summary.json"))["run"]["threads"],
+        4
+    );
+    for f in [
+        "electron_escape_spectra.csv",
+        "electron_deposition_cylindrical.csv",
+        "electron_tables.csv",
+    ] {
+        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
+    }
+}
+
+#[test]
+fn electron_data_without_provenance_is_refused() {
+    let dir = scratch("electron-noprov");
+    let elf = std::fs::read_to_string(examples_dir().join("electron/synthetic_plasmon_elf.toml"))
+        .unwrap();
+    let stripped: String = elf
+        .lines()
+        .filter(|l| !l.starts_with("provenance"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(dir.join("synthetic_plasmon_elf.toml"), stripped).unwrap();
+    let input = dir.join("input.toml");
+    std::fs::copy(electron_example(), &input).unwrap();
+    for cmd in ["check", "run"] {
+        let mut args = vec![cmd, input.to_str().unwrap()];
+        if cmd == "run" {
+            args.extend(["--out", dir.to_str().unwrap()]);
+        }
+        let o = lindhard(&args);
+        assert!(!o.status.success(), "{cmd} must refuse the ELF");
+        let e = String::from_utf8_lossy(&o.stderr);
+        assert!(
+            e.contains("electron.materials.Si.optical_elf") && e.contains("provenance"),
+            "{e}"
+        );
+    }
+    assert!(!dir.join("electron_summary.json").exists());
+
+    // Band parameters without a source are refused the same way.
+    std::fs::write(dir.join("synthetic_plasmon_elf.toml"), elf).unwrap();
+    let text = std::fs::read_to_string(electron_example()).unwrap();
+    let start = text.find("provenance = \"SYNTHETIC").unwrap();
+    let end = start + text[start..].find(" }").unwrap();
+    std::fs::write(
+        &input,
+        format!("{}provenance = \"\"{}", &text[..start], &text[end..]),
+    )
+    .unwrap();
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains("electron.materials.Si.band"), "{e}");
+}

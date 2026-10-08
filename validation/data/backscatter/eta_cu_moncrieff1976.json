@@ -1,0 +1,82 @@
+{
+  "kind": "backscatter_coefficient",
+  "id": "eta_cu_moncrieff1976",
+  "target": "Cu",
+  "z": 29,
+  "target_state": "not stated by the compilation (no sample preparation, surface condition or thickness is given per set)",
+  "incidence_deg": 0.0,
+  "incidence_note": "not stated by the compilation, which tabulates the yield against energy only; taken as normal incidence on a bulk target",
+  "eta_threshold_note": "the compilation does not state the energy threshold that separates backscattered from secondary electrons per set; the conventional 50 eV is assumed",
+  "points": [
+    {
+      "energy_ev": 800.0,
+      "eta": 0.259,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 1000.0,
+      "eta": 0.265,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 1200.0,
+      "eta": 0.268,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 1400.0,
+      "eta": 0.268,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 1600.0,
+      "eta": 0.279,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 2000.0,
+      "eta": 0.301,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 2500.0,
+      "eta": 0.306,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 3000.0,
+      "eta": 0.309,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 3500.0,
+      "eta": 0.313,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 4000.0,
+      "eta": 0.306,
+      "eta_unc_abs": 0.0005
+    },
+    {
+      "energy_ev": 5000.0,
+      "eta": 0.325,
+      "eta_unc_abs": 0.0005
+    }
+  ],
+  "original_reference": "D. A. Moncrieff and P. R. Barker, Scanning 1, 195 (1976)",
+  "original_doi": "10.1002/sca.4950010307",
+  "original_reference_note": "Crossref gives the year as 1978 (Scanning 1, 195-197, 'Secondary electron emission in the scanning electron microscope'); volume and page agree, Joy prints 1976; the original was not opened",
+  "compilation": "D. C. Joy, 'A Database of Electron-Solid Interactions', revision 01-01 (2001), database.doc (SHA-256 9445f8ddbebb72892a30e2e3bb5c77dac3b4d5b36790287e7c0ce658afd25fd7), Section 2(a) 'Backscattered Electron Yield Data, for elements'; published description: D. C. Joy, Scanning 17, 270 (1995), doi:10.1002/sca.4950170501 (not opened)",
+  "compilation_set": "Copper (Z=29), 'Data set #3 Reference (3)'",
+  "compilation_reference_number": 3,
+  "url": "http://web.archive.org/web/20040320063526/http://web.utk.edu:80/~srcutk/database.doc",
+  "crosscheck": {
+    "compilation": "F. Akbari, Zenodo doi:10.5281/zenodo.7810951 (CC-BY 4.0), 'Energy dependence (csv).rar' (SHA-256 e35d11553720b6d122e129928993448e7f6456f189a21ad640ec15b1d7846987)",
+    "agreement": "11 of 11 points re-read identically (to the 0.1 % rounding of the Akbari table) in Akbari set 28 of Cu.csv",
+    "record": "validation/data/backscatter/crosscheck_akbari2022.json"
+  },
+  "extraction": "transcribed from the compilation's table (text of the Word file, extracted by validation/data/backscatter/ingest_joy2001.py); E in keV times 1000, eta as printed. The compilation gives no measurement uncertainty; eta_unc_abs is half a unit of the last printed digit (the table's rounding), not an experimental error",
+  "terms": "Facts, cited (operator ruling #34: published measurements may be committed as cited reference facts)",
+  "added": "2026-10-07"
+}

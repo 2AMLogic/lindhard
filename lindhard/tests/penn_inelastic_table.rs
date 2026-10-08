@@ -9,11 +9,12 @@
 use lindhard::electron::data::{CrossSectionTable, ElectronDataError, SamplingAxis};
 use lindhard::electron::elastic::table::log_energy_grid;
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table, mean_loss_ev, stopping_power_ev_per_m, InelasticTableOptions,
-    MomentumTransferSampler,
+    build_inelastic_table, build_inelastic_table_for_model, mean_loss_ev, stopping_power_ev_per_m,
+    InelasticTableOptions, MomentumTransferSampler,
 };
 use lindhard::electron::inelastic::{
-    DrudeLorentz, DrudeLorentzOscillator, ExchangeCorrection, SinglePolePenn,
+    DrudeLorentz, DrudeLorentzOscillator, ExchangeCorrection, PennAlgorithm, PennInelastic,
+    SinglePolePenn,
 };
 use lindhard::material::Material;
 use lindhard::rng::stream;
@@ -317,4 +318,50 @@ fn exchange_enabled_models_are_rejected() {
     assert!(MomentumTransferSampler::new(&x, 100.0, 5.0).is_err());
     let o = InelasticTableOptions::new(energies());
     assert!(build_inelastic_table(&x, &material(), &o).is_err());
+}
+
+#[test]
+fn model_generic_builder_reproduces_the_single_pole_rows() {
+    // Same procedure, same model: identical rows; only the identity strings
+    // change, and they name the algorithm.
+    let m = PennInelastic::SinglePole(penn().clone());
+    let o = InelasticTableOptions::new(energies());
+    let g = build_inelastic_table_for_model(&m, &material(), &o).unwrap();
+    let t = table();
+    assert_eq!(g.energy_ev(), t.energy_ev());
+    assert_eq!(g.inverse_mfp_per_m(), t.inverse_mfp_per_m());
+    assert_eq!(g.probability(), t.probability());
+    for i in 0..t.energy_ev().len() {
+        assert_eq!(g.quantiles(i), t.quantiles(i), "row {i}");
+    }
+    assert!(g.model().contains("penn-single-pole"), "{}", g.model());
+    assert!(g.provenance().contains("synthetic"));
+    let x = PennInelastic::SinglePole(
+        penn()
+            .clone()
+            .with_exchange(ExchangeCorrection::new(200.0).unwrap()),
+    );
+    assert!(build_inelastic_table_for_model(&x, &material(), &o).is_err());
+}
+
+#[test]
+fn model_generic_builder_runs_the_mermin_model() {
+    // A short grid: the Mermin DIIMFP is a numerical integral per point.
+    let elf = DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
+        .unwrap()
+        .to_optical_elf("synthetic Drude plasmon", 0.5, 2e3, 60)
+        .unwrap();
+    let m = PennInelastic::try_new(PennAlgorithm::Mermin, elf).unwrap();
+    let grid = log_energy_grid(50.0, 1000.0, 2.0).unwrap();
+    let t = build_inelastic_table_for_model(&m, &material(), &InelasticTableOptions::new(grid))
+        .unwrap();
+    assert_eq!(t.axis(), SamplingAxis::InelasticEnergyLoss);
+    assert!(t.model().contains("mermin-melf"), "{}", t.model());
+    for (i, &e) in t.energy_ev().iter().enumerate() {
+        let inv = t.inverse_mfp_per_m()[i];
+        assert!(inv > 0.0 && inv.is_finite(), "{e} eV: {inv}");
+        let s = stopping_power_ev_per_m(&t, i).unwrap();
+        let want = m.imfp_and_stopping(e).unwrap().stopping_ev_per_m;
+        assert!((s / want - 1.0).abs() < 1e-2, "{e} eV: {s} vs {want}");
+    }
 }

@@ -11,10 +11,12 @@ validation/run.sh [--experiments] [--oracles]
 |---|---|---|
 | `../lindhard/tests/validation/` | 1 | Analytic and internal checks; a `cargo test` target, run in CI |
 | `oracles/run.py`, `oracles/problems.json` | 2 | Runs `lindhard` and user-installed oracles (RustBCA, OpenTRIM) on matched problems |
+| `oracles/run_electron.py`, `oracles/electron_problems.json`, `oracles/geant4_microelec/` | 2 | Electron comparison: runs `lindhard` and user-installed Nebula and Geant4 MicroElec (through our own Geant4 application) on matched electron problems ([docs](../docs/validation.md#electron-oracles-nebula-and-geant4-microelec-150)) |
 | `oracles/summaries/` | 2 | Committed comparison summaries (scalar summary metrics only; [format](oracles/summaries/README.md)) |
 | `oracle-runs/` | 2, 3 | Raw runs, regenerated locally; **gitignored** |
 | `data/` | 3 | Published measurements with citations ([schema](data/README.md)); `data/digitize/` holds the scripts that digitized figures |
 | `experiments/run.py` | 3 | Checks each dataset's provenance, runs `lindhard` on it with the defaults and with the stopping inputs varied; writes `experiments/results.json` |
+| `experiments/backscatter.py`, `experiments/backscatter/` | 3 | Electron backscatter coefficient vs measurements (#148): checks `data/backscatter/`, runs the committed `[electron]` inputs at 1 to 30 keV and the elastic-correction sensitivity; writes `experiments/backscatter_results.json` (`run.sh --backscatter`) |
 | `lib/lindhard_cli.py` | 2, 3 | Builds and drives the `lindhard` command |
 | `update_docs.py` | all | Splices the tables into `docs/validation.md` between marker comments |
 | `check_manual_coverage.py` | docs | Fails if a variant of a model-selecting enum is not named in the physics manual (`book/src/models/`); run in CI |

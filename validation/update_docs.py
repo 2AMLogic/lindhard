@@ -4,10 +4,12 @@ comments, so a rerun is idempotent:
 
     <!-- validation:level1:begin --> ... <!-- validation:level1:end -->
     <!-- validation:level2:begin --> ... <!-- validation:level2:end -->
+    <!-- validation:electron-oracles:begin --> ... <!-- validation:electron-oracles:end -->
     <!-- validation:level3:begin --> ... <!-- validation:level3:end -->
     <!-- validation:level3-sputter:begin --> ... <!-- validation:level3-sputter:end -->
     <!-- validation:level3-sputter-crosscheck:begin --> ... <!-- validation:level3-sputter-crosscheck:end -->
     <!-- validation:level3-sputter-summary:begin --> ... <!-- validation:level3-sputter-summary:end -->
+    <!-- validation:level3-backscatter:begin --> ... <!-- validation:level3-backscatter:end -->
 
 Level 1 comes from the Markdown the harness writes (LINDHARD_VALIDATION_OUT),
 level 2 from the committed oracle summaries, level 3 from
@@ -43,6 +45,7 @@ DOC = ROOT / "docs" / "validation.md"
 SUMMARIES = ROOT / "validation" / "oracles" / "summaries"
 RESULTS = ROOT / "validation" / "experiments" / "results.json"
 SPUTTER_DATA = ROOT / "validation" / "data" / "sputtering"
+BACKSCATTER_RESULTS = ROOT / "validation" / "experiments" / "backscatter_results.json"
 
 sys.path.insert(0, str(ROOT / "validation" / "experiments"))
 import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
@@ -99,6 +102,107 @@ def level2() -> str:
         "A speed ratio > 1 means lindhard is faster: end-to-end is process wall clock at the run's ion "
         "count, marginal removes fixed setup costs (see each summary's `timing`). Every row's settings, "
         "both sides' values and the full list of mismatches are in its file under "
+        "`validation/oracles/summaries/`."
+    )
+    return "\n".join(lines)
+
+
+ELECTRON_PROBLEMS = ROOT / "validation" / "oracles" / "electron_problems.json"
+ELECTRON_ORACLES = (("Nebula", "nebula"), ("Geant4 MicroElec", "geant4_microelec"))
+
+
+def electron_oracles() -> str:
+    """The matched-problem table of the electron oracles (#150), from the
+    committed `lindhard-electron-<problem>.json` and `<oracle>-<problem>.json`
+    summaries that validation/oracles/run_electron.py writes. One row per code
+    and problem: each metric with its batch-means standard error, and on an
+    oracle's row the difference lindhard minus oracle (absolute for the
+    yields, relative for the lengths) with its combined standard error and z.
+    The tolerance column applies the rule stored in the summary itself."""
+    if not ELECTRON_PROBLEMS.exists():
+        return "_No electron problems defined._"
+    spec = json.loads(ELECTRON_PROBLEMS.read_text())
+    lines = [
+        "| Problem | Code (version, commit) | Histories | η | δ | Primary depth (nm) | r50 (nm) | Tolerance (vs Nebula) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+
+    def val(x, se, digits: int) -> str:
+        if x is None:
+            return "n/a"
+        if digits == 1 and abs(x) < 100:
+            digits = 2  # lengths below 100 nm: one more decimal, so that the error shows
+        return f"{x:.{digits}f} ± {se:.{digits}f}" if se is not None else f"{x:.{digits}f}"
+
+    def diff(c: dict, metric: str) -> str:
+        if metric in ("eta", "delta"):
+            d, se, z = c.get(f"{metric}_abs_diff"), c.get(f"{metric}_abs_diff_se"), c.get(f"{metric}_z")
+            if d is None:
+                return ""
+            s = f"{d:+.3f}" + (f" ± {se:.3f}" if se is not None else "")
+        else:
+            key = metric.removesuffix("_nm")
+            d, se, z = c.get(f"{key}_rel_diff"), c.get(f"{key}_rel_diff_se"), c.get(f"{key}_z")
+            if d is None:
+                return ""
+            s = f"{100 * d:+.1f} %" + (f" ± {100 * se:.1f} %" if se is not None else "")
+        return f"<br>Δ {s}" + (f" ({abs(z):.1f}σ)" if z is not None else "")
+
+    any_row = False
+    for p in spec["problems"]:
+        pid = p["id"]
+        ours_path = SUMMARIES / f"lindhard-electron-{pid}.json"
+        if not ours_path.exists():
+            lines.append(f"| `{pid}` | lindhard | - | not run | not run | not run | not run | - |")
+            continue
+        any_row = True
+        o = json.loads(ours_path.read_text())
+        v, se = o["values"], o["std_err"]
+        lines.append(
+            f"| `{pid}` | lindhard ({o['lindhard_version'].removeprefix('lindhard ')}) | {o['histories']} "
+            f"| {val(v['eta'], se['eta'], 3)} | {val(v['delta'], se['delta'], 3)} "
+            f"| {val(v['primary_depth_nm'], se['primary_depth_nm'], 1)} | {val(v['r50_nm'], se['r50_nm'], 1)} | - |"
+        )
+        for name, slug in ELECTRON_ORACLES:
+            path = SUMMARIES / f"{slug}-{pid}.json"
+            if not path.exists():
+                why = ("not applicable (MicroElec: silicon only)"
+                       if slug == "geant4_microelec" and not p.get("geant4_material") else "**not run**")
+                lines.append(f"| `{pid}` | {name} | - | {why} | | | | - |")
+                continue
+            s = json.loads(path.read_text())
+            if s.get("format") != "lindhard-oracle-electron-summary/1" or s.get("lindhard_version") != o["lindhard_version"]:
+                sys.exit(f"error: {path.name} is not a lindhard-oracle-electron-summary/1 of the same lindhard run "
+                         f"as {ours_path.name}; rerun validation/oracles/run_electron.py for {pid}")
+            ov, ose, c = s["oracle_values"], s["oracle_values"]["std_err"], s["comparison"]
+            t = s["tolerance"]
+            if t.get("applies"):
+                verdict = []
+                for m, label in (("eta", "η"), ("r50_nm", "r50")):
+                    ok = t["checks"][m]["pass"]
+                    verdict.append(f"{label} " + ("n/a" if ok is None else "pass" if ok else "**FAIL**"))
+                tol = ", ".join(verdict)
+            else:
+                tol = "reported only"
+            commit = s.get("oracle_commit", "")[:7]
+            lines.append(
+                f"| `{pid}` | {name} ({s['oracle_version']}{', ' + commit if commit else ''}) | {s['histories']['oracle']} "
+                f"| {val(ov['eta'], ose['eta'], 3)}{diff(c, 'eta')} "
+                f"| {val(ov['delta'], ose['delta'], 3)}{diff(c, 'delta')} "
+                f"| {val(ov['primary_depth_nm'], ose['primary_depth_nm'], 1)}{diff(c, 'primary_depth_nm')} "
+                f"| {val(ov['r50_nm'], ose['r50_nm'], 1)}{diff(c, 'r50_nm')} | {tol} |"
+            )
+    if not any_row:
+        return "_No electron oracle summaries committed yet; see \"Electron oracles\" above._"
+    lines.append("")
+    lines.append(
+        "Values are pooled over all histories, ± the batch-means standard error "
+        f"({spec['batches']} batches). Δ is lindhard minus the oracle: absolute for η and δ, relative "
+        "for the lengths, ± the combined standard error, with the difference in units of it in brackets. "
+        "η and δ split the front-face escapes at 50 eV (vacuum energy). r50 is the radius of the cylinder "
+        "about the beam axis that holds half the energy deposited. Tolerances (vs Nebula at 5 and 20 keV "
+        f"only): |Δη| ≤ {spec['tolerances']['eta_abs']} and |Δr50| ≤ {100 * spec['tolerances']['r50_rel']:.0f} %. "
+        "Every summary's settings and its list of differing inputs are in its file under "
         "`validation/oracles/summaries/`."
     )
     return "\n".join(lines)
@@ -753,6 +857,108 @@ def level3_sputter_summary() -> str:
     return "\n".join(lines)
 
 
+def level3_backscatter() -> str:
+    """The electron backscatter coefficient table and the elastic-correction
+    sensitivity (#148), from validation/experiments/backscatter_results.json.
+    Pass/fail is the rule pinned in backscatter.py (|eta - median| <= tolerance
+    at E >= pass_min_kev, every element); nothing else is judged here."""
+    if not BACKSCATTER_RESULTS.is_file():
+        return "No committed results yet: run `validation/experiments/backscatter.py`."
+    r = json.loads(BACKSCATTER_RESULTS.read_text())
+    tol, emin = r["tolerance"], r["pass_min_kev"]
+    lines = [
+        f"{r['lindhard']}, {r['histories']} primaries per run, seed {r['seed']}; "
+        "the model and its gaps are listed above. Measured: per energy, each stored set's "
+        f"point within {100 * r['group_tolerance']:g} % of it (at most one per set), median and "
+        "min-max over the sets.",
+        "",
+        f"| Target | E (keV) | Sets | Measured median | Measured min-max | lindhard eta ± σ | lindhard - median | "
+        f"Pass (E ≥ {emin:g} keV: abs. diff. ≤ {tol:g}) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    verdicts = {}
+    for t in r["targets"]:
+        tv = verdicts.setdefault(t["target"], {"pass": 0, "fail": 0, "ungraded": 0, "worst": None,
+                                               "below": 0, "above": 0, "compared": 0})
+        for g in t["groups"]:
+            e = g["energy_kev"]
+            run = t["runs"].get(f"{e:g}")
+            if g["sets"] == 0 and run is None:
+                continue
+            med = "-" if g["median"] is None else f"{g['median']:.3f}"
+            band = "-" if g["median"] is None else f"{g['min']:.3f}-{g['max']:.3f}"
+            if run is None:
+                sim, diff = "not run (no optical ELF committed)", "-"
+                verdict = "not evaluated" if e >= emin else "-"
+                if e >= emin and g["sets"]:
+                    tv["ungraded"] += 1
+            else:
+                sim = f"{run['eta']:.4f} ± {run['eta_se']:.4f}"
+                if g["median"] is None:
+                    diff, verdict = "-", "no measurement"
+                else:
+                    d = run["eta"] - g["median"]
+                    diff = f"{d:+.3f}"
+                    tv["compared"] += 1
+                    tv["below" if d < 0 else "above"] += 1
+                    if e < emin:
+                        verdict = "(reported only)"
+                    else:
+                        ok = abs(d) <= tol
+                        verdict = "pass" if ok else "**FAIL**"
+                        tv["pass" if ok else "fail"] += 1
+                        if tv["worst"] is None or abs(d) > abs(tv["worst"][1]):
+                            tv["worst"] = (e, d)
+            lines.append(f"| {t['target']} | {e:g} | {g['sets']} | {med} | {band} | {sim} | {diff} | {verdict} |")
+    lines += ["", f"**Verdict at E ≥ {emin:g} keV (tolerance {tol:g} absolute, generated):**", ""]
+    for t in r["targets"]:
+        v = verdicts[t["target"]]
+        if v["pass"] + v["fail"] == 0:
+            lines.append(f"- {t['target']}: not evaluated ({v['ungraded']} measured energies; no committed input, "
+                         "because no optical ELF of it is committed).")
+        else:
+            worst = f"; largest abs. diff. {v['worst'][1]:+.3f} at {v['worst'][0]:g} keV" if v["worst"] else ""
+            lines.append(f"- {t['target']}: {v['pass']} of {v['pass'] + v['fail']} energies pass"
+                         + (", **the tolerance is not met**" if v["fail"] else "") + worst
+                         + f". Over all {v['compared']} compared energies (1 to 30 keV) lindhard is below the "
+                         f"measured median at {v['below']} and above it at {v['above']}.")
+    sens = [t for t in r["targets"] if t["sensitivity"]]
+    if sens:
+        labels = {v["id"]: v["label"] for v in r["variants"]}
+        order = [v["id"] for v in r["variants"]]
+        lines += [
+            "",
+            "**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the "
+            "correlation-polarization corrections switched off one at a time and together (same seed and "
+            "primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value "
+            "for independent runs. The variants share the seed, so their noise is correlated and the true "
+            "σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, "
+            "not a conservative test of it.",
+            "",
+            "| Target | E (keV) | " + " | ".join(labels[i] for i in order) + " | baseline - no corrections |",
+            "|---|---|" + "---|" * len(order) + "---|",
+        ]
+        effects = []
+        for t in sens:
+            for e, row in t["sensitivity"].items():
+                cells = [f"{row[i]['eta']:.4f} ± {row[i]['eta_se']:.4f}" for i in order]
+                d = row["both"]["eta"] - row["none"]["eta"]
+                se = math.hypot(row["both"]["eta_se"], row["none"]["eta_se"])
+                lines.append(f"| {t['target']} | {e} | " + " | ".join(cells) + f" | {d:+.4f} ({d / se:+.1f} σ) |")
+                effects.append((abs(d), abs(d / se), t["target"], e))
+        big = max(effects)
+        lines += ["", f"Largest effect of the two corrections together: {big[0]:.4f} ({big[1]:.1f} σ, "
+                  f"{big[2]} at {big[3]} keV); "
+                  + ("every difference is within 2 σ of the independent-run bound. Because the runs are "
+                     "correlated, that does not show the effect is zero; the measured differences (at most "
+                     f"{big[0]:.4f} in η) are small next to the 0.05 tolerance and the measured spread, with "
+                     "the stand-in potential the corrections are solved on."
+                     if all(x[1] < 2 for x in effects) else "at least one difference exceeds 2 σ.")]
+    lines += ["", "Per-run values: `validation/experiments/backscatter_results.json`; datasets: "
+              "`validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md)."]
+    return "\n".join(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--level1", type=Path, help="Markdown table written by the level-1 harness")
@@ -764,10 +970,12 @@ def main() -> int:
     if args.level1:
         text = splice(text, "level1", args.level1.read_text())
     text = splice(text, "level2", level2())
+    text = splice(text, "electron-oracles", electron_oracles())
     text = splice(text, "level3", level3())
     text = splice(text, "level3-sputter", level3_sputter())
     text = splice(text, "level3-sputter-crosscheck", level3_sputter_crosscheck())
     text = splice(text, "level3-sputter-summary", level3_sputter_summary())
+    text = splice(text, "level3-backscatter", level3_backscatter())
     if args.check:
         if text != old:
             print(f"error: {DOC.relative_to(ROOT)} is not what validation/update_docs.py generates from the committed "
