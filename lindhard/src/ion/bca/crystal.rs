@@ -47,8 +47,8 @@
 //! `GetTargetsFromNeighbor` and `Collision!`, and `SimultaneousCriteria` in
 //! `src/geometry.jl`), re-implemented here on [`LatticeSearch`] with
 //! the lattice-site list of this crate, and with the project's own scattering
-//! tables, kinematics and energy bookkeeping. Attribution:
-//! `THIRD_PARTY_LICENSES.md`.
+//! tables, kinematics and energy bookkeeping. DISPLATH is Copyright (c) 2024
+//! 裴幂許Permission (MIT); the notice is in `THIRD_PARTY_LICENSES.md`.
 //!
 //! * **Free path.** The ion flies straight to the closest-approach point of
 //!   the nearest partner (smallest `s`, ties broken by the search's documented
