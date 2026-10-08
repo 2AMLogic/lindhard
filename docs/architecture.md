@@ -63,6 +63,34 @@ electron MC). The engines share the core and nothing else.
 - The input schema, output layout and the rules for extending them are in
   [`cli.md`](cli.md).
 
+## Reproducibility
+
+- **Same platform, any thread count: bit-identical.** Particle `i` draws from
+  its own stream, and tallies merge in a fixed order, so results do not depend
+  on the number of threads (`lindhard/tests/determinism.rs`).
+- **Across platforms: floating-point outputs agree to a relative tolerance,
+  not bit for bit.** `f64::exp`, `ln`, `sin`, `cos`, `powf`, `tan` and `atan2`
+  defer to the platform libm, which can differ in the last bits between glibc,
+  macOS libm and aarch64 builds. Such a difference can in principle flip a
+  comparison inside a history and so change an integer count; the engine does
+  not promise otherwise.
+- **What is checked.** `lindhard/tests/golden.rs` pins small fixed-seed runs
+  (amorphous BCA batch, crystal BCA batch, electron batch) to values
+  generated on x86-64 Linux. The amorphous and electron runs are checked on
+  every platform of the CI OS matrix (x86-64 Linux, aarch64 Linux, aarch64
+  macOS) with integer outputs exact and floats to a relative tolerance of
+  1e-9. The crystal run is exact in the same sense on Linux (both
+  architectures) but, off Linux, is only checked statistically: conservation
+  invariants exact, counts and sums to a 15% relative tolerance. This is a
+  deliberate, documented relaxation. The first cross-platform evidence
+  (PR #216 CI) is that on aarch64 macOS the crystal run gives 67721 recoils
+  against 67786 on x86-64 Linux, while the amorphous and electron runs agree
+  exactly: a comparison in the crystal path flips on a libm or codegen
+  difference. The cause is not located. This is the evidence for the
+  separate decision on a pure-Rust libm (tracked in #217); none
+  is adopted today. The test file says how to regenerate the values and
+  which platform each set came from.
+
 ## Decisions
 
 - **Muffin-tin potential deferred (#92, 2026-10-07).** `electron::elastic`
