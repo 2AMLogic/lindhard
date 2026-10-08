@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- `ion::crystal::search`: `LatticeSearch`, the lattice sites within `p_max` of
+  a path segment found by walking unit cells (no global atom list), each with
+  its impact parameter, path distance, species and cell/basis index, ordered
+  along the path with a documented closed boundary rule. Not yet used by the
+  transport engine (#20).
 - `ion::crystal::debye`: Debye-model RMS thermal displacement (1D and 3D, with
   the zero-point term) and per-atom Gaussian displacement sampling on the
   particle's RNG stream; Debye temperatures of Si, Ge, GaAs and 3C-SiC as
