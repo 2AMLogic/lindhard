@@ -9,6 +9,7 @@
 
 use std::fmt::Write as _;
 
+use lindhard::input::TuningReport;
 use lindhard::input::{ModelInfo, Resolved};
 use lindhard::ion::bca::{EnergyBudget, MeanFreePath};
 use lindhard::ion::scattering::ScatteringTable;
@@ -116,6 +117,10 @@ struct Physics {
     engine: Engine,
     scattering_table: Table,
     target: Vec<LayerOut>,
+    /// Present only when `[physics] tuning` names a set: the phenomenological
+    /// calibration applied, with original and effective energies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tuning: Option<TuningReport>,
 }
 
 #[derive(Serialize)]
@@ -604,6 +609,7 @@ pub fn summary_json(
                     material: MaterialSpec::from(g.material().clone()),
                 })
                 .collect(),
+            tuning: r.tuning.clone(),
         },
         results: Results {
             histories: s.histories,

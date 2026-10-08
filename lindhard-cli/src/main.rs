@@ -119,6 +119,23 @@ fn check_electron(path: &Path, text: &str) -> Result<()> {
     Ok(())
 }
 
+/// Writes an optional output file when the current run produced it, and
+/// otherwise removes the file left in a reused output directory by an earlier
+/// run. A missing file is fine; any other failure is an error naming the path.
+/// Only the one reserved file is touched, never the directory.
+fn reconcile_optional(out: &Path, name: &str, text: Option<String>) -> Result<()> {
+    let p = out.join(name);
+    match text {
+        Some(t) => std::fs::write(&p, t).with_context(|| format!("writing {}", p.display())),
+        None => match std::fs::remove_file(&p) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
+                Err(e).with_context(|| format!("removing stale {}", p.display()))
+            }
+            _ => Ok(()),
+        },
+    }
+}
+
 fn run_electron(
     path: &Path,
     text: &str,
@@ -144,15 +161,21 @@ fn run_electron(
         let p = out.join(name);
         std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
     };
-    write(electron::SUMMARY_FILE, electron::summary_json(&r, &sim)?)?;
+    let summary = electron::summary_json(&r, &sim)?;
     write(electron::SPECTRA_FILE, electron::spectra_csv(&sim.report))?;
     write(electron::TABLES_FILE, electron::tables_csv(&r, &sim))?;
-    if let Some(t) = electron::cartesian_csv(&sim.report) {
-        write(electron::CARTESIAN_FILE, t)?;
-    }
-    if let Some(t) = electron::cylindrical_csv(&sim.report) {
-        write(electron::CYLINDRICAL_FILE, t)?;
-    }
+    reconcile_optional(
+        out,
+        electron::CARTESIAN_FILE,
+        electron::cartesian_csv(&sim.report),
+    )?;
+    reconcile_optional(
+        out,
+        electron::CYLINDRICAL_FILE,
+        electron::cylindrical_csv(&sim.report),
+    )?;
+    // Last, so the summary describes the completed output set.
+    write(electron::SUMMARY_FILE, summary)?;
     let y = &sim.report.yields;
     eprintln!(
         "{} electrons: eta {:.4}, delta {:.4}, energy balance residual {:.2e}; wrote {}",
@@ -273,17 +296,18 @@ fn run(
         let p = out.join(name);
         std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
     };
-    write(
-        output::SUMMARY_FILE,
-        output::summary_json(&r, &table, &tally, &report, info)?,
-    )?;
+    let summary = output::summary_json(&r, &table, &tally, &report, info)?;
     write(output::DEPTH_FILE, output::depth_csv(&tally))?;
     write(output::LATERAL_FILE, output::lateral_csv(&report))?;
     write(output::DAMAGE_FILE, output::damage_csv(&report))?;
     write(output::ESCAPES_FILE, output::escapes_csv(&report))?;
-    if tally.per_ion {
-        write(output::IONS_FILE, output::ions_csv(&tally))?;
-    }
+    reconcile_optional(
+        out,
+        output::IONS_FILE,
+        tally.per_ion.then(|| output::ions_csv(&tally)),
+    )?;
+    // Last, so the summary describes the completed output set.
+    write(output::SUMMARY_FILE, summary)?;
     let s = &tally.summary;
     eprintln!(
         "{} ions: {} stopped, {} backscattered, {} transmitted, {} sputtered atoms; wrote {}",

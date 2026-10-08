@@ -21,6 +21,12 @@ one version).
   twist a static lattice keeps a channeling tail (dRp 1.27 times the
   amorphous value for B 5 keV, 1.95 for As 30 keV; Rp within 10 %). Criterion
   bench `crystal_flight`: about 17 times slower than amorphous at 7/22.
+- `[physics] tuning = "none" | "<set>"`: opt-in phenomenological
+  surface-binding-energy multiplier sets for static single-element ion runs
+  (`input::TuningSet`). `"none"` and omission are bit-for-bit unchanged;
+  `summary.json` gains `physics.tuning` (set, version, original and effective
+  `E_s`) only when a set is used. Plumbing only: no calibrated set ships yet,
+  so any name is rejected as unknown (#80).
 - `geometry::MeshGeometry` and `geometry::TriMesh`: targets of closed triangle
   solids, each tagged with a material, loaded from STL (ASCII or binary) or
   OBJ with a watertightness check (every edge shared by two consistently
@@ -129,6 +135,11 @@ one version).
 
 ### Changed
 
+- `lindhard run` into a reused output directory now removes reserved optional
+  files the current run does not produce (`ions.csv` without `tally.per_ion`;
+  the electron deposition CSVs without their grid), so they cannot be mistaken
+  for current output; unrelated files are left alone, a failed removal is an
+  error naming the path, and the summary is written last (#185).
 - Collision hot path (about 2.2 to 2.7 times the ions/s, see
   `docs/benchmarks.md`): the scattering angle is carried as `tan(theta/2)` and
   sines and cosines instead of angles, the Lindhard-Scharff coefficient is

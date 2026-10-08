@@ -88,11 +88,28 @@ substrate the target has a back face and particles can be transmitted.
 | `recoil_cutoff_ev` | required | Recoils stop below this; keep it below the smallest `E_s` |
 | `follow_recoils` | `true` | Full cascades |
 | `primary_surface_binding_ev` | 0 | Surface barrier for the beam species |
+| `tuning` | `"none"` | Opt-in phenomenological calibration: the name of a versioned factor set (see below) |
 
 `[physics.energies.<symbol>]` sets `e_d_ev`, `e_b_ev` and/or `e_s_ev` for that
 element in every layer that contains it, after (so overriding) the
 material's own values. An element with no tabulated default and no value set
 is an error naming the layer and the key to set.
+
+**`tuning` (phenomenological calibration, not a published model choice).**
+`"none"` or omission leaves the physics and the echoed input exactly as
+without the key. A named set scales the surface binding energy `E_s` by a
+per-element factor fitted to measured data. Rules: the factor multiplies the
+*resolved* `E_s` (an explicit `[physics.energies]` or material value if given,
+else the elemental default), once per layer, after overrides; the global
+element table and the collision algorithm are untouched. The pilot supports
+static ion runs on single-element layers only; compounds and `[dynamic]`
+targets are rejected, as are unknown set names. `summary.json` then has
+`physics.tuning` with the set, its version and provenance, and per layer the
+original `E_s`, the factor and the effective `E_s`. Tuned results must be
+reported next to, never in place of, untuned ones. No set ships yet: the
+selection and reporting plumbing is in place, and any name is currently an
+"unknown tuning set" error until a calibration with a held-out evaluation is
+merged (see `docs/data-provenance.md`).
 
 ### `[stopping]`
 
@@ -489,6 +506,19 @@ Energy deposited outside a grid is `outside_ev` in the summary.
 `electron_tables.csv`: `material,energy_ev,elastic_inverse_mfp_per_nm,inelastic_inverse_mfp_per_nm,inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm`,
 the tables the run used, per material and grid energy (the stopping power is
 `λ⁻¹ ⟨W⟩` of the stored loss distribution).
+
+## Reusing an output directory
+
+`--out` may name an existing directory; the run overwrites the files it
+writes and creates the directory if needed. The CLI also owns the reserved
+optional file names of the run's mode. After a successful run, an optional
+file the run did not produce is removed if present: `ions.csv` (without
+`tally.per_ion`), and `electron_deposition_cartesian.csv` or
+`electron_deposition_cylindrical.csv` (without the matching deposition grid).
+A missing file is not an error; a failed removal is, and names the path. The
+summary is written last and lists only files that exist. Other files in the
+directory are never touched, and no cleanup happens between ion, electron and
+dynamic runs. Do not keep your own data under a reserved name.
 
 ## Reproducibility
 
