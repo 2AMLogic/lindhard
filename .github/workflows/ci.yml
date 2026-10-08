@@ -93,6 +93,41 @@ jobs:
       - name: test
         run: cargo test --workspace
 
+  msrv:
+    name: MSRV (cargo check at the declared rust-version)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read rust-version from [workspace.package] in Cargo.toml
+        id: msrv
+        # Single source of truth: changing rust-version in Cargo.toml changes
+        # the toolchain tested here, with no other edit.
+        run: |
+          set -euo pipefail
+          version="$(awk -F'"' '/^\[/ { in_pkg = ($0 == "[workspace.package]") }
+                                in_pkg && /^rust-version *=/ { print $2; exit }' Cargo.toml)"
+          if [ -z "$version" ]; then
+            echo '::error::no rust-version under [workspace.package] in Cargo.toml'
+            exit 1
+          fi
+          echo "rust-version: $version"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ steps.msrv.outputs.version }}
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check --workspace --all-targets --locked
+        # RUSTUP_TOOLCHAIN overrides rust-toolchain.toml (channel = "stable").
+        # Separate from the publish --dry-run job, which needs cargo >= 1.90
+        # for a publish-time reason unrelated to the MSRV.
+        env:
+          RUSTUP_TOOLCHAIN: ${{ steps.msrv.outputs.version }}
+        run: |
+          cargo --version
+          rustc --version
+          cargo check --workspace --all-targets --locked
+
   package:
     name: Package (cargo package / publish --dry-run)
     runs-on: ubuntu-latest
