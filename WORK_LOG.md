@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-08
 
+- **PR #228**: ci: stubtest the lindhard-py .pyi stubs against the compiled extension
+- **Issue #227** (closed): CI: stubtest the lindhard-py .pyi stubs against the compiled extension
 - **PR #224**: feat(crystal): thermal vibration in the lattice collision search (#181)
 - **PR #223**: Declare lint policy once in [workspace.lints] (#218)
 - **Issue #218** (closed): Declare lint policy once in [workspace.lints] and opt all crates in

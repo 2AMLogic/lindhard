@@ -45,12 +45,14 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement
+- **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#227**: CI: stubtest the lindhard-py .pyi stubs against the compiled extension
+_None._
 
 ## PRs Awaiting Review
 
@@ -63,7 +65,6 @@ _None._
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
-- **#228**: ci: stubtest the lindhard-py .pyi stubs against the compiled extension
 
 ## Proposed
 
@@ -79,7 +80,6 @@ Issues carrying `loom:curated`.
 - **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
-- **#227**: CI: stubtest the lindhard-py .pyi stubs against the compiled extension *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -105,11 +105,11 @@ Issues carrying `loom:curated`.
 |------|-------|
 | Operator merge-risk holds | 1 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 1 |
+| Ready (`loom:issue`) | 3 |
+| In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 11 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 10 |
 | Architect / Hermit proposals | 3 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
