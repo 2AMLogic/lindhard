@@ -9,7 +9,7 @@ Standard library only.
     se_yield.py --datasets         datasets and provenance rows only (validation/run.sh)
     se_yield.py --check            the above, and the initial bounds against the
                                    committed results (exit 1 if a bound fails)
-    se_yield.py --run [--material Al Cu] [--configs ID ...] [--histories N]
+    se_yield.py --run [--material Al Cu Au] [--configs ID ...] [--histories N]
                                    [--energies E ...]
                                    run `lindhard` (LINDHARD_BIN or a release
                                    build) and write results into
@@ -64,7 +64,8 @@ PROVENANCE = REPO / "docs" / "data-provenance.md"
 
 MATERIALS = ["Al", "Cu", "Si", "Au"]
 # Materials that can be run: an optical ELF with provenance is committed.
-OPTICAL_ELF = {"Al": "al_elf_hagemann1975.toml", "Cu": "cu_elf_hagemann1975.toml"}
+OPTICAL_ELF = {"Al": "al_elf_hagemann1975.toml", "Cu": "cu_elf_hagemann1975.toml",
+               "Au": "au_elf_hagemann1975.toml"}
 MIN_POINTS = 5
 # The energy range the issue compares (normal incidence, 100 eV to 5 keV). A data set whose interior maximum
 # lies outside it is not measuring the low-energy maximum of delta(E) and does not resolve it (amended in #149
@@ -93,13 +94,17 @@ BAND = {
         "valence_electrons_per_atom": 1.0,
         "work_function_ev": {"low": 4.53, "mid": 4.815, "high": 5.10},
     },
+    "Au": {
+        "valence_electrons_per_atom": 1.0,
+        "work_function_ev": {"low": 5.10, "mid": 5.285, "high": 5.47},
+    },
 }
 BAND_PROVENANCE = (
     "Caller-supplied for the delta(E) validation (#149), pending #115: work function from the range printed "
     "for the element in the Wikipedia 'Work function' table, revision 1368612509 of 2026-08-10, which cites "
     "CRC Handbook of Chemistry and Physics (2008), p. 12-124 (the Handbook itself was not opened); "
     "'low'/'high' are the table's endpoints and 'mid' their mean; valence electrons per atom from the "
-    "ground-state configuration (Wikipedia 'Electron configuration', Al [Ne]3s2 3p1 -> 3, Cu [Ar]3d10 4s1 -> 1); "
+    "ground-state configuration (Wikipedia 'Electron configuration', Al [Ne]3s2 3p1 -> 3, Cu [Ar]3d10 4s1 -> 1; Au [Xe]4f14 5d10 6s1 -> 1, from the table of anomalous configurations of the revision 1378968605 of 2026-10-07 of that article); "
     "Fermi energy by the library's free-electron formula (Verduin 2017, Eq. 3.133) from the density of the element table."
 )
 
@@ -118,10 +123,10 @@ DEFAULT_CONFIG = "default"
 # Threshold of the `cutoff-band-bottom` configuration, eV above the band bottom. The library refuses a
 # band-bottom threshold at or below the Fermi energy with secondaries on, so this is the Fermi energy the
 # library computes from the band inputs (printed as `band.model.fermi_ev` in every run's metadata: Al
-# 11.6555 eV, Cu 7.0445 eV) plus 1 eV, rounded up to 0.01 eV. It lies below the vacuum level, so unlike the
+# 11.6555 eV, Cu 7.0445 eV, Au 5.5269 eV) plus 1 eV, rounded up to 0.01 eV. It lies below the vacuum level, so unlike the
 # default (threshold 1 eV above the vacuum level) every electron that can leave is followed. `run_one`
 # checks it against the run's own Fermi energy.
-BAND_BOTTOM_CUTOFF_EV = {"Al": 12.66, "Cu": 8.05}
+BAND_BOTTOM_CUTOFF_EV = {"Al": 12.66, "Cu": 8.05, "Au": 6.53}
 
 
 # --- reference data -----------------------------------------------------------------------------
