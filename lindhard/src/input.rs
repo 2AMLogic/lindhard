@@ -405,26 +405,57 @@ fn is_no_tuning(s: &String) -> bool {
 ///   `[physics.energies]` / material value if present, else the elemental
 ///   default), exactly once per layer component, after overrides. The global
 ///   element table and the collision algorithm are never touched.
-/// - Pilot scope: ion runs on single-element layers only. Compounds, a
-///   `[dynamic]` target and electron input are rejected.
+/// - Pilot scope: ion runs on single-element layers only, with a beam species
+///   the set was fitted for ([`TuningSet::ions`]) and a target element the set
+///   lists. Compounds, a `[dynamic]` target, other beams, unlisted elements and
+///   electron input are rejected. A beam energy outside the fitted range or a
+///   tilted beam is allowed but warned about (an extrapolation).
 /// - Both the original and the effective energies are reported in
 ///   `summary.json` (`physics.tuning`).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TuningSet {
-    /// Name used in `[physics] tuning`.
+    /// Name used in `[physics] tuning`. Names are never reused: a new version
+    /// ships under a new name, so a name always selects the same factors.
     pub name: &'static str,
     /// Version of this set; a changed factor is a new version, never an edit.
     pub version: u32,
-    /// `E_s` multiplier by element symbol. Elements not listed keep their `E_s`.
+    /// Beam species (element symbols) the factors were fitted for.
+    pub ions: &'static [&'static str],
+    /// Beam energies (eV, inclusive) the fit data covered, at normal incidence.
+    pub energy_range_ev: (f64, f64),
+    /// `E_s` multiplier by element symbol; a target element not listed is
+    /// rejected.
     pub e_s_factors: &'static [(&'static str, f64)],
     /// Source measurements and fit procedure, in one line.
     pub provenance: &'static str,
 }
 
-/// The sets that ship with the engine. Empty until a calibration with a
-/// reproducible fit record and held-out evaluation is merged; the plumbing is
-/// exercised with synthetic sets in tests only.
-pub const TUNING_SETS: &[TuningSet] = &[];
+/// `es-sputter-ar-v1`: one `E_s` multiplier per element for Ar sputtering of
+/// Si, Cu, Ag and Au, fitted by `validation/experiments/run.py --fit-tuning`
+/// to measured yields only (the sets in `validation/data/sputtering/`, each
+/// cited to its original publication in `docs/data-provenance.md`), with a
+/// held-out evaluation in `validation/experiments/tuning_results.json`.
+///
+/// Phenomenological calibration, not a published value: the factors absorb
+/// whatever the untuned matched problem misses (not shown to be `E_s` itself)
+/// and were fitted under those matched settings (ZBL, Lindhard-Scharff,
+/// constant free path, `E_d` = untuned `E_s`, `E_b` = 0, cutoffs 2 / 1 eV,
+/// no weak collisions); their transfer to other settings is untested.
+pub const ES_SPUTTER_AR_V1: TuningSet = TuningSet {
+    name: "es-sputter-ar-v1",
+    version: 1,
+    ions: &["Ar"],
+    energy_range_ev: (196.0, 10020.0),
+    e_s_factors: &[("Si", 0.65), ("Cu", 0.55), ("Ag", 0.30), ("Au", 0.45)],
+    provenance: "E_s multipliers fitted to measured Ar sputter yields (validation/data/sputtering, \
+                 training sets only; held-out sets scored separately) by validation/experiments/run.py \
+                 --fit-tuning; record: validation/experiments/tuning_results.json, docs/data-provenance.md \
+                 (Tuning factor sets); issue #80",
+};
+
+/// The sets that ship with the engine. Each has a reproducible fit record and
+/// a held-out evaluation (`docs/data-provenance.md`, "Tuning factor sets").
+pub const TUNING_SETS: &[TuningSet] = &[ES_SPUTTER_AR_V1];
 
 /// One component's tuning, as applied.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -1402,6 +1433,36 @@ impl Input {
                 "tuning is not supported with a [dynamic] target (pilot: static single-element layers)",
             ));
         }
+        let (e_lo, e_hi) = set.energy_range_ev;
+        if !(e_lo.is_finite() && e_hi.is_finite() && 0.0 < e_lo && e_lo <= e_hi) {
+            return Err(invalid(
+                f,
+                format!(
+                    "set {name:?}: energy range {e_lo}..{e_hi} eV is not a finite positive range"
+                ),
+            ));
+        }
+        if !set.ions.contains(&self.beam.ion.as_str()) {
+            return Err(invalid(
+                f,
+                format!(
+                    "set {name:?} was fitted for beam ion(s) {:?}, not {:?}; use \"none\"",
+                    set.ions, self.beam.ion
+                ),
+            ));
+        }
+        let e = self.beam.energy_ev;
+        if !(e_lo..=e_hi).contains(&e) {
+            warnings.push(format!(
+                "tuning set {name:?} was fitted at {e_lo}..{e_hi} eV; {e} eV is an extrapolation"
+            ));
+        }
+        if self.beam.tilt_deg != 0.0 {
+            warnings.push(format!(
+                "tuning set {name:?} was fitted at normal incidence; tilt {} deg is an extrapolation",
+                self.beam.tilt_deg
+            ));
+        }
         let mut factors = BTreeMap::new();
         for &(sym, k) in set.e_s_factors {
             let el = element_by_symbol(sym)
@@ -1432,7 +1493,15 @@ impl Input {
             let z = l.material.components()[0].z();
             let sym = crate::elements::element(z).expect("validated").symbol;
             let original = l.material.surface_binding_energy_ev(z).expect("set");
-            let factor = factors.get(&z).copied().unwrap_or(1.0);
+            let factor = *factors.get(&z).ok_or_else(|| {
+                invalid(
+                    f,
+                    format!(
+                        "set {name:?} has no factor for {sym} (layer {i}); it supports {:?}",
+                        set.e_s_factors.iter().map(|p| p.0).collect::<Vec<_>>()
+                    ),
+                )
+            })?;
             let effective = original * factor;
             l.material
                 .set_surface_binding_energy_ev(z, effective)
@@ -1447,7 +1516,7 @@ impl Input {
         }
         if components.iter().all(|c| c.factor == 1.0) {
             warnings.push(format!(
-                "tuning set {name:?} has no factor for any element in the target; nothing changed"
+                "tuning set {name:?} has factor 1 for every element in the target; nothing changed"
             ));
         }
         Ok(Some(TuningReport {
@@ -1955,6 +2024,8 @@ seed = 2
     const FIX: TuningSet = TuningSet {
         name: "fixture",
         version: 3,
+        ions: &["B"],
+        energy_range_ev: (1000.0, 10000.0),
         e_s_factors: &[("Si", 1.25), ("Ag", 0.5)],
         provenance: "synthetic test fixture",
     };
@@ -2031,7 +2102,7 @@ seed = 2
         let e = fe(&with_tuning(B_SI, "nope"), &[FIX]);
         assert_eq!(field(&e), "physics.tuning");
         assert!(e.to_string().contains("unknown tuning set"), "{e}");
-        // The shipped registry has no sets yet.
+        // A fixture name is unknown to the shipped registry.
         assert_eq!(
             field(&err(&B_SI.replace("[run]", "[run]\n").replace(
                 "recoil_cutoff_ev = 2.0",
@@ -2078,5 +2149,79 @@ seed = 2
         };
         let r = resolve_fix(&with_tuning(B_SI, "fixture"), &[none_set]).unwrap();
         assert!(r.warnings.iter().any(|w| w.contains("nothing changed")));
+        // A beam the set was not fitted for.
+        let e = fe(
+            &with_tuning(&B_SI.replace("ion = \"B\"", "ion = \"P\""), "fixture"),
+            &[FIX],
+        );
+        assert_eq!(field(&e), "physics.tuning");
+        assert!(e.to_string().contains("beam ion"), "{e}");
+        // A target element the set does not list.
+        let ge = B_SI
+            .replace("substrate = \"Si\"", "substrate = \"Ge\"")
+            .replace("[physics.energies.Si]", "[physics.energies.Ge]");
+        let e = fe(&with_tuning(&ge, "fixture"), &[FIX]);
+        assert!(e.to_string().contains("no factor for Ge"), "{e}");
+        // A malformed energy range.
+        for range in [(0.0, 1.0), (2.0, 1.0), (1.0, f64::INFINITY)] {
+            let s = TuningSet {
+                energy_range_ev: range,
+                ..FIX
+            };
+            assert_eq!(
+                field(&fe(&with_tuning(B_SI, "fixture"), &[s])),
+                "physics.tuning"
+            );
+        }
+    }
+
+    #[test]
+    fn tuning_warns_outside_the_fitted_domain() {
+        // B_SI: 5 keV (inside 1..10 keV) at 7 deg tilt.
+        let r = resolve_fix(&with_tuning(B_SI, "fixture"), &[FIX]).unwrap();
+        assert!(r.warnings.iter().any(|w| w.contains("normal incidence")));
+        assert!(!r.warnings.iter().any(|w| w.contains("fitted at 1000")));
+        let low = B_SI
+            .replace("energy_ev = 5000.0", "energy_ev = 500.0")
+            .replace("tilt_deg = 7.0", "tilt_deg = 0.0");
+        let r = resolve_fix(&with_tuning(&low, "fixture"), &[FIX]).unwrap();
+        assert!(r.warnings.iter().any(|w| w.contains("extrapolation")));
+        assert!(!r.warnings.iter().any(|w| w.contains("normal incidence")));
+        assert_eq!(r.tuning.unwrap().components[0].factor, 1.25);
+    }
+
+    #[test]
+    fn shipped_sets_are_well_formed() {
+        let mut names = std::collections::BTreeSet::new();
+        for s in TUNING_SETS {
+            assert!(names.insert(s.name), "duplicate set name {}", s.name);
+            assert_ne!(s.name, NO_TUNING);
+            assert!(!s.ions.is_empty() && !s.e_s_factors.is_empty());
+            assert!(!s.provenance.is_empty());
+            for &(sym, k) in s.e_s_factors {
+                assert!(element_by_symbol(sym).is_some(), "{sym}");
+                assert!(k.is_finite() && k > 0.0, "{sym}: {k}");
+            }
+            // Every listed element resolves for every listed ion, once.
+            for ion in s.ions {
+                for &(sym, k) in s.e_s_factors {
+                    let text = format!(
+                        "[beam]\nion = \"{ion}\"\nenergy_ev = {}\n[target]\nsubstrate = \"{sym}\"\n\
+                         [physics]\nprimary_cutoff_ev = 2.0\nrecoil_cutoff_ev = 1.0\ntuning = \"{}\"\n\
+                         [physics.energies.{sym}]\ne_d_ev = 10.0\n\
+                         [run]\nions = 1\nseed = 1\n",
+                        s.energy_range_ev.0, s.name
+                    );
+                    let r = Input::from_toml_str(&text).unwrap().resolve().unwrap();
+                    let c = &r.tuning.as_ref().unwrap().components[0];
+                    assert_eq!(c.factor, k);
+                    assert_eq!(c.e_s_effective_ev, c.e_s_original_ev * k);
+                    assert_eq!(
+                        es(&r, 0, element_by_symbol(sym).unwrap().z),
+                        c.e_s_effective_ev
+                    );
+                }
+            }
+        }
     }
 }

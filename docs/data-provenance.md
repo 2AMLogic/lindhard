@@ -448,10 +448,39 @@ training/holdout split, the fit recipe (objective, grid, ion count, seed,
 revision) and the held-out error next to the untuned control. Fitting to
 SRIM-derived tables or to another code's output is not allowed.
 
-Status (2026-10-08, #80): **no set ships.** Only the selection, validation
-and `summary.json` reporting plumbing is merged; its tests use synthetic
-fixtures that are not fitted coefficients. The calibration and held-out
-evaluation are tracked separately (see the follow-up issue #201).
+### `es-sputter-ar-v1` (version 1, #80)
+
+| Item | Value |
+|---|---|
+| Quantity | Multiplier on the resolved surface binding energy `E_s` of the target element, once per layer. Nothing else changes. |
+| Factors | Si 0.65, Cu 0.55, Ag 0.30, Au 0.45 (`lindhard::input::ES_SPUTTER_AR_V1`) |
+| Applies to | Static single-element targets, Ar beam, 196 to 10020 eV (the span of the fit data), normal incidence. Anything else is rejected or warned about. |
+| Measured data | Ar sputter yields at normal incidence, `validation/data/sputtering/ar_{si,cu,ag,au}_sputter_*.json`, each file cited to its original publication in this file (sputter-yield rows). Points flagged `disagrees_between_compilations` are left out. No SRIM-derived table and no other code's output enters the fit. |
+| Split | Per target, before any run: sets (one per publication) ordered by SHA-256 of the id, the first round(n/3), at least 1, held out. Training sets: Ag 6, Au 8, Cu 10, Si 3; held out: Ag 3, Au 4, Cu 5, Si 1 (ids in the record). |
+| Recipe | `python3 validation/experiments/run.py --fit-tuning` (about 46 min on 18 cores). Matched level-3 sputter problem (ZBL, Lindhard-Scharff, constant free path, `E_d` = untuned `E_s`, `E_b` = 0, cutoffs 2 / 1 eV, no weak collisions), 5000 ions per grid run, grid 0.30 to 1.20 step 0.05, objective mean of ln(Y_lindhard / Y_measured)^2 over training points, ties toward 1, seed 1. Uncertainty: 1000 seeded bootstrap resamples of the training sets. Evaluation: 20000 ions, untuned control (factor 1) and tuned, on training and held-out points. |
+| Record | `validation/experiments/tuning_results.json`: dataset paths and SHA-256, selected observations, grid objectives, bootstrap, every evaluation run with its Poisson standard error. Run at `e438724` (the binary reported `e438724-dirty`; the uncommitted change was the set registry itself, which the fit does not use: its runs set `E_s` explicitly). |
+| Origin | Fitted by us to the measured yields above. A phenomenological calibration, not a published value and not a physical `E_s`. |
+
+Fit and held-out results (objective = mean ln-ratio squared, lower is
+better; geometric-mean ratio = lindhard / measured; Poisson error at most
+1.1 % of a yield for Ag, Au, Cu and 2.6 % for Si, which understates the true
+error):
+
+| Target | Factor (bootstrap 16th-84th) | Training untuned | Training tuned | Held-out untuned | Held-out tuned |
+|---|---|---|---|---|---|
+| Ag | 0.30 (0.30-0.30), **at the grid's lower bound** | 0.678 (ratio 0.44) | 0.028 (0.92) | 0.761 (0.42) | 0.077 (0.78) |
+| Au | 0.45 (0.30-0.60) | 0.435 (0.60) | 0.174 (0.99) | 0.787 (0.42) | 0.199 (0.67) |
+| Cu | 0.55 (0.50-0.60) | 0.288 (0.61) | 0.041 (0.97) | 0.233 (0.64) | 0.029 (1.04) |
+| Si | 0.65 (0.65-0.80) | 0.343 (0.61) | 0.041 (1.05) | 0.051 (0.82) | 0.025 (1.15) |
+
+Held-out error falls for all four targets, but read it with care. The Ag
+factor sits at the edge of the grid, so the true minimum may lie lower, and a
+factor 0.30 means `E_s` of 0.9 eV for Ag, far below the cohesive energy: the
+factor absorbs the whole yield deficit, whatever its cause, and says nothing
+about the real binding energy. Si has one held-out set (3 points) and Au's
+held-out ratio (0.67) still misses. The factors are specific to the matched
+settings above; no claim is made for other potentials, `E_d`, cutoffs or
+energies. Level 3 keeps the untuned comparison as the primary result.
 
 ## Open questions
 

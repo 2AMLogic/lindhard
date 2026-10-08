@@ -299,6 +299,101 @@ class CommittedBaseline(unittest.TestCase):
         self.assertEqual(data, before)
 
 
+class TuningPilot(unittest.TestCase):
+    """The opt-in E_s tuning fit (#80): split, objective, selection, isolation of the holdout.
+    Synthetic observations only; nothing here is a fitted coefficient."""
+
+    def sets(self, n=6, target="Cu"):
+        return [ds(f"s{i}", target, [(1000.0 * (i + 1), 1.0 + i), (1010.0 * (i + 1), 1.1 + i)]) for i in range(n)]
+
+    def test_split_is_by_set_deterministic_and_value_blind(self):
+        a = self.sets()
+        s = run.tuning_split(a)["Cu"]
+        self.assertEqual(len(s["holdout"]), 2)  # round(6 / 3)
+        self.assertEqual(sorted(s["train"] + s["holdout"]), [f"s{i}" for i in range(6)])
+        self.assertFalse(set(s["train"]) & set(s["holdout"]))
+        b = copy.deepcopy(a)
+        for _, d in b:
+            for p in d["points"]:
+                p["yield"] *= 7.0
+        self.assertEqual(run.tuning_split(b)["Cu"], s)
+        self.assertEqual(run.tuning_split(list(reversed(a)))["Cu"], s)
+
+    def test_split_holds_out_at_least_one_and_skips_single_set_targets(self):
+        self.assertEqual(len(run.tuning_split(self.sets(2))["Cu"]["holdout"]), 1)
+        self.assertNotIn("Cu", run.tuning_split(self.sets(1)))
+        other_ion = [ds(f"k{i}", "Cu", [(1000.0, 1.0)], ion="Kr") for i in range(4)]
+        self.assertEqual(run.tuning_split(other_ion), {})
+
+    def test_observations_group_by_two_percent_and_do_not_mutate(self):
+        a = self.sets(1)
+        before = copy.deepcopy(a)
+        obs = run.tuning_observations(a, ["s0"])
+        self.assertEqual(a, before)
+        self.assertEqual([o["run_energy_ev"] for o in obs], [1005.0, 1005.0])  # geometric mean, 4 digits
+        self.assertEqual(run.tuning_observations(a, []), [])
+
+    def test_objective(self):
+        obs = [{"run_energy_ev": 1.0, "yield": 2.0, "set": "a"}, {"run_energy_ev": 2.0, "yield": 1.0, "set": "a"}]
+        self.assertAlmostEqual(run.tuning_loss(obs, {1.0: 2.0 * math.e, 2.0: 1.0}), 0.5, places=12)
+
+    def sims(self, grid, scale):
+        # A yield inversely proportional to the factor, `scale` times the measurement at factor 1.
+        return {f: {1000.0: scale / f, 2000.0: 2.0 * scale / f} for f in grid}
+
+    def test_selection_minimises_and_breaks_ties_toward_one(self):
+        grid = (0.5, 1.0, 2.0)
+        obs = [{"run_energy_ev": 1000.0, "yield": 1.0, "set": "a"}, {"run_energy_ev": 2000.0, "yield": 2.0, "set": "b"}]
+        self.assertEqual(run.select_factor(grid, obs, self.sims(grid, 0.5))[0], 0.5)
+        f, losses = run.select_factor(grid, obs, self.sims(grid, 1.0))
+        self.assertEqual((f, losses[1]), (1.0, 0.0))
+        flat = {g: {1000.0: 1.0, 2000.0: 2.0} for g in grid}
+        self.assertEqual(run.select_factor(grid, obs, flat)[0], 1.0)
+
+    def test_holdout_cannot_affect_selection(self):
+        a = self.sets()
+        s = run.tuning_split(a)["Cu"]
+        train = run.tuning_observations(a, s["train"])
+        grid = run.TUNING_GRID
+        sims = {f: {o["run_energy_ev"]: 0.6 * o["yield"] / f for o in train} for f in grid}
+        chosen = run.select_factor(grid, train, sims)
+        b = copy.deepcopy(a)
+        for _, d in b:
+            if d["id"] in s["holdout"]:
+                for p in d["points"]:
+                    p["yield"] *= 100.0
+        self.assertEqual(run.tuning_split(b)["Cu"], s)
+        self.assertEqual(run.select_factor(grid, run.tuning_observations(b, s["train"]), sims), chosen)
+        self.assertEqual(chosen[0], 0.6)
+
+    def test_bootstrap_is_seeded(self):
+        grid = run.TUNING_GRID
+        obs = [{"run_energy_ev": 1000.0, "yield": y, "set": f"s{i}"} for i, y in enumerate((1.0, 1.5, 2.0, 0.8))]
+        sims = {f: {1000.0: 1.0 / f} for f in grid}
+        a = run.bootstrap_factor(grid, obs, sims, 200, 1)
+        self.assertEqual(a, run.bootstrap_factor(grid, obs, sims, 200, 1))
+        self.assertTrue(a["p16"] <= a["p50"] <= a["p84"])
+
+    def test_tuned_problem_scales_only_e_s(self):
+        p = run.tuned_problem("Cu", 1000.0, 5000, 3.49, 0.5)
+        self.assertEqual(p["physics"]["energies"], {"Cu": {"e_d_ev": 3.49, "e_b_ev": 0.0, "e_s_ev": 3.49 * 0.5}})
+        self.assertEqual(p["physics"], {**run.sputter_problem("Ar", "Cu", 1000.0, 0, 5000, 3.49)["physics"],
+                                        "energies": p["physics"]["energies"]})
+        self.assertNotEqual(p["id"], run.tuned_problem("Cu", 1000.0, 5000, 3.49, 0.55)["id"])
+
+    def test_shipped_factors_match_the_committed_fit_record(self):
+        import re
+        rec = json.loads(run.TUNING_RESULTS.read_text())
+        src = (run.lindhard_cli.REPO / "lindhard/src/input.rs").read_text()
+        block = src[src.index("pub const ES_SPUTTER_AR_V1"):]
+        shipped = {m[0]: float(m[1]) for m in re.findall(r'\("([A-Z][a-z]?)", ([0-9.]+)\)', block[: block.index("provenance")])}
+        self.assertEqual(shipped, {t: v["factor"] for t, v in rec["targets"].items()})
+
+    def test_grid_is_bounded_and_contains_one(self):
+        self.assertIn(1.0, run.TUNING_GRID)
+        self.assertEqual((min(run.TUNING_GRID), max(run.TUNING_GRID)), (0.3, 1.2))
+
+
 class BackscatterDatasetChecks(unittest.TestCase):
     """The provenance enforcement of validation/experiments/backscatter.py (#148)."""
 
