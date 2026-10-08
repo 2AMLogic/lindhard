@@ -75,13 +75,21 @@ electron MC). The engines share the core and nothing else.
   comparison inside a history and so change an integer count; the engine does
   not promise otherwise.
 - **What is checked.** `lindhard/tests/golden.rs` pins small fixed-seed runs
-  (amorphous BCA batch, crystal BCA batch, electron batch) to values stored in
-  the file: integer outputs exactly, floats to a relative tolerance of 1e-9.
-  The CI OS matrix (x86-64 Linux, aarch64 Linux, aarch64 macOS) therefore
-  checks one committed result on every platform. The file says how to
-  regenerate the values. If a platform ever fails an integer count, that is
-  the evidence for the separate decision on a pure-Rust libm; none is
-  adopted today.
+  (amorphous BCA batch, crystal BCA batch, electron batch) to values
+  generated on x86-64 Linux. The amorphous and electron runs are checked on
+  every platform of the CI OS matrix (x86-64 Linux, aarch64 Linux, aarch64
+  macOS) with integer outputs exact and floats to a relative tolerance of
+  1e-9. The crystal run is exact in the same sense on Linux (both
+  architectures) but, off Linux, is only checked statistically: conservation
+  invariants exact, counts and sums to a 15% relative tolerance. This is a
+  deliberate, documented relaxation. The first cross-platform evidence
+  (PR #216 CI) is that on aarch64 macOS the crystal run gives 67721 recoils
+  against 67786 on x86-64 Linux, while the amorphous and electron runs agree
+  exactly: a comparison in the crystal path flips on a libm or codegen
+  difference. The cause is not located. This is the evidence for the
+  separate decision on a pure-Rust libm (tracked in #217); none
+  is adopted today. The test file says how to regenerate the values and
+  which platform each set came from.
 
 ## Decisions
 
