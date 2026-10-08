@@ -58,3 +58,43 @@ CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
 OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
+
+## DISPLATH (permissionx)
+
+- DISPLATH, <https://github.com/permissionx/DISPLATH>, commit
+  `7f461141c518305e6a5de8ce7e37dd314cd20ccb`:
+  - `src/dynamics.jl` (`GetTargetsFromNeighbor`: nearest target by path
+    distance to the closest-approach point, then the simultaneous partners;
+    `Collision_!`: the momentum balance of simultaneous partners and the
+    common energy-scaling factor) and `src/geometry.jl`
+    (`SimultaneousCriteria`), re-implemented in Rust (not translated line by
+    line) in `lindhard/src/ion/bca/crystal.rs` (`Bca::crystal_step`,
+    `Bca::crystal_collide`) on this crate's own lattice search, scattering
+    tables, kinematics and energy bookkeeping. `examples/archive/Dynamic_load/Si/main.jl`
+    and `examples/3D_implantation_B-in-Si/main.jl` were read for the sizes of
+    its `pMax` (cited in the doc comments; the defaults here differ). No
+    DISPLATH data file is copied.
+
+```text
+MIT License
+
+Copyright (c) 2024 裴幂許Permission
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```

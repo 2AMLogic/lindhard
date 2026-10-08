@@ -1,9 +1,11 @@
 //! Crystalline targets: the cubic lattice model and the geometry that sets
 //! the ion direction in the crystal frame (step 19a of the M2 crystal plan).
 //!
-//! This module is a **data model only**. Nothing in the binary-collision
-//! engine ([`crate::ion::bca`]) reads it yet, so amorphous runs are unchanged.
-//! It provides three pieces:
+//! This module is the data model. The binary-collision engine
+//! ([`crate::ion::bca`]) uses it for the regions named in
+//! [`Bca::with_crystal`](crate::ion::bca::Bca::with_crystal) (the crystal
+//! flight model, see [`crate::ion::bca::crystal`]); everywhere else it is
+//! unchanged and amorphous runs are bit-identical. It provides three pieces:
 //!
 //! * [`Lattice`] ([`lattice`]): Bravais (primitive) vectors, a basis of sites
 //!   with their species, and a lattice constant stated with its temperature.
@@ -34,14 +36,15 @@
 //!   [`crate::ion::bca::Beam::direction`].
 //!
 //! Thermal vibration of lattice atoms is the Debye model in [`debye`]
-//! (displacement sampling only; it is not yet used by the engine).
+//! (displacement sampling only; it is not yet used by the engine, which
+//! treats the lattice as static).
 //!
 //! [`search`] finds the lattice sites within an impact parameter of a path
 //! segment by walking unit cells, ordered along the path (geometry only; the
-//! engine does not call it yet).
+//! crystal flight model of the engine calls it for every segment).
 //!
-//! Hexagonal lattices (wurtzite GaN, 4H/6H-SiC) and the use of the search in
-//! the binary-collision flight model are later steps and are not here.
+//! Hexagonal lattices (wurtzite GaN, 4H/6H-SiC) are a later step and are not
+//! here.
 
 pub mod debye;
 pub mod divergence;

@@ -71,3 +71,7 @@ harness = false
 [[bench]]
 name = "mesh"
 harness = false
+
+[[bench]]
+name = "crystal_flight"
+harness = false
