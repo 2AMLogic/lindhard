@@ -436,6 +436,22 @@ browser and paste the text into #34, or ask the IAEA Nuclear Data Section.
 database until the terms have been read and recorded here. Meanwhile, use
 measured points from the original papers, cited as facts (origin 2).
 
+## Tuning factor sets (opt-in, #80)
+
+`[physics] tuning = "<set>"` selects a named, versioned set of
+surface-binding-energy multipliers (`lindhard::input::TuningSet`). A set is a
+phenomenological calibration, not a published model value. Every shipped set
+must get a row here giving its name and version, each factor, the measured
+datasets (ids in `validation/data/sputtering/`) it was fitted to, the
+training/holdout split, the fit recipe (objective, grid, ion count, seed,
+revision) and the held-out error next to the untuned control. Fitting to
+SRIM-derived tables or to another code's output is not allowed.
+
+Status (2026-10-08, #80): **no set ships.** Only the selection, validation
+and `summary.json` reporting plumbing is merged; its tests use synthetic
+fixtures that are not fitted coefficients. The calibration and held-out
+evaluation are tracked separately (see the follow-up issue #201).
+
 ## Open questions
 
 - IAEA stopping database reuse terms: **still unread.** A record of the

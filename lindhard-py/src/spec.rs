@@ -480,6 +480,8 @@ impl Physics {
             follow_recoils: self.follow_recoils,
             primary_surface_binding_ev: self.primary_surface_binding_ev,
             energies,
+            // Tuning is CLI/TOML-only in the pilot; Python runs are untuned.
+            tuning: lindhard::input::NO_TUNING.to_string(),
         })
     }
 
