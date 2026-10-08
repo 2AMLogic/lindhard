@@ -4,6 +4,20 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-08
 
+- **PR #186**: feat(crystal): Debye thermal-displacement model and sampling (#21)
+- **PR #183**: docs: record resist PSF validation gap and sources tried
+- **PR #182**: docs(WORK_PLAN): M2 Phase 1 may run alongside M0's remaining verification
+- **PR #178**: validation: backscatter eta for glassy C and Au (C, Al, Cu, Au compared)
+- **PR #176**: test: harden elastic reference harness (part of #93)
+- **PR #175**: validation: secondary-electron yield δ(E) vs published measurements (#149)
+- **PR #174**: Electron engine benchmarks: electrons/s, thread scaling, determinism (#152)
+- **PR #160**: feat(tally): radial PSF extraction and double/triple-Gaussian fits (#146)
+- **PR #155**: Verify E_s against Kittel 8th ed. Table 1 (p. 50); correct Na and K (part of #15)
+- **Issue #152** (closed): [Epic #11] Benchmarks: electrons/s and thread scaling vs Nebula (CPU)
+- **Issue #146** (closed): [Epic #11] PSF extraction: radial point-spread function and double/triple-Gaussian fit
+- **Issue #120** (closed): WORK_PLAN.md: epic #11 children list is stale after the M1 restructure
+- **Issue #21** (closed): [Epic #12] Crystal step 21a: Debye thermal-displacement model
+- **Issue #8** (closed): Validation harness: analytic checks, oracle runner (RustBCA/OpenTRIM), first experimental range datasets
 - **PR #171**: chore: adopt the 2AMLogic Renovate preset
 
 ### 2026-10-07

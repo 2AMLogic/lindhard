@@ -32,7 +32,7 @@ The rest run as capacity allows.
 
 Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
 
-- **#155**: Verify E_s against Kittel 8th ed. Table 1 (p. 50); correct Na and K (part of #15)
+_None._
 
 ## Operator Priority
 
@@ -44,51 +44,51 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#15**: [Epic #10] Verify element and constant data against primary sources
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
-- **#152**: [Epic #11] Benchmarks: electrons/s and thread scaling vs Nebula (CPU)
+- **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
+- **#15**: [Epic #10] Verify element and constant data against primary sources
+- **#19**: [Epic #12] Crystal step 19a: cubic lattice model and wafer/beam orientation
+- **#93**: [Epic #11] Elastic validation: total and transport cross sections vs published partial-wave values (C, Si, Cu, Au)
 - **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
-- **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#187**: feat(crystal): cubic lattice model and wafer/beam orientation (#19)
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#155**: Verify E_s against Kittel 8th ed. Table 1 (p. 50); correct Na and K (part of #15)
-- **#160**: feat(tally): radial PSF extraction and double/triple-Gaussian fits (#146)
+_None._
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
-- **#8**: Validation harness: analytic checks, oracle runner (RustBCA/OpenTRIM), first experimental range datasets *(curated)*
 - **#15**: [Epic #10] Verify element and constant data against primary sources *(curated)*
 - **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
 - **#51**: Validation level 3: first published range datasets (B, P, As in amorphous Si) and stopping-input attribution (follow-up to #8) *(curated)*
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50) *(curated)*
 - **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
 - **#79**: bca: opt-in time-integral path length for nonlocal electronic loss (TRIM tau = p tan(theta/2)) *(curated)*
+- **#80**: Opt-in experiment-tuned mode: phenomenological correction factors behind an on/off flag *(curated)*
 - **#93**: [Epic #11] Elastic validation: total and transport cross sections vs published partial-wave values (C, Si, Cu, Au) *(curated)*
 - **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements *(curated)*
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
 
 ## Proposed (Architect / Hermit)
 
-- **#19**: [Epic #12] Crystal structure model and wafer/beam orientation *(architect)*
-- **#20**: [Epic #12] Lattice collision-partner search (crystalline BCA) *(architect)*
-- **#21**: [Epic #12] Thermal vibrations (Debye model) *(architect)*
 - **#27**: [Epic #25] Triangle-mesh / CSG solids with a BVH *(architect)*
 - **#34**: [Epic #33] Data-terms review: IAEA stopping database, NIST SRD, optical-data sources *(architect)*
+- **#185**: CLI: remove stale optional CSVs when reusing an output directory *(architect)*
 
 ## Epics
 
@@ -106,14 +106,14 @@ Issues carrying `loom:curated`.
 
 | Tier | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 0 |
 | Operator priority | 0 |
 | Ready (`loom:issue`) | 3 |
-| In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 9 |
-| Architect / Hermit proposals | 5 |
+| In Progress (`loom:building`) | 4 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 0 |
+| Curated | 10 |
+| Architect / Hermit proposals | 3 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
 
