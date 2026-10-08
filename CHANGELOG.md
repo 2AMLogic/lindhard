@@ -9,6 +9,10 @@ one version).
 
 ### Added
 
+- `ion::crystal::debye`: Debye-model RMS thermal displacement (1D and 3D, with
+  the zero-point term) and per-atom Gaussian displacement sampling on the
+  particle's RNG stream; Debye temperatures of Si, Ge, GaAs and 3C-SiC as
+  cited defaults (#21).
 - `ElectronReport.stopping_points.primaries` (`PrimaryStoppingPoints`): the
   depth and radial moments of the primaries alone that fell below the stopping
   threshold, i.e. the penetration depth of stopped primaries; written in the
