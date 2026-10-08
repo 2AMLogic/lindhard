@@ -31,6 +31,11 @@ one version).
 - Documented gap for the PMMA optical ELF (#147): Ritsko et al. (1978) and the
   Henke tail could not be opened on 2026-10-07, so no dataset is committed;
   `docs/data-provenance.md` records what was tried and what is needed.
+- Documented gap for the resist PSF validation (#151): no measured PSF of a
+  stated stack and energy, and neither the PMMA nor the Si optical ELF, could
+  be opened on 2026-10-08, so no comparison is run; `docs/validation.md`
+  fixes the tolerance rule and limitations for when the inputs exist, and
+  `docs/data-provenance.md` records the sources tried.
 - Electron run mode in `lindhard-cli`: an input with an `[electron]` table
   (beam, transport cutoff and escape rule, Kieft-Bosch secondaries, step
   barrier, Mott elastic with optional exchange and correlation-polarization

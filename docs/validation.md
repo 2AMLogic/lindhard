@@ -784,7 +784,8 @@ Values are pooled over all histories, ± the batch-means standard error (10 batc
 - **Electrons (M1):** published backscatter coefficients η(E, Z) (C, Al, Si,
   Cu and Au at normal incidence, 1 to 30 keV, are in (#148, below); compared
   for C, Al, Cu and Au, with a reduced model; Si waits for its optical data),
-  SE yields δ(E), and resist-exposure PSF measurements.
+  SE yields δ(E), and resist-exposure PSF measurements (PMMA on Si: a
+  recorded gap, #151, below).
 
 Datasets live in `validation/data/` with the schema and rules in
 [`../validation/data/README.md`](../validation/data/README.md);
@@ -1427,6 +1428,53 @@ Still open (#169): Si waits for its valence-region optical ELF (#125), and a
 rerun with full Penn and the DHFS potential waits for faster full-Penn
 tables and the DHFS table (#130). Until then this is a comparison of the
 reduced model, not of the issue's full model.
+
+### Resist PSF vs a published measurement (#151): gap, no comparison
+
+**Status: not run.** The criterion is to reproduce a published measured
+point-spread function (fitted α, β, η or a radial profile) for one stated
+resist/substrate stack and beam energy, for example PMMA on Si, by
+simulating that stack and fitting the deposited-energy profile with the
+`tally::psf` tooling (#146). Three inputs are needed and none is in the tree:
+
+| Input | Status | Where recorded |
+|---|---|---|
+| A published measured PSF for a stated stack and energy, cited to a table or figure | **Gap.** No source with a measured PMMA-on-Si PSF could be opened on 2026-10-08: Chang (1975) and Rishton and Kern (1987) are closed access and their publisher pages return HTTP 403, and the open-access papers found report either developed linewidths (no PSF), CASINO-simulated PSFs (simulated, and CASINO is Tier C), or process-calibrated PSFs on a stack that is not stated | [`data-provenance.md`](data-provenance.md), "Published measured resist PSF" row |
+| The PMMA optical ELF | **Gap** (#147, #162). Ritsko et al. (1978) re-attempted 2026-10-08, still 403 and closed access; a later open-access REELS paper (Ridzel et al. 2022) was found but its PDF could not be downloaded | [`data-provenance.md`](data-provenance.md), PMMA inventory row |
+| The Si optical ELF (valence region and core tail) | **Gap** (#125). A three-oscillator REELS fit restated in an open-access review was found; it covers the valence region only and contains a surface-plasmon term, so it is not a bulk optical ELF and was not committed | [`data-provenance.md`](data-provenance.md), Si inventory row |
+
+Following the issue's sourcing rule ("if none can be opened, record the gap
+and stop rather than use remembered values"), **there is no comparison table**:
+no published α, β or η value was entered, from memory or otherwise, and no
+PSF was simulated for a stack whose optical data are not committed. A
+synthetic or unsourced PMMA or Si ELF was not substituted. A run on a
+committed ELF (Al or Cu) would test only the pipeline, not this criterion,
+and was not added: the CLI does not yet expose the PSF tally, and the
+pipeline from transport to fit is already covered by `lindhard/tests/psf.rs`
+on synthetic tables.
+
+**Rule for when the inputs exist** (fixed now so it is not chosen after
+seeing the result): the initial tolerance is the issue's, **β and η within
+25 % of the published values**; **α is reported only**, because it depends
+strongly on resist thickness and development. The fit is made in the same
+depth slab (resist thickness, or the depth range the measurement samples),
+at the same energy, with the fit uncertainties from the `tally::psf`
+covariance. Loosening the tolerance needs operator sign-off.
+
+**Limitations (stated in advance).** Resist development and the
+exposure-to-dissolution model are out of scope: lindhard tallies deposited
+energy, so this comparison would set the deposited-energy PSF against the
+published fit only. A published PSF calibrated through development (a
+threshold or contrast model fitted to developed patterns) already includes
+the resist chemistry, so agreement or disagreement in α in particular says
+little about transport. Beam size, resist charging and the substrate's
+surface layer are further differences between a measurement and the
+simulation, to be listed with any result.
+
+**What lifts the gap:** a PMMA ELF (#162) and a Si ELF across the valence and
+core regions (#125) committed with provenance rows, and a measured PSF in an
+openable source, cited to its table or figure (digitized values with the
+second-read discipline of the sputter datasets).
 
 ## Reporting
 
