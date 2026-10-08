@@ -1281,7 +1281,7 @@ not stored) are in [`data-provenance.md`](data-provenance.md); the schema is
 in [`../validation/data/README.md`](../validation/data/README.md).
 
 **Runs.** `validation/experiments/backscatter.py` runs the committed CLI
-inputs `validation/experiments/backscatter/eta_{al,cu}.toml` (an
+inputs `validation/experiments/backscatter/eta_{c,al,cu,au}.toml` (an
 `[electron]` input; as committed, the 10 keV run) at each comparison
 energy. η is the number of electrons leaving the front face with at least
 50 eV, per primary; its σ is binomial. The model, and how it differs from
@@ -1293,19 +1293,24 @@ the issue's "full model":
   **Thomas-Fermi Yukawa stand-in potential**: the DHFS coefficient table is
   still a gap (#130), and it is the only potential that runs.
 - **Inelastic:** the **single-pole** Penn algorithm on the measured optical
-  ELF of Hagemann, Gudat and Kunz (1975). The full Penn model was tried (Al,
+  ELF of Hagemann, Gudat and Kunz (1975): Al, Cu, Au (their Table 5, the
+  version fitted to transmission) and **glassy carbon**, whose constants the
+  authors give on a 1.5 g/cm³ basis, so the C target is glassy carbon at
+  1.5 g/cm³ (not graphite at 2.27). The full Penn model was tried (Al,
   2 keV, 5 grid points per decade, two threads) and had not finished its
   tables after 15 minutes, so a 1 to 30 keV sweep with it is out of reach on
   this hardware. There is no separate inner-shell channel: the transport loop
   has none yet, and the shells enter only through the optical ELF.
-- **No secondaries, transparent surface:** no band parameters of Al or Cu
-  are committed. With the 50 eV cutoff no electron that could still count
+- **No secondaries, transparent surface:** no band parameters of these
+  elements are committed. With the 50 eV cutoff no electron that could still count
   towards η is dropped, but fast secondaries (above 50 eV, which a measured
   η includes) are not generated.
-- **Only Al and Cu are compared.** C, Si and Au have no committed optical
-  ELF (inventory in [`data-provenance.md`](data-provenance.md); Si is #125),
-  so they have no input. Their measured data are tabulated below for when
-  one exists: adding `eta_<el>.toml` is all that is needed.
+- **Si is not compared.** It has no committed optical ELF (inventory in
+  [`data-provenance.md`](data-provenance.md); #125), so it has no input. Its
+  measured data are tabulated below for when one exists: adding
+  `eta_si.toml` is all that is needed. C and Au were added in a second
+  increment of #148 (their optical data, second read and sum rules are in
+  [`data-provenance.md`](data-provenance.md)).
 
 The pass/fail rule is the issue's initial tolerance: at E ≥ 5 keV,
 |η − measured median| ≤ 0.05 absolute; below 5 keV values are reported only.

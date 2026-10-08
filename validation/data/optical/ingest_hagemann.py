@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Convert a refractiveindex.info `tabulated nk` file of Hagemann, Gudat and
-Kunz, J. Opt. Soc. Am. 65, 742 (1975) into an `OpticalElf` TOML.
+Kunz, J. Opt. Soc. Am. 65, 742 (1975) into an `OpticalElf` TOML (Al, Cu, C,
+Au).
 
 Usage: ingest_hagemann.py INPUT.yml MATERIAL OUTPUT.toml
 
@@ -59,6 +60,51 @@ PROVENANCE = {
         "eps2/(eps1^2+eps2^2) with eps1 = n^2-k^2, eps2 = 2nk. No smoothing, "
         "joining or extrapolation by lindhard. Operator ruling #34: committed as "
         "cited facts. Issue #98."
+    ),
+    "C": (
+        "Measured optical constants n, k of glassy carbon, far infrared to x-ray "
+        "(about 10 meV to 30 keV): H.-J. Hagemann, W. Gudat and C. Kunz, J. Opt. Soc. "
+        "Am. 65, 742 (1975), doi:10.1364/JOSA.65.000742; full tables in DESY report "
+        "SR-74/7 (1974), Table 8 (PDF pp. 58-59 of the open scan linked from the "
+        "transcription), seen 2026-10-08; the JOSA paper itself (closed access) was not "
+        "seen. The authors' joins (report Section 4, 'Glassy carbon', p. 20): "
+        "reflectance by Kramers-Kronig analysis to 0.5 eV, k from angle-resolved "
+        "reflectance on glassy carbon to 80 eV, literature transmission to 700 eV "
+        "(scaled by 0.75 as a density correction to give 2 effective K electrons), "
+        "Hubbell's compiled cross sections above 700 eV; n then by Kramers-Kronig. "
+        "The values are given on the basis of a density of 1.5 g/cm3 (report p. 20). "
+        "Rows read from the transcription C/nk/Hagemann.yml of the CC0 "
+        "refractiveindex.info database (https://github.com/polyanskiy/refractiveindex.info-database, "
+        "commit c5c2f18), fetched 2026-10-08; n, k at 17 energies checked against the "
+        "scan (secondread_hagemann1975.json). Converted here: E = hc/lambda, ELF = "
+        "Im[-1/eps] = eps2/(eps1^2+eps2^2) with eps1 = n^2-k^2, eps2 = 2nk. No "
+        "smoothing, joining or extrapolation by lindhard. Operator ruling #34: "
+        "committed as cited facts. Issue #148."
+    ),
+    "Au": (
+        "Measured optical constants n, k of Au, far infrared to x-ray (about 5 meV "
+        "to 150 keV): H.-J. Hagemann, W. Gudat and C. Kunz, J. Opt. Soc. Am. 65, "
+        "742 (1975), doi:10.1364/JOSA.65.000742; full tables in DESY report SR-74/7 "
+        "(1974), Table 5 (PDF pp. 49-51 of the open scan linked from the transcription), "
+        "seen 2026-10-08; the JOSA paper itself (closed access) was not seen. Table 5 "
+        "is the first of the report's two Au versions, the one fitted to the authors' "
+        "transmission results, which gives 79 effective electrons (report p. 18); "
+        "Table 6, extrapolated from reflectance data, is not used. The authors' joins "
+        "(report Section 4, 'Gold', p. 17): absorption from Drude parameters to 0.6 eV, "
+        "k from reflectance and transmission to 2.4 eV, k from reflectance by "
+        "Kramers-Kronig analysis (UHV) to 10.5 eV, a fitted segment shaped after "
+        "reflectance measurements to 20 eV, their own transmission to 117 eV (with the "
+        "additive correction of report p. 13), literature transmission to 300 eV, "
+        "above that a shape interpolated to 500 eV and Hubbell's compiled cross "
+        "sections, fitted for a smooth connection at 300 and 500 eV; n then by "
+        "Kramers-Kronig. The report's 1.00E-03 eV row (no n printed) is not "
+        "transcribed. Rows read from the transcription Au/nk/Hagemann.yml of the CC0 "
+        "refractiveindex.info database (https://github.com/polyanskiy/refractiveindex.info-database, "
+        "commit c5c2f18), fetched 2026-10-08; n, k at 19 energies checked against the "
+        "scan (secondread_hagemann1975.json). Converted here: E = hc/lambda, ELF = "
+        "Im[-1/eps] = eps2/(eps1^2+eps2^2) with eps1 = n^2-k^2, eps2 = 2nk. No "
+        "smoothing, joining or extrapolation by lindhard. Operator ruling #34: "
+        "committed as cited facts. Issue #148."
     ),
 }
 

@@ -24,14 +24,16 @@ derived from it, or any other code's output, however well known
   decision (#70). Every point has a manual second read
   (`digitize/secondread_ar_*_am32.json`), and the symbols that NIFS-DATA-23
   separates a second compilation read (`digitize/crosscheck_ar_*_nifs23.json`).
-- **Optical ELF, Al and Cu:** `optical/{al,cu}_elf_hagemann1975.toml`, ELF
-  converted by `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz
-  (1975) as transcribed in the CC0 refractiveindex.info database (#98), with
-  a second read against the scanned tables of DESY report SR-74/7
-  (`optical/secondread_hagemann1975.json`). Sum-rule test:
-  `lindhard/tests/optical_sumrule.rs` (gated on the linear interpolation `elf()` serves: Al N_eff and P_eff and
-  Cu N_eff miss 5 % and are pinned with their explanation; power-law segments
-  are kept as a labelled comparison). Si: open gap.
+- **Optical ELF, Al, Cu, glassy C and Au:**
+  `optical/{al,cu,c,au}_elf_hagemann1975.toml`, ELF converted by
+  `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz (1975) as
+  transcribed in the CC0 refractiveindex.info database (Al and Cu #98, C and
+  Au #148), with a second read against the scanned tables of DESY report
+  SR-74/7 (`optical/secondread_hagemann1975.json`). Sum-rule test:
+  `lindhard/tests/optical_sumrule.rs` (gated on the linear interpolation `elf()` serves: Al N_eff and P_eff,
+  Cu N_eff, C N_eff and Au N_eff miss 5 % and are pinned with their
+  explanation; power-law segments are kept as a labelled comparison, where C
+  N_eff also misses). Si: open gap.
 - **Electron backscatter coefficients, C, Al, Si, Cu and Au:**
   `backscatter/eta_<el>_<author><year>.json`, 57 measured sets (one per
   original measurement and element, 380 points, 0.1 to 102 keV), transcribed

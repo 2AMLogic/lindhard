@@ -13,6 +13,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -381,6 +382,21 @@ class BackscatterGroups(unittest.TestCase):
         # The baseline variant at the committed energy is the committed input
         # apart from the data path, made absolute.
         self.assertEqual(both.replace(str((base_path.parent / "../../data/optical").resolve()), "../../data/optical"), base)
+
+    def test_every_committed_input_has_its_variants(self):
+        # Every element run has a committed input, and dropping the
+        # polarization table removes only that table (eta_c.toml also has a
+        # [materials] table for glassy carbon).
+        names = sorted(p.name for p in self.b.INPUTS.glob("eta_*.toml"))
+        self.assertEqual(names, [f"eta_{t.lower()}.toml" for t in sorted(self.b.TARGETS) if t != "Si"])
+        for name in names:
+            base_path = self.b.INPUTS / name
+            base = base_path.read_text()
+            t = self.b.variant_input(base, base_path.parent, 1.0, 10, True, False)
+            self.assertNotIn("polarizability", t, name)
+            for header in re.findall(r"^\[.*\]$", base, flags=re.M):
+                if header != "[electron.elastic.correlation_polarization]":
+                    self.assertIn(header + "\n", t, f"{name}: {header}")
 
 
 if __name__ == "__main__":

@@ -1,5 +1,5 @@
 //! Sum-rule checks on the committed optical ELF datasets
-//! (`validation/data/optical/`, issue #98).
+//! (`validation/data/optical/`, issues #98 and #148).
 //!
 //! For `ELF(E) = Im[-1/eps(E)]` of a material with electron density `n`
 //! (`n` counts all `Z` electrons per atom, `Omega_p^2 = n e^2 / (eps0 m)`):
@@ -14,7 +14,9 @@
 //! Reference electron densities come from Z/A and density of NIST X-ray mass
 //! attenuation Table 1 (Hubbell and Seltzer, NISTIR 5632),
 //! <https://physics.nist.gov/PhysRefData/XrayMassCoef/tab1.html>, read
-//! 2026-10-07: Al Z/A 0.48181, 2.699 g/cm3; Cu Z/A 0.45636, 8.960 g/cm3.
+//! 2026-10-07: Al Z/A 0.48181, 2.699 g/cm3; Cu Z/A 0.45636, 8.960 g/cm3;
+//! read 2026-10-08: Au Z/A 0.40108, 19.32 g/cm3; C Z/A 0.49954 (the density
+//! used for C is the report's 1.5 g/cm3 of glassy carbon, not NIST's graphite).
 //!
 //! # Quadrature
 //!
@@ -114,7 +116,33 @@ const CU_LINEAR_EXCESS: &str = "measured: with the linear interpolation `Optical
      chords overshoot. P_eff is unaffected (1.002), since the screening integral is dominated \
      by the Drude region, which the table samples densely. Not a data error";
 
-const CASES: [Case; 2] = [
+const C_N_EFF_EXCESS: &str =
+    "measured on glassy carbon (density 1.5 g/cm3, the report's own basis, \
+     p. 20): N_eff = 6.76 for Z = 6 (+12.7 %) with power-law segments and 7.01 (+16.9 %) with \
+     the linear interpolation `elf()` serves, over the 100 published knots to 30 keV; P_eff \
+     passes (0.987 and 0.991). The authors' own N_eff from the same function is 6.2 (+3.3 %; \
+     DESY report SR-74/7, Table 10). Integrating eps2 = 2nk from the printed rows with \
+     power-law segments and comparing with the report's own N-EFF column (Table 8): 2.384 \
+     against 2.317 at 28 eV, 3.790 against 3.653 at 100 eV, 4.196 against 4.017 at 290 eV, \
+     6.514 against 5.963 at 1 keV and 6.765 against 6.139 at 30 keV. So about 0.37 of the 0.63 \
+     electron excess lies between the K edge (290 eV) and 1 keV, where the printed table has 12 \
+     knots, a subsample of the authors' working grid; a further 3 to 4 % appears already \
+     below 100 eV, which is not explained here. Not a transcription error: 17 n, k readings \
+     checked against the scanned table (secondread_hagemann1975.json), 6 of them from 290 to \
+     1000 eV";
+
+const AU_LINEAR_EXCESS: &str = "measured: with the linear interpolation `OpticalElf::elf()` \
+     serves, integrated exactly over the 149 published knots, Au gives N_eff = 95.58 for Z = 79 \
+     (+21.0 %), against 82.60 (+4.6 %, passes) with power-law segments and 79.0 in the authors' \
+     Table 10. Of the 12.98 electron difference, 4.80 lie from 100 eV to 1 keV, 6.66 from 1 to \
+     10 keV and 1.51 above, where the knots are a few per decade across the N, M and L edges \
+     and chords overshoot. P_eff passes in both (1.002, 1.000). Against the report's own N-EFF \
+     column (Table 5), eps2 = 2nk integrated with power-law segments from the printed rows gives \
+     7.47 against 7.37 at 22.5 eV, 19.50 against 19.34 at 84 eV, 47.74 against 46.53 at 1 keV \
+     and 82.49 against 78.47 at 150 keV, so the density normalisation agrees within about 1 % \
+     and the rest is quadrature on the printed knots. Not a data error";
+
+const CASES: [Case; 4] = [
     Case {
         file: "al_elf_hagemann1975.toml",
         z: 13.0,
@@ -134,6 +162,28 @@ const CASES: [Case; 2] = [
         density_g_cm3: 8.960,
         authors_n_eff: 27.6,
         known_failures: &[(LIBRARY, "N_eff/Z", 1.073, 0.003, CU_LINEAR_EXCESS)],
+    },
+    Case {
+        file: "c_elf_hagemann1975.toml",
+        z: 6.0,
+        z_over_a: 0.49954,
+        // Glassy carbon: the report gives its values "on the basis of
+        // rho = 1.5 g cm^-3" (DESY report SR-74/7, p. 20), not the 1.700 of
+        // NIST's graphite row; Z/A is NIST's.
+        density_g_cm3: 1.5,
+        authors_n_eff: 6.2,
+        known_failures: &[
+            (LIBRARY, "N_eff/Z", 1.169, 0.003, C_N_EFF_EXCESS),
+            (POWER_LAW, "N_eff/Z", 1.127, 0.003, C_N_EFF_EXCESS),
+        ],
+    },
+    Case {
+        file: "au_elf_hagemann1975.toml",
+        z: 79.0,
+        z_over_a: 0.40108,
+        density_g_cm3: 19.32,
+        authors_n_eff: 79.0,
+        known_failures: &[(LIBRARY, "N_eff/Z", 1.210, 0.003, AU_LINEAR_EXCESS)],
     },
 ];
 
