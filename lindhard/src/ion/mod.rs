@@ -1,6 +1,7 @@
 //! Ion transport: screened potentials, scattering, stopping, the BCA engine.
 
 pub mod bca;
+pub mod crystal;
 pub mod damage;
 pub mod dynamic;
 pub mod potential;
