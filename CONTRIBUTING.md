@@ -99,5 +99,9 @@ Do not describe the operator's downstream applications in this repo either.
   packaging) add a line under `## [Unreleased]` in [`CHANGELOG.md`](CHANGELOG.md)
   ([Keep a Changelog](https://keepachangelog.com/) style). Internal refactors,
   tests and docs-only changes need no entry.
+- The minimum supported Rust version is `rust-version` in the root
+  `Cargo.toml`, and the CI `msrv` job checks the workspace on exactly that
+  toolchain; raise it deliberately, in its own `CHANGELOG.md` entry, never as
+  a side effect of using a newer language or std feature.
 - One PR per issue. PRs are reviewed by Loom's Judge and merged by Champion,
   using merge commits.
