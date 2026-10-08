@@ -699,8 +699,8 @@ fn backscatter_validation_inputs_check() {
     inputs.sort();
     assert_eq!(
         inputs.len(),
-        2,
-        "expected eta_al.toml and eta_cu.toml, found {inputs:?}"
+        4,
+        "expected eta_{{al,au,c,cu}}.toml, found {inputs:?}"
     );
     for input in &inputs {
         let o = lindhard(&["check", input.to_str().unwrap()]);
