@@ -117,6 +117,11 @@ one version).
 
 ### Changed
 
+- `lindhard run` into a reused output directory now removes reserved optional
+  files the current run does not produce (`ions.csv` without `tally.per_ion`;
+  the electron deposition CSVs without their grid), so they cannot be mistaken
+  for current output; unrelated files are left alone, a failed removal is an
+  error naming the path, and the summary is written last (#185).
 - Collision hot path (about 2.2 to 2.7 times the ions/s, see
   `docs/benchmarks.md`): the scattering angle is carried as `tan(theta/2)` and
   sines and cosines instead of angles, the Lindhard-Scharff coefficient is
