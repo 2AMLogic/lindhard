@@ -18,8 +18,8 @@ one version).
   (criterion after DISPLATH, MIT, see `THIRD_PARTY_LICENSES.md`); the lattice
   is static and perfect, with a random translation per history. B 5 keV along
   <110> reaches 6.1 times the amorphous Rp; at 7 degrees tilt and 22 degrees
-  twist a static lattice keeps a channeling tail (dRp 1.27 times the
-  amorphous value for B 5 keV, 1.95 for As 30 keV; Rp within 10 %). Criterion
+  twist a static lattice keeps a channeling tail (dRp 1.25 times the
+  amorphous value for B 5 keV, 1.88 for As 30 keV; Rp within 10 %). Criterion
   bench `crystal_flight`: about 17 times slower than amorphous at 7/22.
 - `[physics] tuning = "none" | "<set>"`: opt-in phenomenological
   surface-binding-energy multiplier sets for static single-element ion runs

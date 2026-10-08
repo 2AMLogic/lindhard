@@ -958,17 +958,25 @@ impl<'a> Bca<'a> {
             shifts,
         } = buffers;
         // Each crystal's lattice is translated by a random vector for every
-        // history (the beam samples all positions of the unit cell). Drawn
-        // only if there are crystal regions, so amorphous runs draw exactly
-        // what they always did.
+        // history (the beam samples all positions of the unit cell). The
+        // shifts come from a copy of this history's stream positioned at word
+        // 2^67, half the ChaCha period: a segment the transport draws below
+        // can never reach. So the transport stream is the same with or
+        // without crystals, and a particle that never enters a crystal
+        // region sees exactly the draws of the amorphous engine
+        // (`tests/crystal_amorphous_identity.rs`).
         shifts.clear();
-        for cr in &self.crystals {
-            let a = cr.lattice_constant();
-            shifts.push([
-                a * Self::uniform(rng),
-                a * Self::uniform(rng),
-                a * Self::uniform(rng),
-            ]);
+        if !self.crystals.is_empty() {
+            let mut srng = rng.clone();
+            srng.set_word_pos(1u128 << 67);
+            for cr in &self.crystals {
+                let a = cr.lattice_constant();
+                shifts.push([
+                    a * Self::uniform(&mut srng),
+                    a * Self::uniform(&mut srng),
+                    a * Self::uniform(&mut srng),
+                ]);
+            }
         }
         pending.clear();
         pending.push(Particle {

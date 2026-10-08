@@ -117,16 +117,16 @@
 //!
 //! | Case | Rp | dRp | Notes |
 //! |---|---|---|---|
-//! | B 5 keV, 30° tilt, 17° twist | 0.96 | 1.10 | within 10 % / 15 % |
-//! | As 30 keV, 30° tilt, 17° twist | 0.91 | 1.12 | within 10 % / 15 % |
-//! | B 5 keV, 7° tilt, 22° twist | 1.08 | **1.27** | median 24.2 vs 23.8 nm, 99th percentile 77.8 vs 56.8 nm |
-//! | As 30 keV, 7° tilt, 22° twist | 1.04 | **1.95** | median 22.2 vs 25.2 nm, 99th percentile 114.2 vs 50.8 nm |
-//! | B 5 keV along <110> | **6.1** (121 vs 20 nm) | 3.1 | 91 % of ions deeper than twice the amorphous Rp (amorphous 5 %) |
+//! | B 5 keV, 30° tilt, 17° twist | 0.97 | 1.09 | within 10 % / 15 % |
+//! | As 30 keV, 30° tilt, 17° twist | 0.93 | 1.13 | within 10 % / 15 % |
+//! | B 5 keV, 7° tilt, 22° twist | 1.07 | **1.25** | median 23.8 vs 23.8 nm, 99th percentile 75.2 vs 56.8 nm |
+//! | As 30 keV, 7° tilt, 22° twist | 1.01 | **1.88** | median 22.2 vs 25.2 nm, 99th percentile 112.2 vs 50.8 nm |
+//! | B 5 keV along <110> | **6.1** (121 vs 20 nm) | 3.2 | 91 % of ions deeper than twice the amorphous Rp (amorphous 5 %) |
 //!
 //! **Gap: the dRp bound of the 7°/22° check is not met.** Rp agrees within
 //! 10 % for both ions, but a static lattice keeps a channeling tail at this
 //! orientation (the beam is only 2.6° to 2.7° from a {100} and a {110}
-//! plane), which widens dRp by 27 % and 95 %; the bulk of the profile (median,
+//! plane), which widens dRp by 25 % and 88 %; the bulk of the profile (median,
 //! 90th percentile) matches the amorphous one. Thermal vibration (step 21b)
 //! is the intended remedy and has not been tried here. At 30°/17°, far from
 //! every low-index axis and plane, both bounds hold. The 7°/22° test records
