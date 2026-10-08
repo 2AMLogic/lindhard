@@ -29,7 +29,9 @@ code or data.
 > cross sections, event-by-event transport with secondaries, surface barriers
 > and insulator losses, the electron tallies and a CLI `[electron]` run mode
 > have landed; PSF extraction and validation against published data are under
-> way. Crystalline targets (M2) are not started.
+> way. Crystalline targets (M2) are in progress: cubic lattices, neighbor
+> search, crystal-aware flight, and Debye thermal displacements have landed;
+> hexagonal-lattice work is awaiting merge.
 
 ## Quick start
 
