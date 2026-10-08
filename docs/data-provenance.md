@@ -356,9 +356,9 @@ below are a **draft, not legal advice**, for the operator to rule on at
 **Retrieved.** The NIST page for the three programs
 (<https://www.nist.gov/pml/stopping-power-range-tables-electrons-protons-and-helium-ions>)
 calls them "NIST Standard Reference Database 124", so they are Standard
-Reference Data (SRD) under 15 USC 290e. (The brief for #34 also named SRD 126
-and 127; no page fetched here attributes those numbers to these programs, and
-they are not used below.) The program pages
+Reference Data (SRD) under 15 USC 290e. (SRD 126 and 127
+are sometimes associated with these programs, but no page fetched here ties
+those numbers to them, and they are not used below.) The program pages
 (`physics.nist.gov/PhysRefData/Star/Text/{ESTAR,PSTAR,ASTAR,programs}.html`)
 were fetched and carry no licence or reuse statement.
 
@@ -408,8 +408,9 @@ result by hand): nothing found that forbids it.
 **Draft recommendation (draft, not legal advice).** Keep the exclusion of NIST
 SRD tables. Do not commit PSTAR/ASTAR/ESTAR values or fits to them. Validate
 against ICRU 37/49 formulas (origin 1) and, if wanted, compare by hand to the
-NIST web output without storing it. If a committed set is wanted, ask NIST
-(data@nist.gov, listed on the SRD pages) for written permission first.
+NIST web output without storing it. If a committed set is wanted, ask the NIST
+SRD Program for written permission first, via <https://www.nist.gov/srd>
+(the page the licensing statement points to for SRD licensing information).
 
 ### IAEA Electronic Stopping Power database
 
