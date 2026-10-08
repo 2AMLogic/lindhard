@@ -343,11 +343,110 @@ Crossref on 2026-10-06; the papers themselves were not read in this pass.
 | Au | Hagemann, Gudat, Kunz (1975), above (Table 5 of the two Au versions); Werner, Glantschnig, Ambrosch-Draxl (2009), above | Wide-range optical constants | Journal articles (publishers' copyright). No redistribution licence found | **Committed (#148)** from Hagemann et al., Table 5 (checked against the scan); power-law sum rules pass. Table 6 and Werner et al. not ingested |
 | W | Werner, Glantschnig, Ambrosch-Draxl (2009), above; Weaver, Olson, Lynch, Phys. Rev. B 12, 1293 (1975), doi:10.1103/PhysRevB.12.1293, "Optical properties of crystalline tungsten" | As above; valence region | Journal articles (publishers' copyright). No redistribution licence found | Unresolved (#34) |
 
+## Stopping-power sources: terms record (#34)
+
+Retrieved 2026-10-08 with `curl -sL` and a browser User-Agent. Quotes are
+verbatim from the fetched pages (whitespace collapsed). **Nothing from either
+source is ingested, and no data file has been added.** The recommendations
+below are a **draft, not legal advice**, for the operator to rule on at
+<https://github.com/2AMLogic/lindhard/issues/34#issuecomment-6056453480>.
+
+### NIST PSTAR, ASTAR, ESTAR (Standard Reference Database 124)
+
+**Retrieved.** The NIST page for the three programs
+(<https://www.nist.gov/pml/stopping-power-range-tables-electrons-protons-and-helium-ions>)
+calls them "NIST Standard Reference Database 124", so they are Standard
+Reference Data (SRD) under 15 USC 290e. (The brief for #34 also named SRD 126
+and 127; no page fetched here attributes those numbers to these programs, and
+they are not used below.) The program pages
+(`physics.nist.gov/PhysRefData/Star/Text/{ESTAR,PSTAR,ASTAR,programs}.html`)
+were fetched and carry no licence or reuse statement.
+
+1. SRD page, <https://www.nist.gov/srd/public-law>:
+   "Standard Reference Data (SRD) are copyrighted by the U.S. Secretary of
+   Commerce on behalf of the United States of America. All rights reserved.
+   None of our SRD may be reproduced, stored in a retrieval system or
+   transmitted, in any form or by any means, electronic, mechanical,
+   photocopying, recording or otherwise, without prior permission." It quotes
+   Section 6 of the Standard Reference Data Act: "...the Secretary may secure
+   copyright and renewal thereof on behalf of the United States as author or
+   proprietor in all or any part of any standard reference data which he
+   prepares or makes available under this Act, and may authorize the
+   reproduction and publication thereof by others."
+2. NIST licensing statement,
+   <https://www.nist.gov/open/license> (title "Copyright, Fair Use, and
+   Licensing Statements for SRD, Data, Software, and Technical Series
+   Publications"), SRD heading: "The Standard Reference Data Act, 15 U.S.C.
+   § 290e, empowers the Secretary of Commerce to secure copyright on behalf of
+   the United States in Standard Reference Data (SRD) prepared by NIST." and
+   "For SRD that is licensed, licensing information is available at
+   http://www.nist.gov/srd/ ."
+3. The same page has a separate heading, "Fair Use of Other NIST Data/Works",
+   for data "not covered by the Standard Reference Data Act". Only there does
+   it say: "you are hereby granted the non-exclusive irrevocable and
+   unconditional right to print, publish, prepare derivative works and
+   distribute the NIST data, in any medium ... You may improve, modify, and
+   create derivative works of the data or any portion of the data, and you may
+   copy and distribute such modifications or works." That grant is under the
+   non-SRD heading, so it should not be assumed to cover SRD 124.
+4. Database disclaimer linked from the SRD 124 page,
+   <https://www.nist.gov/physical-measurement-laboratory/database-disclaimer>:
+   a warranty disclaimer only ("NIST makes no warranties to that effect, and
+   NIST shall not be liable for any damage that may result from errors or
+   omissions in the Database"). It grants nothing.
+5. <https://www.nist.gov/copyrights-disclaimers>: "With the exception of
+   material marked as copyrighted, information presented on NIST sites are
+   considered public information and may be distributed or copied." The SRD
+   page above says SRD is copyrighted, so this does not reach it.
+
+**Classification.** Raw tables: not permitted without prior permission.
+Derived coefficients (our fits to the tables): unclear; the quoted text
+reserves "reproduced ... in any form" and says nothing on fits, and no
+statement was found that grants it. Use only (reading values, comparing a
+result by hand): nothing found that forbids it.
+
+**Draft recommendation (draft, not legal advice).** Keep the exclusion of NIST
+SRD tables. Do not commit PSTAR/ASTAR/ESTAR values or fits to them. Validate
+against ICRU 37/49 formulas (origin 1) and, if wanted, compare by hand to the
+NIST web output without storing it. If a committed set is wanted, ask NIST
+(data@nist.gov, listed on the SRD pages) for written permission first.
+
+### IAEA Electronic Stopping Power database
+
+**Not retrieved. Permission: unclear / unread.** Every IAEA URL tried on
+2026-10-08 returned HTTP 403 with a Cloudflare "Just a moment..." challenge
+page, not the site:
+
+- <https://nds.iaea.org/stopping/>, <https://nds.iaea.org/stopping/index.html>,
+  <https://www-nds.iaea.org/stopping/>, <https://nds.iaea.org/>
+- <https://www.iaea.org/terms-of-use>, <https://www.iaea.org/about/terms-of-use>,
+  <https://www.iaea.org/about/copyright>, <https://www.iaea.org/>
+
+Only <https://nds.iaea.org/robots.txt> was served (HTTP 200). It lists
+crawler exclusions and states no reuse terms, and it does not bear on
+licensing. No IAEA terms are quoted or paraphrased here, because none were
+read. The 2026-10-04 attempt was blocked the same way.
+
+**To resolve, the operator would** open <https://nds.iaea.org/stopping/> (look
+for a copyright or terms link) and <https://www.iaea.org/terms-of-use> in a
+browser and paste the text into #34, or ask the IAEA Nuclear Data Section.
+
+**Draft recommendation (draft, not legal advice).** Ingest nothing from the
+database until the terms have been read and recorded here. Meanwhile, use
+measured points from the original papers, cited as facts (origin 2).
+
 ## Open questions
 
-- IAEA stopping database reuse terms: unread (bot wall on 2026-10-04).
+- IAEA stopping database reuse terms: **still unread.** A record of the
+  attempt (2026-10-08, again blocked) is in
+  [Stopping-power sources: terms record](#stopping-power-sources-terms-record-34).
+  Operator decision requested:
+  <https://github.com/2AMLogic/lindhard/issues/34#issuecomment-6056453480>.
   Resolve before ingesting points.
-- NIST ESTAR/PSTAR terms under 15 USC 290e: unresolved.
+- NIST ESTAR/PSTAR/ASTAR terms under 15 USC 290e: **recorded, ruling pending.**
+  The text is quoted in the same section, with a draft recommendation; the
+  exclusion of NIST SRD tables (above) stands until the operator rules, at the
+  comment linked above.
 - Optical data for dielectric-function models: the #34 ruling (2026-10-06)
   allows measured optical constants as cited facts. Al and Cu are committed
   (#98), and glassy C and Au (#148), checked against the scanned tables of
