@@ -22,6 +22,9 @@ name = "lindhard"
 path = "src/main.rs"
 doc = false
 
+[lints]
+workspace = true
+
 [dependencies]
 lindhard = { workspace = true }
 clap = { workspace = true }

@@ -16,6 +16,9 @@ publish = false
 name = "_lindhard"
 crate-type = ["cdylib", "rlib"]
 
+[lints]
+workspace = true
+
 [dependencies]
 lindhard = { workspace = true }
 lindhard-cli = { path = "../lindhard-cli", version = "0.0.1" }

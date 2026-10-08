@@ -146,6 +146,9 @@ one version).
 
 ### Changed
 
+- Lint policy is declared once in `[workspace.lints]` (`unsafe_code = "deny"`) and
+  every crate opts in with `[lints] workspace = true`, so `lindhard-cli` and
+  `lindhard-py` no longer lack the guard the library has (#218, supersedes #184).
 - `lindhard run` into a reused output directory now removes reserved optional
   files the current run does not produce (`ions.csv` without `tally.per_ion`;
   the electron deposition CSVs without their grid), so they cannot be mistaken
