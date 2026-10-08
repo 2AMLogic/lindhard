@@ -45,6 +45,28 @@ fields of `lindhard-oracle-summary/2` above where they apply (`oracle*`,
 where it applies, pass or fail per metric), `wall_s` and, for Nebula,
 `materials`. A metric a code has no value for is `null`.
 
+## Electron benchmarks: `bench-electron-<problem>.json`
+
+Written by `../bench_electron.py` on the same problems (#152) and committed by
+hand after review; `bench_electron.py --update-docs` builds the electron
+tables of `docs/benchmarks.md` from them. Timings only, no physics metric.
+
+Format `lindhard-electron-bench/1`: `problem`, `date`, `lindhard_version`,
+`build` (profile, rustc), `host` (operating system, architecture, CPU model,
+logical CPUs and physical cores; no host name or other identity),
+`load_average` at the start and end of the problem, `materials` (as in the
+electron summaries above: the cstool commit and SHA-256s, no values),
+`settings` (energy, element, seed, the lindhard physics block of
+`../electron_problems.json`, the tally grid), `lindhard` (the output of
+`lindhard/examples/electron_scaling.rs`: histories, seed, chunk size,
+repeats, the table build times, and per thread count the transport wall
+times, their median, electrons/s, speedup, parallel efficiency and the
+SHA-256 of the tally report, with `deterministic` true only if every digest
+is equal), `nebula` (`null`, or Nebula's version, commit, build, threads,
+process wall time, its own `Simulation` and material-loading times and
+electrons/s), `comparison` (`null`, or the electrons/s ratio at Nebula's
+thread count, > 1: lindhard faster) and `caveats`.
+
 ## Level-3 context: `rustbca-sputter_ar_<target>.json`
 
 Format `lindhard-oracle-sputter-summary/1`, written by

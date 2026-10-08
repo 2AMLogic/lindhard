@@ -91,7 +91,13 @@ What it covers:
   overlaps), and the C, Si and Au DHFS
   coefficients are not in the tree (#130), so all eight cases are skipped and
   reported as skipped (`lindhard/tests/data/elastic_reference.toml`,
-  provenance row). Nothing here has been validated yet.
+  provenance row). The harness reports `checked N of 16` and `INCOMPLETE`
+  while values are absent (zero comparisons is never reported as a pass), an
+  `--ignored` test fails until all 16 values are checked, and the fixture
+  parser rejects malformed input (blank citation, non-positive or non-finite
+  value, missing observable, duplicate or missing case, unknown setting such
+  as an unsupported `correlation_polarization`, loosened tolerance). Nothing
+  here has been validated yet: 0 of 16 values are checked.
 - **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
   Cu, built from the committed Hagemann optical ELFs (#98) with the Fermi
   energies of the reference, against Tanuma, Powell & Penn, Surf. Interface
@@ -691,6 +697,9 @@ with full Penn is left for when tables can be reused across runs (#168).
 v1.0.2-1-ga50a8e8 (commit `a50a8e8`, cstool commit `0c739eb`) and Geant4
 v11.4.3 (commit `2ee379e`, G4EMLOW 8.8; the models it reports for the
 region are `G4MicroElecElasticModel` and `G4MicroElecInelasticModel`).
+The speed side of these problems (electrons/s, thread scaling, determinism at
+every thread count, the Nebula CPU timing) is in
+[`benchmarks.md`](benchmarks.md), "Electron engine (#152)".
 
 **Tolerances (vs Nebula, 5 and 20 keV): all eight checks pass.** |Δη| is at
 most 0.025 and |Δr50| at most 13.0 %. Notes on every difference that is

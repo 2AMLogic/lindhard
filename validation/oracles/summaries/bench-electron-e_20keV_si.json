@@ -1,0 +1,106 @@
+{
+  "format": "lindhard-electron-bench/1",
+  "problem": "e_20keV_si",
+  "date": "2026-10-08",
+  "lindhard_version": "lindhard 0.0.1 (0942eb2)",
+  "build": {
+    "profile": "release (lto = fat, codegen-units = 1)",
+    "rustc": "rustc 1.97.1 (8bab26f4f 2026-07-14)"
+  },
+  "host": {
+    "system": "Linux",
+    "machine": "x86_64",
+    "cpu_model": "Intel(R) Xeon(R) Platinum 8488C",
+    "logical_cpus": 8,
+    "physical_cores": 4
+  },
+  "load_average": {
+    "start": 23.82,
+    "end": 24.71
+  },
+  "materials": {
+    "cstool_source": "https://github.com/Nebula-simulator/cstool",
+    "cstool_commit": "0c739eb3fcc3fe5297e74c601ac4a9546db596cf",
+    "parameter_file": "data/materials/silicon.yaml",
+    "parameter_file_sha256": "d316a5015fc87cb03a0797b1e4e9417bace0513d8b7dda98b99cc03ec767a33f",
+    "elf_file": "data/materials/elf/df_Si.dat",
+    "elf_file_sha256": "7e434db9bdbd1311babd8b7d2b2084b570a0abd44fedfacc844b7dcdfa43b4c9"
+  },
+  "settings": {
+    "energy_ev": 20000.0,
+    "element": "Si",
+    "seed": 1,
+    "physics": {
+      "inelastic_model": "penn-single-pole",
+      "elastic_potential": "thomas-fermi-yukawa",
+      "exchange": true,
+      "secondaries": "kieft-bosch",
+      "boundary": "step-barrier",
+      "cutoff_reference": "vacuum-level",
+      "cutoff_ev": 0.01,
+      "min_energy_ev": 10.0,
+      "points_per_decade": 20.0
+    },
+    "tally": {
+      "se_bse_split_ev": 50.0,
+      "rmax_nm": 20000.0,
+      "rbins": 10000
+    }
+  },
+  "lindhard": {
+    "chunk_size": 16,
+    "deterministic": true,
+    "energy_ev": 20000.0,
+    "format": "lindhard-electron-scaling/1",
+    "histories": 4000,
+    "material_data": "input file",
+    "materials": [
+      "Si"
+    ],
+    "repeat": 3,
+    "runs": [
+      {
+        "efficiency": 1.0,
+        "electrons_per_s": 62.2533,
+        "identical_to_first": true,
+        "report_sha256": "5975115c38471759e52b1c23371a071b6904955bc2cedbc2899342e9535ceb28",
+        "speedup": 1.0,
+        "threads": 1,
+        "wall_s": [
+          62.7714,
+          69.6396,
+          64.2537
+        ],
+        "wall_s_median": 64.2537
+      },
+      {
+        "efficiency": 0.826622,
+        "electrons_per_s": 102.92,
+        "identical_to_first": true,
+        "report_sha256": "5975115c38471759e52b1c23371a071b6904955bc2cedbc2899342e9535ceb28",
+        "speedup": 1.65324,
+        "threads": 2,
+        "wall_s": [
+          39.3597,
+          38.8652,
+          34.1542
+        ],
+        "wall_s_median": 38.8652
+      }
+    ],
+    "seed": 1,
+    "tables": {
+      "elastic_s": 9.62224,
+      "energies": 68,
+      "inelastic_s": 61.4541,
+      "threads": 1
+    }
+  },
+  "nebula": null,
+  "comparison": null,
+  "caveats": [
+    "timings depend on the hardware, the build (compiler, flags) and the load of the machine; compare ratios within one summary, not absolute numbers across machines",
+    "the physics differs between the codes (run_electron.py mismatches: full vs single-pole Penn, ELSEPA vs Thomas-Fermi Yukawa Mott, phonon and recoil losses), so the work per history differs",
+    "Nebula always runs on all logical CPUs (no thread option)"
+  ]
+}
