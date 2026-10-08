@@ -91,7 +91,13 @@ What it covers:
   overlaps), and the C, Si and Au DHFS
   coefficients are not in the tree (#130), so all eight cases are skipped and
   reported as skipped (`lindhard/tests/data/elastic_reference.toml`,
-  provenance row). Nothing here has been validated yet.
+  provenance row). The harness reports `checked N of 16` and `INCOMPLETE`
+  while values are absent (zero comparisons is never reported as a pass), an
+  `--ignored` test fails until all 16 values are checked, and the fixture
+  parser rejects malformed input (blank citation, non-positive or non-finite
+  value, missing observable, duplicate or missing case, unknown setting such
+  as an unsupported `correlation_polarization`, loosened tolerance). Nothing
+  here has been validated yet: 0 of 16 values are checked.
 - **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
   Cu, built from the committed Hagemann optical ELFs (#98) with the Fermi
   energies of the reference, against Tanuma, Powell & Penn, Surf. Interface
