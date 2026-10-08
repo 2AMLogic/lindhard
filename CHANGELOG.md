@@ -47,6 +47,18 @@ one version).
   (energy-loss tables for any `PennInelastic` model) and
   `electron::elastic::table::AtomicElastic::compute_corrected` /
   `ThomasFermiYukawa::yukawa` (elastic tables with the corrections).
+- `tally::psf`: the radial point-spread function of a pencil beam. Setting
+  `ElectronTallyConfig::psf` (a depth slab and log-spaced radial bins from
+  nanometres to the backscatter range) makes `FullElectronTally` report a
+  `RadialProfile` in `DepositionReport::psf`, with per-bin standard errors
+  from per-history accumulation. `fit_psf` fits the normalised double
+  Gaussian (Mao et al. (2025) eq. (1), after Chang (1975)) or triple
+  Gaussian (Rosa Figueiro (2015) eq. (72)) by weighted least squares on the
+  bin energies, with `E` fixed to the slab energy by default or free, and
+  returns the parameters, covariance, reduced χ² and residuals. `PsfReport`
+  exports the profile and fits as CSV and derives `Serialize`/`Deserialize`
+  for callers to write JSON. The CLI does not expose it
+  yet.
 - Fluence-dependent targets: `ion::dynamic::DynamicRun`, a fluence stepping
   loop on `CompositionGrid` with fixed or adaptive steps (bounded relative
   composition change per step, with reject and retry), and `InventoryTally`,

@@ -26,6 +26,10 @@
 //!   total deposited energy. Placing the loss at the collision point and the
 //!   sub-threshold remainder at the stopping point is this crate's bookkeeping
 //!   convention for a point-collision transport loop, not a physics model.
+//!   The same deposits optionally feed a radial profile in one depth slab,
+//!   on log radial bins and with per-history errors
+//!   ([`ElectronTallyConfig::psf`], [`super::psf`]), which is the input of
+//!   the point-spread-function fits.
 //! - **Emission.** Every electron the `escaped` hook reports is counted at its
 //!   face, with its energy and its polar angle from the outward surface
 //!   normal. It is classed as *slow* (`E < split`, the secondary-electron
@@ -162,6 +166,7 @@ use serde::{Deserialize, Serialize};
 
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
+use super::psf::{PsfConfig, PsfError, RadialAccumulator, RadialProfile};
 use crate::electron::secondary::{SecondaryEvent, SecondaryModel};
 use crate::electron::transport::{
     Boundary, ElectronState, ElectronTally, Face, Fate, PhononEvent, Transport,
@@ -205,6 +210,9 @@ pub enum ElectronTallyError {
     /// A grid has more cells than fit in memory addressing.
     #[error("the {0} grid has too many cells")]
     GridTooLarge(&'static str),
+    /// The radial-profile (PSF) configuration is invalid.
+    #[error("invalid PSF configuration: {0}")]
+    Psf(#[from] PsfError),
 }
 
 /// A Cartesian deposition grid over `x` (depth), `y` and `z`, m.
@@ -296,11 +304,15 @@ pub struct ElectronTallyConfig {
     /// at or above it fast (backscattered). See
     /// [the module docs](self#the-sebse-split).
     pub se_bse_split_ev: f64,
+    /// Optional radial profile in a depth slab, log radial bins, with
+    /// per-history errors: the input of the PSF fits of [`super::psf`].
+    #[serde(default)]
+    pub psf: Option<PsfConfig>,
 }
 
 impl ElectronTallyConfig {
-    /// Spectra with the given binnings, no deposition grids, and the
-    /// [`SE_BSE_SPLIT_EV`] split.
+    /// Spectra with the given binnings, no deposition grids, no PSF profile,
+    /// and the [`SE_BSE_SPLIT_EV`] split.
     pub fn new(escape_energy: Binning, escape_polar: Binning) -> Self {
         Self {
             cartesian: None,
@@ -308,6 +320,7 @@ impl ElectronTallyConfig {
             escape_energy,
             escape_polar,
             se_bse_split_ev: SE_BSE_SPLIT_EV,
+            psf: None,
         }
     }
 }
@@ -554,6 +567,8 @@ pub struct FullElectronTally {
     layer_deposit_ev: Vec<f64>,
     cartesian: Option<GridAcc>,
     cylindrical: Option<GridAcc>,
+    /// Radial profile in a depth slab with per-history errors.
+    psf: Option<RadialAccumulator>,
     /// Energy-weighted deposition position: `x`, `y`, `z`, `r`.
     generation: [WeightedMoments; 4],
     stop_depth: Moments,
@@ -607,6 +622,7 @@ impl FullElectronTally {
                 ))
             }
         };
+        let psf = config.psf.map(RadialAccumulator::new).transpose()?;
         Ok(Self {
             config,
             cutoff_ev: transport.config().cutoff_ev,
@@ -618,6 +634,7 @@ impl FullElectronTally {
             layer_deposit_ev: vec![0.0; transport.stack().layers().len()],
             cartesian,
             cylindrical,
+            psf,
             generation: [WeightedMoments::default(); 4],
             stop_depth: Moments::new(),
             stop_radial: Moments::new(),
@@ -653,6 +670,9 @@ impl FullElectronTally {
         }
         if let (Some(acc), Some(g)) = (&mut self.cylindrical, &self.config.cylindrical) {
             acc.add(g.locate(pos), e);
+        }
+        if let Some(p) = &mut self.psf {
+            p.deposit(pos, e);
         }
         let r = pos[1].hypot(pos[2]);
         for (m, v) in self.generation.iter_mut().zip([pos[0], pos[1], pos[2], r]) {
@@ -705,6 +725,7 @@ impl FullElectronTally {
                         outside_ev: a.outside_ev,
                     },
                 ),
+                psf: self.psf.as_ref().map(RadialAccumulator::profile),
             };
         ElectronReport {
             histories: h,
@@ -886,6 +907,9 @@ impl ElectronTally for FullElectronTally {
 
     fn end_history(&mut self, _index: u64, fate: Fate) {
         self.histories += 1;
+        if let Some(p) = &mut self.psf {
+            p.end_history();
+        }
         match fate {
             Fate::Stopped => self.fates.stopped += 1,
             Fate::Escaped(Face::Front) => self.fates.escaped_front += 1,
@@ -934,6 +958,9 @@ impl ElectronTally for FullElectronTally {
             a.merge(b);
         }
         if let (Some(a), Some(b)) = (&mut self.cylindrical, &o.cylindrical) {
+            a.merge(b);
+        }
+        if let (Some(a), Some(b)) = (&mut self.psf, &o.psf) {
             a.merge(b);
         }
         for (a, b) in self.generation.iter_mut().zip(&o.generation) {
@@ -1159,6 +1186,11 @@ pub struct DepositionReport {
     pub cartesian: Option<CartesianDeposition>,
     /// On the cylindrical grid, if configured.
     pub cylindrical: Option<CylindricalDeposition>,
+    /// Radial profile in the PSF depth slab, with per-history errors, if
+    /// configured ([`ElectronTallyConfig::psf`]); fit it with
+    /// [`super::psf::fit_psf`].
+    #[serde(default)]
+    pub psf: Option<RadialProfile>,
 }
 
 /// Deposited energy on a [`CartesianGrid`].
