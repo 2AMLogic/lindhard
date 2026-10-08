@@ -63,6 +63,26 @@ electron MC). The engines share the core and nothing else.
 - The input schema, output layout and the rules for extending them are in
   [`cli.md`](cli.md).
 
+## Reproducibility
+
+- **Same platform, any thread count: bit-identical.** Particle `i` draws from
+  its own stream, and tallies merge in a fixed order, so results do not depend
+  on the number of threads (`lindhard/tests/determinism.rs`).
+- **Across platforms: floating-point outputs agree to a relative tolerance,
+  not bit for bit.** `f64::exp`, `ln`, `sin`, `cos`, `powf`, `tan` and `atan2`
+  defer to the platform libm, which can differ in the last bits between glibc,
+  macOS libm and aarch64 builds. Such a difference can in principle flip a
+  comparison inside a history and so change an integer count; the engine does
+  not promise otherwise.
+- **What is checked.** `lindhard/tests/golden.rs` pins small fixed-seed runs
+  (amorphous BCA batch, crystal BCA batch, electron batch) to values stored in
+  the file: integer outputs exactly, floats to a relative tolerance of 1e-9.
+  The CI OS matrix (x86-64 Linux, aarch64 Linux, aarch64 macOS) therefore
+  checks one committed result on every platform. The file says how to
+  regenerate the values. If a platform ever fails an integer count, that is
+  the evidence for the separate decision on a pure-Rust libm; none is
+  adopted today.
+
 ## Decisions
 
 - **Muffin-tin potential deferred (#92, 2026-10-07).** `electron::elastic`
