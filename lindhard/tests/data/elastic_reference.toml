@@ -13,7 +13,8 @@
 #
 # To fill a case, add `sigma_el_a02` / `sigma_tr1_a02` (bohr^2) together with
 # `sigma_el_cite` / `sigma_tr1_cite` naming the exact table and page, and set
-# `exchange` / `correlation_polarization` to the reference's stated settings.
+# `exchange` to the reference's stated setting (correlation_polarization is NOT
+# supported by the harness yet; the parser rejects it).
 # Convert units in the cite string, not silently.
 #
 # Tolerances are fixed by the issue: 2 % at 10 keV, 5 % at 1 keV.
