@@ -91,6 +91,14 @@ one version).
   `hydrogenic_shell_elf`, `hydrogenic_shell_elfs`,
   `hydrogenic_k_oscillator_strength_density_per_ev` and `ShellElfGrid`.
   Other subshells are still caller-supplied.
+- Radial PSF tally in the electron CLI (#165): `[electron.tally.psf]` (depth
+  slab, log radial bins, `fits`, `normalization`) writes
+  `electron_psf_profile.csv` and `electron_psf_parameters.csv` and adds
+  `results.psf` and `files.psf_profile` / `files.psf_parameters` to
+  `electron_summary.json`. A failing fit is reported in `results.psf.fit_errors`
+  without stopping the run. `ResolvedElectron` gains `psf_fits` and
+  `psf_normalization`; `ElectronTallySpec` gains `psf`. Without the table,
+  output is unchanged.
 - Sputter erosion in dynamic runs (#234): `[dynamic] erosion = true` removes
   sputtered atoms from the front of the target (slab 0 first) instead of the
   slab where they were displaced, and the surface recedes. New public fields

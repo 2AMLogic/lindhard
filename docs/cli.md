@@ -481,6 +481,21 @@ below).
 | `escape_polar_bins` | 18 | Polar-angle bins |
 | `cartesian` | none | Deposition grid `{ x, y, z }`, each `{ lo_nm, hi_nm, bins }` (`x` is depth) |
 | `cylindrical` | none | Deposition grid `{ r, depth }` about the beam axis, each `{ lo_nm, hi_nm, bins }` (`r.lo_nm >= 0`) |
+| `psf` | none | Radial profile of the deposited energy in a depth slab and its point-spread-function fits, see below |
+
+**`[electron.tally.psf]`** (`lindhard::tally::PsfConfig`, `fit_psf`): the
+energy deposited in the slab `depth_lo_nm <= x < depth_hi_nm`, binned in the
+distance from the beam axis on a central disc plus log-spaced bins, with
+per-history errors, and double- and triple-Gaussian fits to it.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `depth_lo_nm`, `depth_hi_nm` | required | The depth slab, nm (`hi > lo`) |
+| `r_min_nm` | required | Outer edge of the central disc and inner edge of the first log bin, nm (`> 0`) |
+| `r_max_nm` | required | Outer edge of the last bin, nm (`> r_min_nm`) |
+| `bins` | required | Log bins between `r_min_nm` and `r_max_nm` (the central disc is one more) |
+| `fits` | `["double", "triple"]` | Forms to fit, any subset of `"double"` and `"triple"` (may be empty) |
+| `normalization` | `"slab-total"` | `"slab-total"` fixes the fit's energy scale to the slab energy; `"free"` fits it |
 
 **`[run]`** of an electron run: `histories` (required), `seed` (required) and
 `threads` (all cores; not echoed, never changes results).
@@ -594,6 +609,7 @@ An electron run writes these instead of the ion files.
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
 | `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
 | `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`; deposits are measured from the band bottom, so with secondaries in a layer with a Fermi energy `deposited_ev` includes the Fermi-sea energy of liberated conduction electrons and can exceed the energy imparted, which is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev - fermi_sea_ev - phonon_absorbed_ev`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
+| `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. The per-bin profile and residuals are in the CSV files |
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
 
@@ -641,6 +657,13 @@ one row per cell. `electron_deposition_cartesian.csv` (with
 Energy deposited outside a grid is `outside_ev` in the summary. Like `budget.deposited_ev`, the cell energies are
 measured from the band bottom and, with secondaries, include Fermi-sea energy
 the beam did not supply.
+
+`electron_psf_profile.csv` (with `tally.psf`): one row per radial bin (the
+central disc first), `r_lo_m,r_hi_m,r_center_m,area_m2,energy_ev,std_err_ev,density_ev_per_m2,density_std_err_ev_per_m2`,
+then a `model_<model>_ev` column (the fitted energy of the bin) for each
+fit that succeeded. `electron_psf_parameters.csv`: `model,parameter,value,std_error`,
+the fitted parameters (lengths in m, energies in eV), then `chi2`, `dof` and
+`reduced_chi2` rows per fit.
 
 `electron_tables.csv`: `material,energy_ev,elastic_inverse_mfp_per_nm,inelastic_inverse_mfp_per_nm,inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm`,
 the tables the run used, per material and grid energy (the stopping power is
@@ -702,7 +725,9 @@ writes and creates the directory if needed. The CLI also owns the reserved
 optional file names of the run's mode. After a successful run, an optional
 file the run did not produce is removed if present: `ions.csv` (without
 `tally.per_ion`), and `electron_deposition_cartesian.csv` or
-`electron_deposition_cylindrical.csv` (without the matching deposition grid).
+`electron_deposition_cylindrical.csv` (without the matching deposition grid),
+and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
+`tally.psf`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last and lists only files that exist. Other files in the
 directory are never touched, and no cleanup happens between ion, electron and
