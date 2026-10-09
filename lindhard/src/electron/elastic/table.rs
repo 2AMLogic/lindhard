@@ -75,10 +75,10 @@
 //!
 //! # Potentials
 //!
-//! The atomic potential comes from a caller-supplied [`PotentialSource`]. The
-//! Salvat et al. (1987) DHFS table is not in this tree (see the parent module
-//! and `docs/data-provenance.md`), so [`SalvatDhfsTable`] always fails; the
-//! tests and benchmarks use [`ThomasFermiYukawa`], a **stand-in** Yukawa
+//! The atomic potential comes from a caller-supplied [`PotentialSource`].
+//! [`SalvatDhfsTable`] gives the Salvat et al. (1987) DHFS potentials (Table I,
+//! Z = 1..92, see the parent module and `docs/data-provenance.md`); most tests
+//! and the benchmarks use [`ThomasFermiYukawa`], a **stand-in** Yukawa
 //! potential with the Thomas-Fermi length. The table's `model` and
 //! `provenance` strings name the potential, so a stand-in table never reads
 //! as DHFS.
@@ -189,9 +189,9 @@ pub trait PotentialSource: Sync {
 /// `a = 0.8853 a0 Z^(-1/3)`
 /// ([`thomas_fermi_constant`](crate::ion::potential::thomas_fermi_constant),
 /// Firsov 1958 / Lindhard, Scharff & Schiott 1963, see
-/// `docs/data-provenance.md`). It is not an atomic DHFS potential; it lets the
-/// table machinery be built and tested while the Salvat et al. (1987)
-/// coefficients are missing.
+/// `docs/data-provenance.md`). It is not an atomic DHFS potential; it was
+/// the only potential while the Salvat et al. (1987) coefficients were
+/// missing, and remains a cheap one for tests and benchmarks.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct ThomasFermiYukawa;
 
@@ -225,9 +225,8 @@ impl PotentialSource for ThomasFermiYukawa {
     }
 }
 
-/// The Salvat et al. (1987) DHFS potentials via [`SalvatDhfs::for_element`].
-/// **Every call fails in this build**: the coefficient table is a documented
-/// gap (`docs/data-provenance.md`).
+/// The Salvat et al. (1987) DHFS potentials via [`SalvatDhfs::for_element`]
+/// (Table I, Z = 1..92; `docs/data-provenance.md`).
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct SalvatDhfsTable;
 

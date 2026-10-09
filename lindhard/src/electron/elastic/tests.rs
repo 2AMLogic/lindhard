@@ -263,14 +263,137 @@ fn solve_reports_observables_on_a_grid() {
 }
 
 #[test]
-fn salvat_table_is_a_documented_gap() {
-    assert_eq!(
-        SalvatDhfs::for_element(29),
-        Err(ElasticError::ScreeningCoefficientsUnavailable(29))
-    );
+fn salvat_from_coefficients_validates() {
     assert!(SalvatDhfs::from_coefficients(29, [0.5, 0.3, 0.3], [1.0, 2.0, 3.0]).is_err());
+    assert!(SalvatDhfs::from_coefficients(29, [0.5, 0.3, 0.2], [1.0, 0.0, 3.0]).is_err());
     let p = SalvatDhfs::from_coefficients(1, [0.5, 0.3, 0.2], [1.0, 2.0, 3.0]).unwrap();
     assert!(p.energy(1.0) < 0.0);
+    assert!(SalvatDhfs::from_two_terms(29, [0.5, 0.6], [1.0, 2.0]).is_err());
+    assert!(SalvatDhfs::from_two_terms(29, [0.5, 0.5], [1.0, -2.0]).is_err());
+    assert!(SalvatDhfs::from_two_terms(93, [0.5, 0.5], [1.0, 2.0]).is_err());
+}
+
+/// Every Z outside Table I (Salvat et al. 1987, Z = 1..92) is an error.
+#[test]
+fn salvat_table_covers_exactly_1_to_92() {
+    for z in [0, 93, 200] {
+        assert_eq!(
+            SalvatDhfs::for_element(z),
+            Err(ElasticError::ScreeningCoefficientsUnavailable(z))
+        );
+    }
+    for z in 1..=92 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        assert_eq!(p.nuclear_charge(), f64::from(z));
+    }
+}
+
+/// Elements with an asterisk in Salvat et al. (1987) Table I (pp. 470-471),
+/// fitted with `A_3 = 0`.
+const SALVAT_TWO_TERM: [u32; 21] = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21, 34, 35, 36, 54,
+];
+
+/// Per-row invariants of the transcribed table: `sum A_i = 1` (exactly, to
+/// rounding, for two-term rows, whose printed `A_1 + A_2` is 1), every
+/// `alpha_i > 0`, the asterisked rows and only those are two-term, and
+/// `length_scale` is `1 / max alpha_i` over the terms in use.
+#[test]
+fn salvat_table_rows_are_consistent() {
+    for z in 1..=92u32 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        let (a, al) = (p.amplitudes(), p.alphas());
+        let two = SALVAT_TWO_TERM.contains(&z);
+        assert_eq!(a.len(), if two { 2 } else { 3 }, "Z={z}");
+        assert_eq!(al.len(), a.len(), "Z={z}");
+        let sum: f64 = a.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-12, "Z={z}: sum A = {sum}");
+        assert!(al.iter().all(|&x| x > 0.0 && x.is_finite()), "Z={z}");
+        let max = al.iter().copied().fold(0.0, f64::max);
+        assert_eq!(p.length_scale(), 1.0 / max, "Z={z}");
+        // phi(0) = sum A = 1: V -> -Z/r at the nucleus.
+        let r = 1e-9;
+        assert!(rel(-p.energy(r) * r, f64::from(z)) < 1e-6, "Z={z}");
+    }
+}
+
+/// The negative amplitudes printed in Table I: `A_1` of H and He, `A_2` of S,
+/// Cl and Ar; every other `A_1`, `A_2` and every `A_3` is positive.
+#[test]
+fn salvat_negative_amplitudes_are_where_the_table_prints_them() {
+    for z in 1..=92u32 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        let a = p.amplitudes();
+        assert_eq!(a[0] < 0.0, matches!(z, 1 | 2), "Z={z}: A_1 = {}", a[0]);
+        assert_eq!(a[1] < 0.0, matches!(z, 16..=18), "Z={z}: A_2 = {}", a[1]);
+        if a.len() == 3 {
+            assert!(a[2] > 0.0, "Z={z}: A_3 = {}", a[2]);
+        }
+    }
+}
+
+/// Spot rows against the scan (Salvat et al. 1987 Table I): Cu (also the
+/// fixture of `cu_corrections_fade_with_energy`), the two-term H and Xe, and
+/// U, the last row.
+#[test]
+fn salvat_table_spot_rows() {
+    let cu = SalvatDhfs::for_element(29).unwrap();
+    let fixture =
+        SalvatDhfs::from_coefficients(29, [0.0771, 0.7951, 0.1278], [25.326, 3.3928, 1.1426])
+            .unwrap();
+    assert_eq!(cu.alphas(), fixture.alphas());
+    for (x, y) in cu.amplitudes().iter().zip(fixture.amplitudes()) {
+        assert!((x - y).abs() < 1e-15, "{x} vs {y}");
+    }
+    let h = SalvatDhfs::for_element(1).unwrap();
+    assert_eq!(h.amplitudes(), &[-184.39, 185.39]);
+    assert_eq!(h.alphas(), &[2.0027, 1.9973]);
+    let xe = SalvatDhfs::for_element(54).unwrap();
+    assert_eq!(xe.amplitudes(), &[0.4451, 0.5549]);
+    assert_eq!(xe.alphas(), &[11.805, 1.7967]);
+    let u = SalvatDhfs::for_element(92).unwrap();
+    assert_eq!(&u.amplitudes()[..2], &[0.2448, 0.6298]);
+    assert_eq!(u.alphas(), &[25.252, 3.6397, 0.9825]);
+}
+
+/// The Eq. (12) density of every Table I row is positive on a log grid from
+/// 1e-6 to 100 bohr, including the rows with negative amplitudes (H, He, S,
+/// Cl, Ar); beyond the grid the term with the smallest `alpha_i` dominates,
+/// and its amplitude is positive for every row.
+#[test]
+fn salvat_table_densities_are_positive() {
+    for z in 1..=92u32 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        for k in -600..=200 {
+            let r = 10f64.powf(f64::from(k) / 100.0);
+            let rho = p.density(r);
+            assert!(rho > 0.0 && rho.is_finite(), "Z={z}, r={r}: rho={rho}");
+        }
+        let (a, al) = (p.amplitudes(), p.alphas());
+        let i = (0..al.len())
+            .min_by(|&i, &j| al[i].total_cmp(&al[j]))
+            .unwrap();
+        assert!(a[i] > 0.0, "Z={z}");
+    }
+}
+
+/// H has strongly cancelling terms (`A_1 = -184.39`, `A_2 = 185.39`): the
+/// screening function still starts at 1, decreases monotonically and stays
+/// in (0, 1].
+#[test]
+fn salvat_hydrogen_cancellation_is_benign() {
+    let h = SalvatDhfs::for_element(1).unwrap();
+    let mut prev = 1.0 + 1e-12;
+    for k in -600..=150 {
+        let r = 10f64.powf(f64::from(k) / 100.0);
+        let phi = -h.energy(r) * r;
+        assert!(
+            phi > 0.0 && phi <= prev,
+            "r={r}: phi={phi}, previous {prev}"
+        );
+        prev = phi;
+    }
+    assert!((-h.energy(1e-6) * 1e-6 - 1.0).abs() < 1e-5);
 }
 
 // ---------------------------------------------------------------------------

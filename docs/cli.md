@@ -340,7 +340,7 @@ step barrier).
 | Key | Default | Choices |
 |---|---|---|
 | `model` | `"mott"` | `mott`: Mott cross sections from radial-Dirac partial waves, independent-atom additivity (`electron::elastic::table`) |
-| `potential` | required | `thomas-fermi-yukawa`: the Thomas-Fermi Yukawa **stand-in**; `salvat-dhfs`: the Salvat et al. (1987) DHFS potentials, whose coefficient table is a documented gap (`data-provenance.md`), so a run with it fails |
+| `potential` | required | `thomas-fermi-yukawa`: the Thomas-Fermi Yukawa **stand-in**; `salvat-dhfs`: the Salvat et al. (1987) DHFS potentials (Table I coefficients, Z = 1..92; `data-provenance.md`) |
 | `exchange` | `false` | Furness-McCarthy exchange correction |
 | `correlation_polarization` | absent (off) | A table: `polarizability.<Sym> = { bohr3 = ..., source = "..." }` for every target element (the source is required), optional `b_pol_squared` (absent: Seltzer's rule, which needs every table energy above 50 eV) and `outer_radius_bohr` (50) |
 
