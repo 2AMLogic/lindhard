@@ -50,6 +50,12 @@
 //! - **Energy balance.** The incident energy plus the Fermi-sea source equals
 //!   the deposited, escaped, trapped and barrier terms, see
 //!   [the energy balance](#the-energy-balance) and [`ElectronEnergyBudget`].
+//! - **Table coverage.** A numerical diagnostic, not a physical result: per
+//!   layer and channel, how many rate evaluations of the transport read the
+//!   cross-section table inside its energy grid and how many used the
+//!   constant continuation below or above it
+//!   ([`super::table_coverage`], [`ElectronReport::table_coverage`]). These
+//!   are rate evaluations, not collisions.
 //!
 //! # The SE/BSE split
 //!
@@ -167,9 +173,11 @@ use serde::{Deserialize, Serialize};
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
 use super::psf::{PsfConfig, PsfError, RadialAccumulator, RadialProfile};
+use super::table_coverage::{LayerTableCoverage, TableCoverageTally};
 use crate::electron::secondary::{SecondaryEvent, SecondaryModel};
 use crate::electron::transport::{
-    Boundary, ElectronState, ElectronTally, Face, Fate, PhononEvent, Transport,
+    Boundary, ElectronState, ElectronTally, Face, Fate, GridCoverage, PhononEvent, TableChannel,
+    Transport,
 };
 
 /// Default SE/BSE energy split, eV: an escaping electron below this energy is
@@ -578,6 +586,8 @@ pub struct FullElectronTally {
     primary_stop_radial: Moments,
     front: FaceAcc,
     back: FaceAcc,
+    /// Rate evaluations against each table's energy grid.
+    table_coverage: TableCoverageTally,
     /// Per-history scratch, not part of the result and cleared at every
     /// history boundary: the last state seen of the current electron, for
     /// [`Fate::EventCap`] (`None` once it ended through a hook).
@@ -642,6 +652,7 @@ impl FullElectronTally {
             primary_stop_radial: Moments::new(),
             front: FaceAcc::new(&config),
             back: FaceAcc::new(&config),
+            table_coverage: TableCoverageTally::new(transport),
             last: None,
             primary_last: None,
             in_secondary: false,
@@ -755,6 +766,7 @@ impl FullElectronTally {
                     radial: self.primary_stop_radial.summary(),
                 },
             },
+            table_coverage: self.table_coverage.layers().to_vec(),
         }
     }
 }
@@ -769,6 +781,10 @@ impl ElectronTally for FullElectronTally {
 
     fn step(&mut self, _from: [f64; 3], end: &ElectronState, _length_m: f64) {
         self.last = Some(*end);
+    }
+
+    fn table_lookup(&mut self, at: &ElectronState, channel: TableChannel, coverage: GridCoverage) {
+        self.table_coverage.record(at.layer, channel, coverage);
     }
 
     fn elastic(&mut self, after: &ElectronState, _theta: f64) {
@@ -972,6 +988,7 @@ impl ElectronTally for FullElectronTally {
         self.primary_stop_radial.merge(&o.primary_stop_radial);
         self.front.merge(&o.front);
         self.back.merge(&o.back);
+        self.table_coverage.merge_from(&o.table_coverage);
     }
 }
 
@@ -999,6 +1016,13 @@ pub struct ElectronReport {
     pub generation_volume: Option<GenerationVolume>,
     /// Where electrons fell below the stopping threshold.
     pub stopping_points: StoppingPoints,
+    /// Per layer, the rate evaluations of the elastic and inelastic tables
+    /// inside and beyond each table's energy grid, with the grid bounds
+    /// (primaries and secondaries together). These count evaluations, not
+    /// collisions; see [`super::table_coverage`]. Empty in reports written
+    /// before it existed.
+    #[serde(default)]
+    pub table_coverage: Vec<LayerTableCoverage>,
 }
 
 /// The settings and conventions a report was made with.

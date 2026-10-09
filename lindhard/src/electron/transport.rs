@@ -168,6 +168,13 @@
 //! bracket each secondary, and [`ElectronTally::end_history`] comes last, with
 //! the primary's fate. The insulator channels report through
 //! [`ElectronTally::phonon`] and [`ElectronTally::polaron_trapped`].
+//!
+//! [`ElectronTally::table_lookup`] is a diagnostic hook, also with a no-op
+//! default: it reports, per channel, whether each rate evaluation read the
+//! table inside its energy grid or used the constant continuation beyond an
+//! end ([`GridCoverage`]). It draws nothing and changes nothing, so a tally
+//! that uses it sees the same histories as one that does not.
+//! [`crate::tally::TableCoverageTally`] counts these evaluations.
 
 use serde::Serialize;
 
@@ -332,6 +339,51 @@ pub enum PhononEvent {
     Absorption,
 }
 
+/// One of the two cross-section tables of a layer ([`LayerTables`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TableChannel {
+    /// The elastic table.
+    Elastic,
+    /// The inelastic table.
+    Inelastic,
+}
+
+/// Where an energy lies against the energy grid of one table, as reported to
+/// [`ElectronTally::table_lookup`].
+///
+/// The grid is the table's own [`CrossSectionTable::energy_ev`], from its
+/// first value `E_min` to its last `E_max`. Inside `[E_min, E_max]` the rate
+/// and the inverse CDF are interpolated between rows (an energy equal to an
+/// endpoint reads that row exactly); outside it they are the endpoint row's,
+/// held constant (module docs, "Free flight"). This enum says which of the
+/// two happened; it measures how often that continuation is used, not
+/// whether it is accurate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GridCoverage {
+    /// `E < E_min`: the first row's values were used.
+    Below,
+    /// `E_min <= E <= E_max` (both endpoints included).
+    Within,
+    /// `E > E_max`: the last row's values were used.
+    Above,
+}
+
+impl GridCoverage {
+    /// Where `energy_ev` lies against the grid of `table`.
+    pub fn of(table: &CrossSectionTable, energy_ev: f64) -> Self {
+        let g = table.energy_ev();
+        if energy_ev < g[0] {
+            Self::Below
+        } else if energy_ev > g[g.len() - 1] {
+            Self::Above
+        } else {
+            Self::Within
+        }
+    }
+}
+
 /// Run configuration, recorded in the [`RunMetadata`].
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct TransportConfig {
@@ -432,6 +484,29 @@ pub trait ElectronTally: Send {
     /// layer face or the target face). It started at `from` with energy
     /// `end.energy_ev` (the energy does not change in flight).
     fn step(&mut self, _from: [f64; 3], _end: &ElectronState, _length_m: f64) {}
+
+    /// The rate of `channel`'s table in layer `at.layer` was evaluated at
+    /// `at.energy_ev`, which lies `coverage` against that table's grid.
+    ///
+    /// Called twice (elastic, then inelastic) at the start of every pass of
+    /// the transport loop that evaluates the rates, before the free path is
+    /// drawn: for every flight, whether it ends at a collision, at a layer
+    /// face (the path is then discarded and the rates are evaluated again in
+    /// the next pass) or nowhere (zero total rate, [`Fate::Trapped`]); after
+    /// a face reflection; and for a channel whose rate is zero. It is not
+    /// called for the primary's entry through the front face (no table is
+    /// read), nor once an electron has reached the event cap. The inverse CDF
+    /// sampled at a collision uses the grid position of the same evaluation
+    /// and is not reported again. So these are **rate evaluations**, not
+    /// collisions: their number exceeds the number of collisions by the
+    /// number of boundary-limited and rate-less flights.
+    fn table_lookup(
+        &mut self,
+        _at: &ElectronState,
+        _channel: TableChannel,
+        _coverage: GridCoverage,
+    ) {
+    }
 
     /// An elastic collision deflected the electron by `theta` rad.
     fn elastic(&mut self, _after: &ElectronState, _theta: f64) {}
@@ -928,6 +1003,11 @@ impl Transport {
         &self.stack
     }
 
+    /// The tables of each layer.
+    pub fn layer_tables(&self) -> &[LayerTables] {
+        &self.tables
+    }
+
     /// The band parameters per layer, if given.
     pub fn band_structures(&self) -> Option<&[BandStructure]> {
         self.bands.as_deref()
@@ -1146,6 +1226,17 @@ impl Transport {
             let chans = &self.channels[st.layer];
             let (el, el_at) = rate(&tabs.elastic, st.energy_ev);
             let (inel, inel_at) = rate(&tabs.inelastic, st.energy_ev);
+            // Diagnostics only: no draw, no change of state.
+            tally.table_lookup(
+                st,
+                TableChannel::Elastic,
+                GridCoverage::of(&tabs.elastic, st.energy_ev),
+            );
+            tally.table_lookup(
+                st,
+                TableChannel::Inelastic,
+                GridCoverage::of(&tabs.inelastic, st.energy_ev),
+            );
             let (em, ab, tr) = chans.rates(st.energy_ev);
             let total = el + inel + em + ab + tr;
             let layer = &layers[st.layer];

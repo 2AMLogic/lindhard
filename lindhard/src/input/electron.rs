@@ -1091,7 +1091,8 @@ impl ElectronInput {
         if max_energy < top {
             warnings.push(format!(
                 "electron.tables.max_energy_ev: {max_energy} eV is below the largest energy \
-                 an electron can have ({top} eV); rates above it are held at the last row"
+                 an electron can have ({top} eV); rates above it are held at the last row \
+                 (results.table_coverage counts how often)"
             ));
         }
         // The lowest energy an electron is followed at: the cutoff, or
@@ -1100,7 +1101,8 @@ impl ElectronInput {
         if g.min_energy_ev > lowest {
             warnings.push(format!(
                 "electron.tables.min_energy_ev: {} eV is above the lowest stopping threshold \
-                 ({lowest} eV); rates below it are held at the first row",
+                 ({lowest} eV); rates below it are held at the first row \
+                 (results.table_coverage counts how often)",
                 g.min_energy_ev
             ));
         }

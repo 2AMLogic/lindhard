@@ -221,6 +221,33 @@ def batch_se(values: list[float | None]) -> float | None:
     return math.sqrt(sum((x - m) ** 2 for x in v) / (len(v) - 1) / len(v))
 
 
+TABLE_COVERAGE_COUNTS = ("below", "within", "above")
+
+
+def merge_table_coverage(total: list[dict] | None, part: list[dict] | None) -> list[dict] | None:
+    """Add one run's `results.table_coverage` (per layer, the elastic and
+    inelastic rate evaluations below, within and above each table's energy
+    grid, with the grid bounds; docs/cli.md) to a running total. These count
+    rate evaluations of the transport loop, not collisions (lindhard
+    `tally::table_coverage`). `part` is None for a summary written before the
+    field existed; the total is then None too, since it would be incomplete.
+    The bounds must agree: every batch reads the same tables."""
+    if part is None:
+        return None
+    if total is None:
+        return [{"layer": l["layer"], **{ch: dict(l[ch]) for ch in ("elastic", "inelastic")}} for l in part]
+    if len(total) != len(part):
+        lindhard_cli.die("table_coverage: batches have different numbers of layers")
+    for t, l in zip(total, part):
+        for ch in ("elastic", "inelastic"):
+            for b in ("energy_min_ev", "energy_max_ev"):
+                if t[ch][b] != l[ch][b]:
+                    lindhard_cli.die(f"table_coverage: layer {t['layer']} {ch} {b} differs between batches")
+            for k in TABLE_COVERAGE_COUNTS:
+                t[ch][k] += l[ch][k]
+    return total
+
+
 class Accumulator:
     """Pooled and per-batch tallies of one code on one problem."""
 
@@ -233,6 +260,17 @@ class Accumulator:
         self.depth_sum = [0.0] * batches
         self.hist = [[0.0] * (rbins + 1) for _ in range(batches)]  # last: beyond rmax
         self.has_depth = True
+        # lindhard only: summed results.table_coverage (None if a batch had
+        # none, or for an oracle).
+        self.table_coverage: list[dict] | None = None
+        self._coverage_seen = False
+
+    def add_table_coverage(self, part: list[dict] | None) -> None:
+        if not self._coverage_seen:
+            self._coverage_seen = True
+            self.table_coverage = merge_table_coverage(None, part)
+        elif self.table_coverage is not None:
+            self.table_coverage = merge_table_coverage(self.table_coverage, part)
 
     def deposit(self, batch: int, r_nm: float, e: float) -> None:
         i = int(r_nm / self.rmax * self.rbins)
@@ -259,6 +297,7 @@ class Accumulator:
             "primaries_stopped": sum(self.stops) if self.has_depth else None,
             "std_err": {m: (batch_se([p[m] for p in per]) if pooled[m] is not None else None) for m in METRICS},
             "batch_values": {m: [p[m] for p in per] for m in METRICS},
+            "table_coverage": self.table_coverage,
         }
 
 
@@ -388,6 +427,7 @@ def run_lindhard(problem: dict, spec: dict, mat: dict, binary: Path, histories: 
         if prim is None:
             lindhard_cli.die("this lindhard has no results.stopping_points.primaries; rebuild it")
         acc.stops[i] = prim["stopped"]
+        acc.add_table_coverage(r.get("table_coverage"))
         if prim["depth"]:
             acc.depth_sum[i] = prim["depth"]["mean"] * 1e9 * prim["stopped"]
         rows = (out / "electron_deposition_cylindrical.csv").read_text().splitlines()
@@ -824,6 +864,9 @@ def main() -> int:
             "values": {m: ours[m] for m in METRICS},
             "std_err": ours["std_err"],
             "primaries_stopped": ours["primaries_stopped"],
+            # Rate evaluations inside and beyond each table's energy grid,
+            # summed over the batches (evaluations, not collisions).
+            "table_coverage": ours["table_coverage"],
             "wall_s": ours["wall_s"],
             "materials": materials,
             "lindhard_settings": lsettings,
