@@ -17,7 +17,7 @@ validation/run.sh [--experiments] [--oracles]
 | `data/` | 3 | Published measurements with citations ([schema](data/README.md)); `data/digitize/` holds the scripts that digitized figures |
 | `experiments/run.py` | 3 | Checks each dataset's provenance, runs `lindhard` on it with the defaults and with the stopping inputs varied; writes `experiments/results.json` |
 | `experiments/backscatter.py`, `experiments/backscatter/` | 3 | Electron backscatter coefficient vs measurements (#148): checks `data/backscatter/`, runs the committed `[electron]` inputs at 1 to 30 keV and the elastic-correction sensitivity; writes `experiments/backscatter_results.json` (`run.sh --backscatter`) |
-| `experiments/se_yield.py` | 3 | Secondary-electron yield δ(E) of Al and Cu against the measured sets of `data/se_yield/` (#149): checks them, runs `lindhard` electron runs, writes `experiments/se_yield_results.json`, evaluates the initial bounds (`--check`) and prints the tables spliced into `docs/validation.md` |
+| `experiments/se_yield.py` | 3 | Secondary-electron yield δ(E) of Al, Cu, Si and Au against the measured sets of `data/se_yield/` (#149): checks them, runs `lindhard` electron runs (DHFS elastic potential), writes `experiments/se_yield_results.json`, evaluates the initial bounds (`--check`) and prints the tables spliced into `docs/validation.md` |
 | `lib/lindhard_cli.py` | 2, 3 | Builds and drives the `lindhard` command |
 | `update_docs.py` | all | Splices the tables into `docs/validation.md` between marker comments |
 | `check_manual_coverage.py` | docs | Fails if a variant of a model-selecting enum is not named in the physics manual (`book/src/models/`); run in CI |
