@@ -92,8 +92,7 @@ table. Example:
 
 This is an input capability: it makes a finite-spread run possible and
 reproducible. It is not an experimentally validated channeling prediction,
-and it does not resolve the known deviations of the crystal model (#225,
-#250).
+and it does not resolve the known deviations of the crystal model (#225).
 
 ### `[materials.<name>]`
 
@@ -325,7 +324,7 @@ and extension").
 only; hexagonal lattices, custom cells and dose-dependent crystal damage are
 not exposed (beam divergence is: see `[beam.divergence]`). This is an interface to the existing engine,
 not a validation: the known deviations of its channeled ranges are tracked
-separately (issues #225 and #250) and nothing here claims they are resolved.
+separately (issue #225) and nothing here claims they are resolved.
 Examples: [`b_5keV_si_crystal.toml`](../examples/b_5keV_si_crystal.toml) and
 [`as_50keV_sio2_on_si_crystal.toml`](../examples/as_50keV_sio2_on_si_crystal.toml)
 (an amorphous oxide over a crystal substrate); neither is a validated

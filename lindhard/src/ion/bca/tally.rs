@@ -124,6 +124,16 @@ pub trait BcaTally: Send {
     ) {
     }
 
+    /// A collision partner of `p`, reported **before** the collision changes
+    /// `p` (so `p` is the incoming state, unlike in the other hooks):
+    /// `impact_parameter_m` is the distance from the partner to the incoming
+    /// straight path, and `partners` the number of partners of this collision
+    /// step, each of which is reported by its own call. The amorphous model
+    /// reports its hard collision and each weak collision as a step of one
+    /// partner; the crystal flight model reports every simultaneous partner
+    /// of a step with the same `partners`.
+    fn partner(&mut self, _p: &Particle, _impact_parameter_m: f64, _partners: usize) {}
+
     /// Nuclear energy `energy_ev` left in the lattice at `at` in region
     /// `layer` (the layer index of a stack, the flat voxel index of a voxel
     /// grid).
