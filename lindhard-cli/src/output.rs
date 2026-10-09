@@ -11,7 +11,7 @@ use std::fmt::Write as _;
 
 use lindhard::input::TuningReport;
 use lindhard::input::{ModelInfo, Resolved};
-use lindhard::ion::bca::{EnergyBudget, MeanFreePath};
+use lindhard::ion::bca::{CrystalMetadata, EnergyBudget, MeanFreePath};
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::material::MaterialSpec;
 use lindhard::tally::{
@@ -121,6 +121,12 @@ struct Physics {
     /// calibration applied, with original and effective energies.
     #[serde(skip_serializing_if = "Option::is_none")]
     tuning: Option<TuningReport>,
+    /// Present only for a run with `[[crystal]]`: what the engine reports for
+    /// each crystal (lattice, orientation, search and thermal parameters,
+    /// `electronic_constants_unverified` where it applies). Added without a
+    /// `format.version` bump (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    crystal: Vec<CrystalMetadata>,
 }
 
 #[derive(Serialize)]
@@ -523,6 +529,7 @@ pub fn summary_json(
     table: &ScatteringTable,
     t: &CliTally,
     report: &IonReport,
+    crystals: &[CrystalMetadata],
     run: RunInfo,
 ) -> serde_json::Result<String> {
     let c = &r.config;
@@ -610,6 +617,7 @@ pub fn summary_json(
                 })
                 .collect(),
             tuning: r.tuning.clone(),
+            crystal: crystals.to_vec(),
         },
         results: Results {
             histories: s.histories,

@@ -51,7 +51,9 @@ mod schema;
 mod tests;
 
 pub(crate) use resolved::resolve_material;
-pub use resolved::{stopping_model, ModelInfo, Resolved, ResolvedLayer, TABLE_SPEC};
+pub use resolved::{
+    stopping_model, ModelInfo, Resolved, ResolvedCrystal, ResolvedLayer, TABLE_SPEC,
+};
 pub use schema::*;
 
 /// Errors from reading or validating an [`Input`].
@@ -104,6 +106,10 @@ pub struct Input {
     /// Fluence-dependent target (optional). Absent: the static run.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dynamic: Option<DynamicSpec>,
+    /// Cubic crystal assignments to stack layers (optional). Absent: every
+    /// layer is amorphous.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub crystal: Vec<CrystalSpec>,
 }
 
 impl Input {

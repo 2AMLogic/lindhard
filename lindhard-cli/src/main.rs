@@ -266,6 +266,22 @@ fn check(path: &Path) -> Result<()> {
                 .map_or(String::new(), |c| format!(" (adaptive, max change {c})"))
         );
     }
+    for (i, c) in r.input.crystal.iter().enumerate() {
+        println!(
+            "  crystal[{i}]: {} on layers {:?}, normal {:?}, reference {:?}, wafer rotation {} deg{}",
+            c.preset.name(),
+            c.layers,
+            c.normal,
+            c.reference,
+            c.wafer_rotation_deg,
+            c.thermal
+                .as_ref()
+                .map_or(", static lattice".to_string(), |t| format!(
+                    ", thermal {} K",
+                    t.temperature_k
+                ))
+        );
+    }
     for m in r.models() {
         if m.name == "user-table" {
             // A user table is identified by its file: "path: provenance".
@@ -315,6 +331,7 @@ fn run(
         tally,
         table,
         report,
+        crystals,
         info,
     } = sim::simulate(&r, input.run.threads)?;
 
@@ -323,7 +340,7 @@ fn run(
         let p = out.join(name);
         std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
     };
-    let summary = output::summary_json(&r, &table, &tally, &report, info)?;
+    let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
     write(output::DEPTH_FILE, output::depth_csv(&tally))?;
     write(output::LATERAL_FILE, output::lateral_csv(&report))?;
     write(output::DAMAGE_FILE, output::damage_csv(&report))?;

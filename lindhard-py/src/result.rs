@@ -344,8 +344,15 @@ impl RunResult {
     /// The command's `summary.json` text, exactly as it writes it.
     fn summary_json(&self) -> PyResult<String> {
         let s = &self.sim;
-        output::summary_json(&self.resolved, &s.table, &s.tally, &s.report, s.info)
-            .map_err(|e| errors::run(&e))
+        output::summary_json(
+            &self.resolved,
+            &s.table,
+            &s.tally,
+            &s.report,
+            &s.crystals,
+            s.info,
+        )
+        .map_err(|e| errors::run(&e))
     }
 
     /// Write `summary.json` and the CSV profiles into `out_dir` (created if

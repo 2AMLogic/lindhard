@@ -30,6 +30,12 @@ command's output bit for bit, at any thread count; `tests/test_cli_parity.py`
 checks this against the built binary. `Run.run()` releases the GIL while it
 transports.
 
+A `[[crystal]]` section (`cli.md`) is part of that schema: `Run.from_toml()` keeps it,
+`Run.to_toml()` writes it back, and `Run.run()` attaches the crystal in the
+same driver, so `summary()` carries `physics.crystal` as the command's
+`summary.json` does. The Python classes have no crystal constructor of their
+own yet; a crystal run starts from TOML.
+
 ## Errors
 
 | Exception | Base classes | Raised for |
