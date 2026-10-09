@@ -99,14 +99,14 @@ What it covers:
   as an unsupported `correlation_polarization`, loosened tolerance). Nothing
   here has been validated yet: 0 of 16 values are checked.
 - **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
-  Cu, built from the committed Hagemann optical ELFs (#98) with the Fermi
+  Cu, built from the committed Hagemann optical ELFs (#98), and of Si, built
+  from the Yang et al. (2019) ELF digitized in #125, with the Fermi
   energies of the reference, against Tanuma, Powell & Penn, Surf. Interface
   Anal. 43, 689 (2011), Table 4, at the rows nearest 100 eV, 1 keV and
   10 keV; tolerance 20 % near 100 eV and 10 % near 1 and 10 keV, pinned in
   `lindhard/tests/electron_imfp_tpp.rs` (fixture
-  `lindhard/tests/data/imfp_tpp2011.toml`, provenance row). All six cases
+  `lindhard/tests/data/imfp_tpp2011.toml`, provenance row). All nine cases
   pass; the table is under "Inelastic mean free paths vs TPP 2011" below.
-  Si waits for its optical data (#125).
 - **Electrons (M1, not yet).** Elastic total cross sections from our
   partial-wave Mott solution against published Mott values at spot energies;
   the dielectric model's f-sum and perfect-screening sum rules.
@@ -221,15 +221,16 @@ Level 1, `full` statistics, `lindhard` 0.0.1.
 ### Inelastic mean free paths vs TPP 2011 (#99)
 
 Ours: `FullPenn` (full Penn algorithm at every energy, integration tolerance
-1e-3) on `validation/data/optical/{al,cu}_elf_hagemann1975.toml`, Fermi
-energy 11.2 eV (Al) and 8.7 eV (Cu) from TPP 2011 Table 1. TPP: Tanuma,
+1e-3) on `validation/data/optical/{al,cu}_elf_hagemann1975.toml` and
+`si_elf_yang2019.toml`, Fermi energy 11.2 eV (Al), 8.7 eV (Cu) and 12.5 eV
+(Si) from TPP 2011 Table 1. TPP: Tanuma,
 Powell & Penn, Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522,
 Table 4, read in the authors' original manuscript (NIMS MDR,
 doi:10.48505/nims.3238; the published version was not reachable, so a value
 changed in review would not show here). Table 4 is on a 10 % logarithmic
 grid, so the rows used are 99.5, 992.3 and 9897.1 eV, and the model is
 evaluated at exactly those energies. Relative difference is ours / TPP - 1.
-Measured 2026-10-07 by
+Measured 2026-10-07 (Al, Cu) and 2026-10-09 (Si) by
 `cargo test -p lindhard --test electron_imfp_tpp -- --nocapture`.
 
 | Material | E (eV) | Ours (Å) | TPP (Å) | Relative difference | Tolerance | Result |
@@ -240,6 +241,9 @@ Measured 2026-10-07 by
 | Cu | 99.5 | 5.16 | 5.00 | +3.1 % | 20 % | pass |
 | Cu | 992.3 | 16.50 | 16.6 | -0.6 % | 10 % | pass |
 | Cu | 9897.1 | 103.4 | 104.8 | -1.3 % | 10 % | pass |
+| Si | 99.5 | 5.19 | 5.25 | -1.2 % | 20 % | pass |
+| Si | 992.3 | 24.75 | 24.3 | +1.8 % | 10 % | pass |
+| Si | 9897.1 | 170.1 | 164.2 | +3.6 % | 10 % | pass |
 
 Reading the table (reported, not tuned):
 
@@ -267,7 +271,16 @@ Reading the table (reported, not tuned):
   Shinotsuka et al. (2017), not Penn's formulae, and is least constrained
   below 200 eV, where TPP 2011 also expect larger uncertainties; the 100 eV
   rows here do not show a larger gap than the others.
-- Si is not compared: no Si valence-region optical data is committed (#125).
+- **Si agrees to 1 % at 100 eV and is 2 to 4 % long at 1 and 10 keV.** Our
+  input is the ELF of Yang et al. (2019), digitized (#125): it comes from
+  REELS inverted through the full Penn algorithm, not from optical
+  measurements, and it ends at 199 eV, so the L-shell tail and the K shell
+  contribute no losses here; a missing loss channel can only lengthen the
+  IMFP, which is the sign seen at 1 and 10 keV. Its perfect-screening sum is
+  within 0.1 % of the nonconductor target and its N_eff is 7.66 of 14 (the
+  truncation; `optical_sumrule.rs`). TPP 2011 took Si from Palik's handbook
+  to 2 keV and Henke et al. above (their Table 2). How much of the gap is the
+  missing tail and how much the different source was not separated.
 
 ## 2. Code-to-code oracles (local harness, summaries committed)
 
@@ -1307,10 +1320,11 @@ the issue's "full model":
   elements are committed. With the 50 eV cutoff no electron that could still count
   towards η is dropped, but fast secondaries (above 50 eV, which a measured
   η includes) are not generated.
-- **Si is not compared.** It has no committed optical ELF (inventory in
-  [`data-provenance.md`](data-provenance.md); #125), so it has no input. Its
-  measured data are tabulated below for when one exists: adding
-  `eta_si.toml` is all that is needed. C and Au were added in a second
+- **Si is not compared yet.** Its optical ELF is now committed
+  (`validation/data/optical/si_elf_yang2019.toml`, #125), but the run was not
+  made in this pass (#169). That ELF ends at 199 eV (no K shell), which a
+  keV-electron run should state. Its measured data are tabulated below;
+  adding `eta_si.toml` is what remains. C and Au were added in a second
   increment of #148 (their optical data, second read and sum rules are in
   [`data-provenance.md`](data-provenance.md)).
 
@@ -1424,7 +1438,7 @@ for Au: +0.015 with both on, nearly all of it from the exchange correction
 (exchange only 0.267, polarization only 0.251, neither 0.250). That is about
 a tenth of the Au 1 keV deficit, so the corrections do not explain it.
 
-Still open (#169): Si waits for its valence-region optical ELF (#125), and a
+Still open (#169): the Si run (its ELF, to 199 eV, was committed in #125), and a
 rerun with full Penn and the DHFS potential waits for faster full-Penn
 tables and the DHFS table (#130). Until then this is a comparison of the
 reduced model, not of the issue's full model.
@@ -1441,7 +1455,7 @@ simulating that stack and fitting the deposited-energy profile with the
 |---|---|---|
 | A published measured PSF for a stated stack and energy, cited to a table or figure | **Gap.** No source with a measured PMMA-on-Si PSF could be opened on 2026-10-08: Chang (1975) and Rishton and Kern (1987) are closed access and their publisher pages return HTTP 403, and the open-access papers found report either developed linewidths (no PSF), CASINO-simulated PSFs (simulated, and CASINO is Tier C), or process-calibrated PSFs on a stack that is not stated | [`data-provenance.md`](data-provenance.md), "Published measured resist PSF" row |
 | The PMMA optical ELF | **Gap** (#147, #162). Ritsko et al. (1978) re-attempted 2026-10-08, still 403 and closed access; a later open-access REELS paper (Ridzel et al. 2022) was found but its PDF could not be downloaded | [`data-provenance.md`](data-provenance.md), PMMA inventory row |
-| The Si optical ELF (valence region and core tail) | **Gap** (#125). A three-oscillator REELS fit restated in an open-access review was found; it covers the valence region only and contains a surface-plasmon term, so it is not a bulk optical ELF and was not committed | [`data-provenance.md`](data-provenance.md), Si inventory row |
+| The Si optical ELF (valence region and core tail) | **Committed to 199 eV** (#125): Yang et al. (2019), digitized from their Fig. 7, valence region and L₂,₃ edge; the K shell and the tail above 199 eV are still absent | [`data-provenance.md`](data-provenance.md), Si data and inventory rows |
 
 Following the issue's sourcing rule ("if none can be opened, record the gap
 and stop rather than use remembered values"), **there is no comparison table**:
@@ -1471,8 +1485,9 @@ little about transport. Beam size, resist charging and the substrate's
 surface layer are further differences between a measurement and the
 simulation, to be listed with any result.
 
-**What lifts the gap:** a PMMA ELF (#162) and a Si ELF across the valence and
-core regions (#125) committed with provenance rows, and a measured PSF in an
+**What lifts the gap:** a PMMA ELF (#162) committed with a provenance row (the
+Si ELF is committed to 199 eV, #125; for keV beams its missing core tail is
+a stated limitation), and a measured PSF in an
 openable source, cited to its table or figure (digitized values with the
 second-read discipline of the sputter datasets).
 
@@ -1525,8 +1540,9 @@ result worse, not better; no Cu, Si or Au set changes status.
 **Inputs of the simulation, and what is not in them.**
 
 - Optical data: the committed Al and Cu energy-loss functions of Hagemann,
-  Gudat and Kunz (1975) (#98). **Si and Au cannot be simulated**: no Si ELF
-  could be sourced (#98) and no Au file was ingested, so those two materials
+  Gudat and Kunz (1975) (#98). **Si and Au were not simulated** in this
+  pass: no Si ELF existed then (one, to 199 eV, was committed later in #125;
+  the Si run is #149's) and no Au file was ingested, so those two materials
   appear as measurements only.
 - Elastic scattering: Mott partial waves with the Thomas-Fermi Yukawa
   **stand-in** potential; the DHFS table is a documented gap
@@ -1700,8 +1716,8 @@ cutoff definition, incidence not stated), so even a curve inside the bounds
 is checked only coarsely.
 
 **Follow-up.** #173 tracks the Al overestimate of the default model. The
-open gaps are full Penn (cost; table reuse is tracked in #168), Si
-(no valence ELF; #125), the cited barrier
+open gaps are full Penn (cost; table reuse is tracked in #168), the Si run
+(its ELF to 199 eV was committed in #125), the cited barrier
 parameters (#115), and a δ(E) oracle run for Al, Cu and Au, 100 eV to 5 keV
 (the #150 harness exists; none was run in this pass).
 

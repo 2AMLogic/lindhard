@@ -205,6 +205,13 @@ one version).
   energy grid, with `stopping_power_ev_per_m` recovering `S(E)` from it to
   1e-3; `MomentumTransferSampler` draws the momentum transfer given `(E, W)`
   and gives the deflection cosine.
+- Optical ELF dataset for Si (`validation/data/optical/si_elf_yang2019.toml`,
+  #125): the bulk ELF of Yang et al., Phys. Rev. B 100, 245209 (2019), from
+  REELS, 0.5 to 199 eV, digitized from their Fig. 7 (script and second read in
+  `validation/data/digitize/`). The sum-rule test now checks a nonconductor's
+  perfect-screening sum against `1 - 1/eps1(0)` (Si: 0.9135 against 0.9143);
+  Si N_eff is 7.66 of 14 because the table stops before the K shell, pinned.
+  The TPP 2011 IMFP check gains Si (99.5 eV to 9.9 keV, within 3.6 %).
 - Optical ELF datasets for Al and Cu (`validation/data/optical/`, Hagemann,
   Gudat and Kunz 1975, read through the CC0 refractiveindex.info
   transcription and checked against the scanned tables of DESY report

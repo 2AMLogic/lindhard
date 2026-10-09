@@ -33,7 +33,13 @@ derived from it, or any other code's output, however well known
   `lindhard/tests/optical_sumrule.rs` (gated on the linear interpolation `elf()` serves: Al N_eff and P_eff,
   Cu N_eff, C N_eff and Au N_eff miss 5 % and are pinned with their
   explanation; power-law segments are kept as a labelled comparison, where C
-  N_eff also misses). Si: open gap.
+  N_eff also misses).
+- **Optical ELF, Si:** `optical/si_elf_yang2019.toml`, the bulk ELF of Yang
+  et al., Phys. Rev. B 100, 245209 (2019), from REELS, 0.5 to 199 eV,
+  digitized from their Fig. 7 by `digitize/yang2019_si_elf.py`, with a second
+  read from their Fig. 6(b) (`digitize/secondread_si_yang2019.json`) (#125).
+  Ends at 199 eV (no K shell): P_eff passes against the nonconductor target,
+  N_eff (7.66 of 14) is pinned as the truncation.
 - **Electron backscatter coefficients, C, Al, Si, Cu and Au:**
   `backscatter/eta_<el>_<author><year>.json`, 57 measured sets (one per
   original measurement and element, 380 points, 0.1 to 102 keV), transcribed
