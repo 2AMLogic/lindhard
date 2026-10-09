@@ -65,15 +65,15 @@ SEEDS = list(range(1, 11))
 
 # Fermi energies printed in Table 1 of S. Tanuma, C. J. Powell and D. R. Penn, Surf. Interface Anal. 43, 689
 # (2011), doi:10.1002/sia.3522, read in the authors' manuscript at NIMS MDR (doi:10.48505/nims.3238,
-# https://mdr.nims.go.jp/pid/f9222d77-030b-44e8-b8d5-5661ab007778, SHA-256 859c35f5...6c63aaa, p. 31 of 60),
-# opened 2026-10-09. The manuscript calls E_F "a parameter used in the IMFP calculations" (p. 5) and does not
+# https://mdr.nims.go.jp/pid/f9222d77-030b-44e8-b8d5-5661ab007778, SHA-256 859c35f5...6c63aaa, p. 32 of 60),
+# opened 2026-10-09. The manuscript calls E_F "a parameter used in the IMFP calculations" (pp. 5-6) and does not
 # say where the values come from, so they are a second published value for a sensitivity run, not a measured
 # Fermi energy, and they are not adopted as a band input (docs/data-provenance.md).
 FERMI_TPP2011_EV = {"Cu": 8.7, "Au": 9.0}
 FERMI_TPP2011_PROVENANCE = (
     "Sensitivity run of #242, not a band default: Fermi energy printed in Table 1 of Tanuma, Powell and Penn, "
     "Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522 (authors' manuscript, NIMS MDR, "
-    "doi:10.48505/nims.3238, p. 31), which does not give its source; work function: the mid value of the "
+    "doi:10.48505/nims.3238, p. 32), which does not give its source; work function: the mid value of the "
     "delta(E) runs (se_yield.py, METAL_BAND_PROVENANCE)."
 )
 
