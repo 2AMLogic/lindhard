@@ -3,7 +3,9 @@
 This page states the conventions of `lindhard::ion::crystal` (step 19a of the
 M2 crystal plan): how a cubic lattice is described, how the beam direction in
 the lab becomes a direction in the crystal, and how beam divergence is
-sampled. It is a data model only; the transport engine does not read it yet.
+sampled. The transport engine reads it through `Bca::with_crystal`, and the shared
+TOML input selects it with `[[crystal]]` (`docs/cli.md`), where the beam's
+`tilt_deg` and `azimuth_deg` are the tilt and twist defined here.
 The code docs (`lattice`, `orientation` and `divergence` modules) carry the
 same statements next to the code.
 

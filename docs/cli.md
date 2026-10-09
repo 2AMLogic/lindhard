@@ -201,6 +201,84 @@ bytes, the table's `provenance` string, `ion_z`, `ion_mass_amu`, `target_z`
 and the energy range. `physics.models` lists each as `user-table` with the path
 and provenance as its source. The key is absent without `[stopping]`.
 
+### `[[crystal]]` (optional)
+
+Optional. Runs the named stack layers on an explicit cubic lattice (the
+engine's crystal flight model, `Bca::with_crystal`) instead of the amorphous
+random-target model. Every layer not named stays amorphous; absent, the input
+means what it always meant and nothing is echoed. One entry per crystal;
+several entries give different lattices or orientations in different layers.
+
+```toml
+[beam]
+ion = "B"
+energy_ev = 5000.0
+tilt_deg = 7.0        # the crystal's tilt
+azimuth_deg = 22.0    # the crystal's twist, from `reference` towards n x r
+
+[[crystal]]
+layers = [0]            # stack layer indices; the substrate is the last one
+preset = "Si"           # "Si", "Ge", "GaAs" or "3C-SiC"
+normal = [0, 0, 1]      # (hkl) of the surface; the inward normal
+reference = [0, 1, 0]   # [uvw] in the surface plane: the zero of the azimuth
+wafer_rotation_deg = 0.0
+
+[crystal.thermal]       # optional; absent: a static lattice
+temperature_k = 300.0
+# debye_temperature_k = 640.0
+```
+
+| Key | Default | Meaning |
+|---|---|---|
+| `layers` | required | Indices into the stack, front layer first, the substrate last (the `index` of `physics.target`). Each layer may belong to one crystal |
+| `preset` | required | Cubic lattice with a cited lattice constant (`docs/crystal-orientation.md`, `docs/data-provenance.md`) |
+| `normal` | required | Miller indices `(hkl)` of the surface plane (inward normal), integers, not all zero |
+| `reference` | required | Direction `[uvw]` in the surface plane (`h u + k v + l w = 0`). It is lab `+y` at zero wafer rotation; there is no hidden default zero for the azimuth |
+| `wafer_rotation_deg` | 0 | Rotation of the wafer about the surface normal |
+| `thermal.temperature_k` | none | Debye-model vibration at this temperature; sets the vibration amplitude only (no thermal expansion) |
+| `thermal.debye_temperature_k` | the preset's cited value | Debye temperature |
+| `p_max_nm`, `q_max_nm`, `search_length_nm` | engine defaults | Search parameters (`ion::bca::crystal`, "Choice of the search parameters"): largest partner impact parameter (nearest-neighbour distance), simultaneous-collision window (5 % of it) and search segment length (lattice constant; speed only) |
+
+**Angles.** `beam.tilt_deg` and `beam.azimuth_deg` are the engine's tilt and
+twist; there is no second beam direction. Tilt is the polar angle from the
+inward surface normal, azimuth is measured in the surface plane from
+`reference` towards `n x reference`; `docs/crystal-orientation.md` states the
+full convention and a worked example.
+
+**Checks (`lindhard check` and `run`, before transport).** Errors name the
+key (`crystal[i].normal`, `.reference`, `.layers`, `.preset`,
+`.thermal.temperature_k`, ...): a zero or non-integer index triple, a
+reference not in the surface plane, a layer that does not exist or is already
+assigned, a preset whose elements are not in the layer's material or whose
+atom density differs from the lattice's by more than 5 %, and a non-positive
+search length. Unsupported combinations are errors, never a silent amorphous
+fallback: a `[dynamic]` target, an `[electron]` run, `physics.free_path` other
+than `"constant"`, `physics.weak_collisions > 0`, and `physics.tuning` (the
+only set was fitted for amorphous runs). `physics.stopping =
+"equipartition-ls-or"` is allowed with a warning: its local Oen-Robinson loss
+has constants that are not verified against the paper.
+
+**Output.** `summary.json` gains `physics.crystal`, one object per crystal in
+input order, exactly as the engine reports it (`Bca::crystal_metadata`):
+`regions`, the lattice constant and its temperature, `normal_hkl`,
+`reference_uvw`, `tilt_rad`, `twist_rad`, `wafer_rotation_rad`, the resolved
+search parameters `p_max_m`, `q_max_m`, `search_length_m` (metres), `thermal`
+(its input, the per-species RMS displacement, the search margin and the
+sampling rule) and, when it applies, `electronic_constants_unverified: true`.
+`physics.models` gains a `crystal transport` entry. An amorphous input gets
+neither. `format.version` stays 1: the key is an addition (see "Compatibility
+and extension").
+
+**Scope and caveats.** Static, layered ion targets with the cubic presets
+only; hexagonal lattices, custom cells, beam divergence and dose-dependent
+crystal damage are not exposed. This is an interface to the existing engine,
+not a validation: the known deviations of its channeled ranges are tracked
+separately (issues #225 and #250) and nothing here claims they are resolved.
+Examples: [`b_5keV_si_crystal.toml`](../examples/b_5keV_si_crystal.toml) and
+[`as_50keV_sio2_on_si_crystal.toml`](../examples/as_50keV_sio2_on_si_crystal.toml)
+(an amorphous oxide over a crystal substrate); neither is a validated
+prediction.
+
 ### `[dynamic]` (optional)
 
 Makes the run fluence-dependent: the target composition is updated as the
@@ -420,6 +498,7 @@ below).
 | `software` | Crate `version` and `git_describe` of the binary |
 | `input` | The input as run: defaults filled in, CLI overrides applied, `run.threads` removed. Deserializes back to the same `lindhard::input::Input`, so a run can be reproduced from its own header |
 | `physics.models` | Every model in use: `role`, `name`, `citation` |
+| `physics.crystal` | Only with `[[crystal]]`: the engine's metadata of each crystal (see `[[crystal]]`) |
 | `physics.stopping_tables` | Only with `[stopping]`: path, SHA-256, provenance and range of each user table (see `[stopping]`) |
 | `physics.engine` | Cutoffs, free path, weak collisions, electronic-loss mode, seed, chunk size as passed to the engine |
 | `physics.scattering_table` | Angle-table grid and its measured interpolation error |
@@ -653,6 +732,8 @@ keys, never by changing existing ones:
   keys under `[tally]` and their profiles as new CSV files listed under
   `files`. `results.range`, `results.damage`, `results.sputtering` and
   `results.escapes` were added this way, without a version bump.
+- `physics.crystal` (the `[[crystal]]` metadata) was added this way, without
+  a version bump; an amorphous run does not carry it.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes

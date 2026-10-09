@@ -392,6 +392,122 @@ pub struct TuningReport {
     pub components: Vec<TunedEnergy>,
 }
 
+/// Cubic lattice preset of a `[[crystal]]` assignment. Each maps to a cited
+/// preset of [`crate::ion::crystal::Lattice`] (sources and lattice constants:
+/// `docs/crystal-orientation.md`, `docs/data-provenance.md`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CrystalPreset {
+    /// Diamond-structure silicon ([`crate::ion::crystal::Lattice::silicon`]).
+    #[serde(rename = "Si")]
+    Si,
+    /// Diamond-structure germanium.
+    #[serde(rename = "Ge")]
+    Ge,
+    /// Zincblende gallium arsenide.
+    #[serde(rename = "GaAs")]
+    GaAs,
+    /// Zincblende cubic silicon carbide.
+    #[serde(rename = "3C-SiC")]
+    SiC3C,
+}
+
+impl CrystalPreset {
+    /// The preset's name as written in the input.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Si => "Si",
+            Self::Ge => "Ge",
+            Self::GaAs => "GaAs",
+            Self::SiC3C => "3C-SiC",
+        }
+    }
+
+    /// The engine's lattice.
+    pub fn lattice(self) -> crate::ion::crystal::Lattice {
+        use crate::ion::crystal::Lattice;
+        match self {
+            Self::Si => Lattice::silicon(),
+            Self::Ge => Lattice::germanium(),
+            Self::GaAs => Lattice::gallium_arsenide(),
+            Self::SiC3C => Lattice::silicon_carbide_3c(),
+        }
+    }
+
+    /// The cited default Debye temperature, K
+    /// ([`crate::ion::crystal::debye`]).
+    pub fn default_debye_temperature_k(self) -> f64 {
+        use crate::ion::crystal::debye::*;
+        match self {
+            Self::Si => THETA_D_SI,
+            Self::Ge => THETA_D_GE,
+            Self::GaAs => THETA_D_GAAS,
+            Self::SiC3C => THETA_D_3C_SIC,
+        }
+    }
+}
+
+/// `thermal` of a `[[crystal]]`: Debye-model vibration of the lattice atoms
+/// ([`crate::ion::bca::Thermal`]). Absent: a static, perfect lattice.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CrystalThermalSpec {
+    /// Target temperature, K (finite, `>= 0`). Sets the vibration amplitude
+    /// only; the lattice constant is not expanded.
+    pub temperature_k: f64,
+    /// Debye temperature, K (finite, positive). Default: the preset's cited
+    /// value ([`CrystalPreset::default_debye_temperature_k`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debye_temperature_k: Option<f64>,
+}
+
+/// `[[crystal]]`: one cubic crystal filling some stack layers; every layer
+/// not named stays amorphous. Several entries may describe different
+/// crystals in different layers.
+///
+/// ```toml
+/// [[crystal]]
+/// layers = [0]          # indices into the stack: finite layers, then the substrate
+/// preset = "Si"
+/// normal = [0, 0, 1]    # (hkl), inward surface normal
+/// reference = [0, 1, 0] # [uvw] in the surface plane: the zero of the azimuth
+/// ```
+///
+/// The beam's `tilt_deg` and `azimuth_deg` are the engine's tilt and twist
+/// (`docs/crystal-orientation.md`); there is no second beam direction.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CrystalSpec {
+    /// Stack layer indices (front to back; the substrate is the last index)
+    /// filled by this crystal.
+    pub layers: Vec<usize>,
+    /// Lattice preset.
+    pub preset: CrystalPreset,
+    /// Miller indices `(hkl)` of the surface plane; the inward normal.
+    pub normal: [i32; 3],
+    /// Direction `[uvw]` in the surface plane (`h u + k v + l w = 0`) that is
+    /// lab `+y` at zero wafer rotation. Required: the azimuth has no hidden
+    /// zero.
+    pub reference: [i32; 3],
+    /// Wafer rotation about the surface normal, degrees. Default 0.
+    #[serde(default)]
+    pub wafer_rotation_deg: f64,
+    /// Thermal vibration. Default: static lattice.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thermal: Option<CrystalThermalSpec>,
+    /// Largest partner impact parameter, nm. Default: the nearest-neighbour
+    /// distance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub p_max_nm: Option<f64>,
+    /// Largest path distance between simultaneous partners, nm. Default: 5 %
+    /// of the nearest-neighbour distance.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub q_max_nm: Option<f64>,
+    /// Length of one search segment, nm (speed only). Default: the lattice
+    /// constant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub search_length_nm: Option<f64>,
+}
+
 /// `[run]`: history count, seed and threads.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

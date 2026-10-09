@@ -1,0 +1,58 @@
+# 5 keV boron into crystalline silicon, 7 degrees off the (001) normal, with
+# the Si substrate transported on the explicit cubic lattice.
+#
+# Run:   lindhard run examples/b_5keV_si_crystal.toml --out out/b_5keV_si_crystal
+# Check: lindhard check examples/b_5keV_si_crystal.toml
+#
+# Schema: docs/cli.md ([[crystal]]); angle convention:
+# docs/crystal-orientation.md. Energies are in eV, lengths in nm, angles in
+# degrees. This shows how to attach the existing crystal engine to a layer;
+# it is not a validated channeling prediction (docs/cli.md lists the known
+# deviations).
+
+[beam]
+ion = "B"
+energy_ev = 5000.0
+# Polar angle from the inward surface normal, and azimuth in the surface
+# plane, measured from the [uvw] reference direction below towards the third
+# axis n x r. They are the crystal's tilt and twist: there is no second beam
+# direction.
+tilt_deg = 7.0
+azimuth_deg = 22.0
+
+[target]
+substrate = "Si"
+
+# Layer index 0 is the substrate here (finite layers come first, then the
+# substrate). The in-plane reference [uvw] is required: the azimuth has no
+# hidden zero. For (001), [010] lies in the surface (0*0 + 0*1 + 1*0 = 0).
+[[crystal]]
+layers = [0]
+preset = "Si"
+normal = [0, 0, 1]
+reference = [0, 1, 0]
+wafer_rotation_deg = 0.0
+
+# Optional Debye-model vibration; the Debye temperature defaults to the
+# preset's cited value.
+[crystal.thermal]
+temperature_k = 300.0
+
+[physics]
+potential = "zbl"
+stopping = "lindhard-scharff"
+free_path = "constant"     # the crystal model needs the constant free path
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+
+# Illustrative model parameter, not a recommendation.
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 2000
+seed = 1
+
+[tally]
+depth_bin_nm = 1.0
+depth_bins = 300

@@ -736,6 +736,15 @@ impl ElectronInput {
 
     /// Parse a TOML document (schema errors name the key and line).
     pub fn from_toml_str(text: &str) -> Result<Self, InputError> {
+        if text
+            .parse::<toml::Table>()
+            .is_ok_and(|t| t.contains_key("crystal"))
+        {
+            return Err(invalid(
+                "crystal",
+                "not supported with an [electron] run (crystal transport is for ion runs)",
+            ));
+        }
         toml::from_str(text).map_err(|e| InputError::Parse(e.to_string()))
     }
 

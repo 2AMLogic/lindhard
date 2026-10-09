@@ -505,3 +505,53 @@ fn shipped_sets_are_well_formed() {
         }
     }
 }
+
+const CRYSTAL_SI: &str = r#"
+[[crystal]]
+layers = [0]
+preset = "Si"
+normal = [0, 0, 1]
+reference = [0, 1, 0]
+wafer_rotation_deg = 45.0
+p_max_nm = 0.3
+[crystal.thermal]
+temperature_k = 300.0
+"#;
+
+#[test]
+fn crystal_resolves_with_the_beam_angles_and_round_trips() {
+    let text = format!("{B_SI}{CRYSTAL_SI}");
+    let i = Input::from_toml_str(&text).unwrap();
+    let r = i.resolve().unwrap();
+    let c = &r.crystals[0];
+    assert_eq!(c.regions, vec![0]);
+    assert_eq!(c.target.orientation.tilt_rad(), 7f64.to_radians());
+    assert_eq!(c.target.orientation.twist_rad(), 0.0);
+    assert_eq!(
+        c.target.orientation.wafer_rotation_rad(),
+        45f64.to_radians()
+    );
+    assert_eq!(c.target.p_max_m, Some(0.3e-9));
+    assert_eq!(c.target.thermal.unwrap().debye_temperature_k, 640.0);
+    assert!(r.models().iter().any(|m| m.role == "crystal transport"));
+    let again = Input::from_toml_str(&i.to_toml_string().unwrap()).unwrap();
+    assert_eq!(again, i);
+    // An amorphous input echoes no crystal key.
+    let a = Input::from_toml_str(B_SI).unwrap();
+    assert!(a.resolve().unwrap().crystals.is_empty());
+    assert!(!a.to_toml_string().unwrap().contains("crystal"));
+}
+
+#[test]
+fn crystal_rejects_unsupported_physics_with_the_key() {
+    let tuned = format!(
+        "{}{CRYSTAL_SI}",
+        B_SI.replace("[physics]\n", "[physics]\ntuning = \"es-sputter-ar-v1\"\n")
+    );
+    assert_eq!(field(&err(&tuned)), "physics.tuning");
+    let nref = format!(
+        "{B_SI}{}",
+        CRYSTAL_SI.replace("reference = [0, 1, 0]\n", "")
+    );
+    assert!(matches!(err(&nref), InputError::Parse(m) if m.contains("reference")));
+}

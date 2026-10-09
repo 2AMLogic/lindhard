@@ -2,7 +2,9 @@
 
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
-use crate::ion::bca::{BcaConfig, Beam, ElectronicLoss, MeanFreePath, MAX_WEAK_COLLISIONS};
+use crate::ion::bca::{
+    BcaConfig, Beam, CrystalTarget, ElectronicLoss, MeanFreePath, Thermal, MAX_WEAK_COLLISIONS,
+};
 use crate::ion::stopping::table::StoppingTable;
 use crate::ion::stopping::Ion;
 use crate::material::{EnergyKind, Material};
@@ -594,6 +596,8 @@ impl Input {
             }
         }
 
+        let crystals = self.resolve_crystals(&layers, &mut warnings)?;
+
         let screening = p.potential.screening();
         let screening_length = p
             .screening_length
@@ -634,9 +638,161 @@ impl Input {
             screening_length,
             table_spec: TABLE_SPEC,
             stopping_tables,
+            crystals,
             warnings,
             tuning,
         })
+    }
+
+    /// Validate `[[crystal]]` and build the engine's crystal targets. The
+    /// beam's tilt and azimuth are the orientation's tilt and twist. Every
+    /// check the engine would make at [`crate::ion::bca::Bca::with_crystal`]
+    /// that does not need an engine is made here, so `check` reports it.
+    fn resolve_crystals(
+        &self,
+        layers: &[ResolvedLayer],
+        warnings: &mut Vec<String>,
+    ) -> Result<Vec<ResolvedCrystal>, InputError> {
+        if self.crystal.is_empty() {
+            return Ok(Vec::new());
+        }
+        if self.dynamic.is_some() {
+            return Err(invalid(
+                "crystal",
+                "not supported with a [dynamic] target (the composition changes during the run \
+                 while the lattice is fixed); use a static run",
+            ));
+        }
+        let p = &self.physics;
+        if p.free_path != FreePathChoice::Constant {
+            return Err(invalid(
+                "physics.free_path",
+                "crystal regions need free_path = \"constant\" (the lattice replaces the free path)",
+            ));
+        }
+        if p.weak_collisions > 0 {
+            return Err(invalid(
+                "physics.weak_collisions",
+                "crystal regions need weak_collisions = 0 (the lattice replaces them)",
+            ));
+        }
+        if p.tuning != NO_TUNING {
+            return Err(invalid(
+                "physics.tuning",
+                "not supported together with [[crystal]] (the pilot sets were fitted for amorphous runs)",
+            ));
+        }
+        if p.stopping == StoppingChoice::EquipartitionLsOr {
+            warnings.push(
+                "crystal: physics.stopping = \"equipartition-ls-or\" takes the local \
+                 Oen-Robinson loss, whose constants are not verified against the paper \
+                 (summary: physics.crystal[].electronic_constants_unverified); channeled \
+                 ranges depend on them"
+                    .to_string(),
+            );
+        }
+        let beam = &self.beam;
+        let mut owner: Vec<Option<usize>> = vec![None; layers.len()];
+        let mut out = Vec::with_capacity(self.crystal.len());
+        for (i, c) in self.crystal.iter().enumerate() {
+            let f = |k: &str| format!("crystal[{i}].{k}");
+            if c.layers.is_empty() {
+                return Err(invalid(f("layers"), "needs at least one layer index"));
+            }
+            for &l in &c.layers {
+                if l >= layers.len() {
+                    return Err(invalid(
+                        f("layers"),
+                        format!(
+                            "layer {l} does not exist: the target has {} layer(s), indices 0..{}",
+                            layers.len(),
+                            layers.len()
+                        ),
+                    ));
+                }
+                if let Some(prev) = owner[l] {
+                    return Err(invalid(
+                        f("layers"),
+                        format!("layer {l} is already assigned by crystal[{prev}]"),
+                    ));
+                }
+                owner[l] = Some(i);
+            }
+            if !c.wafer_rotation_deg.is_finite() {
+                return Err(invalid(f("wafer_rotation_deg"), "must be finite"));
+            }
+            let lattice = c.preset.lattice();
+            // Index triples, then the zone law, with the engine's own messages.
+            let orientation = crate::ion::crystal::Orientation::new(
+                &lattice,
+                c.normal,
+                c.reference,
+                beam.tilt_deg.to_radians(),
+                beam.azimuth_deg.to_radians(),
+                c.wafer_rotation_deg.to_radians(),
+            )
+            .map_err(|e| {
+                use crate::ion::crystal::CrystalError as E;
+                let key = match &e {
+                    E::ReferenceNotInPlane { .. } => "reference",
+                    E::ZeroIndex(v) if *v == c.reference => "reference",
+                    _ => "normal",
+                };
+                invalid(f(key), e.to_string())
+            })?;
+            let mut target = CrystalTarget::new(lattice, orientation);
+            for (key, v, slot) in [
+                ("p_max_nm", c.p_max_nm, &mut target.p_max_m),
+                ("q_max_nm", c.q_max_nm, &mut target.q_max_m),
+                (
+                    "search_length_nm",
+                    c.search_length_nm,
+                    &mut target.search_length_m,
+                ),
+            ] {
+                if let Some(v) = v {
+                    if !finite_pos(v) {
+                        return Err(invalid(f(key), "must be finite and positive"));
+                    }
+                    *slot = Some(v * 1e-9);
+                }
+            }
+            if let Some(t) = &c.thermal {
+                if !(t.temperature_k.is_finite() && t.temperature_k >= 0.0) {
+                    return Err(invalid(
+                        f("thermal.temperature_k"),
+                        "must be finite and non-negative",
+                    ));
+                }
+                let theta = t
+                    .debye_temperature_k
+                    .unwrap_or_else(|| c.preset.default_debye_temperature_k());
+                if !finite_pos(theta) {
+                    return Err(invalid(
+                        f("thermal.debye_temperature_k"),
+                        "must be finite and positive",
+                    ));
+                }
+                target = target.with_thermal(Thermal::new(t.temperature_k, theta));
+            }
+            for &l in &c.layers {
+                target.check_material(&layers[l].material).map_err(|m| {
+                    invalid(
+                        f("preset"),
+                        format!(
+                            "{} does not fit layer {l} ({}): {m}",
+                            c.preset.name(),
+                            layers[l].source
+                        ),
+                    )
+                })?;
+            }
+            out.push(ResolvedCrystal {
+                regions: c.layers.clone(),
+                target,
+            });
+        }
+        Ok(out)
     }
 
     /// Apply `[physics] tuning` to the resolved layers (see [`TuningSet`]).

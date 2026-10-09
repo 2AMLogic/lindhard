@@ -2,7 +2,7 @@
 
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
-use crate::ion::bca::{BcaConfig, Beam, MeanFreePath};
+use crate::ion::bca::{BcaConfig, Beam, CrystalTarget, MeanFreePath};
 use crate::ion::potential::{Screening, ScreeningLength};
 use crate::ion::scattering::TableSpec;
 use crate::ion::stopping::bethe::BetheBloch;
@@ -38,6 +38,16 @@ pub struct ResolvedLayer {
     pub material: Material,
 }
 
+/// One crystal assignment after resolution.
+#[derive(Debug, Clone)]
+pub struct ResolvedCrystal {
+    /// Stack layers (engine regions) the crystal fills.
+    pub regions: Vec<usize>,
+    /// Lattice, orientation (with the beam's tilt and azimuth) and search
+    /// parameters, ready for [`crate::ion::bca::Bca::with_crystal`].
+    pub target: CrystalTarget,
+}
+
 /// A validated input, in the engine's types.
 #[derive(Debug, Clone)]
 pub struct Resolved {
@@ -59,6 +69,8 @@ pub struct Resolved {
     pub table_spec: TableSpec,
     /// User stopping tables, in input order (empty without `[stopping]`).
     pub stopping_tables: Vec<LoadedStoppingTable>,
+    /// Crystal assignments, in input order (empty: amorphous run).
+    pub crystals: Vec<ResolvedCrystal>,
     /// Non-fatal advice (e.g. beam energy outside a model's validity range).
     pub warnings: Vec<String>,
     /// The tuning applied, if `[physics] tuning` named a set.
@@ -175,6 +187,20 @@ impl Resolved {
                        W. Eckstein, Computer Simulation of Ion-Solid Interactions (Springer, 1991)",
             ),
         }];
+        if !self.crystals.is_empty() {
+            v.push(ModelInfo {
+                role: "crystal transport",
+                name: "lattice-site-bca",
+                citation: Cow::Borrowed(
+                    "collision partners from explicit lattice sites after DISPLATH \
+                     (https://github.com/permissionx/DISPLATH, MIT); cubic lattices: \
+                     M. J. Mehl et al., Comput. Mater. Sci. 136 (2017) S1; thermal \
+                     displacements from the Debye model (lindhard::ion::crystal::debye); \
+                     the electronic-constants-unverified flag and the known channeling \
+                     deviations are stated in docs/cli.md, [[crystal]]",
+                ),
+            });
+        }
         v.push(match self.screening {
             Screening::ZblUniversal => ModelInfo {
                 role: "screening function",

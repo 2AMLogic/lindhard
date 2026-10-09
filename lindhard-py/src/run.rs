@@ -78,6 +78,7 @@ impl Run {
             },
             tally: tally.map(|t| t.to_spec()).unwrap_or_default(),
             dynamic: None,
+            crystal: Vec::new(),
         };
         Ok(Self { input, base_dir })
     }

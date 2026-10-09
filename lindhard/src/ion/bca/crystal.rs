@@ -504,6 +504,28 @@ impl CrystalTarget {
         }
     }
 
+    /// Whether `material` can fill a crystal region of this lattice: it must
+    /// contain every element of the lattice and its atom density must agree
+    /// with the lattice's to 5 %. The same rule [`Bca::with_crystal`] applies
+    /// to each region, available before an engine exists (input checking).
+    pub fn check_material(&self, material: &crate::material::Material) -> Result<(), String> {
+        let lat = &self.lattice;
+        for (z, _) in lat.conventional_cell_sites() {
+            if !material.components().iter().any(|c| c.z() == z) {
+                return Err(format!("the material has no element Z={z} of the lattice"));
+            }
+        }
+        let n_lat = lat.atom_number_density();
+        let n = material.atom_number_density();
+        if (n / n_lat - 1.0).abs() > DENSITY_TOLERANCE {
+            return Err(format!(
+                "material atom density {n:.4e} m^-3 differs from the lattice's \
+                 {n_lat:.4e} m^-3 by more than 5 %"
+            ));
+        }
+        Ok(())
+    }
+
     /// The same crystal with thermal vibration `thermal`.
     pub fn with_thermal(mut self, thermal: Thermal) -> Self {
         self.thermal = Some(thermal);
