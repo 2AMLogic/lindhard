@@ -1,0 +1,238 @@
+name: wheels
+
+# Builds the `lindhard` Python wheels (lindhard-py, via maturin) and publishes
+# them to PyPI.
+#
+#   pull request   one manylinux x86-64 wheel, installed into a clean venv and
+#                  tested (a smoke test; nothing is published)
+#   v* tag         wheels for manylinux x86-64/aarch64, macOS x86-64/arm64 and
+#                  Windows x86-64, plus an sdist; every wheel is tested on
+#                  Python 3.9 and 3.13; then PyPI trusted publishing
+#   manual         the tag build without the publish step
+#
+# The wheels are abi3 (`cp39-abi3-<platform>`, see lindhard-py/Cargo.toml), so
+# one wheel per platform covers every CPython >= 3.9. Testing on 3.9 and 3.13
+# checks both ends of that range.
+#
+# Not yet covered: musllinux and Windows arm64 (see lindhard-py/README.md).
+
+on:
+  pull_request:
+    paths:
+      - "lindhard-py/**"
+      - "lindhard/**"
+      - "lindhard-cli/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - "examples/**"
+      - ".github/workflows/wheels.yml"
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: wheels-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # The pytest parity tests need the `lindhard` command and examples/ from the
+  # checkout; pin the test dependencies so a new release cannot break a tag.
+  TEST_DEPS: "numpy>=1.23,<3 pytest>=7,<10"
+
+jobs:
+  plan:
+    name: Plan the build matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      platforms: ${{ steps.plan.outputs.platforms }}
+      tests: ${{ steps.plan.outputs.tests }}
+    steps:
+      - id: plan
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            platforms='[{"name":"linux-x86_64","os":"ubuntu-latest","target":"x86_64"}]'
+            tests='[{"name":"linux-x86_64","os":"ubuntu-latest","py":"3.12"}]'
+          else
+            platforms='[
+              {"name":"linux-x86_64","os":"ubuntu-latest","target":"x86_64"},
+              {"name":"linux-aarch64","os":"ubuntu-24.04-arm","target":"aarch64"},
+              {"name":"macos-x86_64","os":"macos-15-intel","target":"x86_64"},
+              {"name":"macos-arm64","os":"macos-latest","target":"aarch64"},
+              {"name":"windows-x86_64","os":"windows-latest","target":"x64"}
+            ]'
+            tests=$(python3 -I - "$platforms" <<'PY'
+          import json, sys
+          out = [
+              {"name": p["name"], "os": p["os"], "py": py}
+              for p in json.loads(sys.argv[1])
+              for py in ("3.9", "3.13")
+          ]
+          print(json.dumps(out))
+          PY
+            )
+          fi
+          echo "platforms=$(echo "$platforms" | tr -d '\n')" >> "$GITHUB_OUTPUT"
+          echo "tests=$(echo "$tests" | tr -d '\n')" >> "$GITHUB_OUTPUT"
+
+  preflight:
+    name: Tag matches the crate version
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: v<tag> == [workspace.package] version in Cargo.toml
+        run: |
+          python -I - "$GITHUB_REF_NAME" <<'PY'
+          import sys, tomllib
+          tag = sys.argv[1]
+          with open("Cargo.toml", "rb") as f:
+              version = tomllib.load(f)["workspace"]["package"]["version"]
+          if tag != f"v{version}":
+              sys.exit(f"::error::tag {tag} does not match Cargo.toml version {version} (expected v{version})")
+          print(f"tag {tag} matches version {version}")
+          PY
+
+  wheel:
+    name: Wheel and CLI (${{ matrix.name }})
+    needs: plan
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.platforms) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: wheels-${{ matrix.name }}
+      - name: build the abi3 wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.target }}
+          # `auto` is manylinux2014, or manylinux_2_28 where the target needs it
+          manylinux: auto
+          working-directory: lindhard-py
+          args: --release --out dist
+        env:
+          CARGO_BUILD_JOBS: "2"
+      - name: build the lindhard command (the parity tests compare against it)
+        shell: bash
+        run: cargo build --release -p lindhard-cli -j 2
+      - name: stage the command
+        shell: bash
+        run: |
+          mkdir -p cli
+          cp target/release/lindhard* cli/ 2>/dev/null || true
+          rm -f cli/*.d cli/*.pdb
+          ls -l cli lindhard-py/dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.name }}
+          path: lindhard-py/dist/*.whl
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.name }}
+          path: cli/
+          if-no-files-found: error
+
+  test:
+    name: Test wheel (${{ matrix.name }}, py${{ matrix.py }})
+    needs: [plan, wheel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.plan.outputs.tests) }}
+    steps:
+      # The checkout supplies tests/ and examples/; lindhard itself comes only
+      # from the wheel, installed into a fresh venv (no maturin develop).
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.py }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: wheel-${{ matrix.name }}
+          path: dist
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-${{ matrix.name }}
+          path: cli
+      - name: install the wheel into a clean venv and run the tests
+        shell: bash
+        run: |
+          python -m venv "$RUNNER_TEMP/venv"
+          if [ -x "$RUNNER_TEMP/venv/bin/python" ]; then
+            PY="$RUNNER_TEMP/venv/bin/python"; BIN=lindhard
+          else
+            PY="$RUNNER_TEMP/venv/Scripts/python.exe"; BIN=lindhard.exe
+          fi
+          chmod +x "cli/$BIN" || true
+          "$PY" -m pip install $TEST_DEPS
+          "$PY" -m pip install --no-deps dist/lindhard-*.whl
+          "$PY" -c "import lindhard, sys; print(lindhard.__file__); sys.exit('imported from the source tree, not the wheel' if 'site-packages' not in lindhard.__file__ else 0)"
+          LINDHARD_BIN="$PWD/cli/$BIN" "$PY" -m pytest lindhard-py/tests -v
+
+  sdist:
+    name: Source distribution
+    needs: plan
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: build the sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          working-directory: lindhard-py
+          args: --out dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: lindhard-py/dist/*.tar.gz
+          if-no-files-found: error
+
+  publish:
+    name: Publish to PyPI
+    # Tag builds only; `needs` makes every wheel test and the sdist gate it.
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [preflight, test, sdist]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Trusted publishing: no API token anywhere. The `pypi` environment is
+    # protected by required reviewers (operator setup, lindhard-py/README.md).
+    environment:
+      name: pypi
+      url: https://pypi.org/project/lindhard/
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheel-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: sdist
+          path: dist
+      - name: list what will be uploaded
+        run: ls -l dist
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist
