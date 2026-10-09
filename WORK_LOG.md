@@ -4,6 +4,21 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-09
 
+- **PR #297**: cli: write dynamic summary last (#292)
+- **PR #296**: fix: crystal local loss, explain the fixed-direction excess and assert the direction average (#250)
+- **PR #295**: validation: delta(E) on DHFS, Si curves, band text (Part of #149)
+- **PR #294**: Backscatter (#148): fast-secondary sensitivity of eta for Al, Cu and Au
+- **PR #293**: feat: hydrogenic L-subshell ELFs for the inner-shell builder (#245)
+- **PR #288**: Ion beam: connect divergence sampling to transport and shared TOML
+- **PR #247**: CLI: expose the radial PSF tally in the [electron] section
+- **Issue #292** (closed): Dynamic CLI: publish the summary only after required CSV writes succeed
+- **Issue #250** (closed): Crystal flight: local/nonlocal electronic loss ratio is 5-8 % above the amorphous value at the same p_max in random directions
+- **Issue #245** (closed): Penn inelastic: hydrogenic L-subshell ELFs for the inner-shell builder (follow-up to #135)
+- **Issue #285** (closed): Ion beam: connect existing divergence sampling to transport and shared TOML
+- **Issue #165** (closed): CLI: expose the radial PSF tally in the [electron] section
+- **Issue #201** (closed): Pilot E_s tuning set: fit and held-out evaluation (follow-up to #80)
+- **Issue #79** (closed): bca: opt-in time-integral path length for nonlocal electronic loss (TRIM tau = p tan(theta/2))
+- **Issue #135** (closed): Penn inelastic: build per-shell optical ELFs for ShellResolvedChannels from a published source
 - **PR #286**: Table cache: verify cached table bytes and key the elastic model choice
 - **PR #281**: docs: correct the PSF summary and CSV description in cli.md
 - **PR #283**: Derive Debug on PsfOutcome (fix red CI on main)
