@@ -51,6 +51,14 @@ def test_files_are_byte_identical(cli, example, tmp_path):
         a, b = (cli_out / name).read_bytes(), (py_out / name).read_bytes()
         if name == "summary.json":
             a, b = (strip_run(json.loads(x)) for x in (a, b))
+            # `software.git_describe` is compared too. Two builds of the same
+            # commit must agree; a wheel built without git (a manylinux
+            # container) reports "unknown", so CI passes one
+            # LINDHARD_GIT_DESCRIBE to both builds (lindhard-cli/build.rs).
+            assert a["software"] == b["software"], (
+                "build provenance differs between the CLI and the wheel; build "
+                "both with the same LINDHARD_GIT_DESCRIBE"
+            )
         assert a == b, name
 
 

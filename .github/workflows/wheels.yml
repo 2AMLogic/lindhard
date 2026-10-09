@@ -3,10 +3,10 @@ name: wheels
 # Builds the `lindhard` Python wheels (lindhard-py, via maturin) and publishes
 # them to PyPI.
 #
-#   pull request   one manylinux x86-64 wheel, installed into a clean venv and
-#                  tested (a smoke test; nothing is published)
+#   pull request   one manylinux x86-64 wheel and the sdist, each installed
+#                  into a clean venv and tested (nothing is published)
 #   v* tag         wheels for manylinux x86-64/aarch64, macOS x86-64/arm64 and
-#                  Windows x86-64, plus an sdist; every wheel is tested on
+#                  Windows x86-64, plus a tested sdist; every wheel is tested on
 #                  Python 3.9 and 3.13; then PyPI trusted publishing
 #   manual         the tag build without the publish step
 #
@@ -117,6 +117,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: wheels-${{ matrix.name }}
+      # The manylinux build runs in a container without git, where build.rs
+      # would stamp "unknown" while the host-built command stamps the commit.
+      # Compute the describe string once and pass it to both builds, so the
+      # byte-for-byte summary.json parity test holds.
+      - name: stamp one git describe for both builds
+        shell: bash
+        run: echo "LINDHARD_GIT_DESCRIBE=$(git describe --always --dirty)" >> "$GITHUB_ENV"
       - name: build the abi3 wheel
         uses: PyO3/maturin-action@v1
         with:
@@ -125,6 +132,7 @@ jobs:
           manylinux: auto
           working-directory: lindhard-py
           args: --release --out dist
+          docker-options: -e LINDHARD_GIT_DESCRIBE
         env:
           CARGO_BUILD_JOBS: "2"
       - name: build the lindhard command (the parity tests compare against it)
@@ -190,17 +198,37 @@ jobs:
   sdist:
     name: Source distribution
     needs: plan
-    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      # pip builds the sdist outside the git checkout, so build.rs would stamp
+      # "unknown"; give it and the command the same describe string.
+      - name: stamp one git describe for both builds
+        run: echo "LINDHARD_GIT_DESCRIBE=$(git describe --always --dirty)" >> "$GITHUB_ENV"
       - name: build the sdist
         uses: PyO3/maturin-action@v1
         with:
           command: sdist
           working-directory: lindhard-py
           args: --out dist
+      # Guard that the sdist is self-contained: compile it from a clean venv,
+      # outside the workspace, and run the same tests against the result.
+      - name: install the sdist into a clean venv and run the tests
+        env:
+          CARGO_BUILD_JOBS: "2"
+        run: |
+          cargo build --release -p lindhard-cli -j 2
+          python -m venv "$RUNNER_TEMP/venv"
+          PY="$RUNNER_TEMP/venv/bin/python"
+          "$PY" -m pip install $TEST_DEPS
+          "$PY" -m pip install --no-deps lindhard-py/dist/lindhard-*.tar.gz
+          "$PY" -c "import lindhard, sys; print(lindhard.__file__); sys.exit('imported from the source tree, not the sdist build' if 'site-packages' not in lindhard.__file__ else 0)"
+          LINDHARD_BIN="$PWD/target/release/lindhard" "$PY" -m pytest lindhard-py/tests -v
       - uses: actions/upload-artifact@v4
         with:
           name: sdist

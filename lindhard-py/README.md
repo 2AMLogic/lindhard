@@ -62,7 +62,11 @@ pytest
 ## Releases (maintainers)
 
 `.github/workflows/wheels.yml` builds the wheels. A pull request touching the
-bindings or the library builds and tests one Linux wheel. Pushing a `v*` tag
+bindings or the library builds and tests one Linux wheel, and builds the sdist,
+compiles it in a clean virtual environment and runs the same tests against it.
+Both builds and the `lindhard` command get one `LINDHARD_GIT_DESCRIBE` value
+(see `lindhard-cli/build.rs`), so `summary.json` matches byte for byte even when
+a build has no git. Pushing a `v*` tag
 builds every wheel and the sdist, installs each wheel into a clean virtual
 environment, runs this test suite against it on Python 3.9 and 3.13 (using the
 `lindhard` command built on the same runner, via `$LINDHARD_BIN`), and then
