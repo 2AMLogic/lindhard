@@ -149,6 +149,7 @@ pub struct ElectronSimulation {
 
 /// The radial profile of `tally.psf` with the fits that succeeded, and the
 /// error of each fit that did not.
+#[derive(Debug)]
 pub struct PsfOutcome {
     /// The profile and the successful fits, in input order.
     pub report: PsfReport,
