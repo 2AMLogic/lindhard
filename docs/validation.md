@@ -1559,7 +1559,8 @@ result worse, not better; no Cu, Si or Au set changes status.
   (`[electron.inelastic] fermi_energy_ev`) is left at the library default,
   0 eV, in every configuration (the run metadata print `E_F = 0 eV` in the
   inelastic table's model string); it is not the band's Fermi energy, which
-  only the secondary model and the barrier use. It was not varied here.
+  only the secondary model and the barrier use. It was not varied in these
+  tables; #173 measured what it does (below).
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
   level (`cutoff_reference = "vacuum-level"`) unless a row says otherwise.
@@ -1665,7 +1666,7 @@ data):
   the factor-2 energy bound. The Al default curve peaks at δ_max 7.6
   (800 eV): more than three times the largest Al maximum in the compilation
   (2.17) and more than ten times the smaller one (0.642). The failure is
-  reported as it stands and the bounds are not loosened. #173 tracks it.
+  reported as it stands and the bounds are not loosened. #173 traced its cause (below).
 - **The model spread is large for Al and small for Cu.** With the Mermin
   model in place of the single-pole Penn default, everything else equal, the
   Al maximum drops to 1.29 (400 eV), inside the measured range, the Cu
@@ -1673,11 +1674,53 @@ data):
   maximum drops to 2.60 (800 eV), 24 % below the default but still 77 %
   above the measured median. The single-pole
   default and Mermin differ by a factor of about 6 for Al at the maximum.
-  This places the Al overestimate in the inelastic model at low energy as
-  configured here (including the inelastic Fermi energy of 0 eV, see the
-  inputs), but these runs do not identify its cause, and Mermin agreeing
-  better for Al is not evidence that it is right: Al has only two resolving
-  sets, 3.4 times apart.
+  Mermin agreeing better for Al is not evidence that it is right: Al has
+  only two resolving sets, 3.4 times apart.
+- **Cause of the Al and Au overestimate of the default (#173).** It is the
+  single-pole approximation's inelastic mean free path at low energy, which
+  is the published behaviour of that approximation (Shinotsuka et al.,
+  Surf. Interface Anal. 49, 238 (2017), abstract, open at PMC5524379: the
+  four algorithms it compares agree above 300 eV and differ widely below
+  100 eV). For the same ELFs, this code's single-pole IMFP is 9.8 to
+  24.6 nm for Al at 12 to 19 eV above the band bottom, where its full Penn
+  and Mermin models give 0.72 to 1.11 nm; for Au it is 1.6 to 1.8 times the
+  full Penn value at 12 to 30 eV; above 100 eV the single pole and full
+  Penn agree to about 1 % (table in the module docs of
+  `electron::inelastic::penn`, "Low energies"). The secondaries that make
+  δ live at those energies. Measured with
+  `lindhard-cli/examples/inelastic_low_energy.rs` on the default inputs
+  (200 histories, seed 1, so about ±0.1 to 0.2 in δ):
+  - *Al*: replacing only the inelastic-table rows below 30 eV (band-bottom
+    energy) with Mermin rows takes δ at 400 eV from 6.89 to 1.41, the full
+    Mermin value (1.39 in the same run, 1.29 committed); the reverse,
+    Mermin with single-pole rows below 30 eV, gives 6.45. The cause is
+    therefore entirely below 30 eV.
+  - *Au*: δ at 800 eV is 3.43 with the single pole, 3.01, 2.70 and 2.77
+    with Mermin rows below 30, 50 and 100 eV, and 2.62 with Mermin rows
+    everywhere. Most of the single-pole excess over Mermin (0.81) sits below
+    50 eV, the same cause as Al, smaller because Au's ELF has weight at low
+    energy. The rest of the Au excess over the measured median (Mermin
+    still +77 %) is **not** from the single-pole approximation and is not
+    identified here; it is shared by the inelastic models and tracked
+    separately (see Follow-up).
+  - *Cu* is consistent with this: its single-pole IMFP stays within a factor of about
+    2 of full Penn at those energies and close to Mermin's.
+  - *Not the cause: the energy reference.* The tables are built with the
+    model's Fermi energy 0 and read at the band-bottom energy, so their
+    losses reach `E` while the transport clamps them at `E - E_F`; 78 to
+    82 % of the Al events 5 to 20 eV above the Fermi level hit the clamp.
+    Rebuilding the table in the consistent convention (cstool's: rows at
+    `E - E_F` with the band's Fermi energy) removes every clamped event but
+    changes δ only within the noise (Al 6.89 to 6.68 at 400 eV, 7.44 to
+    7.96 at 800 eV; Au 3.43 to 3.63; Cu 1.67 to 1.80 at 800 eV), and setting
+    `fermi_energy_ev` to the band value raises Al δ (to 7.63 and 9.01),
+    because it counts `E_F` twice. The convention is documented, with these
+    numbers, in the module docs of `electron::transport`, "Energy reference
+    of the inelastic table", and pinned by tests.
+
+  No model, default or bound was changed for #173: the single-pole default
+  still fails the Al and Au bounds, and the tables above are re-runs of the
+  same code.
 - **#150 reports a δ excess against Nebula for Si and Cu as well.** In
   "Electron oracles" (section 2), lindhard's δ is 2.7 to 7.1 times
   Nebula's at every energy and in both elements (`e_1keV_si` and
@@ -1715,8 +1758,11 @@ themselves by up to a factor of 3.4 in δ_max (Al; surface condition,
 cutoff definition, incidence not stated), so even a curve inside the bounds
 is checked only coarsely.
 
-**Follow-up.** #173 tracks the Al overestimate of the default model. The
-open gaps are full Penn (cost; table reuse is tracked in #168), the Si run
+**Follow-up.** #173 found the cause of the Al overestimate and of most of
+the Au single-pole excess (above); whether the default inelastic model
+should change is an operator decision. The open gaps are the Au excess
+that Mermin shares, the energy-reference convention of the inelastic table
+(documented, not changed), full Penn (cost; table reuse is tracked in #168), the Si run
 (its ELF to 199 eV was committed in #125), the cited barrier
 parameters (#115), and a δ(E) oracle run for Al, Cu and Au, 100 eV to 5 keV
 (the #150 harness exists; none was run in this pass).

@@ -352,8 +352,8 @@ density (`AtomicElastic::compute_corrected`); the elastic table's `model` and
 
 | Key | Default | Choices |
 |---|---|---|
-| `model` | `"penn-single-pole"` | `penn-single-pole`, `penn-full`, `mermin-melf` (`electron::inelastic::PennAlgorithm`). The full Penn and Mermin models integrate numerically and build tables far more slowly |
-| `fermi_energy_ev` | 0 | Fermi energy of the model, eV |
+| `model` | `"penn-single-pole"` | `penn-single-pole`, `penn-full`, `mermin-melf` (`electron::inelastic::PennAlgorithm`). The full Penn and Mermin models integrate numerically and build tables far more slowly. The single-pole model's mean free path is much longer than the other two below about 30 eV (Al: up to 23 times), which inflates the secondary yield; see `electron::inelastic::penn`, "Low energies" (#173) |
+| `fermi_energy_ev` | 0 | Fermi energy of the model, eV. It is not the band's: the transport reads table rows at the electron's energy above the band bottom, so setting it to the band's Fermi energy counts that energy twice; see `electron::transport`, "Energy reference of the inelastic table" (#173) |
 
 **`[electron.tables]`**: one log-spaced energy grid shared by the elastic and
 inelastic tables of every material.

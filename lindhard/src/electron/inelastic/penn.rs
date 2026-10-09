@@ -67,6 +67,46 @@
 //! is `λ = [∫ p dω]⁻¹` (S2017 eq. (3)) and the stopping power
 //! `S = ∫ ω p dω`.
 //!
+//! # Low energies
+//!
+//! The SPA is an approximation to the full Penn algorithm that holds at high
+//! energy and fails at low energy. S2017 (abstract, open at PMC5524379)
+//! computed IMFPs from one ELF with the full Penn algorithm, the SPA, a
+//! simplified SPA and the Mermin method, and reports "good agreement among
+//! the IMFPs from the four algorithms for energies over 300 eV. For energies
+//! less than 100 eV, however, large differences became apparent." The
+//! reason is visible in eq. (7) above (our reading, not a statement of
+//! S2017): each `ω_p` contributes only on its pole `ω = ω_q(ω_p) >= ω_p`, so
+//! a loss `ω` draws on ELF weight at `ω_p <= ω` only, and the electron-hole
+//! continuum that the full Lindhard function of a plasmon has at losses
+//! below `ω_p` is dropped. An electron whose allowed losses lie below the
+//! main ELF peak then has almost nothing to lose.
+//!
+//! Measured in this code (#173; `lindhard-cli/examples/inelastic_low_energy.rs`,
+//! mode `imfp`), λ in nm for the Hagemann-Gudat-Kunz (1975) ELFs, model
+//! Fermi energy 0, for the single pole, the full Penn algorithm
+//! ([`super::full_penn`]) and Mermin ([`super::mermin`]):
+//!
+//! | E (eV) | Al SPA | Al full | Al Mermin | Au SPA | Au full | Au Mermin | Cu SPA | Cu full | Cu Mermin |
+//! |---|---|---|---|---|---|---|---|---|---|
+//! | 12 | 24.6 | 1.07 | 1.11 | 2.31 | 1.30 | 1.46 | 2.02 | 1.01 | 1.77 |
+//! | 19 | 9.83 | 0.720 | 0.739 | 1.66 | 1.00 | 1.04 | 1.10 | 0.735 | 1.17 |
+//! | 30 | 0.363 | 0.512 | 0.512 | 1.33 | 0.810 | 0.805 | 0.743 | 0.586 | 0.889 |
+//! | 100 | 0.402 | 0.401 | 0.433 | 0.528 | 0.533 | 0.469 | 0.507 | 0.503 | 0.628 |
+//! | 1000 | 1.96 | 1.97 | 2.13 | 1.29 | 1.30 | 1.30 | 1.63 | 1.65 | 1.93 |
+//!
+//! The SPA agrees with the full algorithm to 1 % at 100 eV and above, and is
+//! up to 23 times longer below 20 eV for Al (whose ELF is dominated by the
+//! 15 eV plasmon) and about 1.6 to 1.8 times longer for Au and 2 times for
+//! Cu at 12 to 30 eV. These are the energies of the secondary electrons
+//! that make up the yield δ: swapping only the table rows below 30 eV for
+//! Mermin rows takes the single-pole Al δ at 400 eV from 6.9 to 1.4, and Au
+//! keeps most of its single-pole excess over Mermin in the rows below 50 eV
+//! (`docs/validation.md`, "Secondary-electron yield δ(E)"). This matches the
+//! published low-energy behaviour of the approximation; no error of this
+//! implementation was found (at 100 eV and above it agrees with the full
+//! algorithm of [`super::full_penn`] to about 1 %).
+//!
 //! # Optional exchange correction (Born-Ochkur)
 //!
 //! [`ExchangeCorrection`] makes the primary and the struck electron

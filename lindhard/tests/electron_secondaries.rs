@@ -626,6 +626,107 @@ fn vacuum_cutoff_stops_electrons_below_the_inner_potential_plus_cutoff() {
 }
 
 // ---------------------------------------------------------------------------
+// Energy reference of the inelastic table (#173)
+// ---------------------------------------------------------------------------
+
+/// Inelastic loss `W = frac * E` at every probability (a deterministic loss).
+fn inelastic_fixed_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
+    parts(
+        SamplingAxis::InelasticEnergyLoss,
+        1.0 / lambda_m,
+        move |e, _p| frac * e,
+    )
+}
+
+/// Every inelastic event as `(energy before, loss, energy after)`.
+#[derive(Default)]
+struct Losses {
+    before: f64,
+    events: Vec<(f64, f64, f64)>,
+    secondaries: Vec<(f64, f64)>,
+}
+
+impl ElectronTally for Losses {
+    fn step(&mut self, _from: [f64; 3], end: &ElectronState, _l: f64) {
+        self.before = end.energy_ev;
+    }
+    fn inelastic(&mut self, after: &ElectronState, w: f64) {
+        self.events.push((self.before, w, after.energy_ev));
+    }
+    fn secondary(&mut self, _p: &ElectronState, e: &SecondaryEvent, c: Option<&ElectronState>) {
+        if c.is_some() {
+            self.secondaries.push((self.before, e.secondary_ev));
+        }
+    }
+    fn merge(&mut self, mut o: Self) {
+        self.events.append(&mut o.events);
+        self.secondaries.append(&mut o.secondaries);
+    }
+}
+
+fn losses_in_metal(frac: f64, cutoff: f64) -> Losses {
+    let mut cfg = TransportConfig::new(cutoff);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    cfg.boundary = BoundaryModel::STEP_BARRIER;
+    cfg.cutoff_reference = CutoffReference::VacuumLevel;
+    let t = Transport::with_band_structures(
+        Stack::semi_infinite(material()),
+        vec![pair(
+            elastic_isotropic(3e-9),
+            inelastic_fixed_frac(4e-9, frac),
+        )],
+        vec![metal()],
+        cfg,
+    )
+    .unwrap();
+    t.run(8, 50, 10, &Primary::normal(300.0), Losses::default)
+        .unwrap()
+        .tally
+}
+
+/// The transport reads the inelastic table at the electron's kinetic energy
+/// measured from the band bottom (the vacuum energy plus `U` inside the
+/// target), not from the Fermi level or the vacuum level: a table whose loss
+/// is `E/2` at every row gives `W = E_before / 2` for every event. The
+/// threshold, `U + 2 = 11` eV, keeps every event above `2 E_F = 10` eV, where
+/// `E/2 < E - E_F` and the clamp below does not act.
+#[test]
+fn inelastic_table_is_read_at_the_band_bottom_energy() {
+    let r = losses_in_metal(0.5, 2.0);
+    assert!(r.events.len() > 500, "{}", r.events.len());
+    // The primary's first event is at its entry energy, 300 eV + U.
+    let u = metal().inner_potential_ev();
+    assert!(r.events.iter().any(|&(e, _, _)| e == 300.0 + u));
+    for &(e, w, after) in &r.events {
+        assert!((w - 0.5 * e).abs() <= 1e-12 * e, "W {w} at E {e}");
+        assert_eq!(after, e - w);
+    }
+}
+
+/// With the Kieft-Bosch secondary model the transport clamps the sampled
+/// loss to `E - E_F` (the primary cannot end below the Fermi level). A table
+/// whose loss is the whole energy `E` at every row is therefore always
+/// clamped: the primary is left at `E_F` and the secondary, `E_F + W`, gets
+/// the primary's whole energy. This is the mismatch measured in #173: the
+/// default tables are built with the model's Fermi energy 0, so their losses
+/// reach `E`, beyond the `E - E_F` the transport allows (module docs of
+/// `electron::transport`, "Energy reference of the inelastic table").
+#[test]
+fn losses_beyond_the_fermi_level_are_clamped_to_it() {
+    let ef = metal().fermi_ev();
+    let r = losses_in_metal(1.0, 2.0);
+    assert!(r.events.len() > 100, "{}", r.events.len());
+    for &(e, w, after) in &r.events {
+        assert!((w - (e - ef)).abs() <= 1e-12 * e, "W {w} at E {e}");
+        assert!((after - ef).abs() <= 1e-12 * e, "after {after}");
+    }
+    assert!(!r.secondaries.is_empty());
+    for &(e, s) in &r.secondaries {
+        assert!((s - e).abs() <= 1e-12 * e, "secondary {s} from E {e}");
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Defaults, validation and metadata
 // ---------------------------------------------------------------------------
 
