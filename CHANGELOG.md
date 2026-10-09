@@ -331,7 +331,9 @@ one version).
   interpolation, `docs/validation.md`), so full-Penn tables built before
   and after differ in their last digits. Tables of the single-pole and
   Mermin models are unchanged. The full-Penn table's `model` string now
-  says that its DIIMFP comes from the loss grid.
+  says that its DIIMFP comes from the loss grid. The Si table on the #168
+  grid still does not finish (isolated slow points of the `ω_p` integral,
+  older than this change; #298).
 - Crystal off-axis channeling tail (#225). The 7°/22° orientation is
   2.6-2.7° from a {100} and a {110} plane, so it is no longer held to the
   #180 random-direction bound "dRp within 15 % of amorphous". Its ignored

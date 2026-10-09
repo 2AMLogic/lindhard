@@ -677,7 +677,8 @@ validation/oracles/run_electron.py --lindhard-only   # our side alone
 
 lindhard runs the single-pole Penn inelastic model. Its full Penn model is
 the closer match to Nebula, but until #256 one full-Penn table build did not
-finish in a usable time (it now does; see below the cost table). The
+finish in a usable time (for Al it now does; for Si, the element of this
+comparison, not yet: see below the cost table). The
 batches of a harness run now share their tables through
 `lindhard run --table-cache` (#168; `docs/cli.md`, "Cross-section table
 cache"), so each (problem, material) builds its tables once; that removes the
@@ -710,7 +711,20 @@ points per decade, 57 energies):
 |---|---|---|---|
 | `fb4f7b8` (before) | 1 | one row (51 eV) not finished: over 6250 DIIMFP evaluations at about 0.14 s each | > 900 s per row, stopped |
 | per-call speed-ups only (see below) | 1 | one row (51 eV) not finished: over 21000 DIIMFP evaluations at about 0.03 s each | > 600 s per row, stopped |
-| #256 | 2 | 57 rows, 1521 probability points | 203 s |
+| #256 | 2 | 57 rows, 1521 probability points | 203 s (254 s in a second run at a load average of 14 to 16) |
+
+The same build for Si on the grid of #168 (the committed
+`si_elf_yang2019.toml`, 297 knots 1 eV apart, ending at 199 eV with a
+non-zero value; 10 eV to 5 keV at 20 points per decade, 55 energies) did
+**not** finish within a 40 min cap on two threads. The cause was located
+and is older than #256: at isolated `(q, ω)` points one evaluation of the
+expanded loss function costs seconds instead of about 0.06 ms (Si, 79 eV,
+`q` = 1.1166 a.u.: 0.5 s at the model tolerance 1e-4 and 14 s at 1e-5;
+160 eV, 1.4803 a.u.: 2.2 s and 21 s; the same on `fb4f7b8`), because the
+adaptive `ω_p` integral there refines without converging. The `q`
+refinement of a grid profile (and of the direct DIIMFP) walks into such
+points; on the Al ELF none was hit. Bounding that inner refinement is the
+remaining work for Si (#298).
 
 Where the time went (one thread, counted in the build): the table needs
 the DIIMFP at the nodes of an adaptive density in `ln W`, about 8400 per
@@ -744,8 +758,8 @@ far tail where the DIIMFP is below the row's mean. 66 cells of the grid
 reached the narrowest width (1e-4 in `ln ω`) still failing the check and
 were left as they are. The stopping power of every table row (`λ⁻¹ ⟨W⟩`)
 agrees with the model's own to 4.6e-5. A `penn-full` harness run of this
-comparison has not been redone; it is now a change of
-`electron.inelastic.model` plus a regenerate.
+comparison (Si) has not been redone; it needs the Si build above to finish
+first.
 
 **Inputs that differ** (each summary lists them in full under `mismatches`):
 
@@ -1391,11 +1405,12 @@ the issue's "full model":
   Penn is the issue's model, but its tables do not build in a usable time:
   #168 measured Si at 5 keV with `penn-full` on 4 threads, killed unfinished
   at 60 min, against 108 s for the single-pole tables (see "Electron
-  oracles" above). Since #256 the build finishes: the Al table on this
-  grid (51 eV to 30 keV, 20 points per decade) takes 203 s on two threads
-  (cost table under "Electron oracles"). The full-Penn rerun is now a
-  change of `electron.inelastic.model` in the five inputs plus a
-  regenerate; it has not been done. The ELFs: the measured optical ELF of Hagemann,
+  oracles" above). Since #256 the Al table on this grid (51 eV to 30 keV,
+  20 points per decade) builds in 203 s on two threads; the Si build did not
+  finish within 40 min, for a cause located in the model's `ω_p` integral
+  (#298; cost table under "Electron oracles"). The other three ELFs were not
+  timed. The full-Penn rerun is a change of `electron.inelastic.model` in
+  the five inputs plus a regenerate; it has not been done. The ELFs: the measured optical ELF of Hagemann,
   Gudat and Kunz (1975) for Al, Cu, Au (their Table 5, the version fitted to
   transmission) and **glassy carbon**, whose constants the authors give on a
   1.5 g/cm³ basis, so the C target is glassy carbon at 1.5 g/cm³ (not
@@ -1566,8 +1581,9 @@ every energy from 2 keV up. The excess grows with energy, from +0.017 at
 0.219) while the measured median falls from 0.197 to 0.161.
 
 The offsets are not attributed here. Known parts of the reduced model act on
-them. The inelastic model is single-pole Penn, not full Penn (whose tables
-build in minutes since #256; the rerun is open). Fast
+them. The inelastic model is single-pole Penn, not full Penn (since #256
+the Al table builds in minutes; the Si table does not yet build, #298; the
+rerun is open). Fast
 secondaries above 50 eV, which a measured η counts, are not generated. For
 Si the ELF ends at 199 eV, so the K shell and the L-shell tail are missing
 from the stopping power. A Si excess that grows with energy is consistent
