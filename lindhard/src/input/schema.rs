@@ -12,9 +12,9 @@ use std::path::PathBuf;
 
 // Only for intra-doc links.
 #[cfg(doc)]
-use crate::ion::bca::{ElectronicLoss, MeanFreePath};
-#[cfg(doc)]
 use super::Resolved;
+#[cfg(doc)]
+use crate::ion::bca::{ElectronicLoss, MeanFreePath};
 
 /// `[beam]`: species, energy and direction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
