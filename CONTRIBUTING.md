@@ -124,6 +124,10 @@ job fails with a clear message if the secret is missing.
 
 - Rust stable, `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green, and
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` clean.
+- The `#[ignore]`d statistical and slow tests are not in the PR gate. The weekly
+  [`statistical`](.github/workflows/statistical.yml) workflow runs them with
+  `cargo test -p lindhard --release -- --ignored` (also by hand via
+  `workflow_dispatch`).
 - `#![forbid(unsafe_code)]` in the library stays. SIMD goes through safe
   crates (`wide`), not intrinsics.
 - No C/Fortran dependencies in the default build.
