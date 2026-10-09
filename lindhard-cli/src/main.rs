@@ -7,6 +7,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
+use lindhard_cli::table_cache::TableCache;
 use lindhard_cli::{dynamic, electron, output, sim};
 
 const LONG_VERSION: &str = concat!(
@@ -49,6 +50,12 @@ enum Command {
         /// Override `run.threads`. Never changes the results.
         #[arg(long)]
         threads: Option<usize>,
+        /// Electron runs only: read the cross-section tables from this
+        /// directory when it holds them for exactly this physics, grid and
+        /// build, and store the tables built otherwise. Never changes the
+        /// results (docs/cli.md, "Cross-section table cache").
+        #[arg(long, value_name = "DIR")]
+        table_cache: Option<PathBuf>,
     },
 }
 
@@ -143,6 +150,7 @@ fn run_electron(
     histories: Option<u64>,
     seed: Option<u64>,
     threads: Option<usize>,
+    table_cache: Option<&Path>,
 ) -> Result<()> {
     let mut input = load_electron(path, text)?;
     if let Some(n) = histories {
@@ -155,7 +163,22 @@ fn run_electron(
         input.run.threads = threads;
     }
     let r = resolve_electron(path, &input)?;
-    let sim = electron::simulate_electron(&r, input.run.threads)?;
+    let cache = table_cache.map(TableCache::open).transpose()?;
+    let sim = electron::simulate_electron(&r, input.run.threads, cache.as_ref())?;
+    if let Some(c) = &cache {
+        let read = sim
+            .tables
+            .iter()
+            .flat_map(|t| [&t.elastic_origin, &t.inelastic_origin])
+            .filter(|o| o.source == lindhard_cli::table_cache::TableSource::Cache)
+            .count();
+        eprintln!(
+            "tables: {read} read from the cache, {} built ({:.1} s), cache {}",
+            2 * sim.tables.len() - read,
+            sim.info.table_build_s,
+            c.dir().display()
+        );
+    }
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let write = |name: &str, text: String| -> Result<()> {
         let p = out.join(name);
@@ -260,10 +283,14 @@ fn run(
     ions: Option<u64>,
     seed: Option<u64>,
     threads: Option<usize>,
+    table_cache: Option<&Path>,
 ) -> Result<()> {
     let text = read(path)?;
     if ElectronInput::is_electron_toml(&text) {
-        return run_electron(path, &text, out, ions, seed, threads);
+        return run_electron(path, &text, out, ions, seed, threads, table_cache);
+    }
+    if table_cache.is_some() {
+        bail!("--table-cache applies to electron runs only (an input with an [electron] table)");
     }
     let mut input = load(path, &text)?;
     if let Some(n) = ions {
@@ -361,6 +388,7 @@ fn main() -> Result<()> {
             ions,
             seed,
             threads,
-        } => run(&input, &out, ions, seed, threads),
+            table_cache,
+        } => run(&input, &out, ions, seed, threads, table_cache.as_deref()),
     }
 }

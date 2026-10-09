@@ -18,6 +18,16 @@ one version).
   function and Fermi energy of Al, Cu, Au and W, the valence band width of
   Si and SiO2, and the affinity of SiO2) have no number. `complete` takes
   them from the caller with their provenance.
+- Electron table cache (#168): `lindhard run --table-cache DIR` reads the
+  elastic and inelastic cross-section tables from `DIR` when it holds them
+  for exactly this run's physics, grid and executable, and stores the tables
+  it builds otherwise, so a series of runs builds its tables once. Entries are
+  named by the SHA-256 of a key document covering every input of the build;
+  a file that does not match its key is refused, never silently reused.
+  Outputs are bit-identical with and without the cache; the summary records
+  each table's `source` (`built` or `cache`) and its cache file (`path`,
+  `sha256`, `key_sha256`) under `physics.materials`.
+  `validation/oracles/run_electron.py` uses it across batches.
 - Sputter erosion in dynamic runs (#234): `[dynamic] erosion = true` removes
   sputtered atoms from the front of the target (slab 0 first) instead of the
   slab where they were displaced, and the surface recedes. New public fields

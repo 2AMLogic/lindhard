@@ -676,11 +676,27 @@ validation/oracles/run_electron.py --lindhard-only   # our side alone
 ```
 
 lindhard runs the single-pole Penn inelastic model. Its full Penn model is
-the closer match to Nebula, but on this host one full-Penn Si table build at
-5 keV had not finished after 60 min (killed; the host was also compiling
-Geant4 at the time), against about 20 s for the
-single-pole tables, and every batch builds its own tables; the comparison
-with full Penn is left for when tables can be reused across runs (#168).
+the closer match to Nebula, but one full-Penn table build does not finish in
+a usable time. The batches of a harness run now share their tables through
+`lindhard run --table-cache` (#168; `docs/cli.md`, "Cross-section table
+cache"), so each (problem, material) builds its tables once; that removes the
+per-batch factor (10 batches) but not the cost of the one build.
+
+Cost of one build, measured for #168 (2026-10-09; release build of
+`d000e16`; aarch64 macOS, 28 cores, load average 125 to 175 from concurrent
+builds on the host, so wall times are inflated): Si (the committed
+`si_elf_yang2019.toml`), beam 5 keV, `electron.tables` from 10 eV at 20
+points per decade, Thomas-Fermi stand-in potential with exchange.
+
+| Inelastic model | Threads | Result | Wall | CPU |
+|---|---|---|---|---|
+| `penn-single-pole` | 1 | elastic and inelastic tables built | 108 s | 36 s |
+| `penn-full` | 4 | killed at the stated 60 min cap, not finished | > 60 min | > 59 min (at 40 min wall) |
+
+The full-Penn rerun of the comparison was therefore not done. Neither
+oracle (Nebula with its cstool, Geant4 MicroElec) was installed on that host
+either, so even a finished build could not have been compared there. Making
+the full-Penn build itself faster is #169.
 
 **Inputs that differ** (each summary lists them in full under `mismatches`):
 
