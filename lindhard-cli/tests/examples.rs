@@ -797,6 +797,27 @@ fn electron_example_checks_runs_and_reports() {
     let eta = r["yields"]["backscatter_eta"].as_f64().unwrap();
     assert!((eta - front["fast"]["count"].as_f64().unwrap() / 40.0).abs() < 1e-12);
 
+    // Table coverage: one entry per layer, the bounds of the tables the
+    // layer used, and as many elastic as inelastic rate evaluations.
+    let cov = r["table_coverage"].as_array().unwrap();
+    assert_eq!(cov.len(), p["target"].as_array().unwrap().len());
+    for (i, l) in cov.iter().enumerate() {
+        assert_eq!(l["layer"], i);
+        let total = |ch: &str| {
+            ["below", "within", "above"]
+                .iter()
+                .map(|k| l[ch][k].as_u64().unwrap())
+                .sum::<u64>()
+        };
+        assert!(total("elastic") > 0);
+        assert_eq!(total("elastic"), total("inelastic"));
+        for ch in ["elastic", "inelastic"] {
+            let t = &mat[format!("{ch}_table")];
+            assert_eq!(l[ch]["energy_min_ev"], t["energy_min_ev"], "{ch}");
+            assert_eq!(l[ch]["energy_max_ev"], t["energy_max_ev"], "{ch}");
+        }
+    }
+
     // CSV files against the summary.
     let csv = |key: &str| {
         let name = s["files"][key].as_str().unwrap();

@@ -17,6 +17,9 @@
 //! * [`psf`]: the radial point-spread function of a pencil beam in a depth
 //!   slab (log radial bins, per-history errors) and its double- and
 //!   triple-Gaussian fits, with CSV export and serde derives.
+//! * [`table_coverage`]: counts of the electron transport's cross-section
+//!   rate evaluations inside and beyond each table's energy grid, per layer
+//!   and channel (a numerical diagnostic, carried by the electron report).
 //!
 //! Every accumulator here merges deterministically: integer counts are exact
 //! sums, and floating-point accumulators are combined in the order the caller
@@ -30,6 +33,7 @@ pub mod ion;
 pub mod moments;
 pub mod pearson;
 pub mod psf;
+pub mod table_coverage;
 
 pub use electron::{
     CartesianDeposition, CartesianGrid, CylindricalDeposition, CylindricalGrid, DepositionReport,
@@ -48,3 +52,4 @@ pub use psf::{
     fit_psf, GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
     PsfNormalization, PsfReport, PsfResidual, RadialAccumulator, RadialProfile,
 };
+pub use table_coverage::{LayerTableCoverage, TableCoverageCounts, TableCoverageTally};
