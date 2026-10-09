@@ -9,6 +9,19 @@ one version).
 
 ### Added
 
+- `geometry::CsgGeometry`, `geometry::Csg` and `geometry::Primitive`:
+  constructive-solid-geometry targets of box, capped-cylinder and half-space
+  primitives combined by nestable union, intersection and difference, one
+  region per top-level solid, each tagged with a material. Rays are
+  classified by span combination (Roth 1982), with the overlap,
+  surface-ownership and tolerance rules of the mesh target, so a CSG box gives
+  the same events as the equivalent `VoxelGrid` and `MeshGeometry` (tested).
+  Every top-level solid must be bounded (a half-space only inside an
+  intersection or difference that bounds it), else the new
+  `GeometryError::CsgUnbounded`; a bad primitive or an empty operator is the
+  new `GeometryError::CsgInvalid`. `GeometryError` is not `non_exhaustive`, so
+  an exhaustive `match` on it must add the two variants. Not yet reachable
+  from the CLI or TOML input (#194).
 - Electron event-cap diagnostics (#268): how many secondary tracks the
   collision cap (`max_events`) cut off, and how many primary histories had
   the primary or any secondary cut off (each history counted once). New
