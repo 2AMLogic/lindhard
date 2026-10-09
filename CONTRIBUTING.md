@@ -91,8 +91,11 @@ Both crates share one version.
 2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`
    and start a fresh `## [Unreleased]` above it. The section is the release
    notes.
-3. Merge that change, then tag the merge commit and push the tag:
-   `git tag vX.Y.Z && git push origin vX.Y.Z`.
+3. Merge that change, then tag the merge commit with an annotated tag and
+   push it: `git tag -a vX.Y.Z -m "lindhard X.Y.Z" && git push origin vX.Y.Z`.
+   The tag must be annotated: `lindhard-cli/build.rs` stamps `git describe`
+   into `--version` and the run report, and `git describe` ignores
+   lightweight tags.
 4. The workflow's preflight fails, before any build, if the tag differs from
    the workspace version or the changelog section is missing. Otherwise it
    builds `lindhard-<version>-<target>` archives (`.tar.gz`, `.zip` on
@@ -103,10 +106,15 @@ Both crates share one version.
    environment, then publishes `lindhard` and `lindhard-cli` to crates.io.
    Approve it only after checking the release assets.
 
-To test changes to the workflow, run it by hand from the Actions tab
-(`workflow_dispatch`). That is a dry run: the archives and `SHA256SUMS` are
-uploaded as workflow artifacts, and no release is created and nothing is
-published.
+Any pull request that changes `.github/workflows/release.yml` runs the
+workflow as a dry run in PR CI: all five builds, `SHA256SUMS`, and the
+archive-contents check, with the archives uploaded as workflow artifacts.
+The workflow can also be run by hand from the Actions tab
+(`workflow_dispatch`), which is likewise a dry run. Only a pushed `v*` tag
+creates a release or publishes anything; on every other event the `release`
+and `publish` jobs are skipped, and a pull request (including one from a
+fork) gets a read-only token and no environment secrets. Release builds skip
+the Rust build cache, so tag-built binaries come from a clean build.
 
 One-time setup: create the `release` environment with required reviewers and
 give it the secret `CARGO_REGISTRY_TOKEN` (a crates.io API token). The publish

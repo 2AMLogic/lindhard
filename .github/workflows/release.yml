@@ -4,10 +4,16 @@ name: Release
 # for five targets, attaches the archives and SHA256SUMS to a GitHub Release,
 # and (after manual approval) publishes the crates to crates.io.
 #
-# `workflow_dispatch` is a dry run: it runs the preflight and the builds and
+# Every other event is a dry run: it runs the preflight and the builds and
 # uploads the archives and SHA256SUMS as workflow artifacts, but creates no
-# release and publishes nothing. Run it from the Actions tab to test changes
-# to this file before any tag exists.
+# release and publishes nothing. Dry runs come from:
+#   * `pull_request` touching this file, so every change to the release path
+#     builds all five targets in PR CI before it can merge;
+#   * `workflow_dispatch`, run by hand from the Actions tab.
+# On `pull_request` (including from forks) the token is read-only, no
+# environment secrets are exposed, and the `release` and `publish` jobs are
+# skipped twice over: preflight sets dry_run=true for anything but a tag push,
+# and both jobs also require `github.event_name == 'push'`.
 #
 # One-time repository setup (operator):
 #   * Settings -> Environments -> create `release`, with required reviewers.
@@ -17,6 +23,8 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  pull_request:
+    paths: [".github/workflows/release.yml"]
   workflow_dispatch:
 
 permissions:
@@ -39,10 +47,13 @@ jobs:
       dry_run: ${{ steps.check.outputs.dry_run }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - name: Tag equals the workspace version and CHANGELOG.md has its section
         id: check
         env:
           EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
           REF_NAME: ${{ github.ref_name }}
         run: |
           set -euo pipefail
@@ -57,7 +68,8 @@ jobs:
           if grep -Eq "^## \[$(printf '%s' "$version" | sed 's/\./\\./g')\]" CHANGELOG.md; then
             has_section=yes
           fi
-          if [ "$EVENT" = "push" ]; then
+          # Only a tag push is a real release; every other event is a dry run.
+          if [ "$EVENT" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
             dry_run=false
             if [ "$REF_NAME" != "v$version" ]; then
               echo "::error::tag $REF_NAME does not match workspace version v$version"
@@ -98,10 +110,15 @@ jobs:
       TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
+      # Release binaries (tag pushes) are always built from a clean target
+      # directory; the cache only speeds up dry runs.
       - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'push'
         with:
           key: release-${{ matrix.target }}
       - name: cargo build --release --locked
@@ -153,6 +170,27 @@ jobs:
           test -f "lindhard-$VERSION-x86_64-pc-windows-msvc.zip" || { echo "::error::missing archive for windows"; exit 1; }
           sha256sum lindhard-* > SHA256SUMS
           cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - name: Check archive contents
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd dist
+          # Each archive holds one top-level directory named after it.
+          check() {  # $1 = target, $2 = archive listing, $3 = binary name
+            local d="lindhard-$VERSION-$1"
+            for f in "$3" LICENSE README.md CHANGELOG.md; do
+              grep -qx "$d/$f" <<<"$2" || { echo "::error::$1 archive lacks $d/$f"; exit 1; }
+            done
+            echo "$1: ok"
+          }
+          for t in x86_64-unknown-linux-musl aarch64-unknown-linux-musl \
+                   x86_64-apple-darwin aarch64-apple-darwin; do
+            check "$t" "$(tar -tzf "lindhard-$VERSION-$t.tar.gz")" lindhard
+          done
+          t=x86_64-pc-windows-msvc
+          check "$t" "$(unzip -Z1 "lindhard-$VERSION-$t.zip")" lindhard.exe
       - uses: actions/upload-artifact@v4
         with:
           name: release-files
@@ -162,13 +200,15 @@ jobs:
   release:
     name: GitHub Release
     needs: [preflight, checksums]
-    if: needs.preflight.outputs.dry_run == 'false'
+    if: github.event_name == 'push' && needs.preflight.outputs.dry_run == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/download-artifact@v4
         with:
           name: release-files
@@ -193,13 +233,15 @@ jobs:
   publish:
     name: Publish to crates.io
     needs: [preflight, release]
-    if: needs.preflight.outputs.dry_run == 'false'
+    if: github.event_name == 'push' && needs.preflight.outputs.dry_run == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     # Protected environment: requires the configured reviewers' approval.
     environment: release
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
       - name: Publish lindhard, then lindhard-cli
         env:
