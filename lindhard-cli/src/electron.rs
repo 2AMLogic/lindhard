@@ -55,6 +55,7 @@ pub const TABLES_FILE: &str = "electron_tables.csv";
 pub const CHUNK_SIZE: u64 = 16;
 
 /// The two tables of one material.
+#[derive(Debug)]
 pub struct MaterialTables {
     /// Elastic table.
     pub elastic: CrossSectionTable,
@@ -128,6 +129,7 @@ pub struct ElectronRunInfo {
 }
 
 /// Everything a finished electron run produced.
+#[derive(Debug)]
 pub struct ElectronSimulation {
     /// Tables per material, in [`ResolvedElectron::materials`] order.
     pub tables: Vec<MaterialTables>,

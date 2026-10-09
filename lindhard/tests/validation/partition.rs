@@ -66,7 +66,7 @@ use crate::report::{num, pct, Check};
 
 /// Which nuclear cross section the partition equation uses.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Kernel {
+pub(crate) enum Kernel {
     /// All impact parameters (to the table edge), every transfer above `E_d`
     /// a recoil.
     Full,
@@ -75,7 +75,7 @@ pub enum Kernel {
 }
 
 /// A self-ion problem in a monatomic target, in the engine's conventions.
-pub struct Problem<'a> {
+pub(crate) struct Problem<'a> {
     pub z: u8,
     /// Atomic mass, u (projectile and target).
     pub m: f64,
@@ -224,7 +224,7 @@ fn solve_grid(pr: &Problem, e0: f64, kernel: Kernel, per_decade: usize) -> f64 {
 
 /// Electronic share `1 - nu(e0)/e0`, Richardson-extrapolated, and its
 /// discretisation uncertainty.
-pub fn electronic_share(pr: &Problem, e0: f64, kernel: Kernel) -> (f64, f64) {
+pub(crate) fn electronic_share(pr: &Problem, e0: f64, kernel: Kernel) -> (f64, f64) {
     let coarse = solve_grid(pr, e0, kernel, 100);
     let fine = solve_grid(pr, e0, kernel, 200);
     let nu = 2.0 * fine - coarse;
@@ -240,7 +240,7 @@ pub fn electronic_share(pr: &Problem, e0: f64, kernel: Kernel) -> (f64, f64) {
 /// give `a1 = 1`, `8/7 = 1.14` and `16/13 = 1.23`. Returns `(eta/E)/xi`
 /// from the solver at `E = 1e-6 E_xi` (`xi = 1e-3`, cutoff `1e-12 E_xi`), and
 /// `a1`.
-pub fn powerlaw_coefficient() -> (f64, f64) {
+pub(crate) fn powerlaw_coefficient() -> (f64, f64) {
     let a1 = 4.0 / (3.0 * PI - 6.0);
     let (e0, cutoff) = (1e-6, 1e-12);
     // T nodes as fractions x = T/E, Simpson in ln x over [1e-10, 1].
@@ -436,7 +436,7 @@ const CASES: [Case; 4] = [
     },
 ];
 
-pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
+pub(crate) fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let mut out = Vec::new();
     let ls = LindhardScharff::new();
 

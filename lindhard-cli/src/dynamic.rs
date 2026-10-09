@@ -62,6 +62,7 @@ pub struct StepRow {
 }
 
 /// Everything a finished dynamic run produced.
+#[derive(Debug)]
 pub struct DynamicSimulation {
     /// Atomic numbers of every species the run can contain, sorted: the beam
     /// species and every element of the target.

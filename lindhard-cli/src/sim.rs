@@ -15,6 +15,7 @@ use crate::output::RunInfo;
 use crate::tally::{ion_tally_config, CliTally};
 
 /// Everything a finished run produced.
+#[derive(Debug)]
 pub struct Simulation {
     /// The merged tallies.
     pub tally: CliTally,

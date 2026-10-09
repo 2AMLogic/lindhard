@@ -70,7 +70,7 @@ const NM: f64 = 1e-9;
 
 /// Which first moment to solve for.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Moment {
+pub(crate) enum Moment {
     /// Mean projected range (along the incident direction).
     Projected,
     /// Mean total path length.
@@ -82,7 +82,7 @@ pub enum Moment {
 }
 
 /// One ion-target problem, in the engine's conventions.
-pub struct Problem<'a> {
+pub(crate) struct Problem<'a> {
     pub ion: Ion,
     /// Target atomic number and mass (u); monatomic targets only.
     pub z2: u8,
@@ -101,7 +101,7 @@ pub struct Problem<'a> {
 
 impl Problem<'_> {
     /// Constant-free-path `p_max = (pi N^(2/3))^(-1/2)` (as in the engine).
-    pub fn p_max(&self) -> f64 {
+    pub(crate) fn p_max(&self) -> f64 {
         1.0 / (PI * self.n.powf(2.0 / 3.0)).sqrt()
     }
 
@@ -111,7 +111,7 @@ impl Problem<'_> {
     /// (Moller and Eckstein, IPP 9/64 (1988), p. 14, eq. (26)). For the
     /// primary's range only the deflection and the transfer matter, so the
     /// weak collisions enter the equation as ordinary collisions.
-    pub fn p_cut(&self) -> f64 {
+    pub(crate) fn p_cut(&self) -> f64 {
         self.p_max() * f64::from(self.weak + 1).sqrt()
     }
 
@@ -160,7 +160,7 @@ fn p_nodes(p_max: f64, p_cut: f64, per_decade: usize) -> Vec<(f64, f64)> {
 ///
 /// Written out here, deliberately not imported from the engine, so that the
 /// LSS solution is independent of the engine's deflection kinematics.
-pub fn cos_psi_lab(theta: f64, m1: f64, m2: f64) -> f64 {
+pub(crate) fn cos_psi_lab(theta: f64, m1: f64, m2: f64) -> f64 {
     let a = m2 / m1;
     let c = theta.cos();
     (1.0 + a * c) / (1.0 + 2.0 * a * c + a * a).sqrt()
@@ -170,13 +170,13 @@ pub fn cos_psi_lab(theta: f64, m1: f64, m2: f64) -> f64 {
 /// projectile of mass `m1` and energy `e` scattered through centre-of-mass
 /// angle `theta`: `T = 4 m1 m2 / (m1 + m2)^2 * E sin^2(theta / 2)`
 /// (same references as [`cos_psi_lab`]). Clamped to `e` against rounding.
-pub fn energy_transfer(e: f64, theta: f64, m1: f64, m2: f64) -> f64 {
+pub(crate) fn energy_transfer(e: f64, theta: f64, m1: f64, m2: f64) -> f64 {
     let s = (0.5 * theta).sin();
     (4.0 * m1 * m2 / ((m1 + m2) * (m1 + m2)) * e * s * s).min(e)
 }
 
 /// Solve on one grid of `per_decade` energies per decade; returns `f(E0)`, m.
-pub fn solve_grid(pr: &Problem, e0: f64, moment: Moment, per_decade: usize) -> f64 {
+pub(crate) fn solve_grid(pr: &Problem, e0: f64, moment: Moment, per_decade: usize) -> f64 {
     let m1 = pr.ion.mass_amu();
     let pot = Potential::new(
         Screening::ZblUniversal,
@@ -227,7 +227,7 @@ pub fn solve_grid(pr: &Problem, e0: f64, moment: Moment, per_decade: usize) -> f
 }
 
 /// Richardson-extrapolated solution and its discretisation uncertainty, m.
-pub fn solve(pr: &Problem, e0: f64, moment: Moment) -> (f64, f64) {
+pub(crate) fn solve(pr: &Problem, e0: f64, moment: Moment) -> (f64, f64) {
     let coarse = solve_grid(pr, e0, moment, 200);
     let fine = solve_grid(pr, e0, moment, 400);
     (2.0 * fine - coarse, (fine - coarse).abs())
@@ -236,7 +236,7 @@ pub fn solve(pr: &Problem, e0: f64, moment: Moment) -> (f64, f64) {
 /// Continuous-slowing-down path length `Int dE / (N (S_n + S_e))` from the
 /// cutoff, with `S_n` integrated over the same `p <= p_cut` disc. Not a mean
 /// path: it ignores the fluctuation of the nuclear energy loss.
-pub fn csda_path(pr: &Problem, e0: f64) -> f64 {
+pub(crate) fn csda_path(pr: &Problem, e0: f64) -> f64 {
     let m1 = pr.ion.mass_amu();
     let pot = Potential::new(
         Screening::ZblUniversal,
@@ -278,7 +278,7 @@ pub fn csda_path(pr: &Problem, e0: f64) -> f64 {
 /// change the polyline). Only valid with `follow_recoils = false`, where the
 /// primary is the only moving particle.
 #[derive(Debug, Default, Clone)]
-pub struct RangeTally {
+pub(crate) struct RangeTally {
     last: [f64; 3],
     path: f64,
     pub stopped: u64,
@@ -297,28 +297,28 @@ impl RangeTally {
         self.last = at;
     }
 
-    pub fn mean_x(&self) -> f64 {
+    pub(crate) fn mean_x(&self) -> f64 {
         self.sum_x / self.stopped as f64
     }
-    pub fn mean_l(&self) -> f64 {
+    pub(crate) fn mean_l(&self) -> f64 {
         self.sum_l / self.stopped as f64
     }
     fn var(n: f64, s: f64, s2: f64) -> f64 {
         (s2 / n - (s / n).powi(2)) * n / (n - 1.0)
     }
     /// Standard error of the mean projected depth.
-    pub fn se_x(&self) -> f64 {
+    pub(crate) fn se_x(&self) -> f64 {
         let n = self.stopped as f64;
         (Self::var(n, self.sum_x, self.sum_x2) / n).sqrt()
     }
     /// Standard error of the mean path.
-    pub fn se_l(&self) -> f64 {
+    pub(crate) fn se_l(&self) -> f64 {
         let n = self.stopped as f64;
         (Self::var(n, self.sum_l, self.sum_l2) / n).sqrt()
     }
     /// Standard error of the ratio of means `mean_x / mean_l` (delta method,
     /// with the covariance).
-    pub fn se_ratio(&self) -> f64 {
+    pub(crate) fn se_ratio(&self) -> f64 {
         let n = self.stopped as f64;
         let (mx, ml) = (self.mean_x(), self.mean_l());
         let vx = Self::var(n, self.sum_x, self.sum_x2) / n;
@@ -394,7 +394,7 @@ impl ElectronicStopping for NoElectronic {
 
 /// Amorphous Si at its tabulated density. `E_d` = 15 eV is a test
 /// parameter (the engine requires one; primary-only runs do not depend on it).
-pub fn silicon() -> Material {
+pub(crate) fn silicon() -> Material {
     let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
     m.set_displacement_energy_ev(14, 15.0).unwrap();
     m
@@ -439,7 +439,7 @@ fn weak_label(weak: u8) -> String {
 const SYSTEMATIC: f64 = 0.005;
 
 /// Range checks: engine vs the first-moment equation.
-pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
+pub(crate) fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let si = silicon();
     let n = si.atom_number_density();
     let m2 = lindhard::elements::element(14).unwrap().atomic_weight;

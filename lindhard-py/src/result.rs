@@ -26,6 +26,7 @@ use crate::errors;
 /// per unit of `unit` (`NaN` where the CSV leaves it empty). Lengths are in
 /// nm, energies in eV and polar angles in degrees.
 #[pyclass(module = "lindhard", frozen)]
+#[derive(Debug)]
 pub struct Histogram {
     edges: Vec<f64>,
     counts: Vec<u64>,
@@ -144,6 +145,7 @@ impl Histogram {
 ///
 /// The arrays are copies; the result is read-only.
 #[pyclass(module = "lindhard", frozen)]
+#[derive(Debug)]
 pub struct RunResult {
     resolved: Resolved,
     sim: Simulation,
