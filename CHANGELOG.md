@@ -44,6 +44,13 @@ one version).
   each table's `source` (`built` or `cache`) and its cache file (`path`,
   `sha256`, `key_sha256`) under `physics.materials`.
   `validation/oracles/run_electron.py` uses it across batches.
+- Inner-shell ELFs built in the engine (#135): `electron::inelastic::shell_elf`
+  builds the optical ELF of a K shell from Stobbe's hydrogenic
+  photoionization formula (dV2022 eq. (2), edge and occupancy from a
+  `SubshellBindingTable`), ready for `ShellResolvedChannels::new`. New public
+  `hydrogenic_shell_elf`, `hydrogenic_shell_elfs`,
+  `hydrogenic_k_oscillator_strength_density_per_ev` and `ShellElfGrid`.
+  Other subshells are still caller-supplied.
 - Sputter erosion in dynamic runs (#234): `[dynamic] erosion = true` removes
   sputtered atoms from the front of the target (slab 0 first) instead of the
   slab where they were displaced, and the surface recedes. New public fields
