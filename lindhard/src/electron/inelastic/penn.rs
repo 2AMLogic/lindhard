@@ -102,8 +102,9 @@
 //! The SPA agrees with the full algorithm to 1 % at 100 eV and above, and
 //! below 30 eV becomes longer with decreasing energy, as S2017 reports for
 //! water: up to 23 times longer below 20 eV for Al (whose ELF is dominated by
-//! the 15 eV plasmon), about 1.6 to 1.8 times for Au and up to 2 times for Cu
-//! at 12 to 19 eV. (At 30 eV the Al SPA value is the shorter one.) These are
+//! the 15 eV plasmon), 1.5 to 1.8 times for Au at 12 to 50 eV, and up to 2
+//! times for Cu at 12 to 19 eV. (At 30 eV the Al SPA value is the shorter
+//! one.) These are
 //! the energies of the secondary electrons that make up the yield δ:
 //! swapping only the table rows below 30 eV for Mermin rows takes the
 //! single-pole Al δ at 400 eV from 6.9 to 1.4, and Au keeps most of its

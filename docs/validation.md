@@ -1571,10 +1571,12 @@ result worse, not better; no Cu, Si or Au set changes status.
   than 1 eV, which the default drops.
 - Statistics: 2000 histories per point, seed 1, two threads. The Al and Cu
   runs were made with the build at 6629260; the Au runs with a later build
-  (the table header shows the later one), after which the electron tally
-  code had changed. Al and Cu default runs at 100, 600 and 800 eV were
-  repeated with the later build and reproduce the committed deltas and etas
-  bit for bit.
+  (51af302), after which the electron tally code had changed. Al and Cu
+  default runs at 100, 600 and 800 eV were repeated with the later build
+  and reproduce the committed deltas and etas bit for bit. For #173 the
+  `default` rows of Al, Au and Cu were re-run in full with the build named
+  in the table header; every δ and η is bit for bit the earlier value (no
+  model changed), and the other rows were not re-run.
 - Oracle codes were **not run for δ(E)**. The electron oracle harness
   exists (#150, "Electron oracles" in section 2, which reports δ for Si
   and Cu at 1 to 20 keV). What is missing for #149 is a δ(E) oracle run for
@@ -1599,7 +1601,7 @@ committed results.
 | Si | 10 | 2: `se_si_dione1973` (550 eV, 0.980), `se_si_dionne1975` (300 eV, 1.167) | 425 [300, 550] | 1.074 [0.980, 1.167] | 8 sets |
 | Au | 10 | 2: `se_au_bronstein1969` (800 eV, 1.395), `se_au_rothwell1988` (700 eV, 1.540) | 750 [700, 800] | 1.468 [1.395, 1.540] | 8 sets |
 
-**Simulated δ(E)** (`lindhard 0.0.1 (51af302-dirty)`; seed 1; histories per run in the results file; δ = electrons escaping the front face below 50 eV per primary). Statistical error: the Poisson floor √N_slow/N is in the results file and understates the true error by the cascade correlation.
+**Simulated δ(E)** (`lindhard 0.0.1 (ab7bb42)`; seed 1; histories per run in the results file; δ = electrons escaping the front face below 50 eV per primary). Statistical error: the Poisson floor √N_slow/N is in the results file and understates the true error by the cascade correlation.
 
 **Al**
 
@@ -1687,8 +1689,8 @@ data):
   single-electron excitations. They call their values below 50 eV less
   reliable, and they computed no metal. For the same ELFs, this code's single-pole IMFP is 9.8 to
   24.6 nm for Al at 12 to 19 eV above the band bottom, where its full Penn
-  and Mermin models give 0.72 to 1.11 nm; for Au it is 1.6 to 1.8 times the
-  full Penn value at 12 to 30 eV; above 100 eV the single pole and full
+  and Mermin models give 0.72 to 1.11 nm; for Au it is 1.5 to 1.8 times the
+  full Penn value at 12 to 50 eV; above 100 eV the single pole and full
   Penn agree to about 1 % (table in the module docs of
   `electron::inelastic::penn`, "Low energies"). The secondaries that make
   δ live at those energies. Measured with
