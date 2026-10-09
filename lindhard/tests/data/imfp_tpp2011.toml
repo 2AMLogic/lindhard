@@ -1,6 +1,6 @@
 # Published IMFPs for the inelastic validation of issue #99
-# (tests/electron_imfp_tpp.rs): Al and Cu at the Table 4 rows nearest
-# 100 eV, 1 keV and 10 keV.
+# (tests/electron_imfp_tpp.rs): Al, Cu and Si (Si added in #125) at the
+# Table 4 rows nearest 100 eV, 1 keV and 10 keV.
 #
 # Source: S. Tanuma, C. J. Powell and D. R. Penn, "Calculations of electron
 # inelastic mean free paths. IX. Data for 41 elemental solids over the 50 eV
@@ -12,7 +12,10 @@
 # files IMFP_IX__March_18__2010_st.3.pdf (Table 4, manuscript pp. 37-48 of 60)
 # and IMFP_IX__March_18__2010_st.pdf (Table 1, p. 32 of 60). Read 2026-10-07,
 # from the rendered page images (each value checked against the text layer
-# too). The published version (Wiley) answered 403 and was not seen, so the
+# too; the Si values read 2026-10-09 the same way, same files, SHA-256
+# 2bceeb837a0577a50f3eefd5078d8eb261a064b7756f34fa17db8ef2b5fa30e4 for
+# st.3.pdf and 859c35f5262f082c133225705e9fd45a2707e612d4deff89666014b3c6c63aaa
+# for st.pdf). The published version (Wiley) answered 403 and was not seen, so the
 # page numbers are those of the manuscript, not of the journal, and a value
 # changed in review would not show here.
 #
@@ -47,6 +50,12 @@ symbol = "Cu"
 optical = "cu_elf_hagemann1975.toml"
 fermi_energy_ev = 8.7
 fermi_cite = "TPP 2011 Table 1, row Cu, column E_F (manuscript p. 32 of 60)"
+
+[[material]]
+symbol = "Si"
+optical = "si_elf_yang2019.toml"
+fermi_energy_ev = 12.5
+fermi_cite = "TPP 2011 Table 1, row Si, column E_F (manuscript p. 32 of 60)"
 
 [[case]]
 material = "Al"
@@ -89,3 +98,24 @@ nominal_energy_ev = 10000.0
 energy_ev = 9897.1
 imfp_angstrom = 104.8
 cite = "TPP 2011 Table 4 (continued), column Cu, row 9897.1 eV (manuscript p. 42 of 60)"
+
+[[case]]
+material = "Si"
+nominal_energy_ev = 100.0
+energy_ev = 99.5
+imfp_angstrom = 5.25
+cite = "TPP 2011 Table 4 (continued), column Si, row 99.5 eV (manuscript p. 39 of 60)"
+
+[[case]]
+material = "Si"
+nominal_energy_ev = 1000.0
+energy_ev = 992.3
+imfp_angstrom = 24.3
+cite = "TPP 2011 Table 4 (continued), column Si, row 992.3 eV (manuscript p. 39 of 60)"
+
+[[case]]
+material = "Si"
+nominal_energy_ev = 10000.0
+energy_ev = 9897.1
+imfp_angstrom = 164.2
+cite = "TPP 2011 Table 4 (continued), column Si, row 9897.1 eV (manuscript p. 40 of 60)"
