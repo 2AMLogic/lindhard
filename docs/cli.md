@@ -5,6 +5,7 @@ lindhard check input.toml                  # parse and validate, no transport
 lindhard run input.toml --out dir/         # run, write dir/summary.json and CSVs
                                            # (dir/electron_summary.json for [electron])
 lindhard run input.toml --out dir/ --ions 200 --seed 7 --threads 4
+lindhard run electron.toml --out dir/ --table-cache cache/   # reuse built electron tables
 lindhard --version                         # crate version and git describe
 ```
 
@@ -14,7 +15,10 @@ An input with a top-level `[electron]` table is an electron run (see
 `--ions` and `--seed` override `run.ions` and `run.seed` (`--ions`, or its
 alias `--histories`, overrides `run.histories` of an electron run); the override is what
 the output echoes. `--threads` overrides `run.threads` and never changes the
-results. Invalid input exits non-zero with a message naming the offending key
+results. `--table-cache DIR` (electron runs only) reads the cross-section
+tables from `DIR` when it holds them for exactly this run's physics, grid and
+build, and stores the tables it builds otherwise; it never changes the results
+(see "Cross-section table cache" below). Invalid input exits non-zero with a message naming the offending key
 (`target.layers[0].thickness_nm: -5 nm must be finite and positive`), and
 writes no output. Warnings (for example a beam energy outside the stopping
 model's advisory range) go to stderr and do not stop the run.
@@ -508,7 +512,7 @@ An electron run writes these instead of the ion files.
 | `physics.models` | Every model in use: `role`, `name`, `citation` (transport loop, elastic model and potential, corrections, inelastic model, secondaries, barrier, phonon and polaron channels, SE/BSE split) |
 | `physics.transport` | The engine's `RunMetadata`: cutoff and its reference, escape rule, event cap, secondary and boundary models, seed, histories, chunk size, the primary, and per layer its extent (m), the `model` and `provenance` strings of both tables, the band parameters, phonon and polaron channels with their provenance |
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
-| `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes |
+| `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
 | `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `budget` (the energy balance and its `relative_imbalance`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries). The histograms and grid cells are in the CSV files, not here |
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
@@ -529,6 +533,55 @@ Energy deposited outside a grid is `outside_ev` in the summary.
 `electron_tables.csv`: `material,energy_ev,elastic_inverse_mfp_per_nm,inelastic_inverse_mfp_per_nm,inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm`,
 the tables the run used, per material and grid energy (the stopping power is
 `λ⁻¹ ⟨W⟩` of the stored loss distribution).
+
+### Cross-section table cache (`--table-cache`)
+
+Building the elastic and inelastic tables is the slow part of a short
+electron run (tens of seconds with `penn-single-pole`, far longer with
+`penn-full`; see `docs/validation.md`, "Electron oracles"). With
+`--table-cache DIR`, `lindhard run` looks each table up in `DIR` (created if
+missing) and builds and stores only the ones it does not find, so a series of
+runs that differ only in seed, history count, tallies or transport settings
+builds its tables once.
+
+Each entry is two files, named by the SHA-256 of a **key document**:
+`<kind>-<sha256>.toml`, the table in the versioned cache form of
+`lindhard::electron::data::CrossSectionTable`, read back with that type's
+loader, and `<kind>-<sha256>.key.json`, the key itself. The key spells out
+every input the table depends on:
+
+- the key schema version and the table cache `format_version`;
+- the build: crate version, `git describe --always --dirty`, and the SHA-256
+  of the running `lindhard` executable, so any rebuild that changes the code
+  (an uncommitted edit included) misses, and a rebuilt binary never reuses an
+  older binary's table;
+- the table kind and the exact energy grid (`electron.tables`, after the
+  defaults are filled in);
+- the material's name, composition and density;
+- elastic: the potential, the exchange and correlation-polarization
+  corrections with all their inputs, the starting probability grid and the
+  refinement tolerance;
+- inelastic: the model (`electron.inelastic.model`), its Fermi energy, the
+  SHA-256 and provenance of the optical ELF file, and the material's band
+  parameters.
+
+Every `f64` is written in shortest round-trip form, so a change in the last
+bit of any number is a different key. A lookup must find the stored key
+equal, byte for byte, to the run's own (a mismatch under the same hash means
+the file was edited, and is an error naming the differing field); the table
+file is then loaded and validated by the library, and its axis and energy grid
+are checked against the run. A file found under the run's key that fails any
+of these checks is an error, never a silent rebuild. A table of another cache
+`format_version` can never be found, since the version is part of the key.
+Writes go to a temporary file renamed into place, the table before its key.
+
+A cached table is the built one bit for bit (the TOML cache form round-trips
+every `f64`), so outputs do not depend on whether the tables were built or
+read, nor on the thread count. Only `physics.materials.*_table.source` and
+`.cache`, and the timings in `run`, differ. `lindhard-cli/tests/examples.rs`
+checks a building run, a storing run and reading runs on 1 and 8 threads
+against each other. Remove the directory to reclaim space; nothing else
+prunes it.
 
 ## Reusing an output directory
 
@@ -554,7 +607,8 @@ For an electron run the same holds for `electron_summary.json` (apart from
 thread count, and histories run in chunks of a fixed size (16, recorded as
 `physics.transport.chunk_size`) merged in chunk order.
 `lindhard-cli/tests/examples.rs` checks this on 1 and 4 threads (1, 2 and 8
-for the dynamic example; 1 and 4 for the electron example). Floats are
+for the dynamic example; 1 and 4 for the electron example, and with
+`--table-cache` 1 and 8). Floats are
 written in shortest round-trip form.
 
 ## Compatibility and extension
@@ -586,6 +640,14 @@ The electron schema and its output follow the same rules, with
   `lindhard::electron::data` loader of its type, so data without a
   provenance is refused, and recorded under `physics.materials` with its
   path, SHA-256 and provenance.
+- The cross-section table cache is the one exception to the rule above, by
+  decision (#168): it is a command-line flag (`--table-cache DIR`), not an
+  input key, because it never changes a result (as with `--threads`, the
+  input and its echo stay the same whether or not tables are reused), and a
+  content-addressed directory keyed on every input of the build cannot name
+  a stale file the way a hand-written path can. Its tables are still read
+  with the `lindhard::electron::data` loader and echoed under
+  `physics.materials` with their path, SHA-256 and provenance.
 - A new tally becomes a key under `[electron.tally]`, an object under
   `results` and, for profiles, a new CSV file listed under `files`.
 - Every table keeps `deny_unknown_fields`, and every default is echoed, so

@@ -34,6 +34,7 @@ use lindhard::tally::{ElectronReport, FullElectronTally, Histogram};
 use serde::Serialize;
 
 use crate::output::{density, software, Format, Software, NM};
+use crate::table_cache::{CacheFile, TableCache, TableKind, TableSource};
 
 /// Name of the electron summary format.
 pub const FORMAT_NAME: &str = "lindhard-electron-summary";
@@ -59,6 +60,62 @@ pub struct MaterialTables {
     pub elastic: CrossSectionTable,
     /// Inelastic table.
     pub inelastic: CrossSectionTable,
+    /// Where the elastic table came from.
+    pub elastic_origin: TableOrigin,
+    /// Where the inelastic table came from.
+    pub inelastic_origin: TableOrigin,
+}
+
+/// Where a table came from: built by the run or read from the table cache,
+/// and the cache file when a cache is in use.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct TableOrigin {
+    /// Built or read.
+    pub source: TableSource,
+    /// The cache file (`None` without `--table-cache`).
+    pub cache: Option<CacheFile>,
+}
+
+impl TableOrigin {
+    fn built() -> Self {
+        Self {
+            source: TableSource::Built,
+            cache: None,
+        }
+    }
+}
+
+/// One table of one material: from `cache` when given, else built.
+fn table(
+    r: &ResolvedElectron,
+    m: &ResolvedElectronMaterial,
+    kind: TableKind,
+    cache: Option<&TableCache>,
+) -> Result<(CrossSectionTable, TableOrigin)> {
+    let build = || match kind {
+        TableKind::Elastic => elastic_table(r, &m.material),
+        TableKind::Inelastic => inelastic_table(r, m),
+    };
+    let field = format!("electron.materials.{}", m.name);
+    let what = format!("{field}: the {} table", kind.label());
+    match cache {
+        None => Ok((
+            build().with_context(|| format!("{what}: building"))?,
+            TableOrigin::built(),
+        )),
+        Some(c) => {
+            let t = c
+                .get_or_build(r, m, kind, || build().context("building"))
+                .with_context(|| what.clone())?;
+            Ok((
+                t.table,
+                TableOrigin {
+                    source: t.source,
+                    cache: t.cache,
+                },
+            ))
+        }
+    }
 }
 
 /// Thread count and timings (the only thread-dependent part of the output).
@@ -144,11 +201,14 @@ fn inelastic_table(
     )?)
 }
 
-/// Build the tables, run every history on `threads` workers (`None`: all
-/// cores) and report. The thread count never changes the results.
+/// Build the tables (or read them from `cache`), run every history on
+/// `threads` workers (`None`: all cores) and report. Neither the thread count
+/// nor the cache changes the results: a cached table is the built one, bit
+/// for bit (the cache form round-trips every `f64` exactly).
 pub fn simulate_electron(
     r: &ResolvedElectron,
     threads: Option<usize>,
+    cache: Option<&TableCache>,
 ) -> Result<ElectronSimulation> {
     if threads == Some(0) {
         bail!("threads must be at least 1");
@@ -163,12 +223,13 @@ pub fn simulate_electron(
         r.materials
             .iter()
             .map(|m| {
-                let field = format!("electron.materials.{}", m.name);
+                let (elastic, elastic_origin) = table(r, m, TableKind::Elastic, cache)?;
+                let (inelastic, inelastic_origin) = table(r, m, TableKind::Inelastic, cache)?;
                 Ok(MaterialTables {
-                    elastic: elastic_table(r, &m.material)
-                        .with_context(|| format!("{field}: building the elastic table"))?,
-                    inelastic: inelastic_table(r, m)
-                        .with_context(|| format!("{field}: building the inelastic table"))?,
+                    elastic,
+                    inelastic,
+                    elastic_origin,
+                    inelastic_origin,
                 })
             })
             .collect::<Result<_>>()
@@ -263,9 +324,11 @@ struct TableOut<'a> {
     energy_max_ev: f64,
     energies: usize,
     probabilities: usize,
+    #[serde(flatten)]
+    origin: &'a TableOrigin,
 }
 
-fn table_out(t: &CrossSectionTable) -> TableOut<'_> {
+fn table_out<'a>(t: &'a CrossSectionTable, origin: &'a TableOrigin) -> TableOut<'a> {
     let e = t.energy_ev();
     TableOut {
         model: t.model(),
@@ -276,6 +339,7 @@ fn table_out(t: &CrossSectionTable) -> TableOut<'_> {
         energy_max_ev: e[e.len() - 1],
         energies: e.len(),
         probabilities: t.probability().len(),
+        origin,
     }
 }
 
@@ -384,8 +448,8 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
                 band: m.band.as_ref(),
                 phonon: m.channels.phonon.as_ref(),
                 polaron: m.channels.polaron.as_ref(),
-                elastic_table: table_out(&t.elastic),
-                inelastic_table: table_out(&t.inelastic),
+                elastic_table: table_out(&t.elastic, &t.elastic_origin),
+                inelastic_table: table_out(&t.inelastic, &t.inelastic_origin),
             }
         })
         .collect();

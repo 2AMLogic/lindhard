@@ -79,6 +79,9 @@ import lindhard_cli  # noqa: E402
 SUMMARIES = HERE / "summaries"
 PROBLEMS = HERE / "electron_problems.json"
 RUNS = lindhard_cli.RUNS / "electron"
+# Shared by every problem and batch: the key of each entry covers everything
+# the table depends on (lindhard `--table-cache`).
+TABLE_CACHE = RUNS / "lindhard" / "table-cache"
 FORMAT = "lindhard-oracle-electron-summary/1"
 LINDHARD_FORMAT = "lindhard-electron-run/1"
 METRICS = ("eta", "delta", "primary_depth_nm", "r50_nm")
@@ -360,9 +363,22 @@ def run_lindhard(problem: dict, spec: dict, mat: dict, binary: Path, histories: 
         inp = work / f"input_{i}.toml"
         inp.write_text(lindhard_input(problem, spec, mat, elf_name, spec["seed"] + i, per_batch))
         out = work / f"out_{i}"
-        proc = subprocess.run([str(binary), "run", str(inp), "--out", str(out)], capture_output=True, text=True)
+        # The batches differ only in their seed, so the first one builds the
+        # cross-section tables and the others read them from the table cache
+        # (docs/cli.md, "Cross-section table cache"). The cache is keyed on
+        # the physics, the grid and the lindhard executable, so a rebuilt
+        # lindhard or a changed problem never reuses a stale table.
+        proc = subprocess.run(
+            [str(binary), "run", str(inp), "--out", str(out), "--table-cache", str(TABLE_CACHE)],
+            capture_output=True,
+            text=True,
+        )
         if proc.returncode != 0:
             lindhard_cli.die(f"lindhard failed on {problem['id']} batch {i}:\n{proc.stderr}")
+        tables_line = next((l for l in proc.stderr.splitlines() if l.startswith("tables: ")), None)
+        # Log the build of batch 0, and any later batch that did not reuse it.
+        if tables_line and (i == 0 or ", 0 built" not in tables_line):
+            print(f"  lindhard {problem['id']} batch {i}: {tables_line}")
         s = json.loads((out / "electron_summary.json").read_text())
         r = s["results"]
         acc.n[i] = r["histories"]
