@@ -1,0 +1,1777 @@
+{
+ "format": {
+  "name": "lindhard-se-yield-candidates-results",
+  "version": 1
+ },
+ "runs": [
+  {
+   "candidate": "acoustic-phonon",
+   "control": {
+    "delta": 2.0375,
+    "elastic_below_100_ev_per_primary": 1303.939,
+    "eta": 0.5125
+   },
+   "delta": 2.7115,
+   "elastic_below_100_ev_per_primary": 204.475,
+   "energy_ev": 800.0,
+   "eta": 0.4935,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 5423
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.773,
+   "elastic_below_100_ev_per_primary": 202.2915,
+   "energy_ev": 800.0,
+   "eta": 0.5235,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 5546
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.7285,
+   "elastic_below_100_ev_per_primary": 202.9945,
+   "energy_ev": 800.0,
+   "eta": 0.526,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 5457
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.7145,
+   "elastic_below_100_ev_per_primary": 204.715,
+   "energy_ev": 800.0,
+   "eta": 0.511,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 5429
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.8115,
+   "elastic_below_100_ev_per_primary": 203.47,
+   "energy_ev": 800.0,
+   "eta": 0.546,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 5623
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.687,
+   "elastic_below_100_ev_per_primary": 200.593,
+   "energy_ev": 800.0,
+   "eta": 0.5275,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 5374
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.792,
+   "elastic_below_100_ev_per_primary": 204.1235,
+   "energy_ev": 800.0,
+   "eta": 0.5205,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 5584
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.615,
+   "elastic_below_100_ev_per_primary": 198.255,
+   "energy_ev": 800.0,
+   "eta": 0.554,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 5230
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.758,
+   "elastic_below_100_ev_per_primary": 201.8445,
+   "energy_ev": 800.0,
+   "eta": 0.528,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 5516
+  },
+  {
+   "candidate": "acoustic-phonon",
+   "delta": 2.8245,
+   "elastic_below_100_ev_per_primary": 205.577,
+   "energy_ev": 800.0,
+   "eta": 0.533,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 5649
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 3.9815,
+   "energy_ev": 800.0,
+   "eta": 0.641,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 7963
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 3.919,
+   "energy_ev": 800.0,
+   "eta": 0.649,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 7838
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 4.015,
+   "energy_ev": 800.0,
+   "eta": 0.6815,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 8030
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 3.7755,
+   "energy_ev": 800.0,
+   "eta": 0.6735,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 7551
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 4.0495,
+   "energy_ev": 800.0,
+   "eta": 0.6535,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 8099
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 4.036,
+   "energy_ev": 800.0,
+   "eta": 0.677,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 8072
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 4.0045,
+   "energy_ev": 800.0,
+   "eta": 0.6765,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 8009
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 3.855,
+   "energy_ev": 800.0,
+   "eta": 0.641,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 7710
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 4.1115,
+   "energy_ev": 800.0,
+   "eta": 0.6575,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 8223
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 4.0505,
+   "energy_ev": 800.0,
+   "eta": 0.683,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 8101
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.0375,
+   "energy_ev": 800.0,
+   "eta": 0.5125,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 4075
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.0655,
+   "energy_ev": 800.0,
+   "eta": 0.5375,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 4131
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.1115,
+   "energy_ev": 800.0,
+   "eta": 0.5375,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 4223
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.9785,
+   "energy_ev": 800.0,
+   "eta": 0.5395,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 3957
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.102,
+   "energy_ev": 800.0,
+   "eta": 0.541,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 4204
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.0845,
+   "energy_ev": 800.0,
+   "eta": 0.555,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 4169
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.174,
+   "energy_ev": 800.0,
+   "eta": 0.5135,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 4348
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.028,
+   "energy_ev": 800.0,
+   "eta": 0.5605,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 4056
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.116,
+   "energy_ev": 800.0,
+   "eta": 0.552,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 4232
+  },
+  {
+   "candidate": "baseline",
+   "delta": 2.179,
+   "energy_ev": 800.0,
+   "eta": 0.5405,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 4358
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.115,
+   "energy_ev": 800.0,
+   "eta": 0.502,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 4230
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.078,
+   "energy_ev": 800.0,
+   "eta": 0.5445,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 4156
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.034,
+   "energy_ev": 800.0,
+   "eta": 0.539,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 4068
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.028,
+   "energy_ev": 800.0,
+   "eta": 0.534,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 4056
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.1455,
+   "energy_ev": 800.0,
+   "eta": 0.524,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 4291
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.0855,
+   "energy_ev": 800.0,
+   "eta": 0.56,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 4171
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.19,
+   "energy_ev": 800.0,
+   "eta": 0.523,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 4380
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.036,
+   "energy_ev": 800.0,
+   "eta": 0.575,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 4072
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.1325,
+   "energy_ev": 800.0,
+   "eta": 0.5355,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 4265
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.187,
+   "energy_ev": 800.0,
+   "eta": 0.553,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 4374
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.595,
+   "energy_ev": 800.0,
+   "eta": 0.3305,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 5190
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.624,
+   "energy_ev": 800.0,
+   "eta": 0.3375,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 5248
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.657,
+   "energy_ev": 800.0,
+   "eta": 0.3735,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 5314
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.6785,
+   "energy_ev": 800.0,
+   "eta": 0.3615,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 5357
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.639,
+   "energy_ev": 800.0,
+   "eta": 0.3535,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 5278
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.5945,
+   "energy_ev": 800.0,
+   "eta": 0.3675,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 5189
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.65,
+   "energy_ev": 800.0,
+   "eta": 0.353,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 5300
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.6055,
+   "energy_ev": 800.0,
+   "eta": 0.346,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 5211
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.627,
+   "energy_ev": 800.0,
+   "eta": 0.36,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 5254
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 2.646,
+   "energy_ev": 800.0,
+   "eta": 0.3555,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 5292
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.4815,
+   "energy_ev": 800.0,
+   "eta": 0.3525,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 4963
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.3925,
+   "energy_ev": 800.0,
+   "eta": 0.367,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 4785
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.541,
+   "energy_ev": 800.0,
+   "eta": 0.3775,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 5082
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.5375,
+   "energy_ev": 800.0,
+   "eta": 0.3795,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 5075
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.585,
+   "energy_ev": 800.0,
+   "eta": 0.3515,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 5170
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.526,
+   "energy_ev": 800.0,
+   "eta": 0.356,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 5052
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.54,
+   "energy_ev": 800.0,
+   "eta": 0.3445,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 5080
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.348,
+   "energy_ev": 800.0,
+   "eta": 0.352,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 4696
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.4985,
+   "energy_ev": 800.0,
+   "eta": 0.3655,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 4997
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.5105,
+   "energy_ev": 800.0,
+   "eta": 0.371,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 5021
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.953,
+   "energy_ev": 800.0,
+   "eta": 0.512,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 3906
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 2.026,
+   "energy_ev": 800.0,
+   "eta": 0.535,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 4052
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 2.0455,
+   "energy_ev": 800.0,
+   "eta": 0.535,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 4091
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.97,
+   "energy_ev": 800.0,
+   "eta": 0.5085,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 3940
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 2.059,
+   "energy_ev": 800.0,
+   "eta": 0.543,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 4118
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.9655,
+   "energy_ev": 800.0,
+   "eta": 0.543,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 3931
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 2.048,
+   "energy_ev": 800.0,
+   "eta": 0.5145,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 4096
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.9505,
+   "energy_ev": 800.0,
+   "eta": 0.5495,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 3901
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 2.0235,
+   "energy_ev": 800.0,
+   "eta": 0.545,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 4047
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 2.0265,
+   "energy_ev": 800.0,
+   "eta": 0.549,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 4053
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.9315,
+   "energy_ev": 800.0,
+   "eta": 0.5035,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 3863
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 2.047,
+   "energy_ev": 800.0,
+   "eta": 0.526,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 4094
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 2.077,
+   "energy_ev": 800.0,
+   "eta": 0.528,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 4154
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 2.001,
+   "energy_ev": 800.0,
+   "eta": 0.5465,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 4002
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 2.0525,
+   "energy_ev": 800.0,
+   "eta": 0.549,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 4105
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.9915,
+   "energy_ev": 800.0,
+   "eta": 0.5425,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 3983
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 2.0815,
+   "energy_ev": 800.0,
+   "eta": 0.5165,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 4163
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.895,
+   "energy_ev": 800.0,
+   "eta": 0.5675,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 3790
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.9595,
+   "energy_ev": 800.0,
+   "eta": 0.5525,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 3919
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 2.036,
+   "energy_ev": 800.0,
+   "eta": 0.5415,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 4072
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.102,
+   "energy_ev": 800.0,
+   "eta": 0.5155,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 4204
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.1675,
+   "energy_ev": 800.0,
+   "eta": 0.538,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 4335
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.2485,
+   "energy_ev": 800.0,
+   "eta": 0.536,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 4497
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.135,
+   "energy_ev": 800.0,
+   "eta": 0.528,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 4270
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.1905,
+   "energy_ev": 800.0,
+   "eta": 0.538,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 4381
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.1975,
+   "energy_ev": 800.0,
+   "eta": 0.5555,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 4395
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.2365,
+   "energy_ev": 800.0,
+   "eta": 0.522,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 4473
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.081,
+   "energy_ev": 800.0,
+   "eta": 0.569,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 4162
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.2225,
+   "energy_ev": 800.0,
+   "eta": 0.554,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 4445
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 2.247,
+   "energy_ev": 800.0,
+   "eta": 0.5455,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 4494
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.8445,
+   "energy_ev": 800.0,
+   "eta": 0.627,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 5689
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.7055,
+   "energy_ev": 800.0,
+   "eta": 0.618,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 5411
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.843,
+   "energy_ev": 800.0,
+   "eta": 0.6545,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 5686
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.7135,
+   "energy_ev": 800.0,
+   "eta": 0.6475,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 5427
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.8815,
+   "energy_ev": 800.0,
+   "eta": 0.6495,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 5763
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.8565,
+   "energy_ev": 800.0,
+   "eta": 0.6445,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 5713
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.793,
+   "energy_ev": 800.0,
+   "eta": 0.6525,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 5586
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.7595,
+   "energy_ev": 800.0,
+   "eta": 0.6275,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 5519
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.9535,
+   "energy_ev": 800.0,
+   "eta": 0.625,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 5907
+  },
+  {
+   "candidate": "barrier-off",
+   "delta": 2.903,
+   "energy_ev": 800.0,
+   "eta": 0.6375,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 5806
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.6295,
+   "energy_ev": 800.0,
+   "eta": 0.509,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 3259
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.614,
+   "energy_ev": 800.0,
+   "eta": 0.5225,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 3228
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.7105,
+   "energy_ev": 800.0,
+   "eta": 0.54,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 3421
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.6495,
+   "energy_ev": 800.0,
+   "eta": 0.5465,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 3299
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.787,
+   "energy_ev": 800.0,
+   "eta": 0.542,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 3574
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.591,
+   "energy_ev": 800.0,
+   "eta": 0.526,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 3182
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.7445,
+   "energy_ev": 800.0,
+   "eta": 0.5235,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 3489
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.644,
+   "energy_ev": 800.0,
+   "eta": 0.5455,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 3288
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.682,
+   "energy_ev": 800.0,
+   "eta": 0.56,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 3364
+  },
+  {
+   "candidate": "baseline",
+   "delta": 1.6905,
+   "energy_ev": 800.0,
+   "eta": 0.521,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 3381
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 1.9775,
+   "energy_ev": 800.0,
+   "eta": 0.494,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 3955
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.078,
+   "energy_ev": 800.0,
+   "eta": 0.536,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 4156
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.1425,
+   "energy_ev": 800.0,
+   "eta": 0.5365,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 4285
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.0105,
+   "energy_ev": 800.0,
+   "eta": 0.5085,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 4021
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.201,
+   "energy_ev": 800.0,
+   "eta": 0.54,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 4402
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.016,
+   "energy_ev": 800.0,
+   "eta": 0.5405,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 4032
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.1,
+   "energy_ev": 800.0,
+   "eta": 0.5025,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 4200
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.011,
+   "energy_ev": 800.0,
+   "eta": 0.5375,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 4022
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.0125,
+   "energy_ev": 800.0,
+   "eta": 0.531,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 4025
+  },
+  {
+   "candidate": "elastic-no-exchange",
+   "delta": 2.061,
+   "energy_ev": 800.0,
+   "eta": 0.5205,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 4122
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.867,
+   "energy_ev": 800.0,
+   "eta": 0.4995,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 3734
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.8145,
+   "energy_ev": 800.0,
+   "eta": 0.508,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 3629
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.881,
+   "energy_ev": 800.0,
+   "eta": 0.524,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 3762
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.8695,
+   "energy_ev": 800.0,
+   "eta": 0.5135,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 3739
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.815,
+   "energy_ev": 800.0,
+   "eta": 0.5115,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 3630
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.802,
+   "energy_ev": 800.0,
+   "eta": 0.5205,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 3604
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.916,
+   "energy_ev": 800.0,
+   "eta": 0.517,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 3832
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.864,
+   "energy_ev": 800.0,
+   "eta": 0.5495,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 3728
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.873,
+   "energy_ev": 800.0,
+   "eta": 0.5415,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 3746
+  },
+  {
+   "candidate": "elastic-pre-149",
+   "delta": 1.883,
+   "energy_ev": 800.0,
+   "eta": 0.5395,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 3766
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.1525,
+   "energy_ev": 800.0,
+   "eta": 0.5235,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 4305
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.201,
+   "energy_ev": 800.0,
+   "eta": 0.513,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 4402
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.326,
+   "energy_ev": 800.0,
+   "eta": 0.536,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 4652
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.227,
+   "energy_ev": 800.0,
+   "eta": 0.5025,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 4454
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.215,
+   "energy_ev": 800.0,
+   "eta": 0.513,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 4430
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.127,
+   "energy_ev": 800.0,
+   "eta": 0.542,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 4254
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.2225,
+   "energy_ev": 800.0,
+   "eta": 0.5345,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 4445
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.121,
+   "energy_ev": 800.0,
+   "eta": 0.5235,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 4242
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.258,
+   "energy_ev": 800.0,
+   "eta": 0.536,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 4516
+  },
+  {
+   "candidate": "elastic-stand-in",
+   "delta": 2.174,
+   "energy_ev": 800.0,
+   "eta": 0.5495,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 4348
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.603,
+   "energy_ev": 800.0,
+   "eta": 0.5275,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 3206
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.6725,
+   "energy_ev": 800.0,
+   "eta": 0.5415,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 3345
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.7355,
+   "energy_ev": 800.0,
+   "eta": 0.5455,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 3471
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.6795,
+   "energy_ev": 800.0,
+   "eta": 0.5085,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 3359
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.779,
+   "energy_ev": 800.0,
+   "eta": 0.5305,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 3558
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.635,
+   "energy_ev": 800.0,
+   "eta": 0.5275,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 3270
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.7135,
+   "energy_ev": 800.0,
+   "eta": 0.523,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 3427
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.6145,
+   "energy_ev": 800.0,
+   "eta": 0.5295,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 3229
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.656,
+   "energy_ev": 800.0,
+   "eta": 0.539,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 3312
+  },
+  {
+   "candidate": "fermi-tpp2011",
+   "delta": 1.698,
+   "energy_ev": 800.0,
+   "eta": 0.527,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 3396
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.5,
+   "energy_ev": 800.0,
+   "eta": 0.514,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 3000
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.561,
+   "energy_ev": 800.0,
+   "eta": 0.5355,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 3122
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.6045,
+   "energy_ev": 800.0,
+   "eta": 0.534,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 3209
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.569,
+   "energy_ev": 800.0,
+   "eta": 0.527,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 3138
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.64,
+   "energy_ev": 800.0,
+   "eta": 0.5425,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 3280
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.5015,
+   "energy_ev": 800.0,
+   "eta": 0.5295,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 3003
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.5705,
+   "energy_ev": 800.0,
+   "eta": 0.539,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 3141
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.5555,
+   "energy_ev": 800.0,
+   "eta": 0.533,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 3111
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.5135,
+   "energy_ev": 800.0,
+   "eta": 0.545,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 3027
+  },
+  {
+   "candidate": "phi-high",
+   "delta": 1.5835,
+   "energy_ev": 800.0,
+   "eta": 0.534,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 3167
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.696,
+   "energy_ev": 800.0,
+   "eta": 0.53,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 1,
+   "slow": 3392
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.7665,
+   "energy_ev": 800.0,
+   "eta": 0.5315,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 2,
+   "slow": 3533
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.8155,
+   "energy_ev": 800.0,
+   "eta": 0.554,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 3,
+   "slow": 3631
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.8255,
+   "energy_ev": 800.0,
+   "eta": 0.533,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 4,
+   "slow": 3651
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.909,
+   "energy_ev": 800.0,
+   "eta": 0.542,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 5,
+   "slow": 3818
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.748,
+   "energy_ev": 800.0,
+   "eta": 0.5495,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 6,
+   "slow": 3496
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.857,
+   "energy_ev": 800.0,
+   "eta": 0.536,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 7,
+   "slow": 3714
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.8285,
+   "energy_ev": 800.0,
+   "eta": 0.5505,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 8,
+   "slow": 3657
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.7705,
+   "energy_ev": 800.0,
+   "eta": 0.545,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 9,
+   "slow": 3541
+  },
+  {
+   "candidate": "phi-low",
+   "delta": 1.847,
+   "energy_ev": 800.0,
+   "eta": 0.54,
+   "histories": 2000,
+   "material": "Cu",
+   "seed": 10,
+   "slow": 3694
+  }
+ ],
+ "settings": {
+  "acoustic_materials": [
+   "Au"
+  ],
+  "base_config": "mermin",
+  "candidates": {
+   "acoustic-phonon": {
+    "candidate": "(b) quasi-elastic scattering",
+    "change": "below 100 eV the Mott rows are replaced by the acoustic-phonon mean free path and angle of Verduin (2017), Table 3.2, mixed linearly up to 200 eV; no energy loss"
+   },
+   "barrier-off": {
+    "candidate": "context",
+    "change": "transparent boundary: no barrier at all (not a candidate; the largest effect the barrier can have)"
+   },
+   "baseline": {
+    "candidate": "-",
+    "change": "nothing: the `mermin` configuration of the \u03b4(E) tables"
+   },
+   "elastic-no-exchange": {
+    "candidate": "(a) elastic scattering",
+    "change": "Furness-McCarthy exchange correction off (DHFS potential in both)"
+   },
+   "elastic-pre-149": {
+    "candidate": "context",
+    "change": "stand-in potential and exchange off together: the elastic model of the \u03b4(E) runs before the DHFS rerun (two changes, so not a candidate row)"
+   },
+   "elastic-stand-in": {
+    "candidate": "(a) elastic scattering",
+    "change": "Thomas-Fermi Yukawa stand-in potential instead of DHFS (exchange on in both)"
+   },
+   "fermi-tpp2011": {
+    "candidate": "(c) band",
+    "change": "Fermi energy of TPP 2011, Table 1, instead of the free-electron value (one valence electron)"
+   },
+   "phi-high": {
+    "candidate": "(c) band",
+    "change": "work function at the high end of its cited range"
+   },
+   "phi-low": {
+    "candidate": "(c) band",
+    "change": "work function at the low end of its cited range"
+   }
+  },
+  "elastic_baseline": "mott/salvat-dhfs/exchange",
+  "energy_ev": 800.0,
+  "fermi_tpp2011_ev": {
+   "Au": 9.0,
+   "Cu": 8.7
+  },
+  "fermi_tpp2011_provenance": "Sensitivity run of #242, not a band default: Fermi energy printed in Table 1 of Tanuma, Powell and Penn, Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522 (authors' manuscript, NIMS MDR, doi:10.48505/nims.3238, p. 32), which does not give its source; work function: the mid value of the delta(E) runs (se_yield.py, METAL_BAND_PROVENANCE).",
+  "se_split_ev": 50,
+  "stand_in_potential": "thomas-fermi-yukawa"
+ },
+ "software": "lindhard 0.0.1 (8a47748)"
+}
