@@ -429,6 +429,11 @@ pub struct Particle {
     /// Index of the region the particle is in: the layer of a stack, the flat
     /// voxel index of a voxel grid (see [`Geometry`]).
     pub layer: usize,
+    /// Region the particle started in: the entry region of a primary, the
+    /// region of the displacing collision for a recoil. Unlike `layer` it does
+    /// not change as the particle moves, so a tally that sees the particle
+    /// leave can tell where the atom came from.
+    pub origin_layer: usize,
     /// 0 for the primary, parent's generation + 1 for recoils.
     pub generation: u32,
 }
@@ -1021,6 +1026,7 @@ impl<'a> Bca<'a> {
             pos: self.entry_pos,
             dir: self.beam.direction(),
             layer: self.entry_region,
+            origin_layer: self.entry_region,
             generation: 0,
         });
         while let Some(p) = pending.pop() {
@@ -1435,6 +1441,7 @@ impl<'a> Bca<'a> {
                 pos,
                 dir: recoil_dir(),
                 layer,
+                origin_layer: layer,
                 generation: parent_generation + 1,
             };
             tally.recoil(&r);
@@ -1543,6 +1550,7 @@ mod tests {
             pos: [x, 0.0, 0.0],
             dir,
             layer: 0,
+            origin_layer: 0,
             generation: 0,
         };
         let n = 3600;

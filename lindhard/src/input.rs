@@ -559,6 +559,16 @@ pub struct DynamicSpec {
     /// the element defaults.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub energies: BTreeMap<String, EnergyOverride>,
+    /// Sputter erosion and surface recession: sputtered atoms are removed from
+    /// the front of the target and the surface follows (see
+    /// [`crate::ion::dynamic::DynamicRun`], "Erosion"). Default `false`, which
+    /// keeps the surface fixed at `x = 0`.
+    #[serde(default, skip_serializing_if = "is_false")]
+    pub erosion: bool,
+}
+
+fn is_false(v: &bool) -> bool {
+    !*v
 }
 
 fn is_zero_u8(v: &u8) -> bool {

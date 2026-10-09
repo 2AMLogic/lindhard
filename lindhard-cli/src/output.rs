@@ -848,7 +848,7 @@ pub fn dynamic_steps_csv(d: &DynamicSimulation) -> String {
             s.clamped,
             s.removed_slabs,
             s.slabs.len(),
-            0.0f64,
+            s.recession_m / NM,
             thickness / NM,
             y.backscattered,
             y.transmitted,
@@ -928,6 +928,10 @@ struct DynamicTotals {
     backscattered_per_ion: f64,
     transmitted_per_ion: f64,
     sputtered_per_ion: f64,
+    /// Present only with erosion on, so the summary of a run without it is
+    /// byte-identical to what it was before erosion existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recession_nm: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -973,6 +977,12 @@ pub fn dynamic_summary_json(r: &Resolved, d: &DynamicSimulation) -> serde_json::
             backscattered_per_ion: last.cumulative.backscattered as f64 / n,
             transmitted_per_ion: last.cumulative.transmitted as f64 / n,
             sputtered_per_ion: last.cumulative.sputtered_total() as f64 / n,
+            recession_nm: r
+                .input
+                .dynamic
+                .as_ref()
+                .is_some_and(|d| d.erosion)
+                .then(|| last.recession_m / NM),
         },
         files: DynamicFiles {
             steps: DYNAMIC_STEPS_FILE,

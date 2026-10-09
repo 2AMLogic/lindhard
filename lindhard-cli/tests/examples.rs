@@ -680,6 +680,8 @@ fn invalid_dynamic_settings_fail_naming_the_field() {
         &format!("{base}relaxation = \"fixed-number-density\"\n"),
     );
     assert!(e.contains("dynamic.number_density_cm3"), "{e}");
+    let e = fails("dyn-erosion", &format!("{base}erosion = 1\n"));
+    assert!(e.contains("erosion"), "{e}");
 }
 
 // ---- electron runs -------------------------------------------------------------

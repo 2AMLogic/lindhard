@@ -34,8 +34,15 @@ one of two stated conventions:
 
 For an element in its own solid, `atomic_volume_from_density` gives
 \\( v = M / (N_A \rho) \\). After relaxation the slab boundaries are rebuilt
-from the front surface, which stays at \\( x = 0 \\): erosion or swelling
-moves the interior interfaces and the back face.
+from the front surface at \\( x = 0 \\). Swelling moves the interior
+interfaces and the back face. With sputter erosion on, the sputtered atoms
+of each element are removed from the front slabs (the loss they would
+otherwise cause in the slab where they were displaced is cancelled, so
+nothing is removed twice), the thickness they occupied under the chosen
+convention is the recession of that step, and the grid is re-anchored so the
+surface is again \\( x = 0 \\); a depth plus the cumulative recession is
+the depth in the original frame. Erosion is off by default and then changes
+nothing.
 
 ## Assumptions
 

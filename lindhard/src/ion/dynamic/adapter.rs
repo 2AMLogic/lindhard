@@ -17,6 +17,13 @@
 //!   removes nothing, and any atom that comes to rest in it adds nothing (the
 //!   substrate is not part of the inventory).
 //!
+//! In addition the tally records, per `(origin slab, Z)`, how many of the
+//! recoils that left through the front face were created in that slab
+//! ([`InventoryTally::sputtered_from`]), using `Particle::origin_layer`. The
+//! default conventions above already subtract those atoms at their origin;
+//! the driver's erosion mode uses the count to take them from the front of
+//! the target instead (module docs of [`DynamicRun`](super::DynamicRun)).
+//!
 //! Layer indices of the stack built by
 //! [`CompositionGrid::to_stack`](super::CompositionGrid::to_stack) are the slab
 //! indices of the grid (the substrate, if any, is the one layer after the last
@@ -81,6 +88,7 @@ impl Yields {
 pub struct InventoryTally {
     n_slabs: usize,
     counts: BTreeMap<(usize, u8), i64>,
+    sputtered_from: BTreeMap<(usize, u8), u64>,
     yields: Yields,
 }
 
@@ -91,6 +99,7 @@ impl InventoryTally {
         Self {
             n_slabs,
             counts: BTreeMap::new(),
+            sputtered_from: BTreeMap::new(),
             yields: Yields::default(),
         }
     }
@@ -102,6 +111,15 @@ impl InventoryTally {
             .iter()
             .filter(|(_, &n)| n != 0)
             .map(|(&k, &n)| (k, n))
+    }
+
+    /// Recoils that left through the front face, per `(origin slab, Z)`, in
+    /// that order. Only origins in a finite slab are listed (an atom from the
+    /// substrate was never part of the inventory), so for each `Z` the sum is
+    /// at most the `Z` entry of [`Yields::sputtered`]. Each of these atoms is
+    /// also in [`counts`](Self::counts) as a loss in its origin slab.
+    pub fn sputtered_from(&self) -> impl Iterator<Item = ((usize, u8), u64)> + '_ {
+        self.sputtered_from.iter().map(|(&k, &n)| (k, n))
     }
 
     /// The event counts.
@@ -141,7 +159,15 @@ impl BcaTally for InventoryTally {
         match (p.is_primary(), face) {
             (true, Face::Front) => self.yields.backscattered += 1,
             (true, Face::Back) => self.yields.transmitted += 1,
-            (false, Face::Front) => *self.yields.sputtered.entry(p.z).or_insert(0) += 1,
+            (false, Face::Front) => {
+                *self.yields.sputtered.entry(p.z).or_insert(0) += 1;
+                if p.origin_layer < self.n_slabs {
+                    *self
+                        .sputtered_from
+                        .entry((p.origin_layer, p.z))
+                        .or_insert(0) += 1;
+                }
+            }
             (false, Face::Back) => self.yields.recoils_transmitted += 1,
             // A stack has no lateral faces.
             (_, Face::Side) => {}
@@ -151,6 +177,9 @@ impl BcaTally for InventoryTally {
     fn merge(&mut self, other: Self) {
         for (k, n) in other.counts {
             *self.counts.entry(k).or_insert(0) += n;
+        }
+        for (k, n) in other.sputtered_from {
+            *self.sputtered_from.entry(k).or_insert(0) += n;
         }
         self.yields.add(&other.yields);
     }
