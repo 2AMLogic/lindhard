@@ -701,8 +701,8 @@ fn backscatter_validation_inputs_check() {
     inputs.sort();
     assert_eq!(
         inputs.len(),
-        4,
-        "expected eta_{{al,au,c,cu}}.toml, found {inputs:?}"
+        5,
+        "expected eta_{{al,au,c,cu,si}}.toml, found {inputs:?}"
     );
     for input in &inputs {
         let o = lindhard(&["check", input.to_str().unwrap()]);
@@ -710,7 +710,14 @@ fn backscatter_validation_inputs_check() {
         let stdout = String::from_utf8_lossy(&o.stdout);
         assert!(stdout.contains("electron run"), "{input:?}: {stdout}");
         assert!(stdout.contains("salvat-2003"), "{input:?}: corrections on");
-        assert!(stdout.contains("Hagemann"), "{input:?}: measured ELF");
+        assert!(
+            stdout.contains("elastic potential: salvat-dhfs"),
+            "{input:?}: DHFS potential (#169)"
+        );
+        // Al, Au, C, Cu: Hagemann et al. (1975); Si: Yang et al. (2019).
+        let si = input.file_name().is_some_and(|n| n == "eta_si.toml");
+        let elf = if si { "Yang" } else { "Hagemann" };
+        assert!(stdout.contains(elf), "{input:?}: measured ELF");
     }
 }
 

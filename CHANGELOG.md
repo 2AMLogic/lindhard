@@ -243,6 +243,12 @@ one version).
 
 ### Changed
 
+- `lindhard run` with `electron.elastic.potential = "salvat-dhfs"` now
+  applies the `exchange` and `correlation_polarization` corrections the input
+  asks for, solved on the DHFS Poisson density (Salvat et al. 1987,
+  Eq. (12)). Before, the DHFS elastic table was built without them and the
+  settings were silently ignored; DHFS runs with either correction on change
+  results (#169). The stand-in path is unchanged.
 - Elastic cross sections change for potentials without a polarization tail
   (static `Yukawa`, `SalvatDhfs`, `SquareWell`, and `CorrectedPotential` with
   exchange only): the radial Dirac solver now starts the outward integration

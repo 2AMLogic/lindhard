@@ -20,9 +20,8 @@ data and schema: validation/data/README.md).
 4. Sensitivity: at SENSITIVITY_ENERGIES_KEV the same input is rerun with the
    two elastic corrections switched off one at a time and together.
 
-A target without a committed input is not run: today that is Si, whose
-optical ELF is a documented gap (#125, docs/data-provenance.md). Its measured
-groups are still reported.
+A target without a committed input is not run; its measured groups are
+still reported. All five targets have one (Si since #169).
 
 Writes `validation/experiments/backscatter_results.json`, which
 `validation/update_docs.py` turns into the tables in docs/validation.md.

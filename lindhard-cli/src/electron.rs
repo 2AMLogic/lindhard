@@ -16,10 +16,10 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use lindhard::electron::data::CrossSectionTable;
 use lindhard::electron::elastic::table::{
-    build_elastic_table, combine, default_probability_grid, AtomicElastic, ElasticTableOptions,
-    PotentialSource, SalvatDhfsTable, ThomasFermiYukawa, DEFAULT_REFINE_TOLERANCE,
+    combine, default_probability_grid, AtomicElastic, PotentialSource, SalvatDhfsTable,
+    ThomasFermiYukawa, DEFAULT_REFINE_TOLERANCE,
 };
-use lindhard::electron::elastic::SolverOptions;
+use lindhard::electron::elastic::{SalvatDhfs, SolverOptions};
 use lindhard::electron::inelastic::table::{
     build_inelastic_table_for_model, mean_loss_ev, InelasticTableOptions,
 };
@@ -140,51 +140,45 @@ pub struct ElectronSimulation {
 }
 
 /// The elastic table of one material.
+///
+/// Each element's potential doubles as the electron density the optional
+/// exchange and correlation-polarization corrections need
+/// ([`AtomicElastic::compute_corrected`]): the Yukawa stand-in's own Poisson
+/// density, or the DHFS Poisson density of Salvat et al. (1987) Eq. (12)
+/// (`lindhard::electron::elastic::corrections`). Without corrections this is
+/// the plain partial-wave table of `build_elastic_table`.
 fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossSectionTable> {
     let grid = &r.table_energy_ev;
     let solver = SolverOptions::default();
-    match r.elastic.potential {
-        PotentialChoice::SalvatDhfs => {
-            // Fails with the library's account of the missing coefficient
-            // table (docs/data-provenance.md).
-            let opts = ElasticTableOptions {
-                energy_ev: grid.clone(),
-                ..ElasticTableOptions::default()
-            };
-            Ok(build_elastic_table(m, &SalvatDhfsTable, &opts)?)
+    let desc = match r.elastic.potential {
+        PotentialChoice::SalvatDhfs => SalvatDhfsTable.description(),
+        PotentialChoice::ThomasFermiYukawa => ThomasFermiYukawa.description(),
+    };
+    let desc = format!("{desc}{}", r.elastic.corrections_description());
+    let mut atoms = Vec::new();
+    for c in m.components() {
+        if c.atom_fraction() <= 0.0 {
+            continue;
         }
-        PotentialChoice::ThomasFermiYukawa => {
-            let desc = format!(
-                "{}{}",
-                ThomasFermiYukawa.description(),
-                r.elastic.corrections_description()
-            );
-            let mut atoms = Vec::new();
-            for c in m.components() {
-                if c.atom_fraction() <= 0.0 {
-                    continue;
-                }
-                let z = c.z();
-                let y = ThomasFermiYukawa::yukawa(z)?;
-                // The Yukawa is its own (Poisson) density for the corrections.
-                atoms.push(AtomicElastic::compute_corrected(
-                    z,
-                    &y,
-                    &y,
-                    &desc,
-                    grid,
-                    &r.elastic.corrections(z),
-                    solver,
-                )?);
+        let z = c.z();
+        let corrections = r.elastic.corrections(z);
+        atoms.push(match r.elastic.potential {
+            PotentialChoice::SalvatDhfs => {
+                let p = SalvatDhfs::for_element(u32::from(z))?;
+                AtomicElastic::compute_corrected(z, &p, &p, &desc, grid, &corrections, solver)?
             }
-            Ok(combine(
-                m,
-                &atoms,
-                &default_probability_grid(),
-                Some(DEFAULT_REFINE_TOLERANCE),
-            )?)
-        }
+            PotentialChoice::ThomasFermiYukawa => {
+                let y = ThomasFermiYukawa::yukawa(z)?;
+                AtomicElastic::compute_corrected(z, &y, &y, &desc, grid, &corrections, solver)?
+            }
+        });
     }
+    Ok(combine(
+        m,
+        &atoms,
+        &default_probability_grid(),
+        Some(DEFAULT_REFINE_TOLERANCE),
+    )?)
 }
 
 /// The inelastic table of one material.
@@ -650,5 +644,52 @@ mod csv_tests {
         assert_eq!(csv_field("a,b"), "\"a,b\"");
         assert_eq!(csv_field("a\"b"), "\"a\"\"b\"");
         assert_eq!(csv_field("a\r\nb\nc"), "\"a\r\nb\nc\"");
+    }
+}
+
+#[cfg(test)]
+mod elastic_tests {
+    use super::*;
+    use std::path::Path;
+
+    /// The CLI example on a two-point grid with the given potential and
+    /// exchange setting.
+    fn resolved(potential: PotentialChoice, exchange: bool) -> ResolvedElectron {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/electron");
+        let text = std::fs::read_to_string(dir.join("e_10keV_si.toml")).unwrap();
+        let mut r = ElectronInput::from_toml_str(&text)
+            .unwrap()
+            .resolve_in(&dir)
+            .unwrap();
+        r.elastic.potential = potential;
+        r.elastic.exchange = exchange;
+        r.table_energy_ev = vec![100.0, 1000.0];
+        r
+    }
+
+    fn table(potential: PotentialChoice, exchange: bool) -> CrossSectionTable {
+        let r = resolved(potential, exchange);
+        elastic_table(&r, &r.materials[0].material).unwrap()
+    }
+
+    /// The corrections reach the DHFS table as they reach the stand-in's
+    /// (#169: they were dropped for `salvat-dhfs`).
+    #[test]
+    fn exchange_applies_to_both_potentials() {
+        for p in [
+            PotentialChoice::SalvatDhfs,
+            PotentialChoice::ThomasFermiYukawa,
+        ] {
+            let (off, on) = (table(p, false), table(p, true));
+            assert!(!off.model().contains("exchange"), "{p:?}: {}", off.model());
+            assert!(on.model().contains("exchange"), "{p:?}: {}", on.model());
+            assert_ne!(
+                off.inverse_mfp_per_m(),
+                on.inverse_mfp_per_m(),
+                "{p:?}: exchange left the table unchanged"
+            );
+        }
+        let dhfs = table(PotentialChoice::SalvatDhfs, false);
+        assert!(dhfs.model().contains("Salvat"), "{}", dhfs.model());
     }
 }

@@ -348,8 +348,9 @@ step barrier).
 | `exchange` | `false` | Furness-McCarthy exchange correction |
 | `correlation_polarization` | absent (off) | A table: `polarizability.<Sym> = { bohr3 = ..., source = "..." }` for every target element (the source is required), optional `b_pol_squared` (absent: Seltzer's rule, which needs every table energy above 50 eV) and `outer_radius_bohr` (50) |
 
-The corrections are solved per grid energy with the stand-in's own Poisson
-density (`AtomicElastic::compute_corrected`); the elastic table's `model` and
+The corrections are solved per grid energy with the chosen potential's own
+Poisson density: the stand-in's, or the DHFS density of Salvat et al. (1987)
+Eq. (12) (`AtomicElastic::compute_corrected`); the elastic table's `model` and
 `provenance` strings name them and every polarizability with its source.
 
 **`[electron.inelastic]`**

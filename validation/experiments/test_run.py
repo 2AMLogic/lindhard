@@ -502,7 +502,7 @@ class BackscatterGroups(unittest.TestCase):
         # polarization table removes only that table (eta_c.toml also has a
         # [materials] table for glassy carbon).
         names = sorted(p.name for p in self.b.INPUTS.glob("eta_*.toml"))
-        self.assertEqual(names, [f"eta_{t.lower()}.toml" for t in sorted(self.b.TARGETS) if t != "Si"])
+        self.assertEqual(names, sorted(f"eta_{t.lower()}.toml" for t in self.b.TARGETS))
         for name in names:
             base_path = self.b.INPUTS / name
             base = base_path.read_text()

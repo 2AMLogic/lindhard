@@ -12,12 +12,15 @@
 #
 # Model, and what it is not (docs/validation.md lists the gaps):
 # - Elastic: Mott cross sections from radial-Dirac partial waves on the
-#   Thomas-Fermi Yukawa STAND-IN potential (the DHFS table is a gap), with the
-#   Furness-McCarthy exchange and the correlation-polarization corrections on.
+#   Salvat et al. (1987) DHFS potential, with the Furness-McCarthy exchange
+#   and the correlation-polarization corrections on (both solved on the DHFS
+#   Poisson density).
 # - Inelastic: the single-pole Penn algorithm on the measured optical ELF of
-#   Hagemann, Gudat and Kunz (1975). Full Penn is the issue's model but builds
-#   its tables far too slowly for this sweep; no separate inner-shell channel
-#   (the transport loop has none yet; the optical ELF includes the shells).
+#   Hagemann, Gudat and Kunz (1975). Full Penn is the issue's model, but its
+#   tables do not build in a usable time (#168 measured Si 5 keV unfinished
+#   at 60 min on 4 threads; single pole: 108 s); speeding that build up is
+#   #256. No separate inner-shell channel (the transport loop has none yet;
+#   the optical ELF includes the shells).
 # - No secondaries and a transparent surface: no band parameters of Cu are
 #   committed. With a 50 eV cutoff no electron that could count towards eta
 #   is dropped, but fast secondaries (above 50 eV) are not generated.
@@ -35,7 +38,7 @@ boundary = "transparent"
 
 [electron.elastic]
 model = "mott"
-potential = "thomas-fermi-yukawa"
+potential = "salvat-dhfs"
 exchange = true
 
 [electron.elastic.correlation_polarization]
