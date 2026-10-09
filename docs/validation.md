@@ -2088,12 +2088,31 @@ no physics of the δ(E) tables changed.
   one was found for the barrier of Cu or Au (TPP's N_v = 11 is the count
   behind their plasmon energy). No barrier at all (`barrier-off`, context
   only) raises δ by 91 % and 69 %.
-  - *Au ELF: not tested by a run*, because only one Au ELF is committed.
+  - *Au ELF: not tested by a run*, because only one Au ELF is committed:
+    that of Hagemann, Gudat and Kunz (1975). There is a published reason
+    to suspect it, which is not a run and attributes nothing. TPP 2011 did
+    not use that data set for Au. Their Table 2 (manuscript p. 34) gives
+    the Au optical data as Palik's handbook (their Ref. 23) from 0.1 to
+    9919 eV and Henke et al. (their Ref. 22) above 10 044 eV, and p. 7
+    says: "we have chosen a set of optical data from Palik [23] for gold
+    since this data set gave an ELF in better agreement with transmission
+    electron energy-loss experiments [36] than the data set from Hagemann
+    et al. [21] that we used previously" (references resolved in
+    [`data-provenance.md`](data-provenance.md)). They do not say at which
+    energy losses the two ELFs differ, or by how much. Neither Palik's
+    handbook nor those energy-loss measurements were opened, and what a
+    second Au ELF does to δ was not run (#301).
+
     The Mermin IMFP of the runs (model Fermi energy 0) against TPP 2011,
     Table 4 (manuscript pp. 41 and 47; their energies are above the Fermi
-    level), measured with the example's `imfp:` mode:
+    level), measured with the example's `imfp:` mode. **The Au TPP column
+    was computed from a different optical data set (Palik) than the two
+    Au columns beside it (the committed Hagemann ELF)**, so the Au
+    differences mix the ELF with the model. The Cu TPP column uses the
+    same Hagemann measurement as the committed Cu ELF from 1 to 95 eV
+    (their Table 2, p. 33).
 
-    | E (eV) | Au TPP (Å) | Au Mermin (Å) | Au single-pole (Å) | Cu TPP (Å) | Cu Mermin (Å) | Cu single-pole (Å) |
+    | E (eV) | Au TPP, Palik ELF (Å) | Au Mermin, Hagemann ELF (Å) | Au single-pole, Hagemann ELF (Å) | Cu TPP (Å) | Cu Mermin (Å) | Cu single-pole (Å) |
     |---|---|---|---|---|---|---|
     | 54.6 | 4.95 | 6.00 (+21 %) | 9.61 (+94 %) | 4.94 | 6.97 (+41 %) | 5.19 (+5 %) |
     | 99.5 | 4.34 | 4.70 (+8 %) | 5.30 (+22 %) | 5.00 | 6.28 (+26 %) | 5.06 (+1 %) |
@@ -2101,10 +2120,21 @@ no physics of the δ(E) tables changed.
     | 492.7 | 8.29 | 7.78 (-6 %) | 7.93 (-4 %) | 10.3 | 11.81 (+15 %) | 10.02 (-3 %) |
     | 992.3 | 13.4 | 12.89 (-4 %) | 12.79 (-5 %) | 16.6 | 19.21 (+16 %) | 16.16 (-3 %) |
 
+    The 20 Mermin and single-pole values are hand-entered: they are not
+    in `se_yield_candidates_results.json`, `se_yield_candidates.py --check`
+    does not cover them, and the inputs and the build that produced them
+    were not recorded. They were not re-derived when this note was added
+    (2026-10-09). The mode is `cargo run --release -p lindhard-cli
+    --example acoustic_phonon_elastic -- INPUT imfp:54.6,99.5,200.3,492.7,992.3`
+    on an electron input of the material with the inelastic model named
+    in the column.
+
     With the model Fermi energy set to TPP's the Mermin values change by
     at most 2 %. For Au the Mermin IMFP is within 8 % of TPP from 99.5 eV
-    up and 21 % longer at 54.6 eV; TPP tabulate nothing lower, which is
-    where the secondaries are, so this does not test the low-energy ELF.
+    up and 21 % longer at 54.6 eV. Since the two Au ELFs differ, that
+    agreement is not a test of the committed Au ELF at any energy, and
+    TPP tabulate nothing below 54.6 eV, which is where the secondaries
+    are.
     For Cu the Mermin IMFP is 15 to 41 % longer than TPP's and than the
     single-pole model's on the same ELF. Whether that moves the Cu yield,
     and which way, was not tested (#300).
@@ -2114,8 +2144,13 @@ no physics of the δ(E) tables changed.
     it. Inner-shell channels are #273; whether a deep shell matters for Au
     or Cu at 800 eV was neither ruled in nor out.
 - **What the literature says, and does not.** No source was found that
-  shows this excess to be the published behaviour of these models. Two
-  that were opened bear on it. Verduin (2017), p. 155, says the simulator
+  shows this excess to be the published behaviour of these models. Three
+  that were opened bear on it. TPP 2011, p. 7, replaced the Hagemann et
+  al. optical data for Au, the data set of the committed Au ELF, by
+  Palik's because the ELF agreed better with transmission energy-loss
+  measurements (quoted under (c)); they say nothing about secondary
+  yields, and no such statement is made for Cu, whose excess is of
+  similar size. Verduin (2017), p. 155, says the simulator
   of Kieft and Bosch applies an energy-dependent filter at interfaces that
   removes slow electrons, that "that filter is necessary for SEYs to match
   with experiment", and that the thesis's own models no longer need it;
@@ -2125,8 +2160,8 @@ no physics of the δ(E) tables changed.
   with Mott elastic and dielectric inelastic scattering for Cu, Ag and Au,
   report agreement with their measured yields after choosing the work
   function for the best agreement (p. 10: Cu 5.4 eV against a measured
-  4.6 eV, Au 4.7 eV against 5.3 eV). Neither is evidence about the cause
-  here.
+  4.6 eV, Au 4.7 eV against 5.3 eV). None of the three is evidence about
+  the cause here.
 
 The excess is therefore **not attributed**. Ruled out as its explanation,
 by the runs above: the stand-in elastic potential and the missing exchange
