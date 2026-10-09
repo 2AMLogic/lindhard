@@ -51,7 +51,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
 import lindhard_cli  # noqa: E402
-import se_yield  # noqa: E402  (BAND, BAND_PROVENANCE: the delta(E) band inputs, read only)
+import se_yield  # noqa: E402  (BAND, METAL_BAND_PROVENANCE: the delta(E) band inputs, read only)
 
 DATA = HERE.parent / "data" / "backscatter"
 INPUTS = HERE / "backscatter"
@@ -81,7 +81,7 @@ VARIANTS = [
 # Fast-secondary sensitivity (#148, part 1): the baseline input rerun with
 # `secondaries = "kieft-bosch"` and a step barrier at the mid work function,
 # with exactly the band inputs of the delta(E) runs (se_yield.BAND,
-# se_yield.BAND_PROVENANCE: free-electron metal). Only the metals have such
+# se_yield.METAL_BAND_PROVENANCE: free-electron metal). Only the metals have such
 # inputs: Si has no cited valence-band width (BAND_DEFAULTS, #115) and C has no
 # band data, so both are stated gaps, not run. Everything else (elastic model,
 # optical ELF, tables, 50 eV band-bottom cutoff, seed, primaries) is the baseline's.
@@ -225,7 +225,7 @@ def secondary_input(base: str, base_dir: Path, target: str, e_kev: float, histor
     t = _replace_once(t, r'^secondaries = ".*"$', 'secondaries = "kieft-bosch"')
     t = _replace_once(t, r'^boundary = ".*"$', 'boundary = "step-barrier"')
     band = se_yield.BAND[target]
-    prov = se_yield.BAND_PROVENANCE.replace('"', "'")
+    prov = se_yield.METAL_BAND_PROVENANCE.replace('"', "'")
     line = (f'band = {{ kind = "free-electron-metal", '
             f'valence_electrons_per_atom = {band["valence_electrons_per_atom"]!r}, '
             f'work_function_ev = {band["work_function_ev"]["mid"]!r}, provenance = "{prov}" }}')
@@ -328,7 +328,7 @@ def secondary_meta(binary: Path) -> dict:
         "boundary": "step-barrier",
         "work_function": "mid",
         "band_inputs": {t: se_yield.BAND[t] for t in SECONDARY_TARGETS},
-        "band_provenance": se_yield.BAND_PROVENANCE,
+        "band_provenance": se_yield.METAL_BAND_PROVENANCE,
         "gaps": SECONDARY_GAPS,
     }
 

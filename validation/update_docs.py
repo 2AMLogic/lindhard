@@ -870,7 +870,7 @@ def _backscatter_secondaries(r: dict) -> list[str]:
         "",
         "**Fast secondaries (sensitivity, not graded).** The baseline input rerun with "
         f"`secondaries = \"{meta['secondaries']}\"` and a `{meta['boundary']}` at the mid work function, with "
-        "the band inputs (free-electron metal) of the δ(E) runs, `BAND` and `BAND_PROVENANCE` in "
+        "the band inputs (free-electron metal) of the δ(E) runs, `BAND` and `METAL_BAND_PROVENANCE` in "
         "`validation/experiments/se_yield.py`; elastic model, optical ELF, tables, 50 eV band-bottom cutoff, "
         f"seed and primaries as in the baseline ({meta['lindhard']}"
         + ("; the baseline runs at these points were redone with it and reproduce the committed η bit for bit"
