@@ -204,9 +204,12 @@
 //! 300 K). More ions reach the tail, but the deepest ones stop shallower:
 //! the 99th percentile is 112 nm static and 98 nm at 300 K.
 //!
-//! The local Oen-Robinson half does not remove the rise. So the
-//! amorphous-average nonlocal loss in channels is not its cause (#225, part
-//! 3). Correlated vibration is absent: neighbouring atoms are displaced
+//! The local Oen-Robinson half does not remove the rise, so the rise is
+//! robust to this change of loss treatment (#225, part 3). The cause is
+//! not established: `EquipartitionLsOr` still keeps half of the nonlocal
+//! loss, so both treatments share the amorphous-average nonlocal
+//! approximation, and this comparison cannot rule it out as a contributor.
+//! Correlated vibration is absent: neighbouring atoms are displaced
 //! independently ("Thermal vibration"). No source read for #225 gives the
 //! sign of the effect of correlations on this tail, so its expected
 //! direction is not stated.
