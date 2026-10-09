@@ -633,8 +633,7 @@ impl FullPenn {
             fermi: self.fermi,
             t_max,
             tolerance: self.rel_tol,
-            unresolved: 0,
-            unresolved_span: None,
+            unresolved: Vec::new(),
         };
         if t_max <= w_lo {
             return Ok(empty);
@@ -686,7 +685,6 @@ impl FullPenn {
                 if *t && grid.s[c + 1] - grid.s[c] < 2.0 * MIN_CELL {
                     *t = false;
                     if !first {
-                        grid.unresolved += 1;
                         grid.note_unresolved(c);
                     }
                 }
@@ -694,10 +692,10 @@ impl FullPenn {
             first = false;
             let cells: Vec<usize> = (0..todo.len()).filter(|&c| todo[c]).collect();
             if cells.is_empty() || grid.s.len() + cells.len() > MAX_GRID_NODES {
-                grid.unresolved += cells.len();
                 for &c in &cells {
                     grid.note_unresolved(c);
                 }
+                grid.unresolved.sort_by(|a, b| a.0.total_cmp(&b.0));
                 return Ok(grid);
             }
             // Mean density of each row in ln ω on the current nodes: the
@@ -835,7 +833,9 @@ const MAX_GRID_NODES: usize = 20_000;
 /// row energies of the table as the test set. Every computed midpoint is
 /// kept as a node. Cells are not halved below 1e-4 in `ln ω`, nor beyond
 /// 20000 nodes; a cell that still fails there is counted in
-/// [`Self::unresolved_cells`].
+/// [`Self::unresolved_cells`] and kept, and [`Self::diimfp_per_m_ev`]
+/// does not answer inside it (the caller uses the direct model there), so
+/// no unchecked interpolation enters a table.
 #[derive(Debug, Clone)]
 pub struct DiimfpGrid {
     /// Loss nodes, `ln ω` (ω in Hartree), ascending.
@@ -846,20 +846,22 @@ pub struct DiimfpGrid {
     /// Highest table energy, Hartree.
     t_max: f64,
     tolerance: f64,
-    /// Cells that failed the check but were not halved (width or node cap).
-    unresolved: usize,
-    /// Lowest and highest `ln ω` covered by those cells.
-    unresolved_span: Option<(f64, f64)>,
+    /// Cells `(ln ω lo, ln ω hi)` that failed the check but were not halved
+    /// (width or node cap), ascending; the grid does not answer in them.
+    unresolved: Vec<(f64, f64)>,
 }
 
 impl DiimfpGrid {
-    /// Widens the recorded span of unresolved cells to cell `c`.
+    /// Records cell `c` as unresolved.
     fn note_unresolved(&mut self, c: usize) {
-        let (a, b) = (self.s[c], self.s[c + 1]);
-        self.unresolved_span = Some(match self.unresolved_span {
-            None => (a, b),
-            Some((lo, hi)) => (lo.min(a), hi.max(b)),
-        });
+        self.unresolved.push((self.s[c], self.s[c + 1]));
+    }
+
+    /// Whether `x = ln ω` lies in (or on the edge of) an unresolved cell.
+    fn in_unresolved(&self, x: f64) -> bool {
+        let i = self.unresolved.partition_point(|&(lo, _)| lo <= x);
+        // cells are ascending and disjoint apart from shared edges
+        i > 0 && x <= self.unresolved[i - 1].1
     }
 
     /// The window integral `∫_{q-}^{q+} Im[-1/ε] dq/q` of one profile at
@@ -926,16 +928,24 @@ impl DiimfpGrid {
     /// halved, at the narrowest cell width or the node cap (zero when the
     /// refinement converged).
     pub fn unresolved_cells(&self) -> usize {
-        self.unresolved
+        self.unresolved.len()
+    }
+
+    /// Whether loss `loss_ev` (eV) lies in an unresolved cell, where
+    /// [`Self::diimfp_per_m_ev`] gives no answer.
+    pub fn loss_is_unresolved_ev(&self, loss_ev: f64) -> bool {
+        let w = loss_ev / hartree_ev();
+        w > 0.0 && self.in_unresolved(w.ln())
     }
 
     /// The loss range, eV, from the lowest to the highest edge of the
     /// cells counted in [`Self::unresolved_cells`]; `None` when there are
-    /// none. Only the span is kept, not the individual cells.
+    /// none. The grid answers in none of these cells.
     pub fn unresolved_loss_range_ev(&self) -> Option<(f64, f64)> {
         let h = hartree_ev();
-        self.unresolved_span
-            .map(|(lo, hi)| (lo.exp() * h, hi.exp() * h))
+        let lo = self.unresolved.first()?.0;
+        let hi = self.unresolved.iter().map(|c| c.1).fold(lo, f64::max);
+        Some((lo.exp() * h, hi.exp() * h))
     }
 
     /// The tolerance the grid was refined to (the model tolerance).
@@ -945,8 +955,9 @@ impl DiimfpGrid {
 
     /// The DIIMFP at kinetic energy `energy_ev` (above the Fermi level) and
     /// loss `loss_ev`, m⁻¹ eV⁻¹, from the grid; `None` where the grid does
-    /// not cover it (a loss below the lowest ELF energy, or an energy above
-    /// the highest table energy), where the caller uses
+    /// not cover it (a loss below the lowest ELF energy, an energy above
+    /// the highest table energy, or a loss in an unresolved cell, see
+    /// [`Self::unresolved_cells`]), where the caller uses
     /// [`FullPenn::diimfp_per_m_ev`]. Zero for `ω <= 0` or `ω > T`, as there.
     ///
     /// Any `T` up to the highest table energy is answered, but the
@@ -967,7 +978,7 @@ impl DiimfpGrid {
         }
         let x = w.ln();
         let n = self.s.len();
-        if !(x >= self.s[0] && x <= self.s[n - 1]) {
+        if !(x >= self.s[0] && x <= self.s[n - 1]) || self.in_unresolved(x) {
             return None;
         }
         let i = (self.s.partition_point(|&y| y <= x).max(1) - 1).min(n - 2);

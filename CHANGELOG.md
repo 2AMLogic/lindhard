@@ -29,7 +29,9 @@ one version).
   (relative, or relative to the row's mean density in `ln ω` where the
   DIIMFP is below it). Built in parallel, bit-identical on any thread count.
   `DiimfpGrid::unresolved_cells` and `unresolved_loss_range_ev` report the
-  cells left failing the check and their loss range. New example
+  cells left failing the check and their loss range; the grid does not
+  answer inside those cells, so the table builder uses the direct model
+  there rather than an unchecked interpolation. New example
   `penn_full_build_time` (build time and accuracy checks).
 - Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
   `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the

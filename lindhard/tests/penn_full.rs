@@ -364,6 +364,40 @@ fn diimfp_grid_reproduces_the_direct_diimfp() {
 }
 
 #[test]
+#[ignore = "slow; run with --release -- --ignored"]
+fn diimfp_grid_leaves_unresolved_cells_to_the_direct_model() {
+    // At a tolerance the profile quadrature cannot meet, the refinement
+    // stops at the narrowest cell width with cells still failing. The grid
+    // must not interpolate in them (the caller then uses the direct model).
+    let strict = FullPenn::new(coarse_fixture())
+        .with_relative_tolerance(1e-5)
+        .unwrap();
+    let e = GRID_ENERGIES[0];
+    let grid = strict.diimfp_grid(&[e]).unwrap();
+    assert!(
+        grid.unresolved_cells() > 0,
+        "the refinement cap was not reached"
+    );
+    let (lo, hi) = grid.unresolved_loss_range_ev().unwrap();
+    let (mut none, mut some) = (0, 0);
+    for j in 0..2000 {
+        let w = lo * (hi / lo).powf(j as f64 / 1999.0);
+        let from_grid = grid.diimfp_per_m_ev(e, w);
+        assert_eq!(from_grid.is_none(), grid.loss_is_unresolved_ev(w), "{w} eV");
+        if from_grid.is_none() {
+            none += 1;
+        } else {
+            some += 1;
+        }
+    }
+    assert!(none > 0, "no probe fell in an unresolved cell");
+    eprintln!(
+        "{} unresolved cells; {none} probes unanswered, {some} answered",
+        grid.unresolved_cells()
+    );
+}
+
+#[test]
 fn full_penn_tables_follow_the_model_on_any_thread_count() {
     // A table of the full model reads its rows from the DIIMFP grid; the
     // stopping power of each row (λ⁻¹ ⟨W⟩) must still be the model's, and
