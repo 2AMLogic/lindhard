@@ -423,9 +423,12 @@ fn results_json(
     psf: Option<&PsfOutcome>,
 ) -> serde_json::Result<serde_json::Value> {
     let mut v = serde_json::to_value(report)?;
-    // The per-bin profile goes to the CSV; keep the totals and the fits.
+    // The per-bin profile goes to the CSV; keep the totals and the fits. A
+    // null `deposition.psf` stays, so the existing summary key is not removed.
     if let Some(d) = v["deposition"].as_object_mut() {
-        d.remove("psf");
+        if d.get("psf").is_some_and(|p| !p.is_null()) {
+            d.remove("psf");
+        }
     }
     if let (Some(o), Some(p)) = (v.as_object_mut(), psf) {
         o.insert("psf".into(), psf_json(p)?);

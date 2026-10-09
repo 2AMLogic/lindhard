@@ -1676,6 +1676,9 @@ fn rerun_removes_stale_electron_psf_csvs() {
     let s = json(&out.join("electron_summary.json"));
     assert!(s["files"]["psf_profile"].is_null() && s["files"]["psf_parameters"].is_null());
     assert!(s["results"].get("psf").is_none());
+    // The existing key stays, as null, so the format version is unchanged.
+    assert!(s["results"]["deposition"].get("psf").is_some());
+    assert!(s["results"]["deposition"]["psf"].is_null());
     assert!(note.exists());
     run(&without, &out, &["--histories", "32"]);
     run(&with, &out, &["--histories", "32"]);
