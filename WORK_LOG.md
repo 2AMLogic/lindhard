@@ -4,6 +4,29 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-09
 
+- **PR #286**: Table cache: verify cached table bytes and key the elastic model choice
+- **PR #281**: docs: correct the PSF summary and CSV description in cli.md
+- **PR #283**: Derive Debug on PsfOutcome (fix red CI on main)
+- **PR #278**: Enable unreachable_pub and missing_debug_implementations in [workspace.lints]
+- **PR #275**: Crystal: validate the off-axis thermal tail and rescope the 7/22 criterion (#225)
+- **PR #274**: feat: CSG primitives and boolean combinations on the Geometry trait
+- **Issue #282** (closed): CI red on main: PsfOutcome lacks Debug under missing_debug_implementations
+- **Issue #271** (closed): CLI: expose cubic crystal targets and orientation through shared TOML input
+- **Issue #268** (closed): Electron diagnostics: count capped secondary tracks and affected histories
+- **Issue #265** (closed): CI: run the validation Python unit tests (three test files never run on PRs)
+- **Issue #264** (closed): Refactor: split lindhard/src/geometry.rs into stack and voxel modules (no behaviour change)
+- **Issue #260** (closed): Refactor: split lindhard/src/input.rs into schema and resolve modules (no behaviour change)
+- **Issue #259** (closed): CI: scheduled release-mode run of the #[ignore]d statistical and slow tests
+- **Issue #254** (closed): Correct the PSF summary and CSV documentation
+- **Issue #253** (closed): Electron validation: report actual cross-section table endpoint use
+- **Issue #249** (closed): Table cache: verify cached table bytes and key the elastic model choice (follow-up to #248)
+- **Issue #225** (closed): Crystal: off-axis channeling tail grows with thermal vibration (7°/22°, 30°/17°): validate and rescope the 7/22 dRp criterion
+- **Issue #222** (closed): Enable unreachable_pub and missing_debug_implementations in [workspace.lints]
+- **Issue #194** (closed): [Epic #25] CSG primitives and boolean combinations on the Geometry trait
+- **Issue #169** (closed): Backscatter validation: evaluate C, Si, Au and rerun with full Penn + DHFS (follow-up to #148)
+- **Issue #131** (closed): Elastic solver: start-radius rule r_t exp(-60/|kappa|) is too close to the turning point for |kappa| of several hundred
+- **Issue #123** (closed): tally::electron: state (or change) the energy reference of deposits when secondaries are on
+- **Issue #81** (closed): docs: clean-room warning — cited IPP 9/64 PDF contains the TRIDYN program listing (Appendix 1)
 - **PR #276**: CLI: expose cubic crystal targets and orientation through shared TOML input
 - **PR #272**: Backscatter validation: DHFS for all five targets, add Si (#169)
 - **PR #270**: Electron diagnostics: count capped secondary tracks and affected histories
