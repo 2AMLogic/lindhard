@@ -226,7 +226,7 @@ fn main() -> Result<()> {
     // The input's own tables, built as `lindhard run` builds them.
     let mut tables_only = r.clone();
     tables_only.input.run.histories = 1;
-    let sim = lindhard_cli::electron::simulate_electron(&tables_only, Some(2))?;
+    let sim = lindhard_cli::electron::simulate_electron(&tables_only, Some(2), None)?;
     let own = sim.tables[0].inelastic.clone();
     let inelastic = match mode {
         "clamp" => own,
