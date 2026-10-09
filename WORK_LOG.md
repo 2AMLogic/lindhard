@@ -4,6 +4,18 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-09
 
+- **PR #276**: CLI: expose cubic crystal targets and orientation through shared TOML input
+- **PR #272**: Backscatter validation: DHFS for all five targets, add Si (#169)
+- **PR #270**: Electron diagnostics: count capped secondary tracks and affected histories
+- **PR #269**: Split geometry.rs into stack and voxel modules (no behaviour change)
+- **PR #267**: Run the validation Python unit tests in CI
+- **PR #266**: docs: warn that IPP 9/64 bundles the TRIDYN listing (Tier C)
+- **PR #263**: Split input.rs into schema, resolve and resolved modules (no behaviour change)
+- **PR #262**: CI: scheduled release-mode run of the #[ignore]d statistical and slow tests
+- **PR #261**: Use the WKB start radius for every elastic potential (#131)
+- **PR #258**: Document the band-bottom reference of electron deposits (#123)
+- **PR #257**: Report electron cross-section table endpoint use (#253)
+- **PR #246**: Build hydrogenic K-shell optical ELFs for the inner-shell channels (#135)
 - **PR #252**: test: validate the crystal Oen-Robinson local loss and flag its unverified constants
 - **PR #248**: Electron CLI: reuse built cross-section tables across runs (--table-cache)
 - **PR #244**: docs(electron): trace the Al/Au single-pole Penn delta overestimate to the low-energy IMFP
