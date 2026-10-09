@@ -579,6 +579,30 @@ fn dynamic_example() -> PathBuf {
 }
 
 #[test]
+fn dynamic_csv_write_failure_publishes_no_summary() {
+    for (name, file) in [
+        ("dynamic-fail-steps", "dynamic_steps.csv"),
+        ("dynamic-fail-composition", "dynamic_composition.csv"),
+    ] {
+        let out = scratch(name);
+        std::fs::create_dir(out.join(file)).unwrap();
+        let ex = dynamic_example();
+        let o = lindhard(&[
+            "run",
+            ex.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+            "--ions",
+            "50",
+        ]);
+        assert!(!o.status.success(), "{file}: expected failure");
+        let e = String::from_utf8_lossy(&o.stderr);
+        assert!(e.contains(&out.join(file).display().to_string()), "{e}");
+        assert!(!out.join("dynamic_summary.json").exists(), "{file}");
+    }
+}
+
+#[test]
 fn dynamic_example_checks_runs_and_writes_a_time_series() {
     let ex = dynamic_example();
     ok(&lindhard(&["check", ex.to_str().unwrap()]));
@@ -1328,13 +1352,20 @@ fn electron_table_cache_reuse_is_bit_identical() {
         &["--histories", "80", "--threads", "4", "--table-cache", c],
     );
     let files = cache_files(&cache);
-    assert_eq!(files.len(), 4, "two tables and two keys: {files:?}");
+    assert_eq!(
+        files.len(),
+        6,
+        "two tables, two hashes and two keys: {files:?}"
+    );
     assert!(files
         .iter()
         .any(|f| f.starts_with("elastic-") && f.ends_with(".toml")));
     assert!(files
         .iter()
         .any(|f| f.starts_with("inelastic-") && f.ends_with(".key.json")));
+    assert!(files
+        .iter()
+        .any(|f| f.starts_with("elastic-") && f.ends_with(".sha256")));
     for threads in ["1", "8"] {
         let o = lindhard(&[
             "run",
@@ -1405,8 +1436,24 @@ fn electron_table_cache_reuse_is_bit_identical() {
     );
 }
 
+/// Writes `text` as the cached table at `path` and records its SHA-256 in the
+/// entry's hash file, as a store would: an edit the hash check cannot see,
+/// to reach the checks behind it.
+fn write_table_and_hash(path: &Path, text: &str) {
+    std::fs::write(path, text).unwrap();
+    std::fs::write(
+        path.with_extension("sha256"),
+        format!(
+            "{}\n",
+            lindhard_cli::table_cache::sha256_hex(text.as_bytes())
+        ),
+    )
+    .unwrap();
+}
+
 /// A run whose physics differs is not served another run's table, and a
-/// cache file that does not match its key is refused with the field named.
+/// cache file that does not match its key or its recorded SHA-256 is refused
+/// with the field or file named.
 #[test]
 fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
     let dir = scratch("electron-cache-keys");
@@ -1437,7 +1484,7 @@ fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
         ])
     };
     ok(&go(&src, "a"));
-    assert_eq!(cache_files(&cache).len(), 4);
+    assert_eq!(cache_files(&cache).len(), 6);
 
     // Another Fermi energy: the elastic table is reused, the inelastic one
     // is built and stored beside the first.
@@ -1451,7 +1498,7 @@ fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
         table_sources(&dir.join("b")),
         ("cache".into(), "built".into())
     );
-    assert_eq!(cache_files(&cache).len(), 6);
+    assert_eq!(cache_files(&cache).len(), 9);
 
     // A key file edited under its hash name is refused, naming the field.
     let key = cache_files(&cache)
@@ -1469,33 +1516,69 @@ fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
     assert!(e.contains("field `kind` differs"), "{e}");
     std::fs::write(&key_path, &good).unwrap();
 
-    // A table of another cache format version under the key is an error,
-    // not a silent rebuild.
     let table_path = cache.join(key.replace(".key.json", ".toml"));
+    let hash_path = cache.join(key.replace(".key.json", ".sha256"));
     let table = std::fs::read_to_string(&table_path).unwrap();
+    let hash = std::fs::read_to_string(&hash_path).unwrap();
+
+    // One cross-section value edited so the table still parses and
+    // validates: refused by its SHA-256, naming the file.
+    let first = table.find("inverse_mfp_per_m = [").unwrap() + "inverse_mfp_per_m = [".len();
+    let end = first + table[first..].find(',').unwrap();
+    let value: f64 = table[first..end].trim().parse().unwrap();
+    assert!(value > 0.0);
+    let edited = format!("{}{:?}{}", &table[..first], value * 1.5, &table[end..]);
+    lindhard::electron::data::CrossSectionTable::from_toml_str(&edited)
+        .expect("the edited table is still a valid table");
+    std::fs::write(&table_path, &edited).unwrap();
+    let o = go(&src, "g");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains("SHA-256"), "{e}");
+    assert!(
+        e.contains(table_path.file_name().unwrap().to_str().unwrap()),
+        "{e}"
+    );
+    std::fs::write(&table_path, &table).unwrap();
+
+    // A missing hash file is an error naming it, not a silent reuse.
+    std::fs::remove_file(&hash_path).unwrap();
+    let o = go(&src, "h");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        e.contains(hash_path.file_name().unwrap().to_str().unwrap()),
+        "{e}"
+    );
+    assert!(e.contains("missing"), "{e}");
+    std::fs::write(&hash_path, &hash).unwrap();
+
+    // A table of another cache format version under the key is an error,
+    // not a silent rebuild (its hash rewritten to reach the loader).
     let line = format!(
         "format_version = {}",
         lindhard::electron::data::CACHE_FORMAT_VERSION
     );
     assert!(table.contains(&line));
-    std::fs::write(&table_path, table.replace(&line, "format_version = 0")).unwrap();
+    write_table_and_hash(&table_path, &table.replace(&line, "format_version = 0"));
     let o = go(&src, "d");
     assert!(!o.status.success());
     let e = String::from_utf8_lossy(&o.stderr);
     assert!(e.contains("version"), "{e}");
 
-    // A table whose grid was edited is refused.
+    // A table whose grid was edited (and its hash with it) is refused.
     let first = table.find("energy_ev = [").unwrap() + "energy_ev = [".len();
     let end = first + table[first..].find(',').unwrap();
     let edited = format!("{}10.5{}", &table[..first], &table[end..]);
-    std::fs::write(&table_path, edited).unwrap();
+    write_table_and_hash(&table_path, &edited);
     let o = go(&src, "e");
     assert!(!o.status.success());
     let e = String::from_utf8_lossy(&o.stderr);
     assert!(e.contains("field `energy_ev`"), "{e}");
 
     // Restored, it is read again.
-    std::fs::write(&table_path, &table).unwrap();
+    write_table_and_hash(&table_path, &table);
+    assert_eq!(std::fs::read_to_string(&hash_path).unwrap(), hash);
     ok(&go(&src, "f"));
     assert_eq!(
         table_sources(&dir.join("f")),

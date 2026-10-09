@@ -555,3 +555,68 @@ fn crystal_rejects_unsupported_physics_with_the_key() {
     );
     assert!(matches!(err(&nref), InputError::Parse(m) if m.contains("reference")));
 }
+
+fn with_divergence(table: &str) -> String {
+    B_SI.replace(
+        "tilt_deg = 7.0\n",
+        &format!("tilt_deg = 7.0\n[beam.divergence]\n{table}\n"),
+    )
+}
+
+#[test]
+fn beam_divergence_resolves_in_radians_and_echoes() {
+    assert_eq!(
+        Input::from_toml_str(B_SI)
+            .unwrap()
+            .resolve()
+            .unwrap()
+            .divergence,
+        crate::ion::crystal::Divergence::None
+    );
+    let text = with_divergence("model = \"uniform-cone\"\nhalf_angle_deg = 2.0");
+    let i = Input::from_toml_str(&text).unwrap();
+    let r = i.resolve().unwrap();
+    assert_eq!(
+        r.divergence,
+        crate::ion::crystal::Divergence::UniformCone {
+            half_angle_rad: 2f64.to_radians()
+        }
+    );
+    // The echo (and so the output metadata) keeps the input spelling, and the
+    // TOML round-trips.
+    assert_eq!(r.input.beam.divergence, i.beam.divergence);
+    assert_eq!(
+        Input::from_toml_str(&i.to_toml_string().unwrap()).unwrap(),
+        i
+    );
+}
+
+#[test]
+fn bad_beam_divergence_is_diagnosed_with_the_field() {
+    for (table, want) in [
+        (
+            "model = \"gaussian\"\nsigma_deg = -1.0",
+            "beam.divergence.sigma_deg",
+        ),
+        (
+            "model = \"gaussian\"\nsigma_deg = nan",
+            "beam.divergence.sigma_deg",
+        ),
+        (
+            "model = \"gaussian\"\nsigma_deg = 30.0",
+            "beam.divergence.sigma_deg",
+        ),
+        (
+            "model = \"uniform-cone\"\nhalf_angle_deg = inf",
+            "beam.divergence.half_angle_deg",
+        ),
+    ] {
+        let e = err(&with_divergence(table));
+        assert_eq!(field(&e), want, "{table}");
+    }
+    let dynamic = with_divergence("model = \"gaussian\"\nsigma_deg = 0.1").replace(
+        "[run]",
+        "[dynamic]\nfluence_cm2 = 1e14\nions_per_step = 5\n[run]",
+    );
+    assert_eq!(field(&err(&dynamic)), "beam.divergence");
+}

@@ -46,20 +46,25 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
-- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#234**: Dynamic composition: sputter erosion and surface recession in the fluence loop (Epic #22, Phase 2)
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
+- **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements
+- **#241**: Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp
+- **#256**: Full Penn: make one inelastic table build finish in usable time (split from #169)
+- **#280**: Crystal validation: characterize screen-oxide effects on substrate channeling tails
+- **#285**: Ion beam: connect existing divergence sampling to transport and shared TOML
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#288**: Ion beam: connect divergence sampling to transport and shared TOML
+- **#289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
 
 ## Approved (Awaiting Merge)
 
@@ -67,6 +72,7 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
 - **#236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
+- **#284**: Screen-oxide substrate channeling tail characterization (#280)
 
 ## Proposed
 
@@ -78,17 +84,21 @@ Issues carrying `loom:curated`.
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50) *(curated)*
 - **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
 - **#93**: [Epic #11] Elastic validation: total and transport cross sections vs published partial-wave values (C, Si, Cu, Au) *(curated)*
+- **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
 - **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(curated)*
 - **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
+- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
+- **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
 - **#233**: Python wheels: maturin multi-platform builds and PyPI trusted publishing (Epic #28, Phase 2) *(curated)*
+- **#241**: Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp *(curated)*
+- **#256**: Full Penn: make one inelastic table build finish in usable time (split from #169) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#192**: Test: malformed and hostile input values must error, never panic or hang *(architect)*
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(architect)*
-- **#226**: Crystal flight: impact-parameter-dependent (Oen-Robinson) electronic loss for channeled ions (Epic #12, Phase 2) *(architect)*
 
 ## Epics
 
@@ -108,12 +118,12 @@ Issues carrying `loom:curated`.
 |------|-------|
 | Operator merge-risk holds | 2 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 3 |
-| In Progress (`loom:building`) | 1 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 11 |
-| Architect / Hermit proposals | 3 |
+| Ready (`loom:issue`) | 2 |
+| In Progress (`loom:building`) | 6 |
+| PRs awaiting review | 2 |
+| Approved PRs awaiting merge | 3 |
+| Curated | 16 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
 

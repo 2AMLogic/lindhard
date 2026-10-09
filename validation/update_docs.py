@@ -858,6 +858,49 @@ def level3_sputter_summary() -> str:
     return "\n".join(lines)
 
 
+def _backscatter_secondaries(r: dict) -> list[str]:
+    """Fast-secondary sensitivity of eta (#148 part 1): same input with
+    Kieft-Bosch secondaries and the step barrier on. Not part of the graded
+    table; the tolerance verdict above is for the baseline."""
+    meta = r.get("secondary_sensitivity")
+    rows = [t for t in r["targets"] if t.get("secondary_sensitivity")]
+    if not meta or not rows:
+        return []
+    lines = [
+        "",
+        "**Fast secondaries (sensitivity, not graded).** The baseline input rerun with "
+        f"`secondaries = \"{meta['secondaries']}\"` and a `{meta['boundary']}` at the mid work function, with "
+        "the band inputs (free-electron metal) of the δ(E) runs, `BAND` and `METAL_BAND_PROVENANCE` in "
+        "`validation/experiments/se_yield.py`; elastic model, optical ELF, tables, 50 eV band-bottom cutoff, "
+        f"seed and primaries as in the baseline ({meta['lindhard']}"
+        + ("; the baseline runs at these points were redone with it and reproduce the committed η bit for bit"
+           if meta.get("baseline_reproduced") else "")
+        + "). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries "
+        "included. With secondaries on a primary can yield several such electrons, and the run summary does "
+        "not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the "
+        "binomial error if no primary yields more than one, an underestimate only to the extent that some "
+        "yield several. The baseline column is the main table's; the measured median is as above; the "
+        "graded verdict above is for the baseline and is not re-judged here.",
+        "",
+        "| Target | E (keV) | Baseline η ± σ | With secondaries η ± σ | Change | Measured median | With secondaries - median |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for t in rows:
+        groups = {f"{g['energy_kev']:g}": g for g in t["groups"]}
+        for e, run in t["secondary_sensitivity"].items():
+            base = t["runs"][e]
+            d = run["eta"] - base["eta"]
+            med = groups[e]["median"]
+            dm = "-" if med is None else f"{run['eta'] - med:+.3f}"
+            lines.append(
+                f"| {t['target']} | {e} | {base['eta']:.4f} ± {base['eta_se']:.4f} | "
+                f"{run['eta']:.4f} ± {run['eta_se']:.4f} | {d:+.4f} | "
+                f"{'-' if med is None else f'{med:.3f}'} | {dm} |")
+    lines += ["", "Not run, for lack of band inputs: " + "; ".join(
+        f"{k}: {v}" for k, v in meta["gaps"].items()) + "."]
+    return lines
+
+
 def level3_backscatter() -> str:
     """The electron backscatter coefficient table and the elastic-correction
     sensitivity (#148), from validation/experiments/backscatter_results.json.
@@ -954,6 +997,7 @@ def level3_backscatter() -> str:
                      f"{big[0]:.4f} in η) are small next to the 0.05 tolerance and the measured spread, with "
                      "the potential the corrections are solved on (each run's `elastic_model`)."
                      if all(x[1] < 2 for x in effects) else "at least one difference exceeds 2 σ.")]
+    lines += _backscatter_secondaries(r)
     lines += ["", "Per-run values: `validation/experiments/backscatter_results.json`; datasets: "
               "`validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md)."]
     return "\n".join(lines)

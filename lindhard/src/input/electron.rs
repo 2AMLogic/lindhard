@@ -228,6 +228,15 @@ pub enum ElasticModelChoice {
     Mott,
 }
 
+impl ElasticModelChoice {
+    /// The stable label (the input spelling).
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Mott => "mott",
+        }
+    }
+}
+
 /// Atomic potential of the elastic model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -637,6 +646,8 @@ pub struct DataFile {
 /// The elastic choices after validation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ElasticChoice {
+    /// The elastic model.
+    pub model: ElasticModelChoice,
     /// The atomic potential.
     pub potential: PotentialChoice,
     /// Furness-McCarthy exchange on or off.
@@ -1130,6 +1141,7 @@ impl ElectronInput {
             }
         }
         let elastic = ElasticChoice {
+            model: el.model,
             potential: el.potential,
             exchange: el.exchange,
             correlation_polarization: cp,

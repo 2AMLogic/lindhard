@@ -7,8 +7,43 @@ one version).
 
 ## [Unreleased]
 
+### Fixed
+
+- Dynamic runs write `dynamic_summary.json` last, after
+  `dynamic_steps.csv` and the composition CSV, like ion and electron runs
+  (#292). A failed CSV write no longer leaves a new summary.
+
 ### Added
 
+- `BcaTally::partner` (#250): a tally hook, a no-op by default, that reports
+  every collision partner's impact parameter and the number of partners of
+  its collision step, before the collision changes the particle. The
+  amorphous model reports its hard and weak collisions, the crystal flight
+  model every simultaneous partner. Results are unchanged.
+- Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
+  `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the
+  bound-free cross sections of Karzas and Latter, Astrophys. J. Suppl. 6, 167
+  (1961), eqs. (36) and (37), reduced for `n = 2` and checked against the
+  Gaunt factors of that paper's Table 1. L2 and L3 use the same 2p formula,
+  each with its own binding energy and occupancy. New public
+  `hydrogenic_2s_oscillator_strength_density_per_ev` and
+  `hydrogenic_2p_oscillator_strength_density_per_ev`. K-shell results are
+  unchanged; the M shell and above are still an error (with a new message).
+- Ion beam divergence in transport (#285): the optional `[beam.divergence]`
+  input table (`model = "gaussian"` with `sigma_deg` per plane, or
+  `"uniform-cone"` with `half_angle_deg`; widths in `[0, 10]` degrees; static
+  ion runs only), the opt-in `Bca::with_divergence` engine setter,
+  `Bca::primary_direction`, `Bca::divergence_metadata`, and `Beam`-level
+  Python arguments `divergence_model` / `divergence_deg`. Each primary's
+  direction is sampled once about the nominal direction on a dedicated
+  segment of its own stream (word `2^65`) and conditioned on pointing into the
+  target (bounded rejection, error `BcaError::BeamDivergence` on exhaustion).
+  Without it results are unchanged. The summary gains
+  `physics.beam_divergence` (no `format.version` bump). `Bca::history` and
+  `history_in` now return the new `HistoryError` (wrapping `StoppingError`)
+  and `BcaError` gains the `BeamDivergence` variant. An input capability, not
+  a validated channeling prediction. Example:
+  `examples/b_5keV_si_crystal_divergence.toml`.
 - `geometry::CsgGeometry`, `geometry::Csg` and `geometry::Primitive`:
   constructive-solid-geometry targets of box, capped-cylinder and half-space
   primitives combined by nestable union, intersection and difference, one
@@ -60,11 +95,16 @@ one version).
   value is left out of the serialised metadata. The new tests are in
   `tests/crystal_electronic.rs` and measure `R = E_local / E_nonlocal`
   (Ar 20 keV into Si). Along <110> and <100>, R is 0.26 and 0.60 times the
-  random-direction value. In a random direction the crystal R is 7.6 %
-  above the amorphous one at the same `p_max`, which is outside the 5 %
-  acceptance. This is a known gap (#250), and that test fails until it is
-  resolved. The module docs no longer call impact-parameter-dependent
-  stopping in crystals a later step. Results are unchanged.
+  off-axis value. Along the fixed off-axis direction 30/17 the crystal R is
+  7.6 % above the amorphous one at the same `p_max`, outside the 5 % that
+  #226 asked for. #250 traced this to the directions, not to the counting:
+  averaged over all beam directions the crystal R is 0.990 of the amorphous
+  one (the rule of angular averages of Lindhard, Mat. Fys. Medd. Dan. Vid.
+  Selsk. 34, no. 14 (1965), section 5), and the channeling directions lie
+  below that average. The 5 % criterion is now asserted on the direction
+  average, and the 30/17 quotient is a recorded value. The module docs no
+  longer call impact-parameter-dependent stopping in crystals a later step.
+  Results are unchanged.
 - Cited electron band defaults (#115): `electron::boundary::BAND_DEFAULTS`,
   `band_defaults`, `BandDefaults`, `BandKind`, `CitedValue`, `BandFill`,
   `BandDefaults::complete` and `BandStructure::from_defaults`. The table
@@ -84,6 +124,12 @@ one version).
   each table's `source` (`built` or `cache`) and its cache file (`path`,
   `sha256`, `key_sha256`) under `physics.materials`.
   `validation/oracles/run_electron.py` uses it across batches.
+- Table cache integrity (#249): each entry now also stores the SHA-256 of
+  the table file (`<kind>-<hash>.sha256`), and a lookup refuses a table whose
+  bytes do not match it (or whose hash file is missing), naming the file,
+  before parsing it. The elastic key includes `electron.elastic.model`
+  (`ElasticChoice::model`, `ElasticModelChoice::label`), and the key version
+  is 2, so entries written before this change are rebuilt.
 - Inner-shell ELFs built in the engine (#135): `electron::inelastic::shell_elf`
   builds the optical ELF of a K shell from Stobbe's hydrogenic
   photoionization formula (dV2022 eq. (2), edge and occupancy from a

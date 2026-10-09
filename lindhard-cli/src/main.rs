@@ -276,6 +276,12 @@ fn check(path: &Path) -> Result<()> {
                 .map_or(String::new(), |c| format!(" (adaptive, max change {c})"))
         );
     }
+    if let Some(d) = lindhard::ion::bca::DivergenceMetadata::new(&r.divergence) {
+        println!(
+            "  beam divergence: {} {} = {} deg, {}",
+            d.model, d.width_kind, d.width_deg, d.incidence
+        );
+    }
     for (i, c) in r.input.crystal.iter().enumerate() {
         println!(
             "  crystal[{i}]: {} on layers {:?}, normal {:?}, reference {:?}, wafer rotation {} deg{}",
@@ -384,15 +390,15 @@ fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
         let p = out.join(name);
         std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
     };
-    write(
-        output::DYNAMIC_SUMMARY_FILE,
-        output::dynamic_summary_json(r, &d)?,
-    )?;
+    // Serialize first, so a failure writes nothing.
+    let summary = output::dynamic_summary_json(r, &d)?;
     write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(&d))?;
     write(
         output::DYNAMIC_COMPOSITION_FILE,
         output::dynamic_composition_csv(&d),
     )?;
+    // Last, so the summary describes the completed output set.
+    write(output::DYNAMIC_SUMMARY_FILE, summary)?;
     let last = d.steps.last().expect("step 0");
     eprintln!(
         "{} ions in {} steps ({} attempts rejected): {} sputtered atoms, {} slabs left; wrote {}",

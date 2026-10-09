@@ -63,9 +63,10 @@ RESULTS = HERE / "se_yield_results.json"
 PROVENANCE = REPO / "docs" / "data-provenance.md"
 
 MATERIALS = ["Al", "Cu", "Si", "Au"]
-# Materials that can be run: an optical ELF with provenance is committed.
+# Materials that can be run: an optical ELF with provenance is committed. The Si ELF (Yang et al. 2019, #125)
+# ends at 199 eV: the Si K shell and the L-shell tail above 199 eV are absent (docs/data-provenance.md).
 OPTICAL_ELF = {"Al": "al_elf_hagemann1975.toml", "Cu": "cu_elf_hagemann1975.toml",
-               "Au": "au_elf_hagemann1975.toml"}
+               "Si": "si_elf_yang2019.toml", "Au": "au_elf_hagemann1975.toml"}
 MIN_POINTS = 5
 # The energy range the issue compares (normal incidence, 100 eV to 5 keV). A data set whose interior maximum
 # lies outside it is not measuring the low-energy maximum of delta(E) and does not resolve it (amended in #149
@@ -83,52 +84,102 @@ SLOW_ENERGIES_EV = [100, 200, 400, 800, 1500, 3000]  # Mermin: table builds take
 # its table build after 45 minutes on two threads of a shared host (2026-10-08) and was stopped.
 PENN_FULL_ENERGIES_EV = [200, 800]
 
-# Band inputs: caller-supplied. #115 added cited band defaults (lindhard::electron::boundary::BAND_DEFAULTS)
-# but found no openable source for the work function or Fermi energy of Al, Cu or Au, so these stay as they
-# are. See docs/data-provenance.md, "Band inputs of the SE-yield validation runs" and "Per-material barrier
-# parameters".
+# Band inputs. Metals (Al, Cu, Au): caller-supplied. #115 added cited band defaults
+# (lindhard::electron::boundary::BAND_DEFAULTS) but found no openable source for the work function or Fermi
+# energy of Al, Cu or Au, so these stay as they are. Si: an insulator band; the band gap and the electron
+# affinity are the cited BAND_DEFAULTS values of #115 (Robertson and Wallace 2015), and the valence band width,
+# which BAND_DEFAULTS lacks, is the computed Gamma25' - Gamma1 separation of Chelikowsky and Cohen (1974), whose
+# Table IV lists two photoemission measurements that agree with it within their stated errors. See
+# docs/data-provenance.md, "Band inputs of the SE-yield validation runs", "Cited band defaults" and
+# "Per-material barrier parameters".
 BAND = {
     "Al": {
+        "kind": "free-electron-metal",
         "valence_electrons_per_atom": 3.0,
         "work_function_ev": {"low": 4.06, "mid": 4.16, "high": 4.26},
     },
     "Cu": {
+        "kind": "free-electron-metal",
         "valence_electrons_per_atom": 1.0,
         "work_function_ev": {"low": 4.53, "mid": 4.815, "high": 5.10},
     },
+    "Si": {
+        "kind": "insulator",
+        "valence_band_width_ev": 12.36,
+        "band_gap_ev": 1.1,
+        "affinity_ev": 4.05,
+    },
     "Au": {
+        "kind": "free-electron-metal",
         "valence_electrons_per_atom": 1.0,
         "work_function_ev": {"low": 5.10, "mid": 5.285, "high": 5.47},
     },
 }
-BAND_PROVENANCE = (
-    "Caller-supplied for the delta(E) validation (#149), pending #115: work function from the range printed "
+METAL_BAND_PROVENANCE = (
+    "Caller-supplied for the delta(E) validation (#149); #115 found no openable source for these, so they stay: "
+    "work function from the range printed "
     "for the element in the Wikipedia 'Work function' table, revision 1368612509 of 2026-08-10, which cites "
     "CRC Handbook of Chemistry and Physics (2008), p. 12-124 (the Handbook itself was not opened); "
     "'low'/'high' are the table's endpoints and 'mid' their mean; valence electrons per atom from the "
     "ground-state configuration (Wikipedia 'Electron configuration', Al [Ne]3s2 3p1 -> 3, Cu [Ar]3d10 4s1 -> 1; Au [Xe]4f14 5d10 6s1 -> 1, from the table of anomalous configurations of the revision 1378968605 of 2026-10-07 of that article); "
     "Fermi energy by the library's free-electron formula (Verduin 2017, Eq. 3.133) from the density of the element table."
 )
+SI_BAND_PROVENANCE = (
+    "Si insulator band for the delta(E) validation (#149). Band gap 1.1 eV and electron affinity 4.05 eV: the cited "
+    "lindhard::electron::boundary::BAND_DEFAULTS values (#115), J. Robertson and R. M. Wallace, Mater. Sci. Eng. R 88, "
+    "1-41 (2015), doi:10.1016/j.mser.2014.11.001, authors' manuscript hdl:1810/246441, Table 1, p. 43 (gap) and Fig. 42, "
+    "p. 63 (affinity). Valence band width 12.36 eV: Gamma1 at -12.36 eV below Gamma25' (the valence band top, 0.00 eV) "
+    "in the energy-dependent nonlocal pseudopotential calculation of J. R. Chelikowsky and M. L. Cohen, 'Electronic "
+    "structure of silicon', Phys. Rev. B 10, 5095 (1974), doi:10.1103/PhysRevB.10.5095, Table II (and the 'Nonlocal' "
+    "column of Table IV), read in the preprint LBL-3127 (escholarship.org/uc/item/4jf90532, preprint pp. 38 and 40), "
+    "opened 2026-10-09; a published computed value. Its Table IV lists, for the same level, the photoemission values "
+    "-12.4 +- 0.6 eV (W. D. Grobman and D. E. Eastman, Phys. Rev. Lett. 29, 1508 (1972)) and -12.5 +- 0.6 eV (L. Ley et "
+    "al., Phys. Rev. Lett. 29, 1088 (1972)); those two papers were not opened as published (closed access; the Ley et "
+    "al. preprint LBL-688 gives Gamma1 relative to the Fermi level only)."
+)
+BAND_PROVENANCE = {"Al": METAL_BAND_PROVENANCE, "Cu": METAL_BAND_PROVENANCE, "Au": METAL_BAND_PROVENANCE,
+                   "Si": SI_BAND_PROVENANCE}
 
-# id -> (label, inelastic model, work function key or None for barrier off, cutoff reference, energies)
+# Elastic scattering of every delta(E) run (#149 remaining scope 1a). Mott partial waves on the DHFS potential of
+# Salvat et al. (1987) (#130) with the Furness-McCarthy exchange correction, as in
+# validation/experiments/backscatter/eta_*.toml. The correlation-polarization correction of those inputs is OFF
+# here: with Seltzer's cutoff rule, the only one with a source in the library (Salvat 2003, Eq. (5)), it needs
+# every table energy above 50 eV, and delta(E) needs elastic tables down to 5 eV; no cited b_pol^2 for lower
+# energies is available, and choosing one would be a tuned constant.
+ELASTIC_POTENTIAL = "salvat-dhfs"
+ELASTIC_EXCHANGE = True
+ELASTIC_ID = "mott/salvat-dhfs/exchange"
+
+# id -> (label, inelastic model, work function key or None for barrier off, cutoff reference, energies).
+# "Barrier on" is the inner-potential step of the material's band: work function above the Fermi level for the
+# metals (the key picks the value in BAND), the electron affinity above the conduction band for Si (one cited
+# value, so the key does not apply to it).
 CONFIGS = {
-    "default": ("single-pole Penn, barrier on (mid work function), vacuum-level cutoff", "penn-single-pole", "mid", "vacuum-level", ENERGIES_EV),
-    "phi-low": ("as default, work function at the low end of the cited range", "penn-single-pole", "low", "vacuum-level", ENERGIES_EV),
-    "phi-high": ("as default, work function at the high end of the cited range", "penn-single-pole", "high", "vacuum-level", ENERGIES_EV),
+    "default": ("single-pole Penn, barrier on (metals: mid work function; Si: electron affinity), vacuum-level cutoff", "penn-single-pole", "mid", "vacuum-level", ENERGIES_EV),
+    "phi-low": ("as default, work function at the low end of the cited range (metals only)", "penn-single-pole", "low", "vacuum-level", ENERGIES_EV),
+    "phi-high": ("as default, work function at the high end of the cited range (metals only)", "penn-single-pole", "high", "vacuum-level", ENERGIES_EV),
     "barrier-off": ("as default, transparent boundary (no barrier), vacuum-level cutoff", "penn-single-pole", None, "vacuum-level", ENERGIES_EV),
     "cutoff-band-bottom": ("as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level)", "penn-single-pole", "mid", "band-bottom", ENERGIES_EV),
-    "penn-full": ("full Penn, barrier on (mid work function), vacuum-level cutoff", "penn-full", "mid", "vacuum-level", PENN_FULL_ENERGIES_EV),
-    "mermin": ("Mermin (MELF), barrier on (mid work function), vacuum-level cutoff", "mermin-melf", "mid", "vacuum-level", SLOW_ENERGIES_EV),
+    "penn-full": ("full Penn, barrier on, vacuum-level cutoff", "penn-full", "mid", "vacuum-level", PENN_FULL_ENERGIES_EV),
+    "mermin": ("Mermin (MELF), barrier on, vacuum-level cutoff", "mermin-melf", "mid", "vacuum-level", SLOW_ENERGIES_EV),
 }
 DEFAULT_CONFIG = "default"
+# The work-function range configurations apply to the metals only (Si's barrier is its one cited affinity).
+METAL_ONLY_CONFIGS = ("phi-low", "phi-high")
+
+
+def applies(material: str, cfg_id: str) -> bool:
+    """Whether configuration `cfg_id` is defined for `material`."""
+    return not (cfg_id in METAL_ONLY_CONFIGS and BAND[material]["kind"] != "free-electron-metal")
+
 
 # Threshold of the `cutoff-band-bottom` configuration, eV above the band bottom. The library refuses a
 # band-bottom threshold at or below the Fermi energy with secondaries on, so this is the Fermi energy the
 # library computes from the band inputs (printed as `band.model.fermi_ev` in every run's metadata: Al
-# 11.6555 eV, Cu 7.0445 eV, Au 5.5269 eV) plus 1 eV, rounded up to 0.01 eV. It lies below the vacuum level, so unlike the
-# default (threshold 1 eV above the vacuum level) every electron that can leave is followed. `run_one`
-# checks it against the run's own Fermi energy.
-BAND_BOTTOM_CUTOFF_EV = {"Al": 12.66, "Cu": 8.05, "Au": 6.53}
+# 11.6555 eV, Cu 7.0445 eV, Au 5.5269 eV; Si, an insulator, W_v + E_g/2 = 12.91 eV) plus 1 eV, rounded up to
+# 0.01 eV. It lies below the vacuum level, so unlike the default (threshold 1 eV above the vacuum level) every
+# electron that can leave is followed. `run_one` checks it against the run's own Fermi energy.
+BAND_BOTTOM_CUTOFF_EV = {"Al": 12.66, "Cu": 8.05, "Si": 13.91, "Au": 6.53}
 
 
 # --- reference data -----------------------------------------------------------------------------
@@ -238,13 +289,26 @@ def cutoff_ev(material: str, cfg_id: str) -> float:
     return BAND_BOTTOM_CUTOFF_EV[material] if CONFIGS[cfg_id][3] == "band-bottom" else 1.0
 
 
+def band_line(material: str, phi: str | None) -> str:
+    """The `band = { ... }` entry of `material`'s run input. `phi` picks a metal's work function; with the
+    barrier off (`None`) the band still supplies the secondary-electron binding (Kieft-Bosch needs it), so the
+    mid work function is used there and is not applied as a step."""
+    band = BAND[material]
+    prov = BAND_PROVENANCE[material].replace('"', "'")
+    if band["kind"] == "free-electron-metal":
+        w = band["work_function_ev"][phi or "mid"]
+        return (f'band = {{ kind = "free-electron-metal", valence_electrons_per_atom = {band["valence_electrons_per_atom"]!r}, '
+                f'work_function_ev = {w!r}, provenance = "{prov}" }}')
+    if band["kind"] == "insulator":
+        return (f'band = {{ kind = "insulator", valence_band_width_ev = {band["valence_band_width_ev"]!r}, '
+                f'band_gap_ev = {band["band_gap_ev"]!r}, affinity_ev = {band["affinity_ev"]!r}, provenance = "{prov}" }}')
+    raise ValueError(f"unknown band kind {band['kind']!r} for {material}")
+
+
 def make_input(material: str, cfg_id: str, energy_ev: float, histories: int, seed: int, elf_name: str) -> str:
     _label, model, phi, cutoff_ref, _energies = CONFIGS[cfg_id]
-    band = BAND[material]
-    # With the barrier off the band still supplies the secondary-electron binding (Kieft-Bosch needs it);
-    # the mid work function is used there and is not applied as a step.
-    w = band["work_function_ev"][phi or "mid"]
-    prov = BAND_PROVENANCE.replace('"', "'")
+    if not applies(material, cfg_id):
+        raise ValueError(f"configuration {cfg_id!r} does not apply to {material}")
     lines = [
         "# Generated by validation/experiments/se_yield.py; do not edit.",
         "[electron.beam]",
@@ -255,7 +319,9 @@ def make_input(material: str, cfg_id: str, energy_ev: float, histories: int, see
         'secondaries = "kieft-bosch"',
         f'boundary = "{"step-barrier" if phi else "transparent"}"',
         "[electron.elastic]",
-        'potential = "thomas-fermi-yukawa"',
+        'model = "mott"',
+        f'potential = "{ELASTIC_POTENTIAL}"',
+        f"exchange = {'true' if ELASTIC_EXCHANGE else 'false'}",
         "[electron.inelastic]",
         f'model = "{model}"',
         "[electron.tables]",
@@ -263,8 +329,7 @@ def make_input(material: str, cfg_id: str, energy_ev: float, histories: int, see
         "points_per_decade = 10.0",
         f"[electron.materials.{material}]",
         f'optical_elf = "{elf_name}"',
-        f'band = {{ kind = "free-electron-metal", valence_electrons_per_atom = {band["valence_electrons_per_atom"]!r}, '
-        f'work_function_ev = {w!r}, provenance = "{prov}" }}',
+        band_line(material, phi),
         "[target]",
         f'substrate = "{material}"',
         "[run]",
@@ -274,6 +339,17 @@ def make_input(material: str, cfg_id: str, energy_ev: float, histories: int, see
         "",
     ]
     return "\n".join(lines)
+
+
+def band_fermi_ev(model: dict) -> float:
+    """The Fermi energy above the band bottom of a run's band metadata (`physics.materials[].band.model`): printed
+    for a metal; for an insulator the library's `BandStructure::fermi_ev`, W_v + E_g/2 (mid-gap), which the
+    metadata does not print."""
+    if "fermi_ev" in model:
+        return model["fermi_ev"]
+    if model.get("kind") == "insulator":
+        return model["valence_band_width_ev"] + 0.5 * model["band_gap_ev"]
+    raise KeyError(f"no Fermi energy in band model {model!r}")
 
 
 def run_one(binary: Path, material: str, cfg_id: str, energy_ev: float, histories: int, seed: int) -> dict:
@@ -289,13 +365,15 @@ def run_one(binary: Path, material: str, cfg_id: str, energy_ev: float, historie
         s = json.loads((td / "out" / "electron_summary.json").read_text())
     r = s["results"]
     n = r["histories"]
-    fermi = s["physics"]["materials"][0]["band"]["model"]["fermi_ev"]
+    fermi = band_fermi_ev(s["physics"]["materials"][0]["band"]["model"])
     cut = cutoff_ev(material, cfg_id)
-    if CONFIGS[cfg_id][3] == "band-bottom" and not 0.0 <= cut - (fermi + 1.0) < 0.01:
+    # The 1e-9 eV slack absorbs the rounding of W_v + E_g/2 (Si: 12.36 + 0.55 prints as 12.910000000000002).
+    if CONFIGS[cfg_id][3] == "band-bottom" and not -1e-9 <= cut - (fermi + 1.0) < 0.01:
         sys.exit(f"error: BAND_BOTTOM_CUTOFF_EV[{material}] = {cut} is not the run's Fermi energy {fermi} + 1 eV")
     slow, fast = r["front"]["slow"], r["front"]["fast"]
     return {
         "material": material, "config": cfg_id, "energy_ev": float(energy_ev), "histories": n, "seed": seed,
+        "elastic": ELASTIC_ID,
         "delta": slow["per_primary"], "eta": fast["per_primary"],
         # sqrt(N_slow)/N: the Poisson floor of the statistical error; it ignores the correlation of
         # electrons of one cascade and so understates it.
@@ -308,9 +386,13 @@ def run_one(binary: Path, material: str, cfg_id: str, energy_ev: float, historie
 def do_run(args) -> int:
     binary = lindhard_cli.lindhard_binary()
     prev = json.loads(RESULTS.read_text()) if RESULTS.exists() else {"runs": []}
-    keep = {(r["material"], r["config"], r["energy_ev"]): r for r in prev["runs"]}
+    # Runs with another elastic model are dropped, not mixed into the tables (#149: the DHFS rerun replaces
+    # the Thomas-Fermi Yukawa stand-in runs).
+    keep = {(r["material"], r["config"], r["energy_ev"]): r for r in prev["runs"] if r.get("elastic") == ELASTIC_ID}
     for m in args.material:
         for cid in args.configs:
+            if not applies(m, cid):
+                continue
             for e in CONFIGS[cid][4]:
                 if args.energies and e not in args.energies:
                     continue
@@ -329,7 +411,10 @@ def assemble(binary: Path, runs) -> dict:
             "se_split_ev": 50, "incidence": "normal (the simulation's; the compilation does not state its sets')",
             "configs": {k: {"label": v[0], "inelastic": v[1], "work_function": v[2], "cutoff_reference": v[3]} for k, v in CONFIGS.items()},
             "band_bottom_cutoff_ev": BAND_BOTTOM_CUTOFF_EV,
-            "elastic": "Mott partial waves with the Thomas-Fermi Yukawa stand-in potential (the DHFS table is a documented gap)",
+            "elastic": ("Mott partial waves on the Salvat et al. (1987) DHFS potential with the Furness-McCarthy exchange "
+                        "correction; correlation-polarization off (Seltzer's b_pol^2 rule needs table energies above "
+                        "50 eV, the delta(E) tables start at 5 eV)"),
+            "elastic_id": ELASTIC_ID,
             "band_inputs": BAND, "band_provenance": BAND_PROVENANCE,
         },
         "runs": sorted(runs, key=lambda r: (r["material"], r["config"], r["energy_ev"])),
@@ -397,8 +482,7 @@ def markdown(datasets, results) -> str:
     for m in MATERIALS:
         cfgs = [c for c in CONFIGS if sim_curve(results, m, c)]
         if not cfgs:
-            out.append(f"**{m}**: not run (no optical energy-loss function is committed for {m}; "
-                       "`docs/data-provenance.md`, optical data inventory).\n")
+            out.append(f"**{m}**: not run (the reason is given in the text below the tables).\n")
             continue
         energies = sorted({e for c in cfgs for e, _ in sim_curve(results, m, c)})
         out.append(f"**{m}**\n")
@@ -420,10 +504,14 @@ def markdown(datasets, results) -> str:
             else:
                 out.append(f"| `{c}`: {CONFIGS[c][0]} | {cells} | {pk[0]:g} | {pk[1]:.3f} |")
         out.append("")
-        unrun = [c for c in CONFIGS if c not in cfgs]
+        unrun = [c for c in CONFIGS if c not in cfgs and applies(m, c)]
         if unrun:
             out.append("Not run for " + m + ": " + "; ".join(f"`{c}` ({CONFIGS[c][0]})" for c in unrun)
                        + ". The reason is given in the text below the tables.\n")
+        na = [c for c in CONFIGS if not applies(m, c)]
+        if na:
+            out.append("Not defined for " + m + ": " + ", ".join(f"`{c}`" for c in na)
+                       + " (work-function ranges of the metals; the barrier of " + m + " is its cited electron affinity).\n")
     out.append("**Initial bounds** (default configuration; gated by `validation/experiments/se_yield.py --check`):\n")
     out.append("| Material | Simulated E_max (eV) | Measured median E_max (eV) | Ratio | Within factor 2 | Simulated δ_max | Measured median δ_max | Deviation | Within 50 % |")
     out.append("|---|---|---|---|---|---|---|---|---|")
@@ -469,9 +557,15 @@ def main() -> int:
     ap.add_argument("--material", nargs="+", default=list(OPTICAL_ELF), choices=list(OPTICAL_ELF))
     ap.add_argument("--configs", nargs="+", default=list(CONFIGS), choices=list(CONFIGS))
     ap.add_argument("--histories", type=int, default=2000)
+    ap.add_argument("--results", type=Path, default=None,
+                    help="with --run: read and write this results file instead of the committed one (to run two "
+                         "workers side by side; merge the files by hand afterwards)")
     ap.add_argument("--energies", nargs="+", type=float, help="only these grid energies, eV (to resume a partial run)")
     args = ap.parse_args()
     if args.run:
+        if args.results:
+            global RESULTS
+            RESULTS = args.results
         return do_run(args)
     if args.markdown:
         print(markdown(load_datasets(), load_results()))

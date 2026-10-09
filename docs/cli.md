@@ -42,6 +42,57 @@ keys. The schema types are `lindhard::input` (shared with future front ends).
 | `energy_ev` | required | Incident energy, eV |
 | `tilt_deg` | 0 | Polar angle from the surface normal, `[0, 90)` |
 | `azimuth_deg` | 0 | Azimuth of the incidence plane |
+| `divergence` | none | Angular spread, the `[beam.divergence]` table below |
+
+#### `[beam.divergence]` (optional)
+
+A finite angular spread of the ion beam about the nominal `tilt_deg` /
+`azimuth_deg` direction. Absent: every primary has the nominal direction and
+the run is bit-for-bit what it was before the table existed. Static ion runs
+only; with a `[dynamic]` target it is an error (`beam.divergence`), and an
+`[electron]` run has no such key (unknown key error).
+
+| `model` | Width key | Meaning |
+|---|---|---|
+| `"gaussian"` | `sigma_deg` | Standard deviation of the angular deviation **in each of two orthogonal planes** through the nominal direction (the polar deviation is then Rayleigh distributed, with mean `sigma sqrt(pi/2)`). It is not a cone width. |
+| `"uniform-cone"` | `half_angle_deg` | Directions uniform in solid angle out to the cone half-angle. |
+
+Widths are finite and in `[0, 10]` degrees: the Gaussian law is a small-angle
+(plane-angle) reading, and the inward conditioning below is documented for
+small spreads only. The sampling laws are those of
+`lindhard::ion::crystal::Divergence` (`docs/crystal-orientation.md`).
+
+How it is applied. Each primary's direction is drawn once, at the entry point,
+from the nominal direction and the history's own random stream, so it
+applies to the primary from the start, including while it crosses an
+amorphous screen layer before a crystal substrate; recoils keep their
+collision-generated directions. The crystal orientation is built from the
+nominal tilt and azimuth and does not move. The result is the **inward-
+conditioned** distribution: a drawn direction that does not point into the
+target (depth component not positive) is rejected and redrawn, at most 1000
+attempts per primary, after which the run fails with an error instead of
+hanging (for the accepted widths one draw is inward with probability about
+one half or more, so this does not happen in practice). Near-grazing nominal
+tilts and wide spreads therefore give a distribution truncated at the
+surface, not the plain Gaussian or cone. The draws come from a copy of the
+history's stream at word `2^65`, disjoint from the transport draws, the
+thermal-vibration segment (`2^66`) and the lattice-shift segment (`2^67`), so
+turning divergence on changes no other random draw, and results do not depend
+on the thread count.
+
+The summary's `physics.beam_divergence` records the resolved model, width
+(`width_rad` and `width_deg`, with `width_kind` `sigma_per_plane` or
+`cone_half_angle`), the incidence policy `inward-conditioned`, the attempt
+bound and the stream segment; the echoed `input.beam.divergence` is the input
+as written. Both are absent without the table, and `format.version` stays 1
+(see "Compatibility and extension"). In Python, `Beam(...,
+divergence_model="gaussian" | "uniform-cone", divergence_deg=...)` is the same
+table. Example:
+[`b_5keV_si_crystal_divergence.toml`](../examples/b_5keV_si_crystal_divergence.toml).
+
+This is an input capability: it makes a finite-spread run possible and
+reproducible. It is not an experimentally validated channeling prediction,
+and it does not resolve the known deviations of the crystal model (#225).
 
 ### `[materials.<name>]`
 
@@ -270,10 +321,10 @@ neither. `format.version` stays 1: the key is an addition (see "Compatibility
 and extension").
 
 **Scope and caveats.** Static, layered ion targets with the cubic presets
-only; hexagonal lattices, custom cells, beam divergence and dose-dependent
-crystal damage are not exposed. This is an interface to the existing engine,
+only; hexagonal lattices, custom cells and dose-dependent crystal damage are
+not exposed (beam divergence is: see `[beam.divergence]`). This is an interface to the existing engine,
 not a validation: the known deviations of its channeled ranges are tracked
-separately (issues #225 and #250) and nothing here claims they are resolved.
+separately (issue #225) and nothing here claims they are resolved.
 Examples: [`b_5keV_si_crystal.toml`](../examples/b_5keV_si_crystal.toml) and
 [`as_50keV_sio2_on_si_crystal.toml`](../examples/as_50keV_sio2_on_si_crystal.toml)
 (an amorphous oxide over a crystal substrate); neither is a validated
@@ -609,7 +660,7 @@ An electron run writes these instead of the ion files.
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
 | `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
 | `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`; deposits are measured from the band bottom, so with secondaries in a layer with a Fermi energy `deposited_ev` includes the Fermi-sea energy of liberated conduction electrons and can exceed the energy imparted, which is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev - fermi_sea_ev - phonon_absorbed_ev`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
-| `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. `results.deposition.psf` stays `null`; the per-bin profile and residuals are in the CSV files |
+| `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. With `tally.psf` the per-bin profile is not repeated in the summary: the `results.deposition.psf` key is omitted. Without `tally.psf` that key is present and `null`. The per-bin profile (bin edges and centre, area, energy and its error, areal density and its error, and the fitted energy of the bin for each fit that succeeded) is in `electron_psf_profile.csv`; the fitted parameters and the `chi2`, `dof` and `reduced_chi2` of each fit are in `electron_psf_parameters.csv`. Residuals are not written; the residual of a bin is `energy_ev - model_<model>_ev` |
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
 
@@ -679,11 +730,12 @@ missing) and builds and stores only the ones it does not find, so a series of
 runs that differ only in seed, history count, tallies or transport settings
 builds its tables once.
 
-Each entry is two files, named by the SHA-256 of a **key document**:
+Each entry is three files, named by the SHA-256 of a **key document**:
 `<kind>-<sha256>.toml`, the table in the versioned cache form of
 `lindhard::electron::data::CrossSectionTable`, read back with that type's
-loader, and `<kind>-<sha256>.key.json`, the key itself. The key spells out
-every input the table depends on:
+loader; `<kind>-<sha256>.sha256`, the hex SHA-256 of the table file's bytes;
+and `<kind>-<sha256>.key.json`, the key itself. The key spells out every input
+the table depends on:
 
 - the key schema version and the table cache `format_version`;
 - the build: crate version, `git describe --always --dirty`, and the SHA-256
@@ -693,7 +745,7 @@ every input the table depends on:
 - the table kind and the exact energy grid (`electron.tables`, after the
   defaults are filled in);
 - the material's name, composition and density;
-- elastic: the potential, the exchange and correlation-polarization
+- elastic: the model (`electron.elastic.model`), the potential, the exchange and correlation-polarization
   corrections with all their inputs, the starting probability grid and the
   refinement tolerance;
 - inelastic: the model (`electron.inelastic.model`), its Fermi energy, the
@@ -703,12 +755,18 @@ every input the table depends on:
 Every `f64` is written in shortest round-trip form, so a change in the last
 bit of any number is a different key. A lookup must find the stored key
 equal, byte for byte, to the run's own (a mismatch under the same hash means
-the file was edited, and is an error naming the differing field); the table
-file is then loaded and validated by the library, and its axis and energy grid
-are checked against the run. A file found under the run's key that fails any
-of these checks is an error, never a silent rebuild. A table of another cache
-`format_version` can never be found, since the version is part of the key.
-Writes go to a temporary file renamed into place, the table before its key.
+the file was edited, and is an error naming the differing field). The table
+file's bytes must then hash to the SHA-256 stored beside it: a table edited or
+corrupted anywhere, even in a single cross-section or probability value that
+still parses, is refused with an error naming the file, before it is parsed,
+and a missing `.sha256` file is an error too. The table is then loaded and
+validated by the library, and its axis and energy grid are checked against the
+run. A file found under the run's key that fails any of these checks is an
+error, never a silent rebuild; remove the entry's files to rebuild it. A table
+of another cache `format_version` can never be found, since the version is
+part of the key. Writes go to a temporary file renamed into place, the table
+first, then its hash, then its key, so a key on disk always has its table and
+hash beside it.
 
 A cached table is the built one bit for bit (the TOML cache form round-trips
 every `f64`), so outputs do not depend on whether the tables were built or
@@ -729,7 +787,8 @@ file the run did not produce is removed if present: `ions.csv` (without
 and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
 `tally.psf`).
 A missing file is not an error; a failed removal is, and names the path. The
-summary is written last and lists only files that exist. Other files in the
+summary is written last (also for dynamic runs, after both CSVs, so a failed
+CSV write leaves no new summary) and lists only files that exist. Other files in the
 directory are never touched, and no cleanup happens between ion, electron and
 dynamic runs. Do not keep your own data under a reserved name.
 
@@ -758,7 +817,8 @@ keys, never by changing existing ones:
   `files`. `results.range`, `results.damage`, `results.sputtering` and
   `results.escapes` were added this way, without a version bump.
 - `physics.crystal` (the `[[crystal]]` metadata) was added this way, without
-  a version bump; an amorphous run does not carry it.
+  a version bump; an amorphous run does not carry it. `physics.beam_divergence`
+  (the `[beam.divergence]` metadata) likewise.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes
