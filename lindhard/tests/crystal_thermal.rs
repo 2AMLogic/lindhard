@@ -392,7 +392,12 @@ fn channeling_tail_falls_with_temperature() {
 }
 
 /// A random direction (30 degrees tilt, 17 degrees twist) at 300 K: Rp
-/// within 10 % of amorphous, for B 5 keV and As 30 keV.
+/// within 10 % of amorphous and the 90th percentile within 10 %, for B 5 keV
+/// and As 30 keV. The static lattice's 15 % dRp bound is not applied at
+/// 300 K (#225): vibration feeds a few per cent of the ions into a tail
+/// (`off_axis_tail_grows_with_vibration_under_both_losses`), which the
+/// second moment weights heavily, so dRp is only held to its recorded value
+/// (1.18 B, 1.17 As) within 0.12.
 #[test]
 #[ignore = "statistical; run with --release -- --ignored"]
 fn random_direction_rp_at_300_k_matches_amorphous() {
@@ -409,23 +414,31 @@ fn random_direction_rp_at_300_k_matches_amorphous() {
         );
         let rp = cr.mean_depth() / am.mean_depth();
         let drp = cr.depth_std() / am.depth_std();
-        println!("Z={z} 30/17 at 300 K: Rp ratio {rp:.3}, dRp ratio {drp:.3}");
+        let p90 = percentile_nm(&cr, 0.9) / percentile_nm(&am, 0.9);
+        println!("Z={z} 30/17 at 300 K: Rp ratio {rp:.3}, dRp ratio {drp:.3}, p90 ratio {p90:.3}");
         assert!((rp - 1.0).abs() < 0.10, "Z={z}: Rp ratio {rp}");
+        assert!((p90 - 1.0).abs() < 0.10, "Z={z}: p90 ratio {p90}");
+        assert!(drp < 1.18 + 0.12, "Z={z}: dRp ratio {drp}");
     }
 }
 
-/// Carry-over from #180: the 7 degrees / 22 degrees orientation at 300 K.
-/// The static lattice keeps a planar-channeling tail there (dRp ratio 1.25
-/// for B, `tests/crystal_bca.rs`); vibration at 300 K does **not** close it,
-/// it widens it. This test records the measured values (module docs of
-/// `lindhard::ion::bca::crystal`, "Measured checks with thermal vibration")
-/// instead of asserting the 15 % dRp bound, and fails if the gap closes so
-/// that the docs get updated.
+/// The 7 degrees / 22 degrees orientation at 300 K (rescoped in #225).
+///
+/// That beam lies 2.6 to 2.7 degrees from a {100} and a {110} plane, so it is
+/// not a random direction, and the #180 bound "dRp within 15 % of
+/// amorphous" is not the criterion here (module docs of
+/// `lindhard::ion::bca::crystal`, "The 7°/22° criterion"). No measured
+/// profile at matched conditions has been found, so this is a
+/// recorded-value regression check: the dRp ratio stays within
+/// [`DRP_TOL_B`] / [`DRP_TOL_AS`] of the recorded value, the 90th percentile
+/// stays within 30 % of the amorphous one (the excess width is a tail), and
+/// the fraction of ions beyond twice the amorphous Rp is above the amorphous
+/// fraction by more than five binomial standard errors (the tail exists).
 #[test]
 #[ignore = "statistical; run with --release -- --ignored"]
-fn issue_orientation_7_22_at_300_k() {
+fn near_planar_7_22_at_300_k() {
     let st = Stack::semi_infinite(si());
-    for (z, e) in [(5u8, 5.0e3), (33, 3.0e4)] {
+    for (z, e, drp_rec, tol) in [(5u8, 5.0e3, 1.43, DRP_TOL_B), (33, 3.0e4, 1.80, DRP_TOL_AS)] {
         let am = run_summary(&st, beam(z, e, 7.0, 22.0, 4000), 1, None, |_| {}, None);
         let cr = run_summary(
             &st,
@@ -437,9 +450,12 @@ fn issue_orientation_7_22_at_300_k() {
         );
         let rp = cr.mean_depth() / am.mean_depth();
         let drp = cr.depth_std() / am.depth_std();
+        let two_rp = 2.0 * am.mean_depth();
+        let (f, fa) = (fraction_deeper(&cr, two_rp), fraction_deeper(&am, two_rp));
+        let sf = binomial_sigma(f, cr.primaries_stopped as f64);
         println!(
             "Z={z} 7/22 at 300 K: Rp ratio {rp:.3}, dRp ratio {drp:.3}, median {:.1} vs {:.1} nm, \
-             p90 {:.1} vs {:.1} nm, p99 {:.1} vs {:.1} nm",
+             p90 {:.1} vs {:.1} nm, p99 {:.1} vs {:.1} nm, tail {f:.4} +- {sf:.4} vs {fa:.4}",
             percentile_nm(&cr, 0.5),
             percentile_nm(&am, 0.5),
             percentile_nm(&cr, 0.9),
@@ -448,8 +464,67 @@ fn issue_orientation_7_22_at_300_k() {
             percentile_nm(&am, 0.99)
         );
         assert!(
-            drp > 1.15,
-            "Z={z}: the gap closed (dRp ratio {drp}); update the docs"
+            (drp - drp_rec).abs() <= tol,
+            "Z={z}: dRp ratio {drp} moved from the recorded {drp_rec}; update the docs"
         );
+        assert!(percentile_nm(&cr, 0.9) < 1.3 * percentile_nm(&am, 0.9));
+        assert!(f - fa > 5.0 * sf, "Z={z}: tail {f} vs amorphous {fa}");
+    }
+}
+
+/// Tolerance of the recorded dRp ratios at 7 degrees / 22 degrees (B 5 keV):
+/// three times the largest seed-to-seed standard deviation over seeds 1-5
+/// (0.018 static, 0.037 at 300 K), rounded up. It also covers the difference
+/// between platforms of the crystal path (`docs/architecture.md`).
+const DRP_TOL_B: f64 = 0.12;
+
+/// The same for As 30 keV (seed-to-seed standard deviation 0.052 static,
+/// 0.047 at 300 K).
+const DRP_TOL_AS: f64 = 0.16;
+
+/// The finding of #225: at the off-axis directions 7 degrees / 22 degrees
+/// and 30 degrees / 17 degrees, the fraction of B 5 keV ions deeper than
+/// twice the amorphous Rp is **larger** at 300 K than in the static lattice,
+/// with the nonlocal loss and with the Oen-Robinson local half alike (the
+/// amorphous reference uses the same loss). Each rise must exceed three
+/// combined binomial standard errors (16000 ions; measured 5 to 9). This
+/// records a property of the model, not a validated physical result: if it
+/// flips, the module docs of `lindhard::ion::bca::crystal` must change.
+#[test]
+#[ignore = "statistical; run with --release -- --ignored"]
+fn off_axis_tail_grows_with_vibration_under_both_losses() {
+    let n = 16000u64;
+    let st = Stack::semi_infinite(si());
+    for (tilt, twist) in [(7.0, 22.0), (30.0, 17.0)] {
+        for loss in [ElectronicLoss::NonLocal, ElectronicLoss::EquipartitionLsOr] {
+            let tw = move |c: &mut BcaConfig| c.electronic = loss;
+            let am = run_summary(&st, beam(5, 5.0e3, tilt, twist, n), 1, None, tw, None);
+            let two_rp = 2.0 * am.mean_depth();
+            let tail = |th: Option<Thermal>| {
+                let cr = run_summary(
+                    &st,
+                    beam(5, 5.0e3, tilt, twist, n),
+                    1,
+                    Some((crystal_si(tilt, twist, th), vec![0])),
+                    tw,
+                    None,
+                );
+                let f = fraction_deeper(&cr, two_rp);
+                println!(
+                    "{tilt}/{twist} {loss:?} T = {:?}: Rp ratio {:.3}, dRp ratio {:.3}, \
+                     tail {f:.4} (amorphous {:.4})",
+                    th.map(|t| t.temperature_k),
+                    cr.mean_depth() / am.mean_depth(),
+                    cr.depth_std() / am.depth_std(),
+                    fraction_deeper(&am, two_rp)
+                );
+                (f, binomial_sigma(f, cr.primaries_stopped as f64))
+            };
+            let (f0, s0) = tail(None);
+            let (f3, s3) = tail(at(300.0));
+            let z = (f3 - f0) / (s0 * s0 + s3 * s3).sqrt();
+            println!("  rise {:.4} = {z:.1} sigma", f3 - f0);
+            assert!(z > 3.0, "{tilt}/{twist} {loss:?}: tail {f0} -> {f3}");
+        }
     }
 }

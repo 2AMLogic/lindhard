@@ -803,7 +803,20 @@ Values are pooled over all histories, ± the batch-means standard error (10 batc
   Sb in amorphous (pre-amorphized) Si, and in Ge and SiC. Cite each dataset in
   [`data-provenance.md`](data-provenance.md).
 - **Channeling (M2):** published SIMS profiles in crystalline Si as a function
-  of tilt and twist, dose and screen oxide.
+  of tilt and twist, dose and screen oxide. No dataset is in the tree yet.
+  The search for #225 found measured off-axis B and As profiles in
+  Cai et al., Phys. Rev. B 54, 17147 (1996) (arXiv:physics/9901056). They
+  were not digitized, for two reasons. The paper does not give the in-plane
+  reference of its "rotation" angle, the beam divergence, or the oxide and
+  dose of the 5 keV data. And each measured line overlaps Tier C simulated
+  curves in the same figure. Several other leads could not be opened. The
+  list, and why the 7°/22° check is now a recorded-value regression rather
+  than a random-direction bound, are in the module docs of
+  `ion::bca::crystal` ("Comparison with the literature" and "The 7°/22°
+  criterion"). What is needed: a profile with the tilt, twist and its
+  reference direction, divergence, oxide and dose all stated, ideally at two
+  wafer temperatures. A single room-temperature profile cannot tell the
+  static and vibrating lattice apart.
 - **Electronic stopping:** IAEA stopping database experimental points, with
   per-system residual statistics reported (terms of reuse still unread; see
   the open questions in [`data-provenance.md`](data-provenance.md)).

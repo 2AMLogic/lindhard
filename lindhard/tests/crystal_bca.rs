@@ -301,17 +301,21 @@ fn random_direction_matches_amorphous() {
     }
 }
 
-/// The issue's standard implant orientation, 7 degrees tilt and 22 degrees
-/// twist. Rp agrees with the amorphous result within 10 % for both ions; dRp
-/// does **not** within 15 % in a static lattice (a channeling tail, see the
-/// measured numbers in the `crystal` module docs): this test records that
-/// gap instead of asserting the unmet bound. Thermal vibration (step 21b,
-/// #181) does not reduce the tail at this orientation: see
-/// `tests/crystal_thermal.rs`, `issue_orientation_7_22_at_300_k`.
+/// The 7 degrees tilt / 22 degrees twist orientation, static lattice
+/// (rescoped in #225). That beam lies 2.6 to 2.7 degrees from a {100} and a
+/// {110} plane, so it is not a random direction: the random-direction
+/// bounds live at 30 degrees / 17 degrees (`random_direction_matches_amorphous`)
+/// and the #180 bound "dRp within 15 % of amorphous" does not apply here
+/// (module docs of `lindhard::ion::bca::crystal`, "The 7°/22° criterion").
+/// Rp agrees with the amorphous result within 10 % for both ions and the bulk
+/// of the profile (90th percentile) within 30 %; the dRp ratio is a
+/// recorded-value regression check (B 1.24, As 1.88, tolerances: three
+/// seed-to-seed standard deviations over seeds 1-5, rounded up). The 300 K
+/// counterpart is `tests/crystal_thermal.rs`, `near_planar_7_22_at_300_k`.
 #[test]
 #[ignore = "statistical; run with --release -- --ignored"]
-fn issue_orientation_7_22_static_lattice() {
-    for (z, e) in [(5u8, 5.0e3), (33, 3.0e4)] {
+fn near_planar_7_22_static_lattice() {
+    for (z, e, drp_rec, tol) in [(5u8, 5.0e3, 1.24, 0.12), (33, 3.0e4, 1.88, 0.16)] {
         let (rp, drp, am, cr) = ratios(z, e, 7.0, 22.0, 4000);
         println!(
             "Z={z}: Rp ratio {rp:.3}, dRp ratio {drp:.3}, median {:.1} vs {:.1} nm, \
@@ -323,11 +327,11 @@ fn issue_orientation_7_22_static_lattice() {
         );
         assert!((rp - 1.0).abs() < 0.10, "Z={z}: Rp ratio {rp}");
         // The excess width is a tail: the bulk of the profile is unchanged.
-        assert!(
-            drp > 1.15,
-            "Z={z}: the gap closed (dRp ratio {drp}); update the docs"
-        );
         assert!(percentile_nm(&cr, 0.9) < 1.3 * percentile_nm(&am, 0.9));
+        assert!(
+            (drp - drp_rec).abs() <= tol,
+            "Z={z}: dRp ratio {drp} moved from the recorded {drp_rec}; update the docs"
+        );
     }
 }
 
