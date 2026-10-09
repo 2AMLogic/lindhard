@@ -236,6 +236,25 @@ impl BandStructure {
         }
     }
 
+    /// The lowest energy above the band bottom at which an electron can
+    /// excite a secondary, eV: the Fermi energy of a metal, the
+    /// conduction-band bottom `W_v + E_g` of an insulator, where both the
+    /// primary and the secondary must end in the conduction band (cstool
+    /// `get_min_excitation`, `cstool/input_data/band_structure.py` at commit
+    /// `0c739eb3fcc3fe5297e74c601ac4a9546db596cf`). cstool's table compiler caps the loss of an electron of
+    /// energy `K` at `K` minus this energy
+    /// ([`crate::electron::inelastic::table`], "Energy axis").
+    pub fn min_excitation_ev(&self) -> f64 {
+        match self.model {
+            BandModel::Metal { fermi_ev, .. } => fermi_ev,
+            BandModel::Insulator {
+                valence_band_width_ev,
+                band_gap_ev,
+                ..
+            } => valence_band_width_ev + band_gap_ev,
+        }
+    }
+
     /// Inner potential `U` (vacuum level above the band bottom), eV:
     /// `E_F + Φ` for a metal, `W_v + E_g + χ` for an insulator (cstool
     /// `get_barrier`; Verduin p. 98 and Eq. 3.136).

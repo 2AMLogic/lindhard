@@ -1462,11 +1462,13 @@ fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
     ok(&go(&src, "a"));
     assert_eq!(cache_files(&cache).len(), 6);
 
-    // Another Fermi energy: the elastic table is reused, the inelastic one
-    // is built and stored beside the first.
+    // Another band with the same inner potential (so the same table grid):
+    // the inelastic table, built on the band-bottom axis with the band's
+    // minimum excitation energy (#241), is built and stored beside the
+    // first; the elastic table is reused.
     let fermi = src.replace(
-        "model = \"penn-single-pole\"",
-        "model = \"penn-single-pole\"\nfermi_energy_ev = 0.5",
+        "valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0",
+        "valence_band_width_ev = 10.5, band_gap_ev = 2.0, affinity_ev = 2.5",
     );
     assert_ne!(fermi, src);
     ok(&go(&fermi, "b"));

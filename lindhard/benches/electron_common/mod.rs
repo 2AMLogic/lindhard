@@ -45,7 +45,7 @@ use lindhard::electron::elastic::table::{
 };
 use lindhard::electron::elastic::SolverOptions;
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, InelasticTableOptions,
+    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{DrudeLorentz, DrudeLorentzOscillator, PennInelastic};
 use lindhard::electron::transport::{LayerTables, Transport};
@@ -294,17 +294,24 @@ pub(crate) fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossS
     }
 }
 
-/// The inelastic table of one material, as `lindhard-cli` builds it.
+/// The inelastic table of one material, as `lindhard-cli` builds it: on the
+/// band-bottom axis with the band's minimum excitation energy as the model's
+/// Fermi energy for a material with a band, on the model's own axis with
+/// `[electron.inelastic] fermi_energy_ev` otherwise (#241).
 pub(crate) fn inelastic_table(
     r: &ResolvedElectron,
     m: &ResolvedElectronMaterial,
 ) -> Result<CrossSectionTable> {
+    let (fermi_ev, axis) = match &m.band {
+        Some(b) => (b.min_excitation_ev(), EnergyAxis::BandBottom),
+        None => (r.inelastic_fermi_ev, EnergyAxis::ModelFermiLevel),
+    };
     let model = PennInelastic::try_new(r.inelastic, m.optical_elf.clone())?
-        .with_fermi_energy_ev(r.inelastic_fermi_ev)?;
+        .with_fermi_energy_ev(fermi_ev)?;
     Ok(build_inelastic_table_for_model(
         &model,
         &m.material,
-        &InelasticTableOptions::new(r.table_energy_ev.clone()),
+        &InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis),
     )?)
 }
 

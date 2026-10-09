@@ -33,9 +33,8 @@
 //!   and the refinement tolerance;
 //! - inelastic: the Penn algorithm, the model's Fermi energy, the SHA-256 and
 //!   provenance of the optical ELF file, and the band parameters of the
-//!   material (they do not enter today's inelastic table; keying on them now
-//!   only costs misses, and keeps the key right if the band's Fermi energy
-//!   ever does, #241).
+//!   material (the table of a material with a band is built on the
+//!   band-bottom axis with the band's Fermi energy, `electron::inelastic_axis`).
 //!
 //! A cache file of another format version can never be found under a
 //! current key (the version is in the key). A file that **is** found under
@@ -543,6 +542,8 @@ mod tests {
         });
     }
 
+    /// `fermi_energy_ev` keys the tables of materials without a band (with a
+    /// band it must be 0, and the band keys the table).
     #[test]
     fn key_changes_with_the_fermi_energy() {
         assert_changes("fermi energy", false, true, |r| r.inelastic_fermi_ev = 1.0);
@@ -592,6 +593,35 @@ mod tests {
         });
         assert_changes("name", true, true, |r| r.materials[0].name = "Si2".into());
         assert_changes("band", false, true, |r| r.materials[0].band = None);
+        // The inelastic table of a material with a band is built with the
+        // band's Fermi energy (its minimum excitation energy, #241), so a
+        // band that moves it keys a different table, even in the last bit.
+        use lindhard::electron::boundary::{BandModel, BandStructure};
+        let moved = |r: &mut ResolvedElectron, f: &dyn Fn(f64) -> f64| {
+            let b = r.materials[0].band.clone().unwrap();
+            let BandModel::Insulator {
+                valence_band_width_ev,
+                band_gap_ev,
+                affinity_ev,
+            } = b.model()
+            else {
+                panic!("the example's band is an insulator");
+            };
+            let model = BandModel::Insulator {
+                valence_band_width_ev: f(valence_band_width_ev),
+                band_gap_ev,
+                affinity_ev,
+            };
+            r.materials[0].band = Some(BandStructure::new(model, b.provenance()).unwrap());
+            assert_ne!(
+                r.materials[0].band.as_ref().unwrap().min_excitation_ev(),
+                b.min_excitation_ev()
+            );
+        };
+        assert_changes("band fermi energy", false, true, |r| moved(r, &|v| v + 0.5));
+        assert_changes("band fermi energy ulp", false, true, |r| {
+            moved(r, &|v| f64::from_bits(v.to_bits() + 1))
+        });
     }
 
     #[test]

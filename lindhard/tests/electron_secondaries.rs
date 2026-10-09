@@ -8,6 +8,13 @@
 
 use lindhard::electron::boundary::{BandModel, BandStructure};
 use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::elastic::table::log_energy_grid;
+use lindhard::electron::inelastic::table::{
+    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
+};
+use lindhard::electron::inelastic::{
+    DrudeLorentz, DrudeLorentzOscillator, PennInelastic, SinglePolePenn,
+};
 use lindhard::electron::secondary::{SecondaryEvent, SecondaryModel};
 use lindhard::electron::transport::{
     Boundary, BoundaryModel, CutoffReference, ElectronState, ElectronTally, EscapeRule, Face, Fate,
@@ -707,10 +714,11 @@ fn inelastic_table_is_read_at_the_band_bottom_energy() {
 /// loss to `E - E_F` (the primary cannot end below the Fermi level). A table
 /// whose loss is the whole energy `E` at every row is therefore always
 /// clamped: the primary is left at `E_F` and the secondary, `E_F + W`, gets
-/// the primary's whole energy. This is the mismatch measured in #173: the
-/// default tables are built with the model's Fermi energy 0, so their losses
-/// reach `E`, beyond the `E - E_F` the transport allows (module docs of
-/// `electron::transport`, "Energy reference of the inelastic table").
+/// the primary's whole energy. This is the mismatch measured in #173 for a
+/// table on the model's own axis with the model's Fermi energy 0, whose
+/// losses reach `E`, beyond the `E - E_F` the transport allows (module docs
+/// of `electron::transport`, "Energy reference of the inelastic table"). A
+/// table on the band-bottom axis has no such losses (the next test).
 #[test]
 fn losses_beyond_the_fermi_level_are_clamped_to_it() {
     let ef = metal().fermi_ev();
@@ -724,6 +732,110 @@ fn losses_beyond_the_fermi_level_are_clamped_to_it() {
     for &(e, s) in &r.secondaries {
         assert!((s - e).abs() <= 1e-12 * e, "secondary {s} from E {e}");
     }
+}
+
+/// A single-pole Penn table of the synthetic Drude plasmon of
+/// `tests/penn_inelastic.rs` (not physical data) with the model's Fermi
+/// energy `fermi_ev`, on `axis`.
+fn penn_table(fermi_ev: f64, axis: EnergyAxis) -> CrossSectionTable {
+    let elf = DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
+        .unwrap()
+        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
+        .unwrap();
+    let model = PennInelastic::SinglePole(
+        SinglePolePenn::new(elf)
+            .with_fermi_energy_ev(fermi_ev)
+            .unwrap(),
+    );
+    // From the Fermi level of `metal()` (an empty row on the band-bottom
+    // axis) to above the entry energy, 300 eV + U.
+    let grid = log_energy_grid(5.0, 400.0, 12.0).unwrap();
+    build_inelastic_table_for_model(
+        &model,
+        &material(),
+        &InelasticTableOptions::new(grid).with_axis(axis),
+    )
+    .unwrap()
+}
+
+/// Every inelastic event of 200 primaries of 300 eV in `metal()` with
+/// `inelastic`, under the Kieft-Bosch model with the step barrier.
+fn penn_losses_in_metal(inelastic: CrossSectionTable) -> Losses {
+    let mut cfg = TransportConfig::new(2.0);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    cfg.boundary = BoundaryModel::STEP_BARRIER;
+    cfg.cutoff_reference = CutoffReference::VacuumLevel;
+    let t = Transport::with_band_structures(
+        Stack::semi_infinite(material()),
+        vec![pair(elastic_isotropic(3e-9), inelastic)],
+        vec![metal()],
+        cfg,
+    )
+    .unwrap();
+    t.run(8, 200, 10, &Primary::normal(300.0), Losses::default)
+        .unwrap()
+        .tally
+}
+
+/// The number of events whose loss is the transport's clamp `E - E_F`.
+fn clamped(r: &Losses, ef: f64) -> usize {
+    r.events.iter().filter(|&&(e, w, _)| w >= e - ef).count()
+}
+
+/// A table built on the band-bottom axis with the band's Fermi energy as the
+/// model's (the convention of cstool's `compile_full_imfp_icdf`, module docs
+/// of `electron::inelastic::table`; how `lindhard run` builds the table of a
+/// material with a band, #241) has no loss beyond `E - E_F`: over every
+/// inelastic event of the run, primaries and secondaries, the sampled loss
+/// is below the clamp, so the clamp never acts and no primary is left at the
+/// Fermi level. The stopping threshold, `U + 2 = 11` eV, is above the first
+/// row with losses (6.06 eV), so no event is sampled between an empty row
+/// and the first row, where the clamp is still the bound.
+///
+/// The same model on its own axis with Fermi energy 0, read at the
+/// band-bottom energy (the tables before #241), sends a large share of the
+/// events into the clamp; that legacy behaviour of a table without a band is
+/// pinned here too.
+#[test]
+fn band_bottom_table_never_reaches_the_fermi_clamp() {
+    let band = metal();
+    let ef = band.fermi_ev();
+    assert_eq!(band.min_excitation_ev(), ef);
+
+    let table = penn_table(ef, EnergyAxis::BandBottom);
+    let first = table.inverse_mfp_per_m().iter().position(|&x| x > 0.0);
+    let first_ev = table.energy_ev()[first.unwrap()];
+    assert!(first_ev > ef && first_ev < band.inner_potential_ev() + 2.0);
+    let r = penn_losses_in_metal(table);
+    assert!(r.events.len() > 5_000, "{}", r.events.len());
+    // Events near the Fermi level, where the legacy table is clamped most.
+    let low = r.events.iter().filter(|&&(e, _, _)| e - ef < 20.0).count();
+    assert!(low > 1_000, "{low}");
+    for &(e, w, after) in &r.events {
+        assert!(w > 0.0 && w < e - ef, "W {w} at E {e}");
+        assert!(after > ef, "after {after}");
+        assert_eq!(after, e - w);
+    }
+    assert_eq!(clamped(&r, ef), 0);
+
+    let legacy = penn_losses_in_metal(penn_table(0.0, EnergyAxis::ModelFermiLevel));
+    let n = clamped(&legacy, ef);
+    assert!(
+        20 * n > legacy.events.len(),
+        "{n} clamped of {}",
+        legacy.events.len()
+    );
+}
+
+/// The loss cap of a band-bottom table is the band's minimum excitation
+/// energy: for an insulator the conduction-band bottom `W_v + E_g`, above
+/// the mid-gap Fermi level the transport clamps at (cstool
+/// `get_min_excitation`, `BandStructure::min_excitation_ev`).
+#[test]
+fn min_excitation_is_the_fermi_level_of_a_metal_and_the_conduction_band_bottom() {
+    assert_eq!(metal().min_excitation_ev(), 5.0);
+    assert_eq!(insulator().min_excitation_ev(), 9.0);
+    assert!(insulator().min_excitation_ev() > insulator().fermi_ev());
 }
 
 // ---------------------------------------------------------------------------

@@ -17,26 +17,30 @@
 //!   energy above the Fermi level `E - E_F` before the event, the inelastic
 //!   events per primary, the fraction that hit the transport's `E - E_F`
 //!   clamp, the mean loss, and δ (front-face escapes below 50 eV per primary).
-//! - `fermi-reference`: as `clamp`, with the inelastic table rebuilt in the
-//!   convention of the cstool table compiler (rows at `T = E - E_F` above
-//!   the Fermi level with the model's Fermi energy set to the band's, so the
+//!   Since #241 `lindhard run` builds the inelastic table of a material with
+//!   a band in the convention of the cstool table compiler (rows at
+//!   `T = E - E_F` with the model's Fermi energy set to the band's, so the
 //!   kinematics use `T' = E` and the losses stop at `E - E_F`; stored on the
-//!   band-bottom energy axis `E` the transport reads). No event then reaches
+//!   band-bottom energy axis `E` the transport reads), so no event reaches
 //!   the clamp.
+//! - `legacy`: as `clamp`, with the inelastic table built as `lindhard run`
+//!   built it before #241: on the model's own axis with the model's Fermi
+//!   energy `[electron.inelastic] fermi_energy_ev` (0), read at the
+//!   band-bottom energy, so the losses reach `E` and the clamp acts.
 //! - `splice:MODEL:CUT`: as `clamp`, with the rows of the inelastic table
 //!   below the band-bottom energy `CUT` (eV) replaced by the rows of `MODEL`
-//!   (`mermin` or `single-pole`) on the same energy grid. This attributes a
-//!   δ difference between two models to an energy range.
+//!   (`mermin` or `single-pole`) on the same energy grid and axis. This
+//!   attributes a δ difference between two models to an energy range.
 //!
 //! Runs use two threads and seed 1. Nothing here is a model: the spliced and
-//! rebuilt tables are diagnostics, not options of the library.
+//! legacy tables are diagnostics, not options of the library.
 
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
 use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts};
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, InelasticTableOptions,
+    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{PennAlgorithm, PennInelastic};
 use lindhard::electron::transport::{
@@ -90,14 +94,19 @@ impl ElectronTally for ClampTally {
     }
 }
 
-fn table_of(r: &ResolvedElectron, alg: PennAlgorithm, fermi_ev: f64) -> Result<CrossSectionTable> {
+fn table_of(
+    r: &ResolvedElectron,
+    alg: PennAlgorithm,
+    fermi_ev: f64,
+    axis: EnergyAxis,
+) -> Result<CrossSectionTable> {
     let m = &r.materials[0];
     let model =
         PennInelastic::try_new(alg, m.optical_elf.clone())?.with_fermi_energy_ev(fermi_ev)?;
     Ok(build_inelastic_table_for_model(
         &model,
         &m.material,
-        &InelasticTableOptions::new(r.table_energy_ev.clone()),
+        &InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis),
     )?)
 }
 
@@ -119,23 +128,6 @@ fn with_rows(
         probability,
         quantiles,
     })?)
-}
-
-/// The table in the cstool convention (module docs, `fermi-reference`).
-fn fermi_reference(r: &ResolvedElectron, fermi_ev: f64) -> Result<CrossSectionTable> {
-    let t = table_of(r, r.inelastic, fermi_ev)?;
-    let n = t.energy_ev().len();
-    let q = (0..n)
-        .map(|i| t.quantiles(i).map(<[f64]>::to_vec).unwrap_or_default())
-        .collect();
-    with_rows(
-        &t,
-        t.energy_ev().iter().map(|e| e + fermi_ev).collect(),
-        t.inverse_mfp_per_m().to_vec(),
-        t.probability().to_vec(),
-        q,
-        "rows at E - E_F with the band Fermi energy, on the band-bottom axis",
-    )
 }
 
 /// Rows below `cut_ev` from `low`, the rest from `high`, on the union of
@@ -230,7 +222,12 @@ fn main() -> Result<()> {
     let own = sim.tables[0].inelastic.clone();
     let inelastic = match mode {
         "clamp" => own,
-        "fermi-reference" => fermi_reference(&r, fermi_ev)?,
+        "legacy" => table_of(
+            &r,
+            r.inelastic,
+            r.inelastic_fermi_ev,
+            EnergyAxis::ModelFermiLevel,
+        )?,
         _ => match mode
             .strip_prefix("splice:")
             .map(|s| s.split(':').collect::<Vec<_>>())
@@ -242,7 +239,8 @@ fn main() -> Result<()> {
                     other => bail!("unknown splice model {other}"),
                 };
                 let cut: f64 = v[1].parse().context("splice cut, eV")?;
-                splice(&own, &table_of(&r, alg, r.inelastic_fermi_ev)?, cut)?
+                let (f, axis) = lindhard_cli::electron::inelastic_axis(&r, &r.materials[0]);
+                splice(&own, &table_of(&r, alg, f, axis)?, cut)?
             }
             _ => bail!("unknown mode {mode} (module docs)"),
         },
