@@ -91,3 +91,23 @@ def test_properties_are_copies_and_assignable():
 
 def test_validate_returns_warnings_and_accepts_good_input():
     assert argon_on_copper().validate() == []
+
+
+def test_beam_divergence_round_trips_through_toml():
+    run = argon_on_copper()
+    run.beam = lh.Beam("Ar", 1000.0, divergence_model="gaussian", divergence_deg=0.5)
+    text = run.to_toml()
+    assert "[beam.divergence]" in text
+    back = lh.Run.from_toml(text)
+    assert back.to_toml() == text
+    assert (back.beam.divergence_model, back.beam.divergence_deg) == ("gaussian", 0.5)
+    assert argon_on_copper().beam.divergence_model is None
+
+
+def test_invalid_beam_divergence_names_the_field():
+    run = argon_on_copper()
+    run.beam = lh.Beam(
+        "Ar", 1000.0, divergence_model="uniform-cone", divergence_deg=-1.0
+    )
+    with pytest.raises(Exception, match="beam.divergence.half_angle_deg"):
+        run.validate()

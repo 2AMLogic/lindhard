@@ -42,6 +42,58 @@ keys. The schema types are `lindhard::input` (shared with future front ends).
 | `energy_ev` | required | Incident energy, eV |
 | `tilt_deg` | 0 | Polar angle from the surface normal, `[0, 90)` |
 | `azimuth_deg` | 0 | Azimuth of the incidence plane |
+| `divergence` | none | Angular spread, the `[beam.divergence]` table below |
+
+#### `[beam.divergence]` (optional)
+
+A finite angular spread of the ion beam about the nominal `tilt_deg` /
+`azimuth_deg` direction. Absent: every primary has the nominal direction and
+the run is bit-for-bit what it was before the table existed. Static ion runs
+only; with a `[dynamic]` target it is an error (`beam.divergence`), and an
+`[electron]` run has no such key (unknown key error).
+
+| `model` | Width key | Meaning |
+|---|---|---|
+| `"gaussian"` | `sigma_deg` | Standard deviation of the angular deviation **in each of two orthogonal planes** through the nominal direction (the polar deviation is then Rayleigh distributed, with mean `sigma sqrt(pi/2)`). It is not a cone width. |
+| `"uniform-cone"` | `half_angle_deg` | Directions uniform in solid angle out to the cone half-angle. |
+
+Widths are finite and in `[0, 10]` degrees: the Gaussian law is a small-angle
+(plane-angle) reading, and the inward conditioning below is documented for
+small spreads only. The sampling laws are those of
+`lindhard::ion::crystal::Divergence` (`docs/crystal-orientation.md`).
+
+How it is applied. Each primary's direction is drawn once, at the entry point,
+from the nominal direction and the history's own random stream, so it
+applies to the primary from the start, including while it crosses an
+amorphous screen layer before a crystal substrate; recoils keep their
+collision-generated directions. The crystal orientation is built from the
+nominal tilt and azimuth and does not move. The result is the **inward-
+conditioned** distribution: a drawn direction that does not point into the
+target (depth component not positive) is rejected and redrawn, at most 1000
+attempts per primary, after which the run fails with an error instead of
+hanging (for the accepted widths one draw is inward with probability about
+one half or more, so this does not happen in practice). Near-grazing nominal
+tilts and wide spreads therefore give a distribution truncated at the
+surface, not the plain Gaussian or cone. The draws come from a copy of the
+history's stream at word `2^65`, disjoint from the transport draws, the
+thermal-vibration segment (`2^66`) and the lattice-shift segment (`2^67`), so
+turning divergence on changes no other random draw, and results do not depend
+on the thread count.
+
+The summary's `physics.beam_divergence` records the resolved model, width
+(`width_rad` and `width_deg`, with `width_kind` `sigma_per_plane` or
+`cone_half_angle`), the incidence policy `inward-conditioned`, the attempt
+bound and the stream segment; the echoed `input.beam.divergence` is the input
+as written. Both are absent without the table, and `format.version` stays 1
+(see "Compatibility and extension"). In Python, `Beam(...,
+divergence_model="gaussian" | "uniform-cone", divergence_deg=...)` is the same
+table. Example:
+[`b_5keV_si_crystal_divergence.toml`](../examples/b_5keV_si_crystal_divergence.toml).
+
+This is an input capability: it makes a finite-spread run possible and
+reproducible. It is not an experimentally validated channeling prediction,
+and it does not resolve the known deviations of the crystal model (#225,
+#250).
 
 ### `[materials.<name>]`
 
@@ -270,8 +322,8 @@ neither. `format.version` stays 1: the key is an addition (see "Compatibility
 and extension").
 
 **Scope and caveats.** Static, layered ion targets with the cubic presets
-only; hexagonal lattices, custom cells, beam divergence and dose-dependent
-crystal damage are not exposed. This is an interface to the existing engine,
+only; hexagonal lattices, custom cells and dose-dependent crystal damage are
+not exposed (beam divergence is: see `[beam.divergence]`). This is an interface to the existing engine,
 not a validation: the known deviations of its channeled ranges are tracked
 separately (issues #225 and #250) and nothing here claims they are resolved.
 Examples: [`b_5keV_si_crystal.toml`](../examples/b_5keV_si_crystal.toml) and
@@ -758,7 +810,8 @@ keys, never by changing existing ones:
   `files`. `results.range`, `results.damage`, `results.sputtering` and
   `results.escapes` were added this way, without a version bump.
 - `physics.crystal` (the `[[crystal]]` metadata) was added this way, without
-  a version bump; an amorphous run does not carry it.
+  a version bump; an amorphous run does not carry it. `physics.beam_divergence`
+  (the `[beam.divergence]` metadata) likewise.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes

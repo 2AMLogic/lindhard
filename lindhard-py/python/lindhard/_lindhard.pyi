@@ -98,13 +98,20 @@ class Target:
 
 @final
 class Beam:
-    """The incident beam."""
+    """The incident beam.
+
+    ``divergence_model`` is ``"gaussian"`` (``divergence_deg`` is the standard
+    deviation per plane) or ``"uniform-cone"`` (``divergence_deg`` is the cone
+    half-angle); both in degrees. ``None``: no divergence.
+    """
 
     ion: str
     energy_ev: float
     mass_amu: float | None
     tilt_deg: float
     azimuth_deg: float
+    divergence_model: str | None
+    divergence_deg: float | None
     def __new__(
         cls,
         ion: str,
@@ -112,6 +119,8 @@ class Beam:
         mass_amu: float | None = None,
         tilt_deg: float = 0.0,
         azimuth_deg: float = 0.0,
+        divergence_model: str | None = None,
+        divergence_deg: float | None = None,
     ) -> Self: ...
 
 @final

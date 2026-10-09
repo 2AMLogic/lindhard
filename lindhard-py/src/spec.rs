@@ -6,7 +6,8 @@
 use std::collections::BTreeMap;
 
 use lindhard::input::{
-    BeamSpec, EnergyOverride, LayerSpec, MaterialRef, PhysicsSpec, TallySpec, TargetSpec,
+    BeamSpec, DivergenceSpec, EnergyOverride, LayerSpec, MaterialRef, PhysicsSpec, TallySpec,
+    TargetSpec,
 };
 use lindhard::material::{ElementSpec, MaterialSpec};
 use pyo3::prelude::*;
@@ -324,18 +325,22 @@ pub struct Beam {
     pub mass_amu: Option<f64>,
     pub tilt_deg: f64,
     pub azimuth_deg: f64,
+    pub divergence_model: Option<String>,
+    pub divergence_deg: Option<f64>,
 }
 
 #[pymethods]
 impl Beam {
     #[new]
-    #[pyo3(signature = (ion, energy_ev, mass_amu=None, tilt_deg=0.0, azimuth_deg=0.0))]
+    #[pyo3(signature = (ion, energy_ev, mass_amu=None, tilt_deg=0.0, azimuth_deg=0.0, divergence_model=None, divergence_deg=None))]
     fn new(
         ion: String,
         energy_ev: f64,
         mass_amu: Option<f64>,
         tilt_deg: f64,
         azimuth_deg: f64,
+        divergence_model: Option<String>,
+        divergence_deg: Option<f64>,
     ) -> Self {
         Self {
             ion,
@@ -343,6 +348,8 @@ impl Beam {
             mass_amu,
             tilt_deg,
             azimuth_deg,
+            divergence_model,
+            divergence_deg,
         }
     }
 
@@ -359,7 +366,21 @@ impl Beam {
             energy_ev: self.energy_ev,
             tilt_deg: self.tilt_deg,
             azimuth_deg: self.azimuth_deg,
+            divergence: self.divergence_spec(),
         }
+    }
+
+    /// The `[beam.divergence]` table. An unknown model name or a model with no
+    /// width cannot be represented; it becomes a Gaussian / cone of a NaN
+    /// width so that resolution reports `beam.divergence.*` as invalid.
+    fn divergence_spec(&self) -> Option<DivergenceSpec> {
+        let model = self.divergence_model.as_deref()?;
+        let w = self.divergence_deg.unwrap_or(f64::NAN);
+        Some(match model {
+            "uniform-cone" => DivergenceSpec::UniformCone { half_angle_deg: w },
+            // "gaussian" and anything else: resolved as Gaussian.
+            _ => DivergenceSpec::Gaussian { sigma_deg: w },
+        })
     }
 
     pub fn from_spec(s: &BeamSpec) -> Self {
@@ -369,6 +390,17 @@ impl Beam {
             mass_amu: s.mass_amu,
             tilt_deg: s.tilt_deg,
             azimuth_deg: s.azimuth_deg,
+            divergence_model: s.divergence.map(|d| {
+                match d {
+                    DivergenceSpec::Gaussian { .. } => "gaussian",
+                    DivergenceSpec::UniformCone { .. } => "uniform-cone",
+                }
+                .to_string()
+            }),
+            divergence_deg: s.divergence.map(|d| match d {
+                DivergenceSpec::Gaussian { sigma_deg } => sigma_deg,
+                DivergenceSpec::UniformCone { half_angle_deg } => half_angle_deg,
+            }),
         }
     }
 }
