@@ -513,9 +513,26 @@ An electron run writes these instead of the ion files.
 | `physics.transport` | The engine's `RunMetadata`: cutoff and its reference, escape rule, event cap, secondary and boundary models, seed, histories, chunk size, the primary, and per layer its extent (m), the `model` and `provenance` strings of both tables, the band parameters, phonon and polaron channels with their provenance |
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
 | `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
-| `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `budget` (the energy balance and its `relative_imbalance`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries). The histograms and grid cells are in the CSV files, not here |
+| `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `budget` (the energy balance and its `relative_imbalance`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
+
+`results.table_coverage` is a numerical diagnostic: one entry per layer
+(`layer`), and for its `elastic` and `inelastic` table the grid bounds
+`energy_min_ev` and `energy_max_ev` and the counts `below` (`E <
+energy_min_ev`: the first row's rate and distribution were used), `within`
+(both bounds included: interpolated, or a row read exactly) and `above` (`E >
+energy_max_ev`: the last row's were used), over primaries and secondaries.
+They count **rate evaluations, not collisions**: the transport evaluates both
+tables of the electron's layer once before every free flight, including
+flights cut short at a layer face, the flight after a face reflection and
+flights with zero total rate, so the totals exceed the number of elastic and
+inelastic events, and a layer's elastic and inelastic totals are equal. They
+are not fractions of path length or of deposited energy either. Nonzero
+`below` or `above` counts say that part of the transport used the constant
+continuation of a table beyond its grid (`[electron.tables]`); they do not say
+how much that changed the result. Summaries written before the key existed
+lack it.
 
 `electron_escape_spectra.csv`: `face,spectrum,class,lo,hi,count,per_primary_per_unit`.
 For each face (`front`, `back`): the energy spectrum of all escaping electrons

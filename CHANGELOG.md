@@ -9,6 +9,21 @@ one version).
 
 ### Added
 
+- Electron table-coverage diagnostics (#253): per layer and per channel
+  (elastic, inelastic), how many rate evaluations of the transport read the
+  cross-section table inside its energy grid (endpoints included) and how
+  many used the constant continuation below or above it, with the grid
+  bounds, primaries and secondaries together. New `ElectronTally::table_lookup`
+  hook (no-op default, so existing tallies compile unchanged),
+  `electron::transport::{TableChannel, GridCoverage}`,
+  `Transport::layer_tables`, and `tally::table_coverage`
+  (`TableCoverageTally`, `LayerTableCoverage`, `TableCoverageCounts`).
+  `ElectronReport::table_coverage` (and so `results.table_coverage` in
+  `electron_summary.json`) carries the counts; reports written before it
+  read back with an empty list. `validation/oracles/run_electron.py` sums
+  them over its batches into the lindhard summary. These are evaluation
+  counts, not collision counts. Counting draws no random number and changes
+  no result.
 - Validation and run metadata for the local Oen-Robinson electronic loss
   (`ElectronicLoss::EquipartitionLsOr`) in the crystal flight model (#226).
   The model was already in place: each lattice partner within `p_max` takes
