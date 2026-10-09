@@ -243,6 +243,24 @@ one version).
 
 ### Changed
 
+- Crystal off-axis channeling tail (#225). The 7°/22° orientation is
+  2.6-2.7° from a {100} and a {110} plane, so it is no longer held to the
+  #180 random-direction bound "dRp within 15 % of amorphous". Its ignored
+  tests are renamed `near_planar_7_22_static_lattice` and
+  `near_planar_7_22_at_300_k` and are now recorded-value regression checks;
+  tolerances are three seed-to-seed standard deviations.
+  - A new ignored test, `off_axis_tail_grows_with_vibration_under_both_losses`,
+    records that at 7°/22° and 30°/17° the tail beyond twice the amorphous
+    Rp grows at 300 K. It does so under both `NonLocal` and
+    `EquipartitionLsOr`, by 5-9 σ at 16000 ions.
+  - The 30°/17° check at 300 K now also asserts the 90th percentile within
+    10 % of amorphous, and bounds dRp at its recorded value plus 0.12.
+  - The `ion::bca::crystal` module docs record the literature search. No
+    measured profile at matched conditions was usable. One published
+    simulation (Bratchenko et al. 2009) found the same sign of thermal
+    feeding-in, so the effect is consistent with it but not validated
+    against measurement.
+  - No transport code changed.
 - `lindhard run` with `electron.elastic.potential = "salvat-dhfs"` now
   applies the `exchange` and `correlation_polarization` corrections the input
   asks for, solved on the DHFS Poisson density (Salvat et al. 1987,

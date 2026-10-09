@@ -123,18 +123,16 @@
 //! |---|---|---|---|
 //! | B 5 keV, 30° tilt, 17° twist | 0.97 | 1.09 | within 10 % / 15 % |
 //! | As 30 keV, 30° tilt, 17° twist | 0.93 | 1.13 | within 10 % / 15 % |
-//! | B 5 keV, 7° tilt, 22° twist | 1.07 | **1.25** | median 23.8 vs 23.8 nm, 99th percentile 75.2 vs 56.8 nm |
-//! | As 30 keV, 7° tilt, 22° twist | 1.01 | **1.88** | median 22.2 vs 25.2 nm, 99th percentile 112.2 vs 50.8 nm |
+//! | B 5 keV, 7° tilt, 22° twist | 1.06 | 1.24 | median 23.8 vs 23.8 nm, 99th percentile 76.2 vs 56.8 nm |
+//! | As 30 keV, 7° tilt, 22° twist | 1.01 | 1.88 | median 22.2 vs 25.2 nm, 99th percentile 112.2 vs 50.8 nm |
 //! | B 5 keV along <110> | **6.1** (121 vs 20 nm) | 3.2 | 91 % of ions deeper than twice the amorphous Rp (amorphous 5 %) |
 //!
-//! **Gap: the dRp bound of the 7°/22° check is not met.** Rp agrees within
-//! 10 % for both ions, but a static lattice keeps a channeling tail at this
-//! orientation (the beam is only 2.6° to 2.7° from a {100} and a {110}
-//! plane), which widens dRp by 25 % and 88 %; the bulk of the profile (median,
-//! 90th percentile) matches the amorphous one. Thermal vibration (step 21b)
-//! does **not** close it (next table). At 30°/17°, far from
-//! every low-index axis and plane, both bounds hold. The 7°/22° test records
-//! the gap instead of asserting the unmet bound.
+//! The random-direction check (Rp within 10 %, dRp within 15 % of the
+//! amorphous result) is made at 30°/17° only. That beam is at least 8.0° from
+//! every {100}, {110} and {111} plane. It passes within 1.3° of a {211} and
+//! 0.9° of a {311} plane, which are higher-index planes with a lower atomic
+//! areal density. The 7°/22° rows are not a random-direction check; see "The
+//! 7°/22° criterion" below.
 //!
 //! # Measured checks with thermal vibration (same set-up, `THETA_D_SI`, zero-point term on)
 //!
@@ -146,42 +144,201 @@
 //! |---|---|---|---|---|
 //! | B 5 keV along <110>: Rp, nm | 121.0 | 111.7 | 94.3 | 75.8 |
 //! | B 5 keV along <110>: tail | 0.910 | 0.876 ± 0.005 | 0.833 ± 0.006 | 0.758 ± 0.007 |
-//! | B 5 keV, 30°/17°: Rp / dRp ratio | 0.97 / 1.09 | 0.99 / 1.15 | 1.00 / 1.20 | 0.99 / 1.15 |
-//! | As 30 keV, 30°/17°: Rp / dRp ratio | 0.93 / 1.13 | | 0.95 / 1.15 | |
-//! | B 5 keV, 7°/22°: Rp / dRp ratio | 1.07 / 1.25 | 1.13 / 1.41 | 1.14 / 1.42 | 1.10 / 1.29 |
-//! | As 30 keV, 7°/22°: Rp / dRp ratio | 1.01 / 1.88 | | 1.05 / 1.81 | |
+//! | B 5 keV, 30°/17°: Rp / dRp ratio | 0.97 / 1.09 | 0.99 / 1.15 | 1.00 / 1.18 | 0.99 / 1.15 |
+//! | As 30 keV, 30°/17°: Rp / dRp ratio | 0.93 / 1.13 | | 0.95 / 1.17 | |
+//! | B 5 keV, 7°/22°: Rp / dRp ratio | 1.06 / 1.24 | 1.13 / 1.41 | 1.14 / 1.43 | 1.10 / 1.29 |
+//! | As 30 keV, 7°/22°: Rp / dRp ratio | 1.01 / 1.88 | | 1.05 / 1.80 | |
+//!
+//! The static and 300 K entries of the 30°/17° and 7°/22° rows were measured
+//! again for #225 (aarch64 macOS, commit `8513cfe`). The 0 K and 600 K
+//! entries and the <110> rows are from PR #224. The crystal path is not bit
+//! identical across platforms (`docs/architecture.md`). The re-measured
+//! values differ from those of PR #224 by at most 0.02 in a dRp ratio. That
+//! is within the seed-to-seed spread below.
 //!
 //! Along <110> the channeled tail falls with temperature, each step by more
 //! than five binomial standard errors (the #181 criterion asks for a
 //! monotonic decrease beyond the statistics). At the random direction the Rp
 //! ratio stays within 10 % at 300 K.
 //!
-//! **Off-axis directions get a slightly longer tail with vibration, not a
-//! shorter one.** At 7°/22° (B) and 30°/17°, the tail beyond twice the
-//! amorphous Rp grows from the static value as the amplitude rises from
-//! zero, peaks near `u1` ≈ 0.045-0.065 Å (0-300 K for Si), and falls again
-//! at higher amplitudes (B, 7°/22°: tail 0.080 static, 0.075 at `u1` ≈
-//! 0.0004 Å, 0.108 at 0 K, 0.115 at 300 K, 0.094 at 600 K, 0.076 at 1500 K;
-//! 4000 ions). The dependence is smooth in the amplitude, the same for seeds
-//! 1, 2 and 3 (B 7°/22° at 300 K: dRp ratio 1.42, 1.45, 1.39), and converged in
-//! the search parameters at 300 K (`q_max` = 0.01, 0.05, 0.1 nn and `p_max`
-//! = 1.5 nn spread the dRp ratio over 1.39-1.45 and Rp by under 1 %), so it
-//! is a property of the model as built, not of the thermal code path. Random
-//! kicks from displaced atoms can scatter an ion that starts outside a
-//! channel into it as well as out of it; which effect wins at a given
-//! direction and amplitude is not checked here against measured profiles.
-//! At 300 K the 7°/22° dRp ratio is 1.42 (B) and 1.81 (As), so the 15 %
-//! dRp bound at that orientation is not met by a vibrating lattice either; a
-//! lattice at 2.6° from a low-index plane is not expected to look amorphous
-//! in its tail. The 30°/17° dRp ratio, within 15 % for the static lattice,
-//! is 1.20 (B) and 1.15 (As) at 300 K.
+//! **Off-axis directions get a longer tail with vibration, not a shorter
+//! one.** At 7°/22° (B) and 30°/17°, the tail beyond twice the amorphous Rp
+//! grows from the static value as the amplitude rises from zero. It peaks
+//! near `u1` ≈ 0.045-0.065 Å (0-300 K for Si) and falls again at higher
+//! amplitudes. PR #224 measured, for B at 7°/22° with 4000 ions: tail 0.080
+//! static, 0.075 at `u1` ≈ 0.0004 Å, 0.108 at 0 K, 0.115 at 300 K, 0.094 at
+//! 600 K, and 0.076 at 1500 K. The dependence is smooth in the amplitude. It
+//! is converged in the search parameters at 300 K: `q_max` = 0.01, 0.05 and
+//! 0.1 nn and `p_max` = 1.5 nn spread the dRp ratio over 1.39-1.45 and change
+//! Rp by under 1 %. So it is a property of the model as built, not of the
+//! thermal code path.
 //!
-//! The ranges above use the nonlocal Lindhard-Scharff loss only
+//! #225 measured how stable this is. The rise is significant at 16000 ions
+//! (B 5 keV), under both electronic-loss treatments. The amorphous reference
+//! uses the same loss as the crystal run
+//! (`off_axis_tail_grows_with_vibration_under_both_losses`):
+//!
+//! | B 5 keV, 16000 ions | Amorphous tail | Static tail | 300 K tail | Rise | 300 K Rp / dRp ratio |
+//! |---|---|---|---|---|---|
+//! | 7°/22°, `NonLocal` | 0.0350 | 0.0806 ± 0.0022 | 0.1089 ± 0.0025 | 8.5 σ | 1.13 / 1.40 |
+//! | 7°/22°, `EquipartitionLsOr` | 0.0395 | 0.0787 ± 0.0022 | 0.1059 ± 0.0025 | 8.2 σ | 1.12 / 1.39 |
+//! | 30°/17°, `NonLocal` | 0.0452 | 0.0565 ± 0.0019 | 0.0714 ± 0.0021 | 5.2 σ | 1.00 / 1.20 |
+//! | 30°/17°, `EquipartitionLsOr` | 0.0484 | 0.0523 ± 0.0018 | 0.0683 ± 0.0021 | 5.8 σ | 0.99 / 1.18 |
+//!
+//! With 4000 ions under `EquipartitionLsOr`, As 30 keV gives a tail of 0.057
+//! static and 0.069 at 300 K at 7°/22° (amorphous 0.009). At 30°/17° it gives
+//! 0.020 static and 0.028 at 300 K (amorphous 0.015).
+//!
+//! Over seeds 1 to 5 (4000 ions, `NonLocal`, 7°/22°), the tail is larger at
+//! 300 K than static for every seed and both ions:
+//!
+//! * B: 0.075-0.085 static, 0.105-0.118 at 300 K.
+//! * As: 0.057-0.060 static, 0.065-0.072 at 300 K.
+//!
+//! The dRp ratios have a seed-to-seed standard deviation of:
+//!
+//! * B: 0.018 static, 0.037 at 300 K.
+//! * As: 0.052 static, 0.047 at 300 K.
+//!
+//! For As the dRp ratio does not rise with vibration (1.88 static, 1.80 at
+//! 300 K). More ions reach the tail, but the deepest ones stop shallower:
+//! the 99th percentile is 112 nm static and 98 nm at 300 K.
+//!
+//! The local Oen-Robinson half does not remove the rise. So the
+//! amorphous-average nonlocal loss in channels is not its cause (#225, part
+//! 3). Correlated vibration is absent: neighbouring atoms are displaced
+//! independently ("Thermal vibration"). No source read for #225 gives the
+//! sign of the effect of correlations on this tail, so its expected
+//! direction is not stated.
+//!
+//! # Comparison with the literature (#225)
+//!
+//! Searched: measured depth profiles of B or As implanted into crystalline
+//! (100) Si near 7° tilt at room temperature, and measurements against tilt,
+//! twist or wafer temperature.
+//!
+//! **Not opened.** The leads from the issue could not be read:
+//!
+//! * Miyake et al., J. Electrochem. Soc. 130, 716 (1983),
+//!   doi:10.1149/1.2119789. Paywalled at the publisher.
+//! * Tian et al., Mikrochim. Acta (1992), doi:10.1007/BF01244469. Closed.
+//! * Klein et al., IEEE Trans. Electron Devices 39 (1992),
+//!   doi:10.1109/16.141226. Closed. It is a UT-MARLOWE paper, Tier C.
+//!
+//! Several further candidates were not readable either:
+//!
+//! * Semicond. Sci. Technol. 5 (1990), doi:10.1088/0268-1242/5/10/001,
+//!   "Boron implants in <100> silicon at tilt angles of 0 degrees and 7
+//!   degrees". The publisher served a bot check.
+//! * J. Electrochem. Soc. papers on B channeling against tilt angle:
+//!   doi:10.1149/1.2108785 and doi:10.1149/1.2085934. The publisher served a
+//!   bot check.
+//! * K. Nordlund, F. Djurabekova and G. Hobler, Phys. Rev. B 94, 214109
+//!   (2016), doi:10.1103/PhysRevB.94.214109. The publisher refused access and
+//!   the repository copy did not respond.
+//!
+//! None of these is cited for content here.
+//!
+//! **Read: measured profiles, not usable at matched conditions.** D. Cai,
+//! N. Grønbech-Jensen, C. M. Snell and K. M. Beardmore, Phys. Rev. B 54,
+//! 17147 (1996), arXiv:physics/9901056 (read in full). The paper shows SIMS
+//! profiles of B in (100) Si:
+//!
+//! * at 15, 35 and 80 keV, at tilt 7° and rotation 30° (Fig. 3);
+//! * at 5 keV, at tilt 7° and rotation 7° (Fig. 4; the SIMS data are from
+//!   K. Gärtner, M. Nitschke and W. Eckstein, Nucl. Instrum. Methods B 83, 87
+//!   (1993), which was not found openly readable).
+//!
+//! It also shows As at 8°/30° (Fig. 6). These profiles were not digitized,
+//! for three reasons:
+//!
+//! 1. The paper does not give the in-plane reference direction of
+//!    "rotation", so the orientation cannot be mapped through
+//!    `docs/crystal-orientation.md`.
+//! 2. It does not give the beam divergence, and it does not give the oxide
+//!    or dose of the 5 keV measurement. Its 16 Å native oxide is a
+//!    simulation setting.
+//! 3. Each measured line overlaps the UT-MARLOWE curves (Tier C) in the same
+//!    vector figure.
+//!
+//! A single room-temperature profile would also only show the model at
+//! 300 K. It could not tell the static and the vibrating lattice apart.
+//!
+//! **Read: a published simulation of the same question.** M. I. Bratchenko,
+//! A. S. Bakai and S. V. Dyuldya, J. Phys. Stud. 13, 1601 (2009),
+//! doi:10.30970/jps.13.1601 (read in full). This is molecular dynamics with
+//! the authors' own code, not a measurement. It simulates 15 keV B and As
+//! into (001) Si at 7° tilt and 30° rotation, for a static lattice and at
+//! 300 K, with uncorrelated Debye displacements. The paper reports:
+//!
+//! * In the static lattice, the deeply channeled states are almost empty.
+//!   The authors attribute this to blocking, which forbids capture into
+//!   them by a single strong collision.
+//! * At 300 K "thermal vibrations facilitate the volume capture of ions into
+//!   the stable channeling mode", that is, feeding-in.
+//! * For As this lengthens the channeling tail substantially compared with
+//!   the static lattice. For B the temperature effect on the tail length is
+//!   "much weaker".
+//! * "As long as a target is ordered there is no chance to obtain truly
+//!   random-equivalent doping profiles".
+//!
+//! Its introduction also states, citing SIMS work not read here, that
+//! off-axis SIMS profiles show long tails. It says the fraction of ions
+//! beyond the amorphous Gaussian reaches about 20-30 % below 20 keV.
+//!
+//! The sign of the population effect here agrees with that paper: vibration
+//! feeds ions into channels at an off-axis direction. But the energy (5 and
+//! 30 keV here, against 15 keV) and the orientation (7°/22° here, against
+//! 7°/30°) differ, and so does the measure. The paper discusses the tail
+//! length, and for As at 30 keV our deepest percentile shortens. The paper
+//! uses the same uncorrelated vibration model, so it does not test that
+//! assumption. **The off-axis rise is therefore consistent with one
+//! published simulation and not validated against measurement.** Validating
+//! it needs a measured profile at matched, fully stated conditions, ideally
+//! at two wafer temperatures (`docs/validation.md`, "Channeling (M2)").
+//!
+//! # The 7°/22° criterion (#225)
+//!
+//! #180 asked that dRp at 7°/22° be within 15 % of amorphous. That bound is
+//! withdrawn. The beam lies 2.6° from a {100} plane and 2.7° from a {110}
+//! plane (7.0° from <100>), so it is a near-planar direction, not a random
+//! one. A tail of a few per cent of channeled ions is expected there, static
+//! or vibrating, and the second moment weights it heavily. Without a
+//! matched measurement, the 7°/22° runs are recorded-value regression checks
+//! (`near_planar_7_22_static_lattice` in `tests/crystal_bca.rs` and
+//! `near_planar_7_22_at_300_k` in `tests/crystal_thermal.rs`):
+//!
+//! * The dRp ratio stays within 0.12 (B) or 0.16 (As) of the table value.
+//!   That is three seed-to-seed standard deviations, rounded up.
+//! * The 90th percentile stays within 30 % of the amorphous one.
+//! * Static lattice: Rp stays within 10 %.
+//! * At 300 K: the tail exceeds the amorphous tail by more than five
+//!   binomial standard errors.
+//!
+//! These are not agreement with experiment. They catch unintended changes of
+//! the model.
+//!
+//! At 30°/17° the static lattice keeps both random-direction bounds. At
+//! 300 K the dRp ratio, 1.18 (B) and 1.17 (As), is above the 15 % bound.
+//! This is accepted as a property of the vibrating model, for three reasons:
+//!
+//! * The bulk of the profile still matches: Rp and the 90th percentile are
+//!   within 10 % of amorphous.
+//! * The excess is the thermally fed tail measured above, at 5 σ.
+//! * The one published study read finds that thermal vibration causes this
+//!   kind of feeding-in.
+//!
+//! The 300 K check asserts Rp and the 90th percentile within 10 %, and dRp
+//! below its recorded value plus 0.12 (`random_direction_rp_at_300_k_matches_amorphous`).
+//!
+//! Unless marked `EquipartitionLsOr`, the ranges above use the nonlocal
+//! Lindhard-Scharff loss only
 //! ([`ElectronicLoss::NonLocal`](super::ElectronicLoss::NonLocal), the
 //! default), so a channeled ion loses as much electronic energy per unit
 //! path as in the amorphous target. With the local Oen-Robinson half (next
 //! section) a channeled ion loses less per unit path than one in a random
-//! direction. No ranges have been measured with that mode yet.
+//! direction. The off-axis tails under that mode are in the 16000-ion table
+//! above.
 //!
 //! # Local electronic loss (Oen-Robinson)
 //!
