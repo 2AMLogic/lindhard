@@ -4,6 +4,23 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-09
 
+- **PR #252**: test: validate the crystal Oen-Robinson local loss and flag its unverified constants
+- **PR #248**: Electron CLI: reuse built cross-section tables across runs (--table-cache)
+- **PR #244**: docs(electron): trace the Al/Au single-pole Penn delta overestimate to the low-energy IMFP
+- **PR #243**: Cited electron band defaults (Si, SiO2) and a narrowed band-parameter gap (#115)
+- **PR #240**: Add Si optical ELF digitized from Yang et al. (2019) (#125)
+- **PR #239**: Enter the Salvat et al. (1987) DHFS screening table (Z = 1..92)
+- **PR #238**: feat(dynamic): sputter erosion and surface recession (#234)
+- **Issue #234** (closed): Dynamic composition: sputter erosion and surface recession in the fluence loop (Epic #22, Phase 2)
+- **Issue #226** (closed): Crystal flight: impact-parameter-dependent (Oen-Robinson) electronic loss for channeled ions (Epic #12, Phase 2)
+- **Issue #205** (closed): validation: Au secondary-electron yield delta_max overestimate (3.42 vs 1.468)
+- **Issue #204** (closed): Au secondary-electron yield with the default (single-pole Penn) model is about 2.3x the measured δ_max
+- **Issue #173** (closed): Al secondary-electron yield with the default (single-pole Penn) model is about 5x the measured δ_max
+- **Issue #168** (closed): Electron CLI: reuse built cross-section tables across runs, so the full Penn model can enter the #150 oracle comparison
+- **Issue #130** (closed): Enter the Salvat et al. (1987) DHFS screening table (Z=1..92): the paper is now reachable in an open repository
+- **Issue #127** (closed): Fix clippy nonminimal_bool in ion/scattering.rs:50 (blocks clippy -D warnings)
+- **Issue #125** (closed): Source Si valence-region optical ELF data (6 to 30 eV) for #98
+- **Issue #115** (closed): Electron band parameters: cited per-material defaults for work function, Fermi energy, affinity and band gap
 - **PR #235**: ci: tag-triggered release workflow
 - **Issue #184** (closed): Add #![forbid(unsafe_code)] to lindhard-cli and lindhard-py
 - **Issue #231** (closed): Guard telemetry disposition: retain scope protection for /dev/shm cleanup
