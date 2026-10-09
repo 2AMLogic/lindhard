@@ -160,6 +160,25 @@
 //! `barrier` are zero and the balance is `incident = deposited + escaped +
 //! trapped`.
 //!
+//! ## Deposits and the energy imparted
+//!
+//! Deposits (`deposited`, the per-layer totals and every grid cell) are
+//! measured from the band bottom. With a secondary model in a layer with a
+//! Fermi energy, a liberated conduction electron's kinetic energy includes
+//! the `-binding` it already had (the `fermi_sea` source), and wherever that
+//! electron stops, its whole remaining energy above the band bottom is
+//! deposited. So deposits include Fermi-sea energy the beam never supplied,
+//! and `deposited` can exceed the energy the beam imparted to the target.
+//! Moving the sources of the balance above to the right side gives the net
+//! energy imparted:
+//!
+//! ```text
+//! incident - escaped = deposited + trapped + barrier - fermi_sea - phonon_absorbed
+//! ```
+//!
+//! Without a secondary model and without the insulator channels the two
+//! source terms are zero.
+//!
 //! # Determinism
 //!
 //! Counts are integers, histograms have integer bins, and the grids, totals
@@ -1105,7 +1124,13 @@ impl FateCounts {
 pub struct ElectronEnergyBudget {
     /// Energy of the primaries.
     pub incident_ev: f64,
-    /// Deposited in the target.
+    /// Deposited in the target, measured from the band bottom. With a
+    /// secondary model in a layer with a Fermi energy this includes the
+    /// Fermi-sea energy of liberated conduction electrons (`fermi_sea_ev`),
+    /// so it can exceed the energy the beam imparted; the net energy imparted
+    /// is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev -
+    /// fermi_sea_ev - phonon_absorbed_ev` (see
+    /// [the module docs](self#deposits-and-the-energy-imparted)).
     pub deposited_ev: f64,
     /// Carried out of the target.
     pub escaped_ev: f64,
@@ -1202,6 +1227,12 @@ pub struct EmissionClass {
 }
 
 /// Deposited energy by layer and on the configured grids, eV.
+///
+/// Deposits are measured from the band bottom. With a secondary model in a
+/// layer with a Fermi energy they include the Fermi-sea energy of liberated
+/// conduction electrons, so they can sum to more than the energy the beam
+/// imparted; see [`ElectronEnergyBudget::deposited_ev`] and
+/// [the module docs](self#deposits-and-the-energy-imparted).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DepositionReport {
     /// By the layer the deposit was made in.
@@ -1218,6 +1249,11 @@ pub struct DepositionReport {
 }
 
 /// Deposited energy on a [`CartesianGrid`].
+///
+/// Measured from the band bottom: with a secondary model in a layer with a
+/// Fermi energy the cells include the Fermi-sea energy of liberated
+/// conduction electrons, so they can sum to more than the energy the beam
+/// imparted (see [`ElectronEnergyBudget::deposited_ev`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CartesianDeposition {
     /// The grid.
@@ -1242,6 +1278,11 @@ impl CartesianDeposition {
 }
 
 /// Deposited energy on a [`CylindricalGrid`].
+///
+/// Measured from the band bottom: with a secondary model in a layer with a
+/// Fermi energy the cells include the Fermi-sea energy of liberated
+/// conduction electrons, so they can sum to more than the energy the beam
+/// imparted (see [`ElectronEnergyBudget::deposited_ev`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CylindricalDeposition {
     /// The grid.
