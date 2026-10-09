@@ -38,6 +38,16 @@
 //! approximation of the loss distribution and its error is controlled by that
 //! tolerance.
 //!
+//! **Full Penn rows.** For the full Penn model the density is built on the
+//! same nodes from the DIIMFP of a [`DiimfpGrid`] tabulated once for the
+//! table's energies ([`FullPenn::diimfp_grid`], #256), not from the direct
+//! nested integrals: its interpolation error, held to the model tolerance
+//! (1e-4, relative or relative to the row's mean density), is a second
+//! approximation of the loss distribution, next to the density tolerance.
+//! It is also smooth in `W`, where the direct DIIMFP carries quadrature
+//! noise at the model tolerance, which is above the default density
+//! tolerance and would drive the panel refinement to [`MAX_NODES`].
+//!
 //! **Probability grid.** The stored inverse CDF is interpolated linearly in
 //! `u` ([`CrossSectionTable::inverse_cdf`]). Its first moment, which is what
 //! sets the stopping power `S = λ⁻¹ ⟨W⟩` with `⟨W⟩ = ∫_0^1 W(u) du`, is
@@ -86,13 +96,17 @@
 //!
 //! # Determinism
 //!
-//! Rows are built in parallel with rayon and collected in grid order; each
+//! Rows (and the profiles of a full-Penn [`DiimfpGrid`]) are built in
+//! parallel with rayon and collected in grid order; each
 //! row, and the probability refinement (a parallel map over rows followed by
 //! a serial split decision), is a fixed sequence of floating-point
 //! operations, so tables are bit-identical on any thread count (tested).
 //! Samplers consume uniforms `u` supplied by the caller (for example from
 //! [`crate::rng::stream`]) and keep no state of their own.
 
+use super::full_penn::DiimfpGrid;
+#[cfg(doc)]
+use super::full_penn::FullPenn;
 use super::model::PennInelastic;
 use super::penn::{hartree_ev, SinglePolePenn};
 use crate::constants::BOHR_RADIUS;
@@ -373,6 +387,12 @@ trait LossModel: Sync {
     fn elf_min_ev(&self) -> f64;
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError>;
     fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError>;
+    /// A tabulation of the DIIMFP for the rows at `energy_ev`, if the model
+    /// has one ([`FullPenn::diimfp_grid`]); the rows then read the DIIMFP
+    /// from it wherever it covers the loss.
+    fn diimfp_grid(&self, _energy_ev: &[f64]) -> Result<Option<DiimfpGrid>, ElectronDataError> {
+        Ok(None)
+    }
 }
 
 impl LossModel for SinglePolePenn {
@@ -397,11 +417,30 @@ impl LossModel for PennInelastic {
     fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
         Ok(self.imfp_and_stopping(energy_ev)?.inverse_imfp_per_m)
     }
+    fn diimfp_grid(&self, energy_ev: &[f64]) -> Result<Option<DiimfpGrid>, ElectronDataError> {
+        match self {
+            PennInelastic::Full(m) => Ok(Some(m.diimfp_grid(energy_ev)?)),
+            _ => Ok(None),
+        }
+    }
+}
+
+/// The DIIMFP of `penn` at `(energy_ev, loss_ev)`, from `grid` where it
+/// covers the point; zero where the model fails (only for non-finite input).
+fn row_diimfp<M: LossModel>(
+    penn: &M,
+    grid: Option<&DiimfpGrid>,
+    energy_ev: f64,
+    loss_ev: f64,
+) -> f64 {
+    grid.and_then(|g| g.diimfp_per_m_ev(energy_ev, loss_ev))
+        .unwrap_or_else(|| penn.diimfp(energy_ev, loss_ev).unwrap_or(0.0))
 }
 
 /// The loss density of one energy.
 fn loss_density<M: LossModel>(
     penn: &M,
+    grid: Option<&DiimfpGrid>,
     energy_ev: f64,
     inverse_mfp: f64,
     tol: f64,
@@ -409,8 +448,7 @@ fn loss_density<M: LossModel>(
     let w_lo = penn.elf_min_ev();
     let f = |s: f64| {
         let w = s.exp().min(energy_ev);
-        // The DIIMFP only fails for non-finite input.
-        penn.diimfp(energy_ev, w).unwrap_or(0.0) * w
+        row_diimfp(penn, grid, energy_ev, w) * w
     };
     let d = adaptive_density(
         &f,
@@ -659,7 +697,11 @@ pub fn build_inelastic_table(
 ///
 /// The full Penn and Mermin models evaluate their DIIMFP by numerical
 /// integration, so a table of either costs far more than a single-pole table
-/// on the same grid.
+/// on the same grid. For the full model the rows read the DIIMFP from a
+/// [`DiimfpGrid`] built once for the grid energies
+/// ([`FullPenn::diimfp_grid`]: interpolation error held to the model
+/// tolerance), which is what makes such a table affordable (#256); the
+/// inverse mean free paths are still the model's own.
 pub fn build_inelastic_table_for_model(
     model: &PennInelastic,
     material: &Material,
@@ -673,8 +715,13 @@ pub fn build_inelastic_table_for_model(
     let energy = &options.energy_ev;
     let elf = model.optical_elf();
     let identity = model.model_identity();
+    // the full model's rows read the DIIMFP from its loss grid (#256)
+    let via = match model {
+        PennInelastic::Full(_) => " (from the T-independent loss grid FullPenn::diimfp_grid)",
+        _ => "",
+    };
     let model_text = format!(
-        "lindhard {} electron::inelastic::table: {identity} DIIMFP, \
+        "lindhard {} electron::inelastic::table: {identity} DIIMFP{via}, \
          W inverse CDF from an adaptive piecewise-linear density in ln W",
         env!("CARGO_PKG_VERSION")
     );
@@ -712,6 +759,7 @@ fn loss_rows<M: LossModel>(
     options: &InelasticTableOptions,
 ) -> Result<LossRows, InelasticTableError> {
     let energy = &options.energy_ev;
+    let grid = penn.diimfp_grid(energy)?;
     // Rows in parallel, collected in grid order; the lowest failing energy
     // is the reported error whatever the thread count.
     type Row = Result<(f64, Option<LinearDensity>), InelasticTableError>;
@@ -720,7 +768,7 @@ fn loss_rows<M: LossModel>(
         .map(|&e| {
             let inv = penn.inverse_imfp(e)?;
             if inv > 0.0 {
-                let d = loss_density(penn, e, inv, options.density_tolerance)?;
+                let d = loss_density(penn, grid.as_ref(), e, inv, options.density_tolerance)?;
                 Ok((inv, Some(d)))
             } else {
                 Ok((0.0, None))

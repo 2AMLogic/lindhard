@@ -78,6 +78,29 @@
 //! few times that. The DIIMFP is the same integrals in the order `q`, `ω_p`
 //! at fixed `ω`.
 //!
+//! The outer (`ω_p`) integral of both runs on `quadrature::integrate_weighted`
+//! (#256): `g(ω_p)` is linear between knots, every knot interval still gets
+//! its own Gauss-Legendre rule (so the rule above, no knot dropped, holds),
+//! and the error of the smooth Lindhard factor is checked on groups of up to
+//! 16 neighbouring intervals instead of by bisecting every interval; an
+//! interval that fails is bisected as before. The plasmon term finds the
+//! plasma frequency whose plasmon sits at `ω` by bisecting on the sign of
+//! `Re ε_L` (one evaluation per step) instead of solving for the plasmon
+//! energy at every step. Neither changes the integrals beyond their
+//! tolerance; measured on the Al ELF of Hagemann et al. (148 knots), they
+//! cut the time of one DIIMFP evaluation by about 6 and of one IMFP point
+//! by about 4.5 (`docs/validation.md`, cost of a full-Penn build).
+//!
+//! **Tables.** An inelastic table needs the DIIMFP at some 10⁴ losses per
+//! row, which at about 15 ms per evaluation (and with the quadrature noise
+//! of a 1e-4 tolerance driving the table's 1e-5 density refinement to its
+//! node cap) is hours per row. The table builder therefore reads the DIIMFP
+//! from a [`DiimfpGrid`] ([`FullPenn::diimfp_grid`]): the `q` integrand is
+//! independent of the electron energy, so it is tabulated once per loss node
+//! and integrated over each row's momentum window, with an interpolation
+//! error held to the model tolerance (see [`DiimfpGrid`]). The inverse IMFP
+//! of every row is still [`FullPenn::imfp_and_stopping`].
+//!
 //! No Fermi-energy, exchange or relativistic correction is included, as for
 //! the single-pole model.
 //!
@@ -121,9 +144,13 @@
 
 use super::lindhard_gas::{kf_coefficient, LindhardGas};
 use super::penn::InelasticPoint;
-use super::quadrature::{integrate_segments, GaussLegendre};
+use super::quadrature::{
+    integrate_panels, integrate_segments, integrate_weighted, GaussLegendre, Panels,
+};
 use crate::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, HARTREE_ENERGY};
 use crate::electron::data::{ElectronDataError, OpticalElf};
+use rayon::prelude::*;
+use std::cell::Cell;
 use std::f64::consts::PI;
 
 type Result<T> = std::result::Result<T, ElectronDataError>;
@@ -249,21 +276,40 @@ impl FullPenn {
     }
 
     /// The optical ELF at `x` Hartree (linear interpolation, zero outside
-    /// the table).
-    fn elf_au(&self, x: f64) -> f64 {
+    /// the table). `hint` is the index of the interval that served the
+    /// previous call, tried first (it changes the speed, not the result).
+    fn elf_hint(&self, x: f64, hint: &Cell<usize>) -> f64 {
         let n = self.w.len();
         if !(x >= self.w[0] && x <= self.w[n - 1]) {
             return 0.0;
         }
-        let i = self.w.partition_point(|&g| g <= x).clamp(1, n - 1);
+        let h = hint.get();
+        let i = if h >= 1 && h < n && self.w[h - 1] <= x && x < self.w[h] {
+            h
+        } else {
+            let i = self.w.partition_point(|&g| g <= x).clamp(1, n - 1);
+            hint.set(i);
+            i
+        };
         let (x0, x1) = (self.w[i - 1], self.w[i]);
         let t = (x - x0) / (x1 - x0);
         (self.e[i - 1] * (1.0 - t) + self.e[i] * t).max(0.0)
     }
 
+    /// The optical ELF at `x` Hartree (linear interpolation, zero outside
+    /// the table).
+    fn elf_au(&self, x: f64) -> f64 {
+        self.elf_hint(x, &Cell::new(1))
+    }
+
     /// `g(ω_p)` of S2017 eq. (5).
     fn g_au(&self, x: f64) -> f64 {
         2.0 * self.elf_au(x) / (PI * x)
+    }
+
+    /// [`Self::g_au`] with an interval hint (see [`Self::elf_hint`]).
+    fn g_hint(&self, x: f64, hint: &Cell<usize>) -> f64 {
+        2.0 * self.elf_hint(x, hint) / (PI * x)
     }
 
     fn table_range(&self) -> (f64, f64) {
@@ -312,8 +358,11 @@ impl FullPenn {
         let (wmin, wmax) = self.table_range();
         let gas_at = |x: f64| LindhardGas::from_plasma_frequency(x);
         let energy = |x: f64| gas_at(x).plasmon(q).map(|p| p.energy);
+        // The searches below only need predicates, which cost one evaluation
+        // of Re ε each; the plasmon energy is solved for only at the few
+        // points where its value is used.
         // the plasmon exists for ω_p above a threshold x_c(q)
-        let exists = |x: f64| energy(x).is_some();
+        let exists = |x: f64| gas_at(x).plasmon_exists(q);
         if !exists(wmax) {
             return 0.0;
         }
@@ -323,12 +372,11 @@ impl FullPenn {
             bisect_switch(wmin, wmax, &exists)
         };
         let e_c = energy(x_c).unwrap_or(f64::INFINITY);
-        let e_top = energy(wmax).unwrap_or(0.0);
-        if w < e_c || w > e_top {
+        // ω_pl(ω_p) increases with ω_p: the plasmon reaches w at the root x0
+        let reached = |x: f64| gas_at(x).plasmon_reaches(q, w);
+        if w < e_c || !reached(wmax) {
             return 0.0;
         }
-        // ω_pl(ω_p) increases with ω_p
-        let reached = |x: f64| energy(x).is_some_and(|e| e >= w);
         let x0 = if reached(x_c) {
             x_c
         } else {
@@ -377,16 +425,11 @@ impl FullPenn {
             breaks.push(wmax);
             breaks.sort_by(f64::total_cmp);
             breaks.dedup();
-            cont = integrate_segments(
+            let hint = Cell::new(1);
+            cont = integrate_weighted(
                 &self.gl,
-                &mut |x: f64| {
-                    let weight = self.g_au(x);
-                    if weight == 0.0 {
-                        [0.0]
-                    } else {
-                        [weight * LindhardGas::from_plasma_frequency(x).loss_continuum(q, w)]
-                    }
-                },
+                &|x: f64| self.g_hint(x, &hint),
+                &mut |x: f64| [LindhardGas::from_plasma_frequency(x).loss_continuum(q, w)],
                 &breaks,
                 self.rel_tol,
             )[0];
@@ -465,7 +508,7 @@ impl FullPenn {
         // plasmon landmarks: cutoff, entry into and exit from the allowed region
         let qc = gas.plasmon_cutoff();
         marks.push(qc);
-        let inc = |q: f64| gas.plasmon(q).is_some_and(|p| p.energy < wcut(q));
+        let inc = |q: f64| gas.plasmon_below(q, wcut(q));
         let q_top = qc.min(k) * (1.0 - 1e-9);
         if q_lo < q_top && inc(q_top) {
             marks.push(if inc(q_lo) {
@@ -504,16 +547,11 @@ impl FullPenn {
             return (0.0, 0.0);
         }
         let tp = t + self.fermi;
-        let r = integrate_segments(
+        let hint = Cell::new(1);
+        let r = integrate_weighted(
             &self.gl,
-            &mut |x: f64| {
-                let weight = self.g_au(x);
-                if weight == 0.0 {
-                    return [0.0, 0.0];
-                }
-                let m = self.gas_moments(x, t);
-                [weight * m[0], weight * m[1]]
-            },
+            &|x: f64| self.g_hint(x, &hint),
+            &mut |x: f64| self.gas_moments(x, t),
             &self.outer,
             self.rel_tol,
         );
@@ -550,5 +588,367 @@ impl FullPenn {
             .iter()
             .map(|&e| self.imfp_and_stopping(e))
             .collect()
+    }
+
+    // ---- the DIIMFP grid of a table build ----
+
+    /// The `u = ln q` profile of `Im[-1/ε(q, ω)]` at the loss `w` (Hartree),
+    /// over every momentum window `[q-, q+]` of a kinetic energy up to
+    /// `tp_max - E_F` and a loss within a factor 2 of `w` (see
+    /// [`DiimfpGrid`]).
+    fn loss_profile(&self, w: f64, tp_max: f64) -> Panels {
+        let k = (2.0 * tp_max).sqrt();
+        let s = (2.0 * (tp_max - w)).max(0.0).sqrt();
+        let (lo, hi) = ((0.25 * 2.0 * w / (k + s)).ln(), (2.0 * k).ln());
+        let n = ((hi - lo) / PROFILE_SEGMENT).ceil().max(8.0) as usize;
+        let breaks: Vec<f64> = (0..=n)
+            .map(|i| lo + (hi - lo) * i as f64 / n as f64)
+            .collect();
+        integrate_panels(
+            &self.gl,
+            &mut |u: f64| self.loss_au(u.exp(), w),
+            &breaks,
+            self.rel_tol,
+            PROFILE_FLOOR,
+        )
+    }
+
+    /// The DIIMFP of this model tabulated once for the rows of one
+    /// inelastic table, whose energies (eV, above the Fermi level) are
+    /// `energies_ev`. See [`DiimfpGrid`] for the method and its accuracy.
+    /// The profiles are built in parallel (rayon) and collected in a fixed
+    /// order, so the grid is bit-identical on any thread count.
+    pub fn diimfp_grid(&self, energies_ev: &[f64]) -> Result<DiimfpGrid> {
+        for &e in energies_ev {
+            check_energy("electron energy", e)?;
+        }
+        let h = hartree_ev();
+        let rows: Vec<f64> = energies_ev.iter().map(|e| e / h).collect();
+        let t_max = rows.iter().copied().fold(0.0, f64::max);
+        let w_lo = self.w[0];
+        let empty = DiimfpGrid {
+            s: Vec::new(),
+            profiles: Vec::new(),
+            gl: self.gl.clone(),
+            fermi: self.fermi,
+            t_max,
+            tolerance: self.rel_tol,
+            unresolved: 0,
+        };
+        if t_max <= w_lo {
+            return Ok(empty);
+        }
+        // The profiles are integrated more tightly than the interpolation
+        // tolerance, so that their quadrature noise does not drive the
+        // refinement below.
+        let fine = Self {
+            rel_tol: (self.rel_tol * PROFILE_TOLERANCE_FACTOR).max(1e-9),
+            ..self.clone()
+        };
+        let tp_max = t_max + self.fermi;
+        // Starting nodes: both ends, every ELF knot in between, no cell wider
+        // than INITIAL_CELL in ln ω.
+        let (s_lo, s_hi) = (w_lo.ln(), t_max.ln());
+        let mut knots: Vec<f64> = vec![s_lo];
+        knots.extend(
+            self.w
+                .iter()
+                .map(|x| x.ln())
+                .filter(|&x| x > s_lo && x < s_hi),
+        );
+        knots.push(s_hi);
+        let mut s: Vec<f64> = Vec::new();
+        for c in knots.windows(2) {
+            let n = ((c[1] - c[0]) / INITIAL_CELL).ceil().max(1.0) as usize;
+            for i in 0..n {
+                s.push(c[0] + (c[1] - c[0]) * i as f64 / n as f64);
+            }
+        }
+        s.push(s_hi);
+        let mut profiles: Vec<Panels> = s
+            .par_iter()
+            .map(|&x| fine.loss_profile(x.exp(), tp_max))
+            .collect();
+        let mut grid = DiimfpGrid {
+            s,
+            profiles: Vec::new(),
+            ..empty
+        };
+        // Cells still to be checked (all at first).
+        let mut todo: Vec<bool> = vec![true; grid.s.len() - 1];
+        let mut first = true;
+        loop {
+            grid.profiles = profiles;
+            // a cell at the narrowest width is not split again (after the
+            // first level, every cell to check is half of a failed one)
+            for (c, t) in todo.iter_mut().enumerate() {
+                if *t && grid.s[c + 1] - grid.s[c] < 2.0 * MIN_CELL {
+                    *t = false;
+                    grid.unresolved += usize::from(!first);
+                }
+            }
+            first = false;
+            let cells: Vec<usize> = (0..todo.len()).filter(|&c| todo[c]).collect();
+            if cells.is_empty() || grid.s.len() + cells.len() > MAX_GRID_NODES {
+                grid.unresolved += cells.len();
+                return Ok(grid);
+            }
+            // Mean density of each row in ln ω on the current nodes: the
+            // scale of the absolute part of the tolerance.
+            let means: Vec<f64> = rows.iter().map(|&t| grid.mean_density(t)).collect();
+            let mids: Vec<f64> = cells
+                .iter()
+                .map(|&c| 0.5 * (grid.s[c] + grid.s[c + 1]))
+                .collect();
+            let mid_profiles: Vec<Panels> = mids
+                .par_iter()
+                .map(|&x| fine.loss_profile(x.exp(), tp_max))
+                .collect();
+            let mut split = vec![false; cells.len()];
+            for (j, &c) in cells.iter().enumerate() {
+                let w = mids[j].exp();
+                for (&t, &mean) in rows.iter().zip(&means) {
+                    if w >= t {
+                        continue;
+                    }
+                    let exact = w * grid.window(&mid_profiles[j], t, w);
+                    let lin = w * blend(
+                        grid.window(&grid.profiles[c], t, w),
+                        grid.window(&grid.profiles[c + 1], t, w),
+                        0.5,
+                    );
+                    if (exact - lin).abs() > self.rel_tol * exact.abs().max(mean) {
+                        split[j] = true;
+                        break;
+                    }
+                }
+            }
+            // Insert every midpoint (it is computed; a node only makes the
+            // interpolation better) and check the halves of the split cells.
+            let old = std::mem::take(&mut grid.profiles);
+            let mut mid_iter = mid_profiles.into_iter();
+            let mut ns = Vec::with_capacity(grid.s.len() + cells.len());
+            let mut np = Vec::with_capacity(grid.s.len() + cells.len());
+            let mut ntodo = Vec::with_capacity(todo.len() + cells.len());
+            let mut k = 0;
+            for (c, p) in old.into_iter().enumerate() {
+                ns.push(grid.s[c]);
+                np.push(p);
+                if c < todo.len() {
+                    if todo[c] {
+                        ns.push(mids[k]);
+                        np.push(mid_iter.next().expect("one profile per midpoint"));
+                        ntodo.push(split[k]);
+                        ntodo.push(split[k]);
+                        k += 1;
+                    } else {
+                        ntodo.push(false);
+                    }
+                }
+            }
+            grid.s = ns;
+            profiles = np;
+            todo = ntodo;
+        }
+    }
+}
+
+/// Interpolation between the window integrals `lo` and `hi` of two
+/// neighbouring loss nodes at fraction `f` of the cell in `ln ω`: linear in
+/// `ln p` (exact for a power law in `ω`, the shape of the tails) where both
+/// are positive, linear in `p` otherwise.
+fn blend(lo: f64, hi: f64, f: f64) -> f64 {
+    if f <= 0.0 {
+        lo
+    } else if f >= 1.0 {
+        hi
+    } else if lo > 0.0 && hi > 0.0 {
+        (lo.ln() * (1.0 - f) + hi.ln() * f).exp()
+    } else {
+        lo * (1.0 - f) + hi * f
+    }
+}
+
+/// Width (in `ln q`) of the starting segments of a [`DiimfpGrid`] profile.
+const PROFILE_SEGMENT: f64 = 0.125;
+/// The profiles of a [`DiimfpGrid`] are integrated at this fraction of the
+/// model tolerance.
+const PROFILE_TOLERANCE_FACTOR: f64 = 0.1;
+/// Each segment of a [`DiimfpGrid`] profile is integrated to the profile
+/// tolerance relative to its own integral, down to this fraction of the mean
+/// segment (`quadrature::integrate_panels`).
+const PROFILE_FLOOR: f64 = 1e-4;
+/// Widest starting cell of a [`DiimfpGrid`] in `ln ω` (also the widest cell
+/// at all, which the momentum range of the profiles relies on: `e^0.25 < 2`).
+const INITIAL_CELL: f64 = 0.25;
+/// Narrowest cell of a [`DiimfpGrid`] in `ln ω`: a cell is not halved below
+/// it, which bounds the refinement where the profiles carry quadrature
+/// noise.
+const MIN_CELL: f64 = 1e-4;
+/// Upper bound on the number of loss nodes of a [`DiimfpGrid`].
+const MAX_GRID_NODES: usize = 20_000;
+
+/// The full Penn DIIMFP of one table build, tabulated so that each row of
+/// the table costs interpolations instead of nested integrals (issue #256).
+///
+/// The DIIMFP is `p(T, ω) = (1/(π T')) ∫_{q-}^{q+} Im[-1/ε(q, ω)] dq/q`
+/// (S2017 eq. (2)), and only the window `[q-, q+]` depends on `T`. So for a
+/// set of loss nodes `ω_i` the grid stores the integrand `Im[-1/ε(q, ω_i)]`
+/// as a function of `u = ln q`, once, over every window it can be asked for
+/// (from a quarter of `q-` at the highest table energy to `2k` there): the
+/// accepted panels of an adaptive Gauss-Legendre integration
+/// (`quadrature::integrate_panels`) from segments 0.125 wide in `u`, at a
+/// tenth of the model tolerance and with every segment held to that
+/// tolerance relative to its own integral (down to 1e-4 of the mean
+/// segment), so that a narrow window is as accurate as a wide one. The
+/// integral to any `u` comes from the polynomial through the node values of
+/// its panel (`quadrature::Panels`), so the integral over the window of any
+/// `(T, ω_i)` costs no new evaluation. (With 0.5-wide starting segments and
+/// the mean-segment floor of [`FullPenn::diimfp_per_m_ev`], the bisection
+/// was seen to stop early, by coincidence, at a few isolated `ω` near the Al
+/// plasmon, with window errors up to 1.5e-3; the finer segments removed
+/// these.)
+///
+/// Between two loss nodes the window integrals of the two neighbouring
+/// profiles, each over the window of the requested `(T, ω)`, are
+/// interpolated linearly in `ln p` against `ln ω` (exact for a power law,
+/// the shape of the DIIMFP's tails; linear in `p` where one of them is
+/// zero). The nodes are the two ends `ω = ω_min` (the lowest ELF energy) and
+/// `ω = T_max`, every ELF knot in between (where `Im[-1/ε]` has kinks at
+/// small `q`, and where a feature narrower than the knot spacing sits) and a
+/// subdivision to cells no wider than 0.25 in `ln ω`. A cell is then
+/// halved, level by level, while at its midpoint `ω_m`, for any row energy
+/// `T > ω_m` of the table,
+/// `|ω_m (p_exact - p_interp)| > tol · max(ω_m p_exact, ḡ_T)`, with `tol`
+/// the model tolerance and `ḡ_T` the mean of `ω p(T, ω)` over `ln ω` on the
+/// current nodes (the row's average loss density in `ln ω`, the scale of
+/// the table's own density tolerance). The interpolation error is therefore
+/// held to the model tolerance (relative, or relative to the row's average
+/// density where the DIIMFP is below it) at the midpoints checked, with the
+/// row energies of the table as the test set. Every computed midpoint is
+/// kept as a node. Cells are not halved below 1e-4 in `ln ω`, nor beyond
+/// 20000 nodes; a cell that still fails there is counted in
+/// [`Self::unresolved_cells`].
+#[derive(Debug, Clone)]
+pub struct DiimfpGrid {
+    /// Loss nodes, `ln ω` (ω in Hartree), ascending.
+    s: Vec<f64>,
+    profiles: Vec<Panels>,
+    gl: GaussLegendre,
+    fermi: f64,
+    /// Highest table energy, Hartree.
+    t_max: f64,
+    tolerance: f64,
+    /// Cells that failed the check but were not halved (width or node cap).
+    unresolved: usize,
+}
+
+impl DiimfpGrid {
+    /// The window integral `∫_{q-}^{q+} Im[-1/ε] dq/q` of one profile at
+    /// `(T, ω)`, Hartree.
+    fn window(&self, p: &Panels, t: f64, w: f64) -> f64 {
+        let tp = t + self.fermi;
+        let k = (2.0 * tp).sqrt();
+        let s = (2.0 * (tp - w)).max(0.0).sqrt();
+        let (q_minus, q_plus) = (2.0 * w / (k + s), k + s);
+        if q_plus.is_nan() || q_plus <= q_minus {
+            return 0.0;
+        }
+        p.integral(&self.gl, q_minus.ln(), q_plus.ln())
+    }
+
+    /// Mean over `ln ω` of `ω p(T, ω)` (without the factor `1/(π T')`) on
+    /// the nodes below `T`, trapezoid rule; zero if there are none.
+    fn mean_density(&self, t: f64) -> f64 {
+        let st = t.ln();
+        let g = |i: usize| {
+            let w = self.s[i].exp();
+            if w < t {
+                w * self.window(&self.profiles[i], t, w)
+            } else {
+                0.0
+            }
+        };
+        let mut acc = 0.0;
+        let mut prev = g(0);
+        for i in 1..self.s.len() {
+            if self.s[i - 1] >= st {
+                break;
+            }
+            let cur = g(i);
+            let hi = self.s[i].min(st);
+            acc += 0.5 * (prev + if self.s[i] <= st { cur } else { 0.0 }) * (hi - self.s[i - 1]);
+            prev = cur;
+        }
+        let span = st - self.s[0];
+        if span > 0.0 {
+            acc / span
+        } else {
+            0.0
+        }
+    }
+
+    /// Number of loss nodes.
+    pub fn len(&self) -> usize {
+        self.s.len()
+    }
+
+    /// Whether the grid has no nodes (no table energy above the lowest ELF
+    /// energy).
+    pub fn is_empty(&self) -> bool {
+        self.s.is_empty()
+    }
+
+    /// Total number of momentum panels over all profiles.
+    pub fn panel_count(&self) -> usize {
+        self.profiles.iter().map(Panels::len).sum()
+    }
+
+    /// Number of cells that failed the interpolation check but were not
+    /// halved, at the narrowest cell width or the node cap (zero when the
+    /// refinement converged).
+    pub fn unresolved_cells(&self) -> usize {
+        self.unresolved
+    }
+
+    /// The tolerance the grid was refined to (the model tolerance).
+    pub fn tolerance(&self) -> f64 {
+        self.tolerance
+    }
+
+    /// The DIIMFP at kinetic energy `energy_ev` (above the Fermi level) and
+    /// loss `loss_ev`, m⁻¹ eV⁻¹, from the grid; `None` where the grid does
+    /// not cover it (a loss below the lowest ELF energy, or an energy above
+    /// the highest table energy), where the caller uses
+    /// [`FullPenn::diimfp_per_m_ev`]. Zero for `ω <= 0` or `ω > T`, as there.
+    pub fn diimfp_per_m_ev(&self, energy_ev: f64, loss_ev: f64) -> Option<f64> {
+        let h = hartree_ev();
+        let (t, w) = (energy_ev / h, loss_ev / h);
+        if !(t.is_finite() && t > 0.0 && w.is_finite()) {
+            return None;
+        }
+        if !(w > 0.0 && w <= t) {
+            return Some(0.0);
+        }
+        if self.s.is_empty() || t > self.t_max * (1.0 + 1e-12) {
+            return None;
+        }
+        let x = w.ln();
+        let n = self.s.len();
+        if !(x >= self.s[0] && x <= self.s[n - 1]) {
+            return None;
+        }
+        let i = (self.s.partition_point(|&y| y <= x).max(1) - 1).min(n - 2);
+        let (a, b) = (self.s[i], self.s[i + 1]);
+        let f = ((x - a) / (b - a)).clamp(0.0, 1.0);
+        let lo = self.window(&self.profiles[i], t, w);
+        let hi = if f > 0.0 {
+            self.window(&self.profiles[i + 1], t, w)
+        } else {
+            0.0
+        };
+        let tp = t + self.fermi;
+        let p_au = blend(lo, hi, f) / (PI * tp);
+        Some(p_au / (BOHR_RADIUS * h))
     }
 }
