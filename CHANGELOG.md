@@ -9,6 +9,10 @@ one version).
 
 ### Added
 
+- Release workflow (`.github/workflows/release.yml`): tag-triggered `lindhard`
+  CLI archives for five targets, `SHA256SUMS`, a GitHub Release, and a
+  crates.io publish gated on a protected environment; see "Releasing" in
+  `CONTRIBUTING.md`.
 - Thermal vibration in the crystal flight model (#181): `CrystalTarget::thermal`
   / `with_thermal(Thermal { temperature_k, debye_temperature_k,
   include_zero_point })` displaces every lattice site the particle meets by an

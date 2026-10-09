@@ -79,6 +79,39 @@ new (one not found in the literature), stop and raise it with the operator
 **before** committing it, filing an issue about it, or describing it in a PR.
 Do not describe the operator's downstream applications in this repo either.
 
+## Releasing
+
+Releases are cut by the operator; the workflow in
+[`.github/workflows/release.yml`](.github/workflows/release.yml) does the rest.
+Both crates share one version.
+
+1. Set `version` under `[workspace.package]` in `Cargo.toml` and the `version`
+   of the `lindhard` entry under `[workspace.dependencies]` to the new
+   version, and refresh `Cargo.lock`.
+2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`
+   and start a fresh `## [Unreleased]` above it. The section is the release
+   notes.
+3. Merge that change, then tag the merge commit and push the tag:
+   `git tag vX.Y.Z && git push origin vX.Y.Z`.
+4. The workflow's preflight fails, before any build, if the tag differs from
+   the workspace version or the changelog section is missing. Otherwise it
+   builds `lindhard-<version>-<target>` archives (`.tar.gz`, `.zip` on
+   Windows) for x86_64 and aarch64 Linux (static musl), x86_64 and aarch64
+   macOS, and x86_64 Windows, then creates the GitHub Release with the
+   archives and `SHA256SUMS`.
+5. The `publish` job waits for approval of the protected `release`
+   environment, then publishes `lindhard` and `lindhard-cli` to crates.io.
+   Approve it only after checking the release assets.
+
+To test changes to the workflow, run it by hand from the Actions tab
+(`workflow_dispatch`). That is a dry run: the archives and `SHA256SUMS` are
+uploaded as workflow artifacts, and no release is created and nothing is
+published.
+
+One-time setup: create the `release` environment with required reviewers and
+give it the secret `CARGO_REGISTRY_TOKEN` (a crates.io API token). The publish
+job fails with a clear message if the secret is missing.
+
 ## Everything else
 
 - Rust stable, `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green, and
