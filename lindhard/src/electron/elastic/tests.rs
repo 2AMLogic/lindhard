@@ -734,7 +734,6 @@ fn corrections_off_is_bit_identical_to_the_plain_solver() {
             // A CorrectedPotential with nothing switched on is the static one.
             let wrapped =
                 CorrectedPotential::new(pot, &dhfs_fixture, e, &Corrections::none()).unwrap();
-            assert!(!wrapped.long_range());
             let via = solve(&wrapped, e, &thetas, opts).unwrap();
             assert_same_bits(&plain, &via);
         }
@@ -943,4 +942,171 @@ fn cu_corrections_fade_with_energy() {
         eprintln!("{name}: |change at 10 keV| / |change at 100 eV| = {ratio:.4e}");
         assert!(ratio < 0.2, "{name}: {ratio}");
     }
+}
+
+/// Difference of two phase shifts modulo `pi` (both are reduced to
+/// `(-pi/2, pi/2]`, so a wrap shows up as a difference near `pi`).
+fn phase_diff(a: f64, b: f64) -> f64 {
+    let d = (a - b).rem_euclid(PI);
+    d.min(PI - d)
+}
+
+fn solver_with(
+    pot: &dyn ScreenedPotential,
+    e: f64,
+    opts: SolverOptions,
+    rule: StartRule,
+) -> ElasticSolver<'_> {
+    let mut s = ElasticSolver::new(pot, e, opts).unwrap();
+    s.start_rule = rule;
+    s
+}
+
+/// Regression test for #131: for a static potential (no polarization tail) a
+/// wave with `|kappa|` of several hundred now matches a reference started at
+/// the floor radius, where the starting ratio does not matter. Au, Salvat
+/// (1987) DHFS screening, 100 keV: the pre-#131 rule `r_t exp(-60/|kappa|)`
+/// was off by about `2.5e-4` rad at `kappa = 779` (measured, see
+/// `start_rule_measurement`).
+#[test]
+fn high_kappa_static_wave_matches_the_floor_start_reference() {
+    let au = SalvatDhfs::for_element(79).unwrap();
+    let (e, opts) = (100_000.0, SolverOptions::default());
+    for kappa in [779, -780, 600] {
+        let wkb = solver_with(&au, e, opts, StartRule::Wkb)
+            .phase_shift(kappa)
+            .unwrap();
+        let floor = solver_with(&au, e, opts, StartRule::Floor)
+            .phase_shift(kappa)
+            .unwrap();
+        let legacy = solver_with(&au, e, opts, StartRule::Legacy)
+            .phase_shift(kappa)
+            .unwrap();
+        let (d_wkb, d_legacy) = (phase_diff(wkb, floor), phase_diff(legacy, floor));
+        eprintln!("kappa {kappa}: wkb {wkb:e} floor {floor:e} legacy {legacy:e}");
+        assert!(d_wkb < 1e-9, "kappa {kappa}: |wkb - floor| = {d_wkb:e}");
+        if kappa == 779 {
+            assert!(
+                d_legacy > 1e-5,
+                "kappa {kappa}: |legacy - floor| = {d_legacy:e}"
+            );
+        }
+    }
+    // The public solver uses the WKB start.
+    assert_eq!(
+        ElasticSolver::new(&au, e, opts).unwrap().start_rule,
+        StartRule::Wkb
+    );
+}
+
+/// One row of the #131 measurement: the pre-#131 start rule (legacy) against
+/// the WKB start rule for one potential at one energy.
+struct StartRuleRow {
+    l_max_legacy: usize,
+    l_max_wkb: usize,
+    max_dphase: f64,
+    at_kappa: i32,
+    rel_el: f64,
+    rel_tr: f64,
+    t_legacy: f64,
+    t_wkb: f64,
+}
+
+fn compare_start_rules(pot: &dyn ScreenedPotential, e: f64) -> StartRuleRow {
+    let opts = SolverOptions::default();
+    let run = |rule| {
+        let t0 = std::time::Instant::now();
+        let pw = solver_with(pot, e, opts, rule).partial_waves().unwrap();
+        let (el, tr) = (pw.sigma_el(), pw.sigma_tr1());
+        (pw.l_max(), el, tr, t0.elapsed().as_secs_f64())
+    };
+    let old = run(StartRule::Legacy);
+    let new = run(StartRule::Wkb);
+    // Compare channel by channel over the larger of the two cutoffs.
+    let l = old.0.max(new.0);
+    let a = solver_with(pot, e, opts, StartRule::Legacy)
+        .phase_shifts_up_to(l)
+        .unwrap();
+    let b = solver_with(pot, e, opts, StartRule::Wkb)
+        .phase_shifts_up_to(l)
+        .unwrap();
+    let (mut max_dphase, mut at_kappa) = (0.0_f64, -1);
+    for li in 0..=l as i32 {
+        for kappa in [-(li + 1), li] {
+            if kappa == 0 {
+                continue;
+            }
+            let d = phase_diff(a.phase_shift(kappa).unwrap(), b.phase_shift(kappa).unwrap());
+            if d > max_dphase {
+                max_dphase = d;
+                at_kappa = kappa;
+            }
+        }
+    }
+    StartRuleRow {
+        l_max_legacy: old.0,
+        l_max_wkb: new.0,
+        max_dphase,
+        at_kappa,
+        rel_el: rel(new.1, old.1),
+        rel_tr: rel(new.2, old.2),
+        t_legacy: old.3,
+        t_wkb: new.3,
+    }
+}
+
+/// Issue #131 measurement: does the pre-#131 start rule `r_t exp(-60/|kappa|)`
+/// (then used by every potential without a polarization tail) give materially
+/// different results from the WKB start rule of #91 for Au at 10 to 100 keV?
+/// Decision threshold (issue #131): every phase shift within `100 *
+/// phase_tolerance` (1e-6 rad) and `sigma_el`, `sigma_tr1` within 1e-6
+/// relative counts as "no material difference". Measured: within it up to
+/// 50 keV, beyond it at 100 keV (Au DHFS), so the WKB start now applies to
+/// every potential. Ignored by default (about half a minute in release); run
+/// with
+/// `cargo test -p lindhard --release --lib start_rule_measurement -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn start_rule_measurement() {
+    let au = SalvatDhfs::for_element(79).unwrap();
+    let au_tf = tf_yukawa(79.0);
+    let exchange = Corrections {
+        exchange: true,
+        correlation_polarization: None,
+    };
+    eprintln!(
+        "| potential | E (keV) | l_max legacy/WKB | max phase change (rad) | at kappa | rel. change sigma_el | rel. change sigma_tr1 | t legacy / WKB (s) |"
+    );
+    eprintln!("|---|---|---|---|---|---|---|---|");
+    let mut within = Vec::new();
+    for &e in &[10_000.0, 20_000.0, 30_000.0, 50_000.0, 100_000.0] {
+        let au_x = CorrectedPotential::new(&au, &au, e, &exchange).unwrap();
+        let au_tf_x = CorrectedPotential::new(&au_tf, &au_tf, e, &exchange).unwrap();
+        let cases: [(&str, &dyn ScreenedPotential); 4] = [
+            ("Au DHFS, static", &au),
+            ("Au DHFS, exchange", &au_x),
+            ("Au TF Yukawa, static", &au_tf),
+            ("Au TF Yukawa, exchange", &au_tf_x),
+        ];
+        for (name, pot) in cases {
+            let r = compare_start_rules(pot, e);
+            eprintln!(
+                "| {name} | {} | {}/{} | {:.2e} | {} | {:.2e} | {:.2e} | {:.2} / {:.2} |",
+                e / 1000.0,
+                r.l_max_legacy,
+                r.l_max_wkb,
+                r.max_dphase,
+                r.at_kappa,
+                r.rel_el,
+                r.rel_tr,
+                r.t_legacy,
+                r.t_wkb
+            );
+            within.push((e, r.max_dphase < 1e-6 && r.rel_el < 1e-6 && r.rel_tr < 1e-6));
+        }
+    }
+    // The finding behind the decision: no material difference up to 50 keV,
+    // a material one at 100 keV.
+    assert!(within.iter().filter(|w| w.0 <= 50_000.0).all(|w| w.1));
+    assert!(within.iter().any(|w| !w.1));
 }

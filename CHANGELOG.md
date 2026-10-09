@@ -216,6 +216,15 @@ one version).
 
 ### Changed
 
+- Elastic cross sections change for potentials without a polarization tail
+  (static `Yukawa`, `SalvatDhfs`, `SquareWell`, and `CorrectedPotential` with
+  exchange only): the radial Dirac solver now starts the outward integration
+  by the WKB criterion of #91 for every potential, instead of
+  `r_t exp(-60/|kappa|)`. For Au (Salvat DHFS) the change is below `1e-11`
+  relative in `sigma_el` and `sigma_tr1` up to 50 keV, and `2.4e-5` in
+  `sigma_tr1` at 100 keV, where the old rule was off by up to `2.5e-4` rad at
+  `|kappa| = 779`. Breaking: `ScreenedPotential::long_range()` is removed; it
+  no longer selected anything (#131).
 - Dynamic runs: `surface_nm` is now the cumulative surface recession (always 0
   with `erosion = false`). Breaking for struct-literal construction: new public
   fields on `Particle`, `DynamicConfig` and `StepRecord` (#234).
