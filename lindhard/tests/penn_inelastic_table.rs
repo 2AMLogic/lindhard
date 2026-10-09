@@ -365,3 +365,26 @@ fn model_generic_builder_runs_the_mermin_model() {
         assert!((s / want - 1.0).abs() < 1e-2, "{e} eV: {s} vs {want}");
     }
 }
+
+/// The energy axis of a table is the model's `T`, the kinetic energy above the
+/// model's Fermi level, and a row's losses run up to `T` (S2017 eq. (3),
+/// `ω_max = T' - E_F`). With the default Fermi energy 0 the losses of the row
+/// at `E` therefore reach `E`; a table does not know a band's Fermi energy.
+/// The transport reads rows at the band-bottom energy and clamps at
+/// `E - E_F` (#173; `electron::transport` module docs and
+/// `tests/electron_secondaries.rs`).
+#[test]
+fn row_losses_run_to_the_row_energy_above_the_model_fermi_level() {
+    let grid = vec![25.0, 40.0, 80.0];
+    let o = InelasticTableOptions::new(grid.clone());
+    for fermi in [0.0, 10.0] {
+        let m = penn().clone().with_fermi_energy_ev(fermi).unwrap();
+        let t = build_inelastic_table(&m, &material(), &o).unwrap();
+        for (i, &e) in grid.iter().enumerate() {
+            let q = t.quantiles(i).unwrap();
+            let top = *q.last().unwrap();
+            assert!((top - e).abs() <= 1e-12 * e, "E_F {fermi}: row {e}: {top}");
+            assert!(q.iter().all(|&w| w <= e));
+        }
+    }
+}

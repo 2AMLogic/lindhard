@@ -1559,7 +1559,8 @@ result worse, not better; no Cu, Si or Au set changes status.
   (`[electron.inelastic] fermi_energy_ev`) is left at the library default,
   0 eV, in every configuration (the run metadata print `E_F = 0 eV` in the
   inelastic table's model string); it is not the band's Fermi energy, which
-  only the secondary model and the barrier use. It was not varied here.
+  only the secondary model and the barrier use. It was not varied in these
+  tables; #173 measured what it does (below).
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
   level (`cutoff_reference = "vacuum-level"`) unless a row says otherwise.
@@ -1570,10 +1571,12 @@ result worse, not better; no Cu, Si or Au set changes status.
   than 1 eV, which the default drops.
 - Statistics: 2000 histories per point, seed 1, two threads. The Al and Cu
   runs were made with the build at 6629260; the Au runs with a later build
-  (the table header shows the later one), after which the electron tally
-  code had changed. Al and Cu default runs at 100, 600 and 800 eV were
-  repeated with the later build and reproduce the committed deltas and etas
-  bit for bit.
+  (51af302), after which the electron tally code had changed. Al and Cu
+  default runs at 100, 600 and 800 eV were repeated with the later build
+  and reproduce the committed deltas and etas bit for bit. For #173 the
+  `default` rows of Al, Au and Cu were re-run in full with the build named
+  in the table header; every δ and η is bit for bit the earlier value (no
+  model changed), and the other rows were not re-run.
 - Oracle codes were **not run for δ(E)**. The electron oracle harness
   exists (#150, "Electron oracles" in section 2, which reports δ for Si
   and Cu at 1 to 20 keV). What is missing for #149 is a δ(E) oracle run for
@@ -1598,7 +1601,7 @@ committed results.
 | Si | 10 | 2: `se_si_dione1973` (550 eV, 0.980), `se_si_dionne1975` (300 eV, 1.167) | 425 [300, 550] | 1.074 [0.980, 1.167] | 8 sets |
 | Au | 10 | 2: `se_au_bronstein1969` (800 eV, 1.395), `se_au_rothwell1988` (700 eV, 1.540) | 750 [700, 800] | 1.468 [1.395, 1.540] | 8 sets |
 
-**Simulated δ(E)** (`lindhard 0.0.1 (51af302-dirty)`; seed 1; histories per run in the results file; δ = electrons escaping the front face below 50 eV per primary). Statistical error: the Poisson floor √N_slow/N is in the results file and understates the true error by the cascade correlation.
+**Simulated δ(E)** (`lindhard 0.0.1 (ab7bb42)`; seed 1; histories per run in the results file; δ = electrons escaping the front face below 50 eV per primary). Statistical error: the Poisson floor √N_slow/N is in the results file and understates the true error by the cascade correlation.
 
 **Al**
 
@@ -1665,7 +1668,7 @@ data):
   the factor-2 energy bound. The Al default curve peaks at δ_max 7.6
   (800 eV): more than three times the largest Al maximum in the compilation
   (2.17) and more than ten times the smaller one (0.642). The failure is
-  reported as it stands and the bounds are not loosened. #173 tracks it.
+  reported as it stands and the bounds are not loosened. #173 traced its cause (below).
 - **The model spread is large for Al and small for Cu.** With the Mermin
   model in place of the single-pole Penn default, everything else equal, the
   Al maximum drops to 1.29 (400 eV), inside the measured range, the Cu
@@ -1673,17 +1676,69 @@ data):
   maximum drops to 2.60 (800 eV), 24 % below the default but still 77 %
   above the measured median. The single-pole
   default and Mermin differ by a factor of about 6 for Al at the maximum.
-  This places the Al overestimate in the inelastic model at low energy as
-  configured here (including the inelastic Fermi energy of 0 eV, see the
-  inputs), but these runs do not identify its cause, and Mermin agreeing
-  better for Al is not evidence that it is right: Al has only two resolving
-  sets, 3.4 times apart.
+  Mermin agreeing better for Al is not evidence that it is right: Al has
+  only two resolving sets, 3.4 times apart.
+- **Cause of the Al and Au overestimate of the default (#173).** It is the
+  single-pole approximation's inelastic mean free path at low energy, which
+  is the published behaviour of that approximation. Shinotsuka et al.,
+  Surf. Interface Anal. 49, 238 (2017) (open at PMC5524379, section
+  "Calculated IMFPs from the four algorithms" and the Summary), computed
+  IMFPs for liquid water. They report that the single-pole and full Penn
+  IMFPs agree above 50 eV and that below 30 eV the single-pole IMFP grows
+  larger as the energy falls, because the single pole neglects
+  single-electron excitations. They call their values below 50 eV less
+  reliable, and they computed no metal. For the same ELFs, this code's single-pole IMFP is 9.8 to
+  24.6 nm for Al at 12 to 19 eV above the band bottom, where its full Penn
+  and Mermin models give 0.72 to 1.11 nm; for Au it is 1.5 to 1.8 times the
+  full Penn value at 12 to 50 eV; above 100 eV the single pole and full
+  Penn agree to about 1 % (table in the module docs of
+  `electron::inelastic::penn`, "Low energies"). The secondaries that make
+  δ live at those energies. Measured with
+  `lindhard-cli/examples/inelastic_low_energy.rs` on the default inputs
+  (200 histories, seed 1, so about ±0.1 to 0.2 in δ):
+  - *Al*: replacing only the inelastic-table rows below 30 eV (band-bottom
+    energy) with Mermin rows takes δ at 400 eV from 6.89 to 1.41, the full
+    Mermin value (1.39 in the same run, 1.29 committed); the reverse,
+    Mermin with single-pole rows below 30 eV, gives 6.45. The cause is
+    therefore entirely below 30 eV.
+  - *Au*: δ at 800 eV is 3.43 with the single pole, 3.01, 2.70 and 2.77
+    with Mermin rows below 30, 50 and 100 eV, and 2.62 with Mermin rows
+    everywhere. Most of the single-pole excess over Mermin (0.81) sits below
+    50 eV, the same cause as Al, smaller because Au's ELF has weight at low
+    energy. The rest of the Au excess over the measured median (Mermin
+    still +77 %) is **not** from the single-pole approximation and is not
+    identified here; it is shared by the inelastic models and tracked in
+    #242.
+  - *Cu* is consistent with this: its single-pole IMFP stays within a factor of about
+    2 of full Penn at those energies and close to Mermin's.
+  - *Not the cause: the energy reference.* The tables are built with the
+    model's Fermi energy 0 and read at the band-bottom energy, so their
+    losses reach `E` while the transport clamps them at `E - E_F`; 78 to
+    82 % of the Al events 5 to 20 eV above the Fermi level hit the clamp.
+    Rebuilding the table in the consistent convention (cstool's: rows at
+    `E - E_F` with the band's Fermi energy) removes every clamped event and
+    changes δ by a few per cent. With 1000 histories, the single pole goes
+    from 7.61 to 8.17 for Al and from 3.23 to 3.37 for Au at 800 eV, and
+    Mermin from 1.34 to 1.26 for Al at 400 eV. The single-pole excess over
+    Mermin is the same in both conventions. Setting `fermi_energy_ev` to the
+    band value raises Al δ (to 7.63 and 9.01 at 400 and 800 eV), because it
+    counts `E_F` twice. The convention is documented, with these numbers, in
+    the module docs of `electron::transport`, "Energy reference of the
+    inelastic table", and pinned by tests. Building the tables in the
+    consistent convention is #241.
+
+  No model, default or bound was changed for #173: the single-pole default
+  still fails the Al and Au bounds, and the tables above are re-runs of the
+  same code.
 - **#150 reports a δ excess against Nebula for Si and Cu as well.** In
   "Electron oracles" (section 2), lindhard's δ is 2.7 to 7.1 times
   Nebula's at every energy and in both elements (`e_1keV_si` and
-  `e_5keV_si` among them), with the same default single-pole model, the
-  same escape barrier and the same secondary model on both sides. That is context for #173; the two sections
-  together do not identify a cause, and no cause is inferred here.
+  `e_5keV_si` among them), with the same escape barrier and the same
+  secondary model on both sides; lindhard ran the single-pole model and
+  Nebula full Penn (section 2). The cause found in #173 is consistent with
+  part of that gap, but the comparison does not isolate it: the elastic
+  model and Nebula's quasi-elastic channel below 100 eV differ as well, and
+  lindhard's Mermin δ is still above the measured one for Cu and Au (#242).
 - **Full Penn is missing** from the side-by-side. One Al run at 200 eV, the
   smallest table, had not finished building its inelastic table after
   45 minutes on two threads (2026-10-08) and was stopped. The configuration
@@ -1715,8 +1770,12 @@ themselves by up to a factor of 3.4 in δ_max (Al; surface condition,
 cutoff definition, incidence not stated), so even a curve inside the bounds
 is checked only coarsely.
 
-**Follow-up.** #173 tracks the Al overestimate of the default model. The
-open gaps are full Penn (cost; table reuse is tracked in #168), the Si run
+**Follow-up.** #173 found the cause of the Al overestimate and of most of
+the Au single-pole excess (above); whether the default inelastic model
+should change is an operator decision under #149, whose bounds gate the
+default. The open gaps are the Au excess
+that Mermin shares (#242), the energy-reference convention of
+the inelastic table (documented, not changed; #241), full Penn (cost; table reuse is tracked in #168), the Si run
 (its ELF to 199 eV was committed in #125), the cited barrier
 parameters (#115), and a δ(E) oracle run for Al, Cu and Au, 100 eV to 5 keV
 (the #150 harness exists; none was run in this pass).
