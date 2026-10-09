@@ -61,7 +61,7 @@ impl Run {
         base_dir: Option<PathBuf>,
     ) -> PyResult<Self> {
         let input = Input {
-            beam: beam.to_spec(),
+            beam: beam.to_spec()?,
             materials: materials
                 .unwrap_or_default()
                 .into_iter()
@@ -171,8 +171,9 @@ impl Run {
     }
 
     #[setter]
-    fn set_beam(&mut self, beam: PyRef<'_, Beam>) {
-        self.input.beam = beam.to_spec();
+    fn set_beam(&mut self, beam: PyRef<'_, Beam>) -> PyResult<()> {
+        self.input.beam = beam.to_spec()?;
+        Ok(())
     }
 
     #[getter]

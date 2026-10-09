@@ -9,6 +9,21 @@ one version).
 
 ### Added
 
+- Ion beam divergence in transport (#285): the optional `[beam.divergence]`
+  input table (`model = "gaussian"` with `sigma_deg` per plane, or
+  `"uniform-cone"` with `half_angle_deg`; widths in `[0, 10]` degrees; static
+  ion runs only), the opt-in `Bca::with_divergence` engine setter,
+  `Bca::primary_direction`, `Bca::divergence_metadata`, and `Beam`-level
+  Python arguments `divergence_model` / `divergence_deg`. Each primary's
+  direction is sampled once about the nominal direction on a dedicated
+  segment of its own stream (word `2^65`) and conditioned on pointing into the
+  target (bounded rejection, error `BcaError::BeamDivergence` on exhaustion).
+  Without it results are unchanged. The summary gains
+  `physics.beam_divergence` (no `format.version` bump). `Bca::history` and
+  `history_in` now return the new `HistoryError` (wrapping `StoppingError`)
+  and `BcaError` gains the `BeamDivergence` variant. An input capability, not
+  a validated channeling prediction. Example:
+  `examples/b_5keV_si_crystal_divergence.toml`.
 - `geometry::CsgGeometry`, `geometry::Csg` and `geometry::Primitive`:
   constructive-solid-geometry targets of box, capped-cylinder and half-space
   primitives combined by nestable union, intersection and difference, one

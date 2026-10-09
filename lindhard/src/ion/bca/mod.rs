@@ -227,6 +227,7 @@ use std::f64::consts::PI;
 use rand_core::Rng;
 
 use crate::geometry::{ExitOutcome, Flight, Geometry};
+use crate::ion::crystal::Divergence;
 use crate::ion::potential::{Potential, Screening};
 use crate::ion::scattering::{closest_approach, theta_quadrature, ScatteringTable};
 use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
@@ -273,6 +274,103 @@ impl Beam {
         let (sa, ca) = self.azimuth_rad.sin_cos();
         [c, s * ca, s * sa]
     }
+}
+
+/// Word position (in the 32-bit words of the ChaCha stream) of the segment
+/// of a history's random stream that beam-divergence draws come from:
+/// `2^65`. The transport draws start at word 0 and never reach it, and it is
+/// disjoint from the thermal-displacement segment (`2^66`) and the
+/// crystal-shift segment (`2^67`) (each is far shorter than the gap to the
+/// next), so enabling divergence leaves every other draw of the history
+/// unchanged.
+pub const DIVERGENCE_STREAM_WORD: u128 = 1u128 << 65;
+
+/// Most deflected directions drawn for one primary before
+/// [`Bca::with_divergence`]'s inward conditioning gives up with
+/// [`BcaError::BeamDivergence`]. For the small-angle spreads the input
+/// front end accepts, one draw is inward with probability about one half or
+/// more, so exhausting 1000 attempts has probability below `2^-1000`; the
+/// bound only guarantees that a pathological setting cannot hang a run.
+pub const MAX_DIVERGENCE_ATTEMPTS: u32 = 1000;
+
+/// Run metadata of a beam divergence ([`Bca::divergence_metadata`]): the
+/// distribution, its width and the incidence policy, so a result states the
+/// spread it was run with.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DivergenceMetadata {
+    /// `"gaussian"` or `"uniform-cone"`.
+    pub model: &'static str,
+    /// Which angle `width_rad` is: `"sigma_per_plane"` (Gaussian standard
+    /// deviation of each of two orthogonal plane angles) or
+    /// `"cone_half_angle"` (uniform in solid angle).
+    pub width_kind: &'static str,
+    /// The width, radians.
+    pub width_rad: f64,
+    /// The width, degrees (the unit the input uses).
+    pub width_deg: f64,
+    /// Incidence policy: `"inward-conditioned"`, i.e. the distribution
+    /// conditioned on directions into the target by rejection sampling.
+    pub incidence: &'static str,
+    /// Rejection-sampling attempt bound per primary.
+    pub max_attempts: u32,
+    /// Word position of the random-stream segment the draws come from.
+    pub stream_word: &'static str,
+}
+
+impl DivergenceMetadata {
+    /// Metadata of `divergence`; `None` for [`Divergence::None`].
+    pub fn new(divergence: &Divergence) -> Option<Self> {
+        let (model, width_kind, width_rad) = match *divergence {
+            Divergence::None => return None,
+            Divergence::Gaussian { sigma_rad } => ("gaussian", "sigma_per_plane", sigma_rad),
+            Divergence::UniformCone { half_angle_rad } => {
+                ("uniform-cone", "cone_half_angle", half_angle_rad)
+            }
+        };
+        Some(Self {
+            model,
+            width_kind,
+            width_rad,
+            width_deg: width_rad.to_degrees(),
+            incidence: "inward-conditioned",
+            max_attempts: MAX_DIVERGENCE_ATTEMPTS,
+            stream_word: "2^65",
+        })
+    }
+}
+
+/// Why a single history failed.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum HistoryError {
+    /// The stopping model failed.
+    #[error(transparent)]
+    Stopping(#[from] StoppingError),
+    /// No inward direction was drawn from the beam divergence within
+    /// [`MAX_DIVERGENCE_ATTEMPTS`] attempts.
+    #[error("no inward beam direction in {attempts} divergence draws")]
+    BeamDivergence {
+        /// Attempts made.
+        attempts: u32,
+    },
+}
+
+/// Draw `divergence` about `central` until the direction points into the
+/// target (`dir[0] > 0`), at most [`MAX_DIVERGENCE_ATTEMPTS`] times. The
+/// result is the divergence law conditioned on inward incidence.
+fn sample_inward<R: Rng + ?Sized>(
+    divergence: &Divergence,
+    central: [f64; 3],
+    rng: &mut R,
+) -> Result<[f64; 3], HistoryError> {
+    for _ in 0..MAX_DIVERGENCE_ATTEMPTS {
+        let d = divergence.sample_direction(central, rng);
+        if d[0] > 0.0 {
+            return Ok(d);
+        }
+    }
+    Err(HistoryError::BeamDivergence {
+        attempts: MAX_DIVERGENCE_ATTEMPTS,
+    })
 }
 
 /// How free-flight lengths and the impact-parameter limit are chosen.
@@ -411,6 +509,16 @@ pub enum BcaError {
         index: u64,
         /// The model error.
         source: StoppingError,
+    },
+    /// Beam divergence produced no inward direction within the attempt
+    /// bound ([`MAX_DIVERGENCE_ATTEMPTS`]). `index` is the lowest failing
+    /// history.
+    #[error("history {index}: no inward beam direction in {attempts} divergence draws")]
+    BeamDivergence {
+        /// Primary index.
+        index: u64,
+        /// Attempts made.
+        attempts: u32,
     },
 }
 
@@ -669,6 +777,9 @@ pub struct Bca<'a> {
     crystals: Vec<crystal::CrystalData>,
     /// Index into `crystals` by region; empty when there are no crystals.
     region_crystal: Vec<Option<usize>>,
+    /// Beam divergence about the nominal direction ([`Bca::with_divergence`]);
+    /// [`Divergence::None`] (the default) draws nothing.
+    divergence: Divergence,
 }
 
 fn finite_nonneg(v: f64) -> bool {
@@ -889,7 +1000,74 @@ impl<'a> Bca<'a> {
             beta_max,
             crystals: Vec::new(),
             region_crystal: Vec::new(),
+            divergence: Divergence::None,
         })
+    }
+
+    /// Give the beam an angular spread about its nominal direction (opt-in;
+    /// the default is [`Divergence::None`], which changes nothing).
+    ///
+    /// Each primary's initial direction is the nominal
+    /// [`Beam::direction`] deflected by [`Divergence::sample_direction`] and
+    /// *conditioned on pointing into the target* (positive depth component):
+    /// a deflected direction with `dir[0] <= 0` is rejected and redrawn, up
+    /// to [`MAX_DIVERGENCE_ATTEMPTS`] attempts, after which the history
+    /// fails with [`BcaError::BeamDivergence`]. The draws come from a copy of
+    /// the history's stream positioned at word `2^65`
+    /// ([`DIVERGENCE_STREAM_WORD`]), a segment disjoint from the transport
+    /// draws, the thermal segment (`2^66`) and the crystal-shift segment
+    /// (`2^67`), so the spread changes no other draw of the history. The
+    /// spread is a property of the beam: it applies to the primary from the
+    /// entry point, including while it crosses an amorphous layer; recoils
+    /// keep their collision-generated directions. The nominal orientation
+    /// convention (and the crystal orientation built from it) is unchanged.
+    ///
+    /// Errors with [`BcaError::InvalidBeam`] when the parameters fail
+    /// [`Divergence::validate`].
+    pub fn with_divergence(mut self, divergence: Divergence) -> Result<Self, BcaError> {
+        divergence
+            .validate()
+            .map_err(|e| BcaError::InvalidBeam(format!("divergence: {e}")))?;
+        self.divergence = divergence;
+        Ok(self)
+    }
+
+    /// Metadata of the beam divergence; `None` without one.
+    pub fn divergence_metadata(&self) -> Option<DivergenceMetadata> {
+        DivergenceMetadata::new(&self.divergence)
+    }
+
+    /// The beam divergence ([`Divergence::None`] unless set by
+    /// [`Bca::with_divergence`]).
+    pub fn divergence(&self) -> Divergence {
+        self.divergence
+    }
+
+    /// The initial direction of primary `index` of this engine's run: what
+    /// [`Bca::run`] gives that history (the stream is
+    /// [`crate::rng::stream`]`(seed, index)`). The nominal direction without
+    /// divergence; otherwise the inward-conditioned divergent sample.
+    pub fn primary_direction(&self, index: u64) -> Result<[f64; 3], BcaError> {
+        self.initial_direction(&crate::rng::stream(self.config.seed, index))
+            .map_err(|e| match e {
+                HistoryError::BeamDivergence { attempts } => {
+                    BcaError::BeamDivergence { index, attempts }
+                }
+                HistoryError::Stopping(source) => BcaError::Stopping { index, source },
+            })
+    }
+
+    /// The direction of primary history `rng` starts with: the nominal beam
+    /// direction, or the inward-conditioned divergent sample (see
+    /// [`Bca::with_divergence`]).
+    fn initial_direction(&self, rng: &ParticleRng) -> Result<[f64; 3], HistoryError> {
+        let central = self.beam.direction();
+        if matches!(self.divergence, Divergence::None) {
+            return Ok(central);
+        }
+        let mut brng = rng.clone();
+        brng.set_word_pos(DIVERGENCE_STREAM_WORD);
+        sample_inward(&self.divergence, central, &mut brng)
     }
 
     /// Start primaries at `pos` instead of the geometry's default entry point.
@@ -947,7 +1125,7 @@ impl<'a> Bca<'a> {
     {
         struct Acc<T> {
             tally: T,
-            err: Option<(u64, StoppingError)>,
+            err: Option<(u64, HistoryError)>,
             buffers: HistoryBuffers,
         }
         let acc = run_particles_range(
@@ -976,7 +1154,12 @@ impl<'a> Bca<'a> {
             },
         );
         match acc.err {
-            Some((index, source)) => Err(BcaError::Stopping { index, source }),
+            Some((index, HistoryError::Stopping(source))) => {
+                Err(BcaError::Stopping { index, source })
+            }
+            Some((index, HistoryError::BeamDivergence { attempts })) => {
+                Err(BcaError::BeamDivergence { index, attempts })
+            }
             None => Ok(acc.tally),
         }
     }
@@ -989,7 +1172,7 @@ impl<'a> Bca<'a> {
         tally: &mut T,
         rng: &mut ParticleRng,
         index: u64,
-    ) -> Result<EnergyBudget, StoppingError> {
+    ) -> Result<EnergyBudget, HistoryError> {
         self.history_in(&mut HistoryBuffers::new(), tally, rng, index)
     }
 
@@ -1002,7 +1185,7 @@ impl<'a> Bca<'a> {
         tally: &mut T,
         rng: &mut ParticleRng,
         index: u64,
-    ) -> Result<EnergyBudget, StoppingError> {
+    ) -> Result<EnergyBudget, HistoryError> {
         tally.begin_history(index);
         let mut budget = EnergyBudget {
             incident: self.beam.energy_ev,
@@ -1047,13 +1230,14 @@ impl<'a> Bca<'a> {
             None
         };
         pending.clear();
+        let dir = self.initial_direction(rng)?;
         pending.push(Particle {
             species: 0,
             z: self.beam.ion.z(),
             mass_amu: self.beam.ion.mass_amu(),
             energy_ev: self.beam.energy_ev,
             pos: self.entry_pos,
-            dir: self.beam.direction(),
+            dir,
             layer: self.entry_region,
             origin_layer: self.entry_region,
             generation: 0,
@@ -1489,6 +1673,25 @@ impl<'a> Bca<'a> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn inward_sampling_is_bounded_and_cannot_hang() {
+        use crate::ion::crystal::Divergence;
+        // A zero-width spread about an outward direction never yields an
+        // inward sample: the bound turns the loop into an error.
+        let mut rng = crate::rng::stream(1, 0);
+        let r = sample_inward(
+            &Divergence::Gaussian { sigma_rad: 0.0 },
+            [-1.0, 0.0, 0.0],
+            &mut rng,
+        );
+        assert_eq!(
+            r,
+            Err(HistoryError::BeamDivergence {
+                attempts: MAX_DIVERGENCE_ATTEMPTS
+            })
+        );
+    }
+
     use super::*;
     use crate::geometry::Stack;
     use crate::ion::scattering::TableSpec;

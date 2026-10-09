@@ -127,6 +127,12 @@ struct Physics {
     /// `format.version` bump (docs/cli.md, "Compatibility and extension").
     #[serde(skip_serializing_if = "Vec::is_empty")]
     crystal: Vec<CrystalMetadata>,
+    /// Present only for a run with `[beam.divergence]`: the resolved
+    /// distribution, width (radians and degrees), incidence policy and
+    /// random-stream segment. Added without a `format.version` bump
+    /// (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    beam_divergence: Option<lindhard::ion::bca::DivergenceMetadata>,
 }
 
 #[derive(Serialize)]
@@ -618,6 +624,7 @@ pub fn summary_json(
                 .collect(),
             tuning: r.tuning.clone(),
             crystal: crystals.to_vec(),
+            beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
         },
         results: Results {
             histories: s.histories,

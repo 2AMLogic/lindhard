@@ -276,6 +276,12 @@ fn check(path: &Path) -> Result<()> {
                 .map_or(String::new(), |c| format!(" (adaptive, max change {c})"))
         );
     }
+    if let Some(d) = lindhard::ion::bca::DivergenceMetadata::new(&r.divergence) {
+        println!(
+            "  beam divergence: {} {} = {} deg, {}",
+            d.model, d.width_kind, d.width_deg, d.incidence
+        );
+    }
     for (i, c) in r.input.crystal.iter().enumerate() {
         println!(
             "  crystal[{i}]: {} on layers {:?}, normal {:?}, reference {:?}, wafer rotation {} deg{}",
