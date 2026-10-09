@@ -33,6 +33,7 @@ The rest run as capacity allows.
 Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
 
 - **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
+- **#236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
 
 ## Operator Priority
 
@@ -52,7 +53,7 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#234**: Dynamic composition: sputter erosion and surface recession in the fluence loop (Epic #22, Phase 2)
 
 ## PRs Awaiting Review
 
@@ -65,6 +66,7 @@ _None._
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
+- **#236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
 
 ## Proposed
 
@@ -80,6 +82,7 @@ Issues carrying `loom:curated`.
 - **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
+- **#233**: Python wheels: maturin multi-platform builds and PyPI trusted publishing (Epic #28, Phase 2) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -103,13 +106,13 @@ Issues carrying `loom:curated`.
 
 | Tier | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 2 |
 | Operator priority | 0 |
 | Ready (`loom:issue`) | 3 |
-| In Progress (`loom:building`) | 0 |
+| In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 1 |
-| Curated | 10 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 11 |
 | Architect / Hermit proposals | 3 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
