@@ -2,6 +2,15 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-09
+
+- **PR #235**: ci: tag-triggered release workflow
+- **Issue #184** (closed): Add #![forbid(unsafe_code)] to lindhard-cli and lindhard-py
+- **Issue #231** (closed): Guard telemetry disposition: retain scope protection for /dev/shm cleanup
+- **Issue #215** (closed): Guard decision review: stash-scope:create-redirect
+- **Issue #232** (closed): Release workflow: tag-triggered CLI binaries, checksums and crates.io publish (Epic #30, Phase 2)
+- **Issue #214** (closed): Guard decision review: worktree-write-confinement-unresolved-var
+
 ### 2026-10-08
 
 - **PR #228**: ci: stubtest the lindhard-py .pyi stubs against the compiled extension
