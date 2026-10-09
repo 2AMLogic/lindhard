@@ -197,6 +197,16 @@ fn run_electron(
         electron::CYLINDRICAL_FILE,
         electron::cylindrical_csv(&sim.report),
     )?;
+    reconcile_optional(
+        out,
+        electron::PSF_PROFILE_FILE,
+        electron::psf_profile_csv(&sim),
+    )?;
+    reconcile_optional(
+        out,
+        electron::PSF_PARAMETERS_FILE,
+        electron::psf_parameters_csv(&sim),
+    )?;
     // Last, so the summary describes the completed output set.
     write(electron::SUMMARY_FILE, summary)?;
     let y = &sim.report.yields;
@@ -264,6 +274,12 @@ fn check(path: &Path) -> Result<()> {
             d.ions_per_step,
             d.max_change
                 .map_or(String::new(), |c| format!(" (adaptive, max change {c})"))
+        );
+    }
+    if let Some(d) = lindhard::ion::bca::DivergenceMetadata::new(&r.divergence) {
+        println!(
+            "  beam divergence: {} {} = {} deg, {}",
+            d.model, d.width_kind, d.width_deg, d.incidence
         );
     }
     for (i, c) in r.input.crystal.iter().enumerate() {

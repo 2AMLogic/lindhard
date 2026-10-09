@@ -68,7 +68,7 @@ fn sn(eps: f64) -> f64 {
     nuclear_stopping_reduced(Screening::ZblUniversal, eps, beta_min(eps), 1e3, 40)
 }
 
-pub fn checks(table: &ScatteringTable) -> Vec<Check> {
+pub(crate) fn checks(table: &ScatteringTable) -> Vec<Check> {
     let mut out = Vec::new();
 
     // 1. Low energy: quadrature s_n vs the ZBL fit, eps in [1e-4, 0.3].

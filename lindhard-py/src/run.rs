@@ -24,6 +24,7 @@ use crate::spec::{Beam, Material, Physics, Tally, Target};
 /// `Run.from_toml(text)` and `run.to_toml()` use the same schema as the
 /// command line, so a configuration can go either way.
 #[pyclass(module = "lindhard")]
+#[derive(Debug)]
 pub struct Run {
     input: Input,
     #[pyo3(get, set)]
@@ -60,7 +61,7 @@ impl Run {
         base_dir: Option<PathBuf>,
     ) -> PyResult<Self> {
         let input = Input {
-            beam: beam.to_spec(),
+            beam: beam.to_spec()?,
             materials: materials
                 .unwrap_or_default()
                 .into_iter()
@@ -170,8 +171,9 @@ impl Run {
     }
 
     #[setter]
-    fn set_beam(&mut self, beam: PyRef<'_, Beam>) {
-        self.input.beam = beam.to_spec();
+    fn set_beam(&mut self, beam: PyRef<'_, Beam>) -> PyResult<()> {
+        self.input.beam = beam.to_spec()?;
+        Ok(())
     }
 
     #[getter]

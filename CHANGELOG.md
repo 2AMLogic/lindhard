@@ -9,6 +9,43 @@ one version).
 
 ### Added
 
+- Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
+  `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the
+  bound-free cross sections of Karzas and Latter, Astrophys. J. Suppl. 6, 167
+  (1961), eqs. (36) and (37), reduced for `n = 2` and checked against the
+  Gaunt factors of that paper's Table 1. L2 and L3 use the same 2p formula,
+  each with its own binding energy and occupancy. New public
+  `hydrogenic_2s_oscillator_strength_density_per_ev` and
+  `hydrogenic_2p_oscillator_strength_density_per_ev`. K-shell results are
+  unchanged; the M shell and above are still an error (with a new message).
+- Ion beam divergence in transport (#285): the optional `[beam.divergence]`
+  input table (`model = "gaussian"` with `sigma_deg` per plane, or
+  `"uniform-cone"` with `half_angle_deg`; widths in `[0, 10]` degrees; static
+  ion runs only), the opt-in `Bca::with_divergence` engine setter,
+  `Bca::primary_direction`, `Bca::divergence_metadata`, and `Beam`-level
+  Python arguments `divergence_model` / `divergence_deg`. Each primary's
+  direction is sampled once about the nominal direction on a dedicated
+  segment of its own stream (word `2^65`) and conditioned on pointing into the
+  target (bounded rejection, error `BcaError::BeamDivergence` on exhaustion).
+  Without it results are unchanged. The summary gains
+  `physics.beam_divergence` (no `format.version` bump). `Bca::history` and
+  `history_in` now return the new `HistoryError` (wrapping `StoppingError`)
+  and `BcaError` gains the `BeamDivergence` variant. An input capability, not
+  a validated channeling prediction. Example:
+  `examples/b_5keV_si_crystal_divergence.toml`.
+- `geometry::CsgGeometry`, `geometry::Csg` and `geometry::Primitive`:
+  constructive-solid-geometry targets of box, capped-cylinder and half-space
+  primitives combined by nestable union, intersection and difference, one
+  region per top-level solid, each tagged with a material. Rays are
+  classified by span combination (Roth 1982), with the overlap,
+  surface-ownership and tolerance rules of the mesh target, so a CSG box gives
+  the same events as the equivalent `VoxelGrid` and `MeshGeometry` (tested).
+  Every top-level solid must be bounded (a half-space only inside an
+  intersection or difference that bounds it), else the new
+  `GeometryError::CsgUnbounded`; a bad primitive or an empty operator is the
+  new `GeometryError::CsgInvalid`. `GeometryError` is not `non_exhaustive`, so
+  an exhaustive `match` on it must add the two variants. Not yet reachable
+  from the CLI or TOML input (#194).
 - Electron event-cap diagnostics (#268): how many secondary tracks the
   collision cap (`max_events`) cut off, and how many primary histories had
   the primary or any secondary cut off (each history counted once). New
@@ -71,6 +108,12 @@ one version).
   each table's `source` (`built` or `cache`) and its cache file (`path`,
   `sha256`, `key_sha256`) under `physics.materials`.
   `validation/oracles/run_electron.py` uses it across batches.
+- Table cache integrity (#249): each entry now also stores the SHA-256 of
+  the table file (`<kind>-<hash>.sha256`), and a lookup refuses a table whose
+  bytes do not match it (or whose hash file is missing), naming the file,
+  before parsing it. The elastic key includes `electron.elastic.model`
+  (`ElasticChoice::model`, `ElasticModelChoice::label`), and the key version
+  is 2, so entries written before this change are rebuilt.
 - Inner-shell ELFs built in the engine (#135): `electron::inelastic::shell_elf`
   builds the optical ELF of a K shell from Stobbe's hydrogenic
   photoionization formula (dV2022 eq. (2), edge and occupancy from a
@@ -78,6 +121,14 @@ one version).
   `hydrogenic_shell_elf`, `hydrogenic_shell_elfs`,
   `hydrogenic_k_oscillator_strength_density_per_ev` and `ShellElfGrid`.
   Other subshells are still caller-supplied.
+- Radial PSF tally in the electron CLI (#165): `[electron.tally.psf]` (depth
+  slab, log radial bins, `fits`, `normalization`) writes
+  `electron_psf_profile.csv` and `electron_psf_parameters.csv` and adds
+  `results.psf` and `files.psf_profile` / `files.psf_parameters` to
+  `electron_summary.json`. A failing fit is reported in `results.psf.fit_errors`
+  without stopping the run. `ResolvedElectron` gains `psf_fits` and
+  `psf_normalization`; `ElectronTallySpec` gains `psf`. Without the table,
+  output is unchanged.
 - Sputter erosion in dynamic runs (#234): `[dynamic] erosion = true` removes
   sputtered atoms from the front of the target (slab 0 first) instead of the
   slab where they were displaced, and the surface recedes. New public fields
@@ -243,6 +294,24 @@ one version).
 
 ### Changed
 
+- Crystal off-axis channeling tail (#225). The 7°/22° orientation is
+  2.6-2.7° from a {100} and a {110} plane, so it is no longer held to the
+  #180 random-direction bound "dRp within 15 % of amorphous". Its ignored
+  tests are renamed `near_planar_7_22_static_lattice` and
+  `near_planar_7_22_at_300_k` and are now recorded-value regression checks;
+  tolerances are three seed-to-seed standard deviations.
+  - A new ignored test, `off_axis_tail_grows_with_vibration_under_both_losses`,
+    records that at 7°/22° and 30°/17° the tail beyond twice the amorphous
+    Rp grows at 300 K. It does so under both `NonLocal` and
+    `EquipartitionLsOr`, by 5-9 σ at 16000 ions.
+  - The 30°/17° check at 300 K now also asserts the 90th percentile within
+    10 % of amorphous, and bounds dRp at its recorded value plus 0.12.
+  - The `ion::bca::crystal` module docs record the literature search. No
+    measured profile at matched conditions was usable. One published
+    simulation (Bratchenko et al. 2009) found the same sign of thermal
+    feeding-in, so the effect is consistent with it but not validated
+    against measurement.
+  - No transport code changed.
 - `lindhard run` with `electron.elastic.potential = "salvat-dhfs"` now
   applies the `exchange` and `correlation_polarization` corrections the input
   asks for, solved on the DHFS Poisson density (Salvat et al. 1987,

@@ -4,7 +4,7 @@ use std::fmt::Write as _;
 
 /// Outcome of a check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Status {
+pub(crate) enum Status {
     /// Measured value within its tolerance.
     Pass,
     /// Measured value outside its tolerance: the harness exits non-zero.
@@ -26,7 +26,7 @@ impl Status {
 
 /// One row of the table.
 #[derive(Debug, Clone)]
-pub struct Check {
+pub(crate) struct Check {
     /// Stable identifier, used by the command-line filter.
     pub id: &'static str,
     /// What is compared with what.
@@ -43,7 +43,7 @@ pub struct Check {
 
 impl Check {
     /// A check that passes when `measured <= tol`.
-    pub fn at_most(
+    pub(crate) fn at_most(
         id: &'static str,
         what: impl Into<String>,
         measured: f64,
@@ -67,7 +67,7 @@ impl Check {
     }
 
     /// A boolean check.
-    pub fn holds(
+    pub(crate) fn holds(
         id: &'static str,
         what: impl Into<String>,
         ok: bool,
@@ -85,7 +85,7 @@ impl Check {
     }
 
     /// A reported, unasserted number.
-    pub fn info(
+    pub(crate) fn info(
         id: &'static str,
         what: impl Into<String>,
         value: impl Into<String>,
@@ -103,27 +103,27 @@ impl Check {
 }
 
 /// Relative deviation as a percentage with three significant figures.
-pub fn pct(x: f64) -> String {
+pub(crate) fn pct(x: f64) -> String {
     format!("{:.3}%", 100.0 * x)
 }
 
 /// Signed percentage.
-pub fn spct(x: f64) -> String {
+pub(crate) fn spct(x: f64) -> String {
     format!("{:+.2}%", 100.0 * x)
 }
 
 /// Scientific notation, two decimals.
-pub fn sci(x: f64) -> String {
+pub(crate) fn sci(x: f64) -> String {
     format!("{x:.2e}")
 }
 
 /// Plain number, four significant decimals.
-pub fn num(x: f64) -> String {
+pub(crate) fn num(x: f64) -> String {
     format!("{x:.4}")
 }
 
 /// Plain-text table for the terminal.
-pub fn text_table(rows: &[Check]) -> String {
+pub(crate) fn text_table(rows: &[Check]) -> String {
     let mut s = String::new();
     let w_id = rows.iter().map(|r| r.id.len()).max().unwrap_or(2).max(2);
     let w_val = rows.iter().map(|r| r.value.len()).max().unwrap_or(5).max(5);
@@ -154,7 +154,7 @@ pub fn text_table(rows: &[Check]) -> String {
 
 /// Markdown table for `docs/validation.md`. Contains no timings or other
 /// machine-dependent text, so a rerun on the same platform is idempotent.
-pub fn markdown_table(rows: &[Check]) -> String {
+pub(crate) fn markdown_table(rows: &[Check]) -> String {
     let esc = |t: &str| t.replace('|', "\\|");
     let mut s = String::new();
     s.push_str("| Check | What | Value | Tolerance | Result | Notes |\n");

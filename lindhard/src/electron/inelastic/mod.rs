@@ -19,8 +19,9 @@
 //! own optical ELF, and the optional Born-Ochkur
 //! [`ExchangeCorrection`] makes the primary and the struck electron
 //! indistinguishable at low energy. [`shell_elf`] builds the inner-shell
-//! ELFs from the hydrogenic K-shell photoionization formula and a
-//! subshell binding-energy table; other shells come from the caller.
+//! ELFs of the K, L1, L2 and L3 subshells from the hydrogenic
+//! photoionization formulas and a subshell binding-energy table; other
+//! shells come from the caller.
 //!
 //! [`table`] builds the inelastic energy-loss `CrossSectionTable` and a
 //! momentum-transfer sampler from the model.
@@ -70,6 +71,8 @@ pub use penn::{
     DEFAULT_RELATIVE_TOLERANCE,
 };
 pub use shell_elf::{
+    hydrogenic_2p_oscillator_strength_density_per_ev,
+    hydrogenic_2s_oscillator_strength_density_per_ev,
     hydrogenic_k_oscillator_strength_density_per_ev, hydrogenic_shell_elf, hydrogenic_shell_elfs,
     ShellElfGrid,
 };

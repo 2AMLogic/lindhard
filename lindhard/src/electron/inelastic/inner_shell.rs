@@ -25,9 +25,9 @@
 //! [`ShellResolvedChannels`] takes what those equations take: a valence
 //! optical ELF and **one optical ELF per inner shell**. The shell ELFs are
 //! either supplied by the caller or built from atomic oscillator strengths
-//! as in dV2022 eq. (2) by [`super::shell_elf`] (the hydrogenic K-shell
-//! formula, with binding energies and occupancies from a
-//! [`SubshellBindingTable`]; other subshells are not built there). A single
+//! as in dV2022 eq. (2) by [`super::shell_elf`] (the hydrogenic K-, L1-,
+//! L2- and L3-subshell formulas, with binding energies and occupancies from
+//! a [`SubshellBindingTable`]; other subshells are not built there). A single
 //! total ELF is never split: no partition rule of ours is applied. Each shell's ELF must
 //! start at or above its binding energy (the step of eq. (2)). Each channel's
 //! DIIMFP is the single-pole Penn DIIMFP ([`SinglePolePenn`]) of its own ELF;

@@ -42,13 +42,13 @@ pub const DYNAMIC_COMPOSITION_FILE: &str = "dynamic_composition.csv";
 
 pub const NM: f64 = 1e-9;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Format {
     pub name: &'static str,
     pub version: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Software {
     pub name: &'static str,
     pub version: &'static str,
@@ -127,6 +127,12 @@ struct Physics {
     /// `format.version` bump (docs/cli.md, "Compatibility and extension").
     #[serde(skip_serializing_if = "Vec::is_empty")]
     crystal: Vec<CrystalMetadata>,
+    /// Present only for a run with `[beam.divergence]`: the resolved
+    /// distribution, width (radians and degrees), incidence policy and
+    /// random-stream segment. Added without a `format.version` bump
+    /// (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    beam_divergence: Option<lindhard::ion::bca::DivergenceMetadata>,
 }
 
 #[derive(Serialize)]
@@ -481,7 +487,7 @@ struct Files {
 }
 
 /// The only nondeterministic part of the summary.
-#[derive(Serialize, Clone, Copy)]
+#[derive(Debug, Serialize, Clone, Copy)]
 pub struct RunInfo {
     pub threads: usize,
     pub table_build_s: f64,
@@ -618,6 +624,7 @@ pub fn summary_json(
                 .collect(),
             tuning: r.tuning.clone(),
             crystal: crystals.to_vec(),
+            beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
         },
         results: Results {
             histories: s.histories,
