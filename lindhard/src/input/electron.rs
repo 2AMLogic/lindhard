@@ -233,8 +233,8 @@ pub enum PotentialChoice {
     /// ([`crate::electron::elastic::table::ThomasFermiYukawa`]).
     ThomasFermiYukawa,
     /// Salvat et al. (1987) DHFS
-    /// ([`crate::electron::elastic::table::SalvatDhfsTable`]); its
-    /// coefficient table is a documented gap, so a run with it fails.
+    /// ([`crate::electron::elastic::table::SalvatDhfsTable`]), Table I
+    /// coefficients for Z = 1..92.
     SalvatDhfs,
 }
 

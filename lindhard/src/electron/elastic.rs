@@ -101,9 +101,9 @@
 //! [`Yukawa`] and [`SquareWell`] are analytically tractable. [`SalvatDhfs`] is
 //! the analytic Dirac-Hartree-Fock-Slater screening function of Salvat,
 //! Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987),
-//! doi:10.1103/PhysRevA.36.467; **its Z=1..92 coefficient table is not in
-//! this tree yet** (a follow-up issue; the paper has since been read in an
-//! open repository copy for #91), see the type and `docs/data-provenance.md`.
+//! doi:10.1103/PhysRevA.36.467, with its Table I coefficients for Z = 1..92
+//! (transcribed from the open repository copy of the paper, #130), see the
+//! type and `docs/data-provenance.md`.
 //!
 //! # Determinism
 //!
@@ -137,12 +137,11 @@ pub enum ElasticError {
         /// What is wrong with it.
         reason: String,
     },
-    /// The Salvat et al. (1987) coefficient table is not available in this
-    /// build. See `docs/data-provenance.md`.
+    /// No screening coefficients for this atomic number: Table I of Salvat
+    /// et al. (1987) covers Z = 1..92 only.
     #[error(
-        "Salvat et al. (1987) DHFS screening coefficients for Z={0} are not available: the \
-         source table was not accessible (closed access) and values are never entered from \
-         memory; supply them with SalvatDhfs::from_coefficients"
+        "Salvat et al. (1987) DHFS screening coefficients for Z={0} are not available: \
+         Table I covers Z = 1..92"
     )]
     ScreeningCoefficientsUnavailable(u32),
     /// The integration produced a non-finite value.
@@ -332,17 +331,27 @@ impl ScreenedPotential for SquareWell {
 /// Eq. (1); its Eq. (12) gives the electron density used by
 /// [`ElectronDensity`]. Both were checked (issue #91) in the open copy of the
 /// paper in the University of Barcelona repository (diposit.ub.edu; the
-/// publisher's copy is closed). **The coefficient table for Z = 1..92 is not
-/// in this tree**: it was unavailable when this type was written (#17) and
-/// entering it is a follow-up; coefficients are never entered from memory.
-/// [`SalvatDhfs::for_element`] therefore returns
-/// [`ElasticError::ScreeningCoefficientsUnavailable`]; a caller who holds the
-/// table can use [`SalvatDhfs::from_coefficients`].
+/// publisher's copy is closed). [`SalvatDhfs::for_element`] returns the
+/// paper's Table I coefficients for Z = 1..92 (pp. 470-471, transcribed in
+/// #130, see `salvat_table.rs` and `docs/data-provenance.md`);
+/// [`SalvatDhfs::from_coefficients`] takes caller-supplied ones.
+///
+/// Rows marked with an asterisk in Table I (H..P, Ca, Sc, Se, Br, Kr, Xe)
+/// have `A_3 = 0` and no `alpha_3` (p. 471); they are held as **two-term**
+/// potentials, so no `alpha_3` value enters [`ScreenedPotential::energy`],
+/// [`ElectronDensity::density`] or [`ScreenedPotential::length_scale`].
+///
+/// Some amplitudes are negative (H, He: `A_1`; S, Cl, Ar: `A_2`). For H
+/// (`A_1 = -184.39`, `A_2 = 185.39`, nearly equal `alpha`s) the two terms
+/// cancel to about 1 part in 370 near the nucleus, so `phi(r)` there keeps
+/// roughly 13 significant digits in `f64` rather than 16.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SalvatDhfs {
     z: f64,
     a: [f64; 3],
     alpha: [f64; 3],
+    /// Number of terms in use (2 or 3); entries past it are unused.
+    terms: usize,
 }
 
 impl SalvatDhfs {
@@ -368,22 +377,59 @@ impl SalvatDhfs {
             z: f64::from(z),
             a,
             alpha,
+            terms: 3,
         })
     }
 
-    /// The tabulated potential of element `z`. **Always an error in this
-    /// build**, see the type documentation.
+    /// Build a two-term potential (`A_3 = 0`, the form of the asterisked rows
+    /// of Salvat et al. (1987) Table I): `a` sums to 1 within 1e-6, `alpha`
+    /// in 1/bohr and positive.
+    pub fn from_two_terms(z: u32, a: [f64; 2], alpha: [f64; 2]) -> Result<Self, ElasticError> {
+        // Validate through the three-term path with a zero third term; the
+        // third alpha only satisfies the check and is never used.
+        let mut p = Self::from_coefficients(z, [a[0], a[1], 0.0], [alpha[0], alpha[1], 1.0])?;
+        p.alpha[2] = 0.0;
+        p.terms = 2;
+        Ok(p)
+    }
+
+    /// The Salvat et al. (1987) Table I potential of element `z`
+    /// (pp. 470-471, `A_3 = 1 - A_1 - A_2`; two-term for the asterisked
+    /// rows). [`ElasticError::ScreeningCoefficientsUnavailable`] outside
+    /// Z = 1..92.
     pub fn for_element(z: u32) -> Result<Self, ElasticError> {
-        Err(ElasticError::ScreeningCoefficientsUnavailable(z))
+        let row = z
+            .checked_sub(1)
+            .and_then(|i| salvat_table::TABLE_I.get(i as usize))
+            .ok_or(ElasticError::ScreeningCoefficientsUnavailable(z))?;
+        debug_assert_eq!(row.z, z);
+        match row.alpha3 {
+            Some(alpha3) => Self::from_coefficients(
+                z,
+                [row.a1, row.a2, 1.0 - row.a1 - row.a2],
+                [row.alpha1, row.alpha2, alpha3],
+            ),
+            None => Self::from_two_terms(z, [row.a1, row.a2], [row.alpha1, row.alpha2]),
+        }
+    }
+
+    /// Amplitudes `A_i` of the terms in use (2 or 3).
+    pub fn amplitudes(&self) -> &[f64] {
+        &self.a[..self.terms]
+    }
+
+    /// Screening constants `alpha_i` (1/bohr) of the terms in use (2 or 3).
+    pub fn alphas(&self) -> &[f64] {
+        &self.alpha[..self.terms]
     }
 }
 
 impl ScreenedPotential for SalvatDhfs {
     fn energy(&self, r: f64) -> f64 {
         let phi: f64 = self
-            .a
+            .amplitudes()
             .iter()
-            .zip(&self.alpha)
+            .zip(self.alphas())
             .map(|(a, al)| a * (-al * r).exp())
             .sum();
         -self.z * phi / r
@@ -392,7 +438,7 @@ impl ScreenedPotential for SalvatDhfs {
         self.z
     }
     fn length_scale(&self) -> f64 {
-        1.0 / self.alpha.iter().copied().fold(0.0, f64::max)
+        1.0 / self.alphas().iter().copied().fold(0.0, f64::max)
     }
 }
 
@@ -1074,6 +1120,7 @@ pub fn solve(
     })
 }
 
+mod salvat_table;
 pub mod table;
 
 #[cfg(test)]

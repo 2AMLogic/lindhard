@@ -128,13 +128,15 @@ pub trait ElectronDensity: Sync {
 }
 
 /// Poisson density of the analytic screening function, Salvat et al. (1987)
-/// Eq. (12): `rho(r) = (Z/(4 pi r)) sum_i A_i alpha_i^2 exp(-alpha_i r)`.
+/// Eq. (12): `rho(r) = (Z/(4 pi r)) sum_i A_i alpha_i^2 exp(-alpha_i r)`,
+/// summed over the terms in use (two for the asterisked, `A_3 = 0` rows of
+/// Table I).
 impl ElectronDensity for SalvatDhfs {
     fn density(&self, r: f64) -> f64 {
         let s: f64 = self
-            .a
+            .amplitudes()
             .iter()
-            .zip(&self.alpha)
+            .zip(self.alphas())
             .map(|(a, al)| a * al * al * (-al * r).exp())
             .sum();
         self.z * s / (4.0 * PI * r)
@@ -143,7 +145,9 @@ impl ElectronDensity for SalvatDhfs {
         format!(
             "Poisson density of the Salvat et al. (1987) analytic screening function, \
              PRA 36, 467 Eq. (12), Z={}, A={:?}, alpha={:?} 1/bohr",
-            self.z, self.a, self.alpha
+            self.z,
+            self.amplitudes(),
+            self.alphas()
         )
     }
 }

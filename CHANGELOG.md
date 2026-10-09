@@ -16,6 +16,10 @@ one version).
   `Particle::origin_layer` and `DynamicRun::recession_m()`; `recession_nm` in
   `dynamic_summary.json` totals (erosion on only). With erosion off, results
   are bit-identical to before.
+- The Salvat et al. (1987) DHFS screening table (Table I, Z = 1..92, #130):
+  `SalvatDhfs::for_element` now returns the published coefficients (two-term
+  potentials for the asterisked rows, `SalvatDhfs::from_two_terms`), so
+  `potential = "salvat-dhfs"` runs instead of failing.
 - Release workflow (`.github/workflows/release.yml`): tag-triggered `lindhard`
   CLI archives for five targets, `SHA256SUMS`, a GitHub Release, and a
   crates.io publish gated on a protected environment; see "Releasing" in

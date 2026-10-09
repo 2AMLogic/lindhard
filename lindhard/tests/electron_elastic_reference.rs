@@ -4,9 +4,9 @@
 //! **No reference value is committed yet.** The intended source (Jablonski,
 //! Salvat & Powell 2004) was read, but tabulates none of these cross sections;
 //! its figures cover H, Al, Ni, Ag, Au and Cm (plus some gases), not C, Si or
-//! Cu. The DHFS screening
-//! coefficients for C, Si and Au are not in the tree either (#130), so the
-//! harness below is in place but every case is skipped and reported as such.
+//! Cu. The DHFS screening coefficients are in the tree (#130), but no
+//! reference value is, so the harness below is in place and every case is
+//! skipped and reported as such.
 //! A skipped case is not a pass: the comparison test reports `checked N of 16`
 //! and `INCOMPLETE` while any value is absent, and the `#[ignore]`d test
 //! `complete_validation_requires_all_sixteen_values` fails until all 16 are
@@ -207,9 +207,9 @@ mod malformed {
 }
 
 /// Compares every populated case and returns the number of values checked.
-/// Needs the DHFS coefficients of `z`; `SalvatDhfs::for_element` fails until
-/// #130 lands, in which case a case that has a reference value fails loudly
-/// rather than being skipped.
+/// Uses the Salvat et al. (1987) Table I potential of `z`
+/// (`SalvatDhfs::for_element`, #130); an element outside Z = 1..92 fails
+/// loudly rather than being skipped.
 fn run_comparisons(f: &Fixture) -> usize {
     let mut checked = 0;
     for c in &f.case {
