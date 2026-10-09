@@ -225,12 +225,24 @@ step sizes and thread count.
 | `number_density_cm3` | none | Total atom density, atoms/cm³; required with `"fixed-number-density"` |
 | `atomic_volume_nm3.<Sym>` | elemental solid volume from the element table | Atomic volume, nm³/atom, per element (ideal mixing). Required for an element with no tabulated solid density (a gas) |
 | `energies.<Sym>` | `[physics.energies.<Sym>]`, then element defaults | `e_d_ev`, `e_b_ev`, `e_s_ev` of an element that enters the target during the run (the beam species, for example). Elements already in a layer keep that layer's energies |
+| `erosion` | `false` | Sputter erosion: sputtered atoms are removed from the front of the target (slab 0 first, then deeper slabs) instead of from the slab where they were displaced, and the surface recedes. Must be a boolean |
 
-The front surface stays at `x = 0`: erosion and swelling move the interior
-interfaces and the back face of the slabs, not the front surface (the
-`surface_nm` column is that fixed frame, always 0). Depths in the output are
-measured from it. A dynamic run needs `E_d` for every element that can occur,
-including the beam species. The Python bindings run static inputs only.
+With `erosion = false` the front surface stays at `x = 0`: swelling moves the
+interior interfaces and the back face of the slabs, not the front surface (the
+`surface_nm` column is that fixed frame, always 0). With `erosion = true` the
+lost thickness is removed from the front and the grid is re-anchored so the
+current surface is again `x = 0`; `surface_nm` is then the cumulative recession
+`R` in nm and a depth `x` in the output is `x + R` in the original frame. The
+recession of a step is the volume of the removed atoms per area under the
+chosen `relaxation` (`sum Z removed_Z v_Z`, or `sum removed / n`), and removal
+equals the sputtered counts per element, so no atom is created or lost. If a
+step sputters more of an element than the slabs hold, the excess is not
+removed and the element is counted in the `clamped` column. With a substrate,
+atoms sputtered from the substrate remove nothing from the slabs, so the
+recession falls short of `Y F / n` once the film is thin.
+`dynamic_summary.json` totals gain `recession_nm` only with erosion on. Depths
+in the output are measured from the front surface of that step. A dynamic run
+needs `E_d` for every element that can occur, including the beam species. The Python bindings run static inputs only.
 
 ### `[run]`
 
@@ -470,10 +482,10 @@ before and after, yields per ion), `files` and the timing `run` object.
 `step`, `first_index` (global index of the step's first ion), `ions`,
 `ions_done`, `fluence_cm2` (delivered so far), `attempts` (more than 1 if the
 adaptive bound rejected the step), `max_change`, `clamped`, `removed_slabs`
-(slabs that emptied), `n_slabs`, `surface_nm` (the fixed front surface, always
-0), `thickness_nm` (total of the finite slabs), then cumulative counts since
-the start: `cum_backscattered`, `cum_transmitted`, `cum_stopped_in_target`,
-`cum_stopped_in_substrate`, `cum_sputtered`, `sputter_yield` (atoms per ion so
+(slabs that emptied), `n_slabs`, `surface_nm` (cumulative surface recession
+in nm; always 0 with `erosion = false`), `thickness_nm` (total of the finite
+slabs), then cumulative counts since the start: `cum_backscattered`,
+`cum_transmitted`, `cum_stopped_in_target`, `cum_stopped_in_substrate`, `cum_sputtered`, `sputter_yield` (atoms per ion so
 far), `cum_recoils_transmitted` and `cum_sputtered_<Sym>` per element.
 
 `dynamic_composition.csv`: the slab profile after every step (step 0 is the

@@ -22,7 +22,7 @@ use crate::output::RunInfo;
 /// One slab of the target at one moment.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SlabRow {
-    /// Depth of the front of the slab from the fixed front surface, m.
+    /// Depth of the front of the slab from the front surface of this step, m.
     pub front_m: f64,
     /// Depth of the back of the slab, m.
     pub back_m: f64,
@@ -51,6 +51,10 @@ pub struct StepRow {
     pub clamped: u32,
     /// Slabs that emptied in this step.
     pub removed_slabs: usize,
+    /// Cumulative surface recession up to and including this step, m (0 with
+    /// erosion off). Depths of this step plus this are depths in the original
+    /// frame.
+    pub recession_m: f64,
     /// Event counts summed over steps 1..=this one.
     pub cumulative: Yields,
     /// The slabs after the step.
@@ -211,6 +215,7 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         DynamicConfig {
             fluence_m2: d.fluence_cm2 * 1e4,
             policy,
+            erosion: d.erosion,
         },
     )
     .context("setting up the fluence loop")?;
@@ -225,6 +230,7 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         max_change: 0.0,
         clamped: 0,
         removed_slabs: 0,
+        recession_m: 0.0,
         cumulative: Yields::default(),
         slabs: slab_rows(run.grid()),
     }];
@@ -249,6 +255,7 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
                 max_change: rec.max_change,
                 clamped: rec.clamped,
                 removed_slabs: rec.removed_slabs.len(),
+                recession_m: rec.recession_total_m,
                 cumulative: run.cumulative().clone(),
                 slabs: slab_rows(run.grid()),
             });

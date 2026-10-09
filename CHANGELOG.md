@@ -9,6 +9,13 @@ one version).
 
 ### Added
 
+- Sputter erosion in dynamic runs (#234): `[dynamic] erosion = true` removes
+  sputtered atoms from the front of the target (slab 0 first) instead of the
+  slab where they were displaced, and the surface recedes. New public fields
+  `DynamicConfig::erosion`, `StepRecord::{recession_m, recession_total_m}`,
+  `Particle::origin_layer` and `DynamicRun::recession_m()`; `recession_nm` in
+  `dynamic_summary.json` totals (erosion on only). With erosion off, results
+  are bit-identical to before.
 - Release workflow (`.github/workflows/release.yml`): tag-triggered `lindhard`
   CLI archives for five targets, `SHA256SUMS`, a GitHub Release, and a
   crates.io publish gated on a protected environment; see "Releasing" in
@@ -163,6 +170,9 @@ one version).
 
 ### Changed
 
+- Dynamic runs: `surface_nm` is now the cumulative surface recession (always 0
+  with `erosion = false`). Breaking for struct-literal construction: new public
+  fields on `Particle`, `DynamicConfig` and `StepRecord` (#234).
 - Lint policy is declared once in `[workspace.lints]` (`unsafe_code = "deny"`) and
   every crate opts in with `[lints] workspace = true`, so `lindhard-cli` and
   `lindhard-py` no longer lack the guard the library has (#218, supersedes #184).
