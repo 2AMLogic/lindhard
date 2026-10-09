@@ -1362,6 +1362,21 @@ the issue's "full model":
   valence-band width (`BAND_DEFAULTS`, #115; the δ(E) work of #149 has not
   added one) and C has no band data, so
   neither can be rerun with secondaries; that is a stated gap, not a result.
+  With secondaries on, η rises at every point, by 0.03 to 0.07 for Al, 0.05
+  to 0.18 for Cu and 0.07 to 0.24 for Au, most at 1 keV, and lies above the
+  measured median everywhere. Read it as the size of the effect under the
+  present model, not as a corrected η: in a metal the library's Kieft-Bosch
+  model takes the binding energy `B = 0` for every inelastic event until a
+  shell channel supplies it (`lindhard::electron::secondary`, module docs;
+  #273), so a loss `W` that the optical ELF owes to a core level gives a
+  secondary of `E_F + W`, not `W` less that level's binding, and more of
+  them clear 50 eV. These runs also switch on the step barrier together with
+  the secondaries, so the two are not separated, and the run summary does
+  not tell an escaping primary from an escaping secondary. In the front-face
+  spectra of the runs (`electron_escape_spectra.csv`, not committed) the
+  added electrons at 1 keV are mostly below 100 eV (Cu, Au), while at 10 keV
+  a large part of them are above 500 eV (Al: about 2900 of 4200 per 100000
+  primaries; Au: about 4600 of 14200).
 
 The committed sweep is 75 runs (9 energies for each of 5 targets, plus 3
 sensitivity variants at 2 energies each), 100000 primaries each, 8 threads
@@ -1370,6 +1385,13 @@ shared with other jobs, load average about 77 at the start): 2491 s wall and
 3.9 CPU-hours in total. The table builds took 7 to 134 s per run, 2096 s
 together (`table_build_s` in the results); the rest, about 5 s per run, is
 transport and I/O.
+
+The fast-secondary sensitivity (`backscatter.py --secondaries-only`) is 24
+runs: the 12 baseline points redone as a reproduction check, and the 12 runs
+with secondaries, 100000 primaries each, 2 threads per run (release build of
+the revision named in its table; a shared x86_64 Linux host). The table
+builds of the runs with secondaries took 46 to 1142 s, 4838 s together, and
+their transport 1 to 39 s.
 
 The pass/fail rule is the issue's initial tolerance: at E ≥ 5 keV,
 |η − measured median| ≤ 0.05 absolute; below 5 keV values are reported only.
@@ -1450,6 +1472,25 @@ lindhard 0.0.1 (aa04511), 100000 primaries per run, seed 1; the model and its ga
 | Au | 10 | 0.4334 ± 0.0016 | 0.4329 ± 0.0016 | 0.4308 ± 0.0016 | 0.4306 ± 0.0016 | +0.0028 (+1.3 σ) |
 
 Largest effect of the two corrections together: 0.0058 (2.8 σ, Cu at 1 keV); at least one difference exceeds 2 σ.
+
+**Fast secondaries (sensitivity, not graded).** The baseline input rerun with `secondaries = "kieft-bosch"` and a `step-barrier` at the mid work function, with the band inputs (free-electron metal) of the δ(E) runs, `BAND` and `BAND_PROVENANCE` in `validation/experiments/se_yield.py`; elastic model, optical ELF, tables, 50 eV band-bottom cutoff, seed and primaries as in the baseline (lindhard 0.0.1 (a8a9973); the baseline runs at these points were redone with it and reproduce the committed η bit for bit). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries included. With secondaries on a primary can yield several such electrons, and the run summary does not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the binomial error if no primary yields more than one, an underestimate only to the extent that some yield several. The baseline column is the main table's; the measured median is as above; the graded verdict above is for the baseline and is not re-judged here.
+
+| Target | E (keV) | Baseline η ± σ | With secondaries η ± σ | Change | Measured median | With secondaries - median |
+|---|---|---|---|---|---|---|
+| Al | 1 | 0.1791 ± 0.0012 | 0.2536 ± 0.0016 | +0.0745 | 0.204 | +0.050 |
+| Al | 5 | 0.1422 ± 0.0011 | 0.1932 ± 0.0014 | +0.0509 | 0.163 | +0.030 |
+| Al | 10 | 0.1322 ± 0.0011 | 0.1734 ± 0.0013 | +0.0412 | 0.150 | +0.023 |
+| Al | 30 | 0.1219 ± 0.0010 | 0.1559 ± 0.0012 | +0.0340 | 0.149 | +0.007 |
+| Cu | 1 | 0.3261 ± 0.0015 | 0.5032 ± 0.0022 | +0.1771 | 0.381 | +0.122 |
+| Cu | 5 | 0.2975 ± 0.0014 | 0.4004 ± 0.0020 | +0.1028 | 0.324 | +0.076 |
+| Cu | 10 | 0.2938 ± 0.0014 | 0.3703 ± 0.0019 | +0.0765 | 0.318 | +0.052 |
+| Cu | 30 | 0.2924 ± 0.0014 | 0.3416 ± 0.0018 | +0.0492 | 0.311 | +0.031 |
+| Au | 1 | 0.3712 ± 0.0015 | 0.6129 ± 0.0025 | +0.2417 | 0.395 | +0.218 |
+| Au | 5 | 0.4155 ± 0.0016 | 0.5723 ± 0.0024 | +0.1567 | 0.459 | +0.113 |
+| Au | 10 | 0.4334 ± 0.0016 | 0.5433 ± 0.0023 | +0.1099 | 0.476 | +0.067 |
+| Au | 30 | 0.4603 ± 0.0016 | 0.5267 ± 0.0023 | +0.0664 | 0.512 | +0.015 |
+
+Not run, for lack of band inputs: Si: no cited valence-band width (BAND_DEFAULTS has none, #115; #149 has not added one); C: no band data committed.
 
 Per-run values: `validation/experiments/backscatter_results.json`; datasets: `validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md).
 <!-- validation:level3-backscatter:end -->

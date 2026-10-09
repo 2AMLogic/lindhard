@@ -957,6 +957,56 @@
       "table_build_s": 5.896730917
      }
     }
+   },
+   "secondary_sensitivity": {
+    "1": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.25358,
+     "eta_se": 0.0015924195427085164,
+     "secondary_delta": 0.00729,
+     "fast_count": 25358,
+     "relative_imbalance": 3.163956061963376e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 45.797442069,
+     "eta_se_kind": "poisson"
+    },
+    "5": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.19316,
+     "eta_se": 0.0013898201322473352,
+     "secondary_delta": 0.00211,
+     "fast_count": 19316,
+     "relative_imbalance": 1.3656603133333025e-14,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 93.925809823,
+     "eta_se_kind": "poisson"
+    },
+    "10": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.17345,
+     "eta_se": 0.0013170041761513137,
+     "secondary_delta": 0.00103,
+     "fast_count": 17345,
+     "relative_imbalance": 4.464408008875336e-14,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 133.75356364,
+     "eta_se_kind": "poisson"
+    },
+    "30": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.15592,
+     "eta_se": 0.0012486793023030374,
+     "secondary_delta": 0.00035,
+     "fast_count": 15592,
+     "relative_imbalance": 1.4905160414844703e-13,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Al: alpha_p = 57.8 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 249.652863586,
+     "eta_se_kind": "poisson"
+    }
    }
   },
   {
@@ -1887,6 +1937,56 @@
       "table_build_s": 10.0666605
      }
     }
+   },
+   "secondary_sensitivity": {
+    "1": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.50323,
+     "eta_se": 0.002243278850254689,
+     "secondary_delta": 0.04937,
+     "fast_count": 50323,
+     "relative_imbalance": 6.091437080802645e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 219.556373178,
+     "eta_se_kind": "poisson"
+    },
+    "5": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.40039,
+     "eta_se": 0.002000974762459537,
+     "secondary_delta": 0.01638,
+     "fast_count": 40039,
+     "relative_imbalance": 9.654948411528665e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 468.043751483,
+     "eta_se_kind": "poisson"
+    },
+    "10": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.37029,
+     "eta_se": 0.0019242920776223135,
+     "secondary_delta": 0.00881,
+     "fast_count": 37029,
+     "relative_imbalance": 1.1563336540065082e-14,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 596.875197155,
+     "eta_se_kind": "poisson"
+    },
+    "30": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.34164,
+     "eta_se": 0.0018483506160899236,
+     "secondary_delta": 0.00351,
+     "fast_count": 34164,
+     "relative_imbalance": 1.488657076013818e-14,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Cu: alpha_p = 46.5 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 29 Cu, recommended 46.5 +- 0.5 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 1142.154404943,
+     "eta_se_kind": "poisson"
+    }
    }
   },
   {
@@ -2347,7 +2447,101 @@
       "table_build_s": 6.037262458
      }
     }
+   },
+   "secondary_sensitivity": {
+    "1": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.6129,
+     "eta_se": 0.002475681724293331,
+     "secondary_delta": 0.13986,
+     "fast_count": 61290,
+     "relative_imbalance": 3.871437990131223e-16,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 162.294320688,
+     "eta_se_kind": "poisson"
+    },
+    "5": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.57225,
+     "eta_se": 0.0023921747427811373,
+     "secondary_delta": 0.05551,
+     "fast_count": 57225,
+     "relative_imbalance": 3.948916628583043e-15,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 375.4954883,
+     "eta_se_kind": "poisson"
+    },
+    "10": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.54329,
+     "eta_se": 0.00233085821104588,
+     "secondary_delta": 0.03165,
+     "fast_count": 54329,
+     "relative_imbalance": 1.2082917358233225e-14,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 529.055108648,
+     "eta_se_kind": "poisson"
+    },
+    "30": {
+     "version": "a8a9973",
+     "histories": 100000,
+     "eta": 0.52672,
+     "eta_se": 0.0022950381260449684,
+     "secondary_delta": 0.01243,
+     "fast_count": 52672,
+     "relative_imbalance": 2.6780152075686497e-14,
+     "elastic_model": "lindhard 0.0.1 electron::elastic::table: Mott DCS from radial-Dirac partial waves, independent-atom additivity; potential: Salvat, Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987) DHFS analytic screening; corrections: exchange: Furness-McCarthy local exchange, J. Phys. B 6, 2280 (1973), as Salvat, PRA 68, 012708 (2003) Eq. (2); correlation-polarization: Salvat, PRA 68, 012708 (2003) Eqs. (3)-(7), (9): Perdew-Zunger LDA correlation joined to a Buckingham polarization tail; Au: alpha_p = 36 bohr^3 (P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u.), Seltzer b_pol^2, outer radius 50 bohr",
+     "table_build_s": 821.225005732,
+     "eta_se_kind": "poisson"
+    }
    }
   }
- ]
+ ],
+ "secondary_sensitivity": {
+  "lindhard": "lindhard 0.0.1 (a8a9973)",
+  "energies_kev": [
+   1.0,
+   5.0,
+   10.0,
+   30.0
+  ],
+  "secondaries": "kieft-bosch",
+  "boundary": "step-barrier",
+  "work_function": "mid",
+  "band_inputs": {
+   "Al": {
+    "valence_electrons_per_atom": 3.0,
+    "work_function_ev": {
+     "low": 4.06,
+     "mid": 4.16,
+     "high": 4.26
+    }
+   },
+   "Cu": {
+    "valence_electrons_per_atom": 1.0,
+    "work_function_ev": {
+     "low": 4.53,
+     "mid": 4.815,
+     "high": 5.1
+    }
+   },
+   "Au": {
+    "valence_electrons_per_atom": 1.0,
+    "work_function_ev": {
+     "low": 5.1,
+     "mid": 5.285,
+     "high": 5.47
+    }
+   }
+  },
+  "band_provenance": "Caller-supplied for the delta(E) validation (#149), pending #115: work function from the range printed for the element in the Wikipedia 'Work function' table, revision 1368612509 of 2026-08-10, which cites CRC Handbook of Chemistry and Physics (2008), p. 12-124 (the Handbook itself was not opened); 'low'/'high' are the table's endpoints and 'mid' their mean; valence electrons per atom from the ground-state configuration (Wikipedia 'Electron configuration', Al [Ne]3s2 3p1 -> 3, Cu [Ar]3d10 4s1 -> 1; Au [Xe]4f14 5d10 6s1 -> 1, from the table of anomalous configurations of the revision 1378968605 of 2026-10-07 of that article); Fermi energy by the library's free-electron formula (Verduin 2017, Eq. 3.133) from the density of the element table.",
+  "gaps": {
+   "Si": "no cited valence-band width (BAND_DEFAULTS has none, #115; #149 has not added one)",
+   "C": "no band data committed"
+  },
+  "baseline_reproduced": true
+ }
 }
