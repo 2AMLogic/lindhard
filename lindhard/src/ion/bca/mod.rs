@@ -91,7 +91,10 @@
 //! collisions and dynamic composition changes in solids*, report IPP 9/64,
 //! Max-Planck-Institut fur Plasmaphysik, Garching (1988) (the long write-up
 //! of Comput. Phys. Commun. 51 (1988) 355), read at
-//! <https://pure.mpg.de/rest/items/item_2131703/component/file_2131702/content>:
+//! <https://pure.mpg.de/rest/items/item_2131703/component/file_2131702/content>.
+//! Read only the report body, PDF pp. 1-47: never Appendix 1 (the TRIDYN
+//! program listing, PDF pp. 48-86), which is Tier C (see `CONTRIBUTING.md`).
+//! Quoted:
 //!
 //! * p. 14: "'weak' collisions might occur with more distant atoms which
 //!   might contribute to energy loss and angular deflection. The present
