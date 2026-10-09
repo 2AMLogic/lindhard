@@ -9,6 +9,15 @@ one version).
 
 ### Added
 
+- Cited electron band defaults (#115): `electron::boundary::BAND_DEFAULTS`,
+  `band_defaults`, `BandDefaults`, `BandKind`, `CitedValue`, `BandFill`,
+  `BandDefaults::complete` and `BandStructure::from_defaults`. The table
+  cites the Si band gap (1.1 eV) and electron affinity (4.05 eV) and the
+  SiO2 band gap (9 eV) to Robertson and Wallace (2015), by table or figure
+  and page. Parameters with no source that could be opened (the work
+  function and Fermi energy of Al, Cu, Au and W, the valence band width of
+  Si and SiO2, and the affinity of SiO2) have no number. `complete` takes
+  them from the caller with their provenance.
 - Sputter erosion in dynamic runs (#234): `[dynamic] erosion = true` removes
   sputtered atoms from the front of the target (slab 0 first) instead of the
   slab where they were displaced, and the surface recedes. New public fields

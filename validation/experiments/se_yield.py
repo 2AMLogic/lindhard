@@ -83,8 +83,10 @@ SLOW_ENERGIES_EV = [100, 200, 400, 800, 1500, 3000]  # Mermin: table builds take
 # its table build after 45 minutes on two threads of a shared host (2026-10-08) and was stopped.
 PENN_FULL_ENERGIES_EV = [200, 800]
 
-# Band inputs: caller-supplied (#115 has not landed). See docs/data-provenance.md,
-# "Secondary-electron yield validation inputs".
+# Band inputs: caller-supplied. #115 added cited band defaults (lindhard::electron::boundary::BAND_DEFAULTS)
+# but found no openable source for the work function or Fermi energy of Al, Cu or Au, so these stay as they
+# are. See docs/data-provenance.md, "Band inputs of the SE-yield validation runs" and "Per-material barrier
+# parameters".
 BAND = {
     "Al": {
         "valence_electrons_per_atom": 3.0,
