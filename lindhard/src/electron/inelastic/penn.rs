@@ -69,18 +69,22 @@
 //!
 //! # Low energies
 //!
-//! The SPA is an approximation to the full Penn algorithm that holds at high
-//! energy and fails at low energy. S2017 (abstract, open at PMC5524379)
-//! computed IMFPs from one ELF with the full Penn algorithm, the SPA, a
-//! simplified SPA and the Mermin method, and reports "good agreement among
-//! the IMFPs from the four algorithms for energies over 300 eV. For energies
-//! less than 100 eV, however, large differences became apparent." The
-//! reason is visible in eq. (7) above (our reading, not a statement of
-//! S2017): each `ω_p` contributes only on its pole `ω = ω_q(ω_p) >= ω_p`, so
-//! a loss `ω` draws on ELF weight at `ω_p <= ω` only, and the electron-hole
-//! continuum that the full Lindhard function of a plasmon has at losses
-//! below `ω_p` is dropped. An electron whose allowed losses lie below the
-//! main ELF peak then has almost nothing to lose.
+//! The SPA is an approximation to the full Penn algorithm (FPA) that holds at
+//! high energy and fails at low energy. S2017 computed IMFPs of liquid water
+//! from one ELF with the FPA, the SPA, a simplified SPA and the Mermin method.
+//! In its section "Calculated IMFPs from the four algorithms" (repeated in the
+//! Summary; open copy PMC5524379) it reports that the FPA and SPA IMFPs "agree
+//! well ... for energies over 50 eV. For energies less than 30 eV, the SPA
+//! IMFPs become larger than the FPA IMFPs with decreasing electron energy. The
+//! smaller FPA IMFPs in this energy range must be due to the contributions of
+//! single-electron excitations to the ELF, as shown in Eqn (6), that were
+//! neglected in the SPA." S2017 shows its values below 50 eV only for the
+//! trend, as less reliable, and computed water, not metals. In eq. (7) above
+//! each `ω_p` contributes only on its pole `ω = ω_q(ω_p) >= ω_p`, so a loss
+//! `ω` draws on ELF weight at `ω_p <= ω` only: the single-electron
+//! (electron-hole) continuum that the full Lindhard function of a plasmon
+//! has at losses below `ω_p` is dropped. An electron whose allowed losses lie
+//! below the main ELF peak then has almost nothing to lose.
 //!
 //! Measured in this code (#173; `lindhard-cli/examples/inelastic_low_energy.rs`,
 //! mode `imfp`), λ in nm for the Hagemann-Gudat-Kunz (1975) ELFs, model
@@ -95,14 +99,16 @@
 //! | 100 | 0.402 | 0.401 | 0.433 | 0.528 | 0.533 | 0.469 | 0.507 | 0.503 | 0.628 |
 //! | 1000 | 1.96 | 1.97 | 2.13 | 1.29 | 1.30 | 1.30 | 1.63 | 1.65 | 1.93 |
 //!
-//! The SPA agrees with the full algorithm to 1 % at 100 eV and above, and is
-//! up to 23 times longer below 20 eV for Al (whose ELF is dominated by the
-//! 15 eV plasmon) and about 1.6 to 1.8 times longer for Au and 2 times for
-//! Cu at 12 to 30 eV. These are the energies of the secondary electrons
-//! that make up the yield δ: swapping only the table rows below 30 eV for
-//! Mermin rows takes the single-pole Al δ at 400 eV from 6.9 to 1.4, and Au
-//! keeps most of its single-pole excess over Mermin in the rows below 50 eV
-//! (`docs/validation.md`, "Secondary-electron yield δ(E)"). This matches the
+//! The SPA agrees with the full algorithm to 1 % at 100 eV and above, and
+//! below 30 eV becomes longer with decreasing energy, as S2017 reports for
+//! water: up to 23 times longer below 20 eV for Al (whose ELF is dominated by
+//! the 15 eV plasmon), about 1.6 to 1.8 times for Au and up to 2 times for Cu
+//! at 12 to 19 eV. (At 30 eV the Al SPA value is the shorter one.) These are
+//! the energies of the secondary electrons that make up the yield δ:
+//! swapping only the table rows below 30 eV for Mermin rows takes the
+//! single-pole Al δ at 400 eV from 6.9 to 1.4, and Au keeps most of its
+//! single-pole excess over Mermin in the rows below 50 eV
+//! (`docs/validation.md`, "Secondary-electron yield δ(E)"). This is the
 //! published low-energy behaviour of the approximation; no error of this
 //! implementation was found (at 100 eV and above it agrees with the full
 //! algorithm of [`super::full_penn`] to about 1 %).
