@@ -49,6 +49,14 @@ committed as reference data. In particular, **no SRIM stopping table, and
 nothing interpolated or fitted from one, may enter this tree**, and that
 includes tables passed along through other projects.
 
+**Mixed sources.** Some published reports bundle a program listing with the
+paper. The listing is Tier C even though the report is citable. Exclude the
+listing pages before any OCR or text extraction, not after.
+
+- Moller and Eckstein, *TRIDYN*, report IPP 9/64 (1988): read only the report
+  body, PDF pp. 1-47. Never open Appendix 1 (the TRIDYN program listing, PDF
+  pp. 48-86).
+
 ### Oracles
 
 Comparing against third-party programs is encouraged, and the harness under
@@ -124,6 +132,10 @@ job fails with a clear message if the secret is missing.
 
 - Rust stable, `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green, and
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` clean.
+- The `#[ignore]`d statistical and slow tests are not in the PR gate. The weekly
+  [`statistical`](.github/workflows/statistical.yml) workflow runs them with
+  `cargo test -p lindhard --release -- --ignored` (also by hand via
+  `workflow_dispatch`).
 - `#![forbid(unsafe_code)]` in the library stays. SIMD goes through safe
   crates (`wide`), not intrinsics.
 - No C/Fortran dependencies in the default build.

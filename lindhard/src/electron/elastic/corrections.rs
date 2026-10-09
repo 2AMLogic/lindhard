@@ -89,9 +89,8 @@
 //!   about `k` times the outer radius have their turning points where the
 //!   potential is not negligible. The step-1 start rule is not accurate there
 //!   (measured: errors up to 0.25 rad at `l ~ 1250`, Cu, 10 keV, 100 bohr), so
-//!   [`CorrectedPotential`] reports [`ScreenedPotential::long_range`] and the
-//!   solver uses a WKB start criterion instead. The uncorrected path keeps
-//!   the step-1 rule and its bits.
+//!   the solver uses a WKB start criterion instead. Since #131 it does so for
+//!   every potential, corrected or not.
 //!
 //! [`r_cp`]: CorrelationPolarizationInfo::join_radius_bohr
 
@@ -553,9 +552,6 @@ impl ScreenedPotential for CorrectedPotential<'_> {
     }
     fn length_scale(&self) -> f64 {
         self.stat.length_scale()
-    }
-    fn long_range(&self) -> bool {
-        self.cp.is_some() || self.stat.long_range()
     }
     fn bound_energy_ev(&self) -> Option<f64> {
         Some(self.energy_ev)

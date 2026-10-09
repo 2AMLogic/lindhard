@@ -384,7 +384,7 @@ class TuningPilot(unittest.TestCase):
     def test_shipped_factors_match_the_committed_fit_record(self):
         import re
         rec = json.loads(run.TUNING_RESULTS.read_text())
-        src = (run.lindhard_cli.REPO / "lindhard/src/input.rs").read_text()
+        src = (run.lindhard_cli.REPO / "lindhard/src/input/schema.rs").read_text()
         block = src[src.index("pub const ES_SPUTTER_AR_V1"):]
         shipped = {m[0]: float(m[1]) for m in re.findall(r'\("([A-Z][a-z]?)", ([0-9.]+)\)', block[: block.index("provenance")])}
         self.assertEqual(shipped, {t: v["factor"] for t, v in rec["targets"].items()})
