@@ -1139,6 +1139,60 @@ fn full_tally_balances_when_primaries_and_secondaries_hit_the_event_cap() {
     assert!(r.budget.absorbed_ev > 0.0);
 }
 
+/// A transport whose small event cap cuts off primaries and secondaries.
+fn capped_transport() -> Transport {
+    let mut cfg = full_physics();
+    cfg.max_events = 6;
+    Transport::with_band_structures(
+        Stack::new(vec![(material(), 6e-9), (material(), 4e-9)], None).unwrap(),
+        vec![
+            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+        ],
+        vec![metal(), insulator()],
+        cfg,
+    )
+    .unwrap()
+}
+
+fn capped_run<T: ElectronTally + Clone + Sync>(threads: usize, proto: T) -> T {
+    let t = capped_transport();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap()
+        .install(|| {
+            t.run(0xCA9, 400, 16, &Primary::normal(300.0), || proto.clone())
+                .unwrap()
+                .tally
+        })
+}
+
+#[test]
+fn event_cap_counts_merge_identically_across_threads_and_match_the_summary() {
+    let t = capped_transport();
+    let proto = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
+    let r1 = capped_run(1, proto.clone()).report();
+    check_balance(&r1);
+    let c = r1.event_caps;
+    assert!(c.secondary_tracks > 0, "{c:?}");
+    assert!(r1.fates.event_capped > 0);
+    // Every history with a capped primary is affected; no history is counted
+    // twice.
+    assert!(c.affected_histories >= r1.fates.event_capped);
+    assert!(c.affected_histories <= r1.histories);
+    assert!(c.affected_histories <= r1.fates.event_capped + c.secondary_tracks);
+    assert!(r1.budget.event_cap_ev > 0.0);
+    let r2 = capped_run(2, proto).report();
+    assert_eq!(r1, r2, "report differs on 2 threads");
+    // The lightweight tally sees the same secondary caps.
+    let s1 = capped_run(1, SummaryTally::default());
+    let s2 = capped_run(2, SummaryTally::default());
+    assert_eq!(s1, s2);
+    assert_eq!(s1.secondaries_event_capped, c.secondary_tracks);
+    assert_eq!(s1.event_capped, r1.fates.event_capped);
+}
+
 #[test]
 fn full_tally_balances_with_a_binding_below_the_band_bottom() {
     // Synthetic insulator with W_v = 1, E_g = 4, χ = 1 eV: E_F = 3 eV, so
@@ -1219,6 +1273,9 @@ fn full_tally_keeps_a_capped_primary_apart_from_its_secondaries() {
     assert_eq!(r.budget.barrier_ev, 0.0);
     assert_eq!(r.budget.deposited_ev, 0.0);
     assert_eq!(r.fates.event_capped, 1);
+    // The primary was capped, its secondary escaped.
+    assert_eq!(r.event_caps.secondary_tracks, 0);
+    assert_eq!(r.event_caps.affected_histories, 1);
 }
 
 #[test]
@@ -1249,6 +1306,99 @@ fn full_tally_counts_capped_secondaries_and_vacuum_level_stops() {
     assert_eq!(r.budget.barrier_ev, -9.0);
     assert_eq!(r.stopping_points.stopped, 1);
     assert_eq!(r.fates.stopped, 1);
+    // A completed primary with a capped secondary: no primary cap, one
+    // capped track, one affected history.
+    assert_eq!(r.fates.event_capped, 0);
+    assert_eq!(r.event_caps.secondary_tracks, 1);
+    assert_eq!(r.event_caps.affected_histories, 1);
+}
+
+/// A secondary of `energy_ev` liberated at `x_nm` that is cut off by the
+/// event cap after one step.
+fn capped_secondary(tally: &mut FullElectronTally, x_nm: f64, energy_ev: f64, generation: u32) {
+    let s = at(x_nm, energy_ev, 0);
+    tally.begin_secondary(&s, generation);
+    tally.step(s.pos, &at(x_nm + 0.5, energy_ev, 0), 0.5 * NM);
+    tally.end_secondary(Fate::EventCap);
+}
+
+#[test]
+fn full_tally_counts_each_capped_track_but_each_history_once() {
+    let t = metal_on_insulator(full_physics());
+    let mut tally = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
+
+    // History 0: the primary stops at 9 eV after three
+    // 100 eV losses (all to metal conduction electrons); two of its three
+    // secondaries are cut off by the cap.
+    let mut vac = at(0.0, 300.0, 0);
+    tally.begin_history(0, &vac);
+    vac.energy_ev = 309.0;
+    tally.barrier(&vac, Boundary::Surface(Face::Front), 9.0);
+    tally.step([0.0; 3], &at(1.0, 309.0, 0), 1.0 * NM);
+    let mut secs = Vec::new();
+    for (e_after, w) in [(209.0, 100.0), (109.0, 100.0), (9.0, 100.0)] {
+        tally.inelastic(&at(1.0, e_after, 0), w);
+        let s = at(1.0, 5.0 + w, 0);
+        tally.secondary(&at(1.0, e_after, 0), &metal_event(w), Some(&s));
+        secs.push(s);
+    }
+    tally.stopped(&at(1.0, 9.0, 0));
+    capped_secondary(&mut tally, 1.0, secs[0].energy_ev, 1);
+    capped_secondary(&mut tally, 1.0, secs[1].energy_ev, 1);
+    // The third finds no interaction and is trapped with its energy.
+    tally.begin_secondary(&secs[2], 1);
+    tally.stopped(&secs[2]);
+    tally.end_secondary(Fate::Trapped);
+    tally.end_history(0, Fate::Stopped);
+    let r = tally.report();
+    assert_eq!(r.fates.event_capped, 0);
+    assert_eq!(r.event_caps.secondary_tracks, 2);
+    assert_eq!(r.event_caps.affected_histories, 1);
+    assert_eq!(r.budget.event_cap_ev, 210.0);
+
+    // History 1: the primary is capped at 209 eV and both of its
+    // secondaries are capped too: still one affected history.
+    let mut vac = at(0.0, 300.0, 0);
+    tally.begin_history(1, &vac);
+    vac.energy_ev = 309.0;
+    tally.barrier(&vac, Boundary::Surface(Face::Front), 9.0);
+    tally.step([0.0; 3], &at(1.0, 309.0, 0), 1.0 * NM);
+    tally.inelastic(&at(1.0, 259.0, 0), 50.0);
+    tally.secondary(
+        &at(1.0, 259.0, 0),
+        &metal_event(50.0),
+        Some(&at(1.0, 55.0, 0)),
+    );
+    tally.inelastic(&at(1.0, 209.0, 0), 50.0);
+    tally.secondary(
+        &at(1.0, 209.0, 0),
+        &metal_event(50.0),
+        Some(&at(1.0, 55.0, 0)),
+    );
+    capped_secondary(&mut tally, 1.0, 55.0, 1);
+    capped_secondary(&mut tally, 1.0, 55.0, 1);
+    tally.end_history(1, Fate::EventCap);
+    let r = tally.report();
+    assert_eq!(r.fates.event_capped, 1);
+    assert_eq!(r.event_caps.secondary_tracks, 4);
+    assert_eq!(r.event_caps.affected_histories, 2);
+    // The primary's own last state (209 eV) is still the one counted for it.
+    assert_eq!(r.budget.event_cap_ev, 210.0 + 110.0 + 209.0);
+
+    // History 2: the primary escapes without secondaries: not affected.
+    let vac = at(0.0, 300.0, 0);
+    tally.begin_history(2, &vac);
+    let mut out = at(0.0, 300.0, 0);
+    out.dir = [-1.0, 0.0, 0.0];
+    tally.reflected(&out, Boundary::Surface(Face::Front));
+    tally.escaped(&out, Face::Front);
+    tally.end_history(2, Fate::Escaped(Face::Front));
+    let r = tally.report();
+    check_balance(&r);
+    assert_eq!(r.histories, 3);
+    assert_eq!(r.fates.event_capped, 1);
+    assert_eq!(r.event_caps.secondary_tracks, 4);
+    assert_eq!(r.event_caps.affected_histories, 2);
 }
 
 fn tally_threaded(threads: usize) -> ElectronReport {

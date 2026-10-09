@@ -477,6 +477,72 @@ fn event_cap_counts_the_last_seen_energy_as_trapped() {
     check_report(&r);
     assert_eq!(r.budget.event_cap_ev, 250.0);
     assert_eq!(r.fates.event_capped, 1);
+    // A capped primary is an affected history; there is no secondary track.
+    assert_eq!(r.event_caps.secondary_tracks, 0);
+    assert_eq!(r.event_caps.affected_histories, 1);
+}
+
+#[test]
+fn event_cap_counts_skip_uncapped_histories_and_reset_per_history() {
+    let mut tally = FullElectronTally::new(&transport(), config(1_000.0)).unwrap();
+    let dir = [1.0, 0.0, 0.0];
+    // History 0: the primary is cut off by the cap.
+    tally.begin_history(0, &state([0.0; 3], dir, 400.0));
+    tally.step([0.0; 3], &state([1.0 * NM, 0.0, 0.0], dir, 400.0), 1.0 * NM);
+    tally.end_history(0, Fate::EventCap);
+    // History 1: the primary stops; nothing is capped, so the flag of the
+    // previous history must not leak into this one.
+    tally.begin_history(1, &state([0.0; 3], dir, 400.0));
+    tally.inelastic(&state([1.0 * NM, 0.0, 0.0], dir, 0.5), 399.5);
+    tally.stopped(&state([1.0 * NM, 0.0, 0.0], dir, 0.5));
+    tally.end_history(1, Fate::Stopped);
+    // History 2: a secondary (hook-driven) is capped, the primary stops.
+    tally.begin_history(2, &state([0.0; 3], dir, 400.0));
+    tally.inelastic(&state([1.0 * NM, 0.0, 0.0], dir, 0.5), 399.5);
+    tally.stopped(&state([1.0 * NM, 0.0, 0.0], dir, 0.5));
+    tally.begin_secondary(&state([1.0 * NM, 0.0, 0.0], dir, 30.0), 1);
+    tally.end_secondary(Fate::EventCap);
+    tally.end_history(2, Fate::Stopped);
+    // History 3: clean again.
+    tally.begin_history(3, &state([0.0; 3], dir, 400.0));
+    tally.inelastic(&state([1.0 * NM, 0.0, 0.0], dir, 0.5), 399.5);
+    tally.stopped(&state([1.0 * NM, 0.0, 0.0], dir, 0.5));
+    tally.end_history(3, Fate::Stopped);
+    let r = tally.report();
+    assert_eq!(r.histories, 4);
+    assert_eq!(r.fates.event_capped, 1);
+    assert_eq!(r.fates.stopped, 3);
+    assert_eq!(r.event_caps.secondary_tracks, 1);
+    assert_eq!(r.event_caps.affected_histories, 2);
+    assert_eq!(r.budget.event_cap_ev, 400.0 + 30.0);
+}
+
+#[test]
+fn uncapped_runs_report_zero_event_cap_counts() {
+    let r = run(&transport(), 200, 1_000.0, 11);
+    check_report(&r);
+    assert_eq!(r.fates.event_capped, 0);
+    assert_eq!(r.event_caps.secondary_tracks, 0);
+    assert_eq!(r.event_caps.affected_histories, 0);
+}
+
+#[test]
+fn reports_without_event_cap_counts_read_back_with_zeros() {
+    let mut tally = FullElectronTally::new(&transport(), config(1_000.0)).unwrap();
+    let dir = [1.0, 0.0, 0.0];
+    tally.begin_history(0, &state([0.0; 3], dir, 400.0));
+    tally.end_history(0, Fate::EventCap);
+    let r = tally.report();
+    assert_eq!(r.event_caps.affected_histories, 1);
+    let mut v = serde_json::to_value(&r).unwrap();
+    assert_eq!(v["event_caps"]["affected_histories"], 1);
+    assert_eq!(v["event_caps"]["secondary_tracks"], 0);
+    // A summary written before the field existed.
+    v.as_object_mut().unwrap().remove("event_caps");
+    let old: ElectronReport = serde_json::from_value(v).unwrap();
+    assert_eq!(old.event_caps.secondary_tracks, 0);
+    assert_eq!(old.event_caps.affected_histories, 0);
+    assert_eq!(old.fates, r.fates);
 }
 
 // ---------------------------------------------------------------------------

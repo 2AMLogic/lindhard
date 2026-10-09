@@ -513,7 +513,7 @@ An electron run writes these instead of the ion files.
 | `physics.transport` | The engine's `RunMetadata`: cutoff and its reference, escape rule, event cap, secondary and boundary models, seed, histories, chunk size, the primary, and per layer its extent (m), the `model` and `provenance` strings of both tables, the band parameters, phonon and polaron channels with their provenance |
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
 | `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
-| `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `budget` (the energy balance and its `relative_imbalance`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
+| `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
 
@@ -533,6 +533,19 @@ are not fractions of path length or of deposited energy either. Nonzero
 continuation of a table beyond its grid (`[electron.tables]`); they do not say
 how much that changed the result. Summaries written before the key existed
 lack it.
+
+`results.event_caps` is another numerical diagnostic, of the collision cap
+(`[electron.transport] max_events`): `secondary_tracks` is the number of
+secondary electrons the cap cut off (one per capped track) and
+`affected_histories` the number of primary histories in which the primary or
+at least one secondary was cut off (each history counted once, however many
+of its electrons were capped). Both are counts, not energies; the energy the
+capped electrons still carried is `budget.event_cap_ev`. The primaries' own
+caps stay in `fates.event_capped`, so `fates.event_capped = 0` alone does not
+show that the secondary cascades ran to completion: check
+`event_caps.affected_histories`. A capped track is a truncated one, not a
+physical fate. Summaries written before the key existed read back with both
+counts zero.
 
 `electron_escape_spectra.csv`: `face,spectrum,class,lo,hi,count,per_primary_per_unit`.
 For each face (`front`, `back`): the energy spectrum of all escaping electrons
