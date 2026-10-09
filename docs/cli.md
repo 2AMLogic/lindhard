@@ -787,7 +787,8 @@ file the run did not produce is removed if present: `ions.csv` (without
 and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
 `tally.psf`).
 A missing file is not an error; a failed removal is, and names the path. The
-summary is written last and lists only files that exist. Other files in the
+summary is written last (also for dynamic runs, after both CSVs, so a failed
+CSV write leaves no new summary) and lists only files that exist. Other files in the
 directory are never touched, and no cleanup happens between ion, electron and
 dynamic runs. Do not keep your own data under a reserved name.
 

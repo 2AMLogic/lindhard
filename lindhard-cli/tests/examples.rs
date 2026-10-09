@@ -579,6 +579,30 @@ fn dynamic_example() -> PathBuf {
 }
 
 #[test]
+fn dynamic_csv_write_failure_publishes_no_summary() {
+    for (name, file) in [
+        ("dynamic-fail-steps", "dynamic_steps.csv"),
+        ("dynamic-fail-composition", "dynamic_composition.csv"),
+    ] {
+        let out = scratch(name);
+        std::fs::create_dir(out.join(file)).unwrap();
+        let ex = dynamic_example();
+        let o = lindhard(&[
+            "run",
+            ex.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+            "--ions",
+            "50",
+        ]);
+        assert!(!o.status.success(), "{file}: expected failure");
+        let e = String::from_utf8_lossy(&o.stderr);
+        assert!(e.contains(&out.join(file).display().to_string()), "{e}");
+        assert!(!out.join("dynamic_summary.json").exists(), "{file}");
+    }
+}
+
+#[test]
 fn dynamic_example_checks_runs_and_writes_a_time_series() {
     let ex = dynamic_example();
     ok(&lindhard(&["check", ex.to_str().unwrap()]));
