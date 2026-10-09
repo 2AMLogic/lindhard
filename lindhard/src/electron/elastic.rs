@@ -861,6 +861,19 @@ pub struct ElasticSolver<'a> {
     start_rule: StartRule,
 }
 
+// Manual: the borrowed potential is a trait object without `Debug`.
+impl std::fmt::Debug for ElasticSolver<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ElasticSolver")
+            .field("e", &self.e)
+            .field("k", &self.k)
+            .field("opts", &self.opts)
+            .field("r_match", &self.r_match)
+            .field("start_rule", &self.start_rule)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<'a> ElasticSolver<'a> {
     /// Prepare a solver for kinetic energy `energy_ev` (eV, > 0).
     pub fn new(

@@ -322,6 +322,18 @@ pub fn exchange_potential(d: f64, rho: f64) -> f64 {
     }
 }
 
+// Manual: the borrowed potential and density are trait objects without `Debug`.
+impl std::fmt::Debug for CorrectedPotential<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CorrectedPotential")
+            .field("energy_ev", &self.energy_ev)
+            .field("exchange", &self.exchange)
+            .field("cp", &self.cp)
+            .field("meta", &self.meta)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<'a> CorrectedPotential<'a> {
     /// Build the corrected potential of `stat` with density `dens` at kinetic
     /// energy `energy_ev` (eV, > 0).

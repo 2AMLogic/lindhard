@@ -24,6 +24,7 @@ use crate::spec::{Beam, Material, Physics, Tally, Target};
 /// `Run.from_toml(text)` and `run.to_toml()` use the same schema as the
 /// command line, so a configuration can go either way.
 #[pyclass(module = "lindhard")]
+#[derive(Debug)]
 pub struct Run {
     input: Input,
     #[pyo3(get, set)]

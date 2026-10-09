@@ -606,6 +606,16 @@ pub struct HistoryBuffers {
     thermal_rng: Option<ParticleRng>,
 }
 
+// Manual: the per-history scratch space is internal and has no `Debug`.
+impl std::fmt::Debug for HistoryBuffers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HistoryBuffers")
+            .field("pending", &self.pending.len())
+            .field("shifts", &self.shifts.len())
+            .finish_non_exhaustive()
+    }
+}
+
 impl HistoryBuffers {
     /// Empty buffers.
     pub fn new() -> Self {
@@ -663,6 +673,21 @@ pub struct Bca<'a> {
 
 fn finite_nonneg(v: f64) -> bool {
     v.is_finite() && v >= 0.0
+}
+
+// Manual: the geometry and stopping model are trait objects without `Debug`,
+// and the precomputed tables are large.
+impl std::fmt::Debug for Bca<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Bca")
+            .field("beam", &self.beam)
+            .field("entry_pos", &self.entry_pos)
+            .field("entry_region", &self.entry_region)
+            .field("config", &self.config)
+            .field("screening", &self.screening)
+            .field("crystals", &self.crystals.len())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> Bca<'a> {

@@ -42,13 +42,13 @@ pub const DYNAMIC_COMPOSITION_FILE: &str = "dynamic_composition.csv";
 
 pub const NM: f64 = 1e-9;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Format {
     pub name: &'static str,
     pub version: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Software {
     pub name: &'static str,
     pub version: &'static str,
@@ -481,7 +481,7 @@ struct Files {
 }
 
 /// The only nondeterministic part of the summary.
-#[derive(Serialize, Clone, Copy)]
+#[derive(Debug, Serialize, Clone, Copy)]
 pub struct RunInfo {
     pub threads: usize,
     pub table_build_s: f64,

@@ -37,7 +37,7 @@ fn enum_parse<T: DeserializeOwned>(field: &str, s: &str) -> PyResult<T> {
 /// use the same kind. `e_d_ev`, `e_b_ev` and `e_s_ev` override the displacement,
 /// lattice-binding and surface-binding energies (eV).
 #[pyclass(module = "lindhard", get_all, set_all, from_py_object)]
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Element {
     pub symbol: Option<String>,
     pub z: Option<u8>,
@@ -107,7 +107,7 @@ impl Element {
 /// compounds; optional for a single element, which then takes its tabulated
 /// density).
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Material {
     pub elements: Vec<Element>,
     pub density_g_cm3: Option<f64>,
@@ -151,7 +151,7 @@ impl Material {
 
 /// Convert a Python `str` (a name from the run's materials, or an element
 /// symbol) or [`Material`] to a [`MaterialRef`].
-pub fn material_ref(field: &str, obj: &Bound<'_, PyAny>) -> PyResult<MaterialRef> {
+pub(crate) fn material_ref(field: &str, obj: &Bound<'_, PyAny>) -> PyResult<MaterialRef> {
     if let Ok(s) = obj.extract::<String>() {
         Ok(MaterialRef::Name(s))
     } else if let Ok(m) = obj.extract::<PyRef<'_, Material>>() {
@@ -174,6 +174,7 @@ fn material_obj(py: Python<'_>, r: &MaterialRef) -> PyResult<Py<PyAny>> {
 /// One finite layer: a material (a name, or an inline `Material`) and a
 /// thickness in nm.
 #[pyclass(module = "lindhard")]
+#[derive(Debug)]
 pub struct Layer {
     material: MaterialRef,
     /// Thickness, nm.
@@ -231,7 +232,7 @@ impl Layer {
 /// semi-infinite substrate. At least one of the two is required; without a
 /// substrate the target has a back face and particles can be transmitted.
 #[pyclass(module = "lindhard")]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Target {
     layers: Vec<LayerSpec>,
     substrate: Option<MaterialRef>,
@@ -316,7 +317,7 @@ impl Target {
 /// standard atomic weight), polar angle of incidence from the surface normal
 /// in `[0, 90)` degrees, and azimuth of the incidence plane (degrees).
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Beam {
     pub ion: String,
     pub energy_ev: f64,
@@ -382,7 +383,7 @@ const ENERGY_KEYS: [&str; 3] = ["e_d_ev", "e_b_ev", "e_s_ev"];
 /// with any of `e_d_ev`, `e_b_ev`, `e_s_ev`, overriding that element's
 /// energies in every layer.
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Physics {
     pub primary_cutoff_ev: f64,
     pub recoil_cutoff_ev: f64,
@@ -515,7 +516,7 @@ impl Physics {
 /// What the run records; the `[tally]` table of the input. Defaults are the
 /// CLI's.
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Tally {
     pub depth_bin_nm: f64,
     pub depth_bins: usize,

@@ -262,6 +262,7 @@ pub struct CacheFile {
 }
 
 /// A table and where it came from.
+#[derive(Debug)]
 pub struct CachedTable {
     /// The table.
     pub table: CrossSectionTable,

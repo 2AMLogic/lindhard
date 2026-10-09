@@ -17,7 +17,7 @@ use pyo3::types::{PyDict, PyTuple, PyType};
 const MODULE: &str = "lindhard._lindhard";
 
 /// Create the exception classes and add them to the module.
-pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub(crate) fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     let py = m.py();
     let base = PyErr::new_type(
         py,
@@ -63,12 +63,12 @@ fn raise(name: &str, msg: String) -> PyErr {
 }
 
 /// An invalid configuration.
-pub fn input(msg: impl std::fmt::Display) -> PyErr {
+pub(crate) fn input(msg: impl std::fmt::Display) -> PyErr {
     raise("InputError", msg.to_string())
 }
 
 /// A failed run, with the full context chain (outermost first) as the CLI
 /// prints it.
-pub fn run(err: &impl std::fmt::Display) -> PyErr {
+pub(crate) fn run(err: &impl std::fmt::Display) -> PyErr {
     raise("RunError", format!("{err:#}"))
 }

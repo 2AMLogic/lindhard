@@ -201,6 +201,23 @@ pub struct DynamicRun<'a> {
     recession_m: f64,
 }
 
+// Manual: the borrowed stopping model is a trait object without `Debug`, and
+// the scattering table is large.
+impl std::fmt::Debug for DynamicRun<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DynamicRun")
+            .field("beam", &self.beam)
+            .field("config", &self.config)
+            .field("cfg", &self.cfg)
+            .field("next_index", &self.next_index)
+            .field("steps", &self.steps)
+            .field("current_n", &self.current_n)
+            .field("cumulative", &self.cumulative)
+            .field("recession_m", &self.recession_m)
+            .finish_non_exhaustive()
+    }
+}
+
 impl<'a> DynamicRun<'a> {
     /// Set up a run of `beam.count` primaries on `grid`.
     pub fn new(
