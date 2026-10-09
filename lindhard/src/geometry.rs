@@ -1,5 +1,6 @@
 //! Target geometry: the engine-facing [`Geometry`] trait, the 1D layered
-//! [`Stack`], the 3D [`VoxelGrid`] and the triangle-mesh [`MeshGeometry`].
+//! [`Stack`], the 3D [`VoxelGrid`], the triangle-mesh [`MeshGeometry`] and the
+//! constructive-solid-geometry [`CsgGeometry`].
 //!
 //! # Coordinates
 //!
@@ -63,20 +64,33 @@
 //! and tolerance rules, the `Face` mapping of its escapes, the loaders and the
 //! watertightness rules are in the [`mesh`] module docs.
 
+//! # CSG
+//!
+//! [`CsgGeometry`] (module [`csg`]) is a set of [`Csg`] solids built from box,
+//! cylinder and half-space [`Primitive`]s by union, intersection and
+//! difference, one region per top-level solid, classified along each flight by
+//! ray casting. It follows the mesh ownership and tolerance rules, so a box
+//! gives the same events as a CSG solid, a mesh or a voxel grid; the rules,
+//! the handling of unbounded half-spaces and the algorithms are in the
+//! [`csg`] module docs.
+
 mod bvh;
+pub mod csg;
 pub mod mesh;
 mod stack;
 #[cfg(test)]
 mod test_util;
 mod voxel;
 
+pub use csg::{Csg, CsgGeometry, Primitive};
 pub use mesh::{MeshGeometry, TriMesh};
 pub use stack::{Layer, Stack};
 pub use voxel::{Boundary, VoxelGrid};
 
 use crate::material::Material;
 
-/// Errors from building a [`Stack`], a [`VoxelGrid`] or a [`MeshGeometry`].
+/// Errors from building a [`Stack`], a [`VoxelGrid`], a [`MeshGeometry`] or a
+/// [`CsgGeometry`].
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum GeometryError {
     /// No layers and no substrate.
@@ -132,8 +146,8 @@ pub enum GeometryError {
         /// Number of materials supplied.
         n_materials: usize,
     },
-    /// A mesh geometry needs at least one solid.
-    #[error("a mesh geometry needs at least one solid")]
+    /// A mesh or CSG geometry needs at least one solid.
+    #[error("a mesh or CSG geometry needs at least one solid")]
     NoSolids,
     /// A solid names a material that does not exist.
     #[error(
@@ -201,6 +215,23 @@ pub enum GeometryError {
         /// The signed volume, m^3.
         volume_m3: f64,
     },
+    /// A CSG solid has an invalid primitive (non-finite or non-positive
+    /// size, zero axis or normal), an empty union or intersection, or an
+    /// empty bounding box.
+    #[error("CSG solid {solid} is invalid: {reason}")]
+    CsgInvalid {
+        /// Solid index (listing order).
+        solid: usize,
+        /// What was wrong.
+        reason: &'static str,
+    },
+    /// A top-level CSG solid is unbounded (a half-space not bounded by the
+    /// combination it is in; see the [`csg`] module docs).
+    #[error("CSG solid {solid} is unbounded: half-spaces must be bounded by an intersection or difference")]
+    CsgUnbounded {
+        /// Solid index (listing order).
+        solid: usize,
+    },
 }
 
 /// Which face of the target a particle left through.
@@ -267,7 +298,8 @@ pub enum Flight {
 }
 
 /// The engine-facing description of a target. See the module docs for the
-/// contract. Implemented by [`Stack`] and [`VoxelGrid`].
+/// contract. Implemented by [`Stack`], [`VoxelGrid`], [`MeshGeometry`] and
+/// [`CsgGeometry`].
 pub trait Geometry: Sync {
     /// Number of distinct materials.
     fn n_materials(&self) -> usize;
