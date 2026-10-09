@@ -1,0 +1,40 @@
+name: Statistical
+
+# The `#[ignore]`d statistical and slow tests (crystal channeling, thermal
+# vibration, the electron elastic-table acceptance test, ...). They are too
+# long for the PR gate in ci.yml, so they run here in a release build on a
+# weekly schedule and on demand. Not a pull_request workflow.
+
+on:
+  schedule:
+    - cron: "17 3 * * 1" # Mondays 03:17 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: statistical-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ignored-tests:
+    name: Ignored tests (release)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30 # measured: ~2.5 min of tests plus a cold release build (~5 min at 2 jobs)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test -p lindhard --release -- --ignored
+        # Seeds are fixed, so a red run is a real regression. Each --skip is a
+        # known failure with a tracking issue; remove the entry when it closes.
+        run: |
+          cargo test -p lindhard --release -- --ignored \
+            --skip random_direction_local_to_nonlocal_ratio_matches_amorphous \
+            --skip complete_validation_requires_all_sixteen_values
+          # --skip random_direction_local_to_nonlocal_ratio_matches_amorphous
+          #   known gap, tracked in #250 (lindhard/tests/crystal_electronic.rs)
+          # --skip complete_validation_requires_all_sixteen_values
+          #   needs all 16 published reference values, tracked in #93 and #130
+          #   (lindhard/tests/electron_elastic_reference.rs)
