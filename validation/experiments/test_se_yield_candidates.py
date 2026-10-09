@@ -35,8 +35,8 @@ class OneChangeAtATime(unittest.TestCase):
                              sy.make_input(m, "mermin", 800.0, 2000, 1, "elf.toml"))
 
     def test_every_candidate_changes_exactly_one_line(self):
-        expect = {"elastic-stand-in": "potential = ", "phi-low": "band = ", "phi-high": "band = ",
-                  "fermi-tpp2011": "band = ", "barrier-off": "boundary = "}
+        expect = {"elastic-stand-in": "potential = ", "elastic-no-exchange": "exchange = ", "phi-low": "band = ",
+                  "phi-high": "band = ", "fermi-tpp2011": "band = ", "barrier-off": "boundary = "}
         for m in sc.MATERIALS:
             for cand, start in expect.items():
                 diff = changed_lines(m, cand)
@@ -72,6 +72,16 @@ class OneChangeAtATime(unittest.TestCase):
             self.assertIn(f"fermi_ev = {sc.FERMI_TPP2011_EV[m]!r}", text)
             self.assertIn(f"work_function_ev = {sy.BAND[m]['work_function_ev']['mid']!r}", text)
             self.assertIn("doi:10.1002/sia.3522", text)
+
+    def test_no_exchange_keeps_the_dhfs_potential(self):
+        text = sc.make_input("Au", "elastic-no-exchange", 2000, 1, "elf.toml")
+        self.assertIn('potential = "salvat-dhfs"', text)
+        self.assertIn("exchange = false", text)
+
+    def test_the_pre_149_row_is_both_elastic_changes_and_is_not_a_candidate(self):
+        diff = changed_lines("Cu", "elastic-pre-149")
+        self.assertEqual(sorted(b for _, b in diff), ["exchange = false", 'potential = "thomas-fermi-yukawa"'])
+        self.assertEqual(sc.CANDIDATES["elastic-pre-149"][0], "context")
 
     def test_barrier_off_keeps_the_band(self):
         text = sc.make_input("Cu", "barrier-off", 2000, 1, "elf.toml")

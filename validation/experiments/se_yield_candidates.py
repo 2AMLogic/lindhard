@@ -77,8 +77,9 @@ FERMI_TPP2011_PROVENANCE = (
     "delta(E) runs (se_yield.py, METAL_BAND_PROVENANCE)."
 )
 
-# The elastic model of the stand-in row: the Thomas-Fermi Yukawa potential the delta(E) runs used before #149's
-# DHFS rerun, with the same exchange correction.
+# The elastic rows. The delta(E) runs before #149's DHFS rerun used the Thomas-Fermi Yukawa stand-in potential
+# and left `exchange` at its default, off; the rerun changed both at once. Here each is changed alone, and the
+# `elastic-pre-149` row (both, a context row) repeats the old elastic model.
 STAND_IN_POTENTIAL = "thomas-fermi-yukawa"
 
 # The materials of this script that have a row in Verduin (2017), Table 3.2 (Al, Si, Au, SiO2), which the
@@ -88,8 +89,10 @@ ACOUSTIC_MATERIALS = ("Au",)
 # id -> (candidate of #242, what is changed against the baseline).
 CANDIDATES = {
     "baseline": ("-", "nothing: the `mermin` configuration of the δ(E) tables"),
-    "elastic-stand-in": ("(a) elastic potential",
+    "elastic-stand-in": ("(a) elastic scattering",
                          "Thomas-Fermi Yukawa stand-in potential instead of DHFS (exchange on in both)"),
+    "elastic-no-exchange": ("(a) elastic scattering",
+                            "Furness-McCarthy exchange correction off (DHFS potential in both)"),
     "acoustic-phonon": ("(b) quasi-elastic scattering",
                         "below 100 eV the Mott rows are replaced by the acoustic-phonon mean free path and angle "
                         "of Verduin (2017), Table 3.2, mixed linearly up to 200 eV; no energy loss"),
@@ -99,6 +102,8 @@ CANDIDATES = {
                                   "(one valence electron)"),
     "barrier-off": ("context", "transparent boundary: no barrier at all (not a candidate; the largest effect the "
                                "barrier can have)"),
+    "elastic-pre-149": ("context", "stand-in potential and exchange off together: the elastic model of the δ(E) "
+                                   "runs before the DHFS rerun (two changes, so not a candidate row)"),
 }
 BASELINE = "baseline"
 
@@ -130,9 +135,11 @@ def make_input(material: str, cand: str, histories: int, seed: int, elf_name: st
     if not applies(material, cand):
         raise ValueError(f"candidate {cand!r} does not apply to {material}")
     text = sy.make_input(material, BASE_CONFIG, ENERGY_EV, histories, seed, elf_name)
-    if cand == "elastic-stand-in":
+    if cand in ("elastic-stand-in", "elastic-pre-149"):
         text = _replace_once(text, f'potential = "{sy.ELASTIC_POTENTIAL}"', f'potential = "{STAND_IN_POTENTIAL}"')
-    elif cand in ("phi-low", "phi-high"):
+    if cand in ("elastic-no-exchange", "elastic-pre-149"):
+        text = _replace_once(text, "exchange = true", "exchange = false")
+    if cand in ("phi-low", "phi-high"):
         text = _replace_band(text, sy.band_line(material, cand.split("-")[1]))
     elif cand == "fermi-tpp2011":
         w = sy.BAND[material]["work_function_ev"]["mid"]
