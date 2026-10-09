@@ -216,6 +216,12 @@ one version).
 
 ### Changed
 
+- `lindhard run` with `electron.elastic.potential = "salvat-dhfs"` now
+  applies the `exchange` and `correlation_polarization` corrections the input
+  asks for, solved on the DHFS Poisson density (Salvat et al. 1987,
+  Eq. (12)). Before, the DHFS elastic table was built without them and the
+  settings were silently ignored; DHFS runs with either correction on change
+  results (#169). The stand-in path is unchanged.
 - Dynamic runs: `surface_nm` is now the cumulative surface recession (always 0
   with `erosion = false`). Breaking for struct-literal construction: new public
   fields on `Particle`, `DynamicConfig` and `StepRecord` (#234).
