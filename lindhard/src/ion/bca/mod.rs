@@ -205,10 +205,11 @@
 //!
 //! # Not modelled here (see the issue tracker)
 //!
-//! Damage accumulation and impact-parameter-dependent stopping in crystal
-//! regions (the lattice there is perfect, static or thermally vibrating),
-//! target composition changes with fluence, and refraction of the incident
-//! beam at the entrance surface (negligible at keV energies).
+//! Damage accumulation in crystal regions (the lattice there is perfect,
+//! static or thermally vibrating; the local Oen-Robinson loss of
+//! [`ElectronicLoss::EquipartitionLsOr`] is taken at every lattice partner,
+//! see [`crystal`]), target composition changes with fluence, and refraction
+//! of the incident beam at the entrance surface (negligible at keV energies).
 
 pub mod crystal;
 pub mod kinematics;

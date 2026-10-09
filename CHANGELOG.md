@@ -9,6 +9,22 @@ one version).
 
 ### Added
 
+- Validation and run metadata for the local Oen-Robinson electronic loss
+  (`ElectronicLoss::EquipartitionLsOr`) in the crystal flight model (#226).
+  The model was already in place: each lattice partner within `p_max` takes
+  the local loss at its closest approach. New public
+  `CrystalMetadata::electronic_constants_unverified`, `true` for crystal runs
+  that use the local loss while the Oen-Robinson constants are not verified
+  against the 1976 paper. It follows the new constant
+  `ion::stopping::oen_robinson::OR_CONSTANTS_UNVERIFIED`, and a `false`
+  value is left out of the serialised metadata. The new tests are in
+  `tests/crystal_electronic.rs` and measure `R = E_local / E_nonlocal`
+  (Ar 20 keV into Si). Along <110> and <100>, R is 0.26 and 0.60 times the
+  random-direction value. In a random direction the crystal R is 7.6 %
+  above the amorphous one at the same `p_max`, which is outside the 5 %
+  acceptance. This is a known gap (#250), and that test fails until it is
+  resolved. The module docs no longer call impact-parameter-dependent
+  stopping in crystals a later step. Results are unchanged.
 - Cited electron band defaults (#115): `electron::boundary::BAND_DEFAULTS`,
   `band_defaults`, `BandDefaults`, `BandKind`, `CitedValue`, `BandFill`,
   `BandDefaults::complete` and `BandStructure::from_defaults`. The table

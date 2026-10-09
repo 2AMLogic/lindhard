@@ -57,11 +57,13 @@
 //!   order). There is no free-path length parameter: the path is the crystal's.
 //!   The nonlocal electronic loss of the model chosen in the [`BcaConfig`](super::BcaConfig) is
 //!   taken over that length at the energy at the start of the segment, as in
-//!   the amorphous model; impact-parameter-dependent stopping is a later
-//!   step. When no partner lies within `search_length` the ion flies that
-//!   distance and searches again (a channel). The geometry is asked about
-//!   every segment, so surfaces and interfaces cut it exactly like an
-//!   amorphous flight.
+//!   the amorphous model. Under
+//!   [`ElectronicLoss::EquipartitionLsOr`](super::ElectronicLoss::EquipartitionLsOr)
+//!   that is half of the Lindhard-Scharff loss, and the other half is local
+//!   (next bullets and "Local electronic loss"). When no partner lies within
+//!   `search_length` the ion flies that distance and searches again (a
+//!   channel). The geometry is asked about every segment, so surfaces and
+//!   interfaces cut it exactly like an amorphous flight.
 //! * **Simultaneous collisions.** Further sites join the nearest one if, for
 //!   every partner `t` already accepted, `Δ = s - s_t` (≥ 0) satisfies
 //!   `Δ <= q_max`, `p_t² + Δ² <= p_max²` and `p² + Δ² <= p_max²`
@@ -174,9 +176,71 @@
 //! in its tail. The 30°/17° dRp ratio, within 15 % for the static lattice,
 //! is 1.20 (B) and 1.15 (As) at 300 K.
 //!
-//! Electronic loss in a channel is the amorphous average (impact-parameter-
-//! dependent stopping is Phase 2), which makes the channeled ranges an upper
-//! bound on this effect.
+//! The ranges above use the nonlocal Lindhard-Scharff loss only
+//! ([`ElectronicLoss::NonLocal`](super::ElectronicLoss::NonLocal), the
+//! default), so a channeled ion loses as much electronic energy per unit
+//! path as in the amorphous target. With the local Oen-Robinson half (next
+//! section) a channeled ion loses less per unit path than one in a random
+//! direction. No ranges have been measured with that mode yet.
+//!
+//! # Local electronic loss (Oen-Robinson)
+//!
+//! Under
+//! [`ElectronicLoss::EquipartitionLsOr`](super::ElectronicLoss::EquipartitionLsOr)
+//! half of the Lindhard-Scharff loss is nonlocal, taken along every flight
+//! segment (above). The other half is local: every partner of a collision
+//! step, so every lattice site that the search accepts within `p_max` of the
+//! path, takes the Oen-Robinson loss
+//! ([`OenRobinson::local_loss`](crate::ion::stopping::oen_robinson::OenRobinson::local_loss))
+//! at its own distance of closest approach `r_min`. That distance comes from
+//! the partner's impact parameter, which with thermal vibration is the
+//! distance to the displaced position. The energy is the energy before the
+//! collision step. The losses `Q_i` enter the energy-conserving scaling above.
+//! O. S. Oen and M. T. Robinson, Nucl. Instrum. Methods 132, 647 (1976).
+//!
+//! What is not modelled:
+//!
+//! * **The `p_max` cutoff on the local half.** Sites farther than `p_max`
+//!   from the path are not partners, so they take no local loss. The local
+//!   half is therefore below half of Lindhard-Scharff wherever `p_max` is not
+//!   large compared with the decay length `a / 0.3` of the Oen-Robinson loss.
+//!   The amorphous model has the same cutoff. In a channel, where the ion
+//!   stays farther than `p_max` from most rows, this cutoff is what lowers
+//!   the loss.
+//! * **Vibration beyond the displaced positions.** The local loss depends on
+//!   the vibration amplitude only through the displaced site positions; there
+//!   is no other thermal term.
+//! * **Verified constants.** The Oen-Robinson constants are not verified
+//!   against the paper
+//!   ([`OR_CONSTANTS_UNVERIFIED`]).
+//!   [`CrystalMetadata::electronic_constants_unverified`] records this in
+//!   the run metadata.
+//!
+//! Measured by `tests/crystal_electronic.rs` (`#[ignore]`d; release build):
+//! `R = E_local / E_nonlocal` of the primary (recoils not followed), counted
+//! until its energy first falls below 80 % of the beam energy. Ar 20 keV into
+//! Si, static lattice unless noted, seed 1, the crystal's `p_max` set to the
+//! amorphous constant-path radius 1.532 Å. Errors are delta-method standard
+//! errors.
+//!
+//! | Case | Histories | R | Notes |
+//! |---|---|---|---|
+//! | amorphous | 4000 | 0.8645 ± 0.0026 | the same at 30°/17° and 7°/22° |
+//! | 30°/17° | 4000 | 0.9304 ± 0.0025 | 1.076 ± 0.004 × amorphous |
+//! | 30°/17°, 300 K | 4000 | 0.9270 ± 0.0025 | 1.072 ± 0.004 × amorphous |
+//! | 7°/22° | 4000 | 0.8744 ± 0.0030 | 1.011 ± 0.005 × amorphous |
+//! | 30°/17°, `p_max` = nn | 4000 | 1.0033 ± 0.0026 | |
+//! | along <110> | 8000 | 0.2448 ± 0.0022 | 0.263 × the 30°/17° crystal value (0.9316, same n) |
+//! | along <100> | 8000 | 0.5600 ± 0.0010 | 0.601 × the 30°/17° crystal value |
+//! | along <110> / <100>, 300 K | 8000 | 0.2548 / 0.5719 | 30°/17° at 300 K: 0.9283 |
+//!
+//! Along both axes the local share is far below the random direction (by
+//! more than 150 standard errors), as channeling requires. **Gap (#250): in a
+//! random direction the crystal ratio is 5-8 % above the amorphous one at the
+//! same `p_max`**, outside the 5 % the validation asks for. The crystal
+//! partners lean towards small impact parameters compared with the uniform
+//! disc of the amorphous model. Vibration up to 3000 K and `q_max` hardly
+//! change this. The cause is not established.
 //!
 //! # Thermal vibration (step 21b)
 //!
@@ -203,8 +267,9 @@
 //!   cascade) are not kept.
 //! * **What the displacement changes.** The impact parameter, the path
 //!   distance (so the order of the partners and the simultaneity test), the
-//!   direction `n_i` from the line to the atom, and so the deflection and the
-//!   recoil direction. A site's **region** (and so whether it is a partner at
+//!   direction `n_i` from the line to the atom, and so the deflection, the
+//!   recoil direction and (under `EquipartitionLsOr`) the local electronic
+//!   loss. A site's **region** (and so whether it is a partner at
 //!   all) and the **starting point of its recoil** are its static lattice
 //!   position, so that recoils, vacancies and tallies stay on lattice sites
 //!   and a recoil's own site is recognised as such; the difference is
@@ -232,8 +297,11 @@
 //!   (`tests/crystal_thermal.rs`). With the zero-point term (the physical
 //!   case) `T = 0` still vibrates: `u1` = 0.045 Å for Si (0.088 Å at 600 K).
 //! * **Not changed.** The lattice constant is the cited one at its own
-//!   temperature (no thermal expansion), and the electronic loss is the same
-//!   as for the static lattice.
+//!   temperature (no thermal expansion). The electronic-loss model is the
+//!   one of the static lattice: the nonlocal loss along a segment, and under
+//!   `EquipartitionLsOr` the local loss at each partner's closest approach.
+//!   The local loss sees the vibration only through the displaced position
+//!   (the impact parameter, so `r_min`); it has no other thermal term.
 //!
 //! DISPLATH (Tier A, above; same commit) also perturbs lattice atoms by
 //! independent Gaussian displacements of a Debye amplitude, but draws them
@@ -246,9 +314,10 @@
 //! The lattice is **perfect** (static, or vibrating as above) and
 //! stays perfect: a displaced atom leaves no vacancy, so a later particle can
 //! still collide with its site (dynamic damage, dechanneling and
-//! amorphization are later steps). There is no electronic-stopping dependence
-//! on the impact parameter (Phase 2). Boundaries of a periodic voxel axis do
-//! not continue the lattice. The equation-level treatment of Robinson and
+//! amorphization are later steps). The impact-parameter-dependent electronic
+//! loss is the local Oen-Robinson half, taken only at sites within `p_max`
+//! (see "Local electronic loss" for what that leaves out). Boundaries of a
+//! periodic voxel axis do not continue the lattice. The equation-level treatment of Robinson and
 //! Torrens, Phys. Rev. B 9, 5008 (1974) (MARLOWE, Tier C) was not available
 //! to read when this was written; the choices above are DISPLATH's, not
 //! quotations of that paper.
@@ -261,6 +330,7 @@ use crate::ion::crystal::debye::{sample_gaussian_3d, ThermalVibration};
 use crate::ion::crystal::search::{compare, path_metrics, unit_direction};
 use crate::ion::crystal::{Lattice, LatticeSearch, Orientation};
 use crate::ion::scattering::closest_approach;
+use crate::ion::stopping::oen_robinson::OR_CONSTANTS_UNVERIFIED;
 use crate::ion::stopping::Ion;
 use crate::rng::ParticleRng;
 use crate::units::J_PER_EV;
@@ -347,6 +417,14 @@ pub struct CrystalMetadata {
     pub search_length_m: f64,
     /// Thermal vibration; `None` for a static lattice.
     pub thermal: Option<ThermalMetadata>,
+    /// `true` when the run takes the local Oen-Robinson loss
+    /// ([`ElectronicLoss::EquipartitionLsOr`](super::ElectronicLoss::EquipartitionLsOr))
+    /// and the constants of that model are not verified against the paper
+    /// ([`OR_CONSTANTS_UNVERIFIED`]). Channeled ranges computed with the local
+    /// loss depend on those constants. `false` for a nonlocal-only run; a
+    /// `false` value is left out of the serialised form.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub electronic_constants_unverified: bool,
 }
 
 /// The thermal part of [`CrystalMetadata`].
@@ -662,6 +740,7 @@ impl<'a> Bca<'a> {
     /// orientation, search parameters and the thermal model with its target
     /// temperature. Empty for an amorphous engine.
     pub fn crystal_metadata(&self) -> Vec<CrystalMetadata> {
+        let local_or = self.config.electronic == super::ElectronicLoss::EquipartitionLsOr;
         self.crystals
             .iter()
             .enumerate()
@@ -680,6 +759,7 @@ impl<'a> Bca<'a> {
                 q_max_m: cr.q_max,
                 search_length_m: cr.search_len,
                 thermal: cr.thermal.as_ref().map(|t| t.meta.clone()),
+                electronic_constants_unverified: local_or && OR_CONSTANTS_UNVERIFIED,
             })
             .collect()
     }
