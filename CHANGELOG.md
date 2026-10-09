@@ -7,6 +7,12 @@ one version).
 
 ## [Unreleased]
 
+### Fixed
+
+- Dynamic runs write `dynamic_summary.json` last, after
+  `dynamic_steps.csv` and the composition CSV, like ion and electron runs
+  (#292). A failed CSV write no longer leaves a new summary.
+
 ### Added
 
 - `BcaTally::partner` (#250): a tally hook, a no-op by default, that reports
