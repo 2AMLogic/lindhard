@@ -889,7 +889,7 @@ def level3_backscatter() -> str:
             med = "-" if g["median"] is None else f"{g['median']:.3f}"
             band = "-" if g["median"] is None else f"{g['min']:.3f}-{g['max']:.3f}"
             if run is None:
-                sim, diff = "not run (no optical ELF committed)", "-"
+                sim, diff = "not run (no committed input)", "-"
                 verdict = "not evaluated" if e >= emin else "-"
                 if e >= emin and g["sets"]:
                     tv["ungraded"] += 1
@@ -915,8 +915,7 @@ def level3_backscatter() -> str:
     for t in r["targets"]:
         v = verdicts[t["target"]]
         if v["pass"] + v["fail"] == 0:
-            lines.append(f"- {t['target']}: not evaluated ({v['ungraded']} measured energies; no committed input, "
-                         "because no optical ELF of it is committed).")
+            lines.append(f"- {t['target']}: not evaluated ({v['ungraded']} measured energies; no committed input).")
         else:
             worst = f"; largest abs. diff. {v['worst'][1]:+.3f} at {v['worst'][0]:g} keV" if v["worst"] else ""
             lines.append(f"- {t['target']}: {v['pass']} of {v['pass'] + v['fail']} energies pass"
@@ -953,7 +952,7 @@ def level3_backscatter() -> str:
                   + ("every difference is within 2 σ of the independent-run bound. Because the runs are "
                      "correlated, that does not show the effect is zero; the measured differences (at most "
                      f"{big[0]:.4f} in η) are small next to the 0.05 tolerance and the measured spread, with "
-                     "the stand-in potential the corrections are solved on."
+                     "the potential the corrections are solved on (each run's `elastic_model`)."
                      if all(x[1] < 2 for x in effects) else "at least one difference exceeds 2 σ.")]
     lines += ["", "Per-run values: `validation/experiments/backscatter_results.json`; datasets: "
               "`validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md)."]
