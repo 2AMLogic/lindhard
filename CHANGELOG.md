@@ -15,6 +15,20 @@ one version).
 
 ### Added
 
+- Inner-shell ionisation channels in the electron transport (#273), library
+  only (no CLI input yet; that is #156). `build_shell_channel_tables` builds
+  the valence table and one `ShellChannelTable` per shell of a
+  `ShellResolvedChannels` (single-pole Penn per channel, no exchange);
+  `Transport::with_inner_shells` adds them to a layer. A channel is chosen
+  by its inverse IMFP and the loss drawn from that channel's table; a shell
+  event under the Kieft-Bosch model liberates an electron of energy
+  `E_F + ω - B` and leaves `B - E_F` in the solid. New `ElectronTally::inner_shell`
+  hook, `SummaryTally::inner_shell_events` / `inner_shell_loss_ev`, and
+  `LayerMetadata::inner_shells` (serialized only when a layer has shells).
+  `ShellChannelTable` files carry the shell, its binding energy and that
+  energy's provenance, with their own format version
+  (`SHELL_CHANNEL_FORMAT_VERSION`); the `CrossSectionTable` cache format is
+  unchanged. Layers without shells give bit-identical results.
 - `BcaTally::partner` (#250): a tally hook, a no-op by default, that reports
   every collision partner's impact parameter and the number of partners of
   its collision step, before the collision changes the particle. The

@@ -49,9 +49,24 @@
 //!
 //! The binding energies come from a [`SubshellBindingTable`]
 //! ([`InnerShell::from_table`]) or are given directly.
+//!
+//! # In the transport
+//!
+//! [`super::table::build_shell_channel_tables`] tabulates every channel
+//! (one [`ShellChannelTable`] per shell, beside the valence table), and
+//! [`crate::electron::transport::Transport::with_inner_shells`] samples them:
+//! a channel is chosen first, with probability proportional to its inverse
+//! IMFP, and the loss is then drawn from that channel's own table. That is a
+//! different construction from [`ShellResolvedChannels::sample_channel`]
+//! (channel conditional on a loss already drawn from the total DIIMFP), which
+//! the transport does not use. The secondary-energy convention on the
+//! transport's band-bottom axis is in [`crate::electron::secondary`],
+//! "Inner-shell events".
 
 use super::penn::SinglePolePenn;
-use crate::electron::data::{ElectronDataError, OpticalElf, Subshell, SubshellBindingTable};
+use crate::electron::data::{
+    ElectronDataError, OpticalElf, ShellChannelTable, Subshell, SubshellBindingTable,
+};
 
 type Result<T> = std::result::Result<T, ElectronDataError>;
 
@@ -88,6 +103,17 @@ impl InnerShell {
             subshell,
             binding_energy_ev,
         })
+    }
+}
+
+impl From<&ShellChannelTable> for InnerShell {
+    /// The shell a stored channel table belongs to.
+    fn from(t: &ShellChannelTable) -> Self {
+        Self {
+            z: t.z(),
+            subshell: t.subshell(),
+            binding_energy_ev: t.binding_energy_ev(),
+        }
     }
 }
 

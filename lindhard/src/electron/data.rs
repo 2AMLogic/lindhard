@@ -13,6 +13,9 @@
 //! - [`CrossSectionTable`]: a precomputed cross-section cache on an
 //!   incident-energy grid: the inverse mean free path and the inverse CDF of
 //!   one sampled variable (elastic polar angle or inelastic energy loss).
+//!   [`ShellChannelTable`] wraps an energy-loss table of one inner-shell
+//!   ionisation channel with the shell's identity, binding energy and the
+//!   provenance of that energy.
 //!
 //! # Validation
 //!
@@ -1428,6 +1431,230 @@ impl CrossSectionTable {
     /// The validated contents.
     pub fn parts(&self) -> &CrossSectionTableParts {
         &self.parts
+    }
+}
+
+/// The format of a [`ShellChannelTable`] file this build reads and writes.
+///
+/// It versions only the wrapper (shell identity, binding energy, binding
+/// provenance); the wrapped [`CrossSectionTable`] keeps its own
+/// [`CACHE_FORMAT_VERSION`], which this type does not change. Bump it whenever
+/// the meaning or layout of the wrapper changes.
+pub const SHELL_CHANNEL_FORMAT_VERSION: u32 = 1;
+
+/// The energy-loss table of one inner-shell ionisation channel, with the
+/// identity of its shell.
+///
+/// The wrapped [`CrossSectionTable`] holds the channel's inverse mean free
+/// path and the inverse CDF of its loss `ω`, built from that shell's own
+/// optical ELF (`crate::electron::inelastic::inner_shell`); the wrapper adds
+/// the shell (`Z`, subshell), its binding energy `B` and the provenance of
+/// `B` (for example [`SubshellBindingTable::provenance`]). Built by
+/// [`crate::electron::inelastic::table::build_shell_channel_tables`] and
+/// consumed by [`crate::electron::transport::Transport::with_inner_shells`].
+///
+/// # Invariants
+///
+/// - `Z >= 1`; `B` finite and positive; a non-blank one-line binding
+///   provenance.
+/// - The table samples [`SamplingAxis::InelasticEnergyLoss`].
+/// - **Every stored loss is at least `B`**: a shell contributes only above its
+///   edge (de Vera et al. 2022, eq. (2), the step `Θ(E - B)`), so the
+///   secondary energy `ω - B` is never negative. Since a loss is also at most
+///   the row energy, every row with a nonzero rate lies at an energy of at
+///   least `B`.
+///
+/// # File form
+///
+/// TOML: `format_version` ([`SHELL_CHANNEL_FORMAT_VERSION`]), `z`,
+/// `subshell` (the ENDF label, e.g. `"K"`, `"L3"`), `binding_energy_ev`,
+/// `binding_provenance`, and a `[table]` holding the [`CrossSectionTable`]
+/// cache form (with its own `format_version`). The wrapper version is checked
+/// first, unknown keys are rejected, and the same checks as
+/// [`ShellChannelTable::new`] run on read.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "RawShellChannelIn", into = "RawShellChannelOut")]
+pub struct ShellChannelTable {
+    z: u8,
+    subshell: Subshell,
+    binding_energy_ev: f64,
+    binding_provenance: String,
+    table: CrossSectionTable,
+}
+
+#[derive(Debug, Deserialize)]
+struct RawShellChannelIn {
+    format_version: Option<u32>,
+    z: Option<u8>,
+    subshell: Option<String>,
+    binding_energy_ev: Option<f64>,
+    binding_provenance: Option<String>,
+    table: Option<RawCacheIn>,
+    #[serde(flatten)]
+    unknown: BTreeMap<String, IgnoredAny>,
+}
+
+#[derive(Debug, Clone, Serialize)]
+struct RawShellChannelOut {
+    format_version: u32,
+    z: u8,
+    subshell: String,
+    binding_energy_ev: f64,
+    binding_provenance: String,
+    table: CrossSectionTable,
+}
+
+impl TryFrom<RawShellChannelIn> for ShellChannelTable {
+    type Error = ElectronDataError;
+    fn try_from(r: RawShellChannelIn) -> Result<Self> {
+        if r.format_version != Some(SHELL_CHANNEL_FORMAT_VERSION) {
+            return Err(ElectronDataError::UnsupportedVersion {
+                found: r.format_version,
+                supported: SHELL_CHANNEL_FORMAT_VERSION,
+            });
+        }
+        if let Some(k) = r.unknown.keys().next() {
+            return Err(ElectronDataError::Parse(format!(
+                "unknown field `{k}` in a version {SHELL_CHANNEL_FORMAT_VERSION} shell-channel table"
+            )));
+        }
+        let label = checked_text("subshell", r.subshell.as_deref())?;
+        let subshell =
+            Subshell::from_label(&label).ok_or_else(|| ElectronDataError::MalformedText {
+                field: "subshell",
+                reason: format!("{label:?} is not an ENDF subshell label"),
+            })?;
+        Self::new(
+            required("z", r.z)?,
+            subshell,
+            required("binding_energy_ev", r.binding_energy_ev)?,
+            r.binding_provenance.as_deref().unwrap_or_default(),
+            CrossSectionTable::try_from(required("table", r.table)?)?,
+        )
+    }
+}
+
+impl From<ShellChannelTable> for RawShellChannelOut {
+    fn from(t: ShellChannelTable) -> Self {
+        Self {
+            format_version: SHELL_CHANNEL_FORMAT_VERSION,
+            z: t.z,
+            subshell: t.subshell.label().to_string(),
+            binding_energy_ev: t.binding_energy_ev,
+            binding_provenance: t.binding_provenance,
+            table: t.table,
+        }
+    }
+}
+
+impl ShellChannelTable {
+    /// A validated channel table: shell `subshell` of element `z` with
+    /// binding energy `binding_energy_ev` (whose origin `binding_provenance`
+    /// states) and its loss `table`. See the type docs for the invariants.
+    pub fn new(
+        z: u8,
+        subshell: Subshell,
+        binding_energy_ev: f64,
+        binding_provenance: &str,
+        table: CrossSectionTable,
+    ) -> Result<Self> {
+        let name = format!("Z = {z} {}", subshell.label());
+        if z == 0 {
+            return Err(invalid("inner-shell channel", "Z must be at least 1"));
+        }
+        if !(binding_energy_ev.is_finite() && binding_energy_ev > 0.0) {
+            return Err(invalid(
+                "inner-shell channel",
+                format!(
+                    "{name}: binding energy must be finite and positive, got {binding_energy_ev} eV"
+                ),
+            ));
+        }
+        let binding_provenance = checked_text("provenance", Some(binding_provenance))?;
+        if table.axis() != SamplingAxis::InelasticEnergyLoss {
+            return Err(invalid(
+                "inner-shell channel",
+                format!(
+                    "{name}: the table samples {:?}, not the energy loss",
+                    table.axis()
+                ),
+            ));
+        }
+        for i in 0..table.energy_ev().len() {
+            if let Some(q) = table.quantiles(i) {
+                if let Some(w) = q.iter().find(|&&w| w < binding_energy_ev) {
+                    return Err(invalid(
+                        "inner-shell channel",
+                        format!(
+                            "{name}: row {i} ({} eV) has the loss {w} eV below the binding \
+                             energy {binding_energy_ev} eV (a shell contributes only above \
+                             its edge)",
+                            table.energy_ev()[i]
+                        ),
+                    ));
+                }
+            }
+        }
+        Ok(Self {
+            z,
+            subshell,
+            binding_energy_ev,
+            binding_provenance,
+            table,
+        })
+    }
+
+    /// Atomic number of the shell's element.
+    pub fn z(&self) -> u8 {
+        self.z
+    }
+
+    /// The subshell.
+    pub fn subshell(&self) -> Subshell {
+        self.subshell
+    }
+
+    /// Binding energy `B`, eV.
+    pub fn binding_energy_ev(&self) -> f64 {
+        self.binding_energy_ev
+    }
+
+    /// Where `B` came from.
+    pub fn binding_provenance(&self) -> &str {
+        &self.binding_provenance
+    }
+
+    /// The channel's loss table.
+    pub fn table(&self) -> &CrossSectionTable {
+        &self.table
+    }
+
+    /// Format version of the wrapper ([`SHELL_CHANNEL_FORMAT_VERSION`]).
+    pub fn format_version(&self) -> u32 {
+        SHELL_CHANNEL_FORMAT_VERSION
+    }
+
+    /// Parse and validate the TOML file form.
+    pub fn from_toml_str(text: &str) -> Result<Self> {
+        let raw: RawShellChannelIn = toml::from_str(text).map_err(parse_error)?;
+        Self::try_from(raw)
+    }
+
+    /// Serialize to the TOML file form.
+    pub fn to_toml_string(&self) -> Result<String> {
+        toml::to_string(self).map_err(|e| ElectronDataError::Parse(e.to_string()))
+    }
+
+    /// Load a TOML file.
+    pub fn from_toml_file(path: impl AsRef<Path>) -> Result<Self> {
+        Self::from_toml_str(&read_text(path.as_ref())?)
+    }
+
+    /// Write a TOML file.
+    pub fn write_toml_file(&self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref();
+        std::fs::write(path, self.to_toml_string()?)
+            .map_err(|e| ElectronDataError::Io(format!("{}: {e}", path.display())))
     }
 }
 
