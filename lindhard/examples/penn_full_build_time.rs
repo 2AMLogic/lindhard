@@ -82,6 +82,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 g.unresolved_cells(),
                 t0.elapsed().as_secs_f64()
             );
+            if let Some((lo, hi)) = g.unresolved_loss_range_ev() {
+                eprintln!("unresolved cells between {lo:.6e} and {hi:.6e} eV loss");
+            }
             let reference = fp.with_relative_tolerance(1e-7)?;
             let w_lo = elf.energy_ev()[0];
             let mut worst: f64 = 0.0;

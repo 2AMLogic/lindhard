@@ -371,7 +371,15 @@ const GROUP_FRACTION: f64 = 0.1;
 /// rules. The group rule has the error of the rule on a span `G` times
 /// wider, so it is orders of magnitude less accurate than the per-segment
 /// sum, and agreement within a fraction of the tolerance means that the
-/// per-segment errors are far below it. A group that fails is halved, down
+/// per-segment errors are far below it. The comparison is of signed
+/// integrals, so in principle errors of opposite sign on the segments of a
+/// group can cancel and let a group pass that a check of each segment would
+/// fail. This is the trade-off for evaluating the kernel only once more per
+/// group. On the full Penn integrals it did not show: with this routine in
+/// the `ω_p` integral, the Al inverse IMFP and stopping power at the 57
+/// energies of the #169 grid stayed within 3e-8 and 2e-7 relative of the
+/// earlier per-segment bisection (#256, `docs/validation.md`). A group that
+/// fails is halved, down
 /// to single segments, and a single failing segment is refined by the
 /// bisection of [`integrate_segments`] with the same tolerance, starting from
 /// its first estimate. Segments on which `w` vanishes at both ends are

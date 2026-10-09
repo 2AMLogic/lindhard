@@ -384,7 +384,7 @@ fn full_penn_tables_follow_the_model_on_any_thread_count() {
         let want = m.imfp_and_stopping(e).unwrap();
         assert_eq!(t1.inverse_mfp_per_m()[i], want.inverse_imfp_per_m);
         assert!(
-            rel(s, want.stopping_ev_per_m) < 1e-2,
+            rel(s, want.stopping_ev_per_m) < 3.0 * TOL,
             "{e} eV: {s:e} vs {:e}",
             want.stopping_ev_per_m
         );

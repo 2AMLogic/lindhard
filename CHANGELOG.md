@@ -28,7 +28,9 @@ one version).
   with nodes added until the interpolation is within the model tolerance
   (relative, or relative to the row's mean density in `ln ω` where the
   DIIMFP is below it). Built in parallel, bit-identical on any thread count.
-  New example `penn_full_build_time` (build time and accuracy checks).
+  `DiimfpGrid::unresolved_cells` and `unresolved_loss_range_ev` report the
+  cells left failing the check and their loss range. New example
+  `penn_full_build_time` (build time and accuracy checks).
 - Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
   `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the
   bound-free cross sections of Karzas and Latter, Astrophys. J. Suppl. 6, 167

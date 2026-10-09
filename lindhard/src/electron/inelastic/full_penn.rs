@@ -634,6 +634,7 @@ impl FullPenn {
             t_max,
             tolerance: self.rel_tol,
             unresolved: 0,
+            unresolved_span: None,
         };
         if t_max <= w_lo {
             return Ok(empty);
@@ -684,13 +685,19 @@ impl FullPenn {
             for (c, t) in todo.iter_mut().enumerate() {
                 if *t && grid.s[c + 1] - grid.s[c] < 2.0 * MIN_CELL {
                     *t = false;
-                    grid.unresolved += usize::from(!first);
+                    if !first {
+                        grid.unresolved += 1;
+                        grid.note_unresolved(c);
+                    }
                 }
             }
             first = false;
             let cells: Vec<usize> = (0..todo.len()).filter(|&c| todo[c]).collect();
             if cells.is_empty() || grid.s.len() + cells.len() > MAX_GRID_NODES {
                 grid.unresolved += cells.len();
+                for &c in &cells {
+                    grid.note_unresolved(c);
+                }
                 return Ok(grid);
             }
             // Mean density of each row in ln ω on the current nodes: the
@@ -841,9 +848,20 @@ pub struct DiimfpGrid {
     tolerance: f64,
     /// Cells that failed the check but were not halved (width or node cap).
     unresolved: usize,
+    /// Lowest and highest `ln ω` covered by those cells.
+    unresolved_span: Option<(f64, f64)>,
 }
 
 impl DiimfpGrid {
+    /// Widens the recorded span of unresolved cells to cell `c`.
+    fn note_unresolved(&mut self, c: usize) {
+        let (a, b) = (self.s[c], self.s[c + 1]);
+        self.unresolved_span = Some(match self.unresolved_span {
+            None => (a, b),
+            Some((lo, hi)) => (lo.min(a), hi.max(b)),
+        });
+    }
+
     /// The window integral `∫_{q-}^{q+} Im[-1/ε] dq/q` of one profile at
     /// `(T, ω)`, Hartree.
     fn window(&self, p: &Panels, t: f64, w: f64) -> f64 {
@@ -911,6 +929,15 @@ impl DiimfpGrid {
         self.unresolved
     }
 
+    /// The loss range, eV, from the lowest to the highest edge of the
+    /// cells counted in [`Self::unresolved_cells`]; `None` when there are
+    /// none. Only the span is kept, not the individual cells.
+    pub fn unresolved_loss_range_ev(&self) -> Option<(f64, f64)> {
+        let h = hartree_ev();
+        self.unresolved_span
+            .map(|(lo, hi)| (lo.exp() * h, hi.exp() * h))
+    }
+
     /// The tolerance the grid was refined to (the model tolerance).
     pub fn tolerance(&self) -> f64 {
         self.tolerance
@@ -921,6 +948,11 @@ impl DiimfpGrid {
     /// not cover it (a loss below the lowest ELF energy, or an energy above
     /// the highest table energy), where the caller uses
     /// [`FullPenn::diimfp_per_m_ev`]. Zero for `ω <= 0` or `ω > T`, as there.
+    ///
+    /// Any `T` up to the highest table energy is answered, but the
+    /// refinement of the loss nodes checks the interpolation only at the
+    /// energies passed to [`FullPenn::diimfp_grid`]. The accuracy is
+    /// controlled at those energies; between them it is not checked.
     pub fn diimfp_per_m_ev(&self, energy_ev: f64, loss_ev: f64) -> Option<f64> {
         let h = hartree_ev();
         let (t, w) = (energy_ev / h, loss_ev / h);
