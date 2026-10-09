@@ -679,11 +679,12 @@ missing) and builds and stores only the ones it does not find, so a series of
 runs that differ only in seed, history count, tallies or transport settings
 builds its tables once.
 
-Each entry is two files, named by the SHA-256 of a **key document**:
+Each entry is three files, named by the SHA-256 of a **key document**:
 `<kind>-<sha256>.toml`, the table in the versioned cache form of
 `lindhard::electron::data::CrossSectionTable`, read back with that type's
-loader, and `<kind>-<sha256>.key.json`, the key itself. The key spells out
-every input the table depends on:
+loader; `<kind>-<sha256>.sha256`, the hex SHA-256 of the table file's bytes;
+and `<kind>-<sha256>.key.json`, the key itself. The key spells out every input
+the table depends on:
 
 - the key schema version and the table cache `format_version`;
 - the build: crate version, `git describe --always --dirty`, and the SHA-256
@@ -693,7 +694,7 @@ every input the table depends on:
 - the table kind and the exact energy grid (`electron.tables`, after the
   defaults are filled in);
 - the material's name, composition and density;
-- elastic: the potential, the exchange and correlation-polarization
+- elastic: the model (`electron.elastic.model`), the potential, the exchange and correlation-polarization
   corrections with all their inputs, the starting probability grid and the
   refinement tolerance;
 - inelastic: the model (`electron.inelastic.model`), its Fermi energy, the
@@ -703,12 +704,18 @@ every input the table depends on:
 Every `f64` is written in shortest round-trip form, so a change in the last
 bit of any number is a different key. A lookup must find the stored key
 equal, byte for byte, to the run's own (a mismatch under the same hash means
-the file was edited, and is an error naming the differing field); the table
-file is then loaded and validated by the library, and its axis and energy grid
-are checked against the run. A file found under the run's key that fails any
-of these checks is an error, never a silent rebuild. A table of another cache
-`format_version` can never be found, since the version is part of the key.
-Writes go to a temporary file renamed into place, the table before its key.
+the file was edited, and is an error naming the differing field). The table
+file's bytes must then hash to the SHA-256 stored beside it: a table edited or
+corrupted anywhere, even in a single cross-section or probability value that
+still parses, is refused with an error naming the file, before it is parsed,
+and a missing `.sha256` file is an error too. The table is then loaded and
+validated by the library, and its axis and energy grid are checked against the
+run. A file found under the run's key that fails any of these checks is an
+error, never a silent rebuild; remove the entry's files to rebuild it. A table
+of another cache `format_version` can never be found, since the version is
+part of the key. Writes go to a temporary file renamed into place, the table
+first, then its hash, then its key, so a key on disk always has its table and
+hash beside it.
 
 A cached table is the built one bit for bit (the TOML cache form round-trips
 every `f64`), so outputs do not depend on whether the tables were built or

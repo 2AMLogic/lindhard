@@ -9,7 +9,10 @@
 //! written next to the table (`<kind>-<hash>.key.json`), and on a lookup the
 //! stored key must equal the run's key byte for byte, so a hash collision or
 //! an edited key file is an error that names the differing field, never a
-//! silent reuse.
+//! silent reuse. The SHA-256 of the table file's bytes is stored beside both
+//! (`<kind>-<hash>.sha256`), and a table whose bytes do not hash to it is an
+//! error naming the file, so an edited or corrupted number anywhere in the
+//! table (not only in its key, axis or grid) is refused before it is parsed.
 //!
 //! What the key holds, and why it is conservative:
 //!
@@ -24,7 +27,8 @@
 //!   its shortest round-trip form, so distinct grids give distinct keys);
 //! - the material: its name and its full `Debug` form (composition, atom
 //!   fractions, density, exactly);
-//! - elastic: the atomic potential, the corrections with all their inputs
+//! - elastic: the model (`electron.elastic.model`), the atomic potential, the
+//!   corrections with all their inputs
 //!   (exchange, per-element correlation-polarization), the probability grid
 //!   and the refinement tolerance;
 //! - inelastic: the Penn algorithm, the model's Fermi energy, the SHA-256 and
@@ -41,8 +45,10 @@
 //! against the run.
 //!
 //! Writes go to a temporary file in the same directory and are renamed into
-//! place, the table before its key, so a key file on disk always has its
-//! table beside it.
+//! place, the table first, then its hash, then its key, so the key is the
+//! commit marker: a key file on disk always has its table and hash beside it.
+//! A key whose table is missing is rebuilt; a key and table whose hash file is
+//! missing is an error, never a silent reuse.
 
 use std::path::{Path, PathBuf};
 
@@ -55,7 +61,7 @@ use sha2::{Digest, Sha256};
 
 /// Version of the key document's schema. Bump it when a field is added,
 /// removed or changes meaning.
-pub const KEY_VERSION: u32 = 1;
+pub const KEY_VERSION: u32 = 2;
 
 /// Lowercase hex SHA-256 of `bytes`.
 pub fn sha256_hex(bytes: &[u8]) -> String {
@@ -124,6 +130,8 @@ impl BuildId {
 
 #[derive(Serialize)]
 struct ElasticKey {
+    /// `electron.elastic.model`.
+    model: &'static str,
     potential: &'static str,
     /// `Debug` of the resolved elastic choice: potential, exchange flag and
     /// every per-element correlation-polarization input.
@@ -173,6 +181,7 @@ pub fn key_text(
     let (elastic, inelastic) = match kind {
         TableKind::Elastic => (
             Some(ElasticKey {
+                model: r.elastic.model.label(),
                 potential: r.elastic.potential.label(),
                 choice: format!("{:?}", r.elastic),
                 corrections: r.elastic.corrections_description(),
@@ -272,6 +281,18 @@ pub struct CachedTable {
     pub cache: Option<CacheFile>,
 }
 
+/// The files of one cache entry.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct EntryPaths {
+    /// `<kind>-<key hash>.toml`: the table.
+    pub table: PathBuf,
+    /// `<kind>-<key hash>.sha256`: the lowercase hex SHA-256 of the table
+    /// file's bytes.
+    pub hash: PathBuf,
+    /// `<kind>-<key hash>.key.json`: the key document.
+    pub key: PathBuf,
+}
+
 /// A directory of cached tables.
 #[derive(Debug, Clone)]
 pub struct TableCache {
@@ -316,13 +337,14 @@ impl TableCache {
         &self.build
     }
 
-    /// The table and key paths for a key hash.
-    pub fn paths(&self, kind: TableKind, key_sha256: &str) -> (PathBuf, PathBuf) {
+    /// The files of the entry with key hash `key_sha256`.
+    pub fn paths(&self, kind: TableKind, key_sha256: &str) -> EntryPaths {
         let stem = format!("{}-{key_sha256}", kind.label());
-        (
-            self.dir.join(format!("{stem}.toml")),
-            self.dir.join(format!("{stem}.key.json")),
-        )
+        EntryPaths {
+            table: self.dir.join(format!("{stem}.toml")),
+            hash: self.dir.join(format!("{stem}.sha256")),
+            key: self.dir.join(format!("{stem}.key.json")),
+        }
     }
 
     /// The table of `kind` for material `m`: read from the cache when its
@@ -336,22 +358,25 @@ impl TableCache {
     ) -> Result<CachedTable> {
         let key = key_text(&self.build, r, m, kind);
         let key_sha256 = sha256_hex(key.as_bytes());
-        let (table_path, key_path) = self.paths(kind, &key_sha256);
-        if let Some(hit) = self.lookup(r, kind, &key, &key_sha256, &table_path, &key_path)? {
+        let paths = self.paths(kind, &key_sha256);
+        if let Some(hit) = self.lookup(r, kind, &key, &key_sha256, &paths)? {
             return Ok(hit);
         }
         let table = build()?;
         let text = table
             .to_toml_string()
             .with_context(|| format!("serializing the {} table", kind.label()))?;
-        write_atomically(&table_path, text.as_bytes())?;
-        write_atomically(&key_path, key.as_bytes())?;
+        let sha256 = sha256_hex(text.as_bytes());
+        // Table, then hash, then key: the key is the commit marker.
+        write_atomically(&paths.table, text.as_bytes())?;
+        write_atomically(&paths.hash, format!("{sha256}\n").as_bytes())?;
+        write_atomically(&paths.key, key.as_bytes())?;
         Ok(CachedTable {
             table,
             source: TableSource::Built,
             cache: Some(CacheFile {
-                path: table_path,
-                sha256: sha256_hex(text.as_bytes()),
+                path: paths.table,
+                sha256,
                 key_sha256,
             }),
         })
@@ -363,9 +388,9 @@ impl TableCache {
         kind: TableKind,
         key: &str,
         key_sha256: &str,
-        table_path: &Path,
-        key_path: &Path,
+        paths: &EntryPaths,
     ) -> Result<Option<CachedTable>> {
+        let (table_path, key_path) = (paths.table.as_path(), paths.key.as_path());
         let stored = match std::fs::read_to_string(key_path) {
             Ok(s) => s,
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
@@ -394,6 +419,26 @@ impl TableCache {
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(e).with_context(|| format!("reading {}", table_path.display())),
         };
+        let stored_sha256 = match std::fs::read_to_string(&paths.hash) {
+            Ok(s) => s,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => bail!(
+                "table cache {}: the table's SHA-256 file {} is missing, so its bytes \
+                 cannot be verified. Remove the entry to rebuild",
+                table_path.display(),
+                paths.hash.display()
+            ),
+            Err(e) => return Err(e).with_context(|| format!("reading {}", paths.hash.display())),
+        };
+        let sha256 = sha256_hex(&bytes);
+        if stored_sha256.trim_end() != sha256 {
+            bail!(
+                "table cache {}: the file's SHA-256 is {sha256}, but {} records {}; \
+                 the table was edited or corrupted. Remove the entry to rebuild",
+                table_path.display(),
+                paths.hash.display(),
+                stored_sha256.trim_end()
+            );
+        }
         let text = String::from_utf8(bytes.clone())
             .with_context(|| format!("{} is not UTF-8 text", table_path.display()))?;
         let table = CrossSectionTable::from_toml_str(&text)
@@ -420,7 +465,7 @@ impl TableCache {
             source: TableSource::Cache,
             cache: Some(CacheFile {
                 path: table_path.to_path_buf(),
-                sha256: sha256_hex(&bytes),
+                sha256,
                 key_sha256: key_sha256.to_string(),
             }),
         }))
@@ -570,6 +615,83 @@ mod tests {
         ] {
             assert_ne!(a, key_text(&b, &r, m, TableKind::Inelastic), "{b:?}");
         }
+    }
+
+    #[test]
+    fn elastic_key_carries_the_model() {
+        let r = example();
+        let (e, i) = keys(&r);
+        let label = r.elastic.model.label();
+        assert_eq!(label, "mott");
+        assert!(e.contains(&format!("\"model\":\"{label}\"")), "{e}");
+        assert!(e.contains(&format!("\"key_version\":{KEY_VERSION}")), "{e}");
+        assert!(!i.contains("\"mott\""), "{i}");
+    }
+
+    /// Every field of the inputs that shape a table is accounted for by a
+    /// field of the key. The destructurings have no `..`, so a field added
+    /// to `ElasticSpec`, `CorrelationPolarizationSpec`, `PolarizabilitySpec`,
+    /// `InelasticSpec` or `TableGridSpec` fails to compile here until it is
+    /// classified (and, if it changes a table, added to the key).
+    #[test]
+    fn key_covers_every_table_input_field() {
+        use lindhard::input::electron::{
+            CorrelationPolarizationSpec, ElasticSpec, InelasticSpec, PolarizabilitySpec,
+            TableGridSpec,
+        };
+        let r = example();
+        let (e, i) = keys(&r);
+        let ElasticSpec {
+            // `elastic.model`.
+            model,
+            // `elastic.potential` (and `elastic.choice`).
+            potential,
+            // `elastic.choice` (`exchange`) and `elastic.corrections`.
+            exchange,
+            // `elastic.choice` (every per-element input) and
+            // `elastic.corrections`.
+            correlation_polarization,
+        } = &r.input.electron.elastic;
+        assert!(e.contains(&format!("\"model\":\"{}\"", model.label())));
+        assert!(e.contains(&format!("\"potential\":\"{}\"", potential.label())));
+        assert!(e.contains(&format!("exchange: {exchange}")), "{e}");
+        if let Some(CorrelationPolarizationSpec {
+            // `elastic.choice` (`PolarizationCutoff`).
+            b_pol_squared: _,
+            // `elastic.choice` (`outer_radius`).
+            outer_radius_bohr: _,
+            // `elastic.choice` (per element).
+            polarizability,
+        }) = correlation_polarization
+        {
+            for PolarizabilitySpec {
+                // `elastic.choice` (`polarizability`).
+                bohr3: _,
+                // `elastic.choice` (`polarizability_source`).
+                source: _,
+            } in polarizability.values()
+            {}
+        }
+        let InelasticSpec {
+            // `inelastic.algorithm`.
+            model,
+            // `inelastic.fermi_energy_ev`.
+            fermi_energy_ev,
+        } = &r.input.electron.inelastic;
+        assert!(i.contains(&format!("\"algorithm\":\"{model}\"")), "{i}");
+        assert!(i.contains(&format!(
+            "\"fermi_energy_ev\":{}",
+            serde_json::to_string(fermi_energy_ev).unwrap()
+        )));
+        // All three set the grid, which is `energy_ev` of both keys.
+        let TableGridSpec {
+            min_energy_ev: _,
+            max_energy_ev: _,
+            points_per_decade: _,
+        } = &r.input.electron.tables;
+        let grid = serde_json::to_string(&r.table_energy_ev).unwrap();
+        assert!(e.contains(&format!("\"energy_ev\":{grid}")));
+        assert!(i.contains(&format!("\"energy_ev\":{grid}")));
     }
 
     #[test]

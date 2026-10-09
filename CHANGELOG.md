@@ -84,6 +84,12 @@ one version).
   each table's `source` (`built` or `cache`) and its cache file (`path`,
   `sha256`, `key_sha256`) under `physics.materials`.
   `validation/oracles/run_electron.py` uses it across batches.
+- Table cache integrity (#249): each entry now also stores the SHA-256 of
+  the table file (`<kind>-<hash>.sha256`), and a lookup refuses a table whose
+  bytes do not match it (or whose hash file is missing), naming the file,
+  before parsing it. The elastic key includes `electron.elastic.model`
+  (`ElasticChoice::model`, `ElasticModelChoice::label`), and the key version
+  is 2, so entries written before this change are rebuilt.
 - Inner-shell ELFs built in the engine (#135): `electron::inelastic::shell_elf`
   builds the optical ELF of a K shell from Stobbe's hydrogenic
   photoionization formula (dV2022 eq. (2), edge and occupancy from a
