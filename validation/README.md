@@ -27,6 +27,20 @@ The harness scripts use the standard library only (Python 3.9 or newer). The
 one-off digitizing scripts in `data/digitize/` also need numpy and Pillow;
 the harness never runs them.
 
+## Unit tests
+
+Three stdlib `unittest` files guard the harness itself (level-3 provenance
+enforcement, secondary-electron yield evaluation, and electron table-coverage
+summing). They need no build, simulation or third-party package and run in
+under a second. CI runs them in the `validation-docs` job, and
+`validation/run.sh` runs them first:
+
+```sh
+python3 validation/experiments/test_run.py
+python3 validation/experiments/test_se_yield.py
+python3 validation/oracles/test_run_electron.py
+```
+
 ## Clean-room rules that apply here
 
 From [`CONTRIBUTING.md`](../CONTRIBUTING.md):

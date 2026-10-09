@@ -47,6 +47,12 @@ jobs:
         run: python3 validation/update_docs.py --check
       - name: docs/benchmarks.md electron tables match the committed summaries
         run: python3 validation/oracles/bench_electron.py --update-docs --check
+      - name: validation Python unit tests
+        # stdlib unittest only; none needs the built CLI or an oracle binary.
+        run: |
+          python3 validation/experiments/test_run.py
+          python3 validation/experiments/test_se_yield.py
+          python3 validation/oracles/test_run_electron.py
 
   dependency-policy:
     name: Dependency licenses & sources (cargo-deny)
