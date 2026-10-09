@@ -9,6 +9,15 @@ one version).
 
 ### Added
 
+- Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
+  `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the
+  bound-free cross sections of Karzas and Latter, Astrophys. J. Suppl. 6, 167
+  (1961), eqs. (36) and (37), reduced for `n = 2` and checked against the
+  Gaunt factors of that paper's Table 1. L2 and L3 use the same 2p formula,
+  each with its own binding energy and occupancy. New public
+  `hydrogenic_2s_oscillator_strength_density_per_ev` and
+  `hydrogenic_2p_oscillator_strength_density_per_ev`. K-shell results are
+  unchanged; the M shell and above are still an error (with a new message).
 - Ion beam divergence in transport (#285): the optional `[beam.divergence]`
   input table (`model = "gaussian"` with `sigma_deg` per plane, or
   `"uniform-cone"` with `half_angle_deg`; widths in `[0, 10]` degrees; static
