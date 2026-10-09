@@ -317,7 +317,7 @@ impl<'a> DynamicRun<'a> {
             let tally = bca.run_range(first, n, || InventoryTally::new(n_slabs))?;
 
             let per_ion = self.fluence_per_ion_m2();
-            let (deltas, step_recession) = if self.cfg.erosion {
+            let (deltas, step_recession, leftover) = if self.cfg.erosion {
                 self.erosion_deltas(&tally, per_ion)?
             } else {
                 let d = tally
@@ -328,7 +328,7 @@ impl<'a> DynamicRun<'a> {
                         delta_atoms_m2: c as f64 * per_ion,
                     })
                     .collect();
-                (d, 0.0)
+                (d, 0.0, 0)
             };
             let change = self.max_change(&deltas);
 
@@ -352,7 +352,7 @@ impl<'a> DynamicRun<'a> {
                 continue;
             }
 
-            let mut clamped = 0u32;
+            let mut clamped = leftover;
             let outcome = match self.grid.apply(&deltas) {
                 Ok(o) => o,
                 Err(e) => {
@@ -424,13 +424,15 @@ impl<'a> DynamicRun<'a> {
         }
     }
 
-    /// The deltas of a step with erosion on and its recession in m. See the
+    /// The deltas of a step with erosion on, its recession in m, and the
+    /// number of elements whose sputtered count exceeded what the slabs hold
+    /// (that excess is not removed; the step reports it in `clamped`). See the
     /// `DynamicRun` docs, "Erosion".
     fn erosion_deltas(
         &self,
         tally: &InventoryTally,
         per_ion: f64,
-    ) -> Result<(Vec<InventoryDelta>, f64), DynamicRunError> {
+    ) -> Result<(Vec<InventoryDelta>, f64, u32), DynamicRunError> {
         // Integer net counts with the origin-slab loss of sputtered atoms
         // cancelled; sputtered atoms per element to take from the front.
         let mut net: BTreeMap<(usize, u8), i64> = tally.counts().collect();
@@ -447,6 +449,7 @@ impl<'a> DynamicRun<'a> {
             .map(|i| self.grid.inventory(i).unwrap_or_default())
             .collect();
         let mut removed: BTreeMap<u8, f64> = BTreeMap::new();
+        let mut leftover = 0u32;
         for (&z, &y) in &sputtered {
             let mut rem = y as f64 * per_ion;
             for (slab, inv) in inventories.iter().enumerate() {
@@ -466,6 +469,9 @@ impl<'a> DynamicRun<'a> {
                     *removed.entry(z).or_insert(0.0) += take;
                 }
             }
+            if rem > 0.0 {
+                leftover += 1;
+            }
         }
         let recession = if removed.is_empty() {
             0.0
@@ -481,7 +487,7 @@ impl<'a> DynamicRun<'a> {
                 delta_atoms_m2: d,
             })
             .collect();
-        Ok((deltas, recession))
+        Ok((deltas, recession, leftover))
     }
 
     /// Largest `|delta_Z| / (atoms/m^2 of the slab)` over the deltas.

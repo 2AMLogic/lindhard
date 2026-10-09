@@ -27,8 +27,9 @@
 //! ([`DynamicConfig::erosion`]) the lost material is removed from the front
 //! and the grid is re-anchored, so the new surface is again `x = 0`; the
 //! cumulative recession `R` (m, reported per step) maps a depth back to the
-//! original frame as `x + R`. With erosion off the surface never moves. Only finite slabs are mutable. An optional semi-infinite substrate
-//! is an immutable backing material and is never part of the inventory.
+//! original frame as `x + R`. With erosion off the surface never moves. Only
+//! finite slabs are mutable. An optional semi-infinite substrate is an
+//! immutable backing material and is never part of the inventory.
 //!
 //! # Volume relaxation
 //!
