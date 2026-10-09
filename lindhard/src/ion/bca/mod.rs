@@ -1519,6 +1519,7 @@ impl<'a> Bca<'a> {
         budget: &mut EnergyBudget,
         tally: &mut T,
     ) -> Result<BinaryOutcome, StoppingError> {
+        tally.partner(p, b, 1);
         let elem = &self.lay(p.layer).elems[j];
         let pair = self.pairs[p.species * self.species.len() + elem.species];
         let e0 = p.energy_ev;
