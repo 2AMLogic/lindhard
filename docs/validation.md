@@ -1351,12 +1351,17 @@ the issue's "full model":
   graphite at 2.27); for Si the REELS-derived ELF of Yang et al. (2019)
   (#125), which **ends at 199 eV**: the Si K shell (about 1.84 keV) and the
   L-shell tail above 199 eV are absent. There is no separate inner-shell
-  channel (the transport loop has none yet, #156), so the shells enter only
+  channel (the transport loop has none yet, #273), so the shells enter only
   through the ELF, and for Si the missing ones do not enter at all.
-- **No secondaries, transparent surface:** no band parameters of these
-  elements are committed. With the 50 eV cutoff no electron that could still count
-  towards η is dropped, but fast secondaries (above 50 eV, which a measured
-  η includes) are not generated.
+- **No secondaries, transparent surface in the graded table:** with the 50 eV
+  cutoff no electron that could still count towards η is dropped, but fast
+  secondaries (above 50 eV, which a measured η includes) are not generated.
+  The "Fast secondaries" sensitivity table below reruns Al, Cu and Au with
+  Kieft-Bosch secondaries and a step barrier, using the band inputs of the
+  δ(E) runs (caller-supplied, see their provenance row). Si has no cited
+  valence-band width (`BAND_DEFAULTS`, #115; the δ(E) work of #149 has not
+  added one) and C has no band data, so
+  neither can be rerun with secondaries; that is a stated gap, not a result.
 
 The committed sweep is 75 runs (9 energies for each of 5 targets, plus 3
 sensitivity variants at 2 energies each), 100000 primaries each, 8 threads
@@ -1497,7 +1502,8 @@ corrections raised Au at 1 keV by 0.015; on DHFS the effect there is 0.003.
 
 Still open: the full-Penn rerun (#256 makes the tables buildable; the inputs
 then change their `electron.inelastic.model`), the Si K and L shells beyond
-the ELF's 199 eV end (an inner-shell channel, #156), and fast secondaries.
+the ELF's 199 eV end (an inner-shell channel, #273), and fast secondaries
+for Si and C (no band inputs; Al, Cu and Au are in the sensitivity table).
 Until then this is a comparison of the reduced model, not of the issue's
 full model.
 
