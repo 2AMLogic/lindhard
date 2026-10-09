@@ -298,7 +298,8 @@ impl Csg {
                 if !offset.is_finite() {
                     return Err("a half-space offset is not finite");
                 }
-                *normal = scale(*normal, 1.0 / l);
+                // Divide, not multiply by 1/l: x / sqrt(x*x) is exactly ±1 for an axis normal.
+                *normal = [normal[0] / l, normal[1] / l, normal[2] / l];
                 *offset /= l;
             }
             Self::Union(v) | Self::Intersection(v) => {
@@ -1048,6 +1049,24 @@ mod tests {
         let mut v = six.clone();
         v.validate().unwrap();
         assert_eq!(v.bounds(), ([0.0; 3], [2.0, 1.0, 1.0]));
+    }
+
+    #[test]
+    fn non_unit_axis_normals_stay_axis_aligned() {
+        // 49 * (1/49) != 1 in f64, so normalising must divide, not scale.
+        for k in [49.0, 98.0, 103.0, 107.0, 161.0, 187.0] {
+            let six = Csg::Intersection(vec![
+                Csg::half_space([-k, 0.0, 0.0], 0.0),
+                Csg::half_space([k, 0.0, 0.0], 2.0 * k),
+                Csg::half_space([0.0, -k, 0.0], 0.0),
+                Csg::half_space([0.0, k, 0.0], k),
+                Csg::half_space([0.0, 0.0, -k], 0.0),
+                Csg::half_space([0.0, 0.0, k], k),
+            ]);
+            let mut v = six.clone();
+            v.validate().unwrap();
+            assert_eq!(v.bounds(), ([0.0; 3], [2.0, 1.0, 1.0]), "k = {k}");
+        }
     }
 
     #[test]
