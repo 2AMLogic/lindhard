@@ -1297,3 +1297,32 @@ fn full_tally_report_is_bit_identical_for_1_2_and_8_threads_with_both_models() {
         assert_eq!(j1, serde_json::to_string(&r).unwrap());
     }
 }
+
+/// Deposits are measured from the band bottom, so with secondaries in a metal
+/// they include the Fermi-sea energy of liberated conduction electrons and can
+/// exceed the energy the beam imparted. The net energy imparted is
+/// `incident - escaped = deposited + trapped + barrier - fermi_sea -
+/// phonon_absorbed` (module docs of `lindhard::tally::electron`, "Deposits and
+/// the energy imparted"). The run is the one the review of #116 measured.
+#[test]
+fn net_energy_imparted_subtracts_the_fermi_sea_from_the_deposits() {
+    let r = tally_run(&metal_on_insulator(full_physics()));
+    check_balance(&r);
+    let b = &r.budget;
+    let imparted = b.incident_ev - b.escaped_ev;
+    let net = b.deposited_ev + b.trapped_ev + b.barrier_ev - b.fermi_sea_ev - b.phonon_absorbed_ev;
+    // Same tolerance as the balance, relative to the energy entering it.
+    let scale = b.incident_ev + b.fermi_sea_ev + b.phonon_absorbed_ev;
+    assert!(
+        (imparted - net).abs() <= 1e-9 * scale,
+        "imparted {imparted} eV, net from deposits {net} eV: {b:?}"
+    );
+    // The documented caveat, pinned by a real case: the deposits exceed what
+    // the beam gave the solid.
+    assert!(b.fermi_sea_ev > 0.0);
+    assert!(
+        b.deposited_ev > imparted,
+        "deposited {} eV, imparted {imparted} eV",
+        b.deposited_ev
+    );
+}
