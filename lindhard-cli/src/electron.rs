@@ -30,7 +30,9 @@ use lindhard::input::electron::{
 };
 use lindhard::input::ModelInfo;
 use lindhard::material::{Material, MaterialSpec};
-use lindhard::tally::{ElectronReport, FullElectronTally, Histogram};
+use lindhard::tally::{
+    fit_psf, ElectronReport, FullElectronTally, Histogram, PsfFitOptions, PsfModel, PsfReport,
+};
 use serde::Serialize;
 
 use crate::output::{density, software, Format, Software, NM};
@@ -45,6 +47,8 @@ pub const SUMMARY_FILE: &str = "electron_summary.json";
 pub const SPECTRA_FILE: &str = "electron_escape_spectra.csv";
 pub const CARTESIAN_FILE: &str = "electron_deposition_cartesian.csv";
 pub const CYLINDRICAL_FILE: &str = "electron_deposition_cylindrical.csv";
+pub const PSF_PROFILE_FILE: &str = "electron_psf_profile.csv";
+pub const PSF_PARAMETERS_FILE: &str = "electron_psf_parameters.csv";
 pub const TABLES_FILE: &str = "electron_tables.csv";
 
 /// Histories per work chunk of the parallel driver. Fixed, so the summation
@@ -137,8 +141,41 @@ pub struct ElectronSimulation {
     pub metadata: RunMetadata,
     /// The tally's report.
     pub report: ElectronReport,
+    /// The PSF profile and its fits (with `tally.psf`).
+    pub psf: Option<PsfOutcome>,
     /// Threads and timings.
     pub info: ElectronRunInfo,
+}
+
+/// The radial profile of `tally.psf` with the fits that succeeded, and the
+/// error of each fit that did not.
+pub struct PsfOutcome {
+    /// The profile and the successful fits, in input order.
+    pub report: PsfReport,
+    /// The models whose fit failed, with the error.
+    pub errors: Vec<(PsfModel, String)>,
+}
+
+/// Fits each requested model to the profile. A failing fit is recorded and
+/// does not stop the others or the run.
+fn psf_outcome(r: &ResolvedElectron, report: &ElectronReport) -> Option<PsfOutcome> {
+    let profile = report.deposition.psf.clone()?;
+    let options = PsfFitOptions {
+        normalization: r.psf_normalization,
+        ..Default::default()
+    };
+    let mut fits = Vec::new();
+    let mut errors = Vec::new();
+    for &m in &r.psf_fits {
+        match fit_psf(&profile, m, &options) {
+            Ok(f) => fits.push(f),
+            Err(e) => errors.push((m, e.to_string())),
+        }
+    }
+    Some(PsfOutcome {
+        report: PsfReport { profile, fits },
+        errors,
+    })
 }
 
 /// The elastic table of one material.
@@ -273,10 +310,12 @@ pub fn simulate_electron(
         .context("electron transport failed")?;
     let transport_s = t1.elapsed().as_secs_f64();
     let report = run.tally.report();
+    let psf = psf_outcome(r, &report);
     Ok(ElectronSimulation {
         tables,
         metadata: run.metadata,
         report,
+        psf,
         info: ElectronRunInfo {
             threads: pool.current_num_threads(),
             table_build_s,
@@ -364,6 +403,8 @@ struct Files {
     tables: &'static str,
     deposition_cartesian: Option<&'static str>,
     deposition_cylindrical: Option<&'static str>,
+    psf_profile: Option<&'static str>,
+    psf_parameters: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -379,8 +420,21 @@ struct Summary<'a> {
 
 /// The report as summary data: the histograms and grid arrays, which go to
 /// CSV files, are replaced by their totals.
-fn results_json(report: &ElectronReport) -> serde_json::Result<serde_json::Value> {
+fn results_json(
+    report: &ElectronReport,
+    psf: Option<&PsfOutcome>,
+) -> serde_json::Result<serde_json::Value> {
     let mut v = serde_json::to_value(report)?;
+    // The per-bin profile goes to the CSV; keep the totals and the fits. A
+    // null `deposition.psf` stays, so the existing summary key is not removed.
+    if let Some(d) = v["deposition"].as_object_mut() {
+        if d.get("psf").is_some_and(|p| !p.is_null()) {
+            d.remove("psf");
+        }
+    }
+    if let (Some(o), Some(p)) = (v.as_object_mut(), psf) {
+        o.insert("psf".into(), psf_json(p)?);
+    }
     for face in ["front", "back"] {
         let f = &mut v[face];
         if let Some(o) = f.as_object_mut() {
@@ -406,6 +460,52 @@ fn results_json(report: &ElectronReport) -> serde_json::Result<serde_json::Value
         }
     }
     Ok(v)
+}
+
+/// `results.psf`: the profile totals and, per fit, its parameters and quality.
+/// Per-bin arrays and residuals are in the CSV files.
+fn psf_json(p: &PsfOutcome) -> serde_json::Result<serde_json::Value> {
+    let pr = &p.report.profile;
+    let mut fits = Vec::new();
+    for f in &p.report.fits {
+        fits.push(serde_json::json!({
+            "model": f.model,
+            "source": f.source,
+            "normalization": f.normalization,
+            "parameter_names": f.parameter_names,
+            "values": f.values,
+            "std_errors": f.std_errors,
+            "reduced_chi2": f.reduced_chi2,
+            "dof": f.dof,
+            "converged": f.converged,
+        }));
+    }
+    let mut errors = Vec::new();
+    for (m, e) in &p.errors {
+        errors.push(serde_json::json!({ "model": m, "error": e }));
+    }
+    Ok(serde_json::json!({
+        "histories": pr.histories,
+        "depth_lo_m": pr.depth_lo_m,
+        "depth_hi_m": pr.depth_hi_m,
+        "bins": pr.len(),
+        "total_ev": pr.total_ev,
+        "total_std_err_ev": pr.total_std_err_ev,
+        "beyond_ev": pr.beyond_ev,
+        "beyond_std_err_ev": pr.beyond_std_err_ev,
+        "fits": fits,
+        "fit_errors": errors,
+    }))
+}
+
+/// `electron_psf_profile.csv` (with `tally.psf`).
+pub fn psf_profile_csv(sim: &ElectronSimulation) -> Option<String> {
+    sim.psf.as_ref().map(|p| p.report.profile_csv())
+}
+
+/// `electron_psf_parameters.csv` (with `tally.psf`).
+pub fn psf_parameters_csv(sim: &ElectronSimulation) -> Option<String> {
+    sim.psf.as_ref().map(|p| p.report.parameters_csv())
 }
 
 /// The `electron_summary.json` text (pretty-printed, trailing newline).
@@ -454,6 +554,8 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
         tables: TABLES_FILE,
         deposition_cartesian: r.tally.cartesian.map(|_| CARTESIAN_FILE),
         deposition_cylindrical: r.tally.cylindrical.map(|_| CYLINDRICAL_FILE),
+        psf_profile: sim.psf.as_ref().map(|_| PSF_PROFILE_FILE),
+        psf_parameters: sim.psf.as_ref().map(|_| PSF_PARAMETERS_FILE),
     };
     let summary = Summary {
         format: Format {
@@ -468,7 +570,7 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
             target,
             materials,
         },
-        results: results_json(&sim.report)?,
+        results: results_json(&sim.report, sim.psf.as_ref())?,
         files,
         run: sim.info,
     };

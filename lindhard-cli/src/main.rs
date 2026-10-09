@@ -197,6 +197,16 @@ fn run_electron(
         electron::CYLINDRICAL_FILE,
         electron::cylindrical_csv(&sim.report),
     )?;
+    reconcile_optional(
+        out,
+        electron::PSF_PROFILE_FILE,
+        electron::psf_profile_csv(&sim),
+    )?;
+    reconcile_optional(
+        out,
+        electron::PSF_PARAMETERS_FILE,
+        electron::psf_parameters_csv(&sim),
+    )?;
     // Last, so the summary describes the completed output set.
     write(electron::SUMMARY_FILE, summary)?;
     let y = &sim.report.yields;
