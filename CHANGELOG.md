@@ -9,6 +9,18 @@ one version).
 
 ### Added
 
+- Electron event-cap diagnostics (#268): how many secondary tracks the
+  collision cap (`max_events`) cut off, and how many primary histories had
+  the primary or any secondary cut off (each history counted once). New
+  public `tally::EventCapCounts` (`secondary_tracks`, `affected_histories`)
+  and field `ElectronReport::event_caps` (so `results.event_caps` in
+  `electron_summary.json`); reports written before it read back with zeros.
+  New public field `SummaryTally::secondaries_event_capped` in
+  `electron::transport`. Both are new public struct fields, so code that
+  builds `ElectronReport` or `SummaryTally` with a struct literal must add
+  them (`SummaryTally` derives `Default`). `FateCounts` still counts one
+  fate per primary, and the `event_cap_ev` energy accounting, the random
+  number sequence and every other result are unchanged.
 - Electron table-coverage diagnostics (#253): per layer and per channel
   (elastic, inelastic), how many rate evaluations of the transport read the
   cross-section table inside its energy grid (endpoints included) and how

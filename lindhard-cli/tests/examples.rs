@@ -792,6 +792,14 @@ fn electron_example_checks_runs_and_reports() {
         .map(|v| v.as_u64().unwrap())
         .sum();
     assert_eq!(fates, 40);
+    // Event-cap diagnostics: counts of tracks and histories, present even
+    // when nothing was capped, and consistent with the primaries' caps.
+    let caps = &r["event_caps"];
+    let tracks = caps["secondary_tracks"].as_u64().unwrap();
+    let affected = caps["affected_histories"].as_u64().unwrap();
+    let capped = r["fates"]["event_capped"].as_u64().unwrap();
+    assert!(affected >= capped && affected <= 40);
+    assert!(affected <= capped + tracks);
     assert!(r["budget"]["relative_imbalance"].as_f64().unwrap() < 1e-9);
     let front = &r["front"];
     let eta = r["yields"]["backscatter_eta"].as_f64().unwrap();

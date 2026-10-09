@@ -38,8 +38,9 @@ pub mod table_coverage;
 pub use electron::{
     CartesianDeposition, CartesianGrid, CylindricalDeposition, CylindricalGrid, DepositionReport,
     ElectronEnergyBudget, ElectronReport, ElectronTallyConfig, ElectronTallyError,
-    ElectronTallyMetadata, EmissionClass, FaceEmission, FateCounts, FullElectronTally,
-    GenerationVolume, PrimaryStoppingPoints, StoppingPoints, Yields, SE_BSE_SPLIT_EV,
+    ElectronTallyMetadata, EmissionClass, EventCapCounts, FaceEmission, FateCounts,
+    FullElectronTally, GenerationVolume, PrimaryStoppingPoints, StoppingPoints, Yields,
+    SE_BSE_SPLIT_EV,
 };
 pub use hist::{Binning, BinningError, Histogram};
 pub use ion::{

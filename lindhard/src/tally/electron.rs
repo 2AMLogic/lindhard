@@ -56,6 +56,12 @@
 //!   constant continuation below or above it
 //!   ([`super::table_coverage`], [`ElectronReport::table_coverage`]). These
 //!   are rate evaluations, not collisions.
+//! - **Event-cap counts.** Another numerical diagnostic: how many secondary
+//!   tracks the collision cap cut off, and how many primary histories had
+//!   any electron (the primary or a secondary) cut off by it
+//!   ([`EventCapCounts`], [`ElectronReport::event_caps`]). The primary's own
+//!   cap stays in [`FateCounts::event_capped`]; zero there does not mean the
+//!   secondary cascades completed.
 //!
 //! # The SE/BSE split
 //!
@@ -108,7 +114,11 @@
 //!   state seen for the capped electron is counted as trapped: at
 //!   `end_secondary` for a secondary, at `end_history` for the primary. The
 //!   last state is kept per electron; the primary's is set aside when the
-//!   first secondary begins, so a secondary cannot overwrite it.
+//!   first secondary begins, so a secondary cannot overwrite it. Each capped
+//!   secondary is also counted once in [`EventCapCounts::secondary_tracks`],
+//!   and a history with any capped electron once in
+//!   [`EventCapCounts::affected_histories`]; these counts do not touch the
+//!   energy accounting.
 //!
 //! # The energy balance
 //!
@@ -590,6 +600,7 @@ pub struct FullElectronTally {
     secondaries: bool,
     histories: u64,
     fates: FateCounts,
+    event_caps: EventCapCounts,
     budget: Budget,
     layer_deposit_ev: Vec<f64>,
     cartesian: Option<GridAcc>,
@@ -615,6 +626,10 @@ pub struct FullElectronTally {
     primary_last: Option<ElectronState>,
     /// Whether the history has reached its secondaries.
     in_secondary: bool,
+    /// Whether a secondary of the current history was cut off by the event
+    /// cap (so the history is counted once in
+    /// [`EventCapCounts::affected_histories`]).
+    history_capped: bool,
 }
 
 impl FullElectronTally {
@@ -659,6 +674,7 @@ impl FullElectronTally {
             secondaries: transport.config().secondaries != SecondaryModel::Off,
             histories: 0,
             fates: FateCounts::default(),
+            event_caps: EventCapCounts::default(),
             budget: Budget::default(),
             layer_deposit_ev: vec![0.0; transport.stack().layers().len()],
             cartesian,
@@ -675,6 +691,7 @@ impl FullElectronTally {
             last: None,
             primary_last: None,
             in_secondary: false,
+            history_capped: false,
         })
     }
 
@@ -769,6 +786,7 @@ impl FullElectronTally {
                 config: self.config,
             },
             fates: self.fates,
+            event_caps: self.event_caps,
             budget: self.budget.report(),
             yields,
             front,
@@ -796,6 +814,7 @@ impl ElectronTally for FullElectronTally {
         self.last = Some(*start);
         self.primary_last = None;
         self.in_secondary = false;
+        self.history_capped = false;
     }
 
     fn step(&mut self, _from: [f64; 3], end: &ElectronState, _length_m: f64) {
@@ -886,6 +905,8 @@ impl ElectronTally for FullElectronTally {
             if let Some(s) = self.last {
                 self.budget.event_cap += s.energy_ev;
             }
+            self.event_caps.secondary_tracks += 1;
+            self.history_capped = true;
         }
         self.last = None;
     }
@@ -964,9 +985,14 @@ impl ElectronTally for FullElectronTally {
                 }
             }
         }
+        if self.history_capped || fate == Fate::EventCap {
+            // Once per history, however many of its electrons were capped.
+            self.event_caps.affected_histories += 1;
+        }
         self.last = None;
         self.primary_last = None;
         self.in_secondary = false;
+        self.history_capped = false;
     }
 
     /// Field-wise merge.
@@ -985,6 +1011,7 @@ impl ElectronTally for FullElectronTally {
         );
         self.histories += o.histories;
         self.fates.merge(&o.fates);
+        self.event_caps.merge(&o.event_caps);
         self.budget.merge(&o.budget);
         for (a, b) in self.layer_deposit_ev.iter_mut().zip(&o.layer_deposit_ev) {
             *a += b;
@@ -1020,6 +1047,11 @@ pub struct ElectronReport {
     pub metadata: ElectronTallyMetadata,
     /// How the primary histories ended.
     pub fates: FateCounts,
+    /// Electrons cut off by the collision cap: capped secondary tracks and
+    /// histories with any capped electron. A numerical diagnostic; all zero
+    /// in reports written before it existed.
+    #[serde(default)]
+    pub event_caps: EventCapCounts,
     /// Summed energy balance of all histories, eV.
     pub budget: ElectronEnergyBudget,
     /// Emission yields per primary.
@@ -1096,6 +1128,30 @@ impl FateCounts {
         self.trapped += o.trapped;
         self.event_capped += o.event_capped;
         self.polaron_trapped += o.polaron_trapped;
+    }
+}
+
+/// Electrons cut off by the collision cap ([`Fate::EventCap`]), a numerical
+/// truncation diagnostic rather than a physical fate. The primaries' own caps
+/// are [`FateCounts::event_capped`] (one fate per primary); these counts add
+/// the secondaries. Both are plain counts (tracks, histories), not energies;
+/// the energy the capped electrons still carried is
+/// [`ElectronEnergyBudget::event_cap_ev`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct EventCapCounts {
+    /// Secondary tracks cut off by the cap, one per capped secondary.
+    #[serde(default)]
+    pub secondary_tracks: u64,
+    /// Primary histories in which the primary or at least one secondary was
+    /// cut off by the cap, each counted once.
+    #[serde(default)]
+    pub affected_histories: u64,
+}
+
+impl EventCapCounts {
+    fn merge(&mut self, o: &EventCapCounts) {
+        self.secondary_tracks += o.secondary_tracks;
+        self.affected_histories += o.affected_histories;
     }
 }
 

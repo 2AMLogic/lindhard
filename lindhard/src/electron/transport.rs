@@ -623,6 +623,10 @@ pub struct SummaryTally {
     pub secondaries: u64,
     /// Secondaries that left the target through either face.
     pub secondaries_escaped: u64,
+    /// Secondaries cut off by the event cap ([`Fate::EventCap`]), one per
+    /// capped secondary track. A numerical-truncation diagnostic: zero
+    /// `event_capped` primaries does not mean no secondary was capped.
+    pub secondaries_event_capped: u64,
     /// Face reflections (step barrier).
     pub reflections: u64,
     /// Elastic collisions.
@@ -710,8 +714,10 @@ impl ElectronTally for SummaryTally {
         self.reflections += 1;
     }
     fn end_secondary(&mut self, fate: Fate) {
-        if matches!(fate, Fate::Escaped(_)) {
-            self.secondaries_escaped += 1;
+        match fate {
+            Fate::Escaped(_) => self.secondaries_escaped += 1,
+            Fate::EventCap => self.secondaries_event_capped += 1,
+            _ => {}
         }
     }
     fn stopped(&mut self, at: &ElectronState) {
@@ -743,6 +749,7 @@ impl ElectronTally for SummaryTally {
         self.polaron_trapped += o.polaron_trapped;
         self.secondaries += o.secondaries;
         self.secondaries_escaped += o.secondaries_escaped;
+        self.secondaries_event_capped += o.secondaries_event_capped;
         self.reflections += o.reflections;
         self.elastic_events += o.elastic_events;
         self.inelastic_events += o.inelastic_events;
