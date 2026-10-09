@@ -111,3 +111,22 @@ def test_invalid_beam_divergence_names_the_field():
     )
     with pytest.raises(Exception, match="beam.divergence.half_angle_deg"):
         run.validate()
+
+
+def test_unknown_divergence_model_is_rejected():
+    run = argon_on_copper()
+    bad = lh.Beam("Ar", 1000.0, divergence_model="uniform_cone", divergence_deg=0.5)
+    with pytest.raises(lh.InputError, match="beam.divergence_model.*uniform_cone"):
+        run.beam = bad
+    assert run.beam.divergence_model is None
+
+
+def test_incomplete_divergence_pair_is_rejected():
+    run = argon_on_copper()
+    width_only = lh.Beam("Ar", 1000.0, divergence_deg=0.5)
+    with pytest.raises(lh.InputError, match="beam.divergence_model"):
+        run.beam = width_only
+    model_only = lh.Beam("Ar", 1000.0, divergence_model="gaussian")
+    with pytest.raises(lh.InputError, match="beam.divergence_deg"):
+        run.beam = model_only
+    assert run.beam.divergence_model is None
