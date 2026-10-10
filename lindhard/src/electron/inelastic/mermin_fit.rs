@@ -57,8 +57,10 @@
 //! spacing (see [`fit_mermin_oscillators`]); without that bound, fits of the
 //! Cu ELF with 10 or 16 oscillators placed an oscillator far narrower than
 //! the knot spacing between two knots, which the residuals do not see and the
-//! sum rules do (#307). Read [`MerminFit::f_sum_ev2`] against
-//! [`MerminFit::data_f_sum_ev2`] in any case.
+//! sum rules do (#307). The floor does not stop the same fits from placing
+//! a very wide oscillator whose f-sum lies above the table (#311). Read
+//! [`MerminFit::f_sum_ev2`] against [`MerminFit::data_f_sum_ev2`] in any
+//! case.
 //!
 //! # Closed-form sum rules of the fit
 //!
@@ -440,6 +442,25 @@ impl Problem<'_> {
         (e, ln_g.exp().max(local_knot_spacing(self.w, e)))
     }
 
+    /// Project the stored width parameters `ln γ_j` of `theta` onto the width
+    /// floor: raise each one that is below `ln` of the local knot spacing at
+    /// its `E_j` up to it. Returns whether any parameter changed (if none is
+    /// below the floor, `theta` is untouched, bit for bit). Without this, a
+    /// `ln γ_j` below the floor would not enter the residual (see
+    /// [`Self::energy_width`]), its Jacobian column would be zero and the
+    /// fit could never move it again.
+    fn raise_widths_to_floor(&self, theta: &mut [f64]) -> bool {
+        let mut changed = false;
+        for j in 0..theta.len() / 2 {
+            let ln_floor = local_knot_spacing(self.w, theta[2 * j].exp()).ln();
+            if theta[2 * j + 1] < ln_floor {
+                theta[2 * j + 1] = ln_floor;
+                changed = true;
+            }
+        }
+        changed
+    }
+
     /// The amplitudes `A` (eV², `>= 0`) and the weighted residual vector for
     /// the nonlinear parameters `theta = (ln E_j, ln γ_j)`.
     fn project(&self, theta: &[f64]) -> (Vec<f64>, Vec<f64>) {
@@ -527,10 +548,18 @@ fn default_start(elf: &OpticalElf, n: usize) -> Vec<DrudeLorentzOscillator> {
 ///
 /// Each width `ħγ_j` is bounded below by the local knot spacing of the table
 /// at `ħω_j`: the larger of the two gaps next to the tabulated energy nearest
-/// to `ħω_j` (the single gap of an end knot). The floor is applied to the
-/// trial parameters inside every residual evaluation and to the reported
-/// oscillators, so both agree; above the floor the width is unchanged bit for
-/// bit. The reason: the residuals are evaluated at the knots only, and a
+/// to `ħω_j` (the single gap of an end knot). The stored parameter `ln γ_j`
+/// is projected onto the bound (raised to `ln` of the floor) at the start and
+/// after every accepted step, so a floored width keeps a nonzero Jacobian
+/// column and can move off the floor when the data want it wider. The floor
+/// is also applied inside every residual evaluation (trial and Jacobian
+/// points) and to the reported oscillators, so all three agree. A fit in
+/// which no width ever falls below the floor is unchanged bit for bit; of
+/// the committed ELFs at the default options only C is affected (its start
+/// width 0.05 eV at the 0.2 eV peak is raised to the 0.1 eV knot spacing,
+/// and the fit ends within about 1e-7 of the unbounded one, in 146
+/// iterations instead of 140). The reason: the residuals are evaluated at
+/// the knots only, and a
 /// Lorentzian narrower than the gap it sits in can fall between two knots,
 /// where no residual constrains it while its amplitude, and with it the
 /// f-sum `(π/2) A_j`, is free (#307: the 10- and 16-oscillator fits of the
@@ -540,6 +569,22 @@ fn default_start(elf: &OpticalElf, n: usize) -> Vec<DrudeLorentzOscillator> {
 /// algorithm, only the Kramers-Kronig and f-sum consistency check, which
 /// [`MerminFit`] reports. The floor is a pure function of the knots and adds
 /// no dependence on the thread count.
+///
+/// The floor is a step function of `ħω_j`: it jumps where the nearest knot
+/// changes, halfway between two knots. For a width at the floor the residual
+/// is therefore discontinuous in `ln ħω_j` there, and a central difference
+/// straddling the jump gives a large Jacobian entry. The fit accepts only
+/// strict decreases of the cost, so it does not move uphill across a jump,
+/// but it can stop at one: if no damping gives a decrease, it reports
+/// `converged = true` at a point that is a minimum only on one side of the
+/// jump. Likewise, at a width on the floor where the data want a narrower
+/// line, `converged = true` means a minimum subject to the bound.
+///
+/// The floor does not bound the f-sum against very wide oscillators: with
+/// 10 or 16 oscillators the committed Cu ELF still gets one of width
+/// 4e5 to 8e5 eV whose weight lies above the table, where the default
+/// relative weighting barely sees it (f-sum 188 and 106 times the table's,
+/// unconverged; #311).
 pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> Result<MerminFit> {
     let w = elf.energy_ev();
     let y = elf.elf_values();
@@ -609,6 +654,9 @@ pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> R
         .iter()
         .flat_map(|o| [o.energy_ev.ln(), o.width_ev.ln()])
         .collect();
+    // the width floor is enforced on the stored parameters (a projection),
+    // at the start and after every accepted step
+    problem.raise_widths_to_floor(&mut theta);
     let np = theta.len();
     let (mut amps, mut r) = problem.project(&theta);
     let mut cost = 0.5 * r.iter().map(|v| v * v).sum::<f64>();
@@ -682,6 +730,13 @@ pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> R
                     amps = a2;
                     r = r2;
                     cost = c2;
+                    if problem.raise_widths_to_floor(&mut theta) {
+                        // the residual at the projected point (equal to the
+                        // trial's up to rounding: the trial already used the
+                        // floor for these widths)
+                        (amps, r) = problem.project(&theta);
+                        cost = 0.5 * r.iter().map(|v| v * v).sum::<f64>();
+                    }
                     lambda = (lambda * 0.1).max(1e-15);
                     accepted = true;
                     if step < 1e-13 || drop < 1e-15 {
