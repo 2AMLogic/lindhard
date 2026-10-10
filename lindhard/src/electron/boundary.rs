@@ -132,6 +132,11 @@ pub enum BandModel {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct BandStructure {
     model: BandModel,
+    /// Binding energy below the Fermi level of the electron that a valence
+    /// event liberates in a metal, eV; `None` is the default, the Fermi
+    /// level (see [`BandStructure::with_valence_binding_ev`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    valence_binding_ev: Option<f64>,
     provenance: String,
 }
 
@@ -181,7 +186,59 @@ impl BandStructure {
                 )?;
             }
         }
-        Ok(Self { model, provenance })
+        Ok(Self {
+            model,
+            valence_binding_ev: None,
+            provenance,
+        })
+    }
+
+    /// The same metal band, with the electron that a **valence** inelastic
+    /// event liberates bound `binding_ev` below the Fermi level instead of
+    /// at it (the default, binding 0; [`crate::electron::secondary`],
+    /// "Energy"). A valence loss `W > B` then lifts it to `E_F + W - B`
+    /// (Verduin Eq. 3.86, p. 78, with this `B`), and a loss `W <= B`
+    /// liberates nothing and leaves `W` in the solid.
+    ///
+    /// This is the rule of M. Azzolini et al., "Secondary electron emission
+    /// and yield spectra of metals from Monte Carlo simulations and
+    /// experiments", arXiv:1809.00859v1 (2018), p. 6: "should the energy
+    /// loss be larger than the first ionization energy B ..., a secondary
+    /// electron is emitted with kinetic energy equal to W - B", with `B` of
+    /// their Table I, p. 7 ("the mean ionization energy characteristic of
+    /// each sample"). Their kinetic energies inside the solid are counted
+    /// from the Fermi level (p. 3: the incident energy is increased by the
+    /// work function χ, and an electron escapes if `E cos²θ >= χ`), so their
+    /// `W - B` is `E_F + W - B` on the band-bottom axis of this module.
+    ///
+    /// It is a switch for a sensitivity run, off by default; inner-shell
+    /// events keep their own shell binding. The source of `binding_ev`
+    /// belongs in the band's provenance. Refused: an insulator (its valence
+    /// events already use the band gap) and a binding that is not finite and
+    /// non-negative.
+    pub fn with_valence_binding_ev(mut self, binding_ev: f64) -> Result<Self, BandError> {
+        if !matches!(self.model, BandModel::Metal { .. }) {
+            return invalid(
+                "valence binding energy",
+                "only a metal takes one; an insulator's valence events use its band gap",
+            );
+        }
+        if !(binding_ev.is_finite() && binding_ev >= 0.0) {
+            return invalid(
+                "valence binding energy",
+                format!("{binding_ev} must be finite and non-negative"),
+            );
+        }
+        self.valence_binding_ev = Some(binding_ev);
+        Ok(self)
+    }
+
+    /// The binding energy below the Fermi level of the electron that a
+    /// valence event liberates in a metal, eV: the value set by
+    /// [`BandStructure::with_valence_binding_ev`], or `None` (the Fermi
+    /// level, binding 0).
+    pub fn valence_binding_ev(&self) -> Option<f64> {
+        self.valence_binding_ev
     }
 
     /// A free-electron metal: the Fermi energy is computed from the

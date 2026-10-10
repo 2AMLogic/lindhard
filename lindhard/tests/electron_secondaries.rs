@@ -160,40 +160,49 @@ impl ElectronTally for EventCheck {
         assert_eq!(e.loss_ev, self.w);
         // Primary loss = secondary energy + binding + energy left in the
         // solid, to a few ulps of the terms involved.
-        let scale = ef.abs() + e.loss_ev.abs() + band.band_gap_ev().unwrap_or(0.0);
+        let scale = ef.abs()
+            + e.loss_ev.abs()
+            + band.band_gap_ev().unwrap_or(0.0)
+            + band.valence_binding_ev().unwrap_or(0.0);
         let residual = (e.loss_ev - (e.secondary_ev + e.binding_ev + e.deposited_ev)).abs();
         assert!(
             residual <= 4.0 * f64::EPSILON * scale,
             "residual {residual} for {e:?}"
         );
         self.worst = self.worst.max(residual / scale);
-        match band.band_gap_ev() {
-            Some(gap) if e.loss_ev <= gap => {
-                self.subgap += 1;
-                assert!(!e.liberated && c.is_none());
-                assert_eq!((e.secondary_ev, e.binding_ev), (0.0, 0.0));
-                assert_eq!(e.deposited_ev, e.loss_ev);
-            }
-            gap => {
-                assert!(e.liberated, "{e:?}");
-                self.liberated += 1;
-                let b = gap.unwrap_or(0.0);
-                assert_eq!(e.binding_ev, b - ef);
-                // Verduin Eq. 3.86: E_SE = E_F + W - B.
-                let e_se = ef + e.loss_ev - b;
-                match c {
-                    Some(s) => {
-                        self.created += 1;
-                        assert_eq!(e.secondary_ev, e_se);
-                        assert_eq!(s.energy_ev, e_se);
-                        assert_eq!((s.pos, s.layer), (p.pos, p.layer));
-                        assert!((dot(s.dir, s.dir) - 1.0).abs() < 1e-12);
-                        assert_eq!(e.deposited_ev, 0.0);
-                    }
-                    None => {
-                        assert_eq!(e.secondary_ev, 0.0);
-                        assert_eq!(e.deposited_ev, e_se);
-                    }
+        // The binding of the liberated electron: an insulator's gap, or a
+        // metal's valence binding (the Fermi level, 0, by default).
+        let b = band
+            .band_gap_ev()
+            .or_else(|| band.valence_binding_ev())
+            .unwrap_or(0.0);
+        let below = match band.band_gap_ev() {
+            Some(gap) => e.loss_ev <= gap,
+            None => band.valence_binding_ev().is_some_and(|vb| e.loss_ev <= vb),
+        };
+        if below {
+            self.subgap += 1;
+            assert!(!e.liberated && c.is_none());
+            assert_eq!((e.secondary_ev, e.binding_ev), (0.0, 0.0));
+            assert_eq!(e.deposited_ev, e.loss_ev);
+        } else {
+            assert!(e.liberated, "{e:?}");
+            self.liberated += 1;
+            assert_eq!(e.binding_ev, b - ef);
+            // Verduin Eq. 3.86: E_SE = E_F + W - B.
+            let e_se = ef + e.loss_ev - b;
+            match c {
+                Some(s) => {
+                    self.created += 1;
+                    assert_eq!(e.secondary_ev, e_se);
+                    assert_eq!(s.energy_ev, e_se);
+                    assert_eq!((s.pos, s.layer), (p.pos, p.layer));
+                    assert!((dot(s.dir, s.dir) - 1.0).abs() < 1e-12);
+                    assert_eq!(e.deposited_ev, 0.0);
+                }
+                None => {
+                    assert_eq!(e.secondary_ev, 0.0);
+                    assert_eq!(e.deposited_ev, e_se);
                 }
             }
         }
@@ -919,6 +928,11 @@ impl ElectronTally for EventLog {
 }
 
 fn run_threads(threads: usize) -> EventLog {
+    run_threads_with(threads, metal())
+}
+
+/// [`run_threads`] with `metal` as the band of both metal layers.
+fn run_threads_with(threads: usize, metal: BandStructure) -> EventLog {
     let cfg = full_physics();
     let t = Transport::with_band_structures(
         Stack::new(
@@ -931,7 +945,7 @@ fn run_threads(threads: usize) -> EventLog {
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
             pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
         ],
-        vec![metal(), insulator(), metal()],
+        vec![metal.clone(), insulator(), metal],
         cfg,
     )
     .unwrap();
@@ -973,6 +987,74 @@ fn secondaries_and_barriers_are_bit_identical_across_thread_counts() {
         }
         assert_eq!(a, b);
     }
+}
+
+// ---------------------------------------------------------------------------
+// A metal's valence binding (BandStructure::with_valence_binding_ev)
+// ---------------------------------------------------------------------------
+
+/// The synthetic metal with its valence electron bound 7 eV below the Fermi
+/// level (a made-up value).
+fn bound_metal() -> BandStructure {
+    metal().with_valence_binding_ev(7.0).unwrap()
+}
+
+#[test]
+fn valence_binding_conserves_energy_and_frees_nothing_at_or_below_it() {
+    let cfg = full_physics();
+    let t = Transport::with_band_structures(
+        Stack::new(vec![(material(), 6e-9)], Some(material())).unwrap(),
+        vec![
+            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+        ],
+        vec![bound_metal(), bound_metal()],
+        cfg,
+    )
+    .unwrap();
+    let bands = vec![bound_metal(), bound_metal()];
+    let r = t
+        .run(11, 400, 16, &Primary::normal(400.0), || {
+            EventCheck::new(bands.clone())
+        })
+        .unwrap()
+        .tally;
+    // EventCheck asserts, per event, E_SE = E_F + W - 7 eV for W > 7 eV and
+    // nothing liberated for W <= 7 eV.
+    assert!(r.events > 1_000, "too few events: {}", r.events);
+    assert!(r.subgap > 100 && r.liberated > 100 && r.created > 100);
+}
+
+#[test]
+fn zero_valence_binding_is_bit_identical_to_the_default() {
+    let default = run_threads(1);
+    let zero = run_threads_with(1, metal().with_valence_binding_ev(0.0).unwrap());
+    assert_eq!(default.events, zero.events);
+    assert_eq!(default.summary, zero.summary);
+    // And a binding does change the run.
+    let bound = run_threads_with(1, bound_metal());
+    assert_ne!(default.events, bound.events);
+}
+
+#[test]
+fn valence_binding_is_bit_identical_across_thread_counts() {
+    let r1 = run_threads_with(1, bound_metal());
+    assert!(r1.summary.secondaries > 100);
+    for n in [2, 8] {
+        let r = run_threads_with(n, bound_metal());
+        assert_eq!(r1.events, r.events, "event stream differs on {n} threads");
+        assert_eq!(r1.summary, r.summary);
+    }
+}
+
+#[test]
+fn valence_binding_is_refused_for_an_insulator_and_out_of_range() {
+    assert!(insulator().with_valence_binding_ev(1.0).is_err());
+    for b in [-1.0, f64::NAN, f64::INFINITY] {
+        assert!(metal().with_valence_binding_ev(b).is_err(), "{b}");
+    }
+    assert_eq!(metal().valence_binding_ev(), None);
+    assert_eq!(bound_metal().valence_binding_ev(), Some(7.0));
 }
 
 // ---------------------------------------------------------------------------
@@ -1213,6 +1295,26 @@ fn full_tally_balances_with_a_binding_below_the_band_bottom() {
         Stack::semi_infinite(material()),
         vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
         vec![deep],
+        cfg,
+    )
+    .unwrap();
+    let r = tally_run(&t);
+    check_balance(&r);
+    assert_eq!(r.budget.fermi_sea_ev, 0.0);
+    assert!(r.stopping_points.stopped > r.fates.stopped);
+}
+
+#[test]
+fn full_tally_balances_with_a_metal_valence_binding() {
+    // The synthetic metal with B = 7 eV below its 5 eV Fermi level: each
+    // liberated electron's initial state is 2 eV below the band bottom, and
+    // a loss W <= 7 eV stays in the solid.
+    let mut cfg = TransportConfig::new(8.0);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    let t = Transport::with_band_structures(
+        Stack::semi_infinite(material()),
+        vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
+        vec![bound_metal()],
         cfg,
     )
     .unwrap();
