@@ -36,14 +36,17 @@
 //!   material (the table of a material with a band is built on the
 //!   band-bottom axis with the band's Fermi energy, `electron::inelastic_axis`),
 //!   and, for `mermin-melf`, the options of the material's oscillator fit
-//!   (`[electron.materials.<name>.mermin_fit]`, #306).
+//!   (`[electron.materials.<name>.mermin_fit]`, #306), and the rate
+//!   refinement of a band-bottom table (`electron::rate_refinement`, #339).
 //!
 //! A cache file of another format version can never be found under a
 //! current key (the version is in the key). A file that **is** found under
 //! the run's key is loaded with the library loader, whose errors (an
 //! unsupported version, a failed validation) are returned, not treated as a
 //! miss; after loading, its sampling axis and energy grid are checked
-//! against the run.
+//! against the run: an elastic table must have exactly the run's grid, an
+//! inelastic table must contain it in order (it may hold the rows of its
+//! rate refinement as well).
 //!
 //! Writes go to a temporary file in the same directory and are renamed into
 //! place, the table first, then its hash, then its key, so the key is the
@@ -65,7 +68,9 @@ use sha2::{Digest, Sha256};
 /// removed or changes meaning.
 ///
 /// 3: `inelastic.mermin_fit`, the Mermin fit options (#306).
-pub const KEY_VERSION: u32 = 3;
+/// 4: `inelastic.rate_refinement`, the rate refinement of a band-bottom
+/// table (#339).
+pub const KEY_VERSION: u32 = 4;
 
 /// Lowercase hex SHA-256 of `bytes`.
 pub fn sha256_hex(bytes: &[u8]) -> String {
@@ -159,6 +164,11 @@ struct InelasticKey {
     /// [`lindhard::electron::inelastic::MerminFitOptions`] with
     /// `mermin-melf`; `null` with the other models, which do not fit.
     mermin_fit: Option<String>,
+    /// `Debug` of the table's rate refinement
+    /// ([`crate::electron::rate_refinement`]; `null` without one): its
+    /// window, tolerance and row bound. The rows it adds are a deterministic
+    /// function of these, the model and the grid.
+    rate_refinement: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -208,6 +218,7 @@ pub fn key_text(
                 band: format!("{:?}", m.band),
                 mermin_fit: (r.inelastic == PennAlgorithm::Mermin)
                     .then(|| format!("{:?}", m.mermin_fit)),
+                rate_refinement: crate::electron::rate_refinement(r, m).map(|x| format!("{x:?}")),
             }),
         ),
     };
@@ -461,11 +472,22 @@ impl TableCache {
                 kind.axis()
             );
         }
-        if table.energy_ev() != r.table_energy_ev.as_slice() {
+        // The elastic table has exactly the run's grid. The inelastic table
+        // has the run's grid and, on the band-bottom axis, the rows of its
+        // rate refinement (#339), so it must contain the grid in order.
+        let grid_ok = match kind {
+            TableKind::Elastic => table.energy_ev() == r.table_energy_ev.as_slice(),
+            TableKind::Inelastic => contains_in_order(table.energy_ev(), &r.table_energy_ev),
+        };
+        if !grid_ok {
             bail!(
-                "table cache {}: field `energy_ev` differs from this run's grid \
+                "table cache {}: field `energy_ev` {} this run's grid \
                  ({} energies cached, {} needed)",
                 table_path.display(),
+                match kind {
+                    TableKind::Elastic => "differs from",
+                    TableKind::Inelastic => "does not contain",
+                },
                 table.energy_ev().len(),
                 r.table_energy_ev.len()
             );
@@ -480,6 +502,13 @@ impl TableCache {
             }),
         }))
     }
+}
+
+/// Whether `grid` is a subsequence of `cached` (every energy of `grid`, in
+/// order, bit for bit).
+fn contains_in_order(cached: &[f64], grid: &[f64]) -> bool {
+    let mut it = cached.iter();
+    grid.iter().all(|g| it.any(|c| c.to_bits() == g.to_bits()))
 }
 
 #[cfg(test)]
@@ -698,6 +727,33 @@ mod tests {
         });
     }
 
+    /// A band-bottom table is refined (#339) and keyed so; a table without
+    /// a band is not, and its key says `null`.
+    #[test]
+    fn key_carries_the_rate_refinement() {
+        let r = example();
+        let (_, i) = keys(&r);
+        assert!(i.contains("\"rate_refinement\":\"RateRefinement {"), "{i}");
+        let mut bandless = r.clone();
+        bandless.materials[0].band = None;
+        assert!(crate::electron::rate_refinement(&bandless, &bandless.materials[0]).is_none());
+        let (_, i) = keys(&bandless);
+        assert!(i.contains("\"rate_refinement\":null"), "{i}");
+    }
+
+    #[test]
+    fn grid_containment_is_in_order_and_bit_exact() {
+        let grid = [1.0, 2.0, 4.0];
+        assert!(contains_in_order(&grid, &grid));
+        assert!(contains_in_order(&[1.0, 1.5, 2.0, 3.0, 4.0, 8.0], &grid));
+        assert!(!contains_in_order(&[1.0, 4.0, 2.0], &grid));
+        assert!(!contains_in_order(&[1.0, 2.0], &grid));
+        assert!(!contains_in_order(
+            &[1.0, f64::from_bits(2.0f64.to_bits() + 1), 4.0],
+            &grid
+        ));
+    }
+
     #[test]
     fn key_changes_with_the_build() {
         let r = example();
@@ -820,6 +876,18 @@ mod tests {
             "\"band\":{}",
             serde_json::to_string(&format!("{:?}", r.materials[0].band)).unwrap()
         )));
+        // The band also sets the rate refinement of the inelastic table
+        // (`electron::rate_refinement`, #339), the function the build uses:
+        // `inelastic.rate_refinement`.
+        let refinement = crate::electron::rate_refinement(&r, &r.materials[0]);
+        assert!(refinement.is_some());
+        assert!(
+            i.contains(&format!(
+                "\"rate_refinement\":{}",
+                serde_json::to_string(&format!("{:?}", refinement.unwrap())).unwrap()
+            )),
+            "{i}"
+        );
         let MerminFitSpec {
             // `inelastic.mermin_fit` (`n_oscillators`).
             oscillators,

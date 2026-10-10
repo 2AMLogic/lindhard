@@ -12,6 +12,21 @@ one version).
 - `electron_psf_parameters.csv` gains `converged` (1/0) and `iterations` rows per
   fit, so the standalone CSV shows whether a fit hit its iteration budget (#347).
 
+### Changed
+
+- `lindhard run` builds the inelastic table of every material with a `band`
+  with the rate refinement (`RateRefinement::default()`, #339): rows are
+  added between 2 and 20 eV above the Fermi level until the interpolated
+  inelastic rate is within 1 % of the exact one. **Results of runs with a
+  `band` change**; the elastic table and the tables of materials without a
+  band are unchanged, bit for bit. The committed secondary-yield δ(E) tables
+  (`validation/experiments/se_yield_results.json`) predate it and are stale
+  until their re-run (#287). `electron_tables.csv` has a line per inelastic
+  row, with an empty elastic column at the added rows (the elastic value is
+  now matched by energy). The table-cache key gains `inelastic.rate_refinement`
+  (`KEY_VERSION` 4), so cached tables are rebuilt once, and a cached
+  inelastic table must contain the run's grid in order rather than equal it.
+
 ### Fixed
 
 - Python `RunResult.write()` now follows the command's output lifecycle: it
@@ -32,16 +47,17 @@ one version).
   of it): rows added to one band-bottom inelastic table from the Fermi
   level upward. Every grid cell overlapping `E - E_F` = 2 to 20 eV is
   bisected at its midpoint while the linear interpolation of the exact rate
-  misses it there by more than 1 %; more than `max_rows` added rows is an
+  misses it by more than 1 % at the cell's quartiles, midpoint or estimated
+  error peak (the vertex of the parabola through the largest sampled error
+  and its neighbours); more than `max_rows` added rows is an
   error, and so is a failing cell bisected down to rounding (a step in the
-  rate), each naming the cell. The grid is the same on any thread count. Off by default, so every
-  existing table is unchanged, and refused on the model's own axis.
+  rate), each naming the cell. The grid is the same on any thread count. Off by default, and
+  refused on the model's own axis.
   `RATE_TOLERANCE` and `RATE_WINDOW_EV` (the #291 gate, moved from the
   example into `electron::inelastic::table`) are its defaults. The `rate`
   mode of `lindhard-cli/examples/inelastic_low_energy.rs` also evaluates
   each coarse table refined (`docs/validation.md`, "Table grid above the
-  Fermi level"). `lindhard run` does not use it yet: the Al single pole at
-  the `se_yield.py` grid misses the 1 % gate by 0.0008 points.
+  Fermi level"); every refined table there passes the 1 % gate.
 - `[electron.materials.<name>.mermin_fit]` (#306): per-material options of
   the `mermin-melf` oscillator fit, `oscillators` (1 to 16, default 3),
   `weighting` (`"relative"`, the default, or `"uniform"`) and

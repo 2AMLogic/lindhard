@@ -512,7 +512,9 @@ fails, naming the key: remove the key. Results of runs with a `band` change
 (see `CHANGELOG.md`).
 
 **`[electron.tables]`**: one log-spaced energy grid shared by the elastic and
-inelastic tables of every material.
+inelastic tables of every material. The inelastic table of a material with
+a `band` holds extra rows besides (#339; "Grid for a material with a band",
+below).
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -539,11 +541,15 @@ grid above the Fermi level"; reproduce with
 can add rows to the inelastic table from `E_F` upward
 (`InelasticTableOptions::rate_refinement`, #339), which brings every one of
 those tables to about 1 % at both the default grid and the grid of
-`validation/experiments/se_yield.py`, but one of them (the Al single pole
-from 5 eV at 10 points per decade) misses 1 % by 0.0008 points, so
-`lindhard run` does not use it yet (#339). Until then a denser grid helps
-but does not close the gap: 40 points per decade cuts the error by a
-factor of 2 to 4 from 20.
+`validation/experiments/se_yield.py`. **`lindhard run` uses it for the
+inelastic table of every material with a `band`** (#339): every cell of the
+grid overlapping `E - E_F` = 2 to 20 eV is bisected while the linear
+interpolation of the rate misses the exact rate by more than 1 % at the
+cell's quartiles, midpoint or estimated error peak. The table then has the
+grid's rows and the added ones (a few tens: Al and Si, 5 to 25 rows at
+these grids); `physics.materials.inelastic_table.energies` counts them. The
+elastic table, and the inelastic table of a material without a band, keep
+exactly the grid's rows. A denser grid is not needed for this region.
 
 **`[electron.materials.<name>]`**: the electron data of each material the
 target uses, keyed by the name the target gives it (a `[materials]` key or an
@@ -816,8 +822,10 @@ skip them. Parameters from a fit with `converged` 0 need inspection of the fit
 diagnostics before use.
 
 `electron_tables.csv`: `material,energy_ev,elastic_inverse_mfp_per_nm,inelastic_inverse_mfp_per_nm,inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm`,
-the tables the run used, per material and grid energy (the stopping power is
-`λ⁻¹ ⟨W⟩` of the stored loss distribution).
+the tables the run used, per material and inelastic-table energy (the
+stopping power is `λ⁻¹ ⟨W⟩` of the stored loss distribution). The elastic
+column is empty at the rows the rate refinement adds to the inelastic table
+of a material with a band (#339), which the elastic table does not have.
 
 ### Cross-section table cache (`--table-cache`)
 
@@ -851,7 +859,9 @@ the table depends on:
   SHA-256 and provenance of the optical ELF file, the material's band
   parameters (they set the table's axis and Fermi energy for a material with
   a band) and, with `mermin-melf`, the material's resolved Mermin fit options
-  (`mermin_fit`; no table and a table of the defaults give the same key).
+  (`mermin_fit`; no table and a table of the defaults give the same key),
+  and the rate refinement of a material with a band (`rate_refinement`:
+  its window, tolerance and row bound; `null` without a band).
 
 Every `f64` is written in shortest round-trip form, so a change in the last
 bit of any number is a different key. A lookup must find the stored key
@@ -862,7 +872,8 @@ corrupted anywhere, even in a single cross-section or probability value that
 still parses, is refused with an error naming the file, before it is parsed,
 and a missing `.sha256` file is an error too. The table is then loaded and
 validated by the library, and its axis and energy grid are checked against the
-run. A file found under the run's key that fails any of these checks is an
+run: an elastic table must have exactly the run's grid, an inelastic table
+must contain it in order (it may hold the refinement's rows as well). A file found under the run's key that fails any of these checks is an
 error, never a silent rebuild; remove the entry's files to rebuild it. A table
 of another cache `format_version` can never be found, since the version is
 part of the key. Writes go to a temporary file renamed into place, the table

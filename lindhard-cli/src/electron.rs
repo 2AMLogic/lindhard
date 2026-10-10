@@ -22,6 +22,7 @@ use lindhard::electron::elastic::table::{
 use lindhard::electron::elastic::{SalvatDhfs, SolverOptions};
 use lindhard::electron::inelastic::table::{
     build_inelastic_table_for_model, mean_loss_ev, EnergyAxis, InelasticTableOptions,
+    RateRefinement,
 };
 use lindhard::electron::inelastic::{PennAlgorithm, PennInelastic};
 use lindhard::electron::transport::{LayerTables, RunMetadata, Transport};
@@ -236,11 +237,28 @@ fn inelastic_table(
         other => PennInelastic::try_new(other, m.optical_elf.clone())?,
     }
     .with_fermi_energy_ev(fermi_ev)?;
+    let mut options = InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis);
+    options.rate_refinement = rate_refinement(r, m);
     Ok(build_inelastic_table_for_model(
         &model,
         &m.material,
-        &InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis),
+        &options,
     )?)
+}
+
+/// The rate refinement of the inelastic table of `m` (#339): the library's
+/// default ([`RateRefinement::default`]) on the band-bottom axis of a
+/// material with a band, where the rate climbs from zero at the Fermi
+/// level; `None` on the model's own axis, whose table keeps exactly the
+/// rows of `electron.tables`. The refined table has the grid's rows and the
+/// rows the refinement adds between 2 and 20 eV above the Fermi level
+/// (`lindhard::electron::inelastic::table`, "Rate refinement"); the elastic
+/// table keeps the grid. Part of the table cache key.
+pub fn rate_refinement(
+    r: &ResolvedElectron,
+    m: &ResolvedElectronMaterial,
+) -> Option<RateRefinement> {
+    (inelastic_axis(r, m).1 == EnergyAxis::BandBottom).then(RateRefinement::default)
 }
 
 /// The model's Fermi energy and the table axis of the inelastic table of `m`.
@@ -740,14 +758,15 @@ pub fn tables_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> String {
          inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm\n",
     );
     for (m, t) in r.materials.iter().zip(&sim.tables) {
-        // Both tables share the grid of electron.tables.
+        // One line per inelastic row. The elastic table has the rows of
+        // electron.tables, which the inelastic table contains; the rows the
+        // rate refinement adds (#339) have no elastic value.
+        let elastic = t.elastic.energy_ev();
         for (i, &e) in t.inelastic.energy_ev().iter().enumerate() {
-            let el = t
-                .elastic
-                .energy_ev()
-                .get(i)
-                .filter(|&&x| x == e)
-                .map(|_| t.elastic.inverse_mfp_per_m()[i] * NM);
+            let el = elastic
+                .binary_search_by(|x| x.total_cmp(&e))
+                .ok()
+                .map(|j| t.elastic.inverse_mfp_per_m()[j] * NM);
             let inv = t.inelastic.inverse_mfp_per_m()[i];
             let mean = t
                 .inelastic

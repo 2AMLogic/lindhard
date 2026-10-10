@@ -53,7 +53,8 @@
 //!   builder refuses is printed as refused. Each coarse table is followed by
 //!   the same rows built with the library's rate refinement
 //!   (`InelasticTableOptions::rate_refinement`, `RateRefinement::default()`,
-//!   #339; `+refined`; `lindhard run` does not use it yet): its grid is the
+//!   #339; `+refined`; `lindhard run` uses it for every table on the
+//!   band-bottom axis): its grid is the
 //!   coarse rows and every row the refinement adds, and `rows` counts them.
 //!   The largest error is printed to three decimals, so that a verdict at
 //!   the tolerance can be read. The verdict that 20 and 40 points per decade fail
