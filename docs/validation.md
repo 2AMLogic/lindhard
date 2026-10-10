@@ -869,6 +869,28 @@ deposited in the target. Every code's histories are split into batches
 (lindhard: separate runs with consecutive seeds; the oracles: primary index
 modulo the batch count), and every standard error is the batch-means error.
 
+Collision-cap truncation diagnostics (#369). The lindhard summaries
+(`lindhard-electron-<problem>.json`, and `lindhard_event_cap_diagnostics` in
+each comparison summary) carry `event_cap_diagnostics`:
+`primary_event_capped` (`results.fates.event_capped`), `secondary_tracks` and
+`affected_histories` (`results.event_caps`; counts, each history once) and
+`event_cap_ev` (`results.budget.event_cap_ev`; an energy, kept apart from the
+counts). The batches are pooled by summing counts and energy;
+`affected_fraction` is pooled `affected_histories` over pooled histories, never
+a mean of batch fractions, and is not inferred from primary caps. `status` is
+`truncated` if any reported value is positive (the metrics are kept for
+diagnosis, and `truncation_note` says so), `uncapped` only if all four are
+reported zeros, and `unknown` otherwise. A field absent from a summary (an
+older binary or artifact, including one batch of several) is `null` and never
+zero; the oracles' own diagnostics are `null` (their outputs carry none). The
+committed summaries predate the fields and so read as unknown, not uncapped;
+the next rerun (#364, #365) keeps them. In
+`validation/experiments/se_yield_results.json` each run has the same fields
+under `event_caps` (with `affected_fraction` and `status`), and
+`se_yield.py --markdown` lists truncated runs and the count of unknown ones. A
+zero `relative_imbalance` does not show a run uncapped: cap energy is an
+accounted sink.
+
 The oracles are installed and run unmodified outside this tree:
 
 - **Nebula** (BSD-3-Clause, Tier A), CPU build `nebula_cpu_edep`, with

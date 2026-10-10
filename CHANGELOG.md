@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- Validation: `validation/oracles/run_electron.py` and
+  `validation/experiments/se_yield.py` keep the collision-cap diagnostics
+  (primary caps, capped secondary tracks, affected histories, cap energy) in
+  their summaries, pool them across batches, annotate truncated results and
+  read missing values as unknown, never zero (#369). No transport change.
 - `FullPenn::loss_function_evaluation` (`LossFunctionEvaluation`): one
   evaluation of the full Penn loss function with the work of its `ω_p`
   integral and whether it converged; `OMEGA_P_INTERVAL_BUDGET`;

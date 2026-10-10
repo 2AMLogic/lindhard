@@ -355,6 +355,33 @@ def band_fermi_ev(model: dict) -> float:
     raise KeyError(f"no Fermi energy in band model {model!r}")
 
 
+def cap_diagnostics(r: dict) -> dict:
+    """Collision-cap (numerical truncation) diagnostics of one run's `results`, kept beside the yields (#369):
+    the primaries' own caps (`fates.event_capped`), capped secondary tracks and affected primary histories
+    (`event_caps`; each history counted once) and the energy the capped electrons still carried
+    (`budget.event_cap_ev`). A field an older binary does not write is None, unknown, never zero; `status` is
+    `truncated` if any known value is positive, `uncapped` only if all four are known zeros, else `unknown`.
+    A zero energy imbalance does not bear on it: cap energy is an accounted sink."""
+    caps = r.get("event_caps") if isinstance(r.get("event_caps"), dict) else {}
+    fates = r.get("fates") if isinstance(r.get("fates"), dict) else {}
+    budget = r.get("budget") if isinstance(r.get("budget"), dict) else {}
+    d = {"primary_event_capped": fates.get("event_capped"), "secondary_tracks": caps.get("secondary_tracks"),
+         "affected_histories": caps.get("affected_histories"), "event_cap_ev": budget.get("event_cap_ev")}
+    return {**d, **cap_status(d, r.get("histories"))}
+
+
+def cap_status(d: dict, histories) -> dict:
+    vals = list(d.values())
+    aff = d["affected_histories"]
+    if any(v is not None and v > 0 for v in vals):
+        status = "truncated"
+    elif all(v == 0 for v in vals):
+        status = "uncapped"
+    else:
+        status = "unknown"
+    return {"affected_fraction": aff / histories if aff is not None and histories else None, "status": status}
+
+
 def run_one(binary: Path, material: str, cfg_id: str, energy_ev: float, histories: int, seed: int) -> dict:
     elf = OPTICAL / OPTICAL_ELF[material]
     with tempfile.TemporaryDirectory(prefix="se_yield_", dir=lindhard_cli.RUNS if lindhard_cli.RUNS.is_dir() else None) as td:
@@ -382,6 +409,7 @@ def run_one(binary: Path, material: str, cfg_id: str, energy_ev: float, historie
         # electrons of one cascade and so understates it.
         "delta_poisson_floor": math.sqrt(slow["count"]) / n if n else None,
         "energy_balance_relative_imbalance": r["budget"]["relative_imbalance"],
+        "event_caps": cap_diagnostics(r),
         "fermi_ev": fermi, "cutoff_ev": cut, "cutoff_reference": CONFIGS[cfg_id][3],
     }
 
@@ -459,6 +487,31 @@ def fmt(x, nd=3):
     return "-" if x is None else f"{x:.{nd}g}"
 
 
+def truncation_notes(results) -> list[str]:
+    """Annotations for runs that are truncated by the collision cap or whose diagnostics are unknown (#369)."""
+    capped, unknown = [], []
+    for r in results["runs"]:
+        d = r.get("event_caps")
+        tag = f"{r['material']} `{r['config']}` {r['energy_ev']:g} eV"
+        if d is None or d.get("status", "unknown") == "unknown":
+            unknown.append(tag)
+        elif d["status"] == "truncated":
+            aff, frac = d["affected_histories"], d.get("affected_fraction")
+            capped.append(f"{tag}: affected_histories {'unknown' if aff is None else aff}"
+                          + (f" ({100 * frac:.3g} %)" if frac is not None else "")
+                          + f", secondary_tracks {d['secondary_tracks']}, primary_event_capped "
+                            f"{d['primary_event_capped']}, event_cap_ev {d['event_cap_ev']}")
+    out = []
+    if capped:
+        out.append("**Truncated by the collision cap** (the δ values are kept for diagnosis but include truncated "
+                   "tracks; `event_caps` in the results file): " + "; ".join(capped) + ".\n")
+    if unknown:
+        out.append(f"**Truncation unknown** for {len(unknown)} of {len(results['runs'])} runs (written before the "
+                   "diagnostics were kept; this does not show they were uncapped)"
+                   + (": " + ", ".join(unknown) if len(unknown) <= 10 else "") + ".\n")
+    return out
+
+
 def markdown(datasets, results) -> str:
     out = []
     out.append("**Reference data** (Joy's compilation, one row per original measurement; the maximum is the tabulated point, "
@@ -515,6 +568,7 @@ def markdown(datasets, results) -> str:
         if na:
             out.append("Not defined for " + m + ": " + ", ".join(f"`{c}`" for c in na)
                        + " (work-function ranges of the metals; the barrier of " + m + " is its cited electron affinity).\n")
+    out.extend(truncation_notes(results))
     out.append("**Initial bounds** (default configuration; gated by `validation/experiments/se_yield.py --check`):\n")
     out.append("| Material | Simulated E_max (eV) | Measured median E_max (eV) | Ratio | Within factor 2 | Simulated δ_max | Measured median δ_max | Deviation | Within 50 % |")
     out.append("|---|---|---|---|---|---|---|---|---|")
