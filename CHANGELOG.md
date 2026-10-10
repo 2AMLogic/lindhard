@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- `FullPenn::loss_function_evaluation` (`LossFunctionEvaluation`): one
+  evaluation of the full Penn loss function with the work of its `ω_p`
+  integral and whether it converged; `OMEGA_P_INTERVAL_BUDGET`;
+  `DiimfpGrid::unconverged_profile_panels` and
+  `DiimfpGrid::largest_unconverged_profile_error` (#298).
 - `electron_psf_parameters.csv` gains `converged` (1/0) and `iterations` rows per
   fit, so the standalone CSV shows whether a fit hit its iteration budget (#347).
 
@@ -53,6 +58,19 @@ one version).
   `MAX_NODES` is now refused with the new
   `InelasticTableError::DensityNodeLimit` instead of being stored silently;
   none of those tables has one.
+- The full Penn Si table on the #168 grid (10 eV to 5 keV) builds: 224 s on
+  two threads, where it did not finish in 40 minutes (#298). At isolated
+  `(q, ω)` one loss-function evaluation took seconds: a narrow resonance at
+  the lower end of the `ω_p` integral drove its bisection to the maximum
+  depth chasing floating-point noise, and the momentum profiles of the
+  DIIMFP grid did the same next to the plasmon term's jump above the end of
+  the ELF. Both bisections now also accept a cell that meets the tolerance
+  relative to its own integral, and have a budget of rule applications per
+  segment; a cell left unconverged is counted with its error estimate, not
+  reported as converged. Full Penn loss functions, IMFPs and stopping powers
+  change by at most a few 1e-7 relative (most are unchanged in their
+  printed digits), and full-Penn tables built before and after differ
+  within the model tolerance. Single-pole and Mermin results are unchanged.
 - Python `RunResult.write()` now follows the command's output lifecycle: it
   removes the previous `summary.json` before replacing any CSV, removes a
   stale `ions.csv` when per-ion output is off, and writes the summary last.

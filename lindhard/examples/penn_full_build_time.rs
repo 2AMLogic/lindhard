@@ -20,6 +20,21 @@
 //!   compares it with the direct DIIMFP (`FullPenn::diimfp_per_m_ev` at a
 //!   tolerance of 1e-7) at seven losses spread in `ln W` in every row.
 //! * `imfp` times `imfp_and_stopping` at every grid energy (one thread).
+//!
+//! Two more modes look at single evaluations of the expanded loss function
+//! `Im[-1/ε(q, ω)]` (#298), with the work of its `ω_p` integral
+//! (`FullPenn::loss_function_evaluation`):
+//!
+//! ```text
+//! ... penn_full_build_time -- <elf.toml> point <q a.u.> <loss eV> [tolerance]
+//! ... penn_full_build_time -- <elf.toml> scan <n_q> <tolerance> <loss eV>...
+//! ```
+//!
+//! `point` times one evaluation (for example
+//! `validation/data/optical/si_elf_yang2019.toml point 1.480290203 160`);
+//! `scan` evaluates at `n_q` log-spaced momenta from 0.005 to 40 a.u. at
+//! each loss and prints the largest work and the number of evaluations that
+//! did not converge.
 
 use lindhard::electron::data::OpticalElf;
 use lindhard::electron::elastic::table::log_energy_grid;
@@ -34,11 +49,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let a: Vec<String> = std::env::args().collect();
     if a.len() < 5 {
         return Err(
-            "usage: <elf.toml> <E_min> <E_max> <points per decade> [build|grid|imfp] [stride]"
+            "usage: <elf.toml> <E_min> <E_max> <points per decade> [build|grid|imfp] [stride], \
+             <elf.toml> point <q a.u.> <loss eV> [tolerance], \
+             or <elf.toml> scan <n_q> <tolerance> <loss eV>..."
                 .into(),
         );
     }
     let elf = OpticalElf::from_toml_file(&a[1])?;
+    match a.get(2).map(String::as_str) {
+        Some("point") => return point(elf, &a[3..]),
+        Some("scan") => return scan(elf, &a[3..]),
+        _ => {}
+    }
     let (lo, hi, ppd): (f64, f64, f64) = (a[2].parse()?, a[3].parse()?, a[4].parse()?);
     let mode = a.get(5).map_or("build", String::as_str);
     let stride: usize = a.get(6).map_or(Ok(1), |s| s.parse())?;
@@ -76,9 +98,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let fp = FullPenn::new(elf.clone());
             let g = fp.diimfp_grid(&grid)?;
             eprintln!(
-                "grid: {} loss nodes, {} momentum panels, {} unresolved cells, {:.2} s",
+                "grid: {} loss nodes, {} momentum panels ({} unconverged, largest \
+                 relative error {:.1e}; {} loss evaluations unconverged), {} unresolved \
+                 cells, {:.2} s",
                 g.len(),
                 g.panel_count(),
+                g.unconverged_profile_panels(),
+                g.largest_unconverged_profile_error(),
+                g.unconverged_profile_loss_evaluations(),
                 g.unresolved_cells(),
                 t0.elapsed().as_secs_f64()
             );
@@ -131,6 +158,67 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             eprintln!("max |S_table/S_model - 1| {worst:.2e}");
         }
         other => return Err(format!("unknown mode {other:?}").into()),
+    }
+    Ok(())
+}
+
+/// `point <q a.u.> <loss eV> [tolerance]`: one evaluation of the expanded
+/// loss function, timed (one thread).
+fn point(elf: OpticalElf, a: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let (q_au, w): (f64, f64) = (
+        a.first().ok_or("missing q")?.parse()?,
+        a.get(1).ok_or("missing loss")?.parse()?,
+    );
+    let tol: f64 = a.get(2).map_or(Ok(1e-4), |s| s.parse())?;
+    let fp = FullPenn::new(elf).with_relative_tolerance(tol)?;
+    let q = q_au / lindhard::constants::BOHR_RADIUS;
+    let t = Instant::now();
+    let e = fp.loss_function_evaluation(q, w);
+    let secs = t.elapsed().as_secs_f64();
+    println!(
+        "q {q_au} a.u., loss {w} eV, tol {tol:e}: Im[-1/eps] = {:.12e}, {secs:.4} s, \
+         {} Lindhard evaluations, largest interval {} rules, converged {} \
+         ({} unconverged cells, error {:.2e})",
+        e.value,
+        e.lindhard_evaluations,
+        e.largest_interval_rules,
+        e.converged(),
+        e.unconverged_cells,
+        e.unconverged_error
+    );
+    Ok(())
+}
+
+/// `scan <n_q> <tolerance> <loss eV>...`: the loss function at `n_q`
+/// log-spaced momenta from 0.005 to 40 a.u. at each loss, with the largest
+/// work and the number of unconverged evaluations (one thread).
+fn scan(elf: OpticalElf, a: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    let n: usize = a.first().ok_or("missing n_q")?.parse()?;
+    let tol: f64 = a.get(1).ok_or("missing tolerance")?.parse()?;
+    let fp = FullPenn::new(elf).with_relative_tolerance(tol)?;
+    for w in &a[2..] {
+        let w: f64 = w.parse()?;
+        let t = Instant::now();
+        let (mut evals, mut worst_evals, mut worst_rules, mut unconverged) = (0u64, 0u64, 0u64, 0);
+        let mut worst_q = 0.0;
+        for i in 0..n {
+            let q_au = 0.005 * (40.0f64 / 0.005).powf(i as f64 / (n - 1).max(1) as f64);
+            let e = fp.loss_function_evaluation(q_au / lindhard::constants::BOHR_RADIUS, w);
+            evals += e.lindhard_evaluations;
+            if e.lindhard_evaluations > worst_evals {
+                worst_evals = e.lindhard_evaluations;
+                worst_q = q_au;
+            }
+            worst_rules = worst_rules.max(e.largest_interval_rules);
+            unconverged += usize::from(!e.converged());
+        }
+        println!(
+            "loss {w} eV, tol {tol:e}: {n} momenta, {:.3} s, mean {:.0} evaluations, \
+             most {worst_evals} (q {worst_q:.6} a.u.), largest interval {worst_rules} rules, \
+             {unconverged} unconverged",
+            t.elapsed().as_secs_f64(),
+            evals as f64 / n as f64
+        );
     }
     Ok(())
 }

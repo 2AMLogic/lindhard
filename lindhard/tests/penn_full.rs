@@ -17,7 +17,7 @@ use lindhard::electron::inelastic::table::{
 };
 use lindhard::electron::inelastic::{
     DrudeLorentz, DrudeLorentzOscillator, FullPenn, PennAlgorithm, PennInelastic, SinglePolePenn,
-    SumRuleReport,
+    SumRuleReport, OMEGA_P_INTERVAL_BUDGET,
 };
 use lindhard::material::Material;
 use rayon::prelude::*;
@@ -336,6 +336,7 @@ fn diimfp_grid_reproduces_the_direct_diimfp() {
     let fpa = coarse_full();
     let grid = fpa.diimfp_grid(&GRID_ENERGIES).unwrap();
     assert!(!grid.is_empty() && grid.panel_count() > grid.len());
+    assert_eq!(grid.unconverged_profile_loss_evaluations(), 0);
     let reference = FullPenn::new(coarse_fixture())
         .with_relative_tolerance(0.1 * TOL)
         .unwrap();
@@ -464,6 +465,185 @@ fn full_penn_band_bottom_table_skips_rows_at_or_below_the_fermi_level() {
     for j in 0..GRID_ENERGIES.len() {
         assert_eq!(t.inverse_mfp_per_m()[j + 1], r.inverse_mfp_per_m()[j]);
         assert_eq!(t.quantiles(j + 1), r.quantiles(j));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The bounded ω_p refinement on measured ELFs (#298)
+// ---------------------------------------------------------------------------
+
+/// A committed optical ELF of `validation/data/optical` (provenance in
+/// `docs/data-provenance.md`).
+fn committed_elf(file: &str) -> OpticalElf {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../validation/data/optical")
+        .join(file);
+    OpticalElf::from_toml_file(path).unwrap()
+}
+
+/// The two `(q in a.u., ω in eV)` of #298 on the Si ELF, where one
+/// evaluation of the loss function took 0.4 to 2 s at the model tolerance
+/// (and 10 to 21 s at 1e-5) before the bound: at each, the gas whose
+/// continuum edge `q k_F + q²/2` is at `ω` has `Re ε ≈ 1e-6` there, so just
+/// above the lower end `x_a` of the `ω_p` integral `Re ε` crosses zero
+/// where `Im ε` is tiny, a resonance about 1e-7 Hartree above `x_a` and
+/// 3e-8 wide that carries a large part of the first knot interval.
+const SI_EDGE_POINTS: [(f64, f64); 2] = [(1.116561281, 79.0), (1.480290203, 160.0)];
+
+/// Default-tolerance and reference (1e-6) evaluations at `(q_au, w)`: both
+/// must converge, agree to the model tolerance and stay within `max_evals`
+/// Lindhard evaluations at the default tolerance. Returns the relative
+/// difference and the work.
+fn check_against_reference(
+    model: &FullPenn,
+    reference: &FullPenn,
+    q_au: f64,
+    w: f64,
+    max_evals: u64,
+) -> (f64, u64) {
+    let q = q_au / BOHR_RADIUS;
+    let e = model.loss_function_evaluation(q, w);
+    let r = reference.loss_function_evaluation(q, w);
+    assert_eq!(e.value, model.loss_function(q, w));
+    assert!(
+        e.converged() && r.converged(),
+        "q {q_au}, {w} eV: {e:?} {r:?}"
+    );
+    assert!(r.value > 0.0, "q {q_au}, {w} eV: {r:?}");
+    let d = rel(e.value, r.value);
+    assert!(
+        d < model.relative_tolerance(),
+        "q {q_au}, {w} eV: {} vs {}",
+        e.value,
+        r.value
+    );
+    assert!(
+        e.lindhard_evaluations <= max_evals,
+        "q {q_au}, {w} eV: {} evaluations",
+        e.lindhard_evaluations
+    );
+    (d, e.lindhard_evaluations)
+}
+
+#[test]
+fn si_continuum_edge_resonance_points_are_bounded_and_accurate() {
+    // Work is counted, not timed. Measured (x86-64 Linux, #298): 1350 and
+    // 995 Lindhard evaluations at the two points, at most 78 rule
+    // applications in any one knot interval; before the bound the first
+    // knot interval alone took 1.2 and 5.8 million rule applications (6.2
+    // and 29 million evaluations), 0.26 and 1.3 million of its cells
+    // ending at the maximum depth. The neighbours (q within 1e-8 to 1e-2
+    // relative) took 585 to 1350. The reference is the same model at 1e-6,
+    // which converges at all of them; measured differences at most 2.3e-6.
+    let si = committed_elf("si_elf_yang2019.toml");
+    let model = FullPenn::new(si.clone());
+    let reference = FullPenn::new(si).with_relative_tolerance(1e-6).unwrap();
+    for (q0, w) in SI_EDGE_POINTS {
+        let e = model.loss_function_evaluation(q0 / BOHR_RADIUS, w);
+        assert!(e.converged(), "{e:?}");
+        assert!(e.lindhard_evaluations <= 3000, "{e:?}");
+        assert!(e.largest_interval_rules <= 300, "{e:?}");
+        let mut worst: f64 = 0.0;
+        for d in [
+            0.0, -1e-2, -1e-4, -1e-6, -1e-8, -1e-10, 1e-10, 1e-8, 1e-6, 1e-4, 1e-2,
+        ] {
+            let (diff, _) = check_against_reference(&model, &reference, q0 * (1.0 + d), w, 3000);
+            worst = worst.max(diff);
+        }
+        eprintln!(
+            "Si {w} eV near q {q0} a.u.: worst difference from the 1e-6 reference {worst:.2e}"
+        );
+    }
+}
+
+#[test]
+fn imfp_outer_integral_converges_at_the_model_tolerance_on_the_committed_elfs() {
+    // The outer ω_p integral of the IMFP and stopping power has the bounded
+    // bisection too (#298); at the model tolerance it must not exhaust it or leave a cell with a noticeable error.
+    for (file, energies) in [
+        ("si_elf_yang2019.toml", [10.0, 60.0, 200.0, 1000.0, 5000.0]),
+        (
+            "al_elf_hagemann1975.toml",
+            [10.0, 60.0, 200.0, 1000.0, 5000.0],
+        ),
+    ] {
+        let model = FullPenn::new(committed_elf(file));
+        for e in energies {
+            // Measured: all converge but Al at 10 eV, one cell stopped at
+            // floating-point resolution with an error of 5e-18 of λ⁻¹.
+            let (cells, err) = model.imfp_unconverged(e).unwrap();
+            assert!(cells <= 1 && err < 1e-12, "{file} {e} eV: {cells}, {err:e}");
+        }
+    }
+    assert!(FullPenn::new(committed_elf("si_elf_yang2019.toml"))
+        .imfp_unconverged(f64::NAN)
+        .is_err());
+}
+
+#[test]
+fn si_edge_point_at_a_tolerance_below_the_noise_floor_is_reported_unconverged() {
+    // At 1e-8 the cells on the resonance would have to resolve the
+    // floating-point noise of Im ε/|ε|² (Re ε is a cancellation down to
+    // 1e-7); the knot interval spends its whole budget and the evaluation
+    // says so. The value is then not claimed to be converged, and its error
+    // estimate covers the actual difference from the converged 1e-6 value.
+    let si = committed_elf("si_elf_yang2019.toml");
+    let strict = FullPenn::new(si.clone())
+        .with_relative_tolerance(1e-8)
+        .unwrap();
+    let reference = FullPenn::new(si).with_relative_tolerance(1e-6).unwrap();
+    let (q0, w) = SI_EDGE_POINTS[1];
+    let q = q0 / BOHR_RADIUS;
+    let e = strict.loss_function_evaluation(q, w);
+    let r = reference.loss_function_evaluation(q, w);
+    assert!(r.converged(), "{r:?}");
+    assert!(!e.converged(), "{e:?}");
+    assert!(
+        e.unconverged_cells > 0 && e.unconverged_error > 0.0,
+        "{e:?}"
+    );
+    assert_eq!(e.largest_interval_rules, OMEGA_P_INTERVAL_BUDGET, "{e:?}");
+    // the work stays bounded: well under one budget per knot interval
+    assert!(
+        e.lindhard_evaluations <= 10 * 5 * OMEGA_P_INTERVAL_BUDGET,
+        "{e:?}"
+    );
+    assert!(
+        (e.value - r.value).abs() <= e.unconverged_error,
+        "{e:?} vs {}",
+        r.value
+    );
+}
+
+#[test]
+fn ordinary_points_on_measured_elfs_match_a_tighter_reference() {
+    // Points away from the edge resonance, on both committed ELFs the
+    // build benchmarks use (Al: 148 knots; Si: 297), so that the bound can
+    // not be passing by suppressing real weight. Measured differences from
+    // the 1e-6 reference: at most 1e-7.
+    for (file, points) in [
+        (
+            "al_elf_hagemann1975.toml",
+            &[
+                (0.3, 5.0),
+                (0.5, 15.0),
+                (1.0, 30.0),
+                (2.0, 60.0),
+                (1.2, 100.0),
+            ][..],
+        ),
+        (
+            "si_elf_yang2019.toml",
+            &[(0.5, 17.0), (1.0, 50.0), (2.0, 100.0), (3.0, 179.0)][..],
+        ),
+    ] {
+        let elf = committed_elf(file);
+        let model = FullPenn::new(elf.clone());
+        let reference = FullPenn::new(elf).with_relative_tolerance(1e-6).unwrap();
+        for &(q_au, w) in points {
+            let (d, n) = check_against_reference(&model, &reference, q_au, w, 3000);
+            eprintln!("{file}: q {q_au} a.u., {w} eV: difference {d:.2e}, {n} evaluations");
+        }
     }
 }
 
