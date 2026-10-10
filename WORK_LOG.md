@@ -4,6 +4,31 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-10
 
+- **PR #351**: feat(inelastic): rate refinement of band-bottom tables above E_F (part of #339)
+- **PR #348**: PSF parameter CSV: export convergence and iteration diagnostics
+- **PR #346**: ci: pin the clippy gate and add a stable/beta clippy canary (#336)
+- **PR #344**: fix(electron): open a Mermin table row's loss window at the rate's lower limit (#342)
+- **PR #343**: fix(electron): store inelastic table rows with no loss window above the ELF table as empty (#340)
+- **PR #341**: docs(electron): measure the band-bottom table grid above E_F (#291)
+- **PR #338**: docs(electron): measure Mermin fit weighting options against the wide oscillator (#311)
+- **PR #335**: backscatter: fingerprint optical_elf contents before reusing runs
+- **PR #334**: crystal: density evidence per material; 4H-SiC/GaN density source gap (Refs #179)
+- **PR #333**: Expose the Mermin fit options per material in the electron input (#306)
+- **PR #332**: Plot backscatter eta(E) validation figure with rizzma (#279)
+- **PR #330**: validation: Cu seed 2 across hosts — not isolated; record hosts and table hashes (#319)
+- **PR #328**: fix(py): share CLI output publication in RunResult.write (#327)
+- **Issue #347** (closed): PSF parameter CSV: export convergence and iteration diagnostics
+- **Issue #342** (closed): Si Mermin rate table has an artificial zero row at 15.5 eV because the loss interval starts below the ELF table
+- **Issue #340** (closed): Si Mermin inelastic table refused for a band-bottom row within 0.5 eV above E_F (negative loss-density integral)
+- **Issue #331** (closed): Backscatter run reuse ignores optical-ELF content changes
+- **Issue #327** (closed): Python RunResult.write leaves prior output files in place while replacing a run
+- **Issue #319** (closed): Cu secondary-yield baseline differs by 5 sigma across machines with identical committed inputs
+- **Issue #311** (closed): Mermin wide-loss oscillator fit is biased toward the dense low-energy ELF rows
+- **Issue #306** (closed): Expose Mermin fit controls per electron material
+- **Issue #279** (closed): Plot simulation and validation output with rizzma
+
+### 2026-10-10
+
 - **Issue #149** (closed): [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements
 - **Issue #241** (closed): Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp
 - **Issue #321** (closed): CLI: invalidate prior summaries when a rerun starts replacing outputs

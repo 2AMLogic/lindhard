@@ -32,10 +32,7 @@ The rest run as capacity allows.
 
 Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
 
-- **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
-- **#236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
-- **#289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
-- **#299**: Full Penn: make one inelastic table build finish in minutes (#256)
+- **#325**: fix(table-cache): lock each entry across lookup, build and publication
 
 ## Operator Priority
 
@@ -48,30 +45,27 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
-- **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
-- **#305**: Electron table cache: coordinate concurrent builders per entry
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
 - **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
-- **#321**: CLI: invalidate prior summaries when a rerun starts replacing outputs
+- **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
+- **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary
+- **#339**: Resolve the inelastic rate from E_F upward on the band-bottom axis: extra table rows above the Fermi level
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#322**: CLI: invalidate prior summaries when a rerun starts replacing outputs
+- **#352**: feat(crystal): source GaN cell and measured density; record the 4H-SiC density gap
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
-- **#236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
-- **#289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
-- **#299**: Full Penn: make one inelastic table build finish in minutes (#256)
+- **#325**: fix(table-cache): lock each entry across lookup, build and publication
 
 ## Proposed
 
@@ -85,22 +79,24 @@ Issues carrying `loom:curated`.
 - **#93**: [Epic #11] Elastic validation: total and transport cross sections vs published partial-wave values (C, Si, Cu, Au) *(curated)*
 - **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
 - **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(curated)*
-- **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
 - **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
 - **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
-- **#233**: Python wheels: maturin multi-platform builds and PyPI trusted publishing (Epic #28, Phase 2) *(curated)*
-- **#241**: Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp *(curated)*
-- **#256**: Full Penn: make one inelastic table build finish in usable time (split from #169) *(curated)*
-- **#279**: Plot simulation and validation output with rizzma *(curated)*
+- **#291**: Electron table grid: the default 10 points per decade under-resolves the inelastic rate just above the Fermi level on the band-bottom axis *(curated)*
 - **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
+- **#305**: Electron table cache: coordinate concurrent builders per entry *(curated)*
 - **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
+- **#326**: CI: clippy chunks_exact_to_as_chunks in lindhard/src/geometry/mesh.rs fails on current stable *(curated)*
+- **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary *(curated)*
+- **#339**: Resolve the inelastic rate from E_F upward on the band-bottom axis: extra table rows above the Fermi level *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#192**: Test: malformed and hostile input values must error, never panic or hang *(architect)*
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(architect)*
+- **#349**: Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change) *(architect)*
+- **#350**: Docs: replace the README status narrative and trim architecture.md module-table rows to stable summaries *(architect)*
 
 ## Epics
 
@@ -118,14 +114,14 @@ Issues carrying `loom:curated`.
 
 | Tier | Count |
 |------|-------|
-| Operator merge-risk holds | 4 |
+| Operator merge-risk holds | 1 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 3 |
-| In Progress (`loom:building`) | 2 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 4 |
 | PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 4 |
+| Approved PRs awaiting merge | 1 |
 | Curated | 19 |
-| Architect / Hermit proposals | 2 |
+| Architect / Hermit proposals | 4 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
 
