@@ -346,6 +346,41 @@ pub(crate) fn integrate_panels(
     Panels { edges, values, cum }
 }
 
+/// Budget of rule applications for the bisection of one segment of
+/// [`integrate_weighted`] (each application is `n` evaluations of the
+/// integrand). A segment that has not met its tolerance when the budget is
+/// spent is not reported as converged: see [`Weighted`].
+///
+/// Chosen from measurements (#298): with the acceptance rule of
+/// [`integrate_weighted`], the most any single segment used on a scan of the
+/// Si and Al ELFs (`q` from 0.005 to 40 a.u. at losses through each table,
+/// model tolerance 1e-4, and at the reference tolerance 1e-8) is recorded in
+/// `docs/validation.md`; the budget is well above it, so it acts only as a
+/// backstop against an integrand that cannot meet the tolerance at all.
+pub(crate) const WEIGHTED_SEGMENT_BUDGET: u64 = 4096;
+
+/// The result of [`integrate_weighted`] with what it cost and whether every
+/// cell met its tolerance.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(crate) struct Weighted<const N: usize> {
+    /// The integral.
+    pub(crate) value: [f64; N],
+    /// Applications of the `n`-point rule, all stages (first estimates,
+    /// group checks and bisection). Deterministic for a given integrand.
+    pub(crate) rules: u64,
+    /// Cells accepted *without* meeting their tolerance: at [`MAX_DEPTH`],
+    /// where the midpoint is no longer representable, or when the segment's
+    /// [`WEIGHTED_SEGMENT_BUDGET`] ran out. Zero when the integration
+    /// converged.
+    pub(crate) unconverged_cells: u64,
+    /// The sum of `|halves - whole|` over those cells: the error estimate of
+    /// the part of `value` that did not converge (zero when it did).
+    pub(crate) unconverged_error: [f64; N],
+    /// The most rule applications the bisection of any one segment used (at
+    /// most [`WEIGHTED_SEGMENT_BUDGET`]).
+    pub(crate) largest_segment_rules: u64,
+}
+
 /// Number of consecutive segments a smoothness check of
 /// [`integrate_weighted`] spans at first.
 const GROUP: usize = 16;
@@ -380,10 +415,39 @@ const GROUP_FRACTION: f64 = 0.1;
 /// energies of the #169 grid stayed within 3e-8 and 2e-7 relative of the
 /// earlier per-segment bisection (#256, `docs/validation.md`). A group that
 /// fails is halved, down
-/// to single segments, and a single failing segment is refined by the
-/// bisection of [`integrate_segments`] with the same tolerance, starting from
-/// its first estimate. Segments on which `w` vanishes at both ends are
-/// skipped, as `k` is not evaluated there.
+/// to single segments, and a single failing segment is refined by bisection
+/// ([`refine_bounded`]) starting from its first estimate. Segments on which
+/// `w` vanishes at both ends are skipped, as `k` is not evaluated there.
+///
+/// # The bisection of a segment, and its bound (#298)
+///
+/// The bisection is that of [`integrate_segments`] (halves compared with the
+/// whole, the absolute tolerance `rel_tol · max(|I_s|, Σ|I|/N)` halved at
+/// each level) with one more way to accept a cell: its halves agree with
+/// the whole to within `rel_tol` of the halves' own integral. A cell
+/// accepted either way has an estimated error at most `rel_tol` times the
+/// larger of its share of the halved tolerance and its own integral, so the
+/// estimated error of the total is at most `rel_tol · (Σ|I| + Σ_cells|I_c|)`,
+/// at most `2 · rel_tol` times the integral of `|w k|` (up to the first
+/// estimates of `Σ|I|`): the same contract as [`integrate_segments`].
+///
+/// Without the relative acceptance, a narrow peak that carries much of a
+/// segment's integral cannot converge: a cell at depth `d` must meet
+/// `2^-d` of the segment's tolerance, so the cells on the peak are asked for
+/// an accuracy relative to their own integral of about `rel_tol 2^-d` divided
+/// by the peak's share, which falls below the floating-point noise of the
+/// integrand long before [`MAX_DEPTH`]. The bisection then fills the peak
+/// with cells down to [`MAX_DEPTH`]: on the full Penn loss function of the
+/// Si ELF at two `(q, ω)` points this was 0.6 and 2.9 million rule
+/// applications for one segment, with an error of the exhausted cells of
+/// 1e-11 of the result (`docs/validation.md`, "Electron oracles").
+///
+/// Each segment's bisection also has a budget of
+/// [`WEIGHTED_SEGMENT_BUDGET`] rule applications. Cells left without meeting
+/// their tolerance (budget spent, [`MAX_DEPTH`] or a midpoint that is not
+/// representable) keep their two-half estimate and are counted, with their
+/// error estimates, in [`Weighted`], so that an exhausted refinement is never
+/// reported as converged.
 ///
 /// Every operation is a fixed sequence of floating-point operations, so the
 /// result does not depend on the thread that computes it.
@@ -393,9 +457,16 @@ pub(crate) fn integrate_weighted<const N: usize>(
     kernel: &mut impl FnMut(f64) -> [f64; N],
     breaks: &[f64],
     rel_tol: f64,
-) -> [f64; N] {
+) -> Weighted<N> {
+    let mut out = Weighted {
+        value: [0.0; N],
+        rules: 0,
+        unconverged_cells: 0,
+        unconverged_error: [0.0; N],
+        largest_segment_rules: 0,
+    };
     if breaks.len() < 2 {
-        return [0.0; N];
+        return out;
     }
     let nseg = breaks.len() - 1;
     // per-segment first estimates of the integral and of the kernel alone
@@ -408,6 +479,7 @@ pub(crate) fn integrate_weighted<const N: usize>(
             continue;
         }
         active[i] = true;
+        out.rules += 1;
         let half = 0.5 * (w[1] - w[0]);
         let mid = 0.5 * (w[0] + w[1]);
         for (x, wt) in gl.nodes.iter().zip(&gl.weights) {
@@ -453,15 +525,18 @@ pub(crate) fn integrate_weighted<const N: usize>(
                 &per_segment,
                 (start, end),
                 rel_tol,
+                &mut out,
             ),
         );
         start = end;
     }
-    total
+    out.value = total;
+    out
 }
 
 /// Segments `lo..hi` of [`integrate_weighted`] (all active): accept, split or
-/// refine.
+/// refine. The work and any unconverged cells are added to `stats` (whose
+/// `value` is not touched).
 #[allow(clippy::too_many_arguments)]
 fn weighted_group<const N: usize>(
     gl: &GaussLegendre,
@@ -472,6 +547,7 @@ fn weighted_group<const N: usize>(
     per_segment: &[f64; N],
     (lo, hi): (usize, usize),
     rel_tol: f64,
+    stats: &mut Weighted<N>,
 ) -> [f64; N] {
     let n = hi - lo;
     if n == 1 {
@@ -487,15 +563,23 @@ fn weighted_group<const N: usize>(
         for c in 0..N {
             tol[c] = rel_tol * whole[lo][c].abs().max(per_segment[c]);
         }
-        return refine(
+        let mut budget = WEIGHTED_SEGMENT_BUDGET;
+        let r = refine_bounded(
             gl,
             &mut f,
             (breaks[lo], breaks[lo + 1]),
             whole[lo],
-            tol,
+            (tol, rel_tol),
             MAX_DEPTH,
+            (&mut budget, [0.0; N]),
+            stats,
         );
+        stats.largest_segment_rules = stats
+            .largest_segment_rules
+            .max(WEIGHTED_SEGMENT_BUDGET - budget);
+        return r;
     }
+    stats.rules += 1;
     let group = gl.integrate(kernel, breaks[lo], breaks[hi]);
     let mut gmax: f64 = 0.0;
     for &g in &at_breaks[lo..=hi] {
@@ -517,28 +601,109 @@ fn weighted_group<const N: usize>(
     }
     let mid = lo + n / 2;
     let args = (whole, kernel_whole, at_breaks);
-    add(
-        weighted_group(
-            gl,
-            weight,
-            kernel,
-            breaks,
-            args,
-            per_segment,
-            (lo, mid),
-            rel_tol,
-        ),
-        weighted_group(
-            gl,
-            weight,
-            kernel,
-            breaks,
-            args,
-            per_segment,
-            (mid, hi),
-            rel_tol,
-        ),
-    )
+    let left = weighted_group(
+        gl,
+        weight,
+        kernel,
+        breaks,
+        args,
+        per_segment,
+        (lo, mid),
+        rel_tol,
+        stats,
+    );
+    let right = weighted_group(
+        gl,
+        weight,
+        kernel,
+        breaks,
+        args,
+        per_segment,
+        (mid, hi),
+        rel_tol,
+        stats,
+    );
+    add(left, right)
+}
+
+/// The bisection of one segment of [`integrate_weighted`] (see there for the
+/// acceptance rule and its error bound). `[a, b]` has the one-rule estimate
+/// `whole`; a cell is accepted when every component of its halves agrees
+/// with its whole to within the larger of `tol` (halved at each level) and
+/// `rel_tol` times the halves' own integral.
+///
+/// `remaining` is the segment's budget of rule applications, spent depth
+/// first (left half before right half). A cell that cannot be bisected
+/// (budget spent, depth 0, or a midpoint that is not representable) keeps
+/// its best estimate and is counted in `stats` with its error estimate: the
+/// disagreement of its halves with its whole, or, for a cell reached after
+/// the budget ran out (only its one-rule estimate `whole` is known), the
+/// disagreement `parent_err` of the cell it was cut from (an overestimate,
+/// on the safe side).
+#[allow(clippy::too_many_arguments)]
+fn refine_bounded<const N: usize>(
+    gl: &GaussLegendre,
+    f: &mut impl FnMut(f64) -> [f64; N],
+    (a, b): (f64, f64),
+    whole: [f64; N],
+    (tol, rel_tol): ([f64; N], f64),
+    depth: u32,
+    (remaining, parent_err): (&mut u64, [f64; N]),
+    stats: &mut Weighted<N>,
+) -> [f64; N] {
+    if *remaining < 2 {
+        stats.unconverged_cells += 1;
+        for c in 0..N {
+            stats.unconverged_error[c] += parent_err[c];
+        }
+        return whole;
+    }
+    *remaining -= 2;
+    stats.rules += 2;
+    let m = 0.5 * (a + b);
+    let left = gl.integrate(f, a, m);
+    let right = gl.integrate(f, m, b);
+    let both = add(left, right);
+    let mut err = [0.0; N];
+    let mut converged = true;
+    for c in 0..N {
+        err[c] = (both[c] - whole[c]).abs();
+        if err[c] > tol[c].max(rel_tol * both[c].abs()) {
+            converged = false;
+        }
+    }
+    if converged {
+        return both;
+    }
+    if depth == 0 || !(m > a && m < b) || *remaining < 2 {
+        stats.unconverged_cells += 1;
+        for c in 0..N {
+            stats.unconverged_error[c] += err[c];
+        }
+        return both;
+    }
+    let half_tol = tol.map(|t| 0.5 * t);
+    let l = refine_bounded(
+        gl,
+        f,
+        (a, m),
+        left,
+        (half_tol, rel_tol),
+        depth - 1,
+        (&mut *remaining, err),
+        stats,
+    );
+    let r = refine_bounded(
+        gl,
+        f,
+        (m, b),
+        right,
+        (half_tol, rel_tol),
+        depth - 1,
+        (&mut *remaining, err),
+        stats,
+    );
+    add(l, r)
 }
 
 #[cfg(test)]

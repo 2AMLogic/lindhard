@@ -146,6 +146,7 @@ use super::lindhard_gas::{kf_coefficient, LindhardGas};
 use super::penn::InelasticPoint;
 use super::quadrature::{
     integrate_panels, integrate_segments, integrate_weighted, GaussLegendre, Panels,
+    WEIGHTED_SEGMENT_BUDGET,
 };
 use crate::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, HARTREE_ENERGY};
 use crate::electron::data::{ElectronDataError, OpticalElf};
@@ -157,6 +158,11 @@ type Result<T> = std::result::Result<T, ElectronDataError>;
 
 /// Default relative tolerance of the integrals of the full Penn model.
 pub const DEFAULT_FULL_TOLERANCE: f64 = 1.0e-4;
+
+/// Budget of Gauss-Legendre rule applications (5 evaluations each) for the
+/// bisection of one knot interval of the `ω_p` integral of the loss
+/// function (#298); see [`LossFunctionEvaluation`].
+pub const OMEGA_P_INTERVAL_BUDGET: u64 = WEIGHTED_SEGMENT_BUDGET;
 
 const GL_ORDER: usize = 5;
 
@@ -199,6 +205,42 @@ fn bisect_switch(mut lo: f64, mut hi: f64, pred: &impl Fn(f64) -> bool) -> f64 {
         }
     }
     hi
+}
+
+/// One evaluation of the full Penn loss function `Im[-1/ε(q, ω)]`
+/// ([`FullPenn::loss_function_evaluation`]): the value, the work of its
+/// adaptive `ω_p` integral, and whether every cell of that integral met its
+/// tolerance.
+///
+/// The bisection of each knot interval of the `ω_p` integral has a budget of
+/// rule applications (#298; the rule and the budget are documented on the
+/// weighted quadrature in `quadrature.rs` and in the module docs). A cell
+/// that did not meet its tolerance (budget spent, maximum depth reached, or
+/// midpoint no longer representable) keeps its estimate, is counted in
+/// `unconverged_cells`, and contributes its error estimate to
+/// `unconverged_error`; [`Self::converged`] is then false.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LossFunctionEvaluation {
+    /// `Im[-1/ε(q, ω)]` (dimensionless), as [`FullPenn::loss_function`].
+    pub value: f64,
+    /// Evaluations of the Lindhard continuum loss function in the `ω_p`
+    /// integral: the work, a deterministic count.
+    pub lindhard_evaluations: u64,
+    /// Cells of the `ω_p` integral accepted without meeting their tolerance.
+    pub unconverged_cells: u64,
+    /// The sum of the error estimates of those cells, in the units of
+    /// `value` (zero when the integral converged).
+    pub unconverged_error: f64,
+    /// The most rule applications (of 5 evaluations each) that the bisection
+    /// of any one knot interval used, at most [`OMEGA_P_INTERVAL_BUDGET`].
+    pub largest_interval_rules: u64,
+}
+
+impl LossFunctionEvaluation {
+    /// Whether every cell of the `ω_p` integral met its tolerance.
+    pub fn converged(&self) -> bool {
+        self.unconverged_cells == 0
+    }
 }
 
 /// The full Penn model built from one optical ELF. See the module docs.
@@ -405,10 +447,22 @@ impl FullPenn {
 
     /// The expanded loss function `Im[-1/ε(q, ω)]` in atomic units.
     fn loss_au(&self, q: f64, w: f64) -> f64 {
+        self.loss_eval_au(q, w).value
+    }
+
+    /// [`Self::loss_au`] with the work of its `ω_p` integral and whether
+    /// that integral converged.
+    fn loss_eval_au(&self, q: f64, w: f64) -> LossFunctionEvaluation {
         let (wmin, wmax) = self.table_range();
         let a = w / q - 0.5 * q;
         let x_a = (a.abs() / kf_coefficient()).powf(1.5).max(wmin);
-        let mut cont = 0.0;
+        let mut out = LossFunctionEvaluation {
+            value: 0.0,
+            lindhard_evaluations: 0,
+            unconverged_cells: 0,
+            unconverged_error: 0.0,
+            largest_interval_rules: 0,
+        };
         if x_a < wmax {
             let mut breaks = vec![x_a];
             if a + q > 0.0 {
@@ -426,29 +480,55 @@ impl FullPenn {
             breaks.sort_by(f64::total_cmp);
             breaks.dedup();
             let hint = Cell::new(1);
-            cont = integrate_weighted(
+            let count = Cell::new(0u64);
+            let r = integrate_weighted(
                 &self.gl,
                 &|x: f64| self.g_hint(x, &hint),
-                &mut |x: f64| [LindhardGas::from_plasma_frequency(x).loss_continuum(q, w)],
+                &mut |x: f64| {
+                    count.set(count.get() + 1);
+                    [LindhardGas::from_plasma_frequency(x).loss_continuum(q, w)]
+                },
                 &breaks,
                 self.rel_tol,
-            )[0];
+            );
+            out.value = r.value[0];
+            out.lindhard_evaluations = count.get();
+            out.unconverged_cells = r.unconverged_cells;
+            out.unconverged_error = r.unconverged_error[0];
+            out.largest_interval_rules = r.largest_segment_rules;
         }
-        cont + self.plasmon_term(q, w)
+        out.value += self.plasmon_term(q, w);
+        out
     }
 
     /// `Im[-1/ε(q, ω)]` of the full Penn algorithm (S2017 eq. (4)), at
     /// momentum transfer `q` (m⁻¹) and energy loss `ω` (eV). At `q = 0` it is
     /// the optical ELF.
     pub fn loss_function(&self, q_per_m: f64, loss_ev: f64) -> f64 {
+        self.loss_function_evaluation(q_per_m, loss_ev).value
+    }
+
+    /// [`Self::loss_function`] with the work of its `ω_p` integral (S2017
+    /// eq. (4)) and whether that integral met its tolerance; see
+    /// [`LossFunctionEvaluation`]. The `value` is the same number
+    /// [`Self::loss_function`] returns.
+    pub fn loss_function_evaluation(&self, q_per_m: f64, loss_ev: f64) -> LossFunctionEvaluation {
+        let mut out = LossFunctionEvaluation {
+            value: 0.0,
+            lindhard_evaluations: 0,
+            unconverged_cells: 0,
+            unconverged_error: 0.0,
+            largest_interval_rules: 0,
+        };
         if !(q_per_m.is_finite() && q_per_m >= 0.0 && loss_ev.is_finite() && loss_ev > 0.0) {
-            return 0.0;
+            return out;
         }
         let w = loss_ev / hartree_ev();
         if q_per_m == 0.0 {
-            return self.elf_au(w);
+            out.value = self.elf_au(w);
+            return out;
         }
-        self.loss_au(q_per_m * BOHR_RADIUS, w)
+        self.loss_eval_au(q_per_m * BOHR_RADIUS, w)
     }
 
     /// The DIIMFP `p(T, ω)` (S2017 eq. (2), nonrelativistic) at kinetic
@@ -554,7 +634,8 @@ impl FullPenn {
             &mut |x: f64| self.gas_moments(x, t),
             &self.outer,
             self.rel_tol,
-        );
+        )
+        .value;
         (r[0] / (PI * tp), r[1] / (PI * tp))
     }
 
