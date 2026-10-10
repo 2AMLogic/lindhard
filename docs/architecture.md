@@ -73,7 +73,12 @@ electron MC). The engines share the core and nothing else.
   defer to the platform libm, which can differ in the last bits between glibc,
   macOS libm and aarch64 builds. Such a difference can in principle flip a
   comparison inside a history and so change an integer count; the engine does
-  not promise otherwise.
+  not promise otherwise. "Same platform" means the same binary, C library
+  and libm code path: on x86-64, glibc picks its `exp`, `log` and `pow` code
+  by CPU feature (FMA, AVX2), and #319 measured that the FMA and non-FMA
+  paths build different cached electron tables from one binary. How a
+  validation row is compared across hosts is in
+  [`validation.md`](validation.md), "Reproducing the baseline across hosts".
 - **What is checked.** `lindhard/tests/golden.rs` pins small fixed-seed runs
   (amorphous BCA batch, crystal BCA batch, electron batch) to values
   generated on x86-64 Linux. The amorphous and electron runs are checked on

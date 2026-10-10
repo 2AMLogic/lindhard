@@ -27,6 +27,13 @@ of one cascade that the Poisson floor of se_yield.py leaves out. The change
 against the baseline is the mean of the per-seed differences (the same seeds
 are used for every row), with the standard error of those differences.
 
+Hosts (#319): a run's counts are exact only on one host and build, so every
+run made by `--run` names a record under `hosts` (OS, architecture, C library,
+CPU model, the rustc that built the binary and the binary's SHA-256) and
+carries the SHA-256 of the elastic and inelastic table files it read. Runs
+committed before #319 carry neither. The rule for adding a row is in
+docs/validation.md, "Reproducing the baseline across hosts".
+
 `--run` needs the `lindhard` binary (LINDHARD_BIN or a release build) and,
 for the acoustic-phonon row, the example
 `lindhard-cli/examples/acoustic_phonon_elastic.rs`
@@ -37,9 +44,12 @@ row reads `validation/data/optical/au_elf_hagemann1975_t6.toml`.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
 import os
+import platform
+import re
 import shutil
 import statistics
 import subprocess
@@ -245,7 +255,57 @@ def run_one(binary: Path, example, cache: Path, material: str, cand: str, histor
     r = s["results"]
     slow, fast = r["front"]["slow"], r["front"]["fast"]
     out.update(histories=r["histories"], slow=slow["count"], delta=slow["per_primary"], eta=fast["per_primary"])
+    out["tables"] = table_hashes(s)
     return out
+
+
+# --- where a run was made (#319) ------------------------------------------------------------------
+
+def table_hashes(summary: dict) -> dict:
+    """The SHA-256 of the cached elastic and inelastic table files a run read or built, from its summary
+    (`physics.materials.*_table.cache.sha256`). Two hosts that give different counts on the same input can be
+    told apart by these: different hashes, the table build differs; equal hashes, the transport does (#319)."""
+    out = {}
+    for m in summary.get("physics", {}).get("materials", []):
+        for kind in ("elastic", "inelastic"):
+            cache = (m.get(f"{kind}_table") or {}).get("cache")
+            if cache:
+                out[f"{m['name']} {kind}"] = cache["sha256"]
+    return out
+
+
+def rustc_of(binary: Path) -> str:
+    """The rustc that built `binary`, from the `rustc version ...` string it carries (the ELF `.comment`
+    section on Linux), or "unknown"."""
+    try:
+        m = re.search(rb"rustc version [0-9][^\x00\n]{0,80}", binary.read_bytes())
+    except OSError:
+        return "unknown"
+    return m.group(0).decode("ascii", "replace") if m else "unknown"
+
+
+def cpu_model() -> str:
+    try:
+        for line in Path("/proc/cpuinfo").read_text().splitlines():
+            if line.startswith("model name"):
+                return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return platform.processor() or "unknown"
+
+
+def host_record(binary: Path) -> dict:
+    """What a count can depend on beyond the input and the seed (#319): the OS and architecture, the C library
+    (whose libm the engine calls), the CPU (glibc picks its libm code path by CPU feature), the rustc that built
+    the binary and the binary's own SHA-256."""
+    libc, libc_version = platform.libc_ver()
+    return {"system": platform.system(), "machine": platform.machine(),
+            "libc": f"{libc} {libc_version}".strip() or "unknown", "cpu": cpu_model(), "rustc": rustc_of(binary),
+            "executable_sha256": hashlib.sha256(binary.read_bytes()).hexdigest()}
+
+
+def host_id(record: dict) -> str:
+    return hashlib.sha256(json.dumps(record, sort_keys=True).encode()).hexdigest()[:12]
 
 
 def do_run(args) -> int:
@@ -255,22 +315,35 @@ def do_run(args) -> int:
     cache = lindhard_cli.RUNS / "se_yield_candidates_table_cache"
     prev = json.loads(RESULTS.read_text()) if RESULTS.exists() else {"runs": []}
     keep = {(r["material"], r["candidate"], r["seed"]): r for r in prev["runs"]}
+    hosts = dict(prev.get("hosts", {}))
+    # Each run names the host record of the binary that made it, so rows made on different hosts or builds
+    # stay visible as such (docs/validation.md, "Reproducing the baseline across hosts").
+    ids = {}
+    for exe in (binary, example):
+        if exe is not None:
+            rec = host_record(exe)
+            ids[exe] = host_id(rec)
+            hosts[ids[exe]] = rec
     for m in args.material:
         for cand in args.candidates:
             if not applies(m, cand):
                 continue
             for seed in args.seeds:
                 r = run_one(binary, example, cache, m, cand, args.histories, seed)
+                r["host"] = ids[example if cand == "acoustic-phonon" else binary]
                 keep[(m, cand, seed)] = r
                 print(f"{m} {cand} seed {seed}: delta {r['delta']:.4f} eta {r['eta']:.4f}", flush=True)
-            RESULTS.write_text(json.dumps(assemble(binary, keep.values()), indent=1, sort_keys=True) + "\n")
+            used = {r.get("host") for r in keep.values()}
+            RESULTS.write_text(json.dumps(assemble(binary, keep.values(), {h: hosts[h] for h in used if h in hosts}),
+                                          indent=1, sort_keys=True) + "\n")
     return 0
 
 
-def assemble(binary: Path, runs) -> dict:
+def assemble(binary: Path, runs, hosts=None) -> dict:
     return {
         "format": {"name": "lindhard-se-yield-candidates-results", "version": 1},
         "software": lindhard_cli.version(binary),
+        "hosts": hosts or {},
         "settings": {
             "energy_ev": ENERGY_EV, "base_config": BASE_CONFIG, "se_split_ev": 50,
             "elastic_baseline": sy.ELASTIC_ID, "stand_in_potential": STAND_IN_POTENTIAL,
