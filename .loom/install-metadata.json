@@ -1,6 +1,6 @@
 {
-  "loom_version": "0.19.999",
-  "loom_commit": "20513e3064fa3a7c4b3f1c641d97a00446e9ba78",
+  "loom_version": "0.19.1009",
+  "loom_commit": "8889f7bd1eccfb4bc8239e7f5669b65f9815c30e",
   "install_date": "2026-10-04",
   "loom_source_remote": "https://github.com/rjwalters/loom.git",
   "installed_files": [
@@ -53,7 +53,6 @@
     ".claude/commands/loom/loom-iteration.md",
     ".claude/commands/loom/loom-parent.md",
     ".claude/commands/loom/loom.md",
-    ".claude/commands/loom/mail-send.md",
     ".claude/commands/loom/probe-protocol.md",
     ".claude/commands/loom/star.md",
     ".claude/commands/loom/sweep-arguments.md",
@@ -103,7 +102,6 @@
     ".loom/docs/daemon-reference.md",
     ".loom/docs/dispatch-plan.md",
     ".loom/docs/dispatcher-repo-sharding.md",
-    ".loom/docs/eta.md",
     ".loom/docs/fleet-comms.md",
     ".loom/docs/fleet-config-lifecycle.md",
     ".loom/docs/forge-authentication.md",
@@ -119,7 +117,6 @@
     ".loom/docs/guardrail-parity-native.md",
     ".loom/docs/health-monitoring.md",
     ".loom/docs/hyperparameters.md",
-    ".loom/docs/inbox-mail.md",
     ".loom/docs/issue-filing-lock.md",
     ".loom/docs/issue-pr-linking.md",
     ".loom/docs/judge-reference-rationale.md",
@@ -513,7 +510,6 @@
     ".loom/scripts/tests/test-guide-work-plan-ready-open-pr-exclude.sh",
     ".loom/scripts/tests/test-hard-exclusion-labels.sh",
     ".loom/scripts/tests/test-host-sleep-config.sh",
-    ".loom/scripts/tests/test-inbox-mail.sh",
     ".loom/scripts/tests/test-install-active-session.sh",
     ".loom/scripts/tests/test-install-agents-md-reapply.sh",
     ".loom/scripts/tests/test-install-full-reinstall-no-target-mutation.sh",
@@ -703,7 +699,11 @@
     ".loom/docs/comment-body-heredoc-quoting.md",
     ".agents/skills/loom-auditor/SKILL.md",
     ".agents/skills/loom-comment-body-literal-path/SKILL.md",
-    ".agents/skills/loom-curator/SKILL.md"
+    ".agents/skills/loom-curator/SKILL.md",
+    ".loom/docs/priority-model.md",
+    ".loom/docs/rollout-check.md",
+    ".loom/docs/telemetry-kind-pick-decision.md",
+    ".loom/scripts/tests/test-sweep-lease-renew-lifecycle.sh"
   ],
   "last_resync": "2026-10-10",
   "requires_daemon": "0.19.772"
