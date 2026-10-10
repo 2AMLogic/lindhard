@@ -36,7 +36,8 @@ class OneChangeAtATime(unittest.TestCase):
 
     def test_every_candidate_changes_exactly_one_line(self):
         expect = {"elastic-stand-in": "potential = ", "elastic-no-exchange": "exchange = ", "phi-low": "band = ",
-                  "phi-high": "band = ", "fermi-tpp2011": "band = ", "barrier-off": "boundary = "}
+                  "phi-high": "band = ", "fermi-tpp2011": "band = ", "barrier-off": "boundary = ",
+                  "binding-azzolini": "band = "}
         for m in sc.MATERIALS:
             for cand, start in expect.items():
                 diff = changed_lines(m, cand)
@@ -72,6 +73,17 @@ class OneChangeAtATime(unittest.TestCase):
             self.assertIn(f"fermi_ev = {sc.FERMI_TPP2011_EV[m]!r}", text)
             self.assertIn(f"work_function_ev = {sy.BAND[m]['work_function_ev']['mid']!r}", text)
             self.assertIn("doi:10.1002/sia.3522", text)
+
+    def test_binding_row_adds_only_the_printed_binding_to_the_baseline_band(self):
+        self.assertEqual(sc.AZZOLINI_BINDING_EV, {"Cu": 7.726, "Au": 9.226})
+        for m in sc.MATERIALS:
+            (base, new), = changed_lines(m, "binding-azzolini")
+            b = sc.AZZOLINI_BINDING_EV[m]
+            self.assertIn(f"valence_binding_ev = {b!r}", new)
+            self.assertIn("arXiv:1809.00859v1", new)
+            # Everything else of the baseline band is kept: kind, valence count, mid work function.
+            self.assertEqual(new.replace(f"valence_binding_ev = {b!r}, ", "").replace(
+                f"{sc.AZZOLINI_PROVENANCE}; ", ""), base)
 
     def test_no_exchange_keeps_the_dhfs_potential(self):
         text = sc.make_input("Au", "elastic-no-exchange", 2000, 1, "elf.toml")

@@ -77,6 +77,22 @@ FERMI_TPP2011_PROVENANCE = (
     "delta(E) runs (se_yield.py, METAL_BAND_PROVENANCE)."
 )
 
+# The binding row (#301, item 5). M. Azzolini, M. Angelucci, R. Cimino, R. Larciprete, N. M. Pugno, S. Taioli and
+# M. Dapor, "Secondary electron emission and yield spectra of metals from Monte Carlo simulations and experiments",
+# arXiv:1809.00859v1 (2018), https://arxiv.org/pdf/1809.00859 (SHA-256 56b09f11...fd61af2f), opened 2026-10-09.
+# p. 6: "should the energy loss be larger than the first ionization energy B (that is, the energy required to
+# extract one electron from the outern electron shell of the target atom), a secondary electron is emitted with
+# kinetic energy equal to W - B"; Table I, p. 7, "<B> (eV)", "the mean ionization energy characteristic of each
+# sample": Cu 7.726, Au 9.226. Their energies inside the solid are counted from the Fermi level (p. 3: the incident
+# energy is raised by the work function, and an electron escapes if E cos^2(theta) >= chi), so W - B above the Fermi
+# level is lindhard's valence binding B below it (BandStructure::with_valence_binding_ev). Only this rule and these
+# two numbers are taken; the rest of their model (ELF, work functions) is not.
+AZZOLINI_BINDING_EV = {"Cu": 7.726, "Au": 9.226}
+AZZOLINI_PROVENANCE = (
+    "Valence binding of the #301 item 5 sensitivity run, not a band default: B of Table I, p. 7, of Azzolini et al., "
+    "arXiv:1809.00859v1 (2018), with the rule of p. 6 (a loss W > B emits a secondary of W - B)"
+)
+
 # The elastic rows. The delta(E) runs before #149's DHFS rerun used the Thomas-Fermi Yukawa stand-in potential
 # and left `exchange` at its default, off; the rerun changed both at once. Here each is changed alone, and the
 # `elastic-pre-149` row (both, a context row) repeats the old elastic model.
@@ -100,6 +116,9 @@ CANDIDATES = {
     "phi-high": ("(c) band", "work function at the high end of its cited range"),
     "fermi-tpp2011": ("(c) band", "Fermi energy of TPP 2011, Table 1, instead of the free-electron value "
                                   "(one valence electron)"),
+    "binding-azzolini": ("(d) secondary binding (#301)",
+                         "the electron liberated by a valence loss W is bound B below the Fermi level instead of at "
+                         "it (B: Azzolini et al. 2018, Table I, Au 9.226 eV, Cu 7.726 eV); a loss W <= B frees none"),
     "barrier-off": ("context", "transparent boundary: no barrier at all (not a candidate; the largest effect the "
                                "barrier can have)"),
     "elastic-pre-149": ("context", "stand-in potential and exchange off together: the elastic model of the δ(E) "
@@ -145,6 +164,11 @@ def make_input(material: str, cand: str, histories: int, seed: int, elf_name: st
         w = sy.BAND[material]["work_function_ev"]["mid"]
         text = _replace_band(text, f'band = {{ kind = "metal", fermi_ev = {FERMI_TPP2011_EV[material]!r}, '
                                    f'work_function_ev = {w!r}, provenance = "{FERMI_TPP2011_PROVENANCE}" }}')
+    elif cand == "binding-azzolini":
+        line = _replace_once(sy.band_line(material, "mid"), ', provenance = "',
+                             f', valence_binding_ev = {AZZOLINI_BINDING_EV[material]!r}, '
+                             f'provenance = "{AZZOLINI_PROVENANCE}; ')
+        text = _replace_band(text, line)
     elif cand == "barrier-off":
         text = _replace_once(text, 'boundary = "step-barrier"', 'boundary = "transparent"')
     return text
@@ -236,6 +260,7 @@ def assemble(binary: Path, runs) -> dict:
             "elastic_baseline": sy.ELASTIC_ID, "stand_in_potential": STAND_IN_POTENTIAL,
             "fermi_tpp2011_ev": FERMI_TPP2011_EV, "fermi_tpp2011_provenance": FERMI_TPP2011_PROVENANCE,
             "acoustic_materials": list(ACOUSTIC_MATERIALS),
+            "azzolini_binding_ev": AZZOLINI_BINDING_EV, "azzolini_provenance": AZZOLINI_PROVENANCE,
             "candidates": {k: {"candidate": v[0], "change": v[1]} for k, v in CANDIDATES.items()},
         },
         "runs": sorted(runs, key=lambda r: (r["material"], r["candidate"], r["seed"])),

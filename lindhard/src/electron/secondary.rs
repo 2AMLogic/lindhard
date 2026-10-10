@@ -25,7 +25,12 @@
 //!
 //! - in a metal, `B = 0`: the electron comes from the Fermi level (Nebula's
 //!   handling when no binding energy applies), and every event with `W > 0`
-//!   makes one;
+//!   makes one. A band built with
+//!   [`BandStructure::with_valence_binding_ev`] sets `B` to that value
+//!   instead (the rule of Azzolini et al., arXiv:1809.00859, p. 6; cited
+//!   there), and then only an event with `W > B` makes one, a loss
+//!   `W <= B` staying in the solid as below; `B = 0` is the default
+//!   unchanged;
 //! - in a semiconductor or insulator, `B = E_g` when `W > E_g`, an excitation
 //!   across the gap (Verduin p. 78; Nebula sets the binding energy to the
 //!   band gap); an event with `W <= E_g` makes no secondary and its energy
@@ -171,9 +176,13 @@ pub(crate) fn kieft_bosch<R: Rng>(
     rng: &mut R,
 ) -> Outcome {
     let binding = match band.band_gap_ev() {
-        None if w_ev > 0.0 => Some(0.0),
+        None => {
+            // The Fermi level (0) unless the band sets a valence binding.
+            let b = band.valence_binding_ev().unwrap_or(0.0);
+            (w_ev > b).then_some(b)
+        }
         Some(gap) if w_ev > gap => Some(gap),
-        _ => None,
+        Some(_) => None,
     };
     let Some(b) = binding else {
         return Outcome {

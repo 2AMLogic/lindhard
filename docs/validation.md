@@ -2083,8 +2083,9 @@ should change, and whether the Al, Au and Si bound failures are accepted, are
 operator decisions under #149, whose bounds gate the default. None of the
 bounds was loosened and no default or constant was changed for the DHFS rerun
 or the Si runs. The open gaps are the Au and Cu excess that Mermin shares
-(#242 tested its candidates, below, and none explains it; what could not be
-tested is #301), the
+(#242 tested its candidates, below, and none explains it; #301 added the
+binding-energy row, and what could still not be tested is split into
+#312 to #315), the
 energy-reference convention of the inelastic table (documented, not changed;
 #241), full Penn (cost; table reuse is tracked in #168; the rows wait on
 #256), the incomplete high-energy `cutoff-band-bottom` points, the
@@ -2103,13 +2104,17 @@ by `validation/experiments/se_yield_candidates.py` (ten seeds of 2000
 primaries per row; the error is the batch-means standard error over the
 seeds, which includes the cascade correlation). Seed 1 of the baseline
 reproduces the 800 eV entries of the `mermin` rows above exactly (Au
-2.0375, Cu 1.6295). The runs predate the band-bottom inelastic tables of
-#241; #287 reruns the yield tables with them.
+2.0375, Cu 1.6295). The `binding-azzolini` row is item 5 of #301; for it the
+whole table was run again on one build, and every #242 row reproduced its
+committed δ and η seed by seed, so only the build label and the new row
+changed. The runs predate the band-bottom inelastic tables of #241 (#289,
+not merged) and the Mermin fit changes of #306 and #311; #287 reruns the
+yield tables with the former.
 `se_yield_candidates.py --check` checks that the block below is the
 script's output for the committed results.
 
 <!-- validation:level3-se-yield-candidates:begin -->
-**One change at a time, 800 eV** (`lindhard 0.0.1 (8a47748)`; baseline: the `mermin` configuration; 10 seeds (1 to 10) of 2000 primaries per row; δ ± the standard error of the mean over the seeds; the change is the mean of the per-seed differences from the baseline ± its standard error, and in per cent of the baseline):
+**One change at a time, 800 eV** (`lindhard 0.0.1 (c755234)`; baseline: the `mermin` configuration; 10 seeds (1 to 10) of 2000 primaries per row; δ ± the standard error of the mean over the seeds; the change is the mean of the per-seed differences from the baseline ± its standard error, and in per cent of the baseline):
 
 | Row | Candidate | What is changed | Au δ | Au change | Au η | Cu δ | Cu change | Cu η |
 |---|---|---|---|---|---|---|---|---|
@@ -2120,6 +2125,7 @@ script's output for the committed results.
 | `phi-low` | (c) band | work function at the low end of its cited range | 2.183 ± 0.019 | +0.095 ± 0.011 (+5 %) | 0.540 ± 0.005 | 1.806 ± 0.019 | +0.132 ± 0.012 (+8 %) | 0.541 ± 0.003 |
 | `phi-high` | (c) band | work function at the high end of its cited range | 2.007 ± 0.020 | -0.080 ± 0.019 (-4 %) | 0.537 ± 0.006 | 1.560 ± 0.014 | -0.114 ± 0.013 (-7 %) | 0.533 ± 0.003 |
 | `fermi-tpp2011` | (c) band | Fermi energy of TPP 2011, Table 1, instead of the free-electron value (one valence electron) | 2.007 ± 0.013 | -0.081 ± 0.014 (-4 %) | 0.533 ± 0.005 | 1.679 ± 0.017 | +0.004 ± 0.011 (+0 %) | 0.530 ± 0.003 |
+| `binding-azzolini` | (d) secondary binding (#301) | the electron liberated by a valence loss W is bound B below the Fermi level instead of at it (B: Azzolini et al. 2018, Table I, Au 9.226 eV, Cu 7.726 eV); a loss W <= B frees none | 0.648 ± 0.006 | -1.440 ± 0.018 (-69 %) | 0.486 ± 0.005 | 0.483 ± 0.006 | -1.191 ± 0.017 (-71 %) | 0.501 ± 0.003 |
 | `barrier-off` | context | transparent boundary: no barrier at all (not a candidate; the largest effect the barrier can have) | 3.980 ± 0.032 | +1.892 ± 0.021 (+91 %) | 0.663 ± 0.005 | 2.825 ± 0.026 | +1.151 ± 0.026 (+69 %) | 0.638 ± 0.004 |
 | `elastic-pre-149` | context | stand-in potential and exchange off together: the elastic model of the δ(E) runs before the DHFS rerun (two changes, so not a candidate row) | 2.632 ± 0.009 | +0.544 ± 0.021 (+26 %) | 0.354 ± 0.004 | 1.859 ± 0.011 | +0.184 ± 0.019 (+11 %) | 0.522 ± 0.005 |
 
@@ -2127,18 +2133,21 @@ script's output for the committed results.
 
 | Material | Measured median δ_max [min, max] | Baseline δ (800 eV) | Excess | Largest reduction by a candidate row | Excess with it |
 |---|---|---|---|---|---|
-| Au | 1.468 [1.395, 1.540] | 2.088 | +42 % | `fermi-tpp2011`: -0.081 | +37 % |
-| Cu | 1.276 [1.034, 1.573] | 1.674 | +31 % | `phi-high`: -0.114 | +22 % |
+| Au | 1.468 [1.395, 1.540] | 2.088 | +42 % | `binding-azzolini`: -1.440 | -56 % |
+| Cu | 1.276 [1.034, 1.573] | 1.674 | +31 % | `binding-azzolini`: -1.191 | -62 % |
 
 Control of the `acoustic-phonon` row (Au, seed 1): the example with the input's own tables gives δ 2.0375; `lindhard run` gives 2.0375. Elastic collisions below 100 eV per primary: 1304 with the Mott rows, 203 with the acoustic-phonon rows.
 <!-- validation:level3-se-yield-candidates:end -->
 
 **Result (as of 2026-10-09): no tested candidate explains the excess.** At
 800 eV the Mermin δ is 42 % (Au) and 31 % (Cu) above the measured median
-δ_max. The largest reduction that any candidate row gives is 4 % for Au
-and 7 % for Cu. Nothing was adjusted, no default was changed and no bound
-was loosened; Cu's `default` curve passes the #149 bounds as before, since
-no physics of the δ(E) tables changed.
+δ_max. The largest reduction that any #242 row gives is 4 % for Au and
+7 % for Cu. The binding row of #301 lowers δ by 69 % and 71 %, overshooting
+to 56 % and 62 % below the median, so it does not explain the excess
+either; it shows that the binding of the secondary is the largest lever
+tested. Nothing was adjusted, no default was changed and no bound was
+loosened; Cu's `default` curve passes the #149 bounds as before, since no
+physics of the δ(E) tables changed.
 
 - **(a) Elastic scattering: tested, already in the baseline, and not
   enough.** The DHFS rerun of #149 changed two things at once, because the
@@ -2237,11 +2246,29 @@ no physics of the δ(E) tables changed.
     `P_eff` of the Cu table ("Cu: the Mermin IMFP and the default
     oscillator fit", under level 1). Whether that moves the Cu yield, and
     which way, was not tested (#306).
-  - *The binding energy of the secondary: not tested.* In a metal the
-    secondary model gives the secondary the whole loss, whatever was
-    excited (binding 0; `electron::secondary`), and there is no switch for
-    it. Inner-shell channels are #273; whether a deep shell matters for Au
-    or Cu at 800 eV was neither ruled in nor out.
+  - *The binding energy of the secondary*: tested under (d).
+- **(d) The binding energy of the secondary (#301, item 5): tested, and it
+  lowers δ far past the measurements.** By default a valence loss `W` in a
+  metal gives the secondary `E_F + W` (binding 0, the Fermi level;
+  `electron::secondary`). Azzolini et al., arXiv:1809.00859v1 (2018), p. 6,
+  instead emit a secondary of `W - B` only when `W > B`, with `B` "the
+  first ionization energy" of their Table I, p. 7 (Au 9.226 eV,
+  Cu 7.726 eV); their energies inside the solid are counted from the Fermi
+  level (p. 3), so this is binding `B` below the Fermi level. The row turns
+  on that rule through the new metal-band key `valence_binding_ev`
+  (`BandStructure::with_valence_binding_ev`; off by default, and the
+  default runs are bit-identical). δ falls by 69 % (Au) and 71 % (Cu), to
+  56 % and 62 % *below* the measured median; η falls by 10 % (Au) and 6 %
+  (Cu). The change is many times the excess and in the right direction, so
+  δ is very sensitive to where the liberated electron starts; but this `B`
+  does not reproduce the measurements either, and choosing a smaller one
+  to match them would be a fit, which is not done. In the Kieft-Bosch
+  model `B` also enters the direction of the secondary and the deflection
+  of the primary (Verduin Eqs. 3.105-3.111); this row changes both with
+  the energy and does not separate them. Azzolini et al. chose their work
+  functions together with this `B` and their own ELF (p. 10, quoted
+  below), so their agreement with experiment is not a test of `B` alone.
+  Inner-shell channels are #273 and are off in these runs.
 - **What the literature says, and does not.** No source was found that
   shows this excess to be the published behaviour of these models. Three
   that were opened bear on it. TPP 2011, p. 7, replaced the Hagemann et
@@ -2267,10 +2294,12 @@ by the runs above: the stand-in elastic potential and the missing exchange
 correction (both already corrected in the baseline), the absence of the
 acoustic-phonon replacement of Verduin (2017) for Au in the elastic form
 tested (it raises δ), the work function within its cited range, and the
-Fermi energy between the free-electron value and TPP's. Left untested, with
-the reason for each, in #301: acoustic-phonon scattering for Cu, the phonon
-energy loss, a second Au ELF, the elastic corrections below 50 eV, and the
-secondary's binding energy. The measurements themselves are a weak anchor
+Fermi energy between the free-electron value and TPP's. Tested and not the
+explanation in the published form: the secondary's binding energy of
+Azzolini et al. (it overshoots; (d)). Left untested, with the reason for
+each, one issue per item from #301: acoustic-phonon scattering for Cu
+(#312), the phonon energy loss (#313), a second Au ELF (#314), and the
+elastic corrections below 50 eV (#315). The measurements themselves are a weak anchor
 (two resolving sets for Au, three for Cu, surface condition and incidence
 not stated; above).
 
