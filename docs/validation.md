@@ -284,8 +284,8 @@ Reading the table (reported, not tuned):
 
 ### Cu: the Mermin IMFP and the default oscillator fit (#300)
 
-The `mermin-melf` IMFP of Cu is 15 to 41 % longer than TPP 2011 and than
-the single-pole model on the same table, while full Penn and single pole
+The `mermin-melf` IMFP of Cu is 15 to 41 % longer than TPP 2011 and 18 to
+34 % longer than the single-pole model on the same table, while full Penn and single pole
 agree with TPP (table above). The cause is the **default oscillator fit**
 (`MerminFitOptions::default()`: 3 oscillators, relative weighting with
 floor `1e-2 max ELF`), not the Mermin dielectric function or the momentum
@@ -318,9 +318,8 @@ the last two columns, so:
   below 20 eV: table 0.535, fit 0.243): three Drude-Lorentz terms
   (8.8, 28.6 and 86.6 eV) cannot follow the 4 to 20 eV structure, where
   the fitted ELF is a quarter to a half of the table (at 15 eV 0.20 against
-  0.62). Above 1 keV the fit carries 0.11 of the table's f-sum (the L and
-  K shells). The `1/ω` weight of the low losses is why the short-fall
-  matters most at 54.6 eV.
+  0.62). That the short-fall matters most at 54.6 eV is consistent with
+  the `1/ω` weight of the low losses (not measured separately).
 - **The Mermin extension shortens, not lengthens.** On the same fitted ELF
   the Mermin IMFP is 7 to 25 % *shorter* than the single-pole one, the
   sign of the synthetic Drude comparison in the `mermin` module docs
@@ -2215,8 +2214,8 @@ no physics of the δ(E) tables changed.
     agreement is not a test of the committed Au ELF at any energy, and
     TPP tabulate nothing below 54.6 eV, which is where the secondaries
     are.
-    For Cu the Mermin IMFP is 15 to 41 % longer than TPP's and than the
-    single-pole model's on the same ELF. #300 traced this to the default
+    For Cu the Mermin IMFP is 15 to 41 % longer than TPP's and 18 to 34 %
+    longer than the single-pole model's on the same ELF. #300 traced this to the default
     3-oscillator fit, which carries 57 % of the f-sum and 67 % of the
     `P_eff` of the Cu table ("Cu: the Mermin IMFP and the default
     oscillator fit", under level 1). Whether that moves the Cu yield, and

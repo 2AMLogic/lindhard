@@ -190,8 +190,8 @@ fn rejects_invalid_inputs() {
 
 // ---- Cu: the default fit of the committed ELF (#300) ----
 //
-// The `mermin-melf` IMFP of Cu is 15 to 41 % longer than TPP 2011 and than
-// the single-pole model on the same table (`docs/validation.md`, "Cu: the
+// The `mermin-melf` IMFP of Cu is 15 to 41 % longer than TPP 2011 and 18 to
+// 34 % longer than the single-pole model on the same table (`docs/validation.md`, "Cu: the
 // Mermin IMFP and the default oscillator fit"). The tests below pin the
 // finding: the default fit (3 oscillators) carries 57 % of the table's f-sum
 // and 67 % of its `P_eff`, most of the missing `P_eff` below 20 eV; the
