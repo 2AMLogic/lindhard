@@ -14,6 +14,10 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
+use lindhard::tally::IonReport;
+
+use crate::output;
+use crate::tally::CliTally;
 
 /// An output directory in the middle of a run, for one mode's summary file.
 #[derive(Debug)]
@@ -120,6 +124,31 @@ impl OutputSet {
     }
 }
 
+/// Publishes a static ion run's outputs into the existing directory `out`:
+/// invalidates the previous `summary.json`, replaces the four required CSVs,
+/// writes or removes the optional `ions.csv` (per `tally.per_ion`), and
+/// publishes `summary` last. `summary` is serialized by the caller before any
+/// output is touched. Shared by the `lindhard run` command and the Python
+/// bindings so both follow one directory-reuse policy.
+pub fn publish_static_ion(
+    out: &Path,
+    summary: String,
+    tally: &CliTally,
+    report: &IonReport,
+) -> Result<()> {
+    let set = OutputSet::begin(out, output::SUMMARY_FILE, summary)?;
+    set.write(output::DEPTH_FILE, output::depth_csv(tally))?;
+    set.write(output::LATERAL_FILE, output::lateral_csv(report))?;
+    set.write(output::DAMAGE_FILE, output::damage_csv(report))?;
+    set.write(output::ESCAPES_FILE, output::escapes_csv(report))?;
+    set.reconcile_optional(
+        output::IONS_FILE,
+        tally.per_ion.then(|| output::ions_csv(tally)),
+    )?;
+    // Last, so the summary describes the completed output set.
+    set.publish()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -219,5 +248,100 @@ mod tests {
         o.publish().unwrap();
         assert!(!target.exists());
         assert_eq!(std::fs::read_to_string(d.join("s.json")).unwrap(), "new");
+    }
+
+    const INPUT: &str = r#"
+[beam]
+ion = "B"
+energy_ev = 5000.0
+
+[target]
+substrate = "Si"
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 5
+seed = 1
+"#;
+
+    /// Runs a tiny simulation and returns its serialized summary and parts.
+    fn sim(per_ion: bool) -> (String, crate::sim::Simulation) {
+        let text = format!("{INPUT}\n[tally]\nper_ion = {per_ion}\n");
+        let input = lindhard::input::Input::from_toml_str(&text).unwrap();
+        let r = input.resolve().unwrap();
+        let s = crate::sim::simulate(&r, Some(1)).unwrap();
+        let summary =
+            output::summary_json(&r, &s.table, &s.tally, &s.report, &s.crystals, s.info).unwrap();
+        (summary, s)
+    }
+
+    const CSVS: [&str; 4] = [
+        output::DEPTH_FILE,
+        output::LATERAL_FILE,
+        output::DAMAGE_FILE,
+        output::ESCAPES_FILE,
+    ];
+
+    #[test]
+    fn static_ion_writes_all_files_and_summary_last() {
+        let d = dir("static-ok");
+        let (summary, s) = sim(true);
+        publish_static_ion(&d, summary.clone(), &s.tally, &s.report).unwrap();
+        for n in CSVS.iter().chain(&[output::IONS_FILE]) {
+            assert!(d.join(n).is_file(), "{n}");
+        }
+        assert_eq!(
+            std::fs::read_to_string(d.join(output::SUMMARY_FILE)).unwrap(),
+            summary
+        );
+    }
+
+    #[test]
+    fn static_ion_removes_stale_ions_csv_and_keeps_unrelated_files() {
+        let d = dir("static-stale");
+        let (sum1, s1) = sim(true);
+        publish_static_ion(&d, sum1, &s1.tally, &s1.report).unwrap();
+        std::fs::write(d.join("notes.txt"), "mine").unwrap();
+        let (sum2, s2) = sim(false);
+        publish_static_ion(&d, sum2, &s2.tally, &s2.report).unwrap();
+        assert!(!d.join(output::IONS_FILE).exists());
+        assert!(d.join(output::SUMMARY_FILE).is_file());
+        assert_eq!(
+            std::fs::read_to_string(d.join("notes.txt")).unwrap(),
+            "mine"
+        );
+    }
+
+    #[test]
+    fn static_ion_failed_csv_leaves_no_summary_on_reused_dir() {
+        let d = dir("static-fail");
+        let (sum, s) = sim(true);
+        publish_static_ion(&d, sum.clone(), &s.tally, &s.report).unwrap();
+        // Obstruct a later required CSV with a directory.
+        std::fs::remove_file(d.join(output::DAMAGE_FILE)).unwrap();
+        std::fs::create_dir(d.join(output::DAMAGE_FILE)).unwrap();
+        let e = publish_static_ion(&d, sum, &s.tally, &s.report).unwrap_err();
+        assert!(format!("{e:#}").contains(output::DAMAGE_FILE));
+        assert!(!d.join(output::SUMMARY_FILE).exists());
+    }
+
+    #[test]
+    fn static_ion_failed_invalidation_changes_no_csv() {
+        let d = dir("static-invalidate");
+        let (sum, s) = sim(true);
+        for n in CSVS {
+            std::fs::write(d.join(n), "old").unwrap();
+        }
+        std::fs::create_dir_all(d.join(output::SUMMARY_FILE).join("inner")).unwrap();
+        let e = publish_static_ion(&d, sum, &s.tally, &s.report).unwrap_err();
+        assert!(format!("{e:#}").contains(output::SUMMARY_FILE));
+        for n in CSVS {
+            assert_eq!(std::fs::read_to_string(d.join(n)).unwrap(), "old", "{n}");
+        }
     }
 }

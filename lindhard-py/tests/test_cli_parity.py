@@ -7,6 +7,7 @@ import subprocess
 
 import lindhard as lh
 import numpy as np
+import pytest
 from conftest import EXAMPLES
 
 IONS = 100
@@ -142,3 +143,57 @@ def test_same_seed_reproduces_and_seed_matters():
     c = run.run(ions=200, seed=2)
     assert np.array_equal(a.depth.counts, b.depth.counts)
     assert not np.array_equal(a.ions["energy_ev"], c.ions["energy_ev"])
+
+
+# Directory reuse and failure behaviour follows the command's output lifecycle.
+
+REUSE_EXAMPLE = EXAMPLES / "ar_1keV_cu.toml"
+
+
+def small_run(per_ion):
+    run = lh.Run.from_toml_file(REUSE_EXAMPLE)
+    t = run.tally
+    t.per_ion = per_ion
+    run.tally = t
+    return run.run(ions=20, seed=SEED)
+
+
+def test_write_removes_stale_ions_csv_and_keeps_unrelated_files(tmp_path):
+    small_run(True).write(tmp_path)
+    assert (tmp_path / "ions.csv").is_file()
+    (tmp_path / "notes.txt").write_text("mine")
+    small_run(False).write(tmp_path)
+    assert not (tmp_path / "ions.csv").exists()
+    assert (tmp_path / "summary.json").is_file()
+    assert (tmp_path / "notes.txt").read_text() == "mine"
+
+
+def test_write_obstructed_csv_on_fresh_dir_names_path_and_leaves_no_summary(tmp_path):
+    (tmp_path / "damage_profile.csv").mkdir()
+    with pytest.raises(OSError, match="damage_profile.csv"):
+        small_run(True).write(tmp_path)
+    assert not (tmp_path / "summary.json").exists()
+
+
+def test_write_failure_on_reused_dir_leaves_no_old_summary(tmp_path):
+    res = small_run(True)
+    res.write(tmp_path)
+    assert (tmp_path / "summary.json").is_file()
+    (tmp_path / "escape_spectra.csv").unlink()
+    (tmp_path / "escape_spectra.csv").mkdir()
+    with pytest.raises(OSError, match="escape_spectra.csv"):
+        res.write(tmp_path)
+    assert not (tmp_path / "summary.json").exists()
+
+
+def test_write_failed_summary_invalidation_changes_no_csv(tmp_path):
+    names = ["depth_profile.csv", "lateral_profile.csv", "damage_profile.csv",
+             "escape_spectra.csv"]
+    for n in names:
+        (tmp_path / n).write_text("old")
+    (tmp_path / "summary.json").mkdir()
+    (tmp_path / "summary.json" / "inner").write_text("x")
+    with pytest.raises(OSError, match="summary.json"):
+        small_run(True).write(tmp_path)
+    for n in names:
+        assert (tmp_path / n).read_text() == "old", n

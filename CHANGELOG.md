@@ -9,6 +9,10 @@ one version).
 
 ### Fixed
 
+- Python `RunResult.write()` now follows the command's output lifecycle: it
+  removes the previous `summary.json` before replacing any CSV, removes a
+  stale `ions.csv` when per-ion output is off, and writes the summary last.
+  Both callers share `lindhard_cli::publish::publish_static_ion` (#327).
 - A run into a reused output directory removes its mode's previous summary
   before replacing any CSV, and publishes the new summary through a
   temporary file and rename, so a failed rerun no longer leaves an old summary
