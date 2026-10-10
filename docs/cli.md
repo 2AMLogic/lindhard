@@ -535,6 +535,46 @@ Every name the target uses needs an entry; an unused entry warns.
 | `band` | none | Band parameters, required with `kieft-bosch`, `step-barrier` or `vacuum-level`: `{ kind = "metal", fermi_ev, work_function_ev, provenance }`, `{ kind = "insulator", valence_band_width_ev, band_gap_ev, affinity_ev, provenance }` or `{ kind = "free-electron-metal", valence_electrons_per_atom, work_function_ev, provenance }` (`lindhard::electron::boundary::BandStructure`; a blank provenance is refused). Either metal kind also takes an optional `valence_binding_ev`: the electron a valence loss liberates is bound that far below the Fermi level instead of at it, and a smaller loss frees none (`BandStructure::with_valence_binding_ev`; absent by default; its source belongs in `provenance`) |
 | `phonon` | none (off) | Fröhlich LO-phonon channel, polar insulators only: `{ hbar_omega_ev, eps_static, eps_high_frequency, temperature_k, provenance }`, or `{ preset = "sio2-63mev" \| "sio2-153mev", temperature_k }` (the library's cited SiO₂ values) |
 | `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
+| `mermin_fit` | none (the default fit) | Options of this material's Mermin oscillator fit, `mermin-melf` only: see below |
+
+**`[electron.materials.<name>.mermin_fit]`** (`lindhard::electron::inelastic::MerminFitOptions`):
+the `mermin-melf` model fits Drude-Lorentz oscillators to each material's
+optical ELF (`fit_mermin_oscillators`) and extends them in momentum with the
+Mermin dielectric function (Mermin, Phys. Rev. B 1, 2362 (1970); de Vera et
+al., Int. J. Mol. Sci. 23, 6121 (2022)). This optional table sets the fit for
+one material; without it the fit uses `MerminFitOptions::default()` and
+results are unchanged. With any other `electron.inelastic.model` the table is
+an error, since nothing would use it.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `oscillators` | 3 | Number of oscillators, 1 to 16 |
+| `weighting` | `"relative"` | `relative`: residuals divided by `ELF + relative_floor · max ELF`, so the tails count; `uniform`: absolute residuals |
+| `relative_floor` | 0.01 | The floor of `relative`, in `(0, 1]`; an error with `uniform` |
+
+The starting point and the iteration cap of the fit are not exposed. The fit
+is recorded, oscillator by oscillator, in the inelastic table's `model`
+string; the fit also reports its f-sum and `P_eff` sum rules against the
+table's (`MerminFit`), which are worth checking when choosing the options.
+Three oscillators do not describe every ELF: the default fit of the Cu ELF
+in `validation/data/optical` recovers 57 % of its f-sum and 67 % of its
+`P_eff` (`docs/validation.md`, "Cu: the Mermin IMFP and the default oscillator fit"), so such a material
+should use more. More oscillators can also give very wide ones (#311). For
+example:
+
+```toml
+[electron.inelastic]
+model = "mermin-melf"
+
+[electron.materials.Cu]
+optical_elf = "cu_elf.toml"
+
+[electron.materials.Cu.mermin_fit]
+oscillators = 6
+```
+
+The echoed input repeats the table, with its defaults filled in, only when
+it is given.
 
 No optical or band data of any real material is committed
 ([`data-provenance.md`](data-provenance.md)); the data files are the user's,
@@ -771,9 +811,10 @@ the table depends on:
   corrections with all their inputs, the starting probability grid and the
   refinement tolerance;
 - inelastic: the model (`electron.inelastic.model`), its Fermi energy, the
-  SHA-256 and provenance of the optical ELF file, and the material's band
+  SHA-256 and provenance of the optical ELF file, the material's band
   parameters (they set the table's axis and Fermi energy for a material with
-  a band).
+  a band) and, with `mermin-melf`, the material's resolved Mermin fit options
+  (`mermin_fit`; no table and a table of the defaults give the same key).
 
 Every `f64` is written in shortest round-trip form, so a change in the last
 bit of any number is a different key. A lookup must find the stored key

@@ -409,3 +409,57 @@ fn c_default_fit_starts_on_the_floor_and_leaves_it() {
     }
     close(fit.weighted_rms, 0.29194, "C weighted rms");
 }
+
+// ---- Cu: the fit options of the electron input (#306) ----
+
+/// A Cu electron input with `mermin-melf` and the given `mermin_fit` table
+/// (none if `None`), resolved against the committed Cu ELF.
+fn cu_input(fit: Option<&str>) -> Option<lindhard::input::electron::ResolvedElectron> {
+    let dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../validation/data/optical");
+    if !dir.join("cu_elf_hagemann1975.toml").is_file() {
+        eprintln!("{} not found; Cu input checks skipped", dir.display());
+        return None;
+    }
+    let fit = fit.map_or(String::new(), |f| {
+        format!("[electron.materials.Cu.mermin_fit]\n{f}\n")
+    });
+    let text = format!(
+        "[electron.beam]\nenergy_ev = 1000.0\n[electron.transport]\ncutoff_ev = 20.0\n\
+         [electron.elastic]\npotential = \"thomas-fermi-yukawa\"\n\
+         [electron.inelastic]\nmodel = \"mermin-melf\"\n\
+         [electron.materials.Cu]\noptical_elf = \"cu_elf_hagemann1975.toml\"\n{fit}\
+         [target]\nsubstrate = \"Cu\"\n[run]\nhistories = 1\nseed = 1\n"
+    );
+    Some(
+        lindhard::input::electron::ElectronInput::from_toml_str(&text)
+            .unwrap()
+            .resolve_in(&dir)
+            .unwrap(),
+    )
+}
+
+#[test]
+fn cu_input_with_six_oscillators_resolves_and_fits_six() {
+    let Some(r) = cu_input(Some("oscillators = 6")) else {
+        return;
+    };
+    let m = &r.materials[0];
+    assert_eq!(m.mermin_fit.n_oscillators, 6);
+    let model = PennInelastic::mermin(m.optical_elf.clone(), &m.mermin_fit).unwrap();
+    assert_eq!(model.algorithm(), PennAlgorithm::Mermin);
+    let id = model.model_identity();
+    assert!(id.contains("(6 oscillators "), "{id}");
+    // Without the table the input resolves to the default options, and the
+    // model is the one `try_new` builds.
+    let r0 = cu_input(None).unwrap();
+    assert_eq!(r0.materials[0].mermin_fit, MerminFitOptions::default());
+    let default = PennInelastic::mermin(
+        r0.materials[0].optical_elf.clone(),
+        &r0.materials[0].mermin_fit,
+    )
+    .unwrap();
+    let try_new =
+        PennInelastic::try_new(PennAlgorithm::Mermin, r0.materials[0].optical_elf.clone()).unwrap();
+    assert_eq!(default.model_identity(), try_new.model_identity());
+    assert!(default.model_identity().contains("(3 oscillators "));
+}

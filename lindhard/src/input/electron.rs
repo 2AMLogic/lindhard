@@ -57,7 +57,7 @@ use crate::electron::elastic::corrections::{
 use crate::electron::elastic::table::{
     DEFAULT_MAX_ENERGY_EV, DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE,
 };
-use crate::electron::inelastic::PennAlgorithm;
+use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, MAX_OSCILLATORS};
 use crate::electron::phonon::{FrohlichPhonon, InsulatorChannels, PolaronTrapping, Sio2LoMode};
 use crate::electron::secondary::SecondaryModel;
 use crate::electron::transport::{
@@ -461,6 +461,52 @@ pub struct PolaronSpec {
     pub provenance: String,
 }
 
+fn default_mermin_oscillators() -> usize {
+    MerminFitOptions::default().n_oscillators
+}
+
+/// The `floor` of the default relative weighting of
+/// [`MerminFitOptions::default`].
+fn default_relative_floor() -> f64 {
+    match MerminFitOptions::default().weighting {
+        FitWeighting::Relative { floor } => floor,
+        FitWeighting::Uniform => unreachable!("the default fit weighting is relative"),
+    }
+}
+
+/// Weighting of the residuals of the Mermin oscillator fit
+/// ([`FitWeighting`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum MerminWeightingChoice {
+    /// [`FitWeighting::Relative`] (the default).
+    #[default]
+    Relative,
+    /// [`FitWeighting::Uniform`].
+    Uniform,
+}
+
+/// `[electron.materials.<name>.mermin_fit]`: the options of the oscillator
+/// fit of the `mermin-melf` model to this material's optical ELF
+/// ([`MerminFitOptions`],
+/// [`crate::electron::inelastic::fit_mermin_oscillators`]). Absent: exactly
+/// [`MerminFitOptions::default`]. Only `n_oscillators` and `weighting` are
+/// exposed; the starting point and the iteration cap keep their defaults.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MerminFitSpec {
+    /// Number of oscillators, `1..=MAX_OSCILLATORS` (16); default 3.
+    #[serde(default = "default_mermin_oscillators")]
+    pub oscillators: usize,
+    /// `"relative"` (default) or `"uniform"`.
+    #[serde(default)]
+    pub weighting: MerminWeightingChoice,
+    /// `floor` of the relative weighting, in `(0, 1]`; default 0.01. Not
+    /// allowed with `"uniform"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub relative_floor: Option<f64>,
+}
+
 /// `[electron.materials.<name>]`: the electron data of one material.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -478,6 +524,10 @@ pub struct ElectronMaterialSpec {
     /// Polaron trapping (polar insulators only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub polaron: Option<PolaronSpec>,
+    /// Options of the Mermin oscillator fit (`mermin-melf` only); absent:
+    /// [`MerminFitOptions::default`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mermin_fit: Option<MerminFitSpec>,
 }
 
 /// A uniform binning in nm.
@@ -743,6 +793,9 @@ pub struct ResolvedElectronMaterial {
     pub band: Option<BandStructure>,
     /// Insulator channels (none by default).
     pub channels: InsulatorChannels,
+    /// Options of the Mermin oscillator fit of the `mermin-melf` table:
+    /// [`MerminFitOptions::default`] unless `mermin_fit` is given.
+    pub mermin_fit: MerminFitOptions,
 }
 
 /// A validated electron input, in the engine's types.
@@ -1182,6 +1235,32 @@ impl ElectronInput {
                 "must be finite and non-negative",
             ));
         }
+        // The fit options only shape the `mermin-melf` table; anywhere else
+        // they would be silently ignored.
+        for (name, spec) in &e.materials {
+            if spec.mermin_fit.is_some() && inelastic != PennAlgorithm::Mermin {
+                return Err(invalid(
+                    format!("electron.materials.{name}.mermin_fit"),
+                    format!(
+                        "only applies with electron.inelastic.model = \"{}\" (the model is \"{}\")",
+                        PennAlgorithm::Mermin.label(),
+                        inelastic.label()
+                    ),
+                ));
+            }
+        }
+        for m in &materials {
+            if let FitWeighting::Relative { floor } = m.mermin_fit.weighting {
+                if let Some(f) = echo
+                    .electron
+                    .materials
+                    .get_mut(&m.name)
+                    .and_then(|s| s.mermin_fit.as_mut())
+                {
+                    f.relative_floor = Some(floor);
+                }
+            }
+        }
         // The inelastic table of a material with a band takes its Fermi
         // energy from the band (#241); a second one would count it twice.
         if e.inelastic.fermi_energy_ev != 0.0 {
@@ -1487,6 +1566,11 @@ impl ElectronInput {
             );
         }
 
+        let mermin_fit = match &spec.mermin_fit {
+            None => MerminFitOptions::default(),
+            Some(f) => mermin_fit_options(&format!("{field}.mermin_fit"), f)?,
+        };
+
         Ok(ResolvedElectronMaterial {
             name: name.to_string(),
             material: material.clone(),
@@ -1494,8 +1578,45 @@ impl ElectronInput {
             optical_elf_file: file,
             band,
             channels,
+            mermin_fit,
         })
     }
+}
+
+/// The fit options of a `mermin_fit` table; errors name `field` and the key.
+fn mermin_fit_options(field: &str, f: &MerminFitSpec) -> Result<MerminFitOptions, InputError> {
+    if !(1..=MAX_OSCILLATORS).contains(&f.oscillators) {
+        return Err(invalid(
+            format!("{field}.oscillators"),
+            format!("must be in 1..={MAX_OSCILLATORS}, got {}", f.oscillators),
+        ));
+    }
+    let weighting = match f.weighting {
+        MerminWeightingChoice::Uniform => {
+            if f.relative_floor.is_some() {
+                return Err(invalid(
+                    format!("{field}.relative_floor"),
+                    "only applies with weighting = \"relative\"",
+                ));
+            }
+            FitWeighting::Uniform
+        }
+        MerminWeightingChoice::Relative => {
+            let floor = f.relative_floor.unwrap_or_else(default_relative_floor);
+            if !(floor.is_finite() && floor > 0.0 && floor <= 1.0) {
+                return Err(invalid(
+                    format!("{field}.relative_floor"),
+                    format!("must be in (0, 1], got {floor}"),
+                ));
+            }
+            FitWeighting::Relative { floor }
+        }
+    };
+    Ok(MerminFitOptions {
+        n_oscillators: f.oscillators,
+        weighting,
+        ..MerminFitOptions::default()
+    })
 }
 
 impl ResolvedElectron {
@@ -1849,6 +1970,106 @@ seed = 1
             e.contains("electron.inelastic.fermi_energy_ev") && e.contains("material Si"),
             "{e}"
         );
+    }
+
+    /// `[electron.materials.<name>.mermin_fit]` (#306): absent gives exactly
+    /// the default fit options and no echo; given, it resolves, echoes its
+    /// defaults and round-trips; invalid values, unknown keys and use with
+    /// another inelastic model are refused naming the key.
+    #[test]
+    fn mermin_fit_options_parse_validate_and_resolve() {
+        let d = dir("mermin-fit");
+        std::fs::write(d.join("elf.toml"), ELF).unwrap();
+        let mermin = GOOD.replace(
+            "[electron.elastic]",
+            "[electron.inelastic]\nmodel = \"mermin-melf\"\n[electron.elastic]",
+        );
+        let with_fit =
+            |base: &str, fit: &str| format!("{base}\n[electron.materials.Si.mermin_fit]\n{fit}\n");
+        let resolve =
+            |text: &str| ElectronInput::from_toml_str(text).and_then(|i| i.resolve_in(&d));
+        // Absent: the defaults, and nothing echoed.
+        for text in [GOOD, mermin.as_str()] {
+            let r = resolve(text).unwrap();
+            assert_eq!(r.materials[0].mermin_fit, MerminFitOptions::default());
+            assert!(r.input.electron.materials["Si"].mermin_fit.is_none());
+            assert!(!r.input.to_toml_string().unwrap().contains("mermin_fit"));
+        }
+        // Explicit defaults resolve to the same options, and the echo fills
+        // in the floor.
+        for fit in [
+            "",
+            "oscillators = 3\nweighting = \"relative\"\nrelative_floor = 0.01",
+        ] {
+            let r = resolve(&with_fit(&mermin, fit)).unwrap();
+            assert_eq!(r.materials[0].mermin_fit, MerminFitOptions::default());
+            let echo = r.input.electron.materials["Si"].mermin_fit.clone().unwrap();
+            assert_eq!(
+                echo,
+                MerminFitSpec {
+                    oscillators: 3,
+                    weighting: MerminWeightingChoice::Relative,
+                    relative_floor: Some(0.01),
+                }
+            );
+            let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
+            assert_eq!(back, r.input);
+        }
+        let r = resolve(&with_fit(&mermin, "oscillators = 6\nrelative_floor = 0.05")).unwrap();
+        assert_eq!(
+            r.materials[0].mermin_fit,
+            MerminFitOptions {
+                n_oscillators: 6,
+                weighting: FitWeighting::Relative { floor: 0.05 },
+                ..MerminFitOptions::default()
+            }
+        );
+        let r = resolve(&with_fit(
+            &mermin,
+            "oscillators = 16\nweighting = \"uniform\"",
+        ))
+        .unwrap();
+        assert_eq!(r.materials[0].mermin_fit.n_oscillators, MAX_OSCILLATORS);
+        assert_eq!(r.materials[0].mermin_fit.weighting, FitWeighting::Uniform);
+        let echo = r.input.electron.materials["Si"].mermin_fit.clone().unwrap();
+        assert_eq!(echo.relative_floor, None);
+        let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
+        assert_eq!(back, r.input);
+        // Refused, naming the key.
+        let bad = |text: &str| resolve(text).unwrap_err().to_string();
+        let key = "electron.materials.Si.mermin_fit";
+        for (fit, field) in [
+            ("oscillators = 0", "oscillators"),
+            ("oscillators = 17", "oscillators"),
+            ("relative_floor = 0.0", "relative_floor"),
+            ("relative_floor = 1.5", "relative_floor"),
+            ("relative_floor = nan", "relative_floor"),
+            ("relative_floor = -0.1", "relative_floor"),
+            (
+                "weighting = \"uniform\"\nrelative_floor = 0.01",
+                "relative_floor",
+            ),
+        ] {
+            let e = bad(&with_fit(&mermin, fit));
+            assert!(e.contains(&format!("{key}.{field}")), "{fit}: {e}");
+        }
+        let e = bad(&with_fit(&mermin, "weighting = \"absolute\""));
+        assert!(e.contains("weighting") && e.contains("absolute"), "{e}");
+        let e = bad(&with_fit(&mermin, "start = 1"));
+        assert!(e.contains("start"), "{e}");
+        let e = bad(&with_fit(&mermin, "oscillators = -1"));
+        assert!(e.contains("oscillators"), "{e}");
+        // Any other model: the table would be ignored, so it is refused.
+        for model in ["penn-single-pole", "penn-full"] {
+            let text = GOOD.replace(
+                "[electron.elastic]",
+                &format!("[electron.inelastic]\nmodel = \"{model}\"\n[electron.elastic]"),
+            );
+            let e = bad(&with_fit(&text, "oscillators = 6"));
+            assert!(e.contains(key) && e.contains("mermin-melf"), "{model}: {e}");
+        }
+        let e = bad(&with_fit(GOOD, ""));
+        assert!(e.contains(key) && e.contains("penn-single-pole"), "{e}");
     }
 
     #[test]
