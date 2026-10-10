@@ -236,36 +236,38 @@ pub const SIC_3C_LATTICE_CONSTANT: LatticeConstant = LatticeConstant {
              primary not opened",
 };
 
-/// Wurtzite gallium nitride: `a = 3.189 Å`, `c = 5.178 Å` at 300 K.
+/// Wurtzite gallium nitride: `a = 3.1890 Å`, `c = 5.18500 Å` at 300 K.
 ///
-/// Read from the Ioffe Institute "New Semiconductor Materials" archive,
-/// "Basic Parameters of Gallium Nitride (GaN)", section "Basic Parameters for
-/// Wurtzite crystal structure"
-/// (<http://www.ioffe.ru/SVA/NSM/Semicond/GaN/basic.html>, read 2026-10-08):
-/// "Lattice constant, a: 3.189 A, 300 K" and "Lattice constant, c:
-/// 5.178 A, 300 K", both credited to Qian et al. (1996) (W. Qian,
-/// M. Skowronski and G. R. Rohrer, in *III-Nitride, SiC, and Diamond
-/// Materials for Electronic Devices*, Materials Research Society Symposium
-/// Proceedings 423 (1996), 475-486, per the archive's reference list). Both values are taken from that one row so
-/// that `a` and `c` belong to the same measurement; the page also lists
-/// `c = 5.186 A` at 300 K from a handbook (Bougrov et al. 2001). This is a
-/// secondary compilation and the primary was **not** opened; the archive's
-/// GaN density and atom count do not match these parameters, see
-/// `docs/data-provenance.md` (open questions).
+/// Yu. V. Melnik, K. V. Vassilevski, I. P. Nikitina, A. I. Babanin,
+/// V. Yu. Davydov and V. A. Dmitriev, "Physical Properties of Bulk GaN
+/// Crystals Grown by HVPE", MRS Internet J. Nitride Semicond. Res. 2, 39
+/// (1997), doi:10.1557/S1092578300001654 (open access), section 3.2
+/// (PDF p. 3) and Table 1 (PDF p. 5, "GaN a and c lattice parameters
+/// measured at 300 K"): the free-standing bulk crystal after an anneal at
+/// 1100 K that removed the residual strain, "c = 5.18500 Å, a = 3.1890 Å"
+/// on both the N face and the Ga face, measured by the triple-crystal Bond
+/// method on the (0004) and (11-24) reflections with a stated accuracy of
+/// 0.00005 Å for `a` and 0.00002 Å for `c`.
 pub const GAN_LATTICE_CONSTANTS: HexagonalConstants = HexagonalConstants {
     material: "GaN (wurtzite)",
-    a_m: 3.189 * M_PER_ANGSTROM,
-    c_m: 5.178 * M_PER_ANGSTROM,
+    a_m: 3.1890 * M_PER_ANGSTROM,
+    c_m: 5.18500 * M_PER_ANGSTROM,
     temperature_k: Some(300.0),
-    source: "Ioffe NSM archive (citing Qian et al. 1996), at 300 K; primary not opened",
+    source: "Melnik et al., MRS Internet J. Nitride Semicond. Res. 2, 39 (1997), \
+             Table 1, annealed bulk HVPE crystal, at 300 K",
 };
 
-/// The wurtzite GaN density printed on the same Ioffe page as
-/// [`GAN_LATTICE_CONSTANTS`], "Density 6.15 g cm-3, 300 K" (no reference
-/// given). It is **not** consistent with the archive's own `a` and `c`
-/// (about 0.85 % higher than `4 M(GaN) / 2 / (N_A V)`); the test pins the
-/// difference and the gap is recorded in `docs/data-provenance.md`.
-pub const GAN_DENSITY_G_CM3: f64 = 6.15;
+/// Measured (not X-ray) density of wurtzite GaN, `6.1 g/cm³`, temperature
+/// not stated.
+///
+/// R. Juza and H. Hahn, "Über die Kristallstrukturen von Cu3N, GaN und InN",
+/// Z. Anorg. Allg. Chem. 239, 282 (1938), doi:10.1002/zaac.19382390307
+/// (closed access, **not opened**), as recorded in the Crystallography Open
+/// Database entry 1010168 (public domain): `_exptl_crystal_density_meas 6.1`,
+/// with that paper's cell `a = 3.180(4) Å`, `c = 5.166(5) Å`. Printed to two
+/// figures, so half a unit in the last place is 8.2e-3 relative; this is the
+/// tolerance of the number-density test against [`GAN_LATTICE_CONSTANTS`].
+pub const GAN_DENSITY_G_CM3: f64 = 6.1;
 
 /// 4H silicon carbide: `a = 3.08051 Å`, `c = 10.0848 Å`; temperature not
 /// stated in the record read.
@@ -321,6 +323,13 @@ pub const SIC_6H_Z: [f64; 6] = [0.0, 0.1254, 0.16675, 0.29215, 0.8335, -0.0415];
 /// (1967) is titled "Refinement of the crystal structure of SiC type 6H"
 /// (Crossref), so the attribution to 4H is doubtful. Used in the
 /// number-density test, which records the 4H disagreement as a gap.
+///
+/// No measured 4H bulk density could be opened (checked 2026-10-10). The
+/// one open primary found, N. W. Thibault, Am. Mineral. 29, 327 (1944),
+/// pp. 327-328 and Table 25 on p. 342, gives for α-SiC type III (4H)
+/// only a cell (`a = 3.073 Å`, `c = 10.053 Å`) and a **calculated** density
+/// of 3.217; its one measured (pycnometric) density, `d` at 30°/4° C =
+/// 3.218 (p. 341), is of type II (6H). See `docs/data-provenance.md`.
 pub const SIC_4H_DENSITY_G_CM3: f64 = 3.211;
 
 /// 6H-SiC density, "3.21 g cm-3, 300 K", credited to Harris et al. (1995b)
@@ -1017,8 +1026,8 @@ mod tests {
 
         let gan = Lattice::gallium_nitride();
         assert_eq!(gan.structure(), Structure::Wurtzite);
-        assert_eq!(gan.lattice_constant(), 3.189 * M_PER_ANGSTROM);
-        assert_eq!(gan.lattice_constant_c(), 5.178 * M_PER_ANGSTROM);
+        assert_eq!(gan.lattice_constant(), 3.1890 * M_PER_ANGSTROM);
+        assert_eq!(gan.lattice_constant_c(), 5.18500 * M_PER_ANGSTROM);
         assert_eq!(gan.temperature_k(), Some(300.0));
         let z: Vec<u8> = gan.basis().iter().map(|s| s.z).collect();
         assert_eq!(z, [31, 31, 7, 7]);
