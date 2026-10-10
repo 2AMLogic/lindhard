@@ -1452,15 +1452,17 @@ the issue's "full model":
 - **No secondaries, transparent surface in the graded table:** with the 50 eV
   cutoff no electron that could still count towards η is dropped, but fast
   secondaries (above 50 eV, which a measured η includes) are not generated.
-  The "Fast secondaries" sensitivity table below reruns Al, Cu and Au with
-  Kieft-Bosch secondaries and a step barrier, using the band inputs of the
-  δ(E) runs (caller-supplied, see their provenance row). Si has no cited
-  valence-band width (`BAND_DEFAULTS`, #115; the δ(E) work of #149 has not
-  added one) and C has no band data, so
-  neither can be rerun with secondaries; that is a stated gap, not a result.
+  The "Fast secondaries" sensitivity table below reruns Al, Cu, Au and Si
+  with Kieft-Bosch secondaries and a step barrier, using the band inputs of
+  the δ(E) runs (see their provenance rows: caller-supplied for the metals;
+  for Si the cited insulator band of #115 and #149). C has no band data, so it
+  cannot be rerun with secondaries; that is a stated gap, not a result.
   With secondaries on, η rises at every point, by 0.03 to 0.07 for Al, 0.05
-  to 0.18 for Cu and 0.07 to 0.24 for Au, most at 1 keV, and lies above the
-  measured median everywhere. Read it as the size of the effect under the
+  to 0.18 for Cu, 0.07 to 0.24 for Au and 0.03 to 0.06 for Si, most at
+  1 keV, and lies above the measured median everywhere (Si: by 0.051 to
+  0.087, up from -0.010 to +0.059 without secondaries, so the Si excess is not
+  a missing-secondaries effect; Si's secondaries use the insulator band with
+  its cited affinity barrier and carry the same `B = 0` caveat below). Read it as the size of the effect under the
   present model, not as a corrected η: in a metal the library's Kieft-Bosch
   model takes the binding energy `B = 0` for every inelastic event until a
   shell channel supplies it (`lindhard::electron::secondary`, module docs;
@@ -1569,7 +1571,7 @@ lindhard 0.0.1 (aa04511), 100000 primaries per run, seed 1; the model and its ga
 
 Largest effect of the two corrections together: 0.0058 (2.8 σ, Cu at 1 keV); at least one difference exceeds 2 σ.
 
-**Fast secondaries (sensitivity, not graded).** The baseline input rerun with `secondaries = "kieft-bosch"` and a `step-barrier` at the mid work function, with the band inputs (free-electron metal) of the δ(E) runs, `BAND` and `METAL_BAND_PROVENANCE` in `validation/experiments/se_yield.py`; elastic model, optical ELF, tables, 50 eV band-bottom cutoff, seed and primaries as in the baseline (lindhard 0.0.1 (a8a9973); the baseline runs at these points were redone with it and reproduce the committed η bit for bit). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries included. With secondaries on a primary can yield several such electrons, and the run summary does not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the binomial error if no primary yields more than one, an underestimate only to the extent that some yield several. The baseline column is the main table's; the measured median is as above; the graded verdict above is for the baseline and is not re-judged here.
+**Fast secondaries (sensitivity, not graded).** The baseline input rerun with `secondaries = "kieft-bosch"` and a `step-barrier` (metals: at the mid work function; Si: its electron affinity), with the band inputs of the δ(E) runs, `BAND` and `BAND_PROVENANCE` in `validation/experiments/se_yield.py` (Al, Cu, Au: free-electron metal; Si: insulator band, gap and affinity from `BAND_DEFAULTS` (#115), valence-band width from Chelikowsky and Cohen 1974 (#149)); elastic model, optical ELF, tables, 50 eV band-bottom cutoff, seed and primaries as in the baseline (lindhard 343ddc7 and a8a9973; the baseline runs at these points were redone with it and reproduce the committed η bit for bit). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries included. With secondaries on a primary can yield several such electrons, and the run summary does not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the binomial error if no primary yields more than one, an underestimate only to the extent that some yield several. The baseline column is the main table's; the measured median is as above; the graded verdict above is for the baseline and is not re-judged here.
 
 | Target | E (keV) | Baseline η ± σ | With secondaries η ± σ | Change | Measured median | With secondaries - median |
 |---|---|---|---|---|---|---|
@@ -1577,6 +1579,10 @@ Largest effect of the two corrections together: 0.0058 (2.8 σ, Cu at 1 keV); at
 | Al | 5 | 0.1422 ± 0.0011 | 0.1932 ± 0.0014 | +0.0509 | 0.163 | +0.030 |
 | Al | 10 | 0.1322 ± 0.0011 | 0.1734 ± 0.0013 | +0.0412 | 0.150 | +0.023 |
 | Al | 30 | 0.1219 ± 0.0010 | 0.1559 ± 0.0012 | +0.0340 | 0.149 | +0.007 |
+| Si | 1 | 0.2182 ± 0.0013 | 0.2789 ± 0.0017 | +0.0607 | 0.228 | +0.051 |
+| Si | 5 | 0.2144 ± 0.0013 | 0.2556 ± 0.0016 | +0.0412 | 0.197 | +0.059 |
+| Si | 10 | 0.2168 ± 0.0013 | 0.2491 ± 0.0016 | +0.0323 | 0.186 | +0.063 |
+| Si | 30 | 0.2194 ± 0.0013 | 0.2475 ± 0.0016 | +0.0281 | 0.161 | +0.087 |
 | Cu | 1 | 0.3261 ± 0.0015 | 0.5032 ± 0.0022 | +0.1771 | 0.381 | +0.122 |
 | Cu | 5 | 0.2975 ± 0.0014 | 0.4004 ± 0.0020 | +0.1028 | 0.324 | +0.076 |
 | Cu | 10 | 0.2938 ± 0.0014 | 0.3703 ± 0.0019 | +0.0765 | 0.318 | +0.052 |
@@ -1586,7 +1592,7 @@ Largest effect of the two corrections together: 0.0058 (2.8 σ, Cu at 1 keV); at
 | Au | 10 | 0.4334 ± 0.0016 | 0.5433 ± 0.0023 | +0.1099 | 0.476 | +0.067 |
 | Au | 30 | 0.4603 ± 0.0016 | 0.5267 ± 0.0023 | +0.0664 | 0.512 | +0.015 |
 
-Not run, for lack of band inputs: Si: no cited valence-band width (BAND_DEFAULTS has none, #115; #149 has not added one); C: no band data committed.
+Not run, for lack of band inputs: C: no band data committed.
 
 Per-run values: `validation/experiments/backscatter_results.json`; datasets: `validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md).
 <!-- validation:level3-backscatter:end -->
@@ -1640,7 +1646,7 @@ corrections raised Au at 1 keV by 0.015; on DHFS the effect there is 0.003.
 Still open: the full-Penn rerun (#256 makes the tables buildable; the inputs
 then change their `electron.inelastic.model`), the Si K and L shells beyond
 the ELF's 199 eV end (an inner-shell channel, #273), and fast secondaries
-for Si and C (no band inputs; Al, Cu and Au are in the sensitivity table).
+for C (no band data; Al, Cu, Au and Si are in the sensitivity table).
 Until then this is a comparison of the reduced model, not of the issue's
 full model.
 
