@@ -1565,6 +1565,15 @@ The pass/fail rule is the issue's initial tolerance: at E ≥ 5 keV,
 |η − measured median| ≤ 0.05 absolute; below 5 keV values are reported only.
 It is pinned in `backscatter.py` and was neither loosened nor tightened.
 
+![Backscatter coefficient η against primary energy for C, Al, Si, Cu and Au: lindhard's η with ±σ bars, the measured median and min-max band over the stored sets, and the pass band median ± 0.05 at E ≥ 5 keV](img/backscatter-eta.svg)
+
+The figure shows the table below: per target, the measured min-max band
+(grey) and median (black), the pass band (dashed, E ≥ 5 keV only) and
+lindhard's η (orange; the ±σ bars are shorter than the markers at 100000
+primaries). It is rendered from `backscatter_results.json` alone by
+`cargo run -p lindhard-plots`; CI re-renders it with `--check` and fails if
+the committed SVG differs by a byte.
+
 <!-- validation:level3-backscatter:begin -->
 lindhard 0.0.1 (aa04511), 100000 primaries per run, seed 1; the model and its gaps are listed above. Measured: per energy, each stored set's point within 2 % of it (at most one per set), median and min-max over the sets.
 
