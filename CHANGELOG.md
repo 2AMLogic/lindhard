@@ -49,7 +49,13 @@ one version).
   `DiimfpGrid::unresolved_cells` and `unresolved_loss_range_ev` report the
   cells left failing the check and their loss range; the grid does not
   answer inside those cells, so the table builder uses the direct model
-  there rather than an unchecked interpolation. New example
+  there rather than an unchecked interpolation. Near such a cell a row's
+  loss-density panels are not split below the grid's narrowest cell width
+  (1e-4 in `ln ω`): the model switch at the cell edges is a step that the
+  width-invariant split test would otherwise bisect to floating-point
+  resolution and pad up to `MAX_NODES` direct evaluations. Rows away from
+  unresolved cells, and models without a grid, are unchanged. New
+  `table::loss_density_node_count` reports a row's node count. New example
   `penn_full_build_time` (build time and accuracy checks).
 - Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
   `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the

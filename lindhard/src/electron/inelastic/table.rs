@@ -48,6 +48,26 @@
 //! noise at the model tolerance, which is above the default density
 //! tolerance and would drive the panel refinement to [`MAX_NODES`].
 //!
+//! **Unresolved grid cells.** Where the grid could not hold its
+//! interpolation to the model tolerance even at its narrowest cell (1e-4 in
+//! `ln ω`), it leaves the cell to the direct model
+//! ([`DiimfpGrid::unresolved_cells`]). The row integrand then switches model
+//! at each edge of such a cell, a step of the order of the model tolerance,
+//! and inside it carries the direct model's quadrature noise. The split test
+//! above does not depend on the panel width for a step (both sides scale
+//! with `h`), so a step above about `3 · tol` of the row's mean density
+//! would be bisected down to floating-point resolution and then padded with
+//! duplicate nodes up to [`MAX_NODES`], each a direct evaluation. So a panel
+//! within one grid-cell width (1e-4) of an unresolved cell is not split
+//! once it is no wider than that width: that is the finest scale at which
+//! the grid tested the DIIMFP, and below it the split test measures the
+//! noise and the step, not the shape. What such a panel can still miss is
+//! bounded by its width times the step, `1e-4 · (model tolerance) · g`,
+//! per cell edge, far below the model tolerance of the row. Rows that do
+//! not come near an unresolved cell, and every model without a grid, are
+//! refined exactly as before. [`loss_density_node_count`] reports the node
+//! count of a row.
+//!
 //! **Probability grid.** The stored inverse CDF is interpolated linearly in
 //! `u` ([`CrossSectionTable::inverse_cdf`]). Its first moment, which is what
 //! sets the stopping power `S = λ⁻¹ ⟨W⟩` with `⟨W⟩ = ∫_0^1 W(u) du`, is
@@ -293,14 +313,26 @@ fn panel_exp_moment(x0: f64, x1: f64, g0: f64, g1: f64) -> f64 {
 
 /// Build the density model of `f` by adaptive panel splitting (module docs):
 /// `breaks` are fixed nodes, each segment is first cut into `sub` equal
-/// panels.
+/// panels. `rough` lists ranges of `x` (ascending) where `f` is known not to
+/// be smooth below the width `rough_width` (the unresolved cells of a
+/// [`DiimfpGrid`], module docs): a panel within `rough_width` of one of them
+/// is not split once it is no wider than `rough_width`. With no ranges the
+/// refinement is the plain one.
 fn adaptive_density(
     f: &(impl Fn(f64) -> f64 + ?Sized),
     breaks: &[f64],
     sub: usize,
     tol: f64,
     first_moment: bool,
+    rough: &[(f64, f64)],
+    rough_width: f64,
 ) -> LinearDensity {
+    let at_resolution = |a: f64, b: f64| {
+        b - a <= rough_width
+            && rough
+                .iter()
+                .any(|&(lo, hi)| a <= hi + rough_width && b >= lo - rough_width)
+    };
     let mut x: Vec<f64> = Vec::new();
     for w in breaks.windows(2) {
         for i in 0..sub {
@@ -336,7 +368,7 @@ fn adaptive_density(
                 let e1 = (2.0 * h / 3.0 * (w(xm, gm) - lin)).abs();
                 bad |= e1 > allowed * i1;
             }
-            if bad && x.len() + 1 < MAX_NODES {
+            if bad && x.len() + 1 < MAX_NODES && !at_resolution(x[i], x[i + 1]) {
                 split[i] = true;
                 any = true;
             }
@@ -498,6 +530,55 @@ fn row_diimfp<M: LossModel>(
         .unwrap_or_else(|| penn.diimfp(energy_ev, loss_ev).unwrap_or(0.0))
 }
 
+/// The density model of the row at `energy_ev`, on `ln W` from the lowest
+/// ELF energy to `energy_ev` (module docs).
+fn row_density<M: LossModel>(
+    penn: &M,
+    grid: Option<&DiimfpGrid>,
+    energy_ev: f64,
+    tol: f64,
+) -> LinearDensity {
+    let w_lo = penn.elf_min_ev();
+    let f = |s: f64| {
+        let w = s.exp().min(energy_ev);
+        row_diimfp(penn, grid, energy_ev, w) * w
+    };
+    // The unresolved cells of the grid, on the row's `ln W` axis (module
+    // docs, "Unresolved grid cells"); none without a grid.
+    let (rough, rough_width) = match grid {
+        Some(g) => (g.unresolved_ln_loss_ev(), g.min_cell_width()),
+        None => (Vec::new(), 0.0),
+    };
+    adaptive_density(
+        &f,
+        &[w_lo.ln(), energy_ev.ln()],
+        INITIAL_LOSS_PANELS,
+        tol,
+        true,
+        &rough,
+        rough_width,
+    )
+}
+
+/// The number of nodes of the loss-density model of the row at `energy_ev`
+/// (eV, on the model's own axis) of a table of `model` built with density
+/// tolerance `density_tolerance`, reading the DIIMFP from `grid` where it
+/// covers the loss as a table build does (pass the grid of
+/// [`FullPenn::diimfp_grid`] for the table's energies, or `None`). The
+/// count is bounded by [`MAX_NODES`]; a row near that bound has spent its
+/// evaluations on something the split test cannot resolve. Each node not
+/// covered by the grid costs one direct DIIMFP evaluation.
+pub fn loss_density_node_count(
+    model: &PennInelastic,
+    grid: Option<&DiimfpGrid>,
+    energy_ev: f64,
+    density_tolerance: f64,
+) -> usize {
+    row_density(model, grid, energy_ev, density_tolerance)
+        .x
+        .len()
+}
+
 /// The loss density of one energy.
 fn loss_density<M: LossModel>(
     penn: &M,
@@ -506,18 +587,7 @@ fn loss_density<M: LossModel>(
     inverse_mfp: f64,
     tol: f64,
 ) -> Result<LinearDensity, InelasticTableError> {
-    let w_lo = penn.elf_min_ev();
-    let f = |s: f64| {
-        let w = s.exp().min(energy_ev);
-        row_diimfp(penn, grid, energy_ev, w) * w
-    };
-    let d = adaptive_density(
-        &f,
-        &[w_lo.ln(), energy_ev.ln()],
-        INITIAL_LOSS_PANELS,
-        tol,
-        true,
-    );
+    let d = row_density(penn, grid, energy_ev, tol);
     if !(d.total() > 0.0 && d.total().is_finite()) {
         return Err(InelasticTableError::EmptyDistribution {
             energy_ev,
@@ -1049,7 +1119,7 @@ impl MomentumTransferSampler {
             )
         })?;
         let f = |u: f64| penn.q_integrand_au(w, u);
-        let density = adaptive_density(&f, &breaks, 8, tol, false);
+        let density = adaptive_density(&f, &breaks, 8, tol, false, &[], 0.0);
         if !(density.total() > 0.0 && density.total().is_finite()) {
             return Err(invalid(
                 "momentum-transfer slice",
@@ -1103,5 +1173,80 @@ impl MomentumTransferSampler {
     pub fn diimfp_per_m_ev(&self) -> f64 {
         let h = hartree_ev();
         self.density.total() / (std::f64::consts::PI * self.tp) / (BOHR_RADIUS * h)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A row-like integrand in `x = ln W` (a smooth loss peak) that, inside
+    /// the cell `[c, c + 1.5e-4]`, is replaced by a second model differing
+    /// by 1e-3 relative and carrying noise at 1e-4: the shape of a full-Penn
+    /// row at an unresolved [`DiimfpGrid`] cell, where the grid gives way to
+    /// the direct model (module docs, "Unresolved grid cells"). Synthetic,
+    /// not a material.
+    fn stepped_row(c: f64) -> impl Fn(f64) -> f64 {
+        move |x: f64| {
+            let smooth = (-(x - 3.0).powi(2)).exp();
+            if (c..=c + 1.5e-4).contains(&x) {
+                smooth * (1.0 + 1e-3 + 1e-4 * (1e7 * x).sin())
+            } else {
+                smooth
+            }
+        }
+    }
+
+    #[test]
+    fn a_step_at_an_unresolved_cell_does_not_exhaust_the_nodes() {
+        // A starting node (x = 3, the 25th of 64 panels on [0, 8]) falls in
+        // the cell, at the peak, so the step is sampled and far above the
+        // split threshold (about 3 tol of the mean).
+        let c = 3.0 - 0.5e-4;
+        let f = stepped_row(c);
+        let breaks = [0.0, 8.0];
+        let cells = [(c, c + 1.5e-4)];
+        let d = adaptive_density(&f, &breaks, INITIAL_LOSS_PANELS, 1e-5, true, &cells, 1e-4);
+        let smooth = adaptive_density(
+            &|x: f64| (-(x - 3.0).powi(2)).exp(),
+            &breaks,
+            INITIAL_LOSS_PANELS,
+            1e-5,
+            true,
+            &[],
+            0.0,
+        );
+        let (n, n0) = (d.x.len(), smooth.x.len());
+        eprintln!("nodes: {n} with the stepped cell declared, {n0} for the smooth row");
+        // The cell costs a few bisection levels around its two edges, not
+        // the ~MAX_NODES of a bisection to floating-point resolution.
+        assert!(n < n0 + 100, "{n} nodes vs {n0} (MAX_NODES = {MAX_NODES})");
+        // The density still matches the smooth row's integral to far below
+        // the model tolerance: the step adds ~1.5e-7 of it.
+        let rel = (d.total() / smooth.total() - 1.0).abs();
+        assert!(rel < 1e-5, "{rel:e}");
+        // No panel was bisected towards floating-point resolution.
+        let narrowest = d.x.windows(2).map(|w| w[1] - w[0]).fold(f64::MAX, f64::min);
+        assert!(narrowest > 1e-5, "{narrowest:e}");
+    }
+
+    #[test]
+    fn without_unresolved_cells_the_refinement_is_unchanged() {
+        // A smooth row passes no rough ranges and is refined exactly as
+        // before; declaring a cell far from the row's structure changes no
+        // node either, since no panel near it ever gets that narrow.
+        let f = |x: f64| (-(x - 3.0).powi(2)).exp();
+        let breaks = [0.0, 8.0];
+        let plain = adaptive_density(&f, &breaks, INITIAL_LOSS_PANELS, 1e-5, true, &[], 0.0);
+        let far = adaptive_density(
+            &f,
+            &breaks,
+            INITIAL_LOSS_PANELS,
+            1e-5,
+            true,
+            &[(7.5, 7.5 + 1.5e-4)],
+            1e-4,
+        );
+        assert_eq!(plain, far);
     }
 }

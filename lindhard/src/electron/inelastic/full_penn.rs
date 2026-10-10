@@ -948,6 +948,25 @@ impl DiimfpGrid {
         Some((lo.exp() * h, hi.exp() * h))
     }
 
+    /// The cells counted in [`Self::unresolved_cells`] as ranges of
+    /// `ln(W / 1 eV)`, ascending: the loss axis of the table rows.
+    pub(crate) fn unresolved_ln_loss_ev(&self) -> Vec<(f64, f64)> {
+        let lh = hartree_ev().ln();
+        self.unresolved
+            .iter()
+            .map(|&(lo, hi)| (lo + lh, hi + lh))
+            .collect()
+    }
+
+    /// The narrowest cell width of the grid in `ln ω` (1e-4): the finest
+    /// scale at which the refinement tested the interpolation against the
+    /// model tolerance. An unresolved cell is one that still failed at this
+    /// scale, where the quadrature noise of the direct DIIMFP is not below
+    /// the model tolerance.
+    pub(crate) fn min_cell_width(&self) -> f64 {
+        MIN_CELL
+    }
+
     /// The tolerance the grid was refined to (the model tolerance).
     pub fn tolerance(&self) -> f64 {
         self.tolerance
