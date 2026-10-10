@@ -2107,14 +2107,17 @@ reproduces the 800 eV entries of the `mermin` rows above exactly (Au
 2.0375, Cu 1.6295). The `binding-azzolini` row is item 5 of #301; for it the
 whole table was run again on one build, and every #242 row reproduced its
 committed δ and η seed by seed, so only the build label and the new row
-changed. The runs predate the band-bottom inelastic tables of #241 (#289,
+changed. The `au-elf-table6` row is item 3 of #301 (#314): it was run on
+the build named in the table; on that build the `baseline` row was run
+again first (all ten seeds, Au and Cu) and reproduced every committed δ and
+η exactly, and the other rows were not rerun. The runs predate the band-bottom inelastic tables of #241 (#289,
 not merged) and the Mermin fit changes of #306 and #311; #287 reruns the
 yield tables with the former.
 `se_yield_candidates.py --check` checks that the block below is the
 script's output for the committed results.
 
 <!-- validation:level3-se-yield-candidates:begin -->
-**One change at a time, 800 eV** (`lindhard 0.0.1 (c755234)`; baseline: the `mermin` configuration; 10 seeds (1 to 10) of 2000 primaries per row; δ ± the standard error of the mean over the seeds; the change is the mean of the per-seed differences from the baseline ± its standard error, and in per cent of the baseline):
+**One change at a time, 800 eV** (`lindhard 0.0.1 (efad84e)`; baseline: the `mermin` configuration; 10 seeds (1 to 10) of 2000 primaries per row; δ ± the standard error of the mean over the seeds; the change is the mean of the per-seed differences from the baseline ± its standard error, and in per cent of the baseline):
 
 | Row | Candidate | What is changed | Au δ | Au change | Au η | Cu δ | Cu change | Cu η |
 |---|---|---|---|---|---|---|---|---|
@@ -2126,6 +2129,7 @@ script's output for the committed results.
 | `phi-high` | (c) band | work function at the high end of its cited range | 2.007 ± 0.020 | -0.080 ± 0.019 (-4 %) | 0.537 ± 0.006 | 1.560 ± 0.014 | -0.114 ± 0.013 (-7 %) | 0.533 ± 0.003 |
 | `fermi-tpp2011` | (c) band | Fermi energy of TPP 2011, Table 1, instead of the free-electron value (one valence electron) | 2.007 ± 0.013 | -0.081 ± 0.014 (-4 %) | 0.533 ± 0.005 | 1.679 ± 0.017 | +0.004 ± 0.011 (+0 %) | 0.530 ± 0.003 |
 | `binding-azzolini` | (d) secondary binding (#301) | the electron liberated by a valence loss W is bound B below the Fermi level instead of at it (B: Azzolini et al. 2018, Table I, Au 9.226 eV, Cu 7.726 eV); a loss W <= B frees none | 0.648 ± 0.006 | -1.440 ± 0.018 (-69 %) | 0.486 ± 0.005 | 0.483 ± 0.006 | -1.191 ± 0.017 (-71 %) | 0.501 ± 0.003 |
+| `au-elf-table6` | (e) Au ELF (#301) | Au ELF of the report's Table 6 (from reflectance) from 1.5 to 350 eV, Table 5 outside, instead of Table 5 throughout (no second Cu ELF) | 1.478 ± 0.016 | -0.610 ± 0.022 (-29 %) | 0.535 ± 0.003 | not testable | - | - |
 | `barrier-off` | context | transparent boundary: no barrier at all (not a candidate; the largest effect the barrier can have) | 3.980 ± 0.032 | +1.892 ± 0.021 (+91 %) | 0.663 ± 0.005 | 2.825 ± 0.026 | +1.151 ± 0.026 (+69 %) | 0.638 ± 0.004 |
 | `elastic-pre-149` | context | stand-in potential and exchange off together: the elastic model of the δ(E) runs before the DHFS rerun (two changes, so not a candidate row) | 2.632 ± 0.009 | +0.544 ± 0.021 (+26 %) | 0.354 ± 0.004 | 1.859 ± 0.011 | +0.184 ± 0.019 (+11 %) | 0.522 ± 0.005 |
 
@@ -2139,15 +2143,22 @@ script's output for the committed results.
 Control of the `acoustic-phonon` row (Au, seed 1): the example with the input's own tables gives δ 2.0375; `lindhard run` gives 2.0375. Elastic collisions below 100 eV per primary: 1304 with the Mott rows, 203 with the acoustic-phonon rows.
 <!-- validation:level3-se-yield-candidates:end -->
 
-**Result (as of 2026-10-09): no tested candidate explains the excess.** At
+**Result (as of 2026-10-09): no tested candidate is shown to explain the
+excess.** At
 800 eV the Mermin δ is 42 % (Au) and 31 % (Cu) above the measured median
 δ_max. The largest reduction that any #242 row gives is 4 % for Au and
 7 % for Cu. The binding row of #301 lowers δ by 69 % and 71 %, overshooting
 to 56 % and 62 % below the median, so it does not explain the excess
 either; it shows that the binding of the secondary is the largest lever
-tested. Nothing was adjusted, no default was changed and no bound was
-loosened; Cu's `default` curve passes the #149 bounds as before, since no
-physics of the δ(E) tables changed.
+tested. The Au ELF row of #301 (`au-elf-table6`: the report's second Au
+version, Table 6, from 1.5 to 350 eV) lowers Au δ by 29 % (-0.610 ± 0.022),
+to 1.478 ± 0.016, within 1 % of the measured median δ_max; that is the
+outcome of one run with one input changed, compared with a maximum taken
+over the measured curves, not a fit, and it is not a statement that the
+committed ELF is the cause (below); Cu has no second ELF and was not run.
+Nothing was adjusted, no default was changed and no bound was loosened;
+Cu's `default` curve passes the #149 bounds as before, since no physics of
+the δ(E) tables changed (the default Au ELF is still Table 5).
 
 - **(a) Elastic scattering: tested, already in the baseline, and not
   enough.** The DHFS rerun of #149 changed two things at once, because the
@@ -2193,9 +2204,30 @@ physics of the δ(E) tables changed.
   one was found for the barrier of Cu or Au (TPP's N_v = 11 is the count
   behind their plasmon energy). No barrier at all (`barrier-off`, context
   only) raises δ by 91 % and 69 %.
-  - *Au ELF: not tested by a run*, because only one Au ELF is committed:
-    that of Hagemann, Gudat and Kunz (1975). There is a published reason
-    to suspect it, which is not a run and attributes nothing. TPP 2011 did
+  - *Au ELF: one second ELF tested (#314).* The committed Au ELF is
+    Table 5 of Hagemann, Gudat and Kunz (1975). The same report gives a
+    second Au version, Table 6, from reflectance, for 1.5 to 350 eV only,
+    which it says "reproduces the energy-loss-spectra more closely", while
+    Table 5 is the one with 79 effective electrons (p. 18). The
+    `au-elf-table6` row swaps only the Au ELF for
+    `au_elf_hagemann1975_t6.toml` (Table 6 from 1.5 to 350 eV, Table 5
+    outside, joined by lindhard without smoothing; data and seams in
+    [`data-provenance.md`](data-provenance.md)). Au δ falls from
+    2.088 ± 0.020 to 1.478 ± 0.016 (paired change -0.610 ± 0.022, -29 %)
+    and η changes by less than its error (0.539 to 0.535). What this does
+    and does not say: the run changes the whole Table 6 span at once, and
+    that ELF is lower than Table 5 over most of it (N_eff with power-law
+    segments 69.5 instead of 82.6, the f-sum check failing by 12 %, pinned
+    in `optical_sumrule.rs`), so it does not identify which energy losses
+    move δ, nor show that Table 6 is the better Au ELF; the two Au tables
+    differ in how the authors joined reflectance and transmission between
+    12 and 40 eV, which they call arbitrary (pp. 17-18). The runs predate
+    #241 (PR #289, not merged), as above. Of the other two candidates,
+    Palik's handbook is excluded under `CONTRIBUTING.md` "Data" (not
+    opened, nothing transcribed) and Werner et al. (2009) could not be
+    opened (verdict rows in [`data-provenance.md`](data-provenance.md)).
+    There is a further published reason to suspect the committed ELF,
+    which is not a run and attributes nothing. TPP 2011 did
     not use that data set for Au. Their Table 2 (manuscript p. 34) gives
     the Au optical data as Palik's handbook (their Ref. 23) from 0.1 to
     9919 eV and Henke et al. (their Ref. 22) above 10 044 eV, and p. 7
@@ -2205,8 +2237,8 @@ physics of the δ(E) tables changed.
     et al. [21] that we used previously" (references resolved in
     [`data-provenance.md`](data-provenance.md)). They do not say at which
     energy losses the two ELFs differ, or by how much. Neither Palik's
-    handbook nor those energy-loss measurements were opened, and what a
-    second Au ELF does to δ was not run (#301).
+    handbook nor those energy-loss measurements were opened; the second Au
+    ELF that was run is the report's own Table 6, not Palik's.
 
     The Mermin IMFP of the runs (model Fermi energy 0) against TPP 2011,
     Table 4 (manuscript pp. 41 and 47; their energies are above the Fermi

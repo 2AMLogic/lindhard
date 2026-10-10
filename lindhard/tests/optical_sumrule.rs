@@ -498,9 +498,9 @@ fn au_table6_composite_matches_table5_outside_its_span() {
     assert_eq!(e5, e6, "the two Au tables share all 149 energies");
     let (lo, hi) = (1.4999, 350.05);
     let mut replaced = 0;
-    for i in 0..e5.len() {
-        if e5[i] < lo || e5[i] > hi {
-            assert_eq!(y5[i], y6[i], "outside 1.5-350 eV the composite is Table 5 ({} eV)", e5[i]);
+    for ((e, a), b) in e5.iter().zip(y5).zip(y6) {
+        if *e < lo || *e > hi {
+            assert_eq!(a, b, "outside 1.5-350 eV the composite is Table 5 ({e} eV)");
         } else {
             replaced += 1;
         }
@@ -511,10 +511,16 @@ fn au_table6_composite_matches_table5_outside_its_span() {
         let i = at(e);
         let r = y6[i] / y5[i];
         eprintln!("Au Table 6 / Table 5 ELF at {e} eV: {r:.4}");
-        assert!((r - pinned).abs() <= 0.001, "seam ratio at {e} eV = {r:.4}, pinned {pinned}");
+        assert!(
+            (r - pinned).abs() <= 0.001,
+            "seam ratio at {e} eV = {r:.4}, pinned {pinned}"
+        );
     }
     let (i350, i500) = (at(350.0), at(500.0));
     let step = y6[i500] / y6[i350];
     eprintln!("Au composite ELF(500 eV) / ELF(350 eV): {step:.3}");
-    assert!((step - 2.79).abs() <= 0.01, "upper seam step {step:.3}, pinned 2.79");
+    assert!(
+        (step - 2.79).abs() <= 0.01,
+        "upper seam step {step:.3}, pinned 2.79"
+    );
 }
