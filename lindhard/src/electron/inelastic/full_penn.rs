@@ -783,7 +783,12 @@ impl FullPenn {
         let h = hartree_ev();
         let rows: Vec<f64> = energies_ev.iter().map(|e| e / h).collect();
         let t_max = rows.iter().copied().fold(0.0, f64::max);
-        let w_lo = self.w[0];
+        let elf_lo = self.w[0];
+        // The lowest loss node: the table's lowest loss, `FULL_LOWEST_LOSS_FRACTION`
+        // of the lowest row energy (#361), or the lowest ELF energy if that
+        // is lower.
+        let t_min = rows.iter().copied().fold(f64::INFINITY, f64::min);
+        let w_lo = elf_lo.min(FULL_LOWEST_LOSS_FRACTION * t_min);
         let empty = DiimfpGrid {
             s: Vec::new(),
             profiles: Vec::new(),
@@ -792,8 +797,9 @@ impl FullPenn {
             t_max,
             tolerance: self.rel_tol,
             unresolved: Vec::new(),
+            scale_lo: elf_lo.ln(),
         };
-        if t_max <= w_lo {
+        if !(t_max > 0.0 && w_lo < t_max) {
             return Ok(empty);
         }
         // The profiles are integrated more tightly than the interpolation
@@ -808,11 +814,14 @@ impl FullPenn {
         // than INITIAL_CELL in ln ω.
         let (s_lo, s_hi) = (w_lo.ln(), t_max.ln());
         let mut knots: Vec<f64> = vec![s_lo];
+        if elf_lo.ln() > s_lo && elf_lo.ln() < s_hi {
+            knots.push(elf_lo.ln());
+        }
         knots.extend(
             self.w
                 .iter()
                 .map(|x| x.ln())
-                .filter(|&x| x > s_lo && x < s_hi),
+                .filter(|&x| x > s_lo && x < s_hi && x > elf_lo.ln()),
         );
         knots.push(s_hi);
         let mut s: Vec<f64> = Vec::new();
@@ -948,6 +957,22 @@ const INITIAL_CELL: f64 = 0.25;
 /// it, which bounds the refinement where the profiles carry quadrature
 /// noise.
 const MIN_CELL: f64 = 1e-4;
+/// The lowest loss of a full Penn table row, as a fraction of the row's
+/// energy `T`: the row's loss window is `(FULL_LOWEST_LOSS_FRACTION · T, T]`
+/// (#361; table module docs, "Rows below the ELF table"), and the
+/// [`DiimfpGrid`] of a table reaches down to it for the lowest row.
+///
+/// The DIIMFP of this model is not zero below the lowest ELF energy: each
+/// Lindhard gas has an electron-hole continuum down to `ω -> 0` at `q > 0`
+/// (S2017 eq. (4)), and `Im[-1/ε(q, ω)] ∝ ω` there, so `p(T, ω) ∝ ω`, and
+/// the rate and stopping power below a loss `W` fall as `W²` and `W³`. The
+/// share of `λ⁻¹` below `1e-6 T` is about 2e-12 on the synthetic plasmon
+/// ELF at 0.3 to 40 eV (of `S`, 2e-18), far below the model tolerance
+/// (1e-4); `tests/penn_full.rs` bounds it from the direct DIIMFP at the
+/// floor (below 1e-6 of `λ⁻¹` and 1e-8 of `S`). It is a numerical floor of the sampled distribution, not
+/// a model cutoff: the stored rate is the model's own, which integrates
+/// from zero.
+pub(crate) const FULL_LOWEST_LOSS_FRACTION: f64 = 1.0e-6;
 /// Upper bound on the number of loss nodes of a [`DiimfpGrid`].
 const MAX_GRID_NODES: usize = 20_000;
 
@@ -976,8 +1001,9 @@ const MAX_GRID_NODES: usize = 20_000;
 /// profiles, each over the window of the requested `(T, ω)`, are
 /// interpolated linearly in `ln p` against `ln ω` (exact for a power law,
 /// the shape of the DIIMFP's tails; linear in `p` where one of them is
-/// zero). The nodes are the two ends `ω = ω_min` (the lowest ELF energy) and
-/// `ω = T_max`, every ELF knot in between (where `Im[-1/ε]` has kinks at
+/// zero). The nodes are the two ends `ω = ω_min` (`FULL_LOWEST_LOSS_FRACTION`
+/// of the lowest table energy, or the lowest ELF energy if lower; #361) and
+/// `ω = T_max`, the lowest ELF energy, every ELF knot in between (where `Im[-1/ε]` has kinks at
 /// small `q`, and where a feature narrower than the knot spacing sits) and a
 /// subdivision to cells no wider than 0.25 in `ln ω`. A cell is then
 /// halved, level by level, while at its midpoint `ω_m`, for any row energy
@@ -1007,6 +1033,9 @@ pub struct DiimfpGrid {
     /// Cells `(ln ω lo, ln ω hi)` that failed the check but were not halved
     /// (width or node cap), ascending; the grid does not answer in them.
     unresolved: Vec<(f64, f64)>,
+    /// `ln` of the lowest ELF energy (Hartree): the lower end of the range
+    /// of the mean density, whatever the lowest node (#361).
+    scale_lo: f64,
 }
 
 impl DiimfpGrid {
@@ -1039,6 +1068,20 @@ impl DiimfpGrid {
     /// the nodes below `T`, trapezoid rule; zero if there are none.
     fn mean_density(&self, t: f64) -> f64 {
         let st = t.ln();
+        // The mean runs from the lowest ELF energy (#361): the nodes below
+        // it, down to the floor of the rows' losses, are a power-law tail
+        // that would only lower the mean, and so tighten the cell test, by
+        // the number of decades they add. A row at or below the lowest ELF
+        // energy has no other range.
+        let lo = if st > self.scale_lo {
+            self.scale_lo
+        } else {
+            self.s[0]
+        };
+        let first = self
+            .s
+            .partition_point(|&y| y < lo - 1e-9)
+            .min(self.s.len() - 1);
         let g = |i: usize| {
             let w = self.s[i].exp();
             if w < t {
@@ -1048,8 +1091,8 @@ impl DiimfpGrid {
             }
         };
         let mut acc = 0.0;
-        let mut prev = g(0);
-        for i in 1..self.s.len() {
+        let mut prev = g(first);
+        for i in first + 1..self.s.len() {
             if self.s[i - 1] >= st {
                 break;
             }
@@ -1058,7 +1101,7 @@ impl DiimfpGrid {
             acc += 0.5 * (prev + if self.s[i] <= st { cur } else { 0.0 }) * (hi - self.s[i - 1]);
             prev = cur;
         }
-        let span = st - self.s[0];
+        let span = st - self.s[first];
         if span > 0.0 {
             acc / span
         } else {
@@ -1071,8 +1114,7 @@ impl DiimfpGrid {
         self.s.len()
     }
 
-    /// Whether the grid has no nodes (no table energy above the lowest ELF
-    /// energy).
+    /// Whether the grid has no nodes (no table energy).
     pub fn is_empty(&self) -> bool {
         self.s.is_empty()
     }
@@ -1159,7 +1201,8 @@ impl DiimfpGrid {
 
     /// The DIIMFP at kinetic energy `energy_ev` (above the Fermi level) and
     /// loss `loss_ev`, m⁻¹ eV⁻¹, from the grid; `None` where the grid does
-    /// not cover it (a loss below the lowest ELF energy, an energy above
+    /// not cover it (a loss below the lowest node, `FULL_LOWEST_LOSS_FRACTION` of
+    /// the lowest table energy, an energy above
     /// the highest table energy, or a loss in an unresolved cell, see
     /// [`Self::unresolved_cells`]), where the caller uses
     /// [`FullPenn::diimfp_per_m_ev`]. Zero for `ω <= 0` or `ω > T`, as there.

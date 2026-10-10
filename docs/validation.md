@@ -1097,7 +1097,9 @@ model's by 4.45e-3 at 10 eV, 1.0e-3 at 22 eV and less than 2.5e-4 above
 lowest ELF energy (0.5 eV for Si), but the full-Penn DIIMFP is not zero
 below it (the Lindhard continuum). The share of `λ⁻¹` from losses below
 0.5 eV (4.46e-3 at 10 eV) reproduces the difference row by row. This
-predates #298 and is #361.
+predates #298 and was #361: since #361 a full-Penn row's window opens at
+`1e-6 T` and the grid reaches down to it, so that figure describes the
+tables of this section as built, not a current build.
 
 **Inputs that differ** (each summary lists them in full under `mismatches`):
 

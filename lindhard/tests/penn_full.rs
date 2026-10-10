@@ -357,11 +357,20 @@ fn diimfp_grid_reproduces_the_direct_diimfp() {
     }
     // what the grid does not cover is left to the direct model
     assert_eq!(grid.diimfp_per_m_ev(2000.0, 10.0), None);
-    assert_eq!(grid.diimfp_per_m_ev(500.0, 0.5 * w_lo), None);
+    // The grid reaches below the lowest ELF energy, down to 1e-6 of the
+    // lowest table energy (#361), and no further: the DIIMFP is positive
+    // there, and a row at or below the lowest ELF energy has a grid.
+    let below = 0.5 * w_lo;
+    let direct = reference.diimfp_per_m_ev(40.0, below).unwrap();
+    let from_grid = grid.diimfp_per_m_ev(40.0, below).unwrap();
+    assert!(direct > 0.0 && (from_grid / direct - 1.0).abs() < 3.0 * TOL);
+    assert_eq!(grid.diimfp_per_m_ev(40.0, 0.5e-6 * 40.0), None);
+    assert_eq!(grid.diimfp_per_m_ev(500.0, below), None);
     assert_eq!(grid.diimfp_per_m_ev(500.0, 600.0), Some(0.0));
     assert_eq!(grid.diimfp_per_m_ev(500.0, 0.0), Some(0.0));
     assert!(fpa.diimfp_grid(&[f64::NAN]).is_err());
-    assert!(fpa.diimfp_grid(&[0.5 * w_lo]).unwrap().is_empty());
+    assert!(!fpa.diimfp_grid(&[0.5 * w_lo]).unwrap().is_empty());
+    assert!(fpa.diimfp_grid(&[]).unwrap().is_empty());
 }
 
 #[test]
@@ -416,10 +425,11 @@ fn full_penn_tables_follow_the_model_on_any_thread_count() {
     let t1 = build(1);
     let elf_min = coarse_fixture().energy_ev()[0];
     for (i, &e) in t1.energy_ev().iter().enumerate() {
-        // the sampled window opens at the lowest tabulated ELF energy, below
-        // which the full Penn DIIMFP is zero (#342: unchanged for this model)
+        // the sampled window opens at 1e-6 T, far below the lowest tabulated
+        // ELF energy: the full Penn DIIMFP is not zero below it (#361)
         let q0 = t1.quantiles(i).unwrap()[0];
-        assert!((q0 / elf_min - 1.0).abs() < 1e-12, "{e} eV: {q0}");
+        assert!((q0 / (1e-6 * e) - 1.0).abs() < 1e-12, "{e} eV: {q0}");
+        assert!(q0 < elf_min);
         let s = stopping_power_ev_per_m(&t1, i).unwrap();
         let want = m.imfp_and_stopping(e).unwrap();
         assert_eq!(t1.inverse_mfp_per_m()[i], want.inverse_imfp_per_m);
@@ -465,6 +475,188 @@ fn full_penn_band_bottom_table_skips_rows_at_or_below_the_fermi_level() {
     for j in 0..GRID_ENERGIES.len() {
         assert_eq!(t.inverse_mfp_per_m()[j + 1], r.inverse_mfp_per_m()[j]);
         assert_eq!(t.quantiles(j + 1), r.quantiles(j));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Losses below the lowest ELF energy (#361)
+// ---------------------------------------------------------------------------
+
+/// `(λ⁻¹, S)` of `m` at `t` from the direct DIIMFP, independently of the
+/// model's own `(q, ω)` integrals and of any table: composite Simpson in
+/// `ln ω` over `(lo, t/2]` and in `sqrt(t - ω)` over `(t/2, t]` (the end
+/// of the DIIMFP at `ω = t`), eV and m⁻¹, `lo` the lowest loss counted.
+fn direct_moments(m: &FullPenn, t: f64, lo: f64, n_log: usize) -> (f64, f64) {
+    let p = |w: f64| m.diimfp_per_m_ev(t, w).unwrap();
+    let split = 0.5 * t;
+    // one DIIMFP evaluation per node, for both moments
+    let (a, b) = (lo.ln(), split.ln());
+    let h = (b - a) / n_log as f64;
+    let (mut low, mut low_s) = (0.0, 0.0);
+    for i in 0..=n_log {
+        let w = (a + h * i as f64).exp().clamp(lo, split);
+        let c = if i == 0 || i == n_log {
+            1.0
+        } else if i % 2 == 1 {
+            4.0
+        } else {
+            2.0
+        };
+        let v = c * p(w) * w;
+        low += v;
+        low_s += v * w;
+    }
+    let (low, low_s) = (low * h / 3.0, low_s * h / 3.0);
+    let n = 24;
+    let b = (t - split).sqrt();
+    let h = b / n as f64;
+    let (mut hi, mut hi_s) = (0.0, 0.0);
+    for i in 0..=n {
+        let s = h * i as f64;
+        let w = t - s * s;
+        let c = if i == 0 || i == n {
+            1.0
+        } else if i % 2 == 1 {
+            4.0
+        } else {
+            2.0
+        };
+        let v = c * p(w) * 2.0 * s;
+        hi += v;
+        hi_s += v * w;
+    }
+    (low + hi * h / 3.0, low_s + hi_s * h / 3.0)
+}
+
+/// Rows at and below the lowest ELF energy (0.5 eV), just above it, and
+/// well above it.
+const LOW_ENERGIES: [f64; 4] = [0.3, 0.5, 2.0, 40.0];
+
+fn build_low(
+    threads: usize,
+    grid: &[f64],
+    axis: EnergyAxis,
+) -> lindhard::electron::data::CrossSectionTable {
+    let m = PennInelastic::Full(coarse_full());
+    let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
+    let options = InelasticTableOptions::new(grid.to_vec()).with_axis(axis);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap()
+        .install(|| build_inelastic_table_for_model(&m, &material, &options).unwrap())
+}
+
+#[test]
+fn full_penn_rows_count_the_losses_below_the_lowest_elf_energy() {
+    // The full Penn DIIMFP is positive below the lowest ELF energy
+    // (0.5 eV here), where the Lindhard continuum of each gas reaches
+    // omega -> 0. The row rate, the sampled losses and S = lambda^-1 <W> must
+    // describe the same window, for T <= 0.5 eV, T just above it and T far
+    // above it (before #361 the window opened at 0.5 eV: a row at 0.3 eV
+    // was empty and S was high by the share of lambda^-1 below 0.5 eV).
+    let model = coarse_full();
+    let elf_min = coarse_fixture().energy_ev()[0];
+    assert!(model.diimfp_per_m_ev(2.0, 0.2).unwrap() > 0.0);
+    assert!(model.diimfp_per_m_ev(0.3, 0.1).unwrap() > 0.0);
+    let table = build_low(1, &LOW_ENERGIES, EnergyAxis::ModelFermiLevel);
+    for (i, &t) in LOW_ENERGIES.iter().enumerate() {
+        // reference on (1e-8 T, T]: a lower limit than the table's 1e-6 T
+        let (ref_inv, ref_s) = direct_moments(&model, t, 1e-8 * t, 160);
+        // The share below the table's lower limit 1e-6 T, which neither
+        // the table nor this reference counts. The direct DIIMFP carries
+        // noise at the model tolerance, so a difference of two integrals
+        // cannot show it; but p is linear in omega there (checked, to 2 %,
+        // from two limits 100 apart), so the share is p(fT) fT / 2 of the
+        // rate and p(fT) (fT)^2 / 3 of the stopping power.
+        let f = 1e-6 * t;
+        let (p1, p2) = (
+            model.diimfp_per_m_ev(t, f).unwrap(),
+            model.diimfp_per_m_ev(t, 0.01 * f).unwrap(),
+        );
+        assert!(
+            (p1 / p2 / 100.0 - 1.0).abs() < 2e-2,
+            "{t} eV: {p1:e} {p2:e}"
+        );
+        let (omit_inv, omit_s) = (p1 * f / 2.0, p1 * f * f / 3.0);
+        println!(
+            "T={t}: omitted share of rate {:e}, of S {:e}",
+            omit_inv / ref_inv,
+            omit_s / ref_s
+        );
+        assert!(omit_inv / ref_inv < 1e-6, "{t} eV");
+        assert!(omit_s / ref_s < 1e-8, "{t} eV");
+        // the old window (elf_min, T]; empty for T <= elf_min
+        let old = if t > elf_min {
+            direct_moments(&model, t, elf_min, 60)
+        } else {
+            (0.0, 0.0)
+        };
+        let inv = table.inverse_mfp_per_m()[i];
+        let s = stopping_power_ev_per_m(&table, i).unwrap();
+        let own = model.imfp_and_stopping(t).unwrap();
+        // the stored rate is the model's own, to its quadrature tolerance
+        assert_eq!(inv, own.inverse_imfp_per_m, "{t} eV");
+        // 1e-2: the Simpson reference and the model's own integral each
+        // carry about 1e-3 here (the model tolerance is 1e-3 in this file)
+        assert!(rel(inv, ref_inv) < 1e-2, "{t} eV: {inv:e} vs {ref_inv:e}");
+        assert!(rel(s, ref_s) < 1e-2, "{t} eV: {s:e} vs {ref_s:e}");
+        assert!(rel(s, own.stopping_ev_per_m) < 3.0 * TOL, "{t} eV");
+        // the old window misses the share below elf_min, many times the
+        // tolerance above
+        let (missed_inv, missed_s) = (1.0 - old.0 / ref_inv, 1.0 - old.1 / ref_s);
+        println!("T={t}: old window misses {missed_inv:e} of rate, {missed_s:e} of S");
+        if t <= elf_min {
+            assert_eq!(old.0, 0.0);
+        } else if t < 3.0 {
+            // well above the 1e-2 tolerance of the comparisons above
+            assert!(missed_inv > 5e-2 && missed_s > 2e-2, "{t} eV");
+        }
+        // quantiles: finite, positive, ordered, bounded by T, from 1e-6 T
+        let q = table.quantiles(i).unwrap();
+        assert!(q
+            .iter()
+            .all(|w| w.is_finite() && *w > 0.0 && *w <= t * (1.0 + 1e-12)));
+        assert!(q.windows(2).all(|w| w[0] <= w[1]));
+        assert!((q[0] / (1e-6 * t) - 1.0).abs() < 1e-12);
+    }
+    // thread-count determinism
+    let t3 = build_low(3, &LOW_ENERGIES, EnergyAxis::ModelFermiLevel);
+    assert_eq!(table.probability(), t3.probability());
+    for i in 0..LOW_ENERGIES.len() {
+        assert_eq!(
+            table.inverse_mfp_per_m()[i].to_bits(),
+            t3.inverse_mfp_per_m()[i].to_bits()
+        );
+        let (a, b) = (table.quantiles(i).unwrap(), t3.quantiles(i).unwrap());
+        assert!(a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits()));
+    }
+}
+
+#[test]
+fn full_penn_band_bottom_low_energy_rows_follow_the_window_and_empty_rows_stay_empty() {
+    // T = E - E_F: rows at and below E_F stay empty, a row with
+    // 0 < T <= elf_min carries the model's rate and losses, and every row
+    // is the own-axis row at its T.
+    let fermi = 10.0;
+    let m = PennInelastic::Full(coarse_full().with_fermi_energy_ev(fermi).unwrap());
+    let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
+    let ts = [0.25, 40.0];
+    let mut grid = vec![fermi - 5.0, fermi];
+    grid.extend(ts.iter().map(|t| fermi + t));
+    let band = InelasticTableOptions::new(grid).with_axis(EnergyAxis::BandBottom);
+    let own = InelasticTableOptions::new(ts.to_vec());
+    let t = build_inelastic_table_for_model(&m, &material, &band).unwrap();
+    let r = build_inelastic_table_for_model(&m, &material, &own).unwrap();
+    for i in 0..2 {
+        assert_eq!(t.inverse_mfp_per_m()[i], 0.0);
+        assert!(t.quantiles(i).is_none());
+    }
+    assert!(r.inverse_mfp_per_m()[0] > 0.0);
+    assert_eq!(t.probability(), r.probability());
+    for j in 0..ts.len() {
+        assert_eq!(t.inverse_mfp_per_m()[j + 2], r.inverse_mfp_per_m()[j]);
+        assert_eq!(t.quantiles(j + 2), r.quantiles(j));
     }
 }
 
