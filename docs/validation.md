@@ -2136,8 +2136,10 @@ and Cu seed 2 gave δ 1.6125 (3225 slow electrons) against the committed
 1.614 (3228), η unchanged. The #242 build 8a47748, rebuilt on the same host,
 gives 1.6125 as well, so the difference is not a code change since #242; it
 comes with the host or toolchain (the cross-platform caveat of
-[`architecture.md`](architecture.md), "Reproducibility"), and its cause is
-not located. No row was added, so the committed results were not replaced.
+[`architecture.md`](architecture.md), "Reproducibility"). #319 looked for
+the cause and did not isolate it; what it ruled out, and the rule for
+comparing rows across hosts, are under "Reproducing the baseline across
+hosts" below. No row was added, so the committed results were not replaced.
 The runs predate the band-bottom inelastic tables of #241 (they were run
 with the model's Fermi energy 0 on the model's axis, as the rows above) and
 the Mermin fit changes of #306 and #311; #287 reruns the yield tables with
@@ -2370,6 +2372,117 @@ each, one issue per item from #301: acoustic-phonon scattering for Cu
 elastic corrections below 50 eV (#315). The measurements themselves are a weak anchor
 (two resolving sets for Au, three for Cu, surface condition and incidence
 not stated; above).
+
+**Reproducing the baseline across hosts (#319).** The committed baseline
+gives Cu seed 2 δ 1.614 (3228 slow electrons); the #315 pass got 1.6125
+(3225) on a dispatch worker. #319 reran it there to find out whether the
+tables or the transport differ, and which host or toolchain property
+changes the count. Only that worker was available. The machine the
+committed results came from was not reachable, and nothing in the tree
+records its OS, CPU, C library or rustc; the results file names only the
+build, `efad84e`. Its table hashes could not be compared or swapped.
+
+Measured on the worker (2026-10-10). Host: x86-64 Linux, Intel Xeon
+Platinum 8488C, glibc 2.39 (Ubuntu 2.39-0ubuntu8.9), rustc 1.97.1
+(8bab26f4f). Build: the `efad84e` sources from `git archive`, release
+profile. Their `lindhard` and `lindhard-cli` sources are the same as
+`80faeb9`, the #315 build. Every run is the `baseline` input of
+`se_yield_candidates.py` (Cu, 800 eV, 2000 primaries, seed 2,
+`threads = 2`) with a fresh table cache unless stated, and every
+configuration was run twice with the same result:
+
+| What was changed | Elastic table SHA-256 | Inelastic table SHA-256 | Slow electrons (δ) | η |
+|---|---|---|---|---|
+| nothing | `a205882c…bff92995` | `6a1a1521…66a523a1` | 3225 (1.6125) | 0.5225 |
+| glibc libm without its FMA and AVX2 code (`GLIBC_TUNABLES=glibc.cpu.hwcaps=-AVX2,-FMA`), and also without AVX (`-AVX,-AVX2,-FMA`) | `a08b39f3…1604d981` | `f79a654a…de76d068` | 3225 (1.6125) | 0.5225 |
+| caches swapped between the two libm paths, both ways | (as swapped) | (as swapped) | 3225 (1.6125) | 0.5225 |
+| built with rustc 1.96.0 or 1.98.1 instead of 1.97.1 | `a205882c…bff92995` | `6a1a1521…66a523a1` | 3225 (1.6125) | 0.5225 |
+| built with `-C target-cpu=native` | `a205882c…bff92995` | `6a1a1521…66a523a1` | 3225 (1.6125) | 0.5225 |
+| `threads = 1` instead of 2 | - | - | 3225 | 0.5225 |
+
+Full hashes: elastic
+`a205882cb7581848f0fb859843e8060bd7c378090813b151664b7566bff92995` and
+`a08b39f3440f892be298b35ffc6ec47765fc90caa0603031b46352921604d981`;
+inelastic `6a1a15210109dd636b1243ee459347812d81ae967caed4df72219a1066a523a1`
+and `f79a654a47223f1c294f66a25828f589134b0996541d76d2675b0240de76d068`.
+The whole baseline row (Au and Cu, seeds 1 to 10) was also run with the
+default libm path and with the SSE2-only one. Both times 19 of the 20 runs
+reproduced the committed δ and η exactly, and Cu seed 2 gave 3225.
+
+What this shows:
+
+- **The table bytes depend on which libm code path glibc picks, and glibc
+  picks it by CPU feature.** With the FMA path off, 6612 of the 31962
+  numbers in the Cu elastic table file differ, by at most 2.3e-6
+  relative. In the inelastic table 12183 of 13292 differ, by at most
+  1.2e-8. So two x86-64 Linux hosts with the same glibc and the same
+  binary build different tables if one CPU has FMA and AVX2 and the other
+  does not. On identical tables the two paths give the same integers and
+  the same δ and η. Ten floating-point moments of the summary (the
+  generation-volume mean and the stopping-point skewness and kurtosis with
+  their errors) differ in the last bits.
+- **Ruled out as the cause of the Cu seed 2 count on this host:** the rustc
+  version (1.96.0 to 1.98.1), the codegen target CPU, the glibc 2.39 libm
+  code paths (FMA and AVX2, AVX, SSE2; they change both tables and leave
+  the count at 3225), the thread count, and code changes between `8a47748`
+  and `80faeb9`.
+- **Not tested, because no such host was available:** a different glibc
+  version, a libm other than glibc's (macOS, musl), and aarch64. **The
+  property that changes the count is not isolated.** Whether the other
+  host's tables or its transport differ is not known either, because its
+  hashes were not recorded.
+- The cache file name is the SHA-256 of the cache key, and the key includes
+  the binary's SHA-256 and `git describe`. Every build therefore has its
+  own file names. To compare two hosts' tables, compare the `.sha256`
+  contents, or the `cache.sha256` of each table in the run summary, not
+  the file names.
+- At the current `main` (`be5fb01`, after #241) the script no longer
+  reproduces any committed seed. Cu seed 2 gives 3431 (δ 1.7155,
+  η 0.5285). The elastic table file is unchanged
+  (`a205882c…bff92995`). The inelastic one, now on the band-bottom axis,
+  differs (`fedd94f2…36792e23`).
+
+The difference is small against the statistics. Putting the worker's Cu
+seed 2 into the committed table moves the Cu baseline mean by 0.00015,
+less than a tenth of its standard error (0.019). It still changes one
+printed value: the `fermi-tpp2011` Cu change goes from +0.004 to +0.005.
+So mixing rows from two hosts shows up in the table even when the counts
+are statistically the same.
+
+**Decision (#319).**
+
+- **Exact on one host and build; a tolerance across hosts.** On one host
+  with one build, counts and floats reproduce bit for bit at any thread
+  count. A difference there is a defect and gets its own issue. Across
+  hosts, including two x86-64 Linux hosts whose CPUs send glibc down
+  different libm paths, an integer count may differ. Report such a
+  difference with both counts and both host records. It is a cross-host
+  difference, not a failed reproduction, if it moves the row's mean δ by
+  less than a tenth of the row's standard error. A larger difference is
+  investigated.
+- **A row is compared only with a baseline from the same host and
+  build.** Before a new row goes into
+  `se_yield_candidates_results.json`, rerun the whole `baseline` row (Au
+  and Cu, all ten seeds, fresh table cache) on the host and build that
+  will run the new row, into a scratch file (`--results`). If every seed
+  reproduces its committed slow count, δ and η exactly, the new row may be
+  added, as #314 did. If any seed differs, nothing is mixed. Either the
+  whole file (baseline and every candidate row) is regenerated on one host
+  and build and replaces the committed one, with its
+  [`data-provenance.md`](data-provenance.md) entry updated, or the new row
+  is reported from the scratch file against that scratch baseline.
+  Because of #241 (above), the next row needs the full regeneration on
+  any host.
+- **The host is recorded from now on.** `se_yield_candidates.py --run`
+  writes a `hosts` record (OS, architecture, C library, CPU model, the
+  rustc that built the binary, and the binary's SHA-256). Each run names
+  its record and carries the SHA-256 of the elastic and inelastic tables
+  it read, so the next cross-host difference can be traced to the tables
+  or to the transport from the results files alone. The committed runs
+  predate this and carry neither.
+
+The committed results and `docs/data-provenance.md` were not changed by
+#319.
 
 ## Reporting
 

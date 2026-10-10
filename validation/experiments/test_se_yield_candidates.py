@@ -167,6 +167,29 @@ class Statistics(unittest.TestCase):
         self.assertEqual(len(sc.control_errors(r)), 1)
 
 
+class Hosts(unittest.TestCase):
+    def test_table_hashes_come_from_the_summary_cache_records(self):
+        summary = {"physics": {"materials": [{
+            "name": "Cu",
+            "elastic_table": {"cache": {"sha256": "a" * 64, "key_sha256": "k", "path": "p"}},
+            "inelastic_table": {"cache": None}}]}}
+        self.assertEqual(sc.table_hashes(summary), {"Cu elastic": "a" * 64})
+        self.assertEqual(sc.table_hashes({}), {})
+
+    def test_rustc_is_read_from_the_binary(self):
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            exe = Path(td) / "exe"
+            exe.write_bytes(b"\x7fELF\x00junk\x00rustc version 1.97.1 (8bab26f4f 2026-07-14)\x00more")
+            self.assertEqual(sc.rustc_of(exe), "rustc version 1.97.1 (8bab26f4f 2026-07-14)")
+            exe.write_bytes(b"no version here")
+            self.assertEqual(sc.rustc_of(exe), "unknown")
+            rec = sc.host_record(exe)
+            self.assertEqual(set(rec), {"system", "machine", "libc", "cpu", "rustc", "executable_sha256"})
+            self.assertEqual(sc.host_id(rec), sc.host_id(dict(rec)))
+            self.assertNotEqual(sc.host_id(rec), sc.host_id({**rec, "cpu": "other"}))
+
+
 class Committed(unittest.TestCase):
     def setUp(self):
         if not sc.RESULTS.exists():
