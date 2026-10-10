@@ -10,6 +10,7 @@
 pub mod dynamic;
 pub mod electron;
 pub mod output;
+pub mod publish;
 pub mod sim;
 pub mod table_cache;
 pub mod tally;

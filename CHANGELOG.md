@@ -9,6 +9,10 @@ one version).
 
 ### Fixed
 
+- A run into a reused output directory removes its mode's previous summary
+  before replacing any CSV, and publishes the new summary through a
+  temporary file and rename, so a failed rerun no longer leaves an old summary
+  beside replaced CSVs (#321).
 - Dynamic runs write `dynamic_summary.json` last, after
   `dynamic_steps.csv` and the composition CSV, like ion and electron runs
   (#292). A failed CSV write no longer leaves a new summary.

@@ -788,7 +788,19 @@ and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
 `tally.psf`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
-CSV write leaves no new summary) and lists only files that exist. Other files in the
+CSV write leaves no new summary) and lists only files that exist.
+
+Once output starts, the run first removes the previous summary of its own mode
+(`summary.json`, `electron_summary.json` or `dynamic_summary.json`) and only
+then replaces CSVs. The new summary is written to a temporary sibling and
+renamed into place after every other write succeeds. So, after a failed run,
+the absence of the mode's summary means the output set is incomplete (it may
+hold a mix of old and new CSVs); a summary that is present describes a
+completed run. If the previous summary cannot be removed, the run fails naming
+its path before any CSV changes. A failure before output starts (simulation or
+serialization) leaves existing outputs as they were. This is not a
+transaction: the CSVs are replaced in place, and concurrent runs into one
+directory are not supported. Other files in the
 directory are never touched, and no cleanup happens between ion, electron and
 dynamic runs. Do not keep your own data under a reserved name.
 

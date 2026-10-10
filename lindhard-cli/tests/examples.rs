@@ -1767,3 +1767,137 @@ fn rerun_removes_stale_electron_psf_csvs() {
     run(&with, &out, &["--histories", "32"]);
     assert!(files.iter().all(|f| out.join(f).exists()));
 }
+
+// ---- summary invalidation on rerun (#321) ------------------------------------
+
+/// Runs `input` into `out` with the given extra args; returns the output.
+fn run_raw(input: &Path, out: &Path, extra: &[&str]) -> Output {
+    let mut args = vec![
+        "run",
+        input.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+    ];
+    args.extend_from_slice(extra);
+    lindhard(&args)
+}
+
+/// Replaces `out/name` (a file) with a non-empty directory.
+fn obstruct(out: &Path, name: &str) {
+    let p = out.join(name);
+    let _ = std::fs::remove_file(&p);
+    std::fs::create_dir_all(p.join("inner")).unwrap();
+}
+
+fn assert_fails_naming(o: &Output, path: &Path) {
+    assert!(!o.status.success(), "expected failure");
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains(&path.display().to_string()), "{e}");
+}
+
+#[test]
+fn dynamic_rerun_failure_leaves_no_old_summary() {
+    let out = scratch("rerun-dynamic-composition");
+    let ex = dynamic_example();
+    run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+    let steps_before = std::fs::read_to_string(out.join("dynamic_steps.csv")).unwrap();
+    assert!(out.join("dynamic_summary.json").exists());
+    std::fs::write(out.join("unrelated.txt"), "keep").unwrap();
+    obstruct(&out, "dynamic_composition.csv");
+    let o = run_raw(&ex, &out, &["--ions", "50", "--seed", "2"]);
+    assert_fails_naming(&o, &out.join("dynamic_composition.csv"));
+    assert!(!out.join("dynamic_summary.json").exists());
+    let steps_after = std::fs::read_to_string(out.join("dynamic_steps.csv")).unwrap();
+    assert_ne!(steps_before, steps_after, "first CSV was replaced");
+    assert_eq!(std::fs::read(out.join("unrelated.txt")).unwrap(), b"keep");
+}
+
+#[test]
+fn undeletable_old_summary_aborts_before_any_csv_changes() {
+    let out = scratch("rerun-dynamic-summary-stuck");
+    let ex = dynamic_example();
+    run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+    let steps_before = std::fs::read(out.join("dynamic_steps.csv")).unwrap();
+    let comp_before = std::fs::read(out.join("dynamic_composition.csv")).unwrap();
+    obstruct(&out, "dynamic_summary.json");
+    let o = run_raw(&ex, &out, &["--ions", "50", "--seed", "2"]);
+    assert_fails_naming(&o, &out.join("dynamic_summary.json"));
+    assert_eq!(
+        std::fs::read(out.join("dynamic_steps.csv")).unwrap(),
+        steps_before
+    );
+    assert_eq!(
+        std::fs::read(out.join("dynamic_composition.csv")).unwrap(),
+        comp_before
+    );
+}
+
+#[test]
+fn ion_rerun_failures_leave_no_old_summary_and_spare_other_modes() {
+    let ex = examples_dir().join("b_5keV_si.toml");
+    // A required write fails, then an optional removal fails.
+    for (name, file) in [
+        ("rerun-ion-required", "damage_profile.csv"),
+        ("rerun-ion-optional", "ions.csv"),
+    ] {
+        let out = scratch(name);
+        run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+        std::fs::write(out.join("dynamic_summary.json"), "other mode").unwrap();
+        std::fs::write(out.join("electron_summary.json"), "other mode").unwrap();
+        std::fs::write(out.join("unrelated.txt"), "keep").unwrap();
+        obstruct(&out, file);
+        let o = run_raw(&ex, &out, &["--ions", "50", "--seed", "2"]);
+        assert_fails_naming(&o, &out.join(file));
+        assert!(!out.join("summary.json").exists(), "{file}");
+        for keep in ["dynamic_summary.json", "electron_summary.json"] {
+            assert_eq!(std::fs::read(out.join(keep)).unwrap(), b"other mode");
+        }
+        assert_eq!(std::fs::read(out.join("unrelated.txt")).unwrap(), b"keep");
+    }
+}
+
+#[test]
+fn electron_rerun_failures_leave_no_old_summary_and_spare_other_modes() {
+    let ex = electron_example();
+    for (name, file) in [
+        ("rerun-electron-required", "electron_tables.csv"),
+        ("rerun-electron-optional", "electron_psf_profile.csv"),
+    ] {
+        let out = scratch(name);
+        run(&ex, &out, &["--histories", "32", "--seed", "1"]);
+        assert!(out.join("electron_summary.json").exists());
+        std::fs::write(out.join("summary.json"), "other mode").unwrap();
+        std::fs::write(out.join("unrelated.txt"), "keep").unwrap();
+        obstruct(&out, file);
+        let o = run_raw(&ex, &out, &["--histories", "32", "--seed", "2"]);
+        assert_fails_naming(&o, &out.join(file));
+        assert!(!out.join("electron_summary.json").exists(), "{file}");
+        assert_eq!(
+            std::fs::read(out.join("summary.json")).unwrap(),
+            b"other mode"
+        );
+        assert_eq!(std::fs::read(out.join("unrelated.txt")).unwrap(), b"keep");
+    }
+}
+
+#[test]
+fn successful_rerun_publishes_summary_without_temp_files() {
+    let out = scratch("rerun-success");
+    let ex = dynamic_example();
+    run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+    run(&ex, &out, &["--ions", "50", "--seed", "2"]);
+    json(&out.join("dynamic_summary.json"));
+    let mut names: Vec<String> = std::fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        [
+            "dynamic_composition.csv",
+            "dynamic_steps.csv",
+            "dynamic_summary.json"
+        ]
+    );
+}
