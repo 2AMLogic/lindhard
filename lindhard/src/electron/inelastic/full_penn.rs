@@ -115,8 +115,9 @@
 //! IMFP and stopping power by up to about 1e-7; measured differences in
 //! `docs/validation.md`, "Electron oracles"). The outer `ω_p` integral of
 //! [`FullPenn::imfp_and_stopping`] has the same bisection and budget and
-//! counts its unconverged cells ([`FullPenn::imfp_unconverged`]); its
-//! inner integrals over `q` and `ω` are not bounded and report nothing.
+//! counts its unconverged cells ([`FullPenn::imfp_and_stopping_evaluation`],
+//! [`ImfpEvaluation`]; also [`FullPenn::imfp_unconverged`]); its inner
+//! integrals over `q` and `ω` are not bounded and report nothing.
 //!
 //! The momentum profiles of a [`DiimfpGrid`] had the same failure one level
 //! up. Above the end of a table whose last ELF value is not zero (Si:
@@ -130,8 +131,10 @@
 //! ([`DiimfpGrid::unconverged_profile_panels`]), and the loss evaluations
 //! inside a profile that did not converge
 //! ([`DiimfpGrid::unconverged_profile_loss_evaluations`]). The direct
-//! [`FullPenn::diimfp_per_m_ev`] does not report exhaustion of the loss
-//! evaluations it integrates.
+//! DIIMFP counts the loss evaluations of its momentum integral that did not
+//! converge, with the same definition
+//! ([`FullPenn::diimfp_evaluation`], [`DiimfpEvaluation`]); its momentum
+//! integral itself is not bounded and reports nothing.
 //!
 //! **Tables.** An inelastic table needs the DIIMFP at some 10⁴ losses per
 //! row, which at about 15 ms per evaluation (and with the quadrature noise
@@ -282,6 +285,50 @@ impl LossFunctionEvaluation {
     pub fn converged(&self) -> bool {
         self.unconverged_cells == 0
     }
+}
+
+/// One evaluation of the full Penn DIIMFP ([`FullPenn::diimfp_evaluation`]):
+/// the value and how many of the loss-function evaluations of its momentum
+/// integral did not converge (#368).
+///
+/// Each evaluation of `Im[-1/ε(q, ω)]` inside the `ln q` integral of the
+/// DIIMFP has the bounded `ω_p` bisection of [`LossFunctionEvaluation`]; one
+/// whose `unconverged_cells` is not zero is counted in
+/// `unconverged_loss_evaluations`, the definition of
+/// [`DiimfpGrid::unconverged_profile_loss_evaluations`]. The momentum
+/// integral itself (`quadrature::integrate_segments`) is not bounded and
+/// reports nothing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DiimfpEvaluation {
+    /// The DIIMFP, m⁻¹ eV⁻¹, as [`FullPenn::diimfp_per_m_ev`].
+    pub value: f64,
+    /// Loss-function evaluations of the momentum integral whose `ω_p`
+    /// integral left a cell without meeting its tolerance (zero when every
+    /// one converged).
+    pub unconverged_loss_evaluations: u64,
+    /// The largest `unconverged_error` of those evaluations, relative to the
+    /// value of the same evaluation of `Im[-1/ε(q, ω)]` (zero when every one
+    /// converged). An estimate that is not tight; read it as a bound, as
+    /// [`LossFunctionEvaluation::unconverged_error`].
+    pub largest_unconverged_error: f64,
+}
+
+/// One evaluation of the full Penn inverse IMFP and stopping power
+/// ([`FullPenn::imfp_and_stopping_evaluation`]): the point and the cells of
+/// its outer `ω_p` integral accepted without meeting their tolerance (#298,
+/// #368). The inner integrals over `q` and `ω` are not bounded and report
+/// nothing.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ImfpEvaluation {
+    /// `λ⁻¹` and `S`, as [`FullPenn::imfp_and_stopping`].
+    pub point: InelasticPoint,
+    /// Cells of the outer `ω_p` integral accepted without meeting their
+    /// tolerance (budget of the bisection spent, maximum depth, or a
+    /// midpoint that is not representable); zero when it converged.
+    pub unconverged_cells: u64,
+    /// The error estimate of those cells relative to `λ⁻¹` (zero when the
+    /// integral converged).
+    pub unconverged_error: f64,
 }
 
 /// The full Penn model built from one optical ELF. See the module docs.
@@ -486,13 +533,8 @@ impl FullPenn {
         weight * p0.weight / slope
     }
 
-    /// The expanded loss function `Im[-1/ε(q, ω)]` in atomic units.
-    fn loss_au(&self, q: f64, w: f64) -> f64 {
-        self.loss_eval_au(q, w).value
-    }
-
-    /// [`Self::loss_au`] with the work of its `ω_p` integral and whether
-    /// that integral converged.
+    /// The expanded loss function `Im[-1/ε(q, ω)]` in atomic units, with
+    /// the work of its `ω_p` integral and whether that integral converged.
     fn loss_eval_au(&self, q: f64, w: f64) -> LossFunctionEvaluation {
         let (wmin, wmax) = self.table_range();
         let a = w / q - 0.5 * q;
@@ -576,6 +618,15 @@ impl FullPenn {
     /// energy `energy_ev` above the Fermi level and energy loss `loss_ev`, in
     /// m⁻¹ eV⁻¹. Zero for `ω <= 0` or `ω > T`.
     pub fn diimfp_per_m_ev(&self, energy_ev: f64, loss_ev: f64) -> Result<f64> {
+        Ok(self.diimfp_evaluation(energy_ev, loss_ev)?.value)
+    }
+
+    /// [`Self::diimfp_per_m_ev`] with the number of loss-function
+    /// evaluations of its momentum integral whose own `ω_p` integral did not
+    /// converge (#298, #368); see [`DiimfpEvaluation`]. The `value` is the
+    /// same number [`Self::diimfp_per_m_ev`] returns, and the errors are the
+    /// same.
+    pub fn diimfp_evaluation(&self, energy_ev: f64, loss_ev: f64) -> Result<DiimfpEvaluation> {
         check_energy("electron energy", energy_ev)?;
         if !loss_ev.is_finite() {
             return Err(ElectronDataError::Invalid {
@@ -584,30 +635,52 @@ impl FullPenn {
             });
         }
         let h = hartree_ev();
-        let p_au = self.diimfp_au(energy_ev / h, loss_ev / h);
-        Ok(p_au / (BOHR_RADIUS * h))
+        let mut out = self.diimfp_eval_au(energy_ev / h, loss_ev / h);
+        out.value /= BOHR_RADIUS * h;
+        Ok(out)
     }
 
-    fn diimfp_au(&self, t: f64, w: f64) -> f64 {
+    /// The DIIMFP in atomic units, with the count of its unconverged loss
+    /// evaluations (see [`DiimfpEvaluation`]).
+    fn diimfp_eval_au(&self, t: f64, w: f64) -> DiimfpEvaluation {
+        let mut out = DiimfpEvaluation {
+            value: 0.0,
+            unconverged_loss_evaluations: 0,
+            largest_unconverged_error: 0.0,
+        };
         if !(w > 0.0 && w <= t) {
-            return 0.0;
+            return out;
         }
         let tp = t + self.fermi;
         let k = (2.0 * tp).sqrt();
         let s = (2.0 * (tp - w)).max(0.0).sqrt();
         let (q_minus, q_plus) = (2.0 * w / (k + s), k + s);
         if q_plus.is_nan() || q_plus <= q_minus {
-            return 0.0;
+            return out;
         }
         let (lo, hi) = (q_minus.ln(), q_plus.ln());
         let breaks: Vec<f64> = (0..=8).map(|i| lo + (hi - lo) * i as f64 / 8.0).collect();
+        let inner = Cell::new(0u64);
+        let worst = Cell::new(0.0f64);
         let integral = integrate_segments(
             &self.gl,
-            &mut |u: f64| [self.loss_au(u.exp(), w)],
+            &mut |u: f64| {
+                let e = self.loss_eval_au(u.exp(), w);
+                if e.unconverged_cells > 0 {
+                    inner.set(inner.get() + 1);
+                    if e.value != 0.0 {
+                        worst.set(worst.get().max(e.unconverged_error / e.value.abs()));
+                    }
+                }
+                [e.value]
+            },
             &breaks,
             self.rel_tol,
         )[0];
-        integral / (PI * tp)
+        out.value = integral / (PI * tp);
+        out.unconverged_loss_evaluations = inner.get();
+        out.largest_unconverged_error = worst.get();
+        out
     }
 
     // ---- IMFP and stopping power ----
@@ -662,16 +735,10 @@ impl FullPenn {
     }
 
     /// `(λ⁻¹, S)` at kinetic energy `t` (Hartree) above the Fermi level, in
-    /// atomic units.
-    fn imfp_and_stopping_au(&self, t: f64) -> (f64, f64) {
-        let (inv, s, ..) = self.imfp_and_stopping_eval_au(t);
-        (inv, s)
-    }
-
-    /// [`Self::imfp_and_stopping_au`] with the number of cells of the outer
-    /// `ω_p` integral accepted without meeting their tolerance, and their
-    /// error estimate relative to `λ⁻¹`. The inner integrals over `q` and
-    /// `ω` are not bounded and report nothing.
+    /// atomic units, with the number of cells of the outer `ω_p` integral
+    /// accepted without meeting their tolerance, and their error estimate
+    /// relative to `λ⁻¹`. The inner integrals over `q` and `ω` are not
+    /// bounded and report nothing.
     fn imfp_and_stopping_eval_au(&self, t: f64) -> (f64, f64, u64, f64) {
         if t.is_nan() || t <= 0.0 {
             return (0.0, 0.0, 0, 0.0);
@@ -703,21 +770,33 @@ impl FullPenn {
     /// not representable; #298), and the error estimate of those cells
     /// relative to `λ⁻¹`. `(0, 0.0)` when the integral converged.
     pub fn imfp_unconverged(&self, energy_ev: f64) -> Result<(u64, f64)> {
-        check_energy("electron energy", energy_ev)?;
-        let (_, _, cells, err) = self.imfp_and_stopping_eval_au(energy_ev / hartree_ev());
-        Ok((cells, err))
+        let e = self.imfp_and_stopping_evaluation(energy_ev)?;
+        Ok((e.unconverged_cells, e.unconverged_error))
     }
 
     /// The inverse IMFP (m⁻¹) and the stopping power (eV/m) at kinetic
     /// energy `energy_ev` above the Fermi level.
     pub fn imfp_and_stopping(&self, energy_ev: f64) -> Result<InelasticPoint> {
+        Ok(self.imfp_and_stopping_evaluation(energy_ev)?.point)
+    }
+
+    /// [`Self::imfp_and_stopping`] with the cells of its outer `ω_p`
+    /// integral that were accepted without meeting their tolerance (#298,
+    /// #368), from the same single evaluation; see [`ImfpEvaluation`]. The
+    /// `point` is the same value [`Self::imfp_and_stopping`] returns, and
+    /// the errors are the same.
+    pub fn imfp_and_stopping_evaluation(&self, energy_ev: f64) -> Result<ImfpEvaluation> {
         check_energy("electron energy", energy_ev)?;
         let h = hartree_ev();
-        let (inv, s) = self.imfp_and_stopping_au(energy_ev / h);
-        Ok(InelasticPoint {
-            energy_ev,
-            inverse_imfp_per_m: inv / BOHR_RADIUS,
-            stopping_ev_per_m: s * h / BOHR_RADIUS,
+        let (inv, s, cells, err) = self.imfp_and_stopping_eval_au(energy_ev / h);
+        Ok(ImfpEvaluation {
+            point: InelasticPoint {
+                energy_ev,
+                inverse_imfp_per_m: inv / BOHR_RADIUS,
+                stopping_ev_per_m: s * h / BOHR_RADIUS,
+            },
+            unconverged_cells: cells,
+            unconverged_error: err,
         })
     }
 

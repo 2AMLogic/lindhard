@@ -10,14 +10,14 @@
 //! 1e-3 here to keep the (nested, three-dimensional) integrals affordable in
 //! an unoptimised test build; its default is 1e-4.
 
-use lindhard::constants::BOHR_RADIUS;
+use lindhard::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, HARTREE_ENERGY};
 use lindhard::electron::data::OpticalElf;
 use lindhard::electron::inelastic::table::{
     build_inelastic_table_for_model, stopping_power_ev_per_m, EnergyAxis, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{
-    DrudeLorentz, DrudeLorentzOscillator, FullPenn, PennAlgorithm, PennInelastic, SinglePolePenn,
-    SumRuleReport, OMEGA_P_INTERVAL_BUDGET,
+    DrudeLorentz, DrudeLorentzOscillator, FullPenn, InelasticPoint, LindhardGas, PennAlgorithm,
+    PennInelastic, SinglePolePenn, SumRuleReport, OMEGA_P_INTERVAL_BUDGET,
 };
 use lindhard::material::Material;
 use rayon::prelude::*;
@@ -645,6 +645,164 @@ fn ordinary_points_on_measured_elfs_match_a_tighter_reference() {
             eprintln!("{file}: q {q_au} a.u., {w} eV: difference {d:.2e}, {n} evaluations");
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// Exhaustion reported by the direct DIIMFP and IMFP paths (#368)
+// ---------------------------------------------------------------------------
+
+fn same_point(a: &InelasticPoint, b: &InelasticPoint) -> bool {
+    a.energy_ev.to_bits() == b.energy_ev.to_bits()
+        && a.inverse_imfp_per_m.to_bits() == b.inverse_imfp_per_m.to_bits()
+        && a.stopping_ev_per_m.to_bits() == b.stopping_ev_per_m.to_bits()
+}
+
+#[test]
+fn evaluation_variants_return_the_same_values_bit_for_bit() {
+    // `diimfp_per_m_ev`, `imfp_and_stopping` and `imfp_unconverged` delegate
+    // to the evaluation variants; the values must not move by one bit.
+    let fpa = full();
+    for (e, w) in [
+        (40.0, 5.0),
+        (40.0, 20.0),
+        (300.0, 0.7),
+        (300.0, 30.0),
+        (300.0, 250.0),
+        (2000.0, 100.0),
+    ] {
+        let d = fpa.diimfp_evaluation(e, w).unwrap();
+        let p = fpa.diimfp_per_m_ev(e, w).unwrap();
+        assert_eq!(d.value.to_bits(), p.to_bits(), "{e} eV, {w} eV");
+        assert!(d.value > 0.0, "{e} eV, {w} eV: {d:?}");
+        // the smooth fixture at the test tolerance: every loss evaluation
+        // converged
+        assert_eq!(d.unconverged_loss_evaluations, 0, "{e} eV, {w} eV: {d:?}");
+        assert_eq!(d.largest_unconverged_error, 0.0, "{e} eV, {w} eV: {d:?}");
+    }
+    // no loss allowed: zero, nothing counted
+    for (e, w) in [(100.0, 0.0), (100.0, -3.0), (100.0, 100.5)] {
+        let d = fpa.diimfp_evaluation(e, w).unwrap();
+        assert_eq!(d.value.to_bits(), 0.0f64.to_bits(), "{e} eV, {w} eV");
+        assert_eq!(d.unconverged_loss_evaluations, 0);
+        assert_eq!(d.largest_unconverged_error, 0.0);
+        assert_eq!(
+            d.value.to_bits(),
+            fpa.diimfp_per_m_ev(e, w).unwrap().to_bits()
+        );
+    }
+    // the same errors as the existing methods
+    for (e, w) in [(-1.0, 1.0), (0.0, 1.0), (f64::NAN, 1.0), (100.0, f64::NAN)] {
+        let a = fpa.diimfp_evaluation(e, w).unwrap_err().to_string();
+        let b = fpa.diimfp_per_m_ev(e, w).unwrap_err().to_string();
+        assert_eq!(a, b);
+    }
+    let coarse = coarse_full();
+    for e in [0.3, 40.0] {
+        let ev = coarse.imfp_and_stopping_evaluation(e).unwrap();
+        assert!(same_point(&ev.point, &coarse.imfp_and_stopping(e).unwrap()));
+        let (cells, err) = coarse.imfp_unconverged(e).unwrap();
+        assert_eq!(
+            (ev.unconverged_cells, ev.unconverged_error.to_bits()),
+            (cells, err.to_bits())
+        );
+        // measured: the outer ω_p integral converges at the test tolerance
+        assert_eq!(ev.unconverged_cells, 0, "{e} eV: {ev:?}");
+        assert_eq!(ev.unconverged_error, 0.0, "{e} eV: {ev:?}");
+    }
+    for e in [0.0, -1.0, f64::NAN] {
+        let a = coarse
+            .imfp_and_stopping_evaluation(e)
+            .unwrap_err()
+            .to_string();
+        let b = coarse.imfp_and_stopping(e).unwrap_err().to_string();
+        assert_eq!(a, b);
+    }
+}
+
+/// The energy (eV) at which the midpoint of the first of the 8 `ln q`
+/// segments of the direct DIIMFP at loss `w_ev` (its rule has a node there)
+/// is `q_au`, found by bisection. The segments are those of
+/// `FullPenn::diimfp_per_m_ev`: `[ln q-, ln q+]` in 8 equal parts.
+fn energy_with_first_midpoint_at(q_au: f64, w_ev: f64) -> f64 {
+    let h = HARTREE_ENERGY / ELEMENTARY_CHARGE;
+    let w = w_ev / h;
+    let mid = |e: f64| {
+        let t = e / h;
+        let k = (2.0 * t).sqrt();
+        let s = (2.0 * (t - w)).max(0.0).sqrt();
+        let (lo, hi) = ((2.0 * w / (k + s)).ln(), (k + s).ln());
+        lo + (hi - lo) / 16.0
+    };
+    let target = q_au.ln();
+    let (mut a, mut b) = (1.0001 * w_ev, 1e5);
+    assert!(mid(a) > target && mid(b) < target);
+    for _ in 0..200 {
+        let m = (a * b).sqrt();
+        if mid(m) > target {
+            a = m;
+        } else {
+            b = m;
+        }
+    }
+    a
+}
+
+#[test]
+fn direct_diimfp_reports_an_exhausted_loss_evaluation() {
+    // At the plasmon cutoff q_c of a gas, the loss at its continuum edge
+    // ω = q_c k_F + q_c²/2 has the edge resonance of #298 at the lower end
+    // of the ω_p integral (Re ε_L = 0 at the edge). At a tolerance of 1e-8
+    // (below the noise floor there) that ω_p integral spends its budget.
+    // The DIIMFP at this loss is taken at the energy that puts a node of its
+    // momentum integral on q_c, so one of its loss evaluations is that one;
+    // it must be counted. Measured on the coarse fixture (gas of 20 eV,
+    // within its plasmon peak; energy 51.83 eV): the loss evaluation at the
+    // node leaves about 1040 cells unconverged, and the DIIMFP counts 1
+    // unconverged loss evaluation (error estimate 0.38 of that evaluation's
+    // value; read it as a bound). Its other loss evaluations converge.
+    let strict = FullPenn::new(coarse_fixture())
+        .with_relative_tolerance(1e-8)
+        .unwrap();
+    let h = HARTREE_ENERGY / ELEMENTARY_CHARGE;
+    let gas = LindhardGas::from_plasma_frequency(20.0 / h);
+    let qc = gas.plasmon_cutoff();
+    let w = gas.continuum_upper_edge(qc) * h;
+    // the loss evaluation itself does not converge
+    let l = strict.loss_function_evaluation(qc / BOHR_RADIUS, w);
+    assert!(!l.converged(), "{l:?}");
+    let e = energy_with_first_midpoint_at(qc, w);
+    let d = strict.diimfp_evaluation(e, w).unwrap();
+    eprintln!("q_c {qc} a.u., loss {w} eV, energy {e} eV: {d:?}");
+    assert!(d.unconverged_loss_evaluations > 0, "{d:?}");
+    assert!(d.largest_unconverged_error > 0.0, "{d:?}");
+    assert_eq!(
+        d.value.to_bits(),
+        strict.diimfp_per_m_ev(e, w).unwrap().to_bits()
+    );
+    // at the test tolerance the same evaluation converges
+    let d = coarse_full().diimfp_evaluation(e, w).unwrap();
+    assert_eq!(d.unconverged_loss_evaluations, 0, "{d:?}");
+}
+
+#[test]
+fn imfp_evaluation_reports_unconverged_outer_cells() {
+    // The outer ω_p integral of the IMFP on the coarse fixture at the
+    // model's default tolerance (1e-4) leaves cells stopped at
+    // floating-point resolution (measured: 1 to 5 cells at most energies
+    // from 0.9 to 23 eV, errors below 5e-17 of λ⁻¹; at 2 eV, 5 cells and
+    // 4.0e-17). The evaluation reports them from the same integral that
+    // gives the point (bitwise equality with `imfp_and_stopping` is checked
+    // above; one evaluation here, about a minute in a debug build).
+    let ev = FullPenn::new(coarse_fixture())
+        .imfp_and_stopping_evaluation(2.0)
+        .unwrap();
+    eprintln!("{ev:?}");
+    assert!(ev.point.inverse_imfp_per_m > 0.0, "{ev:?}");
+    assert!(ev.unconverged_cells > 0, "{ev:?}");
+    assert!(
+        ev.unconverged_error > 0.0 && ev.unconverged_error < 1e-12,
+        "{ev:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------

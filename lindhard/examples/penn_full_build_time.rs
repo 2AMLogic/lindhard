@@ -17,9 +17,15 @@
 //!   power of the table (`λ⁻¹ ⟨W⟩`) against the model's own
 //!   `imfp_and_stopping` (computed after the timed build).
 //! * `grid` times `FullPenn::diimfp_grid` for the grid energies and
-//!   compares it with the direct DIIMFP (`FullPenn::diimfp_per_m_ev` at a
-//!   tolerance of 1e-7) at seven losses spread in `ln W` in every row.
-//! * `imfp` times `imfp_and_stopping` at every grid energy (one thread).
+//!   compares it with the direct DIIMFP (`FullPenn::diimfp_evaluation` at a
+//!   tolerance of 1e-7) at seven losses spread in `ln W` in every row. The
+//!   grid's counts of unconverged momentum panels and loss evaluations
+//!   (#298) are printed with those of the direct DIIMFP (the last column of
+//!   each line: loss evaluations whose `ω_p` integral did not converge,
+//!   #368).
+//! * `imfp` times `imfp_and_stopping_evaluation` at every grid energy (one
+//!   thread); the last two columns are the unconverged cells of the outer
+//!   `ω_p` integral and their error relative to `λ⁻¹` (#298, #368).
 //!
 //! Two more modes look at single evaluations of the expanded loss function
 //! `Im[-1/ε(q, ω)]` (#298), with the work of its `ω_p` integral
@@ -82,17 +88,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match mode {
         "imfp" => {
             let fp = FullPenn::new(elf);
+            let (mut cells, mut points, mut worst_err) = (0u64, 0usize, 0.0f64);
             for &e in &grid {
                 let t = Instant::now();
-                let p = fp.imfp_and_stopping(e)?;
+                let ev = fp.imfp_and_stopping_evaluation(e)?;
+                let p = ev.point;
+                cells += ev.unconverged_cells;
+                points += usize::from(ev.unconverged_cells > 0);
+                worst_err = worst_err.max(ev.unconverged_error);
                 println!(
-                    "{e:.6} {:.12e} {:.12e} {:.3}",
+                    "{e:.6} {:.12e} {:.12e} {:.3} {} {:.1e}",
                     p.inverse_imfp_per_m,
                     p.stopping_ev_per_m,
-                    t.elapsed().as_secs_f64()
+                    t.elapsed().as_secs_f64(),
+                    ev.unconverged_cells,
+                    ev.unconverged_error
                 );
             }
-            eprintln!("total {:.2} s", t0.elapsed().as_secs_f64());
+            eprintln!(
+                "total {:.2} s; outer omega_p integral: {cells} unconverged cells at {points} of \
+                 {} energies, largest relative error {worst_err:.1e}",
+                t0.elapsed().as_secs_f64(),
+                grid.len()
+            );
         }
         "grid" => {
             let fp = FullPenn::new(elf.clone());
@@ -115,18 +133,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let reference = fp.with_relative_tolerance(1e-7)?;
             let w_lo = elf.energy_ev()[0];
             let mut worst: f64 = 0.0;
+            let (mut unconverged, mut points, mut total) = (0u64, 0usize, 0usize);
             for &e in &grid {
                 for j in 0..7 {
                     let f = (j as f64 + 0.37) / 7.0;
                     let w = (w_lo.ln() + f * (e.ln() - w_lo.ln())).exp();
-                    let direct = reference.diimfp_per_m_ev(e, w)?;
+                    let d = reference.diimfp_evaluation(e, w)?;
+                    let direct = d.value;
+                    unconverged += d.unconverged_loss_evaluations;
+                    points += usize::from(d.unconverged_loss_evaluations > 0);
+                    total += 1;
                     let from_grid = g.diimfp_per_m_ev(e, w).ok_or("not covered")?;
                     let rel = from_grid / direct - 1.0;
                     worst = worst.max(rel.abs());
-                    println!("{e:.6} {w:.6e} {direct:.9e} {from_grid:.9e} {rel:+.3e}");
+                    println!(
+                        "{e:.6} {w:.6e} {direct:.9e} {from_grid:.9e} {rel:+.3e} {}",
+                        d.unconverged_loss_evaluations
+                    );
                 }
             }
-            eprintln!("max |grid/direct - 1| {worst:.2e}");
+            eprintln!(
+                "max |grid/direct - 1| {worst:.2e}; direct DIIMFP: {unconverged} unconverged \
+                 loss evaluations at {points} of {total} points"
+            );
         }
         "build" => {
             let model = PennInelastic::new(PennAlgorithm::Full, elf);
