@@ -317,7 +317,10 @@ pub const SIC_6H_Z: [f64; 6] = [0.0, 0.1254, 0.16675, 0.29215, 0.8335, -0.0415];
 
 /// 4H-SiC density, "3.211 g cm-3, 300 K", credited to Gomes de Mesquita
 /// (1967) by the Ioffe NSM archive SiC basic-parameters page (read
-/// 2026-10-08; primary not opened). Used in the number-density test.
+/// 2026-10-08; primary not opened). Provisional: that Acta Cryst. 23, 610
+/// (1967) is titled "Refinement of the crystal structure of SiC type 6H"
+/// (Crossref), so the attribution to 4H is doubtful. Used in the
+/// number-density test, which records the 4H disagreement as a gap.
 pub const SIC_4H_DENSITY_G_CM3: f64 = 3.211;
 
 /// 6H-SiC density, "3.21 g cm-3, 300 K", credited to Harris et al. (1995b)
