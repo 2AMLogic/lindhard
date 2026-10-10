@@ -123,6 +123,15 @@ NIST/SEMATECH e-Handbook, section 1.3.5.16; p-value from Kolmogorov's
 limiting distribution, Marsaglia, Tsang and Wang, J. Stat. Softw. 8(18)
 (2003), section 3).
 
+**In transport.** `Bca::with_divergence` (or `[beam.divergence]` in the
+input, `docs/cli.md`) applies the sampler to each primary's initial
+direction, conditioned on pointing into the target (rejection, at most 1000
+draws per primary, then an error). Those draws come from a separate segment of
+the history's stream (word `2^65`), not the transport draws, so the sampler
+itself is unchanged and `Divergence::None` still takes no draws. A Gaussian
+`sigma` is per plane, not a cone width. The finite-spread input is a
+capability, not a validated channeling prediction.
+
 ## Not here yet
 
 Hexagonal lattices (wurtzite, 4H/6H-SiC) and any input-file schema for

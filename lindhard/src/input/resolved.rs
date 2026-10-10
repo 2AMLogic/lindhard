@@ -55,6 +55,9 @@ pub struct Resolved {
     pub input: Input,
     /// The beam.
     pub beam: Beam,
+    /// Beam divergence about the nominal direction ([`crate::ion::crystal::Divergence::None`]
+    /// without `[beam.divergence]`).
+    pub divergence: crate::ion::crystal::Divergence,
     /// The target.
     pub stack: Stack,
     /// Layers in stack order, with where each material came from.

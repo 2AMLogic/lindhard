@@ -59,6 +59,9 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
     let stopping = r.stopping_model();
     let mut bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
         .context("setting up the transport engine")?;
+    bca = bca
+        .with_divergence(r.divergence)
+        .context("setting up the beam divergence")?;
     for (i, c) in r.crystals.iter().enumerate() {
         bca = bca
             .with_crystal(c.target.clone(), &c.regions)

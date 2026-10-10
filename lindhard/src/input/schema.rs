@@ -33,7 +33,50 @@ pub struct BeamSpec {
     /// Azimuth of the incidence plane about the normal, degrees.
     #[serde(default)]
     pub azimuth_deg: f64,
+    /// Angular spread about the nominal direction (optional; static ion runs
+    /// only). Absent: every primary has the nominal direction.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub divergence: Option<DivergenceSpec>,
 }
+
+/// `[beam.divergence]`: the beam's angular spread about its nominal
+/// direction, angles in degrees. Selected by `model`:
+///
+/// ```toml
+/// [beam.divergence]
+/// model = "gaussian"      # sigma_deg: standard deviation per plane
+/// sigma_deg = 0.05
+/// # model = "uniform-cone" # half_angle_deg: cone half-angle
+/// # half_angle_deg = 0.1
+/// ```
+///
+/// A Gaussian `sigma_deg` is the standard deviation of the angular deviation
+/// in each of two orthogonal planes through the nominal direction (the polar
+/// deviation is then Rayleigh distributed); it is not a cone width. A
+/// uniform cone is uniform in solid angle out to `half_angle_deg`. See
+/// [`crate::ion::crystal::Divergence`] for the laws. The sampled distribution
+/// is conditioned on directions into the target ("inward-conditioned"), and
+/// widths are limited to [`MAX_DIVERGENCE_DEG`].
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "model", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum DivergenceSpec {
+    /// Gaussian divergence, standard deviation per plane.
+    Gaussian {
+        /// Standard deviation per plane, degrees, in `[0, 10]`.
+        sigma_deg: f64,
+    },
+    /// Uniform in solid angle within a cone.
+    UniformCone {
+        /// Cone half-angle, degrees, in `[0, 10]`.
+        half_angle_deg: f64,
+    },
+}
+
+/// Largest accepted divergence width, degrees (Gaussian `sigma_deg` or cone
+/// `half_angle_deg`). The Gaussian law is a small-angle reading (plane
+/// angles), and the inward conditioning is documented for small spreads; a
+/// bound of 10 degrees is a front-end limit, not a physical constant.
+pub const MAX_DIVERGENCE_DEG: f64 = 10.0;
 
 /// A material given by name or inline.
 #[derive(Debug, Clone, PartialEq, Serialize)]

@@ -31,10 +31,7 @@ jobs:
         # known failure with a tracking issue; remove the entry when it closes.
         run: |
           cargo test -p lindhard --release -- --ignored \
-            --skip random_direction_local_to_nonlocal_ratio_matches_amorphous \
             --skip complete_validation_requires_all_sixteen_values
-          # --skip random_direction_local_to_nonlocal_ratio_matches_amorphous
-          #   known gap, tracked in #250 (lindhard/tests/crystal_electronic.rs)
           # --skip complete_validation_requires_all_sixteen_values
           #   needs all 16 published reference values, tracked in #93 and #130
           #   (lindhard/tests/electron_elastic_reference.rs)

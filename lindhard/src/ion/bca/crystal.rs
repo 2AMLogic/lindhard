@@ -394,13 +394,104 @@
 //! | along <100> | 8000 | 0.5600 ± 0.0010 | 0.601 × the 30°/17° crystal value |
 //! | along <110> / <100>, 300 K | 8000 | 0.2548 / 0.5719 | 30°/17° at 300 K: 0.9283 |
 //!
-//! Along both axes the local share is far below the random direction (by
-//! more than 150 standard errors), as channeling requires. **Gap (#250): in a
-//! random direction the crystal ratio is 5-8 % above the amorphous one at the
-//! same `p_max`**, outside the 5 % the validation asks for. The crystal
-//! partners lean towards small impact parameters compared with the uniform
-//! disc of the amorphous model. Vibration up to 3000 K and `q_max` hardly
-//! change this. The cause is not established.
+//! Along both axes the local share is far below the off-axis direction (by
+//! more than 150 standard errors), as channeling requires.
+//!
+//! ## One direction is not a random medium (#250)
+//!
+//! Along the fixed direction 30°/17° the crystal ratio is 7.6 % above the
+//! amorphous one at the same `p_max` (5.5 % at 63°/8°). #226 asked for 5 %.
+//! This is not a counting error. It is what the rule of angular averages of
+//! J. Lindhard, Mat. Fys. Medd. Dan. Vid. Selsk. 34, no. 14 (1965), section 5,
+//! eqs. (5.1)-(5.3), predicts for one direction. The rule states that a
+//! quantity linear in the probability of a particle being at a point of the
+//! crystal "has the same angular average as in a random system", a system
+//! "with the same density, but without directional effects" (the paper names
+//! electronic and nuclear stopping at a fixed energy as examples, and calls
+//! this "compensation" of the directional effect). Only the average over
+//! directions equals the random medium. The channeling directions lie far
+//! below it (the <110> and <100> rows above), so the directions outside the
+//! channels lie above it.
+//!
+//! The engine obeys the rule. `direction_averaged_ratio_matches_amorphous`
+//! averages over 1181 beam directions that cover, evenly in solid angle, the
+//! sixth of the sphere nearest to `[100]` (16 histories each, 18896 in all, a
+//! different seed per direction). It counts over a fixed path of 100 Å,
+//! because the paper limits the rule to small energy loss: the energy window
+//! above lets a channeled ion travel farther, so it weights the channels more.
+//!
+//! | Ar 20 keV into Si, 100 Å path window | R | × amorphous |
+//! |---|---|---|
+//! | amorphous, all directions | 0.8416 ± 0.0011 | |
+//! | crystal, all directions | 0.8333 ± 0.0016 | 0.990 ± 0.002 |
+//! | crystal, all directions, 300 K | 0.8365 ± 0.0016 | 0.994 ± 0.002 |
+//! | amorphous, 30°/17° (4000 histories) | 0.8383 ± 0.0024 | |
+//! | crystal, 30°/17° (4000 histories) | 0.9120 ± 0.0021 | 1.088 ± 0.004 |
+//!
+//! The direction average meets the 5 % of #226 (the test asserts
+//! `max(3 σ, 5 %)`). Its remaining 1 % is not asserted to be zero: the rule
+//! holds for energy-conserving motion, and the ions here slow down. Single
+//! directions of that run (16 histories, so noisy) give R from 0.37, near a
+//! <110> axis, to 1.09. Their median is 0.87, above the amorphous value.
+//!
+//! `fixed_direction_partners_lean_to_small_impact_parameters` shows where the
+//! excess along 30°/17° comes from ([`BcaTally::partner`] reports every
+//! partner's impact parameter `p`):
+//!
+//! * The crystal makes as many collisions per unit path as the amorphous
+//!   model (1.005 times).
+//! * A partner at a given `p` takes the same local loss in both, within 3 %
+//!   in each tenth of the disc area. The two engines share the loss function.
+//! * The crystal's partners are not uniform over the disc of radius `p_max`.
+//!   The inner three tenths of its area hold 1.118 ± 0.004 of their uniform
+//!   share and the outer three tenths 0.903 ± 0.004. The amorphous disc is
+//!   uniform, and so is the crystal's in the direction average (every tenth
+//!   within 1.7 % of its share).
+//!
+//! So along this direction the ions pass closer to the atoms than a uniform
+//! flux would. That is the excess of R, because the Oen-Robinson loss falls
+//! steeply with `p`.
+//!
+//! Each mechanism of the collision step that could bias the partners was
+//! switched off in turn. The switches were temporary and are not in the tree.
+//! Same run as the table, 30°/17°, static:
+//!
+//! * **No deflection** (the direction never changes; 100 Å path window):
+//!   the disc is uniform and R is 0.8476, 1.011 × amorphous. So the lattice
+//!   search and the count per path are right, and the excess needs the
+//!   deflections.
+//! * **No exclusion of the sites just hit**: R is 0.9297 instead of 0.9304.
+//! * **One partner per step only**: R is unchanged (0.9304). Only 0.06 % of
+//!   the steps have two partners at this `p_max`.
+//! * **The same sites at randomised positions** (each site moved by its own
+//!   fixed vector, uniform over a cube of edge `a`, which removes the short-
+//!   range order and keeps the algorithm): R is the same with and without
+//!   deflection (0.8645 and 0.8633, 100 Å path window), and every tenth of
+//!   the disc is within 2.5 % of its share. So the half-tube search that starts
+//!   at the collision point and the ordering by path distance do not bias the
+//!   partners. The half-tube start was not switched off by itself. This
+//!   medium gave 2 % more partners per path than the amorphous model, with
+//!   and without deflection; that was not followed up.
+//! * **`p_max`**: the excess of the lattice over the randomised sites hardly
+//!   depends on it: 1.056, 1.053 and 1.046 at `p_max` = 1.53, 2.35 and
+//!   3.2 Å (energy window). It is not an effect of the cutoff.
+//!
+//! No repeated collision with one site was found in the 30°/17° run (0 of
+//! 137251 partners). Thermal vibration up to 3000 K and `q_max` hardly change
+//! the excess (#250).
+//!
+//! The energy window is not neutral either. In the run without deflection it
+//! gives R = 0.9127 and uneven tenths, where the path window gives 0.8476 and
+//! a uniform disc. A window that ends a history on a large loss selects
+//! histories when successive collisions are correlated, as they are along a
+//! fixed line through a lattice. With deflection the two windows give 1.076
+//! and 1.088 × amorphous.
+//!
+//! The fixed-direction quotients are therefore recorded values
+//! (`fixed_direction_local_to_nonlocal_ratio_is_above_amorphous`: 1.076
+//! static and 1.072 at 300 K, each within 0.02), not agreement with a
+//! reference. A run along one off-axis direction takes a few per cent more
+//! local electronic loss than the amorphous model at the same `p_max`.
 //!
 //! # Thermal vibration (step 21b)
 //!
@@ -483,6 +574,7 @@
 //! quotations of that paper.
 //!
 //! [`Geometry`]: crate::geometry::Geometry
+//! [`BcaTally::partner`]: super::BcaTally::partner
 //! [`LatticeSearch`]: crate::ion::crystal::LatticeSearch
 
 use crate::geometry::Flight;
@@ -1185,6 +1277,9 @@ impl<'a> Bca<'a> {
         let p0 = (2.0 * m_p * e0).sqrt();
         let mut mom = [p0 * d0[0], p0 * d0[1], p0 * d0[2]];
         let (mut sum_t, mut sum_q) = (0.0, 0.0);
+        for t in targets.iter() {
+            tally.partner(p, t.b, targets.len());
+        }
         for t in targets.iter_mut() {
             let elem = &self.lay(t.region).elems[t.j];
             let pair = self.pairs[p.species * ns + elem.species];

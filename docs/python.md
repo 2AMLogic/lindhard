@@ -12,7 +12,7 @@ are in `lindhard-py/python/lindhard/`.
 |---|---|
 | `Element`, `Material` | Inline material: elements with fractions and optional `e_d_ev` / `e_b_ev` / `e_s_ev`; `density_g_cm3` (required for compounds) |
 | `Layer`, `Target` | Finite layers front to back (a material name, element symbol or `Material`, and `thickness_nm`) and an optional semi-infinite substrate |
-| `Beam` | `ion`, `energy_ev`, `mass_amu`, `tilt_deg`, `azimuth_deg` |
+| `Beam` | `ion`, `energy_ev`, `mass_amu`, `tilt_deg`, `azimuth_deg`, and optionally `divergence_model` (`"gaussian"` or `"uniform-cone"`) with `divergence_deg` (the `[beam.divergence]` table) |
 | `Physics` | The `[physics]` table: models (as the TOML names), cutoffs, energy overrides |
 | `Tally` | The `[tally]` table (CLI defaults) |
 | `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()` |

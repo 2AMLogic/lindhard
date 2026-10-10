@@ -25,9 +25,9 @@
 //! [`ShellResolvedChannels`] takes what those equations take: a valence
 //! optical ELF and **one optical ELF per inner shell**. The shell ELFs are
 //! either supplied by the caller or built from atomic oscillator strengths
-//! as in dV2022 eq. (2) by [`super::shell_elf`] (the hydrogenic K-shell
-//! formula, with binding energies and occupancies from a
-//! [`SubshellBindingTable`]; other subshells are not built there). A single
+//! as in dV2022 eq. (2) by [`super::shell_elf`] (the hydrogenic K-, L1-,
+//! L2- and L3-subshell formulas, with binding energies and occupancies from
+//! a [`SubshellBindingTable`]; other subshells are not built there). A single
 //! total ELF is never split: no partition rule of ours is applied. Each shell's ELF must
 //! start at or above its binding energy (the step of eq. (2)). Each channel's
 //! DIIMFP is the single-pole Penn DIIMFP ([`SinglePolePenn`]) of its own ELF;
@@ -49,9 +49,24 @@
 //!
 //! The binding energies come from a [`SubshellBindingTable`]
 //! ([`InnerShell::from_table`]) or are given directly.
+//!
+//! # In the transport
+//!
+//! [`super::table::build_shell_channel_tables`] tabulates every channel
+//! (one [`ShellChannelTable`] per shell, beside the valence table), and
+//! [`crate::electron::transport::Transport::with_inner_shells`] samples them:
+//! a channel is chosen first, with probability proportional to its inverse
+//! IMFP, and the loss is then drawn from that channel's own table. That is a
+//! different construction from [`ShellResolvedChannels::sample_channel`]
+//! (channel conditional on a loss already drawn from the total DIIMFP), which
+//! the transport does not use. The secondary-energy convention on the
+//! transport's band-bottom axis is in [`crate::electron::secondary`],
+//! "Inner-shell events".
 
 use super::penn::SinglePolePenn;
-use crate::electron::data::{ElectronDataError, OpticalElf, Subshell, SubshellBindingTable};
+use crate::electron::data::{
+    ElectronDataError, OpticalElf, ShellChannelTable, Subshell, SubshellBindingTable,
+};
 
 type Result<T> = std::result::Result<T, ElectronDataError>;
 
@@ -88,6 +103,17 @@ impl InnerShell {
             subshell,
             binding_energy_ev,
         })
+    }
+}
+
+impl From<&ShellChannelTable> for InnerShell {
+    /// The shell a stored channel table belongs to.
+    fn from(t: &ShellChannelTable) -> Self {
+        Self {
+            z: t.z(),
+            subshell: t.subshell(),
+            binding_energy_ev: t.binding_energy_ev(),
+        }
     }
 }
 

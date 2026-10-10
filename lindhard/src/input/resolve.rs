@@ -5,6 +5,7 @@ use crate::geometry::Stack;
 use crate::ion::bca::{
     BcaConfig, Beam, CrystalTarget, ElectronicLoss, MeanFreePath, Thermal, MAX_WEAK_COLLISIONS,
 };
+use crate::ion::crystal::Divergence;
 use crate::ion::stopping::table::StoppingTable;
 use crate::ion::stopping::Ion;
 use crate::material::{EnergyKind, Material};
@@ -362,6 +363,7 @@ impl Input {
                 "must be at least 1 (omit for all cores)",
             ));
         }
+        let divergence = self.resolve_divergence()?;
         let beam = Beam {
             ion,
             energy_ev: b.energy_ev,
@@ -631,6 +633,7 @@ impl Input {
         Ok(Resolved {
             input: self.echo(),
             beam,
+            divergence,
             stack,
             layers,
             config,
@@ -641,6 +644,43 @@ impl Input {
             crystals,
             warnings,
             tuning,
+        })
+    }
+
+    /// Validate `[beam.divergence]` and convert it to the engine's
+    /// [`Divergence`]. Static ion runs only: a `[dynamic]` target is
+    /// rejected, since the spread is not threaded through the fluence loop.
+    fn resolve_divergence(&self) -> Result<Divergence, InputError> {
+        let Some(spec) = &self.beam.divergence else {
+            return Ok(Divergence::None);
+        };
+        if self.dynamic.is_some() {
+            return Err(invalid(
+                "beam.divergence",
+                "not supported with a [dynamic] target; use a static run",
+            ));
+        }
+        let (field, width_deg) = match *spec {
+            DivergenceSpec::Gaussian { sigma_deg } => ("beam.divergence.sigma_deg", sigma_deg),
+            DivergenceSpec::UniformCone { half_angle_deg } => {
+                ("beam.divergence.half_angle_deg", half_angle_deg)
+            }
+        };
+        if !(width_deg.is_finite() && (0.0..=MAX_DIVERGENCE_DEG).contains(&width_deg)) {
+            return Err(invalid(
+                field,
+                format!(
+                    "must be finite and in [0, {MAX_DIVERGENCE_DEG}] degrees (small-angle \
+                     spreads only)"
+                ),
+            ));
+        }
+        let rad = width_deg.to_radians();
+        Ok(match spec {
+            DivergenceSpec::Gaussian { .. } => Divergence::Gaussian { sigma_rad: rad },
+            DivergenceSpec::UniformCone { .. } => Divergence::UniformCone {
+                half_angle_rad: rad,
+            },
         })
     }
 
