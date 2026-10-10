@@ -2110,7 +2110,18 @@ committed δ and η seed by seed, so only the build label and the new row
 changed. The `au-elf-table6` row is item 3 of #301 (#314): it was run on
 the build named in the table; on that build the `baseline` row was run
 again first (all ten seeds, Au and Cu) and reproduced every committed δ and
-η exactly, and the other rows were not rerun. The runs predate the band-bottom inelastic tables of #241 (#289,
+η exactly, and the other rows were not rerun. For item 4 of #301 (#315:
+the correlation-polarization and muffin-tin rows, both recorded as gaps,
+below) the `baseline` row was run again (2026-10-10, build 80faeb9, fresh
+table cache, x86-64 Linux, rustc 1.97.1, glibc 2.39) into a scratch
+results file: 19 of the 20 runs reproduced their committed δ and η exactly,
+and Cu seed 2 gave δ 1.6125 (3225 slow electrons) against the committed
+1.614 (3228), η unchanged. The #242 build 8a47748, rebuilt on the same host,
+gives 1.6125 as well, so the difference is not a code change since #242; it
+comes with the host or toolchain (the cross-platform caveat of
+[`architecture.md`](architecture.md), "Reproducibility"), and its cause is
+not located. No row was added, so the committed results were not replaced.
+The runs predate the band-bottom inelastic tables of #241 (#289,
 not merged) and the Mermin fit changes of #306 and #311; #287 reruns the
 yield tables with the former.
 `se_yield_candidates.py --check` checks that the block below is the
@@ -2172,7 +2183,13 @@ the δ(E) tables changed (the default Au ELF is still Table 5).
   and the exchange correction do, and the excess above is what is left.
   Not tested: the correlation-polarization correction, which is off (no
   cited cutoff parameter below 50 eV), and a muffin-tin potential
-  ([`muffin-tin-deferral.md`](muffin-tin-deferral.md)).
+  ([`muffin-tin-deferral.md`](muffin-tin-deferral.md)). #315 (item 4 of
+  #301) looked again and recorded both as gaps, with every source tried, in
+  [`data-provenance.md`](data-provenance.md): the Au and Cu polarizabilities
+  are cited, but no opened source gives the cutoff `b_pol²` at or below
+  50 eV, where the δ tables start (5 eV); and no opened source defines the
+  muffin-tin truncation and offset. Neither row was run, so nothing here
+  says how far either would move δ.
 - **(b) Quasi-elastic (acoustic-phonon) scattering: tested for Au, and it
   raises δ.** Verduin (2017), Section 3.4, replaces the Mott cross section
   below 100 eV by an acoustic-phonon mean free path and angular
