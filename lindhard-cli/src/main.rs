@@ -7,6 +7,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
+use lindhard_cli::publish::OutputSet;
 use lindhard_cli::table_cache::TableCache;
 use lindhard_cli::{dynamic, electron, output, sim};
 
@@ -126,23 +127,6 @@ fn check_electron(path: &Path, text: &str) -> Result<()> {
     Ok(())
 }
 
-/// Writes an optional output file when the current run produced it, and
-/// otherwise removes the file left in a reused output directory by an earlier
-/// run. A missing file is fine; any other failure is an error naming the path.
-/// Only the one reserved file is touched, never the directory.
-fn reconcile_optional(out: &Path, name: &str, text: Option<String>) -> Result<()> {
-    let p = out.join(name);
-    match text {
-        Some(t) => std::fs::write(&p, t).with_context(|| format!("writing {}", p.display())),
-        None => match std::fs::remove_file(&p) {
-            Err(e) if e.kind() != std::io::ErrorKind::NotFound => {
-                Err(e).with_context(|| format!("removing stale {}", p.display()))
-            }
-            _ => Ok(()),
-        },
-    }
-}
-
 fn run_electron(
     path: &Path,
     text: &str,
@@ -180,35 +164,26 @@ fn run_electron(
         );
     }
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
-    let write = |name: &str, text: String| -> Result<()> {
-        let p = out.join(name);
-        std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
-    };
     let summary = electron::summary_json(&r, &sim)?;
-    write(electron::SPECTRA_FILE, electron::spectra_csv(&sim.report))?;
-    write(electron::TABLES_FILE, electron::tables_csv(&r, &sim))?;
-    reconcile_optional(
-        out,
+    // Invalidate the old summary right before the first output changes.
+    let set = OutputSet::begin(out, electron::SUMMARY_FILE, summary)?;
+    set.write(electron::SPECTRA_FILE, electron::spectra_csv(&sim.report))?;
+    set.write(electron::TABLES_FILE, electron::tables_csv(&r, &sim))?;
+    set.reconcile_optional(
         electron::CARTESIAN_FILE,
         electron::cartesian_csv(&sim.report),
     )?;
-    reconcile_optional(
-        out,
+    set.reconcile_optional(
         electron::CYLINDRICAL_FILE,
         electron::cylindrical_csv(&sim.report),
     )?;
-    reconcile_optional(
-        out,
-        electron::PSF_PROFILE_FILE,
-        electron::psf_profile_csv(&sim),
-    )?;
-    reconcile_optional(
-        out,
+    set.reconcile_optional(electron::PSF_PROFILE_FILE, electron::psf_profile_csv(&sim))?;
+    set.reconcile_optional(
         electron::PSF_PARAMETERS_FILE,
         electron::psf_parameters_csv(&sim),
     )?;
     // Last, so the summary describes the completed output set.
-    write(electron::SUMMARY_FILE, summary)?;
+    set.publish()?;
     let y = &sim.report.yields;
     eprintln!(
         "{} electrons: eta {:.4}, delta {:.4}, energy balance residual {:.2e}; wrote {}",
@@ -352,22 +327,18 @@ fn run(
     } = sim::simulate(&r, input.run.threads)?;
 
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
-    let write = |name: &str, text: String| -> Result<()> {
-        let p = out.join(name);
-        std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
-    };
     let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
-    write(output::DEPTH_FILE, output::depth_csv(&tally))?;
-    write(output::LATERAL_FILE, output::lateral_csv(&report))?;
-    write(output::DAMAGE_FILE, output::damage_csv(&report))?;
-    write(output::ESCAPES_FILE, output::escapes_csv(&report))?;
-    reconcile_optional(
-        out,
+    let set = OutputSet::begin(out, output::SUMMARY_FILE, summary)?;
+    set.write(output::DEPTH_FILE, output::depth_csv(&tally))?;
+    set.write(output::LATERAL_FILE, output::lateral_csv(&report))?;
+    set.write(output::DAMAGE_FILE, output::damage_csv(&report))?;
+    set.write(output::ESCAPES_FILE, output::escapes_csv(&report))?;
+    set.reconcile_optional(
         output::IONS_FILE,
         tally.per_ion.then(|| output::ions_csv(&tally)),
     )?;
     // Last, so the summary describes the completed output set.
-    write(output::SUMMARY_FILE, summary)?;
+    set.publish()?;
     let s = &tally.summary;
     eprintln!(
         "{} ions: {} stopped, {} backscattered, {} transmitted, {} sputtered atoms; wrote {}",
@@ -386,19 +357,15 @@ fn run(
 fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
     let d = dynamic::simulate_dynamic(r, threads)?;
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
-    let write = |name: &str, text: String| -> Result<()> {
-        let p = out.join(name);
-        std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
-    };
-    // Serialize first, so a failure writes nothing.
     let summary = output::dynamic_summary_json(r, &d)?;
-    write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(&d))?;
-    write(
+    let set = OutputSet::begin(out, output::DYNAMIC_SUMMARY_FILE, summary)?;
+    set.write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(&d))?;
+    set.write(
         output::DYNAMIC_COMPOSITION_FILE,
         output::dynamic_composition_csv(&d),
     )?;
     // Last, so the summary describes the completed output set.
-    write(output::DYNAMIC_SUMMARY_FILE, summary)?;
+    set.publish()?;
     let last = d.steps.last().expect("step 0");
     eprintln!(
         "{} ions in {} steps ({} attempts rejected): {} sputtered atoms, {} slabs left; wrote {}",

@@ -2,8 +2,47 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-10
+
+- **Issue #300** (closed): Cu Mermin inelastic mean free path is 15 to 41 % longer than TPP 2011 and than the single-pole model on the same ELF
+- **Issue #307** (closed): Mermin fit with 10 or 16 oscillators puts a sub-meV oscillator between ELF knots (f-sum x7000 for Cu)
+- **Issue #312** (closed): SE yield candidates (#301 item 1): acoustic-phonon scattering for Cu, or the gap
+- **Issue #314** (closed): SE yield candidates (#301 item 3): a second Au ELF, licence verdict first, or the gap
+- **Issue #315** (closed): SE yield candidates (#301 item 4): low-energy elastic corrections (correlation-polarization, muffin-tin), or the gap
+- **PR #308**: validation: Cu Mermin IMFP excess is the default 3-oscillator fit (#300)
+- **PR #310**: fix: bound Mermin fit widths below by the local knot spacing (#307)
+- **PR #316**: feat(electron): secondary binding switch; run #301 item 5 (Azzolini B), split items 1-4
+- **PR #317**: docs(provenance): Cu acoustic-phonon inputs from Arat 2019 and the gap (#312)
+- **PR #318**: Au ELF from Hagemann Table 6 as a second ELF; licence verdicts; au-elf-table6 run (#314)
+- **PR #320**: docs(provenance): record the #301 item 4 elastic rows as gaps (#315)
+
+
+### 2026-10-10
+
+- **PR #304**: feat(electron): sample inner-shell ionisation channels in the transport (#273)
+- **PR #284**: Screen-oxide substrate channeling tail characterization (#280)
+- **Issue #280** (closed): Crystal validation: characterize screen-oxide effects on substrate channeling tails
+- **Issue #273** (closed): Electron transport: sample inner-shell ionisation channels in the transport loop
+
 ### 2026-10-09
 
+- **PR #302**: validation: no tested candidate explains the Au and Cu Mermin secondary-yield excess (#242)
+- **Issue #242** (closed): Au secondary-electron yield stays 77 % above the measured δ_max with the Mermin model (residual of #173)
+- **PR #297**: cli: write dynamic summary last (#292)
+- **PR #296**: fix: crystal local loss, explain the fixed-direction excess and assert the direction average (#250)
+- **PR #295**: validation: delta(E) on DHFS, Si curves, band text (Part of #149)
+- **PR #294**: Backscatter (#148): fast-secondary sensitivity of eta for Al, Cu and Au
+- **PR #293**: feat: hydrogenic L-subshell ELFs for the inner-shell builder (#245)
+- **PR #288**: Ion beam: connect divergence sampling to transport and shared TOML
+- **PR #247**: CLI: expose the radial PSF tally in the [electron] section
+- **Issue #292** (closed): Dynamic CLI: publish the summary only after required CSV writes succeed
+- **Issue #250** (closed): Crystal flight: local/nonlocal electronic loss ratio is 5-8 % above the amorphous value at the same p_max in random directions
+- **Issue #245** (closed): Penn inelastic: hydrogenic L-subshell ELFs for the inner-shell builder (follow-up to #135)
+- **Issue #285** (closed): Ion beam: connect existing divergence sampling to transport and shared TOML
+- **Issue #165** (closed): CLI: expose the radial PSF tally in the [electron] section
+- **Issue #201** (closed): Pilot E_s tuning set: fit and held-out evaluation (follow-up to #80)
+- **Issue #79** (closed): bca: opt-in time-integral path length for nonlocal electronic loss (TRIM tau = p tan(theta/2))
+- **Issue #135** (closed): Penn inelastic: build per-shell optical ELFs for ShellResolvedChannels from a published source
 - **PR #286**: Table cache: verify cached table bytes and key the elastic model choice
 - **PR #281**: docs: correct the PSF summary and CSV description in cli.md
 - **PR #283**: Derive Debug on PsfOutcome (fix red CI on main)

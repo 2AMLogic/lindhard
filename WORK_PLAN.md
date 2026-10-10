@@ -34,6 +34,8 @@ Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementat
 
 - **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
 - **#236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
+- **#289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
+- **#299**: Full Penn: make one inelastic table build finish in minutes (#256)
 
 ## Operator Priority
 
@@ -47,24 +49,20 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
+- **#305**: Electron table cache: coordinate concurrent builders per entry
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
 - **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
-- **#149**: [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements
-- **#241**: Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp
-- **#256**: Full Penn: make one inelastic table build finish in usable time (split from #169)
-- **#280**: Crystal validation: characterize screen-oxide effects on substrate channeling tails
-- **#285**: Ion beam: connect existing divergence sampling to transport and shared TOML
+- **#321**: CLI: invalidate prior summaries when a rerun starts replacing outputs
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#288**: Ion beam: connect divergence sampling to transport and shared TOML
-- **#289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
+- **#322**: CLI: invalidate prior summaries when a rerun starts replacing outputs
 
 ## Approved (Awaiting Merge)
 
@@ -72,7 +70,8 @@ PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
 - **#236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
-- **#284**: Screen-oxide substrate channeling tail characterization (#280)
+- **#289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
+- **#299**: Full Penn: make one inelastic table build finish in minutes (#256)
 
 ## Proposed
 
@@ -94,6 +93,9 @@ Issues carrying `loom:curated`.
 - **#233**: Python wheels: maturin multi-platform builds and PyPI trusted publishing (Epic #28, Phase 2) *(curated)*
 - **#241**: Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp *(curated)*
 - **#256**: Full Penn: make one inelastic table build finish in usable time (split from #169) *(curated)*
+- **#279**: Plot simulation and validation output with rizzma *(curated)*
+- **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
+- **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -116,13 +118,13 @@ Issues carrying `loom:curated`.
 
 | Tier | Count |
 |------|-------|
-| Operator merge-risk holds | 2 |
+| Operator merge-risk holds | 4 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 2 |
-| In Progress (`loom:building`) | 6 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 3 |
-| Curated | 16 |
+| Ready (`loom:issue`) | 3 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 4 |
+| Curated | 19 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->

@@ -63,10 +63,36 @@
 //! energy.
 //!
 //! Rows where `λ⁻¹ = 0` (no loss allowed) are stored empty. The table covers
-//! the direct single-pole model only: no exchange, no inner shells and no
-//! surface or band-gap structure (see [`super::penn`]). A model with the
+//! the direct single-pole model only: no exchange and no surface or band-gap
+//! structure (see [`super::penn`]). Inner shells get one table each, beside
+//! the valence table, from [`build_shell_channel_tables`]. A model with the
 //! exchange correction enabled ([`SinglePolePenn::with_exchange`]) is
 //! rejected by [`build_inelastic_table`] and [`MomentumTransferSampler`].
+//!
+//! # Energy axis
+//!
+//! The models take `T`, the kinetic energy above the model's Fermi level,
+//! with kinematics on `T' = T + E_F` and losses up to `T` (S2017 eqs.
+//! (2)-(3), [`super::penn`]). By default ([`EnergyAxis::ModelFermiLevel`])
+//! a table is stored on that axis: the row at `E` is the model's at `T = E`.
+//!
+//! [`EnergyAxis::BandBottom`] stores it on the band-bottom axis instead: the
+//! row at `E` is the model's at `T = E - E_F`, so its kinematics are on
+//! `T' = E` and its losses stop at `E - E_F`; rows with `T <= 0` are stored
+//! empty. With `E_F` the band's, this is the convention of the table
+//! compiler of Nebula, `compile_full_imfp_icdf` in
+//! `cstool/dielectric_function/compile.py` (Nebula-simulator/cstool commit
+//! `0c739eb3fcc3fe5297e74c601ac4a9546db596cf`, BSD-3-Clause): it evaluates
+//! every row at the electron's kinetic energy `K` (the momenta of the
+//! kinematic limits are those of `K` and `K - ω`) and keeps only the losses
+//! `ω < K - F` (its "Fermi correction"), `F` the energy its caller
+//! `compile_full_penn` (`apps/cstool.py`, same commit) passes, the band's
+//! `get_min_excitation()` (`cstool/input_data/band_structure.py`): the Fermi
+//! energy of a metal, the conduction-band bottom `W_v + E_g` of an
+//! insulator or semiconductor. The model's own `E_F` is the `F` of the axis,
+//! so there is one Fermi energy, not two. The table builder knows no band;
+//! the caller sets the model's Fermi energy (`lindhard run` does so per
+//! material, `docs/cli.md`).
 //!
 //! # Momentum-transfer sampler
 //!
@@ -107,11 +133,12 @@
 use super::full_penn::DiimfpGrid;
 #[cfg(doc)]
 use super::full_penn::FullPenn;
+use super::inner_shell::ShellResolvedChannels;
 use super::model::PennInelastic;
 use super::penn::{hartree_ev, SinglePolePenn};
 use crate::constants::BOHR_RADIUS;
 use crate::electron::data::{
-    CrossSectionTable, CrossSectionTableParts, ElectronDataError, SamplingAxis,
+    CrossSectionTable, CrossSectionTableParts, ElectronDataError, SamplingAxis, ShellChannelTable,
 };
 use crate::electron::elastic::table::{
     logistic, logistic_probability_grid, logit, material_identity,
@@ -343,12 +370,32 @@ fn adaptive_density(
 // ---------------------------------------------------------------------------
 // Energy-loss table
 
+/// The energy axis a table is stored on (module docs, "Energy axis").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EnergyAxis {
+    /// The model's own axis: a row at energy `E` is the model's at `T = E`,
+    /// the kinetic energy above the model's Fermi level, with losses up to
+    /// `E`.
+    #[default]
+    ModelFermiLevel,
+    /// The band-bottom axis: a row at energy `E` is the model's at
+    /// `T = E - E_F`, `E_F` the model's Fermi energy, so the kinematics use
+    /// `T' = T + E_F = E` and the losses stop at `E - E_F`. Rows with
+    /// `T <= 0` are stored empty. This is the convention of cstool's
+    /// `compile_full_imfp_icdf` (module docs).
+    BandBottom,
+}
+
 /// Grids and tolerances of a table build.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InelasticTableOptions {
-    /// Incident kinetic energies above the Fermi level, eV (strictly
-    /// increasing, >= 2 points).
+    /// Incident kinetic energies on the axis of [`Self::axis`], eV (strictly
+    /// increasing, >= 2 points): above the model's Fermi level by default,
+    /// above the band bottom with [`EnergyAxis::BandBottom`].
     pub energy_ev: Vec<f64>,
+    /// The axis `energy_ev` is on ([`EnergyAxis::ModelFermiLevel`] by
+    /// default).
+    pub axis: EnergyAxis,
     /// Starting cumulative-probability grid of the stored inverse CDFs (from
     /// exactly 0 to exactly 1); the final grid when `refine_tolerance` is
     /// `None`.
@@ -365,10 +412,17 @@ impl InelasticTableOptions {
     pub fn new(energy_ev: Vec<f64>) -> Self {
         Self {
             energy_ev,
+            axis: EnergyAxis::ModelFermiLevel,
             probability: default_probability_grid(),
             density_tolerance: DEFAULT_DENSITY_TOLERANCE,
             refine_tolerance: Some(DEFAULT_REFINE_TOLERANCE),
         }
+    }
+
+    /// The same options with the table stored on `axis`.
+    pub fn with_axis(mut self, axis: EnergyAxis) -> Self {
+        self.axis = axis;
+        self
     }
 }
 
@@ -385,6 +439,7 @@ pub fn default_probability_grid() -> Vec<f64> {
 /// [`PennInelastic`]; the table is built the same way for each (module docs).
 trait LossModel: Sync {
     fn elf_min_ev(&self) -> f64;
+    fn fermi_energy_ev(&self) -> f64;
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError>;
     fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError>;
     /// A tabulation of the DIIMFP for the rows at `energy_ev`, if the model
@@ -399,6 +454,9 @@ impl LossModel for SinglePolePenn {
     fn elf_min_ev(&self) -> f64 {
         self.optical_elf().energy_ev()[0]
     }
+    fn fermi_energy_ev(&self) -> f64 {
+        SinglePolePenn::fermi_energy_ev(self)
+    }
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
         self.diimfp_per_m_ev(energy_ev, loss_ev)
     }
@@ -410,6 +468,9 @@ impl LossModel for SinglePolePenn {
 impl LossModel for PennInelastic {
     fn elf_min_ev(&self) -> f64 {
         self.optical_elf().energy_ev()[0]
+    }
+    fn fermi_energy_ev(&self) -> f64 {
+        PennInelastic::fermi_energy_ev(self)
     }
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
         self.diimfp_per_m_ev(energy_ev, loss_ev)
@@ -642,8 +703,9 @@ fn check_options(o: &InelasticTableOptions) -> Result<(), InelasticTableError> {
 /// `material` only labels the table (its identity string); the density that
 /// sets the absolute rate is inside the optical ELF of `penn`
 /// ([`SinglePolePenn::imfp_and_stopping`] returns `λ⁻¹` in m⁻¹ with no
-/// further input). Energies are kinetic energies above the Fermi level, as
-/// in the model.
+/// further input). Energies are on the axis of `options.axis`: kinetic
+/// energies above the model's Fermi level by default, above the band bottom
+/// with [`EnergyAxis::BandBottom`] (module docs, "Energy axis").
 pub fn build_inelastic_table(
     penn: &SinglePolePenn,
     material: &Material,
@@ -673,7 +735,7 @@ pub fn build_inelastic_table(
         energy[0],
         energy[energy.len() - 1],
         probability.len()
-    );
+    ) + &axis_provenance(penn, options);
     Ok(CrossSectionTable::new(CrossSectionTableParts {
         model,
         material: material_identity(material),
@@ -737,7 +799,7 @@ pub fn build_inelastic_table_for_model(
         energy[0],
         energy[energy.len() - 1],
         probability.len()
-    );
+    ) + &axis_provenance(model, options);
     Ok(CrossSectionTable::new(CrossSectionTableParts {
         model: model_text,
         material: material_identity(material),
@@ -750,6 +812,118 @@ pub fn build_inelastic_table_for_model(
     })?)
 }
 
+/// The model's kinetic energy `T` of each row of `options`: the axis energy
+/// itself on [`EnergyAxis::ModelFermiLevel`], `E - E_F` (`E_F` the model's
+/// Fermi energy) on [`EnergyAxis::BandBottom`].
+fn model_energies_ev<M: LossModel>(penn: &M, options: &InelasticTableOptions) -> Vec<f64> {
+    match options.axis {
+        EnergyAxis::ModelFermiLevel => options.energy_ev.clone(),
+        EnergyAxis::BandBottom => {
+            let ef = penn.fermi_energy_ev();
+            options.energy_ev.iter().map(|&e| e - ef).collect()
+        }
+    }
+}
+
+/// The provenance text of the axis: empty on the model's own axis (so tables
+/// built before the axis option existed keep their bytes), the axis and the
+/// Fermi energy otherwise.
+fn axis_provenance<M: LossModel>(penn: &M, options: &InelasticTableOptions) -> String {
+    match options.axis {
+        EnergyAxis::ModelFermiLevel => String::new(),
+        EnergyAxis::BandBottom => format!(
+            "; energy axis: band bottom (row at E is the model's at T = E - {} eV)",
+            penn.fermi_energy_ev()
+        ),
+    }
+}
+
+/// The tables of a [`ShellResolvedChannels`]: the valence channel's and one
+/// per inner shell, in the order of
+/// [`ShellResolvedChannels::inner_shells`]
+/// ([`build_shell_channel_tables`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShellResolvedTables {
+    /// The valence channel, as [`build_inelastic_table`] of
+    /// [`ShellResolvedChannels::valence`].
+    pub valence: CrossSectionTable,
+    /// The inner-shell channels.
+    pub shells: Vec<ShellChannelTable>,
+}
+
+/// Build the energy-loss tables of every channel of `channels` on the grid of
+/// `options`: the valence table, and for inner shell `i` the table of
+/// [`ShellResolvedChannels::shell_model`] (that shell's own optical ELF with
+/// the valence model's settings), wrapped with the shell's identity, binding
+/// energy and `binding_provenance` (the origin of the binding energies, for
+/// example [`crate::electron::data::SubshellBindingTable::provenance`]).
+///
+/// Each table is built by [`build_inelastic_table`], one after the other in
+/// channel order, so the result is bit-identical at any thread count. Its
+/// rate is the channel's own `λ⁻¹_j(E)` and its rows the inverse CDF of that
+/// channel's DIIMFP: the **channel-first** construction, in which a
+/// transport picks a channel with probability `λ⁻¹_j / Σ λ⁻¹` and then draws
+/// the loss from that channel's table (not the conditional channel choice of
+/// [`ShellResolvedChannels::sample_channel`], which belongs with a loss drawn
+/// from the total DIIMFP; the two are not mixed).
+///
+/// **Supported model.** Single-pole Penn per channel only, without the
+/// exchange correction (rejected, as by [`build_inelastic_table`]); so the
+/// binding energy does not enter a shell's DIIMFP, which is zero below the
+/// first energy of the shell's ELF (at or above `B` by construction of
+/// [`ShellResolvedChannels::new`]). Each shell row is floored at `B`, which
+/// only removes the rounding of `exp(ln W)` at the edge. No full Penn or
+/// Mermin valence model is wired to shell channels, and the valence ELF must
+/// not already contain the shells (no partition rule is applied, see
+/// [`super::inner_shell`]).
+///
+/// **Energy axis.** As for [`build_inelastic_table`], every table (valence
+/// and shells) is on the axis of `options.axis`: kinetic energies above the
+/// model's Fermi energy (zero by default) with
+/// [`EnergyAxis::ModelFermiLevel`], above the band bottom with
+/// [`EnergyAxis::BandBottom`], each row then the model's at `T = E - E_F`
+/// with `E_F` the Fermi energy of the model (the shell models share the
+/// valence model's settings, so its Fermi energy) (module docs, "Energy
+/// axis"). See `crate::electron::transport`, "Energy reference of the
+/// inelastic table", for how the transport reads them.
+pub fn build_shell_channel_tables(
+    channels: &ShellResolvedChannels,
+    material: &Material,
+    options: &InelasticTableOptions,
+    binding_provenance: &str,
+) -> Result<ShellResolvedTables, InelasticTableError> {
+    let valence = build_inelastic_table(channels.valence(), material, options)?;
+    let mut shells = Vec::with_capacity(channels.inner_shells().len());
+    for (i, s) in channels.inner_shells().iter().enumerate() {
+        let b = s.binding_energy_ev;
+        let base = build_inelastic_table(channels.shell_model(i), material, options)?;
+        let mut parts = base.parts().clone();
+        let label = s.subshell.label();
+        parts.model = format!("{} [inner-shell channel Z = {} {label}]", parts.model, s.z);
+        parts.provenance = format!(
+            "{}; inner-shell channel Z = {} {label}, binding energy {b} eV ({}), \
+             losses floored at the binding energy",
+            parts.provenance,
+            s.z,
+            binding_provenance.trim()
+        );
+        for row in &mut parts.quantiles {
+            for w in row.iter_mut() {
+                *w = w.max(b);
+            }
+        }
+        let table = CrossSectionTable::new(parts)?;
+        shells.push(ShellChannelTable::new(
+            s.z,
+            s.subshell,
+            b,
+            binding_provenance,
+            table,
+        )?);
+    }
+    Ok(ShellResolvedTables { valence, shells })
+}
+
 /// Inverse mean free paths, the (refined) probability grid and the quantile
 /// rows of a table of `penn` on the grid of `options` (already checked).
 type LossRows = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
@@ -758,14 +932,30 @@ fn loss_rows<M: LossModel>(
     penn: &M,
     options: &InelasticTableOptions,
 ) -> Result<LossRows, InelasticTableError> {
-    let energy = &options.energy_ev;
-    let grid = penn.diimfp_grid(energy)?;
+    // The model's energy `T` of each row (module docs, "Energy axis").
+    let energy = &model_energies_ev(penn, options);
+    // The DIIMFP grid covers only the rows that get losses: on the
+    // band-bottom axis a row at or below the Fermi level has none (below),
+    // and the grid would reject its energy.
+    let grid = match options.axis {
+        EnergyAxis::ModelFermiLevel => penn.diimfp_grid(energy)?,
+        EnergyAxis::BandBottom => {
+            let lossy: Vec<f64> = energy.iter().copied().filter(|&e| e > 0.0).collect();
+            penn.diimfp_grid(&lossy)?
+        }
+    };
     // Rows in parallel, collected in grid order; the lowest failing energy
     // is the reported error whatever the thread count.
     type Row = Result<(f64, Option<LinearDensity>), InelasticTableError>;
     let results: Vec<Row> = energy
         .par_iter()
         .map(|&e| {
+            if options.axis == EnergyAxis::BandBottom && e <= 0.0 {
+                // A band-bottom energy at or below the Fermi level: no loss
+                // is allowed. (On the model's own axis the model rejects
+                // such an energy.)
+                return Ok((0.0, None));
+            }
             let inv = penn.inverse_imfp(e)?;
             if inv > 0.0 {
                 let d = loss_density(penn, grid.as_ref(), e, inv, options.density_tolerance)?;

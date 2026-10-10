@@ -866,13 +866,16 @@ def _backscatter_secondaries(r: dict) -> list[str]:
     rows = [t for t in r["targets"] if t.get("secondary_sensitivity")]
     if not meta or not rows:
         return []
+    versions = " and ".join(sorted({r["version"] for t in rows for r in t["secondary_sensitivity"].values()}))
     lines = [
         "",
         "**Fast secondaries (sensitivity, not graded).** The baseline input rerun with "
-        f"`secondaries = \"{meta['secondaries']}\"` and a `{meta['boundary']}` at the mid work function, with "
-        "the band inputs (free-electron metal) of the δ(E) runs, `BAND` and `METAL_BAND_PROVENANCE` in "
-        "`validation/experiments/se_yield.py`; elastic model, optical ELF, tables, 50 eV band-bottom cutoff, "
-        f"seed and primaries as in the baseline ({meta['lindhard']}"
+        f"`secondaries = \"{meta['secondaries']}\"` and a `{meta['boundary']}` (metals: at the mid work "
+        "function; Si: its electron affinity), with the band inputs of the δ(E) runs, `BAND` and `BAND_PROVENANCE` "
+        "in `validation/experiments/se_yield.py` (Al, Cu, Au: free-electron metal; Si: insulator band, gap and "
+        "affinity from `BAND_DEFAULTS` (#115), valence-band width from Chelikowsky and Cohen 1974 (#149)); "
+        "elastic model, optical ELF, tables, 50 eV band-bottom cutoff, "
+        f"seed and primaries as in the baseline (lindhard {versions}"
         + ("; the baseline runs at these points were redone with it and reproduce the committed η bit for bit"
            if meta.get("baseline_reproduced") else "")
         + "). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries "

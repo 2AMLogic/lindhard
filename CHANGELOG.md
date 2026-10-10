@@ -9,12 +9,30 @@ one version).
 
 ### Fixed
 
+- A run into a reused output directory removes its mode's previous summary
+  before replacing any CSV, and publishes the new summary through a
+  temporary file and rename, so a failed rerun no longer leaves an old summary
+  beside replaced CSVs (#321).
 - Dynamic runs write `dynamic_summary.json` last, after
   `dynamic_steps.csv` and the composition CSV, like ion and electron runs
   (#292). A failed CSV write no longer leaves a new summary.
 
 ### Added
 
+- Inner-shell ionisation channels in the electron transport (#273), library
+  only (no CLI input yet; that is #156). `build_shell_channel_tables` builds
+  the valence table and one `ShellChannelTable` per shell of a
+  `ShellResolvedChannels` (single-pole Penn per channel, no exchange);
+  `Transport::with_inner_shells` adds them to a layer. A channel is chosen
+  by its inverse IMFP and the loss drawn from that channel's table; a shell
+  event under the Kieft-Bosch model liberates an electron of energy
+  `E_F + ω - B` and leaves `B - E_F` in the solid. New `ElectronTally::inner_shell`
+  hook, `SummaryTally::inner_shell_events` / `inner_shell_loss_ev`, and
+  `LayerMetadata::inner_shells` (serialized only when a layer has shells).
+  `ShellChannelTable` files carry the shell, its binding energy and that
+  energy's provenance, with their own format version
+  (`SHELL_CHANNEL_FORMAT_VERSION`); the `CrossSectionTable` cache format is
+  unchanged. Layers without shells give bit-identical results.
 - `BcaTally::partner` (#250): a tally hook, a no-op by default, that reports
   every collision partner's impact parameter and the number of partners of
   its collision step, before the collision changes the particle. The
@@ -323,6 +341,41 @@ one version).
 
 ### Changed
 
+- **Electron results change for every `lindhard run` whose materials have a
+  `band`** (#241). The inelastic table of a material with a band is now
+  built on the band-bottom energy axis the transport reads it on, with the
+  model's Fermi energy taken from the band: the row at `E` is the model's at
+  `E - E_F`, kinematics on `E`, losses below `E - E_F`. `E_F` is the band's
+  minimum excitation energy, the new `BandStructure::min_excitation_ev` (the
+  Fermi energy of a metal, the conduction-band bottom `W_v + E_g` of an
+  insulator). This is the convention of the table compiler of Nebula
+  (`compile_full_imfp_icdf` and its caller, cstool commit `0c739eb`,
+  BSD-3-Clause). Before, every table was on the model's own axis with
+  `[electron.inelastic] fermi_energy_ev` (default 0), its losses reached `E`,
+  and the Kieft-Bosch secondary model clamped those beyond `E - E_F`, leaving
+  the primary at the Fermi level (#173 measured 78 to 82 % of the Al events
+  5 to 20 eV above the Fermi level in the clamp). Tables of materials
+  without a band, and so runs without bands, are unchanged bit for bit, as
+  are their cache keys.
+  - `[electron.inelastic] fermi_energy_ev` now applies only to materials
+    without a band, and a nonzero value is refused if any material has one
+    (it would count the Fermi energy twice). Migration: remove the key from
+    inputs that give a `band`.
+  - Library: new `electron::inelastic::table::EnergyAxis`
+    (`ModelFermiLevel`, the default, and `BandBottom`), new public field
+    `InelasticTableOptions::axis` with `InelasticTableOptions::with_axis`
+    (code that builds `InelasticTableOptions` with a struct literal must add
+    the field; `InelasticTableOptions::new` sets the default), and new
+    `PennInelastic::fermi_energy_ev`. A table built with the default axis is
+    the table built before. The transport is unchanged: it still clamps, and
+    the clamp no longer acts on a band-bottom table above its first row with
+    losses.
+  - The diagnostic example `lindhard-cli/examples/inelastic_low_energy.rs`
+    loses its `fermi-reference` mode (now what `lindhard run` builds) and
+    gains `legacy`, the table as built before.
+  - The δ(E) tables of `docs/validation.md` (secondary-electron yield) and
+    the committed electron oracle summaries were produced before this
+    change and have not been re-run (#287).
 - Faster full Penn (`penn-full`) inelastic tables (#256). A table now reads
   its rows' DIIMFP from `FullPenn::diimfp_grid` instead of the nested
   integrals, and the plasmon term and the `ω_p` integral of the model are
@@ -337,7 +390,9 @@ one version).
   Mermin models are unchanged. The full-Penn table's `model` string now
   says that its DIIMFP comes from the loss grid. The Si table on the #168
   grid still does not finish (isolated slow points of the `ω_p` integral,
-  older than this change; #298).
+  older than this change; #298). On the band-bottom axis (#241) the loss
+  grid is built for the rows above the Fermi level only, the rows that get
+  losses.
 - Crystal off-axis channeling tail (#225). The 7°/22° orientation is
   2.6-2.7° from a {100} and a {110} plane, so it is no longer held to the
   #180 random-direction bound "dRp within 15 % of amorphous". Its ignored

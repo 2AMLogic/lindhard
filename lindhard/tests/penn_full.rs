@@ -13,7 +13,7 @@
 use lindhard::constants::BOHR_RADIUS;
 use lindhard::electron::data::OpticalElf;
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, stopping_power_ev_per_m, InelasticTableOptions,
+    build_inelastic_table_for_model, stopping_power_ev_per_m, EnergyAxis, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{
     DrudeLorentz, DrudeLorentzOscillator, FullPenn, PennAlgorithm, PennInelastic, SinglePolePenn,
@@ -435,6 +435,30 @@ fn full_penn_tables_follow_the_model_on_any_thread_count() {
             a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits()),
             "row {i}"
         );
+    }
+}
+
+#[test]
+fn full_penn_band_bottom_table_skips_rows_at_or_below_the_fermi_level() {
+    // On the band-bottom axis (#241) a row at or below the Fermi level has
+    // no losses; its energy must not reach the DIIMFP grid, which rejects
+    // energies that are not positive. The other rows are the model's rows at
+    // T = E - E_F, bit for bit.
+    let fermi = 10.0;
+    let m = PennInelastic::Full(coarse_full().with_fermi_energy_ev(fermi).unwrap());
+    let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
+    let mut grid = vec![5.0];
+    grid.extend(GRID_ENERGIES.iter().map(|t| fermi + t));
+    let band = InelasticTableOptions::new(grid).with_axis(EnergyAxis::BandBottom);
+    let own = InelasticTableOptions::new(GRID_ENERGIES.to_vec());
+    let t = build_inelastic_table_for_model(&m, &material, &band).unwrap();
+    let r = build_inelastic_table_for_model(&m, &material, &own).unwrap();
+    assert_eq!(t.inverse_mfp_per_m()[0], 0.0);
+    assert!(t.quantiles(0).is_none());
+    assert_eq!(t.probability(), r.probability());
+    for j in 0..GRID_ENERGIES.len() {
+        assert_eq!(t.inverse_mfp_per_m()[j + 1], r.inverse_mfp_per_m()[j]);
+        assert_eq!(t.quantiles(j + 1), r.quantiles(j));
     }
 }
 

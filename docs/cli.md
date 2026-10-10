@@ -487,7 +487,29 @@ Eq. (12) (`AtomicElastic::compute_corrected`); the elastic table's `model` and
 | Key | Default | Choices |
 |---|---|---|
 | `model` | `"penn-single-pole"` | `penn-single-pole`, `penn-full`, `mermin-melf` (`electron::inelastic::PennAlgorithm`). The full Penn and Mermin models integrate numerically and build tables far more slowly. The single-pole model's mean free path is much longer than the other two below about 30 eV (Al: up to 23 times), which inflates the secondary yield; see `electron::inelastic::penn`, "Low energies" (#173) |
-| `fermi_energy_ev` | 0 | Fermi energy of the model, eV. It is not the band's: the transport reads table rows at the electron's energy above the band bottom, so setting it to the band's Fermi energy counts that energy twice; see `electron::transport`, "Energy reference of the inelastic table" (#173) |
+| `fermi_energy_ev` | 0 | Fermi energy of the model, eV, for the inelastic tables of materials **without** a `band`: the table is on the model's own axis (energy above the model's Fermi level, losses up to that energy). Must be 0 if any material has a `band` (a nonzero value is refused): see below |
+
+**Energy axis of the inelastic table.** The transport reads a table at the
+electron's kinetic energy `E` above the band bottom of its layer. For every
+material with a `band` the inelastic table is built on that axis, with the
+model's Fermi energy taken from the band: the row at `E` is the model's at
+`E - E_F`, so the kinematics use `E` and no loss exceeds `E - E_F`. `E_F` is
+the band's minimum excitation energy: the Fermi energy of a metal
+(`fermi_ev`, or the free-electron value), the conduction-band bottom
+`valence_band_width_ev + band_gap_ev` of an insulator. Table energies at or
+below it have no losses. This is the convention of the table compiler of
+Nebula (`compile_full_imfp_icdf`, cstool commit `0c739eb`; see
+`electron::inelastic::table`, "Energy axis", and `electron::transport`,
+"Energy reference of the inelastic table"). `fermi_energy_ev` plays no part
+for such a material, which is why it must be 0: adding it would count the
+Fermi energy twice. A material without a `band` gets the table of the
+model's own axis with `fermi_energy_ev`, read at `E` as it is.
+
+*Migration.* Before this rule, `fermi_energy_ev` applied to every material
+and tables ignored the band; losses beyond `E - E_F` were clamped by the
+secondary model. An input with a `band` and a nonzero `fermi_energy_ev` now
+fails, naming the key: remove the key. Results of runs with a `band` change
+(see `CHANGELOG.md`).
 
 **`[electron.tables]`**: one log-spaced energy grid shared by the elastic and
 inelastic tables of every material.
@@ -510,7 +532,7 @@ Every name the target uses needs an entry; an unused entry warns.
 | Key | Default | Meaning |
 |---|---|---|
 | `optical_elf` | required | Path of an optical ELF file, relative to the input file's directory, in the `lindhard::electron::data::OpticalElf` TOML form (`material`, `provenance`, `energy_ev`, `elf`). It is read with that type's loader, so **a file without a provenance is refused**, as is any invalid table |
-| `band` | none | Band parameters, required with `kieft-bosch`, `step-barrier` or `vacuum-level`: `{ kind = "metal", fermi_ev, work_function_ev, provenance }`, `{ kind = "insulator", valence_band_width_ev, band_gap_ev, affinity_ev, provenance }` or `{ kind = "free-electron-metal", valence_electrons_per_atom, work_function_ev, provenance }` (`lindhard::electron::boundary::BandStructure`; a blank provenance is refused) |
+| `band` | none | Band parameters, required with `kieft-bosch`, `step-barrier` or `vacuum-level`: `{ kind = "metal", fermi_ev, work_function_ev, provenance }`, `{ kind = "insulator", valence_band_width_ev, band_gap_ev, affinity_ev, provenance }` or `{ kind = "free-electron-metal", valence_electrons_per_atom, work_function_ev, provenance }` (`lindhard::electron::boundary::BandStructure`; a blank provenance is refused). Either metal kind also takes an optional `valence_binding_ev`: the electron a valence loss liberates is bound that far below the Fermi level instead of at it, and a smaller loss frees none (`BandStructure::with_valence_binding_ev`; absent by default; its source belongs in `provenance`) |
 | `phonon` | none (off) | Fröhlich LO-phonon channel, polar insulators only: `{ hbar_omega_ev, eps_static, eps_high_frequency, temperature_k, provenance }`, or `{ preset = "sio2-63mev" \| "sio2-153mev", temperature_k }` (the library's cited SiO₂ values) |
 | `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
 
@@ -750,7 +772,8 @@ the table depends on:
   refinement tolerance;
 - inelastic: the model (`electron.inelastic.model`), its Fermi energy, the
   SHA-256 and provenance of the optical ELF file, and the material's band
-  parameters.
+  parameters (they set the table's axis and Fermi energy for a material with
+  a band).
 
 Every `f64` is written in shortest round-trip form, so a change in the last
 bit of any number is a different key. A lookup must find the stored key
@@ -788,7 +811,21 @@ and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
 `tally.psf`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
-CSV write leaves no new summary) and lists only files that exist. Other files in the
+CSV write leaves no new summary) and lists only files that exist.
+
+Once output starts, the run first removes the previous summary of its own mode
+(`summary.json`, `electron_summary.json` or `dynamic_summary.json`) and only
+then replaces CSVs. The new summary is written to a freshly created temporary
+sibling (created exclusively, so an existing file or symlink of the same name is
+never touched; another name is used) and
+renamed into place after every other write succeeds. So, after a failed run,
+the absence of the mode's summary means the output set is incomplete (it may
+hold a mix of old and new CSVs); a summary that is present describes a
+completed run. If the previous summary cannot be removed, the run fails naming
+its path before any CSV changes. A failure before output starts (simulation or
+serialization) leaves existing outputs as they were. This is not a
+transaction: the CSVs are replaced in place, and concurrent runs into one
+directory are not supported. Other files in the
 directory are never touched, and no cleanup happens between ion, electron and
 dynamic runs. Do not keep your own data under a reserved name.
 

@@ -314,7 +314,9 @@ pub struct InelasticSpec {
     /// `"penn-single-pole"`, `"penn-full"` or `"mermin-melf"`.
     #[serde(default = "default_inelastic_model")]
     pub model: String,
-    /// Fermi energy of the model, eV.
+    /// Fermi energy of the model, eV, for the inelastic tables of materials
+    /// without a band. Must be 0 if a material has a band: the table of a
+    /// material with a band takes the band's (#241).
     #[serde(default)]
     pub fermi_energy_ev: f64,
 }
@@ -366,6 +368,17 @@ impl Default for TableGridSpec {
     }
 }
 
+/// `band` with the optional valence binding of a metal applied.
+fn with_valence_binding(
+    band: BandStructure,
+    binding_ev: Option<f64>,
+) -> Result<BandStructure, crate::electron::boundary::BandError> {
+    match binding_ev {
+        None => Ok(band),
+        Some(b) => band.with_valence_binding_ev(b),
+    }
+}
+
 /// Band parameters of a material ([`BandStructure`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
@@ -376,6 +389,11 @@ pub enum BandSpec {
         fermi_ev: f64,
         /// Work function, eV.
         work_function_ev: f64,
+        /// Binding energy below the Fermi level of the electron a valence
+        /// event liberates, eV ([`BandStructure::with_valence_binding_ev`]);
+        /// absent: the Fermi level, the default.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        valence_binding_ev: Option<f64>,
         /// Source of the values.
         provenance: String,
     },
@@ -397,7 +415,11 @@ pub enum BandSpec {
         valence_electrons_per_atom: f64,
         /// Work function, eV.
         work_function_ev: f64,
-        /// Source of the work function and of the valence count.
+        /// As for [`BandSpec::Metal`].
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        valence_binding_ev: Option<f64>,
+        /// Source of the work function and of the valence count (and of
+        /// `valence_binding_ev`, if given).
         provenance: String,
     },
 }
@@ -744,7 +766,8 @@ pub struct ResolvedElectron {
     pub elastic: ElasticChoice,
     /// Inelastic model.
     pub inelastic: PennAlgorithm,
-    /// Inelastic Fermi energy, eV.
+    /// Inelastic Fermi energy, eV, of the tables of materials without a band
+    /// (0 if any material has one).
     pub inelastic_fermi_ev: f64,
     /// Energy grid of every table, eV.
     pub table_energy_ev: Vec<f64>,
@@ -1159,6 +1182,21 @@ impl ElectronInput {
                 "must be finite and non-negative",
             ));
         }
+        // The inelastic table of a material with a band takes its Fermi
+        // energy from the band (#241); a second one would count it twice.
+        if e.inelastic.fermi_energy_ev != 0.0 {
+            if let Some(m) = materials.iter().find(|m| m.band.is_some()) {
+                return Err(invalid(
+                    "electron.inelastic.fermi_energy_ev",
+                    format!(
+                        "must be 0 when a material has a band (material {} does): the \
+                         inelastic table of a material with a band takes its Fermi energy \
+                         from the band",
+                        m.name
+                    ),
+                ));
+            }
+        }
 
         // Table grid.
         let g = &e.tables;
@@ -1356,6 +1394,7 @@ impl ElectronInput {
                     BandSpec::Metal {
                         fermi_ev,
                         work_function_ev,
+                        valence_binding_ev,
                         provenance,
                     } => BandStructure::new(
                         BandModel::Metal {
@@ -1363,7 +1402,8 @@ impl ElectronInput {
                             work_function_ev: *work_function_ev,
                         },
                         provenance.trim(),
-                    ),
+                    )
+                    .and_then(|b| with_valence_binding(b, *valence_binding_ev)),
                     BandSpec::Insulator {
                         valence_band_width_ev,
                         band_gap_ev,
@@ -1380,13 +1420,15 @@ impl ElectronInput {
                     BandSpec::FreeElectronMetal {
                         valence_electrons_per_atom,
                         work_function_ev,
+                        valence_binding_ev,
                         provenance,
                     } => BandStructure::free_electron_metal(
                         material,
                         *valence_electrons_per_atom,
                         *work_function_ev,
                         provenance.trim(),
-                    ),
+                    )
+                    .and_then(|b| with_valence_binding(b, *valence_binding_ev)),
                 };
                 Some(r.map_err(|err| invalid(format!("{field}.band"), err.to_string()))?)
             }
@@ -1678,6 +1720,61 @@ seed = 1
     }
 
     #[test]
+    fn metal_band_takes_an_optional_valence_binding() {
+        let d = dir("valence-binding");
+        std::fs::write(d.join("elf.toml"), ELF).unwrap();
+        let with = |band: &str| {
+            GOOD.replace(
+                "optical_elf = \"elf.toml\"",
+                &format!("optical_elf = \"elf.toml\"\nband = {band}"),
+            )
+        };
+        let resolve =
+            |text: &str| ElectronInput::from_toml_str(text).and_then(|i| i.resolve_in(&d));
+        // Absent: no binding, and the echo has no such key.
+        let r = resolve(&with(
+            "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, provenance = \"p\" }",
+        ))
+        .unwrap();
+        assert_eq!(
+            r.materials[0].band.as_ref().unwrap().valence_binding_ev(),
+            None
+        );
+        assert!(!r
+            .input
+            .to_toml_string()
+            .unwrap()
+            .contains("valence_binding_ev"));
+        for band in [
+            "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, valence_binding_ev = 7.5, \
+             provenance = \"p\" }",
+            "{ kind = \"free-electron-metal\", valence_electrons_per_atom = 1.0, \
+             work_function_ev = 4.0, valence_binding_ev = 7.5, provenance = \"p\" }",
+        ] {
+            let r = resolve(&with(band)).unwrap();
+            assert_eq!(
+                r.materials[0].band.as_ref().unwrap().valence_binding_ev(),
+                Some(7.5)
+            );
+            let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
+            assert_eq!(back, r.input);
+        }
+        // Refused: a negative binding, and any binding on an insulator.
+        let e = resolve(&with(
+            "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, valence_binding_ev = -1.0, \
+             provenance = \"p\" }",
+        ))
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains("electron.materials.Si.band"), "{e}");
+        assert!(resolve(&with(
+            "{ kind = \"insulator\", valence_band_width_ev = 6.0, band_gap_ev = 3.0, \
+             affinity_ev = 1.0, valence_binding_ev = 1.0, provenance = \"p\" }",
+        ))
+        .is_err());
+    }
+
+    #[test]
     fn errors_name_the_field() {
         let d = dir("errors");
         std::fs::write(d.join("elf.toml"), ELF).unwrap();
@@ -1713,6 +1810,45 @@ seed = 1
             "potential = \"thomas-fermi-yukawa\"\n[electron.elastic.correlation_polarization.polarizability]\n",
         ));
         assert!(e.contains("no polarizability for Si"), "{e}");
+    }
+
+    /// `fermi_energy_ev` sets the inelastic tables of materials without a
+    /// band; with a band the table takes the band's Fermi energy, so a
+    /// nonzero value is refused instead of counted twice (#241).
+    #[test]
+    fn inelastic_fermi_energy_is_refused_with_a_band() {
+        let d = dir("fermi-band");
+        std::fs::write(d.join("elf.toml"), ELF).unwrap();
+        let fermi = |text: &str, ev: &str| {
+            text.replace(
+                "[electron.elastic]",
+                &format!("[electron.inelastic]\nfermi_energy_ev = {ev}\n[electron.elastic]"),
+            )
+        };
+        let r = ElectronInput::from_toml_str(&fermi(GOOD, "1.5"))
+            .unwrap()
+            .resolve_in(&d)
+            .unwrap();
+        assert_eq!(r.inelastic_fermi_ev, 1.5);
+        let banded = GOOD.replace(
+            "optical_elf = \"elf.toml\"",
+            "optical_elf = \"elf.toml\"\nband = { kind = \"metal\", fermi_ev = 5.0, \
+             work_function_ev = 4.0, provenance = \"synthetic test band\" }",
+        );
+        let r = ElectronInput::from_toml_str(&fermi(&banded, "0.0"))
+            .unwrap()
+            .resolve_in(&d)
+            .unwrap();
+        assert_eq!(r.inelastic_fermi_ev, 0.0);
+        let e = ElectronInput::from_toml_str(&fermi(&banded, "1.5"))
+            .unwrap()
+            .resolve_in(&d)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            e.contains("electron.inelastic.fermi_energy_ev") && e.contains("material Si"),
+            "{e}"
+        );
     }
 
     #[test]
@@ -1812,7 +1948,6 @@ polarizability.O = { bohr3 = 5.0, source = "synthetic test value" }
 
 [electron.inelastic]
 model = "mermin-melf"
-fermi_energy_ev = 1.0
 
 [electron.materials.Ox]
 optical_elf = "elf.toml"
