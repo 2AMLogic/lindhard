@@ -2,8 +2,17 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-10
+
+- **PR #304**: feat(electron): sample inner-shell ionisation channels in the transport (#273)
+- **PR #284**: Screen-oxide substrate channeling tail characterization (#280)
+- **Issue #280** (closed): Crystal validation: characterize screen-oxide effects on substrate channeling tails
+- **Issue #273** (closed): Electron transport: sample inner-shell ionisation channels in the transport loop
+
 ### 2026-10-09
 
+- **PR #302**: validation: no tested candidate explains the Au and Cu Mermin secondary-yield excess (#242)
+- **Issue #242** (closed): Au secondary-electron yield stays 77 % above the measured δ_max with the Mermin model (residual of #173)
 - **PR #297**: cli: write dynamic summary last (#292)
 - **PR #296**: fix: crystal local loss, explain the fixed-direction excess and assert the direction average (#250)
 - **PR #295**: validation: delta(E) on DHFS, Si curves, band text (Part of #149)
