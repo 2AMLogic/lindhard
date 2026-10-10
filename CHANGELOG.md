@@ -29,6 +29,16 @@ one version).
 
 ### Fixed
 
+- The inelastic rate refinement (#339) no longer fails on an optical ELF
+  tabulated from 2 eV or more (#357). The single-pole and full Penn rates
+  are zero for `E - E_F <= elf_min` and positive above it, a step the
+  refinement bisected until its cell was exhausted to rounding, an error,
+  when that onset lay inside the 2 to 20 eV window. Where the onset lies at
+  or above the window start, a cell is now tested only if its lower end is
+  at or above it; the cell straddling the onset and those below it are left
+  as given. The Mermin rate is positive below `elf_min` and has no onset, so
+  its window is unchanged. Every committed ELF starts at or below 0.5 eV, so
+  **refined grids and tables are unchanged, bit for bit**.
 - Inelastic table rows no longer bisect a jump in the DIIMFP past
   floating-point resolution (#345). The Mermin DIIMFP is an adaptive
   integral at 1e-5, and its quadrature noise has jumps of about that size
