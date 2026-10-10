@@ -1,16 +1,18 @@
 //! Acceptance tests for the Mermin-ELF model (`lindhard::electron::inelastic::
 //! {MerminPenn, MerminGas, fit_mermin_oscillators}`).
 //!
-//! Every ELF is **synthetic** (Drude-Lorentz oscillators with made-up
-//! parameters; not a material), kinematics are nonrelativistic. The reference
-//! values are limits and sum rules of the models themselves and the other two
-//! models of the selector.
+//! Every ELF but one is **synthetic** (Drude-Lorentz oscillators with
+//! made-up parameters; not a material), kinematics are nonrelativistic. The
+//! reference values are limits and sum rules of the models themselves and the
+//! other two models of the selector. The exception is the Cu section at the
+//! end (#300), which pins what the default fit does to the committed Cu ELF.
 
 use lindhard::electron::data::OpticalElf;
 use lindhard::electron::inelastic::{
     fit_mermin_oscillators, DrudeLorentz, DrudeLorentzOscillator, MerminFitOptions, MerminPenn,
     PennAlgorithm, PennInelastic, SinglePolePenn,
 };
+use std::path::PathBuf;
 
 const TOL: f64 = 1e-4;
 
@@ -184,4 +186,128 @@ fn rejects_invalid_inputs() {
     assert!(m.clone().with_relative_tolerance(0.5).is_err());
     assert!(m.clone().with_fermi_energy_ev(-1.0).is_err());
     assert_eq!(m.loss_function(1e9, -1.0), 0.0);
+}
+
+// ---- Cu: the default fit of the committed ELF (#300) ----
+//
+// The `mermin-melf` IMFP of Cu is 15 to 41 % longer than TPP 2011 and than
+// the single-pole model on the same table (`docs/validation.md`, "Cu: the
+// Mermin IMFP and the default oscillator fit"). The tests below pin the
+// finding: the default fit (3 oscillators) carries 57 % of the table's f-sum
+// and 67 % of its `P_eff`, most of the missing `P_eff` below 20 eV; the
+// single-pole model on that *fitted* ELF is longer still than the Mermin
+// model on it; so the excess is the fit, not the Mermin dielectric function
+// or the momentum integral. de Vera et al., Int. J. Mol. Sci. 23, 6121
+// (2022), doi:10.3390/ijms23116121, section 2.1.1 (opened 2026-10-09):
+// "The consistency of the fitting procedure is checked by fulfilling the
+// Kramers-Kronig and f-sum rules"; this fit does not pass that check.
+// Model Fermi energy 0, as in the delta(E) runs. Values measured
+// 2026-10-09 (release build); the allowances cover the debug build and
+// nothing else. Nothing is tuned.
+
+/// TPP 2011 Table 4 (continued), column Cu, rows 54.6, 99.5, 200.3, 492.7
+/// and 992.3 eV (manuscript p. 41 of 60; S. Tanuma, C. J. Powell and D. R.
+/// Penn, Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522, read in
+/// the authors' manuscript, NIMS MDR doi:10.48505/nims.3238), Å.
+const CU_TPP2011: [(f64, f64); 5] = [
+    (54.6, 4.94),
+    (99.5, 5.00),
+    (200.3, 6.29),
+    (492.7, 10.3),
+    (992.3, 16.6),
+];
+
+/// Measured outputs of this code (2026-10-09), Å, at the energies of
+/// [`CU_TPP2011`]: `mermin-melf` with the default fit, single-pole on the
+/// table, single-pole on the fitted ELF sampled at 4000 log-spaced points.
+const CU_MERMIN: [f64; 5] = [6.967, 6.282, 7.430, 11.807, 19.213];
+const CU_SINGLE_POLE: [f64; 5] = [5.186, 5.065, 6.285, 10.021, 16.164];
+const CU_SINGLE_POLE_ON_FIT: [f64; 5] = [9.286, 7.533, 8.504, 12.869, 20.606];
+
+/// Relative allowance on the pinned values above.
+const PIN: f64 = 5e-3;
+
+fn cu_elf() -> Option<OpticalElf> {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../validation/data/optical/cu_elf_hagemann1975.toml");
+    if !p.is_file() {
+        // A packaged crate does not ship validation/data.
+        eprintln!("{} not found; Cu Mermin checks skipped", p.display());
+        return None;
+    }
+    Some(OpticalElf::from_toml_file(p).unwrap())
+}
+
+fn close(got: f64, want: f64, what: &str) {
+    assert!(
+        (got / want - 1.0).abs() < PIN,
+        "{what}: {got} vs pinned {want}"
+    );
+}
+
+#[test]
+fn cu_default_fit_misses_the_sum_rules_of_its_table() {
+    let Some(elf) = cu_elf() else { return };
+    let fit = fit_mermin_oscillators(&elf, &MerminFitOptions::default()).unwrap();
+    assert_eq!(fit.oscillators.len(), 3, "{fit}");
+    assert!(fit.converged, "{fit}");
+    // the table: P_eff 1.002 (a metal: perfect screening), f-sum 5721 eV^2
+    close(fit.data_p_eff, 1.0017, "data P_eff");
+    close(fit.data_f_sum_ev2, 5720.9, "data f-sum");
+    // the fit: 57 % of the f-sum, 67 % of P_eff
+    close(fit.f_sum_ev2 / fit.data_f_sum_ev2, 0.5668, "f-sum ratio");
+    close(fit.p_eff, 0.6703, "fit P_eff");
+    close(fit.weighted_rms, 0.4029, "weighted rms");
+    // most of the missing P_eff is below 20 eV: (2/pi) ∫ ELF dW/W there
+    let peff_below = |f: &dyn Fn(f64) -> f64| {
+        let (a, b, n) = (elf.energy_range_ev().0.ln(), 20f64.ln(), 20000);
+        let du = (b - a) / n as f64;
+        let s: f64 = (0..n).map(|i| f((a + (i as f64 + 0.5) * du).exp())).sum();
+        2.0 / std::f64::consts::PI * s * du
+    };
+    let data = peff_below(&|w| elf.elf(w).unwrap());
+    let model = peff_below(&|w| fit.model_elf(w));
+    close(data, 0.5353, "data P_eff below 20 eV");
+    close(model, 0.2433, "fit P_eff below 20 eV");
+    let missing = fit.data_p_eff - fit.p_eff;
+    assert!(data - model > 0.85 * missing, "{data} {model} {missing}");
+}
+
+#[test]
+fn cu_mermin_imfp_excess_is_the_fit_not_the_momentum_extension() {
+    let Some(elf) = cu_elf() else { return };
+    let fit = fit_mermin_oscillators(&elf, &MerminFitOptions::default()).unwrap();
+    let (lo, hi) = elf.energy_range_ev();
+    let fitted_elf = DrudeLorentz::new(fit.oscillators.clone())
+        .unwrap()
+        .to_optical_elf("Cu, default Mermin fit", lo, hi, 4000)
+        .unwrap();
+    let mermin = MerminPenn::new(elf.clone(), fit).unwrap();
+    let sp = SinglePolePenn::new(elf);
+    let sp_fit = SinglePolePenn::new(fitted_elf);
+    eprintln!("E/eV    TPP    Mermin   single-pole  single-pole(fit ELF)");
+    for (i, &(e, tpp)) in CU_TPP2011.iter().enumerate() {
+        let m = mermin.imfp_m(e).unwrap() * 1e10;
+        let s = sp.imfp_m(e).unwrap() * 1e10;
+        let sf = sp_fit.imfp_m(e).unwrap() * 1e10;
+        eprintln!("{e:<6}  {tpp:<5}  {m:.3}  {s:.3}  {sf:.3}");
+        close(m, CU_MERMIN[i], "Mermin IMFP");
+        close(s, CU_SINGLE_POLE[i], "single-pole IMFP");
+        close(
+            sf,
+            CU_SINGLE_POLE_ON_FIT[i],
+            "single-pole IMFP on the fitted ELF",
+        );
+        // the gap of the issue: Mermin 15 to 41 % longer than TPP 2011,
+        // single-pole within 6 % (+5.0 % at 54.6 eV)
+        assert!(m / tpp - 1.0 > 0.14, "{e}: Mermin {m} vs TPP {tpp}");
+        assert!(
+            (s / tpp - 1.0).abs() < 0.06,
+            "{e}: single-pole {s} vs TPP {tpp}"
+        );
+        // the fitted ELF alone lengthens the single-pole IMFP by more than
+        // the whole Mermin excess, and the Mermin extension of that same
+        // ELF shortens it: the excess is the fit
+        assert!(sf > m && m > s, "{e}: {sf} > {m} > {s}");
+    }
 }

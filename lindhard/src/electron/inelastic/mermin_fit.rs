@@ -45,6 +45,19 @@
 //! [`MerminFit::residuals`] and, if needed, supply a start. The threshold
 //! step `Θ(E - E_th)` of dV2022 eq. (3) is not fitted.
 //!
+//! The whole tabulated ELF is fitted, inner-shell edges included, where
+//! dV2022 fits Mermin oscillators to the outer-shell ELF only (their eqs. (1)
+//! and (3); inner shells by GOS, eq. (2)) and checks the fit against the
+//! Kramers-Kronig and f-sum rules (after eq. (5)). The default of three
+//! oscillators is coarse for real data: for the committed Cu ELF it carries
+//! 57 % of the table's f-sum and 67 % of its `P_eff`, and the Mermin IMFP is
+//! 15 to 41 % longer than the single-pole one on the table (#300;
+//! `docs/validation.md`, "Cu: the Mermin IMFP and the default oscillator
+//! fit"; the default is #306). With 10 or more oscillators the fit can place
+//! an oscillator far narrower than the knot spacing between two knots, which
+//! the residuals do not see and the sum rules do (#307): read
+//! [`MerminFit::f_sum_ev2`] against [`MerminFit::data_f_sum_ev2`].
+//!
 //! # Closed-form sum rules of the fit
 //!
 //! For the Drude-Lorentz sum the f-sum is `(π/2) Σ A_j` and
