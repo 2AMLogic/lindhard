@@ -1945,6 +1945,55 @@ result worse, not better; no Cu, Si or Au set changes status.
   model's ([`cli.md`](cli.md), "Energy axis of the inelastic table"), which changes
   δ by a few per cent (#173's measurement, below). The tables have **not
   been re-run** with it; the re-run is tracked in #287.
+- **Table grid above the Fermi level (#291).** The runs use
+  `min_energy_ev = 5` and `points_per_decade = 10` (the library default is
+  10 eV and 20). On the band-bottom axis the inelastic rate is zero at
+  `E_F` and climbs steeply above it, and the transport interpolates it
+  linearly between rows. #291 measured that interpolation without
+  transport: `lindhard-cli/examples/inelastic_low_energy.rs`, mode `rate`,
+  on the Al and Si `default` inputs at 400 eV, single-pole and Mermin
+  (default fit) tables of the input's ELF. The reference is the model's
+  exact row at each energy. The tolerance was fixed before measuring:
+  the largest relative error of `1/λ` over `E - E_F` = 2 to 20 eV (0.1 eV
+  steps) at most 1 %. That is the Poisson floor of the most precise
+  committed `default` δ entries, Al at 400 and 600 eV (0.88 and 0.85 %),
+  rounded up. Other configurations are more precise (Al `barrier-off`
+  0.60 % at 600 eV; at 400 eV the Al `barrier-off`, `cutoff-band-bottom`,
+  `phi-low` and `phi-high` entries are 0.63 to 0.90 %), but every grid
+  at 20 or 40 points per decade has a largest error of at least 2.0 %, so
+  the stricter bound would change no conclusion. The 2 eV start lies below the cutoff of every
+  `default` row (1 eV above the vacuum level, at least 5 eV above `E_F`),
+  so for those rows the gate is stricter than needed between 2 and 5 eV
+  (the `cutoff-band-bottom` rows follow electrons to 1 eV above `E_F`).
+  The verdict that 20 and 40 points per decade fail does not rest on 2 to
+  5 eV: the Al single pole's largest errors at those grids (75 and 27 %)
+  fall at 15 to 17 eV. #339 should choose its window with this in mind.
+  Largest error (and where it falls, `E - E_F` in eV), grid from 5 eV as these runs:
+
+  | Table | 10 / decade | 20 / decade | 40 / decade | 80 / decade |
+  |---|---|---|---|---|
+  | Al single-pole | 184 % (14.7) | 75 % (16.7) | 27 % (16.9) | 7.2 % (16.7) |
+  | Al Mermin | 32 % (2.0) | 4.3 % (2.0) | 2.1 % (2.0) | 0.42 % (2.2) |
+  | Si single-pole | 200 % (2.4) | 56 % (2.7) | 14 % (2.7) | 3.3 % (3.0) |
+  | Si Mermin | 14 % (2.6) | table refused | 2.3 % (2.0) | table refused |
+
+  With the library's default `min_energy_ev` of 10 eV the grid nodes move
+  but the errors are similar: 251, 60, 25 and 7.8 % for the Al single
+  pole, 29, 6.4, 2.0 and 0.39 % for Al Mermin, 147, 51, 13 and 3.2 % for
+  the Si single pole, and 10, 5.4, 2.4 % and refused for Si Mermin. The
+  example prints the error at 0.5 to 20 eV as well. At 1 eV it is 3 to
+  480 % on the grids up to 40. That region is about one cell wide and is
+  reported, not gated. "Refused" is the table builder
+  rejecting a Si Mermin row 0.2 to 0.5 eV above `E_F` (negative
+  loss-density integral; #340). Neither 20 nor 40 points per decade meets
+  the tolerance for any table, so the grid of these runs is **not
+  changed**. Resolving the rate needs rows from `E_F` upward, not a
+  denser uniform grid (#339). At 20 points per decade the Si Mermin runs
+  would be refused (#340). #291 therefore stays open: the grid default
+  that meets the tolerance is still to be settled, by #339 (rows from
+  `E_F` upward) and #340 (the refused Si Mermin rows). The δ tables were
+  not re-run for #291; #287's re-run uses the grid #339 settles, or this one if #287 lands first.
+  The committed results are unchanged.
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
   level (`cutoff_reference = "vacuum-level"`) unless a row says otherwise.
