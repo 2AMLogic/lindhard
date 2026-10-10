@@ -44,11 +44,22 @@
 //!   flight": linear in energy, held beyond the grid ends). Printed: the
 //!   signed relative error `(interpolated - exact) / exact` at
 //!   `E - E_F` = 0.5, 1, 2, 3, 5, 10 and 20 eV, and its largest magnitude
-//!   over `E - E_F` = 2 to 20 eV in steps of 0.1 eV (with the `E - E_F` at
-//!   which it occurs), gated against [`RATE_TOLERANCE`]. `-` marks a point
-//!   whose exact rate is zero or whose row the table builder refuses (the
-//!   refusal is printed); the gate covers the points with a positive exact
-//!   rate. A coarse table the builder refuses is printed as refused.
+//!   over `E - E_F` = 2 to 20 eV ([`RATE_WINDOW_EV`]) in steps of 0.1 eV
+//!   (with the `E - E_F` at which it occurs), gated against
+//!   [`RATE_TOLERANCE`] (both from `electron::inelastic::table`, where the
+//!   tolerance is justified). `-` marks a point whose exact rate is zero or
+//!   whose row the table builder refuses (the refusal is printed); the gate
+//!   covers the points with a positive exact rate. A coarse table the
+//!   builder refuses is printed as refused. Each coarse table is followed by
+//!   the same rows built with the library's rate refinement
+//!   (`InelasticTableOptions::rate_refinement`, `RateRefinement::default()`,
+//!   #339; `+refined`; `lindhard run` does not use it yet): its grid is the
+//!   coarse rows and every row the refinement adds, and `rows` counts them.
+//!   The largest error is printed to three decimals, so that a verdict at
+//!   the tolerance can be read. The verdict that 20 and 40 points per decade fail
+//!   without it does not rest on 2 to 5 eV: the Al single pole's largest
+//!   errors there fall at 15 to 17 eV. Below 2 eV the error is printed, not
+//!   gated: there the rate starts from zero within about one coarse cell.
 //!
 //! Runs use two threads and seed 1. Nothing here is a model: the spliced and
 //! legacy tables are diagnostics, not options of the library.
@@ -59,7 +70,8 @@ use anyhow::{bail, Context, Result};
 use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts};
 use lindhard::electron::elastic::table::{log_energy_grid, DEFAULT_MIN_ENERGY_EV};
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
+    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions, RateRefinement,
+    RATE_TOLERANCE, RATE_WINDOW_EV,
 };
 use lindhard::electron::inelastic::{PennAlgorithm, PennInelastic};
 use lindhard::electron::transport::{
@@ -71,30 +83,6 @@ use rayon::prelude::*;
 /// Bins of `E - E_F` before an inelastic event, eV.
 const BINS: [f64; 9] = [0.0, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0, f64::INFINITY];
 
-/// The tolerance of the `rate` mode, fixed before any value was measured
-/// (#291): the largest relative error of the interpolated `1/λ` over
-/// `E - E_F` = 2 to 20 eV must not exceed 1 %. It is the statistical error of
-/// the most precise committed `default` δ entries, rounded up: in
-/// `validation/experiments/se_yield_results.json` the Poisson floor of Al
-/// `default` is 0.0585 on δ = 6.85 at 600 eV (0.85 %) and 0.0571 on δ = 6.52
-/// at 400 eV (0.88 %). Other configurations are more precise: Al
-/// `barrier-off` reaches 0.60 % (600 eV), and at 400 eV the Al `barrier-off`,
-/// `cutoff-band-bottom`, `phi-low` and `phi-high` entries are 0.63 to 0.90 %;
-/// the Au, Cu and Si `default` entries at 400 eV are 1.4, 1.7 and 2.8 %.
-/// Every grid measured at 20 or 40 points per decade has a largest error of
-/// at least 2.0 %, so a stricter tolerance of 0.6 % would change no
-/// conclusion. A grid error below the tolerance cannot be told from the noise
-/// of those tables if δ responds at most in proportion to the rate in that
-/// window; that response is not measured here. The window starts at 2 eV,
-/// below the transport cutoff of every `default` row (1 eV above the vacuum
-/// level, at least 5 eV above `E_F`), so a `default` run never reads the rate
-/// at 2 to 5 eV and the gate is stricter than those runs need there (the
-/// `cutoff-band-bottom` rows do read it, down to 1 eV above `E_F`). The
-/// verdict that 20 and 40 points per decade fail does not rest on that part
-/// of the window: the Al single pole's largest errors fall at 15 to 17 eV.
-/// Below 2 eV the error is printed, not gated: there the rate starts from
-/// zero within about one coarse cell.
-const RATE_TOLERANCE: f64 = 0.01;
 /// `E - E_F` at which the `rate` mode prints the error, eV.
 const RATE_POINTS_EV: [f64; 7] = [0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0];
 /// Points per decade of the coarse grids of the `rate` mode.
@@ -257,6 +245,56 @@ fn interpolated_rate(t: &CrossSectionTable, e: f64) -> f64 {
     r[i] + (e - g[i]) / (g[i + 1] - g[i]) * (r[i + 1] - r[i])
 }
 
+/// `E - E_F` of the gate of the `rate` mode: [`RATE_WINDOW_EV`] in steps of
+/// 0.1 eV.
+fn gate_points() -> Vec<f64> {
+    let (lo, hi) = (
+        (RATE_WINDOW_EV.0 * 10.0).round() as i32,
+        (RATE_WINDOW_EV.1 * 10.0).round() as i32,
+    );
+    (lo..=hi).map(|k| f64::from(k) * 0.1).collect()
+}
+
+/// `row` completed with the row count of `t`, its relative rate error at
+/// [`RATE_POINTS_EV`], the largest over the gate and the verdict. The error
+/// is `None` where the exact rate (`exact_at`, by `E - E_F`, `E_F` =
+/// `fermi_ev`) is refused or zero.
+fn gate_row(
+    mut row: String,
+    t: &CrossSectionTable,
+    fermi_ev: f64,
+    exact_at: &dyn Fn(f64) -> Option<f64>,
+) -> String {
+    let err = |e: f64| {
+        exact_at(e)
+            .filter(|&x| x > 0.0)
+            .map(|x| (interpolated_rate(t, fermi_ev + e) - x) / x)
+    };
+    row += &format!(" {:>5}", t.energy_ev().len());
+    for e in RATE_POINTS_EV {
+        row += &match err(e) {
+            Some(v) => format!(" {:>7.2}%", 100.0 * v),
+            None => format!(" {:>8}", "-"),
+        };
+    }
+    // The largest error and its E - E_F (the first on a tie).
+    let gate = gate_points();
+    let (worst, at) = gate
+        .iter()
+        .filter_map(|&e| err(e).map(|v| (v.abs(), e)))
+        .fold((0.0, gate[0]), |a, b| if b.0 > a.0 { b } else { a });
+    format!(
+        "{row} {:>8.3}% {:>6.1} {:>5}",
+        100.0 * worst,
+        at,
+        if worst <= RATE_TOLERANCE {
+            "pass"
+        } else {
+            "FAIL"
+        }
+    )
+}
+
 fn rate(r: &ResolvedElectron) -> Result<()> {
     let m = &r.materials[0];
     let (fermi_ev, axis) = lindhard_cli::electron::inelastic_axis(r, m);
@@ -271,8 +309,9 @@ fn rate(r: &ResolvedElectron) -> Result<()> {
     if DEFAULT_MIN_ENERGY_EV != lo_input {
         lows.push(DEFAULT_MIN_ENERGY_EV);
     }
-    // E - E_F of the gate (2 to 20 eV in 0.1 eV steps) and of the printed points.
-    let gate: Vec<f64> = (20..=200).map(|k| f64::from(k) * 0.1).collect();
+    // E - E_F of the gate (RATE_WINDOW_EV, 2 to 20 eV, in 0.1 eV steps) and
+    // of the printed points.
+    let gate = gate_points();
     let mut above: Vec<f64> = gate.iter().chain(&RATE_POINTS_EV).copied().collect();
     above.sort_by(f64::total_cmp);
     above.dedup_by(|a, b| (*a - *b).abs() < 1e-9);
@@ -280,9 +319,11 @@ fn rate(r: &ResolvedElectron) -> Result<()> {
     let options = |e: Vec<f64>| InelasticTableOptions::new(e).with_axis(EnergyAxis::BandBottom);
     println!(
         "rate: {}, E_F {fermi_ev:.4} eV (band bottom), grid top {hi} eV, tolerance {:.0} % \
-         over E - E_F = 2 to 20 eV",
+         over E - E_F = {} to {} eV",
         m.name,
-        RATE_TOLERANCE * 100.0
+        RATE_TOLERANCE * 100.0,
+        RATE_WINDOW_EV.0,
+        RATE_WINDOW_EV.1
     );
     for (name, alg) in [
         ("single-pole", PennAlgorithm::SinglePole),
@@ -337,7 +378,10 @@ fn rate(r: &ResolvedElectron) -> Result<()> {
             exact_at(5.0).unwrap_or(f64::NAN),
             exact_at(20.0).unwrap_or(f64::NAN)
         );
-        let mut head = format!("  {:>12} {:>5} {:>5}", "min_energy", "ppd", "rows");
+        let mut head = format!(
+            "  {:>12} {:>5} {:>8} {:>5}",
+            "min_energy", "ppd", "table", "rows"
+        );
         for t in RATE_POINTS_EV {
             head += &format!(" {:>8}", format!("{t} eV"));
         }
@@ -354,43 +398,21 @@ fn rate(r: &ResolvedElectron) -> Result<()> {
                     .partition_point(|&x| x < fermi_ev + 20.0)
                     .min(grid.len() - 1);
                 let sub = grid[first..=last].to_vec();
-                let mut row = format!("  {:>9} eV {:>5} {:>5}", lo, ppd, sub.len());
-                let coarse =
-                    match build_inelastic_table_for_model(&model, &m.material, &options(sub)) {
-                        Ok(t) => t,
-                        Err(e) => {
-                            println!("{row}  table refused: {e}");
-                            continue;
-                        }
-                    };
-                // The relative error, or `None` where the exact row is
-                // refused or zero.
-                let err = |t: f64| {
-                    exact_at(t)
-                        .filter(|&x| x > 0.0)
-                        .map(|x| (interpolated_rate(&coarse, fermi_ev + t) - x) / x)
-                };
-                for t in RATE_POINTS_EV {
-                    row += &match err(t) {
-                        Some(v) => format!(" {:>7.2}%", 100.0 * v),
-                        None => format!(" {:>8}", "-"),
-                    };
-                }
-                // The largest error and its E - E_F (the first on a tie).
-                let (worst, at) = gate
-                    .iter()
-                    .filter_map(|&t| err(t).map(|v| (v.abs(), t)))
-                    .fold((0.0, gate[0]), |a, b| if b.0 > a.0 { b } else { a });
-                println!(
-                    "{row} {:>8.2}% {:>6.1} {:>5}",
-                    100.0 * worst,
-                    at,
-                    if worst <= RATE_TOLERANCE {
-                        "pass"
-                    } else {
-                        "FAIL"
+                // The coarse table, then the same rows with the rate
+                // refinement of the library (#339): the grid and every row
+                // the construction adds.
+                for refined in [false, true] {
+                    let mut o = options(sub.clone());
+                    if refined {
+                        o = o.with_rate_refinement(RateRefinement::default());
                     }
-                );
+                    let label = if refined { "+refined" } else { "" };
+                    let row = format!("  {:>9} eV {:>5}{label:>9}", lo, ppd);
+                    match build_inelastic_table_for_model(&model, &m.material, &o) {
+                        Ok(t) => println!("{}", gate_row(row, &t, fermi_ev, &exact_at)),
+                        Err(e) => println!("{row}  table refused: {e}"),
+                    }
+                }
             }
         }
         println!("  ({name}: {:.1} s)", t0.elapsed().as_secs_f64());

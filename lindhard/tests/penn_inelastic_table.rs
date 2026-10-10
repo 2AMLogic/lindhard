@@ -10,7 +10,7 @@ use lindhard::electron::data::{CrossSectionTable, ElectronDataError, SamplingAxi
 use lindhard::electron::elastic::table::log_energy_grid;
 use lindhard::electron::inelastic::table::{
     build_inelastic_table, build_inelastic_table_for_model, mean_loss_ev, stopping_power_ev_per_m,
-    EnergyAxis, InelasticTableOptions, MomentumTransferSampler,
+    EnergyAxis, InelasticTableOptions, MomentumTransferSampler, RateRefinement, RATE_WINDOW_EV,
 };
 use lindhard::electron::inelastic::{
     DrudeLorentz, DrudeLorentzOscillator, ExchangeCorrection, PennAlgorithm, PennInelastic,
@@ -487,4 +487,54 @@ fn band_bottom_axis_with_zero_fermi_energy_is_the_model_axis() {
         assert_eq!(a.quantiles(i), b.quantiles(i));
     }
     assert!(!a.provenance().contains("energy axis"));
+}
+
+/// The rate refinement (#339) adds rows to the band-bottom table of a model
+/// whose rate climbs steeply above the Fermi level, and changes nothing
+/// else: the given rows keep their rates, the added rows are the model's
+/// rows at their energies, the table is the same on any thread count, and
+/// the provenance records the refinement. Off (the default), the table is
+/// the one built before the option existed.
+#[test]
+fn rate_refinement_adds_band_bottom_rows_and_keeps_the_given_ones() {
+    let fermi = 11.5;
+    let m = penn().clone().with_fermi_energy_ev(fermi).unwrap();
+    let grid = log_energy_grid(5.0, 60.0, 10.0).unwrap();
+    let mut plain = InelasticTableOptions::new(grid.clone()).with_axis(EnergyAxis::BandBottom);
+    plain.density_tolerance = 1e-3;
+    assert_eq!(plain.rate_refinement, None);
+    let refined = plain
+        .clone()
+        .with_rate_refinement(RateRefinement::default());
+    let build = |o: &InelasticTableOptions, threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| build_inelastic_table(&m, &material(), o).unwrap())
+    };
+    let a = build(&plain, 2);
+    let b = build(&refined, 1);
+    assert_eq!(build(&refined, 4), b);
+    assert_eq!(a.energy_ev(), grid.as_slice());
+    assert!(!a.provenance().contains("rate refinement"));
+    assert!(b.provenance().contains("rate refinement (#339)"));
+    let e = b.energy_ev();
+    assert!(e.len() > grid.len(), "{} rows", e.len());
+    assert!(e.windows(2).all(|w| w[1] > w[0]));
+    let (lo, hi) = (fermi + RATE_WINDOW_EV.0, fermi + RATE_WINDOW_EV.1);
+    for (k, &x) in e.iter().enumerate() {
+        let inv = b.inverse_mfp_per_m()[k];
+        match grid.iter().position(|&g| g == x) {
+            Some(i) => assert_eq!(inv, a.inverse_mfp_per_m()[i], "row {x}"),
+            None => {
+                // an added row: inside a grid cell that overlaps the window,
+                // with the model's rate at T = E - E_F
+                let j = grid.partition_point(|&g| g < x);
+                assert!(grid[j] > lo && grid[j - 1] < hi, "row {x}");
+                let want = m.imfp_and_stopping(x - fermi).unwrap().inverse_imfp_per_m;
+                assert_eq!(inv, want, "row {x}");
+            }
+        }
+    }
 }

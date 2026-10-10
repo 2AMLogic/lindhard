@@ -1968,7 +1968,8 @@ result worse, not better; no Cu, Si or Au set changes status.
   The verdict that 20 and 40 points per decade fail does not rest on 2 to
   5 eV: the Al single pole's largest errors at those grids (75 and 27 %)
   fall at 15 to 17 eV. #339 should choose its window with this in mind.
-  Largest error (and where it falls, `E - E_F` in eV), grid from 5 eV as these runs:
+  Largest error (and where it falls, `E - E_F` in eV), grid from 5 eV as these runs,
+  measured before #340/#342:
 
   | Table | 10 / decade | 20 / decade | 40 / decade | 80 / decade |
   |---|---|---|---|---|
@@ -1977,23 +1978,53 @@ result worse, not better; no Cu, Si or Au set changes status.
   | Si single-pole | 200 % (2.4) | 56 % (2.7) | 14 % (2.7) | 3.3 % (3.0) |
   | Si Mermin | 14 % (2.6) | table refused | 2.3 % (2.0) | table refused |
 
-  With the library's default `min_energy_ev` of 10 eV the grid nodes move
-  but the errors are similar: 251, 60, 25 and 7.8 % for the Al single
-  pole, 29, 6.4, 2.0 and 0.39 % for Al Mermin, 147, 51, 13 and 3.2 % for
-  the Si single pole, and 10, 5.4, 2.4 % and refused for Si Mermin. The
-  example prints the error at 0.5 to 20 eV as well. At 1 eV it is 3 to
-  480 % on the grids up to 40. That region is about one cell wide and is
-  reported, not gated. "Refused" is the table builder
-  rejecting a Si Mermin row 0.2 to 0.5 eV above `E_F` (negative
-  loss-density integral; #340; measured before #340/#342, these rows now
-  build, and the re-measurement belongs to #291). Neither 20 nor 40 points per decade meets
-  the tolerance for any table, so the grid of these runs is **not
-  changed**. Resolving the rate needs rows from `E_F` upward, not a
-  denser uniform grid (#339). At 20 points per decade the Si Mermin runs
-  would be refused (#340). #291 therefore stays open: the grid default
-  that meets the tolerance is still to be settled, by #339 (rows from
-  `E_F` upward) and #340 (the refused Si Mermin rows). The δ tables were
-  not re-run for #291; #287's re-run uses the grid #339 settles, or this one if #287 lands first.
+  "Refused" was the table builder rejecting a Si Mermin row 0.2 to 0.5 eV
+  above `E_F` (negative loss-density integral; #340). Re-measured on
+  `main` after #340/#342 (2026-10-10): every Al entry and every
+  single-pole entry is unchanged, and the Si Mermin tables now build:
+  14 %, 4.2 % (2.7), 2.3 % and 0.55 % (2.1) from 5 eV; 10 % (3.1),
+  5.4 % (2.0), 2.4 % (2.0) and 0.52 % (2.1) from 10 eV. With the
+  library's default `min_energy_ev` of 10 eV the other errors are 251,
+  60, 25 and 7.8 % for the Al single pole, 29, 6.4, 2.0 and 0.39 % for Al
+  Mermin, and 147, 51, 13 and 3.2 % for the Si single pole. The example
+  prints the error at 0.5 to 20 eV as well. At 1 eV it is 3 to 480 % on
+  the grids up to 40. That region is about one cell wide and is reported,
+  not gated. Neither 20 nor 40 points per decade meets the tolerance for
+  any table, so the grid of these runs is **not changed**: resolving the
+  rate needs rows from `E_F` upward, not a denser uniform grid.
+
+  **Rate refinement (#339).** `InelasticTableOptions::rate_refinement`
+  (`electron::inelastic::table`, "Rate refinement"; off by default) gives
+  one band-bottom table those rows: every grid cell overlapping `E - E_F`
+  = 2 to 20 eV is bisected at its midpoint while the linear interpolation
+  of the exact rate misses the exact rate there by more than 1 %
+  (`RATE_TOLERANCE` and `RATE_WINDOW_EV`, the gate's own constants, now in
+  the library and read by the example). The `rate` mode builds each coarse
+  table again with it (`+refined`: the coarse rows and every row the
+  construction adds) and gates it the same way. Largest error over 2 to 20
+  eV (where it falls) and rows of the refined table (the coarse rows
+  bracketing 0.5 to 20 eV above `E_F` plus the rows added), at the two
+  grids that matter, the `se_yield.py` grid (5 eV, 10 per decade) and the
+  library default (10 eV, 20 per decade):
+
+  | Table | 5 eV, 10 / decade | rows (coarse + added) | 10 eV, 20 / decade | rows (coarse + added) |
+  |---|---|---|---|---|
+  | Al single-pole | **1.0008 % (6.1), fails** | 6 + 22 | 0.84 % (3.1) | 11 + 24 |
+  | Al Mermin | 0.66 % (18.6) | 6 + 10 | 1.00 % (2.7) | 11 + 6 |
+  | Si single-pole | 0.84 % (15.2) | 6 + 25 | 0.96 % (3.9) | 10 + 21 |
+  | Si Mermin | 0.93 % (3.0) | 6 + 7 | 0.72 % (15.8) | 10 + 5 |
+
+  At the other grids of the mode (5 or 10 eV, 10 to 80 per decade) the
+  refined tables pass except the Al single pole from 5 eV at 20 per
+  decade (1.43 % at 17.6 eV), Al Mermin from 10 eV at 10 per decade
+  (1.03 %, 4.6 eV) and Si Mermin from 10 eV at 10 per decade (1.40 %,
+  18.6 eV); the uniform grids alone fail everywhere below 80 per decade.
+  The midpoint test is a criterion, not a bound: in those cells the error
+  peaks away from the midpoint the test samples. By the stop rule of #339
+  the criterion is not tightened by an empirical factor and neither the
+  tolerance nor the window is widened, so **`lindhard run` does not use
+  the refinement yet** and the grid of these runs is unchanged. #339 stays
+  open for that decision; #291 and #287 are not settled by it.
   The committed results are unchanged.
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
