@@ -52,14 +52,14 @@ Issues currently being built (`loom:building`).
 
 - **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
-- **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary
-- **#339**: Resolve the inelastic rate from E_F upward on the band-bottom axis: extra table rows above the Fermi level
+- **#349**: Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change)
+- **#361**: Full Penn tables: the loss window opens at the lowest ELF energy, but the full-Penn DIIMFP is not zero below it (Si: S_table +4.5e-3 at 10 eV)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#352**: feat(crystal): source GaN cell and measured density; record the 4H-SiC density gap
+- **#370**: validation: preserve and surface event-cap truncation diagnostics
 
 ## Approved (Awaiting Merge)
 
@@ -83,20 +83,18 @@ Issues carrying `loom:curated`.
 - **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
 - **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
-- **#291**: Electron table grid: the default 10 points per decade under-resolves the inelastic rate just above the Fermi level on the band-bottom axis *(curated)*
 - **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
 - **#305**: Electron table cache: coordinate concurrent builders per entry *(curated)*
 - **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
 - **#326**: CI: clippy chunks_exact_to_as_chunks in lindhard/src/geometry/mesh.rs fails on current stable *(curated)*
 - **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary *(curated)*
-- **#339**: Resolve the inelastic rate from E_F upward on the band-bottom axis: extra table rows above the Fermi level *(curated)*
+- **#349**: Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change) *(curated)*
+- **#361**: Full Penn tables: the loss window opens at the lowest ELF energy, but the full-Penn DIIMFP is not zero below it (Si: S_table +4.5e-3 at 10 eV) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#192**: Test: malformed and hostile input values must error, never panic or hang *(architect)*
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(architect)*
-- **#349**: Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change) *(architect)*
-- **#350**: Docs: replace the README status narrative and trim architecture.md module-table rows to stable summaries *(architect)*
 
 ## Epics
 
@@ -121,7 +119,7 @@ Issues carrying `loom:curated`.
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 19 |
-| Architect / Hermit proposals | 4 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
 
