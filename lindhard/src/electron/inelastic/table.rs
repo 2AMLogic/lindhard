@@ -26,8 +26,10 @@
 //!
 //! **Density model.** `W` spans decades, so the integrand is handled in
 //! `s = ln W`, where `p dW = p W ds`. `g(s) = p W` is sampled on adaptively
-//! chosen nodes between the lowest tabulated ELF energy (below which `p = 0`)
-//! and `E`, and taken to be *linear between nodes*. Starting from
+//! chosen nodes between the lowest loss of the model's rate (the lowest
+//! tabulated ELF energy, below which `p = 0`, for the Penn models; see "Rows
+//! below the ELF table" for the Mermin model) and `E`, and taken to be
+//! *linear between nodes*. Starting from
 //! [`INITIAL_LOSS_PANELS`] equal panels, a panel is split at its midpoint
 //! while the Simpson-minus-trapezoid estimate of its error in either
 //! `∫ g ds` or `∫ W g ds` exceeds `tol · I · h/H` (`I` the whole integral, `h`
@@ -83,7 +85,7 @@
 //! energy.
 //!
 //! Rows where `λ⁻¹ = 0` (no loss allowed) are stored empty, and so are rows
-//! with `T` at or below the lowest tabulated ELF energy (module docs,
+//! with `T` at or below the lowest loss of the model's rate (module docs,
 //! "Energy axis"). The table covers
 //! the direct single-pole model only: no exchange and no surface or band-gap
 //! structure (see [`super::penn`]). Inner shells get one table each, beside
@@ -117,32 +119,33 @@
 //! material, `docs/cli.md`).
 //!
 //! **Rows below the ELF table.** The sampled loss window of a row is
-//! `(elf_min, T]`, `elf_min` the lowest tabulated ELF energy (the density
-//! model above). A row with `0 < T <= elf_min` has an empty window, so no
-//! loss can be drawn there, and it is stored empty (inverse mean free path
-//! 0, no quantiles), as a row with `T <= 0` is, on either axis (#340).
-//! Without this the `ln W` window `[ln elf_min, ln T]` is reversed (or of
-//! zero width at `T = elf_min`) and the density integrates to a negative
-//! value (or 0): the Mermin model of the Si ELF tabulated from 0.5 eV, on
-//! the band-bottom axis of the Si band, was refused rows at `T` = 0.21 to
-//! 0.5 eV with that error. The model's own rate need not be 0 there: the
-//! single-pole and full Penn DIIMFPs are zero below `elf_min`, but the
-//! Mermin model integrates its fitted Drude-Lorentz ELF from `ω` near 0
-//! with no `elf_min` cutoff ([`super::mermin`]), so its rate in that window
-//! is positive. Only rows with `0 < T <= elf_min` and a positive model rate
-//! are affected, and every such row was refused before; a table that built
-//! before is unchanged.
+//! `(W_min, T]`, `W_min` the lowest loss the model's rate `λ⁻¹(T)` counts,
+//! so that the stored rate and the sampled losses cover the same window:
 //!
-//! The same difference remains, unchanged, above `elf_min`: the stored rate
-//! of a Mermin row is the model's `λ⁻¹(T)`, which counts losses
-//! `ω < elf_min`, while its sampled loss distribution covers only
-//! `(elf_min, T]` and is normalised on that window. The table is
-//! self-consistent (each sampled loss is drawn from the model's DIIMFP
-//! shape), but the rate includes events whose losses below `elf_min` are
-//! drawn as losses above it. For the Mermin model of the Si ELF (default
-//! fit, model Fermi energy 13.46 eV) the window `(0.5 eV, T]` holds 28 % of
-//! the rate at `T` = 0.6 eV, 72 % at 1 eV, 92 % at 2 eV, 98.4 % at 5 eV and
-//! 99.5 % at 10 eV (measured for #340). This is not corrected here (#342).
+//! * single-pole and full Penn: `W_min = elf_min`, the lowest tabulated ELF
+//!   energy. Their DIIMFP is zero below it ([`super::penn`],
+//!   [`super::full_penn`]), so their rate counts no loss there;
+//! * Mermin-ELF: `W_min = 1e-8 T`, the lower limit of the `ω` integral of
+//!   its rate and stopping power ([`super::mermin`], the same constant). Its
+//!   fitted Drude-Lorentz ELF has no cutoff at `elf_min` (the omission of the
+//!   threshold step is a documented choice of that model), so the DIIMFP
+//!   below `elf_min` is the fit's extension below the tabulated range and is
+//!   part of both the rate and the sampled loss distribution (#342). Before
+//!   #342 the window opened at `elf_min` for every model, and a Mermin row
+//!   drew the losses its rate counts below `elf_min` as losses above it: for
+//!   the Si ELF tabulated from 0.5 eV (default fit, model Fermi energy
+//!   13.46 eV) the window `(0.5 eV, T]` held 28 % of the rate at `T` = 0.6
+//!   eV, 72 % at 1 eV, 92 % at 2 eV and 98.4 % at 5 eV.
+//!
+//! A row with `0 < T <= W_min` has an empty window, so no loss can be drawn
+//! there, and it is stored empty (inverse mean free path 0, no quantiles),
+//! as a row with `T <= 0` is, on either axis (#340): without this the `ln W`
+//! window `[ln W_min, ln T]` is reversed (or of zero width at `T = W_min`)
+//! and the density integrates to a negative value (or 0). For the Penn
+//! models these are the rows with `0 < T <= elf_min`. A Mermin row has
+//! `W_min < T` at every `T > 0`, so it is never empty for this reason: its
+//! rows with `0 < T <= elf_min`, stored empty from #340 to #342, carry the
+//! model's rate and losses in `(1e-8 T, T]`.
 //!
 //! # Momentum-transfer sampler
 //!
@@ -184,6 +187,7 @@ use super::full_penn::DiimfpGrid;
 #[cfg(doc)]
 use super::full_penn::FullPenn;
 use super::inner_shell::ShellResolvedChannels;
+use super::mermin::LOWEST_LOSS_FRACTION;
 use super::model::PennInelastic;
 use super::penn::{hartree_ev, SinglePolePenn};
 use crate::constants::BOHR_RADIUS;
@@ -496,11 +500,19 @@ pub fn default_probability_grid() -> Vec<f64> {
 }
 
 /// What the table builder needs from an ELF-extension model: the lowest
-/// tabulated ELF energy (below which the DIIMFP is zero), the DIIMFP and the
-/// inverse IMFP. Implemented for [`SinglePolePenn`] and for every model of
-/// [`PennInelastic`]; the table is built the same way for each (module docs).
+/// tabulated ELF energy, the lowest loss of its rate integral, the DIIMFP
+/// and the inverse IMFP. Implemented for [`SinglePolePenn`] and for every
+/// model of [`PennInelastic`]; the table is built the same way for each
+/// (module docs).
 trait LossModel: Sync {
     fn elf_min_ev(&self) -> f64;
+    /// The lowest loss (eV) the model's inverse IMFP at `energy_ev` counts,
+    /// which opens the sampled loss window of the row (module docs, "Rows
+    /// below the ELF table"). By default the lowest tabulated ELF energy,
+    /// below which the DIIMFP is zero.
+    fn loss_min_ev(&self, _energy_ev: f64) -> f64 {
+        self.elf_min_ev()
+    }
     fn fermi_energy_ev(&self) -> f64;
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError>;
     fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError>;
@@ -531,6 +543,15 @@ impl LossModel for PennInelastic {
     fn elf_min_ev(&self) -> f64 {
         self.optical_elf().energy_ev()[0]
     }
+    fn loss_min_ev(&self, energy_ev: f64) -> f64 {
+        match self {
+            // the lower limit of the Mermin rate integral (#342); the fitted
+            // ELF has no cutoff at the lowest tabulated energy
+            PennInelastic::Mermin(_) => LOWEST_LOSS_FRACTION * energy_ev,
+            // the single-pole and full Penn DIIMFPs are zero below it
+            PennInelastic::SinglePole(_) | PennInelastic::Full(_) => self.elf_min_ev(),
+        }
+    }
     fn fermi_energy_ev(&self) -> f64 {
         PennInelastic::fermi_energy_ev(self)
     }
@@ -560,15 +581,15 @@ fn row_diimfp<M: LossModel>(
         .unwrap_or_else(|| penn.diimfp(energy_ev, loss_ev).unwrap_or(0.0))
 }
 
-/// The density model of the row at `energy_ev`, on `ln W` from the lowest
-/// ELF energy to `energy_ev` (module docs).
+/// The density model of the row at `energy_ev`, on `ln W` from the model's
+/// lowest loss ([`LossModel::loss_min_ev`]) to `energy_ev` (module docs).
 fn row_density<M: LossModel>(
     penn: &M,
     grid: Option<&DiimfpGrid>,
     energy_ev: f64,
     tol: f64,
 ) -> LinearDensity {
-    let w_lo = penn.elf_min_ev();
+    let w_lo = penn.loss_min_ev(energy_ev);
     let f = |s: f64| {
         let w = s.exp().min(energy_ev);
         row_diimfp(penn, grid, energy_ev, w) * w
@@ -1044,9 +1065,6 @@ fn loss_rows<M: LossModel>(
             penn.diimfp_grid(&lossy)?
         }
     };
-    // The lowest loss the density can sample (module docs, "Energy axis",
-    // "Rows below the ELF table").
-    let w_lo = penn.elf_min_ev();
     // Rows in parallel, collected in grid order; the lowest failing energy
     // is the reported error whatever the thread count.
     type Row = Result<(f64, Option<LinearDensity>), InelasticTableError>;
@@ -1059,10 +1077,11 @@ fn loss_rows<M: LossModel>(
                 // such an energy.)
                 return Ok((0.0, None));
             }
-            if e <= w_lo {
-                // The sampled loss window (elf_min, T] is empty (#340): no
+            if e <= penn.loss_min_ev(e) {
+                // The sampled loss window (loss_min, T] is empty (#340): no
                 // loss can be drawn, so the row is empty, whatever rate the
-                // model reports below its lowest ELF energy.
+                // model reports below its lowest loss (module docs, "Rows
+                // below the ELF table").
                 return Ok((0.0, None));
             }
             let inv = penn.inverse_imfp(e)?;
@@ -1302,50 +1321,88 @@ mod tests {
     }
 
     #[test]
-    fn rows_without_a_loss_window_above_the_elf_table_are_stored_empty() {
-        // Issue #340: the Mermin model of Si on the band-bottom axis (E_F =
-        // W_v + E_g = 13.46 eV, the band of validation/experiments/se_yield.py)
-        // with rows at T = E - E_F inside (0, elf_min]. The Mermin rate there
-        // is positive (its fitted ELF has no lower cutoff), but the sampled
-        // loss window (elf_min, T] is empty. Before the fix these rows were
-        // refused with `EmptyDistribution` (a reversed or zero-width ln W
-        // window, density integral <= 0).
+    fn mermin_rows_below_the_elf_table_open_at_the_rate_lower_limit() {
+        // Issues #340 and #342: the Mermin model of Si on the band-bottom
+        // axis (E_F = W_v + E_g = 13.46 eV, the band of
+        // validation/experiments/se_yield.py) with rows at T = E - E_F inside
+        // (0, elf_min]. The Mermin rate there is positive (its fitted ELF has
+        // no lower cutoff). Before #340 these rows were refused (a reversed
+        // ln W window); from #340 to #342 they were stored empty; now the
+        // window opens at the lower limit of the rate integral, 1e-8 T, and
+        // they carry the model's rate.
         let Some(elf) = si_elf() else { return };
         let ef = 13.46;
         let model = PennInelastic::try_new(super::super::model::PennAlgorithm::Mermin, elf)
             .unwrap()
             .with_fermi_energy_ev(ef)
             .unwrap();
-        let w_lo = model.elf_min_ev();
-        assert_eq!(w_lo, 0.5);
+        let elf_min = model.elf_min_ev();
+        assert_eq!(elf_min, 0.5);
         let t_low = [0.2085, 0.2530, 0.4216];
-        let t_high = [0.6, 1.0, 5.0];
-        // the T = elf_min row, exactly on the band-bottom axis
-        let at_min = ef + w_lo;
         let mut grid: Vec<f64> = t_low.iter().map(|t| ef + t).collect();
-        grid.push(at_min);
-        grid.extend(t_high.iter().map(|t| ef + t));
-        let opts = InelasticTableOptions::new(grid).with_axis(EnergyAxis::BandBottom);
-        let (inv, prob, q) = loss_rows(&model, &opts).expect("rows inside (0, elf_min] build");
-        // the model's own rate is positive in the window, the stored one 0
-        for (k, &t) in t_low.iter().enumerate() {
-            assert!(model.inverse_imfp(t).unwrap() > 0.0, "T = {t}");
-            assert_eq!(inv[k], 0.0, "T = {t}");
-            assert!(q[k].is_empty(), "T = {t}");
+        // the T = elf_min row, exactly on the band-bottom axis, and one above
+        grid.push(ef + elf_min);
+        grid.push(ef + 1.0);
+        let opts = InelasticTableOptions::new(grid.clone()).with_axis(EnergyAxis::BandBottom);
+        let (inv, _, q) = loss_rows(&model, &opts).expect("rows inside (0, elf_min] build");
+        for (k, &e) in grid.iter().enumerate() {
+            let t = e - ef;
+            let w_min = model.loss_min_ev(t);
+            assert_eq!(w_min, LOWEST_LOSS_FRACTION * t);
+            assert_eq!(inv[k], model.inverse_imfp(t).unwrap(), "T = {t}");
+            assert!(inv[k] > 0.0, "T = {t}");
+            let row = &q[k];
+            // the window is (1e-8 T, T]: the lowest quantile is its lower
+            // edge, far below elf_min, and the highest is T
+            assert!((row[0] / w_min - 1.0).abs() < 1e-12, "T = {t}: {}", row[0]);
+            assert!(row.iter().all(|&w| w > 0.0 && w <= t), "T = {t}");
+            assert!((row[row.len() - 1] - t).abs() <= 1e-12 * t, "T = {t}");
+            assert!(row.windows(2).all(|w| w[1] >= w[0]), "T = {t}");
         }
-        let t_at_min = at_min - ef;
-        if t_at_min <= w_lo {
-            assert_eq!(inv[3], 0.0);
-            assert!(q[3].is_empty());
+    }
+
+    /// A loss model whose rate counts losses down to `loss_min < elf_min`,
+    /// with a flat DIIMFP on `(loss_min, T]`: synthetic.
+    struct WideWindow;
+
+    impl LossModel for WideWindow {
+        fn elf_min_ev(&self) -> f64 {
+            0.5
         }
-        // rows above elf_min are those of a table without the empty rows
-        let above: Vec<f64> = t_high.iter().map(|t| ef + t).collect();
-        let opts_above = InelasticTableOptions::new(above).with_axis(EnergyAxis::BandBottom);
-        let (inv_a, prob_a, q_a) = loss_rows(&model, &opts_above).unwrap();
-        assert_eq!(prob, prob_a);
-        assert_eq!(&inv[4..], &inv_a[..]);
-        assert_eq!(&q[4..], &q_a[..]);
-        assert!(inv_a.iter().all(|&x| x > 0.0));
+        fn loss_min_ev(&self, energy_ev: f64) -> f64 {
+            0.01 * energy_ev
+        }
+        fn fermi_energy_ev(&self) -> f64 {
+            0.0
+        }
+        fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
+            Ok(if loss_ev > 0.0 && loss_ev <= energy_ev {
+                1.0
+            } else {
+                0.0
+            })
+        }
+        fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
+            Ok(energy_ev * 0.99)
+        }
+    }
+
+    #[test]
+    fn a_row_opens_at_the_model_lowest_loss() {
+        // T = 0.3 lies in (loss_min, elf_min]: the row is built, not empty,
+        // and both rows open at loss_min = 0.01 T, not at elf_min.
+        let opts = InelasticTableOptions::new(vec![0.3, 2.0]);
+        let (inv, prob, q) = loss_rows(&WideWindow, &opts).unwrap();
+        assert_eq!(inv, vec![0.3 * 0.99, 2.0 * 0.99]);
+        for (row, t) in q.iter().zip([0.3, 2.0]) {
+            assert!((row[0] / (0.01 * t) - 1.0).abs() < 1e-12, "{}", row[0]);
+            assert!((row[row.len() - 1] - t).abs() <= 1e-12 * t);
+            // a flat DIIMFP: W(u) = loss_min + u (T - loss_min)
+            for (&u, &w) in prob.iter().zip(row) {
+                let want = 0.01 * t + u * 0.99 * t;
+                assert!((w - want).abs() <= 1e-4 * t, "u {u}: {w} vs {want}");
+            }
+        }
     }
 
     /// A loss model with a positive rate and no DIIMFP anywhere: synthetic.
@@ -1368,8 +1425,9 @@ mod tests {
 
     #[test]
     fn a_positive_rate_without_density_above_the_elf_table_is_still_refused() {
-        // Below or at elf_min the row is empty; above it, a positive rate
-        // with a density that integrates to zero is a defect, refused.
+        // Below or at elf_min (the default lowest loss, as for the Penn
+        // models) the row is empty; above it, a positive rate with a density
+        // that integrates to zero is a defect, refused.
         let opts = InelasticTableOptions::new(vec![0.25, 0.5]);
         let (inv, _, q) = loss_rows(&RateWithoutDensity, &opts).unwrap();
         assert_eq!(inv, vec![0.0, 0.0]);

@@ -344,6 +344,33 @@ fn model_generic_builder_reproduces_the_single_pole_rows() {
     assert!(build_inelastic_table_for_model(&x, &material(), &o).is_err());
 }
 
+/// The single-pole DIIMFP is zero below the lowest tabulated ELF energy
+/// `elf_min`, so a row's sampled window is `(elf_min, T]` and a row at or
+/// below `elf_min` is empty (#340), through either builder. #342 opened the
+/// Mermin window below `elf_min`; for this model nothing changes.
+#[test]
+fn single_pole_rows_open_at_the_lowest_elf_energy() {
+    let elf_min = penn().optical_elf().energy_ev()[0];
+    let g = build_inelastic_table_for_model(
+        &PennInelastic::SinglePole(penn().clone()),
+        &material(),
+        &InelasticTableOptions::new(energies()),
+    )
+    .unwrap();
+    for t in [table(), &g] {
+        for (i, &e) in t.energy_ev().iter().enumerate() {
+            match t.quantiles(i) {
+                Some(q) => {
+                    assert!(e > elf_min);
+                    assert!((q[0] / elf_min - 1.0).abs() < 1e-12, "{e} eV: {}", q[0]);
+                }
+                None => assert!(e <= elf_min || t.inverse_mfp_per_m()[i] == 0.0),
+            }
+        }
+        assert!(t.energy_ev()[0] < elf_min && t.quantiles(0).is_none());
+    }
+}
+
 #[test]
 fn model_generic_builder_runs_the_mermin_model() {
     // A short grid: the Mermin DIIMFP is a numerical integral per point.

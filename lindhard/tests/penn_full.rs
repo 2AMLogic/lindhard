@@ -413,7 +413,12 @@ fn full_penn_tables_follow_the_model_on_any_thread_count() {
             .install(|| build_inelastic_table_for_model(&m, &material, &options).unwrap())
     };
     let t1 = build(1);
+    let elf_min = coarse_fixture().energy_ev()[0];
     for (i, &e) in t1.energy_ev().iter().enumerate() {
+        // the sampled window opens at the lowest tabulated ELF energy, below
+        // which the full Penn DIIMFP is zero (#342: unchanged for this model)
+        let q0 = t1.quantiles(i).unwrap()[0];
+        assert!((q0 / elf_min - 1.0).abs() < 1e-12, "{e} eV: {q0}");
         let s = stopping_power_ev_per_m(&t1, i).unwrap();
         let want = m.imfp_and_stopping(e).unwrap();
         assert_eq!(t1.inverse_mfp_per_m()[i], want.inverse_imfp_per_m);
