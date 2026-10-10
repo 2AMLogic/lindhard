@@ -20,7 +20,8 @@
 //! into the conduction band with kinetic energy
 //! `E_SE = E_F + W - B` (Verduin Eq. 3.86, p. 78), measured, like every
 //! kinetic energy inside a material, from the band bottom
-//! ([`crate::electron::boundary`]). Until a shell channel supplies `B`:
+//! ([`crate::electron::boundary`]). For a valence event (no shell channel
+//! supplies `B`):
 //!
 //! - in a metal, `B = 0`: the electron comes from the Fermi level (Nebula's
 //!   handling when no binding energy applies), and every event with `W > 0`
@@ -35,6 +36,39 @@
 //! `loss = secondary + binding + deposited` with `binding = B - E_F`, the
 //! energy that the liberated electron's initial state lies below the band
 //! bottom (negative for a conduction electron, which already had `E_F`).
+//!
+//! # Inner-shell events
+//!
+//! A loss `ω` drawn from the channel of inner shell `j`
+//! ([`crate::electron::transport::Transport::with_inner_shells`]) uses the
+//! same Eq. 3.86 with `B = B_j`, the shell's binding energy:
+//! `E_SE = E_F + ω - B_j`. This is the shell-resolved form of de Vera et al.,
+//! Int. J. Mol. Sci. 23, 6121 (2022), eqs. (32) and (35) (the reference of
+//! [`crate::electron::inelastic::inner_shell`]): a loss `ω = W + B_j` in shell
+//! `j` gives the emitted electron `W = ω - B_j`, which here is its kinetic
+//! energy above the Fermi level, so `E_SE = E_F + W` on the band-bottom axis.
+//!
+//! **Binding reference.** Eq. 3.86 measures `B` below the Fermi level, and so
+//! does this module for a shell: `B_j` is used as given, as a binding energy
+//! below `E_F`. The subshell energies of a
+//! [`crate::electron::data::SubshellBindingTable`] (EADL) are free-atom
+//! values; they are not converted to a solid-state, Fermi-referenced edge
+//! (no work-function or chemical shift is applied). The event's
+//! [`SecondaryEvent::binding_ev`] is `B_j - E_F`, positive for every shell
+//! that lies below the Fermi level, and the tallies keep it in the solid at
+//! the event (`tally::electron`): atomic relaxation (Auger electrons,
+//! fluorescence photons) is not transported.
+//!
+//! **Limits.** The transport draws `ω` within `[B_j, E - E_F]` (`E` the
+//! primary's band-bottom energy), so `E_SE` lies in `[E_F, E - B_j]` and is
+//! never negative; a shell channel is closed when `E - E_F <= B_j`. Every
+//! shell event liberates an electron (no gap test); the electron is followed
+//! only if `E_SE` reaches the stopping threshold, else its energy is
+//! deposited, as for a valence event.
+//!
+//! **Direction.** The Ivanchenko transformation below with `B = B_j`
+//! (Verduin Eqs. 3.105-3.111 are written for a bound electron of any
+//! binding).
 //!
 //! # Direction
 //!
@@ -115,13 +149,15 @@ pub(crate) struct Outcome {
     pub secondary: Option<([f64; 3], f64)>,
 }
 
-/// Apply the Kieft-Bosch secondary model to one inelastic event, ported from
-/// Nebula's `kieft_inelastic::execute` (file and commit in the module docs).
+/// Apply the Kieft-Bosch secondary model to one valence inelastic event,
+/// ported from Nebula's `kieft_inelastic::execute` (file and commit in the
+/// module docs).
 ///
 /// `dir` is the primary's unit direction and `e_ev` its energy before the
 /// loss `w_ev`; `threshold_ev` is the stopping threshold of the layer (a
-/// secondary below it is not followed). Draws, in order, only when an
-/// electron is liberated: the azimuth of the secondary, then (with
+/// secondary below it is not followed). The binding energy comes from the
+/// band (module docs, "Energy"). Draws, in order, only when an electron is
+/// liberated: the azimuth of the secondary, then (with
 /// `instantaneous_momentum`) `U1` and `U2` of Verduin Eq. 3.108.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kieft_bosch<R: Rng>(
@@ -134,7 +170,6 @@ pub(crate) fn kieft_bosch<R: Rng>(
     threshold_ev: f64,
     rng: &mut R,
 ) -> Outcome {
-    let fermi = band.fermi_ev();
     let binding = match band.band_gap_ev() {
         None if w_ev > 0.0 => Some(0.0),
         Some(gap) if w_ev > gap => Some(gap),
@@ -153,7 +188,69 @@ pub(crate) fn kieft_bosch<R: Rng>(
             secondary: None,
         };
     };
+    liberate(
+        instantaneous_momentum,
+        momentum_conservation,
+        band.fermi_ev(),
+        b,
+        dir,
+        e_ev,
+        w_ev,
+        threshold_ev,
+        rng,
+    )
+}
 
+/// Apply the Kieft-Bosch secondary model to one **inner-shell** ionisation:
+/// a loss `w_ev` in the channel of a shell with binding energy
+/// `shell_binding_ev` (module docs, "Inner-shell events").
+///
+/// The caller guarantees `shell_binding_ev <= w_ev <= e_ev - E_F` (the
+/// channel's kinematic limits on the band-bottom axis), so the secondary
+/// energy `E_F + w - B` is at least `E_F` and at most `e_ev - B`. The event
+/// always liberates an electron; it is followed only if its energy reaches
+/// `threshold_ev`. Draws as [`kieft_bosch`] does for a liberated electron.
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn kieft_bosch_shell<R: Rng>(
+    instantaneous_momentum: bool,
+    momentum_conservation: bool,
+    band: &BandStructure,
+    shell_binding_ev: f64,
+    dir: [f64; 3],
+    e_ev: f64,
+    w_ev: f64,
+    threshold_ev: f64,
+    rng: &mut R,
+) -> Outcome {
+    debug_assert!(w_ev >= shell_binding_ev && shell_binding_ev > 0.0);
+    liberate(
+        instantaneous_momentum,
+        momentum_conservation,
+        band.fermi_ev(),
+        shell_binding_ev,
+        dir,
+        e_ev,
+        w_ev,
+        threshold_ev,
+        rng,
+    )
+}
+
+/// The event of a loss `w_ev` that lifts an electron of binding energy `b`
+/// (below the Fermi level `fermi`) into the conduction band: Verduin
+/// Eqs. 3.86 and 3.100-3.111 as ported from Nebula (module docs).
+#[allow(clippy::too_many_arguments)]
+fn liberate<R: Rng>(
+    instantaneous_momentum: bool,
+    momentum_conservation: bool,
+    fermi: f64,
+    b: f64,
+    dir: [f64; 3],
+    e_ev: f64,
+    w_ev: f64,
+    threshold_ev: f64,
+    rng: &mut R,
+) -> Outcome {
     // Verduin Eqs. 3.105, 3.106 and 3.100. `dk > 0` because `w > 0` and
     // `b >= 0`; the ratio is clamped to [0, 1] (a loss near the full energy,
     // or an energy below the Fermi level, would otherwise leave it).
