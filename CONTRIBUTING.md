@@ -175,7 +175,7 @@ the workflow wiring have offline tests:
 ## Everything else
 
 - Rust stable, `cargo fmt`, `cargo test` green, `cargo clippy -- -D warnings` clean on
-  the pinned clippy toolchain (see "Clippy pin and canary" below), and
+  the pinned clippy toolchain (see "Clippy pin and canary" above), and
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` clean.
 - The `#[ignore]`d statistical and slow tests are not in the PR gate. The weekly
   [`statistical`](.github/workflows/statistical.yml) workflow runs them with

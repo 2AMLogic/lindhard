@@ -54,13 +54,23 @@ class GitHubApi:
             raise ReportError(f"{method} {path} failed: {e}")
 
 
+def has_marker(body):
+    """True when MARKER opens the body, where report() itself places it.
+
+    Only leading whitespace and a UTF-8 BOM are tolerated before it. A marker
+    quoted further down (e.g. an issue that documents this script) must not
+    make that issue the canonical tracking issue.
+    """
+    return (body or "").lstrip("﻿ \t\r\n").startswith(MARKER)
+
+
 def find_tracking_issues(api):
-    """All issues (open and closed, not PRs) whose body carries MARKER."""
+    """All issues (open and closed, not PRs) whose body starts with MARKER."""
     found, page = [], 1
     while True:
         batch = api.request("GET", f"/issues?state=all&per_page=100&page={page}")
         for item in batch:
-            if "pull_request" not in item and MARKER in (item.get("body") or ""):
+            if "pull_request" not in item and has_marker(item.get("body")):
                 found.append(item)
         if len(batch) < 100:
             return found

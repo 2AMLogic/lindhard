@@ -109,7 +109,7 @@ jobs:
     timeout-minutes: 30
     env:
       # Exact Rust release for the required clippy gate (rustc 1.99.0,
-      # released 2026-09-28). Bump deliberately; see CONTRIBUTING.md.
+      # released 2026-10-01). Bump deliberately; see CONTRIBUTING.md.
       CLIPPY_TOOLCHAIN: "1.99.0"
     strategy:
       fail-fast: false

@@ -141,6 +141,35 @@ class ReportingTests(unittest.TestCase):
         self.assertIn(SHA, body)
         self.assertIn(URL, body)
 
+    def test_marker_quoted_mid_body_is_not_canonical(self):
+        quoting = {"number": 336, "state": "open",
+                   "body": f"Track failures with `{R.MARKER}` in the body.\n"}
+        api = FakeApi([quoting])
+        self.assertEqual(R.find_tracking_issues(api), [])
+        self.run_report(api, stable=BAD)
+        self.assertEqual(api.writes(), [("POST", "/issues")])
+        self.assertEqual(api.comments, [])
+        self.assertEqual(api.issues[0]["state"], "open")
+
+    def test_marker_quoted_mid_body_not_closed_on_green(self):
+        quoting = {"number": 336, "state": "open",
+                   "body": f"Example:\n\n{R.MARKER}\n"}
+        api = FakeApi([quoting])
+        self.run_report(api)
+        self.assertEqual(api.writes(), [])
+
+    def test_marker_at_start_is_canonical(self):
+        anchored = {"number": 4, "state": "open",
+                    "body": f"﻿ \n{R.MARKER}\n\nbody text"}
+        api = FakeApi([anchored, marked(8, "closed")])
+        nums = [i["number"] for i in R.find_tracking_issues(api)]
+        self.assertEqual(nums, [4, 8])
+
+    def test_created_issue_body_is_recognised(self):
+        api = FakeApi()
+        self.run_report(api, beta=BAD)
+        self.assertTrue(R.has_marker(api.issues[-1]["body"]))
+
     def test_pull_request_with_marker_is_ignored(self):
         pr = {**marked(7, "open"), "pull_request": {}}
         api = FakeApi([pr])
