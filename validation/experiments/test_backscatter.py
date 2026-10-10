@@ -91,13 +91,13 @@ class ReuseManifest(unittest.TestCase):
         self.work = self.root / "run"
         self.binary = self.root / "fake"
 
-    def fake(self, code: int = 0, write_summary: bool = True):
+    def fake(self, code: int = 0, write_summary: bool = True, pre: str = ""):
         summary = '{"software":{"git_describe":"v1"},"results":{"histories":100,' \
                   '"yields":{"backscatter_eta":0.5,"secondary_delta":0.0},"front":{"fast":{"count":1}},' \
                   '"budget":{"relative_imbalance":0.0}},"physics":{"transport":{"layers":[{"elastic_model":"m"}]}},' \
                   '"run":{"table_build_s":0.0}}'
         body = f'mkdir -p "$4"\n' + (f"echo '{summary}' > \"$4/electron_summary.json\"\n" if write_summary else "")
-        self.binary.write_text(f"#!/bin/sh\n{body}exit {code}\n")
+        self.binary.write_text(f"#!/bin/sh\n{pre}{body}exit {code}\n")
         self.binary.chmod(self.binary.stat().st_mode | stat.S_IXUSR)
 
     def run_it(self, reuse=VERSION):
@@ -152,6 +152,22 @@ class ReuseManifest(unittest.TestCase):
         self.elf.write_bytes(b"data-2")
         self.run_it()
         self.assertTrue(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_elf_edited_during_run_writes_no_manifest(self):
+        # The CLI "reads" data-1, the file becomes data-2 mid-run, the CLI
+        # exits 0: the result must not be recorded as a run of data-2.
+        self.fake(pre=f"printf data-2 > {json.dumps(str(self.elf))}\n")
+        with self.assertRaises(SystemExit):
+            self.run_it()
+        self.assertEqual(self.elf.read_bytes(), b"data-2")
+        self.assertFalse((self.work / bs.MANIFEST).exists())
+        self.assertFalse(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_manifest_holds_pre_run_prints(self):
+        self.fake()
+        self.run_it()
+        m = json.loads((self.work / bs.MANIFEST).read_text())
+        self.assertEqual(m["optical_elf"], bs.elf_fingerprints(self.text))
 
 
 if __name__ == "__main__":

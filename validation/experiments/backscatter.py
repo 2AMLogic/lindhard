@@ -255,9 +255,12 @@ def elf_fingerprints(text: str) -> dict[str, str] | None:
     return out
 
 
-def write_manifest(workdir: Path, text: str) -> None:
-    """Record the content hashes of the data files `text` names (atomically)."""
-    prints = elf_fingerprints(text)
+def write_manifest(workdir: Path, text: str, prints: dict[str, str] | None = None) -> None:
+    """Record the content hashes of the data files `text` names (atomically).
+    `prints` are hashes taken earlier (run_one passes the ones taken before the
+    run); without them the files are hashed now."""
+    if prints is None:
+        prints = elf_fingerprints(text)
     if prints is None:
         lindhard_cli.die("cannot fingerprint the optical_elf files of the input")
     tmp = workdir / (MANIFEST + ".tmp")
@@ -299,6 +302,12 @@ def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
         (workdir / MANIFEST).unlink(missing_ok=True)
         inp = workdir / "input.toml"
         inp.write_text(text)
+        # Hash the data before the run and publish those hashes only if the
+        # files are unchanged afterwards: hashing after the run alone would
+        # pair bytes edited mid-run with a result computed from the old ones.
+        before = elf_fingerprints(text)
+        if before is None:
+            lindhard_cli.die(f"cannot fingerprint the optical_elf files of {inp}")
         cmd = [str(binary), "run", str(inp), "--out", str(out)]
         if threads:
             cmd += ["--threads", str(threads)]
@@ -309,7 +318,10 @@ def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
             json.loads((out / "electron_summary.json").read_text())
         except (OSError, json.JSONDecodeError):
             lindhard_cli.die(f"lindhard wrote no readable electron_summary.json for {inp}")
-        write_manifest(workdir, text)
+        if elf_fingerprints(text) != before:
+            lindhard_cli.die(f"the optical_elf files of {inp} changed during the run; "
+                             "no manifest written, rerun it")
+        write_manifest(workdir, text, before)
     s = json.loads((out / "electron_summary.json").read_text())
     r = s["results"]
     n = r["histories"]
