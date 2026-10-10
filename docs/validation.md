@@ -282,6 +282,85 @@ Reading the table (reported, not tuned):
   to 2 keV and Henke et al. above (their Table 2). How much of the gap is the
   missing tail and how much the different source was not separated.
 
+### Cu: the Mermin IMFP and the default oscillator fit (#300)
+
+The `mermin-melf` IMFP of Cu is 15 to 41 % longer than TPP 2011 and 18 to
+34 % longer than the single-pole model on the same table, while full Penn and single pole
+agree with TPP (table above). The cause is the **default oscillator fit**
+(`MerminFitOptions::default()`: 3 oscillators, relative weighting with
+floor `1e-2 max ELF`), not the Mermin dielectric function or the momentum
+integral. Model Fermi energy 0 throughout, as in the δ(E) runs; ELF
+`validation/data/optical/cu_elf_hagemann1975.toml`; TPP 2011 Table 4
+(continued), column Cu, manuscript p. 41 (copy and citation as above).
+Outputs of this code, measured 2026-10-09 in a release build; the five
+energies are pinned (to 0.5 %) in `lindhard/tests/mermin_inelastic.rs`
+(`cu_*` tests, run with `--nocapture` for the table). Nothing was tuned.
+
+| E (eV) | TPP (Å) | Mermin, default fit (Å) | single pole, table (Å) | single pole, fitted ELF (Å) | single pole fitted / table | Mermin / single pole, both on the fitted ELF |
+|---|---|---|---|---|---|---|
+| 54.6 | 4.94 | 6.967 (+41.0 %) | 5.186 (+5.0 %) | 9.286 | 1.791 | 0.750 |
+| 99.5 | 5.00 | 6.282 (+25.6 %) | 5.065 (+1.3 %) | 7.533 | 1.487 | 0.834 |
+| 200.3 | 6.29 | 7.430 (+18.1 %) | 6.285 (-0.1 %) | 8.504 | 1.353 | 0.874 |
+| 492.7 | 10.3 | 11.807 (+14.6 %) | 10.021 (-2.7 %) | 12.869 | 1.284 | 0.917 |
+| 992.3 | 16.6 | 19.213 (+15.7 %) | 16.164 (-2.6 %) | 20.606 | 1.275 | 0.932 |
+
+"Fitted ELF" is the Drude-Lorentz sum of the fitted oscillators (the `q = 0`
+loss function of the Mermin model) sampled at 4000 log-spaced points over
+the table's range. The Mermin / table single-pole ratio factors exactly into
+the last two columns, so:
+
+- **The fit loses loss strength.** The single-pole model on the fitted ELF
+  is 28 to 79 % longer than on the table. The fit report: f-sum
+  `(π/2) Σ A_j` = 3243 eV² against the table's 5721 eV² (0.567);
+  `P_eff = Σ A_j/(ħω_j)²` = 0.670 against 1.0017 (the table of a metal
+  satisfies perfect screening); weighted rms 0.403; 99 iterations,
+  converged. Of the missing 0.33 of `P_eff`, 0.29 is below 20 eV (`P_eff`
+  below 20 eV: table 0.535, fit 0.243): three Drude-Lorentz terms
+  (8.8, 28.6 and 86.6 eV) cannot follow the 4 to 20 eV structure, where
+  the fitted ELF is a quarter to a half of the table (at 15 eV 0.20 against
+  0.62). That the short-fall matters most at 54.6 eV is consistent with
+  the `1/ω` weight of the low losses (not measured separately).
+- **The Mermin extension shortens, not lengthens.** On the same fitted ELF
+  the Mermin IMFP is 7 to 25 % *shorter* than the single-pole one, the
+  sign of the synthetic Drude comparison in the `mermin` module docs
+  (Mermin / single-pole `1/λ` 1.02 at 1 keV). So neither the momentum
+  integral (limits `q- = k - s = 2ω/(k + s)`, `q+ = k + s`) nor the Mermin function
+  produces the excess; both are tested against their limits and the f-sum
+  rule in `mermin.rs`.
+- **The Fermi energy** (0 against TPP's 8.7 eV) moves the Mermin column by
+  at most 2 % (#242 note below).
+
+The published method is checked against the sum rules: de Vera et al.,
+Int. J. Mol. Sci. 23, 6121 (2022), doi:10.3390/ijms23116121 (PMC9181504,
+opened 2026-10-09), section 2.1.1, after eq. (5): "The consistency of the
+fitting procedure is checked by fulfilling the Kramers–Kronig and f-sum
+rules". The default fit of Cu does not pass that check. The same section
+fits Mermin oscillators to the *outer-shell* ELF only (eqs. (1), (3)) and
+describes the inner shells by atomic GOS (eq. (2)); lindhard fits the whole
+table, inner-shell edges included, with Mermin oscillators. So the excess is
+a property of our default fit, not the published behaviour of the MELF-GOS
+method.
+
+**Oscillator count** (same weighting and default start; a sensitivity probe,
+not a choice; the count is not picked by matching TPP):
+
+| Oscillators | f-sum fit / table | `P_eff` fit | Mermin IMFP at 54.6 / 99.5 / 200.3 / 492.7 / 992.3 eV (Å) | Mermin / TPP - 1 |
+|---|---|---|---|---|
+| 3 (default) | 0.567 | 0.670 | 6.967 / 6.282 / 7.430 / 11.807 / 19.213 | +41 / +26 / +18 / +15 / +16 % |
+| 6 | 0.807 | 0.752 | 6.002 / 5.731 / 6.974 / 11.274 / 18.466 | +22 / +15 / +11 / +9 / +11 % |
+| 10 | 6771 | 22.7 | 3.696 / 2.644 / 1.839 / 1.123 / 0.782 | fit defect, #307 |
+| 16 | 16467 | 46.4 | 2.766 / 1.780 / 1.093 / 0.606 / 0.408 | fit defect, #307 |
+
+From 3 to 6 oscillators the fit gains loss strength and the gap halves at
+every energy. At 10 and 16 the fit is broken: unconverged after 500
+iterations, it places an oscillator of width 1e-4 eV and amplitude
+2e7 to 6e7 eV² between two knots near 1.1 keV, where the residuals at the
+knots cannot see it, and its f-sum is thousands of times the table's (#307).
+
+Not changed here: `MerminFitOptions::default()`, and so every `mermin`
+table and δ(E) row. Whether to change the default, expose the fit options
+in the input, or reject a fit that misses the sum rules is #306.
+
 ## 2. Code-to-code oracles (local harness, summaries committed)
 
 Programs are run unmodified on matched problems, under the rules in
@@ -2135,9 +2214,12 @@ no physics of the δ(E) tables changed.
     agreement is not a test of the committed Au ELF at any energy, and
     TPP tabulate nothing below 54.6 eV, which is where the secondaries
     are.
-    For Cu the Mermin IMFP is 15 to 41 % longer than TPP's and than the
-    single-pole model's on the same ELF. Whether that moves the Cu yield,
-    and which way, was not tested (#300).
+    For Cu the Mermin IMFP is 15 to 41 % longer than TPP's and 18 to 34 %
+    longer than the single-pole model's on the same ELF. #300 traced this to the default
+    3-oscillator fit, which carries 57 % of the f-sum and 67 % of the
+    `P_eff` of the Cu table ("Cu: the Mermin IMFP and the default
+    oscillator fit", under level 1). Whether that moves the Cu yield, and
+    which way, was not tested (#306).
   - *The binding energy of the secondary: not tested.* In a metal the
     secondary model gives the secondary the whole loss, whatever was
     excited (binding 0; `electron::secondary`), and there is no switch for
