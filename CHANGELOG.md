@@ -23,6 +23,15 @@ one version).
 
 ### Added
 
+- `[electron.materials.<name>.mermin_fit]` (#306): per-material options of
+  the `mermin-melf` oscillator fit, `oscillators` (1 to 16, default 3),
+  `weighting` (`"relative"`, the default, or `"uniform"`) and
+  `relative_floor` (`(0, 1]`, default 0.01, relative weighting only). The
+  table is an error with any other inelastic model. Without it the fit is
+  `MerminFitOptions::default()` as before, so existing inputs give the same
+  results. `ResolvedElectronMaterial::mermin_fit` holds the resolved options.
+  The table-cache key now includes them (`KEY_VERSION` 3), so tables cached
+  by an earlier build are rebuilt once.
 - Inner-shell ionisation channels in the electron transport (#273), library
   only (no CLI input yet; that is #156). `build_shell_channel_tables` builds
   the valence table and one `ShellChannelTable` per shell of a
