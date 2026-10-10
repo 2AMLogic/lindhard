@@ -82,7 +82,9 @@
 //! [`stopping_power_ev_per_m`] to 1e-3 of `S(E)` of #18 at every grid
 //! energy.
 //!
-//! Rows where `λ⁻¹ = 0` (no loss allowed) are stored empty. The table covers
+//! Rows where `λ⁻¹ = 0` (no loss allowed) are stored empty, and so are rows
+//! with `T` at or below the lowest tabulated ELF energy (module docs,
+//! "Energy axis"). The table covers
 //! the direct single-pole model only: no exchange and no surface or band-gap
 //! structure (see [`super::penn`]). Inner shells get one table each, beside
 //! the valence table, from [`build_shell_channel_tables`]. A model with the
@@ -113,6 +115,34 @@
 //! so there is one Fermi energy, not two. The table builder knows no band;
 //! the caller sets the model's Fermi energy (`lindhard run` does so per
 //! material, `docs/cli.md`).
+//!
+//! **Rows below the ELF table.** The sampled loss window of a row is
+//! `(elf_min, T]`, `elf_min` the lowest tabulated ELF energy (the density
+//! model above). A row with `0 < T <= elf_min` has an empty window, so no
+//! loss can be drawn there, and it is stored empty (inverse mean free path
+//! 0, no quantiles), as a row with `T <= 0` is, on either axis (#340).
+//! Without this the `ln W` window `[ln elf_min, ln T]` is reversed (or of
+//! zero width at `T = elf_min`) and the density integrates to a negative
+//! value (or 0): the Mermin model of the Si ELF tabulated from 0.5 eV, on
+//! the band-bottom axis of the Si band, was refused rows at `T` = 0.21 to
+//! 0.5 eV with that error. The model's own rate need not be 0 there: the
+//! single-pole and full Penn DIIMFPs are zero below `elf_min`, but the
+//! Mermin model integrates its fitted Drude-Lorentz ELF from `ω` near 0
+//! with no `elf_min` cutoff ([`super::mermin`]), so its rate in that window
+//! is positive. Only rows with `0 < T <= elf_min` and a positive model rate
+//! are affected, and every such row was refused before; a table that built
+//! before is unchanged.
+//!
+//! The same difference remains, unchanged, above `elf_min`: the stored rate
+//! of a Mermin row is the model's `λ⁻¹(T)`, which counts losses
+//! `ω < elf_min`, while its sampled loss distribution covers only
+//! `(elf_min, T]` and is normalised on that window. The table is
+//! self-consistent (each sampled loss is drawn from the model's DIIMFP
+//! shape), but the rate includes events whose losses below `elf_min` are
+//! drawn as losses above it. For the Mermin model of the Si ELF (default
+//! fit, model Fermi energy 13.46 eV) the window `(0.5 eV, T]` holds 28 % of
+//! the rate at `T` = 0.6 eV, 72 % at 1 eV, 92 % at 2 eV, 98.4 % at 5 eV and
+//! 99.5 % at 10 eV (measured for #340). This is not corrected here (#342).
 //!
 //! # Momentum-transfer sampler
 //!
@@ -1014,6 +1044,9 @@ fn loss_rows<M: LossModel>(
             penn.diimfp_grid(&lossy)?
         }
     };
+    // The lowest loss the density can sample (module docs, "Energy axis",
+    // "Rows below the ELF table").
+    let w_lo = penn.elf_min_ev();
     // Rows in parallel, collected in grid order; the lowest failing energy
     // is the reported error whatever the thread count.
     type Row = Result<(f64, Option<LinearDensity>), InelasticTableError>;
@@ -1024,6 +1057,12 @@ fn loss_rows<M: LossModel>(
                 // A band-bottom energy at or below the Fermi level: no loss
                 // is allowed. (On the model's own axis the model rejects
                 // such an energy.)
+                return Ok((0.0, None));
+            }
+            if e <= w_lo {
+                // The sampled loss window (elf_min, T] is empty (#340): no
+                // loss can be drawn, so the row is empty, whatever rate the
+                // model reports below its lowest ELF energy.
                 return Ok((0.0, None));
             }
             let inv = penn.inverse_imfp(e)?;
@@ -1248,5 +1287,99 @@ mod tests {
             1e-4,
         );
         assert_eq!(plain, far);
+    }
+
+    /// The committed Si ELF (Yang et al. 2019, `validation/data/optical`,
+    /// tabulated from 0.5 eV), or `None` in a packaged crate without it.
+    fn si_elf() -> Option<crate::electron::data::OpticalElf> {
+        let p = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../validation/data/optical/si_elf_yang2019.toml");
+        if !p.is_file() {
+            eprintln!("{} not found; Si check skipped", p.display());
+            return None;
+        }
+        Some(crate::electron::data::OpticalElf::from_toml_file(p).unwrap())
+    }
+
+    #[test]
+    fn rows_without_a_loss_window_above_the_elf_table_are_stored_empty() {
+        // Issue #340: the Mermin model of Si on the band-bottom axis (E_F =
+        // W_v + E_g = 13.46 eV, the band of validation/experiments/se_yield.py)
+        // with rows at T = E - E_F inside (0, elf_min]. The Mermin rate there
+        // is positive (its fitted ELF has no lower cutoff), but the sampled
+        // loss window (elf_min, T] is empty. Before the fix these rows were
+        // refused with `EmptyDistribution` (a reversed or zero-width ln W
+        // window, density integral <= 0).
+        let Some(elf) = si_elf() else { return };
+        let ef = 13.46;
+        let model = PennInelastic::try_new(super::super::model::PennAlgorithm::Mermin, elf)
+            .unwrap()
+            .with_fermi_energy_ev(ef)
+            .unwrap();
+        let w_lo = model.elf_min_ev();
+        assert_eq!(w_lo, 0.5);
+        let t_low = [0.2085, 0.2530, 0.4216];
+        let t_high = [0.6, 1.0, 5.0];
+        // the T = elf_min row, exactly on the band-bottom axis
+        let at_min = ef + w_lo;
+        let mut grid: Vec<f64> = t_low.iter().map(|t| ef + t).collect();
+        grid.push(at_min);
+        grid.extend(t_high.iter().map(|t| ef + t));
+        let opts = InelasticTableOptions::new(grid).with_axis(EnergyAxis::BandBottom);
+        let (inv, prob, q) = loss_rows(&model, &opts).expect("rows inside (0, elf_min] build");
+        // the model's own rate is positive in the window, the stored one 0
+        for (k, &t) in t_low.iter().enumerate() {
+            assert!(model.inverse_imfp(t).unwrap() > 0.0, "T = {t}");
+            assert_eq!(inv[k], 0.0, "T = {t}");
+            assert!(q[k].is_empty(), "T = {t}");
+        }
+        let t_at_min = at_min - ef;
+        if t_at_min <= w_lo {
+            assert_eq!(inv[3], 0.0);
+            assert!(q[3].is_empty());
+        }
+        // rows above elf_min are those of a table without the empty rows
+        let above: Vec<f64> = t_high.iter().map(|t| ef + t).collect();
+        let opts_above = InelasticTableOptions::new(above).with_axis(EnergyAxis::BandBottom);
+        let (inv_a, prob_a, q_a) = loss_rows(&model, &opts_above).unwrap();
+        assert_eq!(prob, prob_a);
+        assert_eq!(&inv[4..], &inv_a[..]);
+        assert_eq!(&q[4..], &q_a[..]);
+        assert!(inv_a.iter().all(|&x| x > 0.0));
+    }
+
+    /// A loss model with a positive rate and no DIIMFP anywhere: synthetic.
+    struct RateWithoutDensity;
+
+    impl LossModel for RateWithoutDensity {
+        fn elf_min_ev(&self) -> f64 {
+            0.5
+        }
+        fn fermi_energy_ev(&self) -> f64 {
+            0.0
+        }
+        fn diimfp(&self, _: f64, _: f64) -> Result<f64, ElectronDataError> {
+            Ok(0.0)
+        }
+        fn inverse_imfp(&self, _: f64) -> Result<f64, ElectronDataError> {
+            Ok(1.0e6)
+        }
+    }
+
+    #[test]
+    fn a_positive_rate_without_density_above_the_elf_table_is_still_refused() {
+        // Below or at elf_min the row is empty; above it, a positive rate
+        // with a density that integrates to zero is a defect, refused.
+        let opts = InelasticTableOptions::new(vec![0.25, 0.5]);
+        let (inv, _, q) = loss_rows(&RateWithoutDensity, &opts).unwrap();
+        assert_eq!(inv, vec![0.0, 0.0]);
+        assert!(q.iter().all(|r| r.is_empty()));
+        let opts = InelasticTableOptions::new(vec![0.25, 2.0]);
+        match loss_rows(&RateWithoutDensity, &opts) {
+            Err(InelasticTableError::EmptyDistribution { energy_ev, .. }) => {
+                assert_eq!(energy_ev, 2.0)
+            }
+            other => panic!("expected EmptyDistribution, got {other:?}"),
+        }
     }
 }
