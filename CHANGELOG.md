@@ -372,6 +372,14 @@ one version).
 
 ### Changed
 
+- **Electron results change for every run that uses the `mermin-melf`
+  inelastic model** (#342). A Mermin table row at energy `T` now draws its
+  losses from `(1e-8 T, T]`, the window its rate integral already used,
+  instead of `(elf_min, T]`; the difference is material for `T` up to a few
+  eV, the secondary-electron regime. Rows with `0 < T <= elf_min` are no
+  longer stored empty (since #340) and now carry the model rate. Single-pole
+  and full Penn tables are unchanged. Cached tables rebuild, because the
+  cache key includes the executable hash.
 - **Electron results change for every `lindhard run` whose materials have a
   `band`** (#241). The inelastic table of a material with a band is now
   built on the band-bottom energy axis the transport reads it on, with the

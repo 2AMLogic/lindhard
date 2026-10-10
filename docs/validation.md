@@ -1985,7 +1985,8 @@ result worse, not better; no Cu, Si or Au set changes status.
   480 % on the grids up to 40. That region is about one cell wide and is
   reported, not gated. "Refused" is the table builder
   rejecting a Si Mermin row 0.2 to 0.5 eV above `E_F` (negative
-  loss-density integral; #340). Neither 20 nor 40 points per decade meets
+  loss-density integral; #340; measured before #340/#342, these rows now
+  build, and the re-measurement belongs to #291). Neither 20 nor 40 points per decade meets
   the tolerance for any table, so the grid of these runs is **not
   changed**. Resolving the rate needs rows from `E_F` upward, not a
   denser uniform grid (#339). At 20 points per decade the Si Mermin runs
