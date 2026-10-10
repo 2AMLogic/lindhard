@@ -311,3 +311,101 @@ fn cu_mermin_imfp_excess_is_the_fit_not_the_momentum_extension() {
         assert!(sf > m && m > s, "{e}: {sf} > {m} > {s}");
     }
 }
+
+// ---- Cu and C: the width floor (#307) ----
+//
+// Without a lower bound on the widths, the 10- and 16-oscillator fits of the
+// committed Cu ELF placed an oscillator of width 3e-4 eV (1e-4 eV) between
+// the knots at 999.9 and 1100.1 eV (1100.1 and 1200.2 eV), which the
+// residuals at the knots do not see and the sum rules do: f-sum 6771 (16467)
+// times the table's. The fit now bounds every width below by the local knot
+// spacing at the oscillator's energy (our choice, documented on
+// `fit_mermin_oscillators`), and these tests check that bound. The same fits
+// still place a very wide oscillator (4e5 to 8e5 eV) whose f-sum lies above
+// the table, 188 and 106 times the table's (measured 2026-10-09, release
+// build, unconverged): a different defect, under the default weighting, that
+// the floor does not address (#311). No bound on the f-sum, `P_eff` or IMFP
+// of those fits is asserted here.
+
+/// The local knot spacing at `e` as `fit_mermin_oscillators` documents it:
+/// the larger of the two gaps next to the knot nearest to `e` (the single
+/// gap of an end knot; ties to the lower knot). Written again here, so the
+/// test does not read the floor from the code under test.
+fn knot_spacing(w: &[f64], e: f64) -> f64 {
+    let n = w.len();
+    let k = match w.iter().position(|&x| x >= e) {
+        None => n - 1,
+        Some(0) => 0,
+        Some(i) => {
+            if e - w[i - 1] <= w[i] - e {
+                i - 1
+            } else {
+                i
+            }
+        }
+    };
+    let left = if k > 0 { w[k] - w[k - 1] } else { 0.0 };
+    let right = if k + 1 < n { w[k + 1] - w[k] } else { 0.0 };
+    left.max(right)
+}
+
+fn c_elf() -> Option<OpticalElf> {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../validation/data/optical/c_elf_hagemann1975.toml");
+    if !p.is_file() {
+        eprintln!("{} not found; C Mermin checks skipped", p.display());
+        return None;
+    }
+    Some(OpticalElf::from_toml_file(p).unwrap())
+}
+
+fn assert_widths_above_the_knot_spacing(elf: &OpticalElf, n: usize) {
+    let w = elf.energy_ev();
+    let fit = fit_mermin_oscillators(
+        elf,
+        &MerminFitOptions {
+            n_oscillators: n,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    for o in &fit.oscillators {
+        let floor = knot_spacing(w, o.energy_ev);
+        assert!(
+            o.width_ev >= floor,
+            "n = {n}: width {} eV below the knot spacing {floor} eV at {} eV\n{fit}",
+            o.width_ev,
+            o.energy_ev
+        );
+    }
+}
+
+#[test]
+fn cu_fits_keep_widths_above_the_knot_spacing() {
+    // fails on the code before #307 at n = 10 (width 3e-4 eV at 1052.6 eV,
+    // where the knot spacing is 100.3 eV)
+    let Some(elf) = cu_elf() else { return };
+    for n in [3, 6, 10, 16] {
+        assert_widths_above_the_knot_spacing(&elf, n);
+    }
+}
+
+#[test]
+fn c_default_fit_starts_on_the_floor_and_leaves_it() {
+    // The one committed ELF where the floor binds at the default options:
+    // the default start puts an oscillator on the 0.2 eV peak with width
+    // 0.05 eV, under the 0.1 eV knot spacing there. The projection raises
+    // it to the floor and the fit moves it off again, to the same fit as
+    // without the floor: (2.000, 5.020, 28.457) eV, weighted rms 0.29194
+    // (measured 2026-10-09 with and without the floor, which agree to about
+    // 1e-7). A floor that froze the width gave (0.161, 2.81, 28.31) eV and
+    // rms 0.3030.
+    let Some(elf) = c_elf() else { return };
+    assert_widths_above_the_knot_spacing(&elf, 3);
+    let fit = fit_mermin_oscillators(&elf, &MerminFitOptions::default()).unwrap();
+    assert!(fit.converged, "{fit}");
+    for (o, want) in fit.oscillators.iter().zip([2.000, 5.020, 28.457]) {
+        close(o.energy_ev, want, "C oscillator energy");
+    }
+    close(fit.weighted_rms, 0.29194, "C weighted rms");
+}

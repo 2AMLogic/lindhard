@@ -348,14 +348,31 @@ not a choice; the count is not picked by matching TPP):
 |---|---|---|---|---|
 | 3 (default) | 0.567 | 0.670 | 6.967 / 6.282 / 7.430 / 11.807 / 19.213 | +41 / +26 / +18 / +15 / +16 % |
 | 6 | 0.807 | 0.752 | 6.002 / 5.731 / 6.974 / 11.274 / 18.466 | +22 / +15 / +11 / +9 / +11 % |
-| 10 | 6771 | 22.7 | 3.696 / 2.644 / 1.839 / 1.123 / 0.782 | fit defect, #307 |
-| 16 | 16467 | 46.4 | 2.766 / 1.780 / 1.093 / 0.606 / 0.408 | fit defect, #307 |
+| 10 | 187.9 (unconverged; #311) | 0.754 | 5.973 / 5.700 / 6.926 / 11.172 / 18.200 | +21 / +14 / +10 / +8 / +10 % |
+| 16 | 105.8 (unconverged; #311) | 0.792 | 6.022 / 5.719 / 6.861 / 10.893 / 17.663 | +22 / +14 / +9 / +6 / +6 % |
 
 From 3 to 6 oscillators the fit gains loss strength and the gap halves at
-every energy. At 10 and 16 the fit is broken: unconverged after 500
-iterations, it places an oscillator of width 1e-4 eV and amplitude
-2e7 to 6e7 eV² between two knots near 1.1 keV, where the residuals at the
-knots cannot see it, and its f-sum is thousands of times the table's (#307).
+every energy; the 10- and 16-oscillator IMFPs are within 5 % of the
+6-oscillator ones. The 10 and 16 rows are with the width floor of #307:
+each width is at least the local knot spacing of the table (our choice,
+documented on `fit_mermin_oscillators`), enforced on the fitted parameters.
+Without it those two fits placed an oscillator of width 1e-4 eV and
+amplitude 2e7 to 6e7 eV² between two knots near 1.1 keV, where the
+residuals at the knots cannot see it, with f-sum 6771 and 16467 times the
+table's, `P_eff` 22.7 and 46.4, and IMFPs of 3.70 to 0.41 Å. The floor
+removes that oscillator. **The f-sum of these two fits is still not
+bounded:** each carries a very wide oscillator (A = 6.8e5 and 3.8e5 eV², E =
+9.7 and 7.8 keV, width 8.3e5 and 4.4e5 eV) whose weight lies mostly above
+the table. Under the default relative weighting `1/(ELF + 0.01 max ELF)`
+it changes the weighted residual by only about 1e-3, and it makes the
+f-sum 188 and 106 times the table's. Both fits stop unconverged after 500
+iterations (#311; probably settled by the weighting decision of #306). The
+IMFPs above barely depend on that tail, but they are not results of a
+fit that passes the sum-rule check. Of the default 3-oscillator fits of the
+committed ELFs, only C is touched by the floor: its start width (0.05 eV
+at 0.2 eV) is raised to the 0.1 eV knot spacing, and the fit ends within
+about 1e-7 of the fit without the floor. Al, Au, Cu and Si, and Cu with
+6 oscillators, are bitwise unchanged.
 
 Not changed here: `MerminFitOptions::default()`, and so every `mermin`
 table and δ(E) row. Whether to change the default, expose the fit options
