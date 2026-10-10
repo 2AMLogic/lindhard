@@ -1,5 +1,5 @@
 //! Sum-rule checks on the committed optical ELF datasets
-//! (`validation/data/optical/`, issues #98, #148 and #125).
+//! (`validation/data/optical/`, issues #98, #148, #125 and #314).
 //!
 //! For `ELF(E) = Im[-1/eps(E)]` of a material with electron density `n`
 //! (`n` counts all `Z` electrons per atom, `Omega_p^2 = n e^2 / (eps0 m)`):
@@ -164,6 +164,24 @@ const AU_LINEAR_EXCESS: &str = "measured: with the linear interpolation `Optical
      and 82.49 against 78.47 at 150 keV, so the density normalisation agrees within about 1 % \
      and the rest is quadrature on the printed knots. Not a data error";
 
+const AU_T6_N_EFF_SHORT: &str = "measured on the Table 6 composite \
+     (au_elf_hagemann1975_t6.toml: Table 6 of DESY report SR-74/7 from 1.5 to 350 eV, Table 5 \
+     outside; issue #314): with power-law segments N_eff = 69.46 for Z = 79 (-12.1 %), against \
+     82.60 for Table 5 alone on the same 149 energies; P_eff passes (1.002). The whole 13.14 \
+     electron difference lies from 1.5 to 500 eV: +0.41 from 1.5 to 28 eV, -3.74 from 28 to 84 \
+     eV, -7.11 from 84 to 350 eV and -2.69 in the 350 to 500 eV seam segment, where Table 6 \
+     ends at 0.229 times Table 5 and the next knot is Table 5's. The report says so itself \
+     (p. 18): Table 5 is the version that gives 79 effective electrons, Table 6, extrapolated \
+     from reflectance, the one closer to energy-loss spectra; Table 10 gives no N_eff for Table \
+     6. Against the report's own N-EFF column of Table 6, eps2 = 2nk integrated with power-law \
+     segments from the printed rows gives +6.161 against +6.191 from 1.5 to 28 eV, +13.876 \
+     against +13.864 to 84 eV and +17.899 against +18.578 to 350 eV, so the density \
+     normalisation agrees and the rows are read as printed (27 n, k readings checked against \
+     the scan, secondread_hagemann1975.json). With the linear interpolation `elf()` serves, \
+     N_eff = 82.44 (+4.4 %) passes only because the chord overshoot above 500 eV \
+     (AU_LINEAR_EXCESS, +12.76 electrons there) offsets the deficit; that pass is not evidence \
+     that the composite meets the f-sum rule";
+
 const HAGEMANN: &[&str] = &["10.1364/JOSA.65.000742", "SR-74/7"];
 
 /// `n(0)` of Si used by Yang et al. (2019) for the ps-sum rule (p. 6, from
@@ -180,7 +198,7 @@ const SI_N_EFF_SHORT: &str = "measured: the table ends at 199 eV (Yang et al. 20
      and atomic scattering factors to 10 MeV (p. 13). A truncation, not a data error: the \
      perfect-screening sum, which the region above 199 eV hardly feeds, passes";
 
-const CASES: [Case; 5] = [
+const CASES: [Case; 6] = [
     Case {
         file: "al_elf_hagemann1975.toml",
         z: 13.0,
@@ -234,6 +252,19 @@ const CASES: [Case; 5] = [
         cites: HAGEMANN,
         min_top_ev: 1.0e4,
         known_failures: &[(LIBRARY, "N_eff/Z", 1.210, 0.003, AU_LINEAR_EXCESS)],
+    },
+    Case {
+        file: "au_elf_hagemann1975_t6.toml",
+        z: 79.0,
+        z_over_a: 0.40108,
+        density_g_cm3: 19.32,
+        p_eff_target: 1.0,
+        // The report's Table 10 gives one Au value (79.0), for Table 5; it
+        // gives none for Table 6. Printed for comparison only.
+        authors_n_eff: 79.0,
+        cites: HAGEMANN,
+        min_top_ev: 1.0e4,
+        known_failures: &[(POWER_LAW, "N_eff/Z", 0.879, 0.003, AU_T6_N_EFF_SHORT)],
     },
     Case {
         file: "si_elf_yang2019.toml",
@@ -448,4 +479,48 @@ fn optical_elf_datasets_load_and_cite_their_source() {
             case.min_top_ev
         );
     }
+}
+
+/// The Table 6 composite (issue #314) equals Table 5 outside Table 6's span
+/// (1.5 to 350 eV), shares every energy with it, and is not smoothed at the
+/// seams: the steps there are pinned, measured, so a later change to the join
+/// cannot pass unnoticed. Ratios Table 6 / Table 5 at the end points, read
+/// from the transcribed rows (provenance of `au_elf_hagemann1975_t6.toml`).
+#[test]
+fn au_table6_composite_matches_table5_outside_its_span() {
+    if !data_dir().is_dir() {
+        return;
+    }
+    let t5 = OpticalElf::from_toml_file(data_dir().join("au_elf_hagemann1975.toml")).unwrap();
+    let t6 = OpticalElf::from_toml_file(data_dir().join("au_elf_hagemann1975_t6.toml")).unwrap();
+    let (e5, y5) = (t5.energy_ev(), t5.elf_values());
+    let (e6, y6) = (t6.energy_ev(), t6.elf_values());
+    assert_eq!(e5, e6, "the two Au tables share all 149 energies");
+    let (lo, hi) = (1.4999, 350.05);
+    let mut replaced = 0;
+    for ((e, a), b) in e5.iter().zip(y5).zip(y6) {
+        if *e < lo || *e > hi {
+            assert_eq!(a, b, "outside 1.5-350 eV the composite is Table 5 ({e} eV)");
+        } else {
+            replaced += 1;
+        }
+    }
+    assert_eq!(replaced, 124, "Table 6 has 124 rows, 1.5 to 350 eV");
+    let at = |e: f64| e5.iter().position(|&x| (x / e - 1.0).abs() < 1e-3).unwrap();
+    for (e, pinned) in [(1.5, 0.470), (350.0, 0.229)] {
+        let i = at(e);
+        let r = y6[i] / y5[i];
+        eprintln!("Au Table 6 / Table 5 ELF at {e} eV: {r:.4}");
+        assert!(
+            (r - pinned).abs() <= 0.001,
+            "seam ratio at {e} eV = {r:.4}, pinned {pinned}"
+        );
+    }
+    let (i350, i500) = (at(350.0), at(500.0));
+    let step = y6[i500] / y6[i350];
+    eprintln!("Au composite ELF(500 eV) / ELF(350 eV): {step:.3}");
+    assert!(
+        (step - 2.79).abs() <= 0.01,
+        "upper seam step {step:.3}, pinned 2.79"
+    );
 }

@@ -120,6 +120,106 @@
    "slow": 5649
   },
   {
+   "candidate": "au-elf-table6",
+   "delta": 1.494,
+   "energy_ev": 800.0,
+   "eta": 0.528,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 1,
+   "slow": 2988
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.5265,
+   "energy_ev": 800.0,
+   "eta": 0.5275,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 2,
+   "slow": 3053
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.4585,
+   "energy_ev": 800.0,
+   "eta": 0.533,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 3,
+   "slow": 2917
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.4725,
+   "energy_ev": 800.0,
+   "eta": 0.53,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 4,
+   "slow": 2945
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.5585,
+   "energy_ev": 800.0,
+   "eta": 0.524,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 5,
+   "slow": 3117
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.428,
+   "energy_ev": 800.0,
+   "eta": 0.5445,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 6,
+   "slow": 2856
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.5015,
+   "energy_ev": 800.0,
+   "eta": 0.53,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 7,
+   "slow": 3003
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.371,
+   "energy_ev": 800.0,
+   "eta": 0.5535,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 8,
+   "slow": 2742
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.474,
+   "energy_ev": 800.0,
+   "eta": 0.5445,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 9,
+   "slow": 2948
+  },
+  {
+   "candidate": "au-elf-table6",
+   "delta": 1.493,
+   "energy_ev": 800.0,
+   "eta": 0.5345,
+   "histories": 2000,
+   "material": "Au",
+   "seed": 10,
+   "slow": 2986
+  },
+  {
    "candidate": "barrier-off",
    "delta": 3.9815,
    "energy_ev": 800.0,
@@ -1930,10 +2030,19 @@
   },
   "azzolini_provenance": "Valence binding of the #301 item 5 sensitivity run, not a band default: B of Table I, p. 7, of Azzolini et al., arXiv:1809.00859v1 (2018), with the rule of p. 6 (a loss W > B emits a secondary of W - B)",
   "base_config": "mermin",
+  "candidate_elf": {
+   "au-elf-table6": {
+    "Au": "au_elf_hagemann1975_t6.toml"
+   }
+  },
   "candidates": {
    "acoustic-phonon": {
     "candidate": "(b) quasi-elastic scattering",
     "change": "below 100 eV the Mott rows are replaced by the acoustic-phonon mean free path and angle of Verduin (2017), Table 3.2, mixed linearly up to 200 eV; no energy loss"
+   },
+   "au-elf-table6": {
+    "candidate": "(e) Au ELF (#301)",
+    "change": "Au ELF of the report's Table 6 (from reflectance) from 1.5 to 350 eV, Table 5 outside, instead of Table 5 throughout (no second Cu ELF)"
    },
    "barrier-off": {
     "candidate": "context",
@@ -1982,5 +2091,5 @@
   "se_split_ev": 50,
   "stand_in_potential": "thomas-fermi-yukawa"
  },
- "software": "lindhard 0.0.1 (c755234)"
+ "software": "lindhard 0.0.1 (efad84e)"
 }

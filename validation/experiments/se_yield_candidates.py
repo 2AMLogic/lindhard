@@ -30,7 +30,8 @@ are used for every row), with the standard error of those differences.
 `--run` needs the `lindhard` binary (LINDHARD_BIN or a release build) and,
 for the acoustic-phonon row, the example
 `lindhard-cli/examples/acoustic_phonon_elastic.rs`
-(LINDHARD_ACOUSTIC_EXAMPLE or a release build of it).
+(LINDHARD_ACOUSTIC_EXAMPLE or a release build of it). The `au-elf-table6`
+row reads `validation/data/optical/au_elf_hagemann1975_t6.toml`.
 """
 
 from __future__ import annotations
@@ -102,6 +103,11 @@ STAND_IN_POTENTIAL = "thomas-fermi-yukawa"
 # example reads its acoustic-phonon parameters from. Cu has none.
 ACOUSTIC_MATERIALS = ("Au",)
 
+# The ELF row (#301 item 3, #314): the second Au ELF of Hagemann, Gudat and Kunz, DESY report SR-74/7 (1974), its
+# Table 6 (from reflectance, 1.5 to 350 eV) with Table 5 outside that span (docs/data-provenance.md). Only Au has
+# a second ELF; the file is copied next to the input and replaces the baseline's `optical_elf`, nothing else.
+CANDIDATE_ELF = {"au-elf-table6": {"Au": "au_elf_hagemann1975_t6.toml"}}
+
 # id -> (candidate of #242, what is changed against the baseline).
 CANDIDATES = {
     "baseline": ("-", "nothing: the `mermin` configuration of the δ(E) tables"),
@@ -119,6 +125,9 @@ CANDIDATES = {
     "binding-azzolini": ("(d) secondary binding (#301)",
                          "the electron liberated by a valence loss W is bound B below the Fermi level instead of at "
                          "it (B: Azzolini et al. 2018, Table I, Au 9.226 eV, Cu 7.726 eV); a loss W <= B frees none"),
+    "au-elf-table6": ("(e) Au ELF (#301)",
+                      "Au ELF of the report's Table 6 (from reflectance) from 1.5 to 350 eV, Table 5 outside, "
+                      "instead of Table 5 throughout (no second Cu ELF)"),
     "barrier-off": ("context", "transparent boundary: no barrier at all (not a candidate; the largest effect the "
                                "barrier can have)"),
     "elastic-pre-149": ("context", "stand-in potential and exchange off together: the elastic model of the δ(E) "
@@ -128,6 +137,8 @@ BASELINE = "baseline"
 
 
 def applies(material: str, cand: str) -> bool:
+    if cand in CANDIDATE_ELF:
+        return material in CANDIDATE_ELF[cand]
     return cand != "acoustic-phonon" or material in ACOUSTIC_MATERIALS
 
 
@@ -171,6 +182,9 @@ def make_input(material: str, cand: str, histories: int, seed: int, elf_name: st
         text = _replace_band(text, line)
     elif cand == "barrier-off":
         text = _replace_once(text, 'boundary = "step-barrier"', 'boundary = "transparent"')
+    elif cand in CANDIDATE_ELF:
+        text = _replace_once(text, f'optical_elf = "{elf_name}"',
+                             f'optical_elf = "{CANDIDATE_ELF[cand][material]}"')
     return text
 
 
@@ -203,6 +217,8 @@ def run_one(binary: Path, example, cache: Path, material: str, cand: str, histor
     with tempfile.TemporaryDirectory(prefix="se_yield_candidates_", dir=base) as td:
         td = Path(td)
         shutil.copy(elf, td / elf.name)
+        if cand in CANDIDATE_ELF:
+            shutil.copy(sy.OPTICAL / CANDIDATE_ELF[cand][material], td / CANDIDATE_ELF[cand][material])
         (td / "input.toml").write_text(make_input(material, cand, histories, seed, elf.name))
         out = {"material": material, "candidate": cand, "energy_ev": ENERGY_EV, "seed": seed}
         if cand == "acoustic-phonon":
@@ -259,7 +275,7 @@ def assemble(binary: Path, runs) -> dict:
             "energy_ev": ENERGY_EV, "base_config": BASE_CONFIG, "se_split_ev": 50,
             "elastic_baseline": sy.ELASTIC_ID, "stand_in_potential": STAND_IN_POTENTIAL,
             "fermi_tpp2011_ev": FERMI_TPP2011_EV, "fermi_tpp2011_provenance": FERMI_TPP2011_PROVENANCE,
-            "acoustic_materials": list(ACOUSTIC_MATERIALS),
+            "acoustic_materials": list(ACOUSTIC_MATERIALS), "candidate_elf": CANDIDATE_ELF,
             "azzolini_binding_ev": AZZOLINI_BINDING_EV, "azzolini_provenance": AZZOLINI_PROVENANCE,
             "candidates": {k: {"candidate": v[0], "change": v[1]} for k, v in CANDIDATES.items()},
         },
