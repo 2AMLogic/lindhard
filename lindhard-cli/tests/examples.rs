@@ -1354,8 +1354,17 @@ fn electron_table_cache_reuse_is_bit_identical() {
     let files = cache_files(&cache);
     assert_eq!(
         files.len(),
-        6,
-        "two tables, two hashes and two keys: {files:?}"
+        8,
+        "two tables, two hashes, two keys and two lock files: {files:?}"
+    );
+    assert_eq!(
+        files.iter().filter(|f| f.ends_with(".lock")).count(),
+        2,
+        "{files:?}"
+    );
+    assert!(
+        !files.iter().any(|f| f.contains(".tmp.")),
+        "no temporary file is left: {files:?}"
     );
     assert!(files
         .iter()
@@ -1484,7 +1493,8 @@ fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
         ])
     };
     ok(&go(&src, "a"));
-    assert_eq!(cache_files(&cache).len(), 6);
+    // Per entry: table, hash, key and lock file.
+    assert_eq!(cache_files(&cache).len(), 8);
 
     // Another band with the same inner potential (so the same table grid):
     // the inelastic table, built on the band-bottom axis with the band's
@@ -1500,7 +1510,7 @@ fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
         table_sources(&dir.join("b")),
         ("cache".into(), "built".into())
     );
-    assert_eq!(cache_files(&cache).len(), 9);
+    assert_eq!(cache_files(&cache).len(), 12);
 
     // A key file edited under its hash name is refused, naming the field.
     let key = cache_files(&cache)

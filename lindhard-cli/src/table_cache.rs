@@ -48,8 +48,47 @@
 //! commit marker: a key file on disk always has its table and hash beside it.
 //! A key whose table is missing is rebuilt; a key and table whose hash file is
 //! missing is an error, never a silent reuse.
+//!
+//! # Concurrency (#305)
+//!
+//! [`TableCache::get_or_build`] holds a per-entry lock across the lookup, the
+//! build and the three writes, so concurrent callers for one key (threads of
+//! one process or separate processes sharing the directory) build the table
+//! once: the first to take the lock builds and publishes it, and every caller
+//! that waited finds the published entry on its own lookup, made only after it
+//! holds the lock. The lock has two layers, both scoped to the entry:
+//!
+//! - in the process, a set of the lock files currently held, guarded by a
+//!   mutex and condition variable, so threads exclude each other whatever the
+//!   file system does with OS locks (on some network file systems an OS lock
+//!   is per process, not per open file);
+//! - across processes, an exclusive OS advisory lock
+//!   ([`std::fs::File::lock`]: `flock` on Unix, `LockFileEx` on Windows) on
+//!   `<kind>-<hash>.lock` in the cache directory. The OS releases it when the
+//!   holder's file is closed, which includes the holder being killed, so a
+//!   dead holder never blocks the next caller.
+//!
+//! Callers with different keys take different locks and never wait for each
+//! other. A caller waits as long as the holder is alive (there is no
+//! timeout: a build can legitimately take minutes) and says so on standard
+//! error when it has to wait for another process. A lock that cannot be taken
+//! at all (a file system without locking) is an error naming the lock file.
+//! The lock files stay in the directory, empty; removing them while no run is
+//! using the cache is harmless.
+//!
+//! Temporary files are created exclusively under names unique to the process
+//! and the call, and removed if the write or rename fails. A holder killed
+//! mid-publication can leave its temporary files and a table (and hash)
+//! without a key; the next holder of that entry's lock removes the former and
+//! rebuilds over the latter, since without the key the entry was never
+//! committed. A committed entry that fails a check stays an error.
 
+use std::collections::BTreeSet;
+use std::fs::{File, OpenOptions, TryLockError};
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Condvar, Mutex, PoisonError};
 
 use anyhow::{bail, Context, Result};
 use lindhard::electron::data::{CrossSectionTable, SamplingAxis, CACHE_FORMAT_VERSION};
@@ -290,6 +329,17 @@ pub struct EntryPaths {
     pub hash: PathBuf,
     /// `<kind>-<key hash>.key.json`: the key document.
     pub key: PathBuf,
+    /// `<kind>-<key hash>.lock`: the entry's lock file (empty; see the
+    /// module docs, "Concurrency").
+    pub lock: PathBuf,
+}
+
+impl EntryPaths {
+    /// The three files of the entry proper (not the lock), in publication
+    /// order.
+    fn published(&self) -> [&Path; 3] {
+        [&self.table, &self.hash, &self.key]
+    }
 }
 
 /// A directory of cached tables.
@@ -299,15 +349,139 @@ pub struct TableCache {
     build: BuildId,
 }
 
-fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
+/// Lock files held by threads of this process (the in-process layer of the
+/// entry lock), and the condition variable a waiting thread sleeps on.
+static HELD: Mutex<BTreeSet<PathBuf>> = Mutex::new(BTreeSet::new());
+static RELEASED: Condvar = Condvar::new();
+
+/// This thread's hold on one lock file; dropping it lets the next thread in.
+struct ThreadHold(PathBuf);
+
+impl ThreadHold {
+    fn acquire(lock: &Path) -> Self {
+        // The mutex guards only the set, never a build, so a panic while it
+        // is held cannot leave the set inconsistent; poisoning is ignored.
+        let mut held = HELD.lock().unwrap_or_else(PoisonError::into_inner);
+        while held.contains(lock) {
+            held = RELEASED.wait(held).unwrap_or_else(PoisonError::into_inner);
+        }
+        held.insert(lock.to_path_buf());
+        Self(lock.to_path_buf())
+    }
+}
+
+impl Drop for ThreadHold {
+    fn drop(&mut self) {
+        HELD.lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&self.0);
+        RELEASED.notify_all();
+    }
+}
+
+/// The lock of one cache entry, held from before the authoritative lookup
+/// to after the key is published. Dropping it (also on an error or a panic
+/// in the builder) closes the file, which releases the OS lock, and then
+/// releases the in-process hold. Field order is drop order.
+struct EntryLock {
+    _file: File,
+    _thread: ThreadHold,
+}
+
+impl EntryLock {
+    fn acquire(path: &Path) -> Result<Self> {
+        let thread = ThreadHold::acquire(path);
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)
+            .with_context(|| format!("opening the table cache lock {}", path.display()))?;
+        let locked = |e: std::io::Error| {
+            anyhow::Error::new(e).context(format!(
+                "locking the table cache entry {} (the table cache needs a file system \
+                 with file locking; use a local directory, or run without --table-cache)",
+                path.display()
+            ))
+        };
+        match file.try_lock() {
+            Ok(()) => {}
+            Err(TryLockError::WouldBlock) => {
+                eprintln!(
+                    "note: waiting for another process to finish the table cache entry {}",
+                    path.display()
+                );
+                file.lock().map_err(locked)?;
+            }
+            Err(TryLockError::Error(e)) => return Err(locked(e)),
+        }
+        Ok(Self {
+            _file: file,
+            _thread: thread,
+        })
+    }
+}
+
+/// Distinguishes the temporary files of concurrent writes in one process.
+static TMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+/// The prefix of every temporary file of `path`; the full name adds the
+/// process ID and a per-process sequence number.
+fn tmp_prefix(path: &Path) -> String {
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .expect("cache file names are ASCII");
-    let tmp = path.with_file_name(format!(".{name}.tmp.{}", std::process::id()));
-    std::fs::write(&tmp, bytes).with_context(|| format!("writing {}", tmp.display()))?;
-    std::fs::rename(&tmp, path)
-        .with_context(|| format!("moving {} to {}", tmp.display(), path.display()))
+    format!(".{name}.tmp.")
+}
+
+/// Writes `bytes` to `path` by way of a temporary file in the same
+/// directory, created exclusively under a name no other write uses, then
+/// renamed into place. The temporary file is removed if anything fails.
+fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
+    let prefix = tmp_prefix(path);
+    let (tmp, mut file) = loop {
+        let n = TMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let tmp = path.with_file_name(format!("{prefix}{}.{n}", std::process::id()));
+        match OpenOptions::new().write(true).create_new(true).open(&tmp) {
+            Ok(f) => break (tmp, f),
+            // Left by a dead process that had the same ID: take the next.
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e).with_context(|| format!("creating {}", tmp.display())),
+        }
+    };
+    let written = file
+        .write_all(bytes)
+        .and_then(|()| file.flush())
+        .with_context(|| format!("writing {}", tmp.display()));
+    drop(file);
+    let result = written.and_then(|()| {
+        std::fs::rename(&tmp, path)
+            .with_context(|| format!("moving {} to {}", tmp.display(), path.display()))
+    });
+    if result.is_err() {
+        let _ = std::fs::remove_file(&tmp);
+    }
+    result
+}
+
+/// Removes the temporary files of `paths` left by a holder that died
+/// mid-publication. Called with the entry lock held, when no live writer of
+/// this entry can exist. Best effort: a file that cannot be removed only
+/// costs space.
+fn remove_stale_temporaries(dir: &Path, paths: &EntryPaths) {
+    let prefixes = paths.published().map(tmp_prefix);
+    let Ok(entries) = std::fs::read_dir(dir) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if prefixes.iter().any(|p| name.starts_with(p.as_str())) {
+            let _ = std::fs::remove_file(entry.path());
+        }
+    }
 }
 
 impl TableCache {
@@ -343,11 +517,18 @@ impl TableCache {
             table: self.dir.join(format!("{stem}.toml")),
             hash: self.dir.join(format!("{stem}.sha256")),
             key: self.dir.join(format!("{stem}.key.json")),
+            lock: self.dir.join(format!("{stem}.lock")),
         }
     }
 
     /// The table of `kind` for material `m`: read from the cache when its
     /// key is there, otherwise built with `build` and stored.
+    ///
+    /// The entry's lock is held throughout (module docs, "Concurrency"), so
+    /// concurrent callers with the same key build the table once between
+    /// them and the others read what that build stored (a `build` that fails
+    /// stores nothing, and the next waiter tries in turn). `build` must not call `get_or_build` for the same entry
+    /// (it would wait for itself).
     pub fn get_or_build(
         &self,
         r: &ResolvedElectron,
@@ -358,9 +539,13 @@ impl TableCache {
         let key = key_text(&self.build, r, m, kind);
         let key_sha256 = sha256_hex(key.as_bytes());
         let paths = self.paths(kind, &key_sha256);
+        let _lock = EntryLock::acquire(&paths.lock)?;
+        // The authoritative lookup: with the lock held, an entry another
+        // caller published while this one waited is found here.
         if let Some(hit) = self.lookup(r, kind, &key, &key_sha256, &paths)? {
             return Ok(hit);
         }
+        remove_stale_temporaries(&self.dir, &paths);
         let table = build()?;
         let text = table
             .to_toml_string()
