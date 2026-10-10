@@ -89,9 +89,8 @@
 //!   about `k` times the outer radius have their turning points where the
 //!   potential is not negligible. The step-1 start rule is not accurate there
 //!   (measured: errors up to 0.25 rad at `l ~ 1250`, Cu, 10 keV, 100 bohr), so
-//!   [`CorrectedPotential`] reports [`ScreenedPotential::long_range`] and the
-//!   solver uses a WKB start criterion instead. The uncorrected path keeps
-//!   the step-1 rule and its bits.
+//!   the solver uses a WKB start criterion instead. Since #131 it does so for
+//!   every potential, corrected or not.
 //!
 //! [`r_cp`]: CorrelationPolarizationInfo::join_radius_bohr
 
@@ -128,13 +127,15 @@ pub trait ElectronDensity: Sync {
 }
 
 /// Poisson density of the analytic screening function, Salvat et al. (1987)
-/// Eq. (12): `rho(r) = (Z/(4 pi r)) sum_i A_i alpha_i^2 exp(-alpha_i r)`.
+/// Eq. (12): `rho(r) = (Z/(4 pi r)) sum_i A_i alpha_i^2 exp(-alpha_i r)`,
+/// summed over the terms in use (two for the asterisked, `A_3 = 0` rows of
+/// Table I).
 impl ElectronDensity for SalvatDhfs {
     fn density(&self, r: f64) -> f64 {
         let s: f64 = self
-            .a
+            .amplitudes()
             .iter()
-            .zip(&self.alpha)
+            .zip(self.alphas())
             .map(|(a, al)| a * al * al * (-al * r).exp())
             .sum();
         self.z * s / (4.0 * PI * r)
@@ -143,7 +144,9 @@ impl ElectronDensity for SalvatDhfs {
         format!(
             "Poisson density of the Salvat et al. (1987) analytic screening function, \
              PRA 36, 467 Eq. (12), Z={}, A={:?}, alpha={:?} 1/bohr",
-            self.z, self.a, self.alpha
+            self.z,
+            self.amplitudes(),
+            self.alphas()
         )
     }
 }
@@ -316,6 +319,18 @@ pub fn exchange_potential(d: f64, rho: f64) -> f64 {
         -2.0 * PI * rho / (d + s)
     } else {
         0.5 * (d - s)
+    }
+}
+
+// Manual: the borrowed potential and density are trait objects without `Debug`.
+impl std::fmt::Debug for CorrectedPotential<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CorrectedPotential")
+            .field("energy_ev", &self.energy_ev)
+            .field("exchange", &self.exchange)
+            .field("cp", &self.cp)
+            .field("meta", &self.meta)
+            .finish_non_exhaustive()
     }
 }
 
@@ -549,9 +564,6 @@ impl ScreenedPotential for CorrectedPotential<'_> {
     }
     fn length_scale(&self) -> f64 {
         self.stat.length_scale()
-    }
-    fn long_range(&self) -> bool {
-        self.cp.is_some() || self.stat.long_range()
     }
     fn bound_energy_ev(&self) -> Option<f64> {
         Some(self.energy_ev)

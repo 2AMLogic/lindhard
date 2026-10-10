@@ -20,6 +20,9 @@ include = [
 keywords = ["ion-implantation", "monte-carlo", "bca", "stopping-power", "physics"]
 categories = ["science", "simulation"]
 
+[lints]
+workspace = true
+
 [dependencies]
 rand_chacha = "0.10.0"
 rand_core = "0.10.1"

@@ -64,6 +64,7 @@ pub struct FinalState {
 
 /// Summary, ion tally and per-primary final states. `merge` appends in chunk order, so
 /// `finals` is sorted by history index and identical at any thread count.
+#[derive(Debug)]
 pub struct CliTally {
     pub summary: SummaryTally,
     pub ion: IonTally,

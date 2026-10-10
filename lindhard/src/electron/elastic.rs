@@ -44,13 +44,17 @@
 //! * **Integration.** The regular solution is integrated outward from a small
 //!   radius `r_s`. Inside the centrifugal barrier the irregular solution
 //!   decays outward, so an imprecise starting ratio `Q/P` is harmless as long
-//!   as `r_s` is well below the classical turning point: `r_s` is placed so
-//!   that the contamination is below `exp(-120)` at the turning point (but
+//!   as `r_s` is well below the classical turning point: `r_s` is placed by a
+//!   WKB criterion on the bisected turning point, so that the irregular
+//!   admixture is suppressed by `exp(-60)` there (see `wkb_start`), but
 //!   never below a floor of `1e-10/(1+Z)` bohr, where the leading-order
-//!   point-Coulomb or regular power-series start is accurate). That estimate
-//!   assumes power-law growth and is optimistic for `|kappa|` of several
-//!   hundred; potentials that report [`ScreenedPotential::long_range`] use a
-//!   WKB criterion instead (see `wkb_start`). The integrator
+//!   point-Coulomb or regular power-series start is accurate. (Until #131 the
+//!   static potentials used `r_s = r_t exp(-60/|kappa|)`, which assumes
+//!   power-law growth; measured against the WKB start for Au, Salvat DHFS
+//!   screening, its phase-shift error was below `2e-12` rad at 10 and 20 keV,
+//!   `6.3e-10` rad at 30 keV, `1.6e-7` rad at 50 keV and `2.5e-4` rad at
+//!   100 keV (`|kappa|` 779, `sigma_tr1` off by `2.4e-5` relative).) The
+//!   integrator
 //!   is the Gragg-Bulirsch-Stoer modified-midpoint method with polynomial
 //!   extrapolation in `h^2` (Stoer & Bulirsch, *Introduction to Numerical
 //!   Analysis*), substep sequence 2, 4, 6, 8 (order 8), with a step set from
@@ -101,9 +105,9 @@
 //! [`Yukawa`] and [`SquareWell`] are analytically tractable. [`SalvatDhfs`] is
 //! the analytic Dirac-Hartree-Fock-Slater screening function of Salvat,
 //! Martinez, Mayol & Parellada, Phys. Rev. A 36, 467 (1987),
-//! doi:10.1103/PhysRevA.36.467; **its Z=1..92 coefficient table is not in
-//! this tree yet** (a follow-up issue; the paper has since been read in an
-//! open repository copy for #91), see the type and `docs/data-provenance.md`.
+//! doi:10.1103/PhysRevA.36.467, with its Table I coefficients for Z = 1..92
+//! (transcribed from the open repository copy of the paper, #130), see the
+//! type and `docs/data-provenance.md`.
 //!
 //! # Determinism
 //!
@@ -137,12 +141,11 @@ pub enum ElasticError {
         /// What is wrong with it.
         reason: String,
     },
-    /// The Salvat et al. (1987) coefficient table is not available in this
-    /// build. See `docs/data-provenance.md`.
+    /// No screening coefficients for this atomic number: Table I of Salvat
+    /// et al. (1987) covers Z = 1..92 only.
     #[error(
-        "Salvat et al. (1987) DHFS screening coefficients for Z={0} are not available: the \
-         source table was not accessible (closed access) and values are never entered from \
-         memory; supply them with SalvatDhfs::from_coefficients"
+        "Salvat et al. (1987) DHFS screening coefficients for Z={0} are not available: \
+         Table I covers Z = 1..92"
     )]
     ScreeningCoefficientsUnavailable(u32),
     /// The integration produced a non-finite value.
@@ -180,17 +183,6 @@ pub trait ScreenedPotential: Sync {
 
     /// A length over which `V` changes appreciably, bohr. It caps the step.
     fn length_scale(&self) -> f64;
-
-    /// True when the potential has a long-range tail (such as the `r^-4`
-    /// polarization tail of [`CorrectedPotential`]) that high partial waves
-    /// feel near their classical turning points. The solver then places the
-    /// start of the outward integration by a WKB criterion on a refined
-    /// turning point (see [`ElasticSolver::phase_shift`]). The default,
-    /// `false`, keeps the step-1 start rule unchanged, so existing results are
-    /// bit-identical.
-    fn long_range(&self) -> bool {
-        false
-    }
 
     /// The kinetic energy (eV) this potential was built for, when it depends
     /// on one (such as [`CorrectedPotential`], whose exchange and polarization
@@ -332,17 +324,27 @@ impl ScreenedPotential for SquareWell {
 /// Eq. (1); its Eq. (12) gives the electron density used by
 /// [`ElectronDensity`]. Both were checked (issue #91) in the open copy of the
 /// paper in the University of Barcelona repository (diposit.ub.edu; the
-/// publisher's copy is closed). **The coefficient table for Z = 1..92 is not
-/// in this tree**: it was unavailable when this type was written (#17) and
-/// entering it is a follow-up; coefficients are never entered from memory.
-/// [`SalvatDhfs::for_element`] therefore returns
-/// [`ElasticError::ScreeningCoefficientsUnavailable`]; a caller who holds the
-/// table can use [`SalvatDhfs::from_coefficients`].
+/// publisher's copy is closed). [`SalvatDhfs::for_element`] returns the
+/// paper's Table I coefficients for Z = 1..92 (pp. 470-471, transcribed in
+/// #130, see `salvat_table.rs` and `docs/data-provenance.md`);
+/// [`SalvatDhfs::from_coefficients`] takes caller-supplied ones.
+///
+/// Rows marked with an asterisk in Table I (H..P, Ca, Sc, Se, Br, Kr, Xe)
+/// have `A_3 = 0` and no `alpha_3` (p. 471); they are held as **two-term**
+/// potentials, so no `alpha_3` value enters [`ScreenedPotential::energy`],
+/// [`ElectronDensity::density`] or [`ScreenedPotential::length_scale`].
+///
+/// Some amplitudes are negative (H, He: `A_1`; S, Cl, Ar: `A_2`). For H
+/// (`A_1 = -184.39`, `A_2 = 185.39`, nearly equal `alpha`s) the two terms
+/// cancel to about 1 part in 370 near the nucleus, so `phi(r)` there keeps
+/// roughly 13 significant digits in `f64` rather than 16.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct SalvatDhfs {
     z: f64,
     a: [f64; 3],
     alpha: [f64; 3],
+    /// Number of terms in use (2 or 3); entries past it are unused.
+    terms: usize,
 }
 
 impl SalvatDhfs {
@@ -368,22 +370,59 @@ impl SalvatDhfs {
             z: f64::from(z),
             a,
             alpha,
+            terms: 3,
         })
     }
 
-    /// The tabulated potential of element `z`. **Always an error in this
-    /// build**, see the type documentation.
+    /// Build a two-term potential (`A_3 = 0`, the form of the asterisked rows
+    /// of Salvat et al. (1987) Table I): `a` sums to 1 within 1e-6, `alpha`
+    /// in 1/bohr and positive.
+    pub fn from_two_terms(z: u32, a: [f64; 2], alpha: [f64; 2]) -> Result<Self, ElasticError> {
+        // Validate through the three-term path with a zero third term; the
+        // third alpha only satisfies the check and is never used.
+        let mut p = Self::from_coefficients(z, [a[0], a[1], 0.0], [alpha[0], alpha[1], 1.0])?;
+        p.alpha[2] = 0.0;
+        p.terms = 2;
+        Ok(p)
+    }
+
+    /// The Salvat et al. (1987) Table I potential of element `z`
+    /// (pp. 470-471, `A_3 = 1 - A_1 - A_2`; two-term for the asterisked
+    /// rows). [`ElasticError::ScreeningCoefficientsUnavailable`] outside
+    /// Z = 1..92.
     pub fn for_element(z: u32) -> Result<Self, ElasticError> {
-        Err(ElasticError::ScreeningCoefficientsUnavailable(z))
+        let row = z
+            .checked_sub(1)
+            .and_then(|i| salvat_table::TABLE_I.get(i as usize))
+            .ok_or(ElasticError::ScreeningCoefficientsUnavailable(z))?;
+        debug_assert_eq!(row.z, z);
+        match row.alpha3 {
+            Some(alpha3) => Self::from_coefficients(
+                z,
+                [row.a1, row.a2, 1.0 - row.a1 - row.a2],
+                [row.alpha1, row.alpha2, alpha3],
+            ),
+            None => Self::from_two_terms(z, [row.a1, row.a2], [row.alpha1, row.alpha2]),
+        }
+    }
+
+    /// Amplitudes `A_i` of the terms in use (2 or 3).
+    pub fn amplitudes(&self) -> &[f64] {
+        &self.a[..self.terms]
+    }
+
+    /// Screening constants `alpha_i` (1/bohr) of the terms in use (2 or 3).
+    pub fn alphas(&self) -> &[f64] {
+        &self.alpha[..self.terms]
     }
 }
 
 impl ScreenedPotential for SalvatDhfs {
     fn energy(&self, r: f64) -> f64 {
         let phi: f64 = self
-            .a
+            .amplitudes()
             .iter()
-            .zip(&self.alpha)
+            .zip(self.alphas())
             .map(|(a, al)| a * (-al * r).exp())
             .sum();
         -self.z * phi / r
@@ -392,7 +431,7 @@ impl ScreenedPotential for SalvatDhfs {
         self.z
     }
     fn length_scale(&self) -> f64 {
-        1.0 / self.alpha.iter().copied().fold(0.0, f64::max)
+        1.0 / self.alphas().iter().copied().fold(0.0, f64::max)
     }
 }
 
@@ -556,20 +595,29 @@ fn bs_step(f: &impl Fn(f64, Pair) -> Pair, r: f64, y: Pair, h: f64) -> Pair {
 }
 
 /// WKB amplitude exponent required between the start radius and the turning
-/// point for [`ScreenedPotential::long_range`] potentials: the irregular
-/// solution admixed by an imprecise start is suppressed by `exp(-2 W)`, here
-/// `exp(-60)`.
+/// point: the irregular solution admixed by an imprecise start is suppressed
+/// by `exp(-2 W)`, here `exp(-60)`.
 const WKB_START_EXPONENT: f64 = 30.0;
 
-/// Start radius for a long-range potential. The step-1 rule
-/// `r_t exp(-60/|kappa|)` assumes the power-law growth of a free wave deep
-/// inside the barrier; for `|kappa|` of several hundred it lands within a few
-/// per cent of the turning point, and the 5 % grid on which `r_t` is found can
-/// even put it past the turning point, so the start error is not suppressed
-/// (measured: phase errors up to 0.25 rad for `l ~ 1250` with a polarization
-/// tail). Here the turning point is refined by bisection and the start is moved
-/// inward until `W = \int sqrt(-q) dr >= WKB_START_EXPONENT` (midpoint rule on
-/// a geometric grid of ratio 0.99), or to `r_floor`.
+/// Start radius of the outward integration, for every potential (#91, #131).
+///
+/// In a classically forbidden region (`q < 0`) the WKB approximation gives the
+/// two independent solutions as `|q|^(-1/4) exp(+-\int sqrt(-q) dr)` (Bender &
+/// Orszag, *Advanced Mathematical Methods for Scientists and Engineers*,
+/// McGraw-Hill 1978, ch. 10), so the solution decaying outward (the irregular
+/// one, admixed by an imprecise starting ratio `Q/P`) loses `exp(-2 W)`
+/// relative to the regular one between the start and the turning point,
+/// `W = \int_{r_s}^{r_t} sqrt(-q) dr`.
+///
+/// The step-1 rule `r_t exp(-60/|kappa|)` assumed the power-law growth of a
+/// free wave deep inside the barrier; for `|kappa|` of several hundred it lands
+/// within a few per cent of the turning point, and the 5 % grid on which `r_t`
+/// is found can even put it past the turning point, so the start error is not
+/// suppressed (measured: phase errors up to 0.25 rad for `l ~ 1250` with a
+/// polarization tail, #91; `2.5e-4` rad at `|kappa| = 779` for static Au at
+/// 100 keV, #131). Here the turning point is refined by bisection and the start
+/// is moved inward until `W >= WKB_START_EXPONENT` (midpoint rule on a
+/// geometric grid of ratio 0.99), or to `r_floor`.
 fn wkb_start(q_of: &impl Fn(f64) -> f64, r_t: f64, r_floor: f64, r_match: f64) -> f64 {
     // Refine the first sign change of q below the grid value r_t.
     let mut hi = r_t;
@@ -597,6 +645,23 @@ fn wkb_start(q_of: &impl Fn(f64) -> f64, r_t: f64, r_floor: f64, r_match: f64) -
         r = next;
     }
     r.min(0.5 * r_match)
+}
+
+/// Where [`ElasticSolver::phase_shift`] starts the outward integration. Only
+/// [`StartRule::Wkb`] is used outside the tests; the others are kept so the
+/// tests can measure it against them (#131).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StartRule {
+    /// `wkb_start` (every potential since #131).
+    Wkb,
+    /// The step-1 rule `r_t exp(-60/|kappa|)`, used by potentials without a
+    /// polarization tail before #131.
+    #[cfg_attr(not(test), allow(dead_code))]
+    Legacy,
+    /// The floor radius `1e-10/(1+Z)` bohr: the most expensive start and the
+    /// least sensitive to the starting ratio, a reference for the others.
+    #[cfg_attr(not(test), allow(dead_code))]
+    Floor,
 }
 
 /// Mott partial-wave data at one energy: phase shifts and the amplitudes built
@@ -791,6 +856,22 @@ pub struct ElasticSolver<'a> {
     opts: SolverOptions,
     r_match: f64,
     breaks: Vec<f64>,
+    /// Start rule. Always [`StartRule::Wkb`] outside the tests, which switch
+    /// it to measure the other rules against it (#131).
+    start_rule: StartRule,
+}
+
+// Manual: the borrowed potential is a trait object without `Debug`.
+impl std::fmt::Debug for ElasticSolver<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ElasticSolver")
+            .field("e", &self.e)
+            .field("k", &self.k)
+            .field("opts", &self.opts)
+            .field("r_match", &self.r_match)
+            .field("start_rule", &self.start_rule)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> ElasticSolver<'a> {
@@ -850,6 +931,7 @@ impl<'a> ElasticSolver<'a> {
             opts,
             r_match,
             breaks,
+            start_rule: StartRule::Wkb,
         })
     }
 
@@ -901,12 +983,12 @@ impl<'a> ElasticSolver<'a> {
             }
             r *= 1.05;
         }
-        let r_s = if pot.long_range() {
-            wkb_start(&q_of, r_t, r_floor, self.r_match)
-        } else {
-            (r_t * (-60.0 / kap.abs()).exp())
+        let r_s = match self.start_rule {
+            StartRule::Wkb => wkb_start(&q_of, r_t, r_floor, self.r_match),
+            StartRule::Legacy => (r_t * (-60.0 / kap.abs()).exp())
                 .max(r_floor)
-                .min(0.5 * self.r_match)
+                .min(0.5 * self.r_match),
+            StartRule::Floor => r_floor,
         };
 
         // Starting values.
@@ -1074,6 +1156,7 @@ pub fn solve(
     })
 }
 
+mod salvat_table;
 pub mod table;
 
 #[cfg(test)]

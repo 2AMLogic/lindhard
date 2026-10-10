@@ -263,14 +263,137 @@ fn solve_reports_observables_on_a_grid() {
 }
 
 #[test]
-fn salvat_table_is_a_documented_gap() {
-    assert_eq!(
-        SalvatDhfs::for_element(29),
-        Err(ElasticError::ScreeningCoefficientsUnavailable(29))
-    );
+fn salvat_from_coefficients_validates() {
     assert!(SalvatDhfs::from_coefficients(29, [0.5, 0.3, 0.3], [1.0, 2.0, 3.0]).is_err());
+    assert!(SalvatDhfs::from_coefficients(29, [0.5, 0.3, 0.2], [1.0, 0.0, 3.0]).is_err());
     let p = SalvatDhfs::from_coefficients(1, [0.5, 0.3, 0.2], [1.0, 2.0, 3.0]).unwrap();
     assert!(p.energy(1.0) < 0.0);
+    assert!(SalvatDhfs::from_two_terms(29, [0.5, 0.6], [1.0, 2.0]).is_err());
+    assert!(SalvatDhfs::from_two_terms(29, [0.5, 0.5], [1.0, -2.0]).is_err());
+    assert!(SalvatDhfs::from_two_terms(93, [0.5, 0.5], [1.0, 2.0]).is_err());
+}
+
+/// Every Z outside Table I (Salvat et al. 1987, Z = 1..92) is an error.
+#[test]
+fn salvat_table_covers_exactly_1_to_92() {
+    for z in [0, 93, 200] {
+        assert_eq!(
+            SalvatDhfs::for_element(z),
+            Err(ElasticError::ScreeningCoefficientsUnavailable(z))
+        );
+    }
+    for z in 1..=92 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        assert_eq!(p.nuclear_charge(), f64::from(z));
+    }
+}
+
+/// Elements with an asterisk in Salvat et al. (1987) Table I (pp. 470-471),
+/// fitted with `A_3 = 0`.
+const SALVAT_TWO_TERM: [u32; 21] = [
+    1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 20, 21, 34, 35, 36, 54,
+];
+
+/// Per-row invariants of the transcribed table: `sum A_i = 1` (exactly, to
+/// rounding, for two-term rows, whose printed `A_1 + A_2` is 1), every
+/// `alpha_i > 0`, the asterisked rows and only those are two-term, and
+/// `length_scale` is `1 / max alpha_i` over the terms in use.
+#[test]
+fn salvat_table_rows_are_consistent() {
+    for z in 1..=92u32 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        let (a, al) = (p.amplitudes(), p.alphas());
+        let two = SALVAT_TWO_TERM.contains(&z);
+        assert_eq!(a.len(), if two { 2 } else { 3 }, "Z={z}");
+        assert_eq!(al.len(), a.len(), "Z={z}");
+        let sum: f64 = a.iter().sum();
+        assert!((sum - 1.0).abs() < 1e-12, "Z={z}: sum A = {sum}");
+        assert!(al.iter().all(|&x| x > 0.0 && x.is_finite()), "Z={z}");
+        let max = al.iter().copied().fold(0.0, f64::max);
+        assert_eq!(p.length_scale(), 1.0 / max, "Z={z}");
+        // phi(0) = sum A = 1: V -> -Z/r at the nucleus.
+        let r = 1e-9;
+        assert!(rel(-p.energy(r) * r, f64::from(z)) < 1e-6, "Z={z}");
+    }
+}
+
+/// The negative amplitudes printed in Table I: `A_1` of H and He, `A_2` of S,
+/// Cl and Ar; every other `A_1`, `A_2` and every `A_3` is positive.
+#[test]
+fn salvat_negative_amplitudes_are_where_the_table_prints_them() {
+    for z in 1..=92u32 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        let a = p.amplitudes();
+        assert_eq!(a[0] < 0.0, matches!(z, 1 | 2), "Z={z}: A_1 = {}", a[0]);
+        assert_eq!(a[1] < 0.0, matches!(z, 16..=18), "Z={z}: A_2 = {}", a[1]);
+        if a.len() == 3 {
+            assert!(a[2] > 0.0, "Z={z}: A_3 = {}", a[2]);
+        }
+    }
+}
+
+/// Spot rows against the scan (Salvat et al. 1987 Table I): Cu (also the
+/// fixture of `cu_corrections_fade_with_energy`), the two-term H and Xe, and
+/// U, the last row.
+#[test]
+fn salvat_table_spot_rows() {
+    let cu = SalvatDhfs::for_element(29).unwrap();
+    let fixture =
+        SalvatDhfs::from_coefficients(29, [0.0771, 0.7951, 0.1278], [25.326, 3.3928, 1.1426])
+            .unwrap();
+    assert_eq!(cu.alphas(), fixture.alphas());
+    for (x, y) in cu.amplitudes().iter().zip(fixture.amplitudes()) {
+        assert!((x - y).abs() < 1e-15, "{x} vs {y}");
+    }
+    let h = SalvatDhfs::for_element(1).unwrap();
+    assert_eq!(h.amplitudes(), &[-184.39, 185.39]);
+    assert_eq!(h.alphas(), &[2.0027, 1.9973]);
+    let xe = SalvatDhfs::for_element(54).unwrap();
+    assert_eq!(xe.amplitudes(), &[0.4451, 0.5549]);
+    assert_eq!(xe.alphas(), &[11.805, 1.7967]);
+    let u = SalvatDhfs::for_element(92).unwrap();
+    assert_eq!(&u.amplitudes()[..2], &[0.2448, 0.6298]);
+    assert_eq!(u.alphas(), &[25.252, 3.6397, 0.9825]);
+}
+
+/// The Eq. (12) density of every Table I row is positive on a log grid from
+/// 1e-6 to 100 bohr, including the rows with negative amplitudes (H, He, S,
+/// Cl, Ar); beyond the grid the term with the smallest `alpha_i` dominates,
+/// and its amplitude is positive for every row.
+#[test]
+fn salvat_table_densities_are_positive() {
+    for z in 1..=92u32 {
+        let p = SalvatDhfs::for_element(z).unwrap();
+        for k in -600..=200 {
+            let r = 10f64.powf(f64::from(k) / 100.0);
+            let rho = p.density(r);
+            assert!(rho > 0.0 && rho.is_finite(), "Z={z}, r={r}: rho={rho}");
+        }
+        let (a, al) = (p.amplitudes(), p.alphas());
+        let i = (0..al.len())
+            .min_by(|&i, &j| al[i].total_cmp(&al[j]))
+            .unwrap();
+        assert!(a[i] > 0.0, "Z={z}");
+    }
+}
+
+/// H has strongly cancelling terms (`A_1 = -184.39`, `A_2 = 185.39`): the
+/// screening function still starts at 1, decreases monotonically and stays
+/// in (0, 1].
+#[test]
+fn salvat_hydrogen_cancellation_is_benign() {
+    let h = SalvatDhfs::for_element(1).unwrap();
+    let mut prev = 1.0 + 1e-12;
+    for k in -600..=150 {
+        let r = 10f64.powf(f64::from(k) / 100.0);
+        let phi = -h.energy(r) * r;
+        assert!(
+            phi > 0.0 && phi <= prev,
+            "r={r}: phi={phi}, previous {prev}"
+        );
+        prev = phi;
+    }
+    assert!((-h.energy(1e-6) * 1e-6 - 1.0).abs() < 1e-5);
 }
 
 // ---------------------------------------------------------------------------
@@ -611,7 +734,6 @@ fn corrections_off_is_bit_identical_to_the_plain_solver() {
             // A CorrectedPotential with nothing switched on is the static one.
             let wrapped =
                 CorrectedPotential::new(pot, &dhfs_fixture, e, &Corrections::none()).unwrap();
-            assert!(!wrapped.long_range());
             let via = solve(&wrapped, e, &thetas, opts).unwrap();
             assert_same_bits(&plain, &via);
         }
@@ -820,4 +942,171 @@ fn cu_corrections_fade_with_energy() {
         eprintln!("{name}: |change at 10 keV| / |change at 100 eV| = {ratio:.4e}");
         assert!(ratio < 0.2, "{name}: {ratio}");
     }
+}
+
+/// Difference of two phase shifts modulo `pi` (both are reduced to
+/// `(-pi/2, pi/2]`, so a wrap shows up as a difference near `pi`).
+fn phase_diff(a: f64, b: f64) -> f64 {
+    let d = (a - b).rem_euclid(PI);
+    d.min(PI - d)
+}
+
+fn solver_with(
+    pot: &dyn ScreenedPotential,
+    e: f64,
+    opts: SolverOptions,
+    rule: StartRule,
+) -> ElasticSolver<'_> {
+    let mut s = ElasticSolver::new(pot, e, opts).unwrap();
+    s.start_rule = rule;
+    s
+}
+
+/// Regression test for #131: for a static potential (no polarization tail) a
+/// wave with `|kappa|` of several hundred now matches a reference started at
+/// the floor radius, where the starting ratio does not matter. Au, Salvat
+/// (1987) DHFS screening, 100 keV: the pre-#131 rule `r_t exp(-60/|kappa|)`
+/// was off by about `2.5e-4` rad at `kappa = 779` (measured, see
+/// `start_rule_measurement`).
+#[test]
+fn high_kappa_static_wave_matches_the_floor_start_reference() {
+    let au = SalvatDhfs::for_element(79).unwrap();
+    let (e, opts) = (100_000.0, SolverOptions::default());
+    for kappa in [779, -780, 600] {
+        let wkb = solver_with(&au, e, opts, StartRule::Wkb)
+            .phase_shift(kappa)
+            .unwrap();
+        let floor = solver_with(&au, e, opts, StartRule::Floor)
+            .phase_shift(kappa)
+            .unwrap();
+        let legacy = solver_with(&au, e, opts, StartRule::Legacy)
+            .phase_shift(kappa)
+            .unwrap();
+        let (d_wkb, d_legacy) = (phase_diff(wkb, floor), phase_diff(legacy, floor));
+        eprintln!("kappa {kappa}: wkb {wkb:e} floor {floor:e} legacy {legacy:e}");
+        assert!(d_wkb < 1e-9, "kappa {kappa}: |wkb - floor| = {d_wkb:e}");
+        if kappa == 779 {
+            assert!(
+                d_legacy > 1e-5,
+                "kappa {kappa}: |legacy - floor| = {d_legacy:e}"
+            );
+        }
+    }
+    // The public solver uses the WKB start.
+    assert_eq!(
+        ElasticSolver::new(&au, e, opts).unwrap().start_rule,
+        StartRule::Wkb
+    );
+}
+
+/// One row of the #131 measurement: the pre-#131 start rule (legacy) against
+/// the WKB start rule for one potential at one energy.
+struct StartRuleRow {
+    l_max_legacy: usize,
+    l_max_wkb: usize,
+    max_dphase: f64,
+    at_kappa: i32,
+    rel_el: f64,
+    rel_tr: f64,
+    t_legacy: f64,
+    t_wkb: f64,
+}
+
+fn compare_start_rules(pot: &dyn ScreenedPotential, e: f64) -> StartRuleRow {
+    let opts = SolverOptions::default();
+    let run = |rule| {
+        let t0 = std::time::Instant::now();
+        let pw = solver_with(pot, e, opts, rule).partial_waves().unwrap();
+        let (el, tr) = (pw.sigma_el(), pw.sigma_tr1());
+        (pw.l_max(), el, tr, t0.elapsed().as_secs_f64())
+    };
+    let old = run(StartRule::Legacy);
+    let new = run(StartRule::Wkb);
+    // Compare channel by channel over the larger of the two cutoffs.
+    let l = old.0.max(new.0);
+    let a = solver_with(pot, e, opts, StartRule::Legacy)
+        .phase_shifts_up_to(l)
+        .unwrap();
+    let b = solver_with(pot, e, opts, StartRule::Wkb)
+        .phase_shifts_up_to(l)
+        .unwrap();
+    let (mut max_dphase, mut at_kappa) = (0.0_f64, -1);
+    for li in 0..=l as i32 {
+        for kappa in [-(li + 1), li] {
+            if kappa == 0 {
+                continue;
+            }
+            let d = phase_diff(a.phase_shift(kappa).unwrap(), b.phase_shift(kappa).unwrap());
+            if d > max_dphase {
+                max_dphase = d;
+                at_kappa = kappa;
+            }
+        }
+    }
+    StartRuleRow {
+        l_max_legacy: old.0,
+        l_max_wkb: new.0,
+        max_dphase,
+        at_kappa,
+        rel_el: rel(new.1, old.1),
+        rel_tr: rel(new.2, old.2),
+        t_legacy: old.3,
+        t_wkb: new.3,
+    }
+}
+
+/// Issue #131 measurement: does the pre-#131 start rule `r_t exp(-60/|kappa|)`
+/// (then used by every potential without a polarization tail) give materially
+/// different results from the WKB start rule of #91 for Au at 10 to 100 keV?
+/// Decision threshold (issue #131): every phase shift within `100 *
+/// phase_tolerance` (1e-6 rad) and `sigma_el`, `sigma_tr1` within 1e-6
+/// relative counts as "no material difference". Measured: within it up to
+/// 50 keV, beyond it at 100 keV (Au DHFS), so the WKB start now applies to
+/// every potential. Ignored by default (about half a minute in release); run
+/// with
+/// `cargo test -p lindhard --release --lib start_rule_measurement -- --ignored --nocapture`.
+#[test]
+#[ignore]
+fn start_rule_measurement() {
+    let au = SalvatDhfs::for_element(79).unwrap();
+    let au_tf = tf_yukawa(79.0);
+    let exchange = Corrections {
+        exchange: true,
+        correlation_polarization: None,
+    };
+    eprintln!(
+        "| potential | E (keV) | l_max legacy/WKB | max phase change (rad) | at kappa | rel. change sigma_el | rel. change sigma_tr1 | t legacy / WKB (s) |"
+    );
+    eprintln!("|---|---|---|---|---|---|---|---|");
+    let mut within = Vec::new();
+    for &e in &[10_000.0, 20_000.0, 30_000.0, 50_000.0, 100_000.0] {
+        let au_x = CorrectedPotential::new(&au, &au, e, &exchange).unwrap();
+        let au_tf_x = CorrectedPotential::new(&au_tf, &au_tf, e, &exchange).unwrap();
+        let cases: [(&str, &dyn ScreenedPotential); 4] = [
+            ("Au DHFS, static", &au),
+            ("Au DHFS, exchange", &au_x),
+            ("Au TF Yukawa, static", &au_tf),
+            ("Au TF Yukawa, exchange", &au_tf_x),
+        ];
+        for (name, pot) in cases {
+            let r = compare_start_rules(pot, e);
+            eprintln!(
+                "| {name} | {} | {}/{} | {:.2e} | {} | {:.2e} | {:.2e} | {:.2} / {:.2} |",
+                e / 1000.0,
+                r.l_max_legacy,
+                r.l_max_wkb,
+                r.max_dphase,
+                r.at_kappa,
+                r.rel_el,
+                r.rel_tr,
+                r.t_legacy,
+                r.t_wkb
+            );
+            within.push((e, r.max_dphase < 1e-6 && r.rel_el < 1e-6 && r.rel_tr < 1e-6));
+        }
+    }
+    // The finding behind the decision: no material difference up to 50 keV,
+    // a material one at 100 keV.
+    assert!(within.iter().filter(|w| w.0 <= 50_000.0).all(|w| w.1));
+    assert!(within.iter().any(|w| !w.1));
 }

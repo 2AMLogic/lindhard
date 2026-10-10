@@ -38,6 +38,36 @@
 //! approximation of the loss distribution and its error is controlled by that
 //! tolerance.
 //!
+//! **Full Penn rows.** For the full Penn model the density is built on the
+//! same nodes from the DIIMFP of a [`DiimfpGrid`] tabulated once for the
+//! table's energies ([`FullPenn::diimfp_grid`], #256), not from the direct
+//! nested integrals: its interpolation error, held to the model tolerance
+//! (1e-4, relative or relative to the row's mean density), is a second
+//! approximation of the loss distribution, next to the density tolerance.
+//! It is also smooth in `W`, where the direct DIIMFP carries quadrature
+//! noise at the model tolerance, which is above the default density
+//! tolerance and would drive the panel refinement to [`MAX_NODES`].
+//!
+//! **Unresolved grid cells.** Where the grid could not hold its
+//! interpolation to the model tolerance even at its narrowest cell (1e-4 in
+//! `ln ω`), it leaves the cell to the direct model
+//! ([`DiimfpGrid::unresolved_cells`]). The row integrand then switches model
+//! at each edge of such a cell, a step of the order of the model tolerance,
+//! and inside it carries the direct model's quadrature noise. The split test
+//! above does not depend on the panel width for a step (both sides scale
+//! with `h`), so a step above about `3 · tol` of the row's mean density
+//! would be bisected down to floating-point resolution and then padded with
+//! duplicate nodes up to [`MAX_NODES`], each a direct evaluation. So a panel
+//! within one grid-cell width (1e-4) of an unresolved cell is not split
+//! once it is no wider than that width: that is the finest scale at which
+//! the grid tested the DIIMFP, and below it the split test measures the
+//! noise and the step, not the shape. What such a panel can still miss is
+//! bounded by its width times the step, `1e-4 · (model tolerance) · g`,
+//! per cell edge, far below the model tolerance of the row. Rows that do
+//! not come near an unresolved cell, and every model without a grid, are
+//! refined exactly as before. [`loss_density_node_count`] reports the node
+//! count of a row.
+//!
 //! **Probability grid.** The stored inverse CDF is interpolated linearly in
 //! `u` ([`CrossSectionTable::inverse_cdf`]). Its first moment, which is what
 //! sets the stopping power `S = λ⁻¹ ⟨W⟩` with `⟨W⟩ = ∫_0^1 W(u) du`, is
@@ -53,10 +83,36 @@
 //! energy.
 //!
 //! Rows where `λ⁻¹ = 0` (no loss allowed) are stored empty. The table covers
-//! the direct single-pole model only: no exchange, no inner shells and no
-//! surface or band-gap structure (see [`super::penn`]). A model with the
+//! the direct single-pole model only: no exchange and no surface or band-gap
+//! structure (see [`super::penn`]). Inner shells get one table each, beside
+//! the valence table, from [`build_shell_channel_tables`]. A model with the
 //! exchange correction enabled ([`SinglePolePenn::with_exchange`]) is
 //! rejected by [`build_inelastic_table`] and [`MomentumTransferSampler`].
+//!
+//! # Energy axis
+//!
+//! The models take `T`, the kinetic energy above the model's Fermi level,
+//! with kinematics on `T' = T + E_F` and losses up to `T` (S2017 eqs.
+//! (2)-(3), [`super::penn`]). By default ([`EnergyAxis::ModelFermiLevel`])
+//! a table is stored on that axis: the row at `E` is the model's at `T = E`.
+//!
+//! [`EnergyAxis::BandBottom`] stores it on the band-bottom axis instead: the
+//! row at `E` is the model's at `T = E - E_F`, so its kinematics are on
+//! `T' = E` and its losses stop at `E - E_F`; rows with `T <= 0` are stored
+//! empty. With `E_F` the band's, this is the convention of the table
+//! compiler of Nebula, `compile_full_imfp_icdf` in
+//! `cstool/dielectric_function/compile.py` (Nebula-simulator/cstool commit
+//! `0c739eb3fcc3fe5297e74c601ac4a9546db596cf`, BSD-3-Clause): it evaluates
+//! every row at the electron's kinetic energy `K` (the momenta of the
+//! kinematic limits are those of `K` and `K - ω`) and keeps only the losses
+//! `ω < K - F` (its "Fermi correction"), `F` the energy its caller
+//! `compile_full_penn` (`apps/cstool.py`, same commit) passes, the band's
+//! `get_min_excitation()` (`cstool/input_data/band_structure.py`): the Fermi
+//! energy of a metal, the conduction-band bottom `W_v + E_g` of an
+//! insulator or semiconductor. The model's own `E_F` is the `F` of the axis,
+//! so there is one Fermi energy, not two. The table builder knows no band;
+//! the caller sets the model's Fermi energy (`lindhard run` does so per
+//! material, `docs/cli.md`).
 //!
 //! # Momentum-transfer sampler
 //!
@@ -86,18 +142,23 @@
 //!
 //! # Determinism
 //!
-//! Rows are built in parallel with rayon and collected in grid order; each
+//! Rows (and the profiles of a full-Penn [`DiimfpGrid`]) are built in
+//! parallel with rayon and collected in grid order; each
 //! row, and the probability refinement (a parallel map over rows followed by
 //! a serial split decision), is a fixed sequence of floating-point
 //! operations, so tables are bit-identical on any thread count (tested).
 //! Samplers consume uniforms `u` supplied by the caller (for example from
 //! [`crate::rng::stream`]) and keep no state of their own.
 
+use super::full_penn::DiimfpGrid;
+#[cfg(doc)]
+use super::full_penn::FullPenn;
+use super::inner_shell::ShellResolvedChannels;
 use super::model::PennInelastic;
 use super::penn::{hartree_ev, SinglePolePenn};
 use crate::constants::BOHR_RADIUS;
 use crate::electron::data::{
-    CrossSectionTable, CrossSectionTableParts, ElectronDataError, SamplingAxis,
+    CrossSectionTable, CrossSectionTableParts, ElectronDataError, SamplingAxis, ShellChannelTable,
 };
 use crate::electron::elastic::table::{
     logistic, logistic_probability_grid, logit, material_identity,
@@ -252,14 +313,26 @@ fn panel_exp_moment(x0: f64, x1: f64, g0: f64, g1: f64) -> f64 {
 
 /// Build the density model of `f` by adaptive panel splitting (module docs):
 /// `breaks` are fixed nodes, each segment is first cut into `sub` equal
-/// panels.
+/// panels. `rough` lists ranges of `x` (ascending) where `f` is known not to
+/// be smooth below the width `rough_width` (the unresolved cells of a
+/// [`DiimfpGrid`], module docs): a panel within `rough_width` of one of them
+/// is not split once it is no wider than `rough_width`. With no ranges the
+/// refinement is the plain one.
 fn adaptive_density(
     f: &(impl Fn(f64) -> f64 + ?Sized),
     breaks: &[f64],
     sub: usize,
     tol: f64,
     first_moment: bool,
+    rough: &[(f64, f64)],
+    rough_width: f64,
 ) -> LinearDensity {
+    let at_resolution = |a: f64, b: f64| {
+        b - a <= rough_width
+            && rough
+                .iter()
+                .any(|&(lo, hi)| a <= hi + rough_width && b >= lo - rough_width)
+    };
     let mut x: Vec<f64> = Vec::new();
     for w in breaks.windows(2) {
         for i in 0..sub {
@@ -295,7 +368,7 @@ fn adaptive_density(
                 let e1 = (2.0 * h / 3.0 * (w(xm, gm) - lin)).abs();
                 bad |= e1 > allowed * i1;
             }
-            if bad && x.len() + 1 < MAX_NODES {
+            if bad && x.len() + 1 < MAX_NODES && !at_resolution(x[i], x[i + 1]) {
                 split[i] = true;
                 any = true;
             }
@@ -329,12 +402,32 @@ fn adaptive_density(
 // ---------------------------------------------------------------------------
 // Energy-loss table
 
+/// The energy axis a table is stored on (module docs, "Energy axis").
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum EnergyAxis {
+    /// The model's own axis: a row at energy `E` is the model's at `T = E`,
+    /// the kinetic energy above the model's Fermi level, with losses up to
+    /// `E`.
+    #[default]
+    ModelFermiLevel,
+    /// The band-bottom axis: a row at energy `E` is the model's at
+    /// `T = E - E_F`, `E_F` the model's Fermi energy, so the kinematics use
+    /// `T' = T + E_F = E` and the losses stop at `E - E_F`. Rows with
+    /// `T <= 0` are stored empty. This is the convention of cstool's
+    /// `compile_full_imfp_icdf` (module docs).
+    BandBottom,
+}
+
 /// Grids and tolerances of a table build.
 #[derive(Debug, Clone, PartialEq)]
 pub struct InelasticTableOptions {
-    /// Incident kinetic energies above the Fermi level, eV (strictly
-    /// increasing, >= 2 points).
+    /// Incident kinetic energies on the axis of [`Self::axis`], eV (strictly
+    /// increasing, >= 2 points): above the model's Fermi level by default,
+    /// above the band bottom with [`EnergyAxis::BandBottom`].
     pub energy_ev: Vec<f64>,
+    /// The axis `energy_ev` is on ([`EnergyAxis::ModelFermiLevel`] by
+    /// default).
+    pub axis: EnergyAxis,
     /// Starting cumulative-probability grid of the stored inverse CDFs (from
     /// exactly 0 to exactly 1); the final grid when `refine_tolerance` is
     /// `None`.
@@ -351,10 +444,17 @@ impl InelasticTableOptions {
     pub fn new(energy_ev: Vec<f64>) -> Self {
         Self {
             energy_ev,
+            axis: EnergyAxis::ModelFermiLevel,
             probability: default_probability_grid(),
             density_tolerance: DEFAULT_DENSITY_TOLERANCE,
             refine_tolerance: Some(DEFAULT_REFINE_TOLERANCE),
         }
+    }
+
+    /// The same options with the table stored on `axis`.
+    pub fn with_axis(mut self, axis: EnergyAxis) -> Self {
+        self.axis = axis;
+        self
     }
 }
 
@@ -371,13 +471,23 @@ pub fn default_probability_grid() -> Vec<f64> {
 /// [`PennInelastic`]; the table is built the same way for each (module docs).
 trait LossModel: Sync {
     fn elf_min_ev(&self) -> f64;
+    fn fermi_energy_ev(&self) -> f64;
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError>;
     fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError>;
+    /// A tabulation of the DIIMFP for the rows at `energy_ev`, if the model
+    /// has one ([`FullPenn::diimfp_grid`]); the rows then read the DIIMFP
+    /// from it wherever it covers the loss.
+    fn diimfp_grid(&self, _energy_ev: &[f64]) -> Result<Option<DiimfpGrid>, ElectronDataError> {
+        Ok(None)
+    }
 }
 
 impl LossModel for SinglePolePenn {
     fn elf_min_ev(&self) -> f64 {
         self.optical_elf().energy_ev()[0]
+    }
+    fn fermi_energy_ev(&self) -> f64 {
+        SinglePolePenn::fermi_energy_ev(self)
     }
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
         self.diimfp_per_m_ev(energy_ev, loss_ev)
@@ -391,34 +501,93 @@ impl LossModel for PennInelastic {
     fn elf_min_ev(&self) -> f64 {
         self.optical_elf().energy_ev()[0]
     }
+    fn fermi_energy_ev(&self) -> f64 {
+        PennInelastic::fermi_energy_ev(self)
+    }
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
         self.diimfp_per_m_ev(energy_ev, loss_ev)
     }
     fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
         Ok(self.imfp_and_stopping(energy_ev)?.inverse_imfp_per_m)
     }
+    fn diimfp_grid(&self, energy_ev: &[f64]) -> Result<Option<DiimfpGrid>, ElectronDataError> {
+        match self {
+            PennInelastic::Full(m) => Ok(Some(m.diimfp_grid(energy_ev)?)),
+            _ => Ok(None),
+        }
+    }
 }
 
-/// The loss density of one energy.
-fn loss_density<M: LossModel>(
+/// The DIIMFP of `penn` at `(energy_ev, loss_ev)`, from `grid` where it
+/// covers the point; zero where the model fails (only for non-finite input).
+fn row_diimfp<M: LossModel>(
     penn: &M,
+    grid: Option<&DiimfpGrid>,
     energy_ev: f64,
-    inverse_mfp: f64,
+    loss_ev: f64,
+) -> f64 {
+    grid.and_then(|g| g.diimfp_per_m_ev(energy_ev, loss_ev))
+        .unwrap_or_else(|| penn.diimfp(energy_ev, loss_ev).unwrap_or(0.0))
+}
+
+/// The density model of the row at `energy_ev`, on `ln W` from the lowest
+/// ELF energy to `energy_ev` (module docs).
+fn row_density<M: LossModel>(
+    penn: &M,
+    grid: Option<&DiimfpGrid>,
+    energy_ev: f64,
     tol: f64,
-) -> Result<LinearDensity, InelasticTableError> {
+) -> LinearDensity {
     let w_lo = penn.elf_min_ev();
     let f = |s: f64| {
         let w = s.exp().min(energy_ev);
-        // The DIIMFP only fails for non-finite input.
-        penn.diimfp(energy_ev, w).unwrap_or(0.0) * w
+        row_diimfp(penn, grid, energy_ev, w) * w
     };
-    let d = adaptive_density(
+    // The unresolved cells of the grid, on the row's `ln W` axis (module
+    // docs, "Unresolved grid cells"); none without a grid.
+    let (rough, rough_width) = match grid {
+        Some(g) => (g.unresolved_ln_loss_ev(), g.min_cell_width()),
+        None => (Vec::new(), 0.0),
+    };
+    adaptive_density(
         &f,
         &[w_lo.ln(), energy_ev.ln()],
         INITIAL_LOSS_PANELS,
         tol,
         true,
-    );
+        &rough,
+        rough_width,
+    )
+}
+
+/// The number of nodes of the loss-density model of the row at `energy_ev`
+/// (eV, on the model's own axis) of a table of `model` built with density
+/// tolerance `density_tolerance`, reading the DIIMFP from `grid` where it
+/// covers the loss as a table build does (pass the grid of
+/// [`FullPenn::diimfp_grid`] for the table's energies, or `None`). The
+/// count is bounded by [`MAX_NODES`]; a row near that bound has spent its
+/// evaluations on something the split test cannot resolve. Each node not
+/// covered by the grid costs one direct DIIMFP evaluation.
+pub fn loss_density_node_count(
+    model: &PennInelastic,
+    grid: Option<&DiimfpGrid>,
+    energy_ev: f64,
+    density_tolerance: f64,
+) -> usize {
+    row_density(model, grid, energy_ev, density_tolerance)
+        .x
+        .len()
+}
+
+/// The loss density of one energy.
+fn loss_density<M: LossModel>(
+    penn: &M,
+    grid: Option<&DiimfpGrid>,
+    energy_ev: f64,
+    inverse_mfp: f64,
+    tol: f64,
+) -> Result<LinearDensity, InelasticTableError> {
+    let d = row_density(penn, grid, energy_ev, tol);
     if !(d.total() > 0.0 && d.total().is_finite()) {
         return Err(InelasticTableError::EmptyDistribution {
             energy_ev,
@@ -604,8 +773,9 @@ fn check_options(o: &InelasticTableOptions) -> Result<(), InelasticTableError> {
 /// `material` only labels the table (its identity string); the density that
 /// sets the absolute rate is inside the optical ELF of `penn`
 /// ([`SinglePolePenn::imfp_and_stopping`] returns `λ⁻¹` in m⁻¹ with no
-/// further input). Energies are kinetic energies above the Fermi level, as
-/// in the model.
+/// further input). Energies are on the axis of `options.axis`: kinetic
+/// energies above the model's Fermi level by default, above the band bottom
+/// with [`EnergyAxis::BandBottom`] (module docs, "Energy axis").
 pub fn build_inelastic_table(
     penn: &SinglePolePenn,
     material: &Material,
@@ -635,7 +805,7 @@ pub fn build_inelastic_table(
         energy[0],
         energy[energy.len() - 1],
         probability.len()
-    );
+    ) + &axis_provenance(penn, options);
     Ok(CrossSectionTable::new(CrossSectionTableParts {
         model,
         material: material_identity(material),
@@ -659,7 +829,11 @@ pub fn build_inelastic_table(
 ///
 /// The full Penn and Mermin models evaluate their DIIMFP by numerical
 /// integration, so a table of either costs far more than a single-pole table
-/// on the same grid.
+/// on the same grid. For the full model the rows read the DIIMFP from a
+/// [`DiimfpGrid`] built once for the grid energies
+/// ([`FullPenn::diimfp_grid`]: interpolation error held to the model
+/// tolerance), which is what makes such a table affordable (#256); the
+/// inverse mean free paths are still the model's own.
 pub fn build_inelastic_table_for_model(
     model: &PennInelastic,
     material: &Material,
@@ -673,8 +847,13 @@ pub fn build_inelastic_table_for_model(
     let energy = &options.energy_ev;
     let elf = model.optical_elf();
     let identity = model.model_identity();
+    // the full model's rows read the DIIMFP from its loss grid (#256)
+    let via = match model {
+        PennInelastic::Full(_) => " (from the T-independent loss grid FullPenn::diimfp_grid)",
+        _ => "",
+    };
     let model_text = format!(
-        "lindhard {} electron::inelastic::table: {identity} DIIMFP, \
+        "lindhard {} electron::inelastic::table: {identity} DIIMFP{via}, \
          W inverse CDF from an adaptive piecewise-linear density in ln W",
         env!("CARGO_PKG_VERSION")
     );
@@ -690,7 +869,7 @@ pub fn build_inelastic_table_for_model(
         energy[0],
         energy[energy.len() - 1],
         probability.len()
-    );
+    ) + &axis_provenance(model, options);
     Ok(CrossSectionTable::new(CrossSectionTableParts {
         model: model_text,
         material: material_identity(material),
@@ -703,6 +882,118 @@ pub fn build_inelastic_table_for_model(
     })?)
 }
 
+/// The model's kinetic energy `T` of each row of `options`: the axis energy
+/// itself on [`EnergyAxis::ModelFermiLevel`], `E - E_F` (`E_F` the model's
+/// Fermi energy) on [`EnergyAxis::BandBottom`].
+fn model_energies_ev<M: LossModel>(penn: &M, options: &InelasticTableOptions) -> Vec<f64> {
+    match options.axis {
+        EnergyAxis::ModelFermiLevel => options.energy_ev.clone(),
+        EnergyAxis::BandBottom => {
+            let ef = penn.fermi_energy_ev();
+            options.energy_ev.iter().map(|&e| e - ef).collect()
+        }
+    }
+}
+
+/// The provenance text of the axis: empty on the model's own axis (so tables
+/// built before the axis option existed keep their bytes), the axis and the
+/// Fermi energy otherwise.
+fn axis_provenance<M: LossModel>(penn: &M, options: &InelasticTableOptions) -> String {
+    match options.axis {
+        EnergyAxis::ModelFermiLevel => String::new(),
+        EnergyAxis::BandBottom => format!(
+            "; energy axis: band bottom (row at E is the model's at T = E - {} eV)",
+            penn.fermi_energy_ev()
+        ),
+    }
+}
+
+/// The tables of a [`ShellResolvedChannels`]: the valence channel's and one
+/// per inner shell, in the order of
+/// [`ShellResolvedChannels::inner_shells`]
+/// ([`build_shell_channel_tables`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShellResolvedTables {
+    /// The valence channel, as [`build_inelastic_table`] of
+    /// [`ShellResolvedChannels::valence`].
+    pub valence: CrossSectionTable,
+    /// The inner-shell channels.
+    pub shells: Vec<ShellChannelTable>,
+}
+
+/// Build the energy-loss tables of every channel of `channels` on the grid of
+/// `options`: the valence table, and for inner shell `i` the table of
+/// [`ShellResolvedChannels::shell_model`] (that shell's own optical ELF with
+/// the valence model's settings), wrapped with the shell's identity, binding
+/// energy and `binding_provenance` (the origin of the binding energies, for
+/// example [`crate::electron::data::SubshellBindingTable::provenance`]).
+///
+/// Each table is built by [`build_inelastic_table`], one after the other in
+/// channel order, so the result is bit-identical at any thread count. Its
+/// rate is the channel's own `λ⁻¹_j(E)` and its rows the inverse CDF of that
+/// channel's DIIMFP: the **channel-first** construction, in which a
+/// transport picks a channel with probability `λ⁻¹_j / Σ λ⁻¹` and then draws
+/// the loss from that channel's table (not the conditional channel choice of
+/// [`ShellResolvedChannels::sample_channel`], which belongs with a loss drawn
+/// from the total DIIMFP; the two are not mixed).
+///
+/// **Supported model.** Single-pole Penn per channel only, without the
+/// exchange correction (rejected, as by [`build_inelastic_table`]); so the
+/// binding energy does not enter a shell's DIIMFP, which is zero below the
+/// first energy of the shell's ELF (at or above `B` by construction of
+/// [`ShellResolvedChannels::new`]). Each shell row is floored at `B`, which
+/// only removes the rounding of `exp(ln W)` at the edge. No full Penn or
+/// Mermin valence model is wired to shell channels, and the valence ELF must
+/// not already contain the shells (no partition rule is applied, see
+/// [`super::inner_shell`]).
+///
+/// **Energy axis.** As for [`build_inelastic_table`], every table (valence
+/// and shells) is on the axis of `options.axis`: kinetic energies above the
+/// model's Fermi energy (zero by default) with
+/// [`EnergyAxis::ModelFermiLevel`], above the band bottom with
+/// [`EnergyAxis::BandBottom`], each row then the model's at `T = E - E_F`
+/// with `E_F` the Fermi energy of the model (the shell models share the
+/// valence model's settings, so its Fermi energy) (module docs, "Energy
+/// axis"). See `crate::electron::transport`, "Energy reference of the
+/// inelastic table", for how the transport reads them.
+pub fn build_shell_channel_tables(
+    channels: &ShellResolvedChannels,
+    material: &Material,
+    options: &InelasticTableOptions,
+    binding_provenance: &str,
+) -> Result<ShellResolvedTables, InelasticTableError> {
+    let valence = build_inelastic_table(channels.valence(), material, options)?;
+    let mut shells = Vec::with_capacity(channels.inner_shells().len());
+    for (i, s) in channels.inner_shells().iter().enumerate() {
+        let b = s.binding_energy_ev;
+        let base = build_inelastic_table(channels.shell_model(i), material, options)?;
+        let mut parts = base.parts().clone();
+        let label = s.subshell.label();
+        parts.model = format!("{} [inner-shell channel Z = {} {label}]", parts.model, s.z);
+        parts.provenance = format!(
+            "{}; inner-shell channel Z = {} {label}, binding energy {b} eV ({}), \
+             losses floored at the binding energy",
+            parts.provenance,
+            s.z,
+            binding_provenance.trim()
+        );
+        for row in &mut parts.quantiles {
+            for w in row.iter_mut() {
+                *w = w.max(b);
+            }
+        }
+        let table = CrossSectionTable::new(parts)?;
+        shells.push(ShellChannelTable::new(
+            s.z,
+            s.subshell,
+            b,
+            binding_provenance,
+            table,
+        )?);
+    }
+    Ok(ShellResolvedTables { valence, shells })
+}
+
 /// Inverse mean free paths, the (refined) probability grid and the quantile
 /// rows of a table of `penn` on the grid of `options` (already checked).
 type LossRows = (Vec<f64>, Vec<f64>, Vec<Vec<f64>>);
@@ -711,16 +1002,33 @@ fn loss_rows<M: LossModel>(
     penn: &M,
     options: &InelasticTableOptions,
 ) -> Result<LossRows, InelasticTableError> {
-    let energy = &options.energy_ev;
+    // The model's energy `T` of each row (module docs, "Energy axis").
+    let energy = &model_energies_ev(penn, options);
+    // The DIIMFP grid covers only the rows that get losses: on the
+    // band-bottom axis a row at or below the Fermi level has none (below),
+    // and the grid would reject its energy.
+    let grid = match options.axis {
+        EnergyAxis::ModelFermiLevel => penn.diimfp_grid(energy)?,
+        EnergyAxis::BandBottom => {
+            let lossy: Vec<f64> = energy.iter().copied().filter(|&e| e > 0.0).collect();
+            penn.diimfp_grid(&lossy)?
+        }
+    };
     // Rows in parallel, collected in grid order; the lowest failing energy
     // is the reported error whatever the thread count.
     type Row = Result<(f64, Option<LinearDensity>), InelasticTableError>;
     let results: Vec<Row> = energy
         .par_iter()
         .map(|&e| {
+            if options.axis == EnergyAxis::BandBottom && e <= 0.0 {
+                // A band-bottom energy at or below the Fermi level: no loss
+                // is allowed. (On the model's own axis the model rejects
+                // such an energy.)
+                return Ok((0.0, None));
+            }
             let inv = penn.inverse_imfp(e)?;
             if inv > 0.0 {
-                let d = loss_density(penn, e, inv, options.density_tolerance)?;
+                let d = loss_density(penn, grid.as_ref(), e, inv, options.density_tolerance)?;
                 Ok((inv, Some(d)))
             } else {
                 Ok((0.0, None))
@@ -811,7 +1119,7 @@ impl MomentumTransferSampler {
             )
         })?;
         let f = |u: f64| penn.q_integrand_au(w, u);
-        let density = adaptive_density(&f, &breaks, 8, tol, false);
+        let density = adaptive_density(&f, &breaks, 8, tol, false, &[], 0.0);
         if !(density.total() > 0.0 && density.total().is_finite()) {
             return Err(invalid(
                 "momentum-transfer slice",
@@ -865,5 +1173,80 @@ impl MomentumTransferSampler {
     pub fn diimfp_per_m_ev(&self) -> f64 {
         let h = hartree_ev();
         self.density.total() / (std::f64::consts::PI * self.tp) / (BOHR_RADIUS * h)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A row-like integrand in `x = ln W` (a smooth loss peak) that, inside
+    /// the cell `[c, c + 1.5e-4]`, is replaced by a second model differing
+    /// by 1e-3 relative and carrying noise at 1e-4: the shape of a full-Penn
+    /// row at an unresolved [`DiimfpGrid`] cell, where the grid gives way to
+    /// the direct model (module docs, "Unresolved grid cells"). Synthetic,
+    /// not a material.
+    fn stepped_row(c: f64) -> impl Fn(f64) -> f64 {
+        move |x: f64| {
+            let smooth = (-(x - 3.0).powi(2)).exp();
+            if (c..=c + 1.5e-4).contains(&x) {
+                smooth * (1.0 + 1e-3 + 1e-4 * (1e7 * x).sin())
+            } else {
+                smooth
+            }
+        }
+    }
+
+    #[test]
+    fn a_step_at_an_unresolved_cell_does_not_exhaust_the_nodes() {
+        // A starting node (x = 3, the 25th of 64 panels on [0, 8]) falls in
+        // the cell, at the peak, so the step is sampled and far above the
+        // split threshold (about 3 tol of the mean).
+        let c = 3.0 - 0.5e-4;
+        let f = stepped_row(c);
+        let breaks = [0.0, 8.0];
+        let cells = [(c, c + 1.5e-4)];
+        let d = adaptive_density(&f, &breaks, INITIAL_LOSS_PANELS, 1e-5, true, &cells, 1e-4);
+        let smooth = adaptive_density(
+            &|x: f64| (-(x - 3.0).powi(2)).exp(),
+            &breaks,
+            INITIAL_LOSS_PANELS,
+            1e-5,
+            true,
+            &[],
+            0.0,
+        );
+        let (n, n0) = (d.x.len(), smooth.x.len());
+        eprintln!("nodes: {n} with the stepped cell declared, {n0} for the smooth row");
+        // The cell costs a few bisection levels around its two edges, not
+        // the ~MAX_NODES of a bisection to floating-point resolution.
+        assert!(n < n0 + 100, "{n} nodes vs {n0} (MAX_NODES = {MAX_NODES})");
+        // The density still matches the smooth row's integral to far below
+        // the model tolerance: the step adds ~1.5e-7 of it.
+        let rel = (d.total() / smooth.total() - 1.0).abs();
+        assert!(rel < 1e-5, "{rel:e}");
+        // No panel was bisected towards floating-point resolution.
+        let narrowest = d.x.windows(2).map(|w| w[1] - w[0]).fold(f64::MAX, f64::min);
+        assert!(narrowest > 1e-5, "{narrowest:e}");
+    }
+
+    #[test]
+    fn without_unresolved_cells_the_refinement_is_unchanged() {
+        // A smooth row passes no rough ranges and is refined exactly as
+        // before; declaring a cell far from the row's structure changes no
+        // node either, since no panel near it ever gets that narrow.
+        let f = |x: f64| (-(x - 3.0).powi(2)).exp();
+        let breaks = [0.0, 8.0];
+        let plain = adaptive_density(&f, &breaks, INITIAL_LOSS_PANELS, 1e-5, true, &[], 0.0);
+        let far = adaptive_density(
+            &f,
+            &breaks,
+            INITIAL_LOSS_PANELS,
+            1e-5,
+            true,
+            &[(7.5, 7.5 + 1.5e-4)],
+            1e-4,
+        );
+        assert_eq!(plain, far);
     }
 }

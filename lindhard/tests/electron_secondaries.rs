@@ -8,6 +8,13 @@
 
 use lindhard::electron::boundary::{BandModel, BandStructure};
 use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::elastic::table::log_energy_grid;
+use lindhard::electron::inelastic::table::{
+    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
+};
+use lindhard::electron::inelastic::{
+    DrudeLorentz, DrudeLorentzOscillator, PennInelastic, SinglePolePenn,
+};
 use lindhard::electron::secondary::{SecondaryEvent, SecondaryModel};
 use lindhard::electron::transport::{
     Boundary, BoundaryModel, CutoffReference, ElectronState, ElectronTally, EscapeRule, Face, Fate,
@@ -160,40 +167,49 @@ impl ElectronTally for EventCheck {
         assert_eq!(e.loss_ev, self.w);
         // Primary loss = secondary energy + binding + energy left in the
         // solid, to a few ulps of the terms involved.
-        let scale = ef.abs() + e.loss_ev.abs() + band.band_gap_ev().unwrap_or(0.0);
+        let scale = ef.abs()
+            + e.loss_ev.abs()
+            + band.band_gap_ev().unwrap_or(0.0)
+            + band.valence_binding_ev().unwrap_or(0.0);
         let residual = (e.loss_ev - (e.secondary_ev + e.binding_ev + e.deposited_ev)).abs();
         assert!(
             residual <= 4.0 * f64::EPSILON * scale,
             "residual {residual} for {e:?}"
         );
         self.worst = self.worst.max(residual / scale);
-        match band.band_gap_ev() {
-            Some(gap) if e.loss_ev <= gap => {
-                self.subgap += 1;
-                assert!(!e.liberated && c.is_none());
-                assert_eq!((e.secondary_ev, e.binding_ev), (0.0, 0.0));
-                assert_eq!(e.deposited_ev, e.loss_ev);
-            }
-            gap => {
-                assert!(e.liberated, "{e:?}");
-                self.liberated += 1;
-                let b = gap.unwrap_or(0.0);
-                assert_eq!(e.binding_ev, b - ef);
-                // Verduin Eq. 3.86: E_SE = E_F + W - B.
-                let e_se = ef + e.loss_ev - b;
-                match c {
-                    Some(s) => {
-                        self.created += 1;
-                        assert_eq!(e.secondary_ev, e_se);
-                        assert_eq!(s.energy_ev, e_se);
-                        assert_eq!((s.pos, s.layer), (p.pos, p.layer));
-                        assert!((dot(s.dir, s.dir) - 1.0).abs() < 1e-12);
-                        assert_eq!(e.deposited_ev, 0.0);
-                    }
-                    None => {
-                        assert_eq!(e.secondary_ev, 0.0);
-                        assert_eq!(e.deposited_ev, e_se);
-                    }
+        // The binding of the liberated electron: an insulator's gap, or a
+        // metal's valence binding (the Fermi level, 0, by default).
+        let b = band
+            .band_gap_ev()
+            .or_else(|| band.valence_binding_ev())
+            .unwrap_or(0.0);
+        let below = match band.band_gap_ev() {
+            Some(gap) => e.loss_ev <= gap,
+            None => band.valence_binding_ev().is_some_and(|vb| e.loss_ev <= vb),
+        };
+        if below {
+            self.subgap += 1;
+            assert!(!e.liberated && c.is_none());
+            assert_eq!((e.secondary_ev, e.binding_ev), (0.0, 0.0));
+            assert_eq!(e.deposited_ev, e.loss_ev);
+        } else {
+            assert!(e.liberated, "{e:?}");
+            self.liberated += 1;
+            assert_eq!(e.binding_ev, b - ef);
+            // Verduin Eq. 3.86: E_SE = E_F + W - B.
+            let e_se = ef + e.loss_ev - b;
+            match c {
+                Some(s) => {
+                    self.created += 1;
+                    assert_eq!(e.secondary_ev, e_se);
+                    assert_eq!(s.energy_ev, e_se);
+                    assert_eq!((s.pos, s.layer), (p.pos, p.layer));
+                    assert!((dot(s.dir, s.dir) - 1.0).abs() < 1e-12);
+                    assert_eq!(e.deposited_ev, 0.0);
+                }
+                None => {
+                    assert_eq!(e.secondary_ev, 0.0);
+                    assert_eq!(e.deposited_ev, e_se);
                 }
             }
         }
@@ -626,6 +642,212 @@ fn vacuum_cutoff_stops_electrons_below_the_inner_potential_plus_cutoff() {
 }
 
 // ---------------------------------------------------------------------------
+// Energy reference of the inelastic table (#173)
+// ---------------------------------------------------------------------------
+
+/// Inelastic loss `W = frac * E` at every probability (a deterministic loss).
+fn inelastic_fixed_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
+    parts(
+        SamplingAxis::InelasticEnergyLoss,
+        1.0 / lambda_m,
+        move |e, _p| frac * e,
+    )
+}
+
+/// Every inelastic event as `(energy before, loss, energy after)`.
+#[derive(Default)]
+struct Losses {
+    before: f64,
+    events: Vec<(f64, f64, f64)>,
+    secondaries: Vec<(f64, f64)>,
+}
+
+impl ElectronTally for Losses {
+    fn step(&mut self, _from: [f64; 3], end: &ElectronState, _l: f64) {
+        self.before = end.energy_ev;
+    }
+    fn inelastic(&mut self, after: &ElectronState, w: f64) {
+        self.events.push((self.before, w, after.energy_ev));
+    }
+    fn secondary(&mut self, _p: &ElectronState, e: &SecondaryEvent, c: Option<&ElectronState>) {
+        if c.is_some() {
+            self.secondaries.push((self.before, e.secondary_ev));
+        }
+    }
+    fn merge(&mut self, mut o: Self) {
+        self.events.append(&mut o.events);
+        self.secondaries.append(&mut o.secondaries);
+    }
+}
+
+fn losses_in_metal(frac: f64, cutoff: f64) -> Losses {
+    let mut cfg = TransportConfig::new(cutoff);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    cfg.boundary = BoundaryModel::STEP_BARRIER;
+    cfg.cutoff_reference = CutoffReference::VacuumLevel;
+    let t = Transport::with_band_structures(
+        Stack::semi_infinite(material()),
+        vec![pair(
+            elastic_isotropic(3e-9),
+            inelastic_fixed_frac(4e-9, frac),
+        )],
+        vec![metal()],
+        cfg,
+    )
+    .unwrap();
+    t.run(8, 50, 10, &Primary::normal(300.0), Losses::default)
+        .unwrap()
+        .tally
+}
+
+/// The transport reads the inelastic table at the electron's kinetic energy
+/// measured from the band bottom (the vacuum energy plus `U` inside the
+/// target), not from the Fermi level or the vacuum level: a table whose loss
+/// is `E/2` at every row gives `W = E_before / 2` for every event. The
+/// threshold, `U + 2 = 11` eV, keeps every event above `2 E_F = 10` eV, where
+/// `E/2 < E - E_F` and the clamp below does not act.
+#[test]
+fn inelastic_table_is_read_at_the_band_bottom_energy() {
+    let r = losses_in_metal(0.5, 2.0);
+    assert!(r.events.len() > 500, "{}", r.events.len());
+    // The primary's first event is at its entry energy, 300 eV + U.
+    let u = metal().inner_potential_ev();
+    assert!(r.events.iter().any(|&(e, _, _)| e == 300.0 + u));
+    for &(e, w, after) in &r.events {
+        assert!((w - 0.5 * e).abs() <= 1e-12 * e, "W {w} at E {e}");
+        assert_eq!(after, e - w);
+    }
+}
+
+/// With the Kieft-Bosch secondary model the transport clamps the sampled
+/// loss to `E - E_F` (the primary cannot end below the Fermi level). A table
+/// whose loss is the whole energy `E` at every row is therefore always
+/// clamped: the primary is left at `E_F` and the secondary, `E_F + W`, gets
+/// the primary's whole energy. This is the mismatch measured in #173 for a
+/// table on the model's own axis with the model's Fermi energy 0, whose
+/// losses reach `E`, beyond the `E - E_F` the transport allows (module docs
+/// of `electron::transport`, "Energy reference of the inelastic table"). A
+/// table on the band-bottom axis has no such losses (the next test).
+#[test]
+fn losses_beyond_the_fermi_level_are_clamped_to_it() {
+    let ef = metal().fermi_ev();
+    let r = losses_in_metal(1.0, 2.0);
+    assert!(r.events.len() > 100, "{}", r.events.len());
+    for &(e, w, after) in &r.events {
+        assert!((w - (e - ef)).abs() <= 1e-12 * e, "W {w} at E {e}");
+        assert!((after - ef).abs() <= 1e-12 * e, "after {after}");
+    }
+    assert!(!r.secondaries.is_empty());
+    for &(e, s) in &r.secondaries {
+        assert!((s - e).abs() <= 1e-12 * e, "secondary {s} from E {e}");
+    }
+}
+
+/// A single-pole Penn table of the synthetic Drude plasmon of
+/// `tests/penn_inelastic.rs` (not physical data) with the model's Fermi
+/// energy `fermi_ev`, on `axis`.
+fn penn_table(fermi_ev: f64, axis: EnergyAxis) -> CrossSectionTable {
+    let elf = DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
+        .unwrap()
+        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
+        .unwrap();
+    let model = PennInelastic::SinglePole(
+        SinglePolePenn::new(elf)
+            .with_fermi_energy_ev(fermi_ev)
+            .unwrap(),
+    );
+    // From the Fermi level of `metal()` (an empty row on the band-bottom
+    // axis) to above the entry energy, 300 eV + U.
+    let grid = log_energy_grid(5.0, 400.0, 12.0).unwrap();
+    build_inelastic_table_for_model(
+        &model,
+        &material(),
+        &InelasticTableOptions::new(grid).with_axis(axis),
+    )
+    .unwrap()
+}
+
+/// Every inelastic event of 200 primaries of 300 eV in `metal()` with
+/// `inelastic`, under the Kieft-Bosch model with the step barrier.
+fn penn_losses_in_metal(inelastic: CrossSectionTable) -> Losses {
+    let mut cfg = TransportConfig::new(2.0);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    cfg.boundary = BoundaryModel::STEP_BARRIER;
+    cfg.cutoff_reference = CutoffReference::VacuumLevel;
+    let t = Transport::with_band_structures(
+        Stack::semi_infinite(material()),
+        vec![pair(elastic_isotropic(3e-9), inelastic)],
+        vec![metal()],
+        cfg,
+    )
+    .unwrap();
+    t.run(8, 200, 10, &Primary::normal(300.0), Losses::default)
+        .unwrap()
+        .tally
+}
+
+/// The number of events whose loss is the transport's clamp `E - E_F`.
+fn clamped(r: &Losses, ef: f64) -> usize {
+    r.events.iter().filter(|&&(e, w, _)| w >= e - ef).count()
+}
+
+/// A table built on the band-bottom axis with the band's Fermi energy as the
+/// model's (the convention of cstool's `compile_full_imfp_icdf`, module docs
+/// of `electron::inelastic::table`; how `lindhard run` builds the table of a
+/// material with a band, #241) has no loss beyond `E - E_F`: over every
+/// inelastic event of the run, primaries and secondaries, the sampled loss
+/// is below the clamp, so the clamp never acts and no primary is left at the
+/// Fermi level. The stopping threshold, `U + 2 = 11` eV, is above the first
+/// row with losses (6.06 eV), so no event is sampled between an empty row
+/// and the first row, where the clamp is still the bound.
+///
+/// The same model on its own axis with Fermi energy 0, read at the
+/// band-bottom energy (the tables before #241), sends a large share of the
+/// events into the clamp; that legacy behaviour of a table without a band is
+/// pinned here too.
+#[test]
+fn band_bottom_table_never_reaches_the_fermi_clamp() {
+    let band = metal();
+    let ef = band.fermi_ev();
+    assert_eq!(band.min_excitation_ev(), ef);
+
+    let table = penn_table(ef, EnergyAxis::BandBottom);
+    let first = table.inverse_mfp_per_m().iter().position(|&x| x > 0.0);
+    let first_ev = table.energy_ev()[first.unwrap()];
+    assert!(first_ev > ef && first_ev < band.inner_potential_ev() + 2.0);
+    let r = penn_losses_in_metal(table);
+    assert!(r.events.len() > 5_000, "{}", r.events.len());
+    // Events near the Fermi level, where the legacy table is clamped most.
+    let low = r.events.iter().filter(|&&(e, _, _)| e - ef < 20.0).count();
+    assert!(low > 1_000, "{low}");
+    for &(e, w, after) in &r.events {
+        assert!(w > 0.0 && w < e - ef, "W {w} at E {e}");
+        assert!(after > ef, "after {after}");
+        assert_eq!(after, e - w);
+    }
+    assert_eq!(clamped(&r, ef), 0);
+
+    let legacy = penn_losses_in_metal(penn_table(0.0, EnergyAxis::ModelFermiLevel));
+    let n = clamped(&legacy, ef);
+    assert!(
+        20 * n > legacy.events.len(),
+        "{n} clamped of {}",
+        legacy.events.len()
+    );
+}
+
+/// The loss cap of a band-bottom table is the band's minimum excitation
+/// energy: for an insulator the conduction-band bottom `W_v + E_g`, above
+/// the mid-gap Fermi level the transport clamps at (cstool
+/// `get_min_excitation`, `BandStructure::min_excitation_ev`).
+#[test]
+fn min_excitation_is_the_fermi_level_of_a_metal_and_the_conduction_band_bottom() {
+    assert_eq!(metal().min_excitation_ev(), 5.0);
+    assert_eq!(insulator().min_excitation_ev(), 9.0);
+    assert!(insulator().min_excitation_ev() > insulator().fermi_ev());
+}
+
+// ---------------------------------------------------------------------------
 // Defaults, validation and metadata
 // ---------------------------------------------------------------------------
 
@@ -818,6 +1040,11 @@ impl ElectronTally for EventLog {
 }
 
 fn run_threads(threads: usize) -> EventLog {
+    run_threads_with(threads, metal())
+}
+
+/// [`run_threads`] with `metal` as the band of both metal layers.
+fn run_threads_with(threads: usize, metal: BandStructure) -> EventLog {
     let cfg = full_physics();
     let t = Transport::with_band_structures(
         Stack::new(
@@ -830,7 +1057,7 @@ fn run_threads(threads: usize) -> EventLog {
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
             pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
         ],
-        vec![metal(), insulator(), metal()],
+        vec![metal.clone(), insulator(), metal],
         cfg,
     )
     .unwrap();
@@ -872,6 +1099,74 @@ fn secondaries_and_barriers_are_bit_identical_across_thread_counts() {
         }
         assert_eq!(a, b);
     }
+}
+
+// ---------------------------------------------------------------------------
+// A metal's valence binding (BandStructure::with_valence_binding_ev)
+// ---------------------------------------------------------------------------
+
+/// The synthetic metal with its valence electron bound 7 eV below the Fermi
+/// level (a made-up value).
+fn bound_metal() -> BandStructure {
+    metal().with_valence_binding_ev(7.0).unwrap()
+}
+
+#[test]
+fn valence_binding_conserves_energy_and_frees_nothing_at_or_below_it() {
+    let cfg = full_physics();
+    let t = Transport::with_band_structures(
+        Stack::new(vec![(material(), 6e-9)], Some(material())).unwrap(),
+        vec![
+            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+        ],
+        vec![bound_metal(), bound_metal()],
+        cfg,
+    )
+    .unwrap();
+    let bands = vec![bound_metal(), bound_metal()];
+    let r = t
+        .run(11, 400, 16, &Primary::normal(400.0), || {
+            EventCheck::new(bands.clone())
+        })
+        .unwrap()
+        .tally;
+    // EventCheck asserts, per event, E_SE = E_F + W - 7 eV for W > 7 eV and
+    // nothing liberated for W <= 7 eV.
+    assert!(r.events > 1_000, "too few events: {}", r.events);
+    assert!(r.subgap > 100 && r.liberated > 100 && r.created > 100);
+}
+
+#[test]
+fn zero_valence_binding_is_bit_identical_to_the_default() {
+    let default = run_threads(1);
+    let zero = run_threads_with(1, metal().with_valence_binding_ev(0.0).unwrap());
+    assert_eq!(default.events, zero.events);
+    assert_eq!(default.summary, zero.summary);
+    // And a binding does change the run.
+    let bound = run_threads_with(1, bound_metal());
+    assert_ne!(default.events, bound.events);
+}
+
+#[test]
+fn valence_binding_is_bit_identical_across_thread_counts() {
+    let r1 = run_threads_with(1, bound_metal());
+    assert!(r1.summary.secondaries > 100);
+    for n in [2, 8] {
+        let r = run_threads_with(n, bound_metal());
+        assert_eq!(r1.events, r.events, "event stream differs on {n} threads");
+        assert_eq!(r1.summary, r.summary);
+    }
+}
+
+#[test]
+fn valence_binding_is_refused_for_an_insulator_and_out_of_range() {
+    assert!(insulator().with_valence_binding_ev(1.0).is_err());
+    for b in [-1.0, f64::NAN, f64::INFINITY] {
+        assert!(metal().with_valence_binding_ev(b).is_err(), "{b}");
+    }
+    assert_eq!(metal().valence_binding_ev(), None);
+    assert_eq!(bound_metal().valence_binding_ev(), Some(7.0));
 }
 
 // ---------------------------------------------------------------------------
@@ -1038,6 +1333,60 @@ fn full_tally_balances_when_primaries_and_secondaries_hit_the_event_cap() {
     assert!(r.budget.absorbed_ev > 0.0);
 }
 
+/// A transport whose small event cap cuts off primaries and secondaries.
+fn capped_transport() -> Transport {
+    let mut cfg = full_physics();
+    cfg.max_events = 6;
+    Transport::with_band_structures(
+        Stack::new(vec![(material(), 6e-9), (material(), 4e-9)], None).unwrap(),
+        vec![
+            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+        ],
+        vec![metal(), insulator()],
+        cfg,
+    )
+    .unwrap()
+}
+
+fn capped_run<T: ElectronTally + Clone + Sync>(threads: usize, proto: T) -> T {
+    let t = capped_transport();
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap()
+        .install(|| {
+            t.run(0xCA9, 400, 16, &Primary::normal(300.0), || proto.clone())
+                .unwrap()
+                .tally
+        })
+}
+
+#[test]
+fn event_cap_counts_merge_identically_across_threads_and_match_the_summary() {
+    let t = capped_transport();
+    let proto = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
+    let r1 = capped_run(1, proto.clone()).report();
+    check_balance(&r1);
+    let c = r1.event_caps;
+    assert!(c.secondary_tracks > 0, "{c:?}");
+    assert!(r1.fates.event_capped > 0);
+    // Every history with a capped primary is affected; no history is counted
+    // twice.
+    assert!(c.affected_histories >= r1.fates.event_capped);
+    assert!(c.affected_histories <= r1.histories);
+    assert!(c.affected_histories <= r1.fates.event_capped + c.secondary_tracks);
+    assert!(r1.budget.event_cap_ev > 0.0);
+    let r2 = capped_run(2, proto).report();
+    assert_eq!(r1, r2, "report differs on 2 threads");
+    // The lightweight tally sees the same secondary caps.
+    let s1 = capped_run(1, SummaryTally::default());
+    let s2 = capped_run(2, SummaryTally::default());
+    assert_eq!(s1, s2);
+    assert_eq!(s1.secondaries_event_capped, c.secondary_tracks);
+    assert_eq!(s1.event_capped, r1.fates.event_capped);
+}
+
 #[test]
 fn full_tally_balances_with_a_binding_below_the_band_bottom() {
     // Synthetic insulator with W_v = 1, E_g = 4, χ = 1 eV: E_F = 3 eV, so
@@ -1058,6 +1407,26 @@ fn full_tally_balances_with_a_binding_below_the_band_bottom() {
         Stack::semi_infinite(material()),
         vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
         vec![deep],
+        cfg,
+    )
+    .unwrap();
+    let r = tally_run(&t);
+    check_balance(&r);
+    assert_eq!(r.budget.fermi_sea_ev, 0.0);
+    assert!(r.stopping_points.stopped > r.fates.stopped);
+}
+
+#[test]
+fn full_tally_balances_with_a_metal_valence_binding() {
+    // The synthetic metal with B = 7 eV below its 5 eV Fermi level: each
+    // liberated electron's initial state is 2 eV below the band bottom, and
+    // a loss W <= 7 eV stays in the solid.
+    let mut cfg = TransportConfig::new(8.0);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    let t = Transport::with_band_structures(
+        Stack::semi_infinite(material()),
+        vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
+        vec![bound_metal()],
         cfg,
     )
     .unwrap();
@@ -1118,6 +1487,9 @@ fn full_tally_keeps_a_capped_primary_apart_from_its_secondaries() {
     assert_eq!(r.budget.barrier_ev, 0.0);
     assert_eq!(r.budget.deposited_ev, 0.0);
     assert_eq!(r.fates.event_capped, 1);
+    // The primary was capped, its secondary escaped.
+    assert_eq!(r.event_caps.secondary_tracks, 0);
+    assert_eq!(r.event_caps.affected_histories, 1);
 }
 
 #[test]
@@ -1148,6 +1520,99 @@ fn full_tally_counts_capped_secondaries_and_vacuum_level_stops() {
     assert_eq!(r.budget.barrier_ev, -9.0);
     assert_eq!(r.stopping_points.stopped, 1);
     assert_eq!(r.fates.stopped, 1);
+    // A completed primary with a capped secondary: no primary cap, one
+    // capped track, one affected history.
+    assert_eq!(r.fates.event_capped, 0);
+    assert_eq!(r.event_caps.secondary_tracks, 1);
+    assert_eq!(r.event_caps.affected_histories, 1);
+}
+
+/// A secondary of `energy_ev` liberated at `x_nm` that is cut off by the
+/// event cap after one step.
+fn capped_secondary(tally: &mut FullElectronTally, x_nm: f64, energy_ev: f64, generation: u32) {
+    let s = at(x_nm, energy_ev, 0);
+    tally.begin_secondary(&s, generation);
+    tally.step(s.pos, &at(x_nm + 0.5, energy_ev, 0), 0.5 * NM);
+    tally.end_secondary(Fate::EventCap);
+}
+
+#[test]
+fn full_tally_counts_each_capped_track_but_each_history_once() {
+    let t = metal_on_insulator(full_physics());
+    let mut tally = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
+
+    // History 0: the primary stops at 9 eV after three
+    // 100 eV losses (all to metal conduction electrons); two of its three
+    // secondaries are cut off by the cap.
+    let mut vac = at(0.0, 300.0, 0);
+    tally.begin_history(0, &vac);
+    vac.energy_ev = 309.0;
+    tally.barrier(&vac, Boundary::Surface(Face::Front), 9.0);
+    tally.step([0.0; 3], &at(1.0, 309.0, 0), 1.0 * NM);
+    let mut secs = Vec::new();
+    for (e_after, w) in [(209.0, 100.0), (109.0, 100.0), (9.0, 100.0)] {
+        tally.inelastic(&at(1.0, e_after, 0), w);
+        let s = at(1.0, 5.0 + w, 0);
+        tally.secondary(&at(1.0, e_after, 0), &metal_event(w), Some(&s));
+        secs.push(s);
+    }
+    tally.stopped(&at(1.0, 9.0, 0));
+    capped_secondary(&mut tally, 1.0, secs[0].energy_ev, 1);
+    capped_secondary(&mut tally, 1.0, secs[1].energy_ev, 1);
+    // The third finds no interaction and is trapped with its energy.
+    tally.begin_secondary(&secs[2], 1);
+    tally.stopped(&secs[2]);
+    tally.end_secondary(Fate::Trapped);
+    tally.end_history(0, Fate::Stopped);
+    let r = tally.report();
+    assert_eq!(r.fates.event_capped, 0);
+    assert_eq!(r.event_caps.secondary_tracks, 2);
+    assert_eq!(r.event_caps.affected_histories, 1);
+    assert_eq!(r.budget.event_cap_ev, 210.0);
+
+    // History 1: the primary is capped at 209 eV and both of its
+    // secondaries are capped too: still one affected history.
+    let mut vac = at(0.0, 300.0, 0);
+    tally.begin_history(1, &vac);
+    vac.energy_ev = 309.0;
+    tally.barrier(&vac, Boundary::Surface(Face::Front), 9.0);
+    tally.step([0.0; 3], &at(1.0, 309.0, 0), 1.0 * NM);
+    tally.inelastic(&at(1.0, 259.0, 0), 50.0);
+    tally.secondary(
+        &at(1.0, 259.0, 0),
+        &metal_event(50.0),
+        Some(&at(1.0, 55.0, 0)),
+    );
+    tally.inelastic(&at(1.0, 209.0, 0), 50.0);
+    tally.secondary(
+        &at(1.0, 209.0, 0),
+        &metal_event(50.0),
+        Some(&at(1.0, 55.0, 0)),
+    );
+    capped_secondary(&mut tally, 1.0, 55.0, 1);
+    capped_secondary(&mut tally, 1.0, 55.0, 1);
+    tally.end_history(1, Fate::EventCap);
+    let r = tally.report();
+    assert_eq!(r.fates.event_capped, 1);
+    assert_eq!(r.event_caps.secondary_tracks, 4);
+    assert_eq!(r.event_caps.affected_histories, 2);
+    // The primary's own last state (209 eV) is still the one counted for it.
+    assert_eq!(r.budget.event_cap_ev, 210.0 + 110.0 + 209.0);
+
+    // History 2: the primary escapes without secondaries: not affected.
+    let vac = at(0.0, 300.0, 0);
+    tally.begin_history(2, &vac);
+    let mut out = at(0.0, 300.0, 0);
+    out.dir = [-1.0, 0.0, 0.0];
+    tally.reflected(&out, Boundary::Surface(Face::Front));
+    tally.escaped(&out, Face::Front);
+    tally.end_history(2, Fate::Escaped(Face::Front));
+    let r = tally.report();
+    check_balance(&r);
+    assert_eq!(r.histories, 3);
+    assert_eq!(r.fates.event_capped, 1);
+    assert_eq!(r.event_caps.secondary_tracks, 4);
+    assert_eq!(r.event_caps.affected_histories, 2);
 }
 
 fn tally_threaded(threads: usize) -> ElectronReport {
@@ -1195,4 +1660,33 @@ fn full_tally_report_is_bit_identical_for_1_2_and_8_threads_with_both_models() {
         assert_eq!(r1, r, "report differs on {n} threads");
         assert_eq!(j1, serde_json::to_string(&r).unwrap());
     }
+}
+
+/// Deposits are measured from the band bottom, so with secondaries in a metal
+/// they include the Fermi-sea energy of liberated conduction electrons and can
+/// exceed the energy the beam imparted. The net energy imparted is
+/// `incident - escaped = deposited + trapped + barrier - fermi_sea -
+/// phonon_absorbed` (module docs of `lindhard::tally::electron`, "Deposits and
+/// the energy imparted"). The run is the one the review of #116 measured.
+#[test]
+fn net_energy_imparted_subtracts_the_fermi_sea_from_the_deposits() {
+    let r = tally_run(&metal_on_insulator(full_physics()));
+    check_balance(&r);
+    let b = &r.budget;
+    let imparted = b.incident_ev - b.escaped_ev;
+    let net = b.deposited_ev + b.trapped_ev + b.barrier_ev - b.fermi_sea_ev - b.phonon_absorbed_ev;
+    // Same tolerance as the balance, relative to the energy entering it.
+    let scale = b.incident_ev + b.fermi_sea_ev + b.phonon_absorbed_ev;
+    assert!(
+        (imparted - net).abs() <= 1e-9 * scale,
+        "imparted {imparted} eV, net from deposits {net} eV: {b:?}"
+    );
+    // The documented caveat, pinned by a real case: the deposits exceed what
+    // the beam gave the solid.
+    assert!(b.fermi_sea_ev > 0.0);
+    assert!(
+        b.deposited_ev > imparted,
+        "deposited {} eV, imparted {imparted} eV",
+        b.deposited_ev
+    );
 }

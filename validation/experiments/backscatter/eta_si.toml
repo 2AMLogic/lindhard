@@ -1,0 +1,66 @@
+# Backscatter coefficient eta of bulk Si at normal incidence (#148): the
+# committed input of the level-3 eta comparison (docs/validation.md,
+# "Backscatter coefficient"). validation/experiments/backscatter.py runs it at
+# each comparison energy (it changes only electron.beam.energy_ev and
+# run.histories, and for the sensitivity runs the two elastic corrections);
+# as written it is the 10 keV run and can be run by hand:
+#
+#   lindhard run validation/experiments/backscatter/eta_si.toml --out out/eta_si
+#
+# eta is results.yields.backscatter_eta of electron_summary.json: electrons
+# leaving the front face with at least 50 eV, per primary.
+#
+# Model, and what it is not (docs/validation.md lists the gaps):
+# - Elastic: Mott cross sections from radial-Dirac partial waves on the
+#   Salvat et al. (1987) DHFS potential, with the Furness-McCarthy exchange
+#   and the correlation-polarization corrections on (both solved on the DHFS
+#   Poisson density).
+# - Inelastic: the single-pole Penn algorithm on the energy-loss function of
+#   Yang et al. (2019), derived from REELS spectra (not a direct optical
+#   measurement). That ELF ENDS AT 199 eV: the Si K shell (about 1.84 keV)
+#   and the L-shell tail above 199 eV are absent, and the transport loop has
+#   no inner-shell channel to supply them (#156), so the stopping power lacks
+#   their share. Full Penn is the issue's model, but its tables do not build
+#   in a usable time (#168 measured this target at 5 keV unfinished at 60 min
+#   on 4 threads; single pole: 108 s); speeding that build up is #256.
+# - No secondaries and a transparent surface: no band parameters of Si are
+#   committed. With a 50 eV cutoff no electron that could count towards eta
+#   is dropped, but fast secondaries (above 50 eV) are not generated.
+
+[electron.beam]
+energy_ev = 10000.0
+tilt_deg = 0.0
+
+[electron.transport]
+cutoff_ev = 50.0
+cutoff_reference = "band-bottom"
+escape_rule = "both-faces"
+secondaries = "off"
+boundary = "transparent"
+
+[electron.elastic]
+model = "mott"
+potential = "salvat-dhfs"
+exchange = true
+
+[electron.elastic.correlation_polarization]
+# Seltzer's cutoff rule needs every table energy above 50 eV, hence the
+# 51 eV grid start below.
+polarizability.Si = { bohr3 = 37.3, source = "P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 14 Si, recommended 37.3 +- 0.7 a.u." }
+
+[electron.inelastic]
+model = "penn-single-pole"
+
+[electron.tables]
+min_energy_ev = 51.0
+points_per_decade = 20.0
+
+[electron.materials.Si]
+optical_elf = "../../data/optical/si_elf_yang2019.toml"
+
+[target]
+substrate = "Si"
+
+[run]
+histories = 100000
+seed = 1

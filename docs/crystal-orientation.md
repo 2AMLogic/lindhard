@@ -3,7 +3,9 @@
 This page states the conventions of `lindhard::ion::crystal` (steps 19a and
 19b of the M2 crystal plan): how a cubic or hexagonal lattice is described, how the beam direction in
 the lab becomes a direction in the crystal, and how beam divergence is
-sampled. It is a data model only; the transport engine does not read it yet.
+sampled. The transport engine reads it through `Bca::with_crystal`, and the shared
+TOML input selects a cubic preset with `[[crystal]]` (`docs/cli.md`), where the beam's
+`tilt_deg` and `azimuth_deg` are the tilt and twist defined here.
 The code docs (`lattice`, `orientation` and `divergence` modules) carry the
 same statements next to the code.
 
@@ -38,7 +40,9 @@ The presets and their lattice constants (every value has a row in
 
 The lattice is rigid: no thermal expansion is applied, and the temperature
 is metadata of the cited value. Thermal vibration is the separate Debye
-model in `ion::crystal::debye`.
+model in `ion::crystal::debye`; the target temperature it uses is an input of
+the crystal flight model (`CrystalTarget::thermal`, see `ion::bca::crystal`),
+not this temperature.
 
 Miller indices `(hkl)` and directions `[uvw]` refer to the conventional cubic
 cell. The plane normal is the reciprocal lattice vector
@@ -119,6 +123,15 @@ NIST/SEMATECH e-Handbook, section 1.3.5.16; p-value from Kolmogorov's
 limiting distribution, Marsaglia, Tsang and Wang, J. Stat. Softw. 8(18)
 (2003), section 3).
 
+**In transport.** `Bca::with_divergence` (or `[beam.divergence]` in the
+input, `docs/cli.md`) applies the sampler to each primary's initial
+direction, conditioned on pointing into the target (rejection, at most 1000
+draws per primary, then an error). Those draws come from a separate segment of
+the history's stream (word `2^65`), not the transport draws, so the sampler
+itself is unchanged and `Divergence::None` still takes no draws. A Gaussian
+`sigma` is per plane, not a cone width. The finite-spread input is a
+capability, not a validated channeling prediction.
+
 ## Hexagonal lattices
 
 Wurtzite and the SiC polytypes 4H and 6H (space group P6₃mc, No. 186) use
@@ -182,11 +195,16 @@ otherwise follows the conventions above.
 The lattice search walks rectangular cells: the cube for cubic lattices, and
 for hexagonal ones the orthohexagonal cell spanned by `a1 + a2`, `a2 − a1`
 and `c` (edges `a`, `√3 a`, `c`), which holds each basis site twice.
+`Bca::with_crystal` uses the same cell for the per-history random
+translation of the lattice, the nearest-neighbour distance behind the
+default search parameters, and the per-site thermal amplitudes, so a
+hexagonal crystal runs in the engine. Only the cubic presets are selectable
+from the TOML input, and no hexagonal channeling result has been validated.
 
 ## Not here yet
 
-The use of the collision search in the transport engine (including thermal
-displacements) and any input-file schema for crystals are later steps.
-D. S. Gemmell, Rev. Mod. Phys. 46, 129 (1974), is the background reference
-of #19 and #179 for channeling; it was not opened for either step and
-nothing here rests on it.
+Input-file presets for the hexagonal lattices are a later step. The collision
+search through lattice sites, and its use of thermal displacements, are in
+`ion::bca::crystal`. D. S. Gemmell, Rev. Mod. Phys. 46, 129 (1974), is the
+background reference of #19 and #179 for channeling; it was not opened for
+either step and nothing here rests on it.

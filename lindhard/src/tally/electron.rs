@@ -50,6 +50,18 @@
 //! - **Energy balance.** The incident energy plus the Fermi-sea source equals
 //!   the deposited, escaped, trapped and barrier terms, see
 //!   [the energy balance](#the-energy-balance) and [`ElectronEnergyBudget`].
+//! - **Table coverage.** A numerical diagnostic, not a physical result: per
+//!   layer and channel, how many rate evaluations of the transport read the
+//!   cross-section table inside its energy grid and how many used the
+//!   constant continuation below or above it
+//!   ([`super::table_coverage`], [`ElectronReport::table_coverage`]). These
+//!   are rate evaluations, not collisions.
+//! - **Event-cap counts.** Another numerical diagnostic: how many secondary
+//!   tracks the collision cap cut off, and how many primary histories had
+//!   any electron (the primary or a secondary) cut off by it
+//!   ([`EventCapCounts`], [`ElectronReport::event_caps`]). The primary's own
+//!   cap stays in [`FateCounts::event_capped`]; zero there does not mean the
+//!   secondary cascades completed.
 //!
 //! # The SE/BSE split
 //!
@@ -102,7 +114,11 @@
 //!   state seen for the capped electron is counted as trapped: at
 //!   `end_secondary` for a secondary, at `end_history` for the primary. The
 //!   last state is kept per electron; the primary's is set aside when the
-//!   first secondary begins, so a secondary cannot overwrite it.
+//!   first secondary begins, so a secondary cannot overwrite it. Each capped
+//!   secondary is also counted once in [`EventCapCounts::secondary_tracks`],
+//!   and a history with any capped electron once in
+//!   [`EventCapCounts::affected_histories`]; these counts do not touch the
+//!   energy accounting.
 //!
 //! # The energy balance
 //!
@@ -154,6 +170,25 @@
 //! `barrier` are zero and the balance is `incident = deposited + escaped +
 //! trapped`.
 //!
+//! ## Deposits and the energy imparted
+//!
+//! Deposits (`deposited`, the per-layer totals and every grid cell) are
+//! measured from the band bottom. With a secondary model in a layer with a
+//! Fermi energy, a liberated conduction electron's kinetic energy includes
+//! the `-binding` it already had (the `fermi_sea` source), and wherever that
+//! electron stops, its whole remaining energy above the band bottom is
+//! deposited. So deposits include Fermi-sea energy the beam never supplied,
+//! and `deposited` can exceed the energy the beam imparted to the target.
+//! Moving the sources of the balance above to the right side gives the net
+//! energy imparted:
+//!
+//! ```text
+//! incident - escaped = deposited + trapped + barrier - fermi_sea - phonon_absorbed
+//! ```
+//!
+//! Without a secondary model and without the insulator channels the two
+//! source terms are zero.
+//!
 //! # Determinism
 //!
 //! Counts are integers, histograms have integer bins, and the grids, totals
@@ -167,9 +202,11 @@ use serde::{Deserialize, Serialize};
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
 use super::psf::{PsfConfig, PsfError, RadialAccumulator, RadialProfile};
+use super::table_coverage::{LayerTableCoverage, TableCoverageTally};
 use crate::electron::secondary::{SecondaryEvent, SecondaryModel};
 use crate::electron::transport::{
-    Boundary, ElectronState, ElectronTally, Face, Fate, PhononEvent, Transport,
+    Boundary, ElectronState, ElectronTally, Face, Fate, GridCoverage, PhononEvent, TableChannel,
+    Transport,
 };
 
 /// Default SE/BSE energy split, eV: an escaping electron below this energy is
@@ -563,6 +600,7 @@ pub struct FullElectronTally {
     secondaries: bool,
     histories: u64,
     fates: FateCounts,
+    event_caps: EventCapCounts,
     budget: Budget,
     layer_deposit_ev: Vec<f64>,
     cartesian: Option<GridAcc>,
@@ -578,6 +616,8 @@ pub struct FullElectronTally {
     primary_stop_radial: Moments,
     front: FaceAcc,
     back: FaceAcc,
+    /// Rate evaluations against each table's energy grid.
+    table_coverage: TableCoverageTally,
     /// Per-history scratch, not part of the result and cleared at every
     /// history boundary: the last state seen of the current electron, for
     /// [`Fate::EventCap`] (`None` once it ended through a hook).
@@ -586,6 +626,10 @@ pub struct FullElectronTally {
     primary_last: Option<ElectronState>,
     /// Whether the history has reached its secondaries.
     in_secondary: bool,
+    /// Whether a secondary of the current history was cut off by the event
+    /// cap (so the history is counted once in
+    /// [`EventCapCounts::affected_histories`]).
+    history_capped: bool,
 }
 
 impl FullElectronTally {
@@ -630,6 +674,7 @@ impl FullElectronTally {
             secondaries: transport.config().secondaries != SecondaryModel::Off,
             histories: 0,
             fates: FateCounts::default(),
+            event_caps: EventCapCounts::default(),
             budget: Budget::default(),
             layer_deposit_ev: vec![0.0; transport.stack().layers().len()],
             cartesian,
@@ -642,9 +687,11 @@ impl FullElectronTally {
             primary_stop_radial: Moments::new(),
             front: FaceAcc::new(&config),
             back: FaceAcc::new(&config),
+            table_coverage: TableCoverageTally::new(transport),
             last: None,
             primary_last: None,
             in_secondary: false,
+            history_capped: false,
         })
     }
 
@@ -739,6 +786,7 @@ impl FullElectronTally {
                 config: self.config,
             },
             fates: self.fates,
+            event_caps: self.event_caps,
             budget: self.budget.report(),
             yields,
             front,
@@ -755,6 +803,7 @@ impl FullElectronTally {
                     radial: self.primary_stop_radial.summary(),
                 },
             },
+            table_coverage: self.table_coverage.layers().to_vec(),
         }
     }
 }
@@ -765,10 +814,15 @@ impl ElectronTally for FullElectronTally {
         self.last = Some(*start);
         self.primary_last = None;
         self.in_secondary = false;
+        self.history_capped = false;
     }
 
     fn step(&mut self, _from: [f64; 3], end: &ElectronState, _length_m: f64) {
         self.last = Some(*end);
+    }
+
+    fn table_lookup(&mut self, at: &ElectronState, channel: TableChannel, coverage: GridCoverage) {
+        self.table_coverage.record(at.layer, channel, coverage);
     }
 
     fn elastic(&mut self, after: &ElectronState, _theta: f64) {
@@ -851,6 +905,8 @@ impl ElectronTally for FullElectronTally {
             if let Some(s) = self.last {
                 self.budget.event_cap += s.energy_ev;
             }
+            self.event_caps.secondary_tracks += 1;
+            self.history_capped = true;
         }
         self.last = None;
     }
@@ -929,9 +985,14 @@ impl ElectronTally for FullElectronTally {
                 }
             }
         }
+        if self.history_capped || fate == Fate::EventCap {
+            // Once per history, however many of its electrons were capped.
+            self.event_caps.affected_histories += 1;
+        }
         self.last = None;
         self.primary_last = None;
         self.in_secondary = false;
+        self.history_capped = false;
     }
 
     /// Field-wise merge.
@@ -950,6 +1011,7 @@ impl ElectronTally for FullElectronTally {
         );
         self.histories += o.histories;
         self.fates.merge(&o.fates);
+        self.event_caps.merge(&o.event_caps);
         self.budget.merge(&o.budget);
         for (a, b) in self.layer_deposit_ev.iter_mut().zip(&o.layer_deposit_ev) {
             *a += b;
@@ -972,6 +1034,7 @@ impl ElectronTally for FullElectronTally {
         self.primary_stop_radial.merge(&o.primary_stop_radial);
         self.front.merge(&o.front);
         self.back.merge(&o.back);
+        self.table_coverage.merge_from(&o.table_coverage);
     }
 }
 
@@ -984,6 +1047,11 @@ pub struct ElectronReport {
     pub metadata: ElectronTallyMetadata,
     /// How the primary histories ended.
     pub fates: FateCounts,
+    /// Electrons cut off by the collision cap: capped secondary tracks and
+    /// histories with any capped electron. A numerical diagnostic; all zero
+    /// in reports written before it existed.
+    #[serde(default)]
+    pub event_caps: EventCapCounts,
     /// Summed energy balance of all histories, eV.
     pub budget: ElectronEnergyBudget,
     /// Emission yields per primary.
@@ -999,6 +1067,13 @@ pub struct ElectronReport {
     pub generation_volume: Option<GenerationVolume>,
     /// Where electrons fell below the stopping threshold.
     pub stopping_points: StoppingPoints,
+    /// Per layer, the rate evaluations of the elastic and inelastic tables
+    /// inside and beyond each table's energy grid, with the grid bounds
+    /// (primaries and secondaries together). These count evaluations, not
+    /// collisions; see [`super::table_coverage`]. Empty in reports written
+    /// before it existed.
+    #[serde(default)]
+    pub table_coverage: Vec<LayerTableCoverage>,
 }
 
 /// The settings and conventions a report was made with.
@@ -1056,6 +1131,30 @@ impl FateCounts {
     }
 }
 
+/// Electrons cut off by the collision cap ([`Fate::EventCap`]), a numerical
+/// truncation diagnostic rather than a physical fate. The primaries' own caps
+/// are [`FateCounts::event_capped`] (one fate per primary); these counts add
+/// the secondaries. Both are plain counts (tracks, histories), not energies;
+/// the energy the capped electrons still carried is
+/// [`ElectronEnergyBudget::event_cap_ev`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct EventCapCounts {
+    /// Secondary tracks cut off by the cap, one per capped secondary.
+    #[serde(default)]
+    pub secondary_tracks: u64,
+    /// Primary histories in which the primary or at least one secondary was
+    /// cut off by the cap, each counted once.
+    #[serde(default)]
+    pub affected_histories: u64,
+}
+
+impl EventCapCounts {
+    fn merge(&mut self, o: &EventCapCounts) {
+        self.secondary_tracks += o.secondary_tracks;
+        self.affected_histories += o.affected_histories;
+    }
+}
+
 /// The energy balance, eV, summed over all histories and every electron of
 /// them (see [the module docs](self#the-energy-balance)):
 /// `incident + fermi_sea + phonon_absorbed = deposited + escaped + trapped +
@@ -1081,7 +1180,13 @@ impl FateCounts {
 pub struct ElectronEnergyBudget {
     /// Energy of the primaries.
     pub incident_ev: f64,
-    /// Deposited in the target.
+    /// Deposited in the target, measured from the band bottom. With a
+    /// secondary model in a layer with a Fermi energy this includes the
+    /// Fermi-sea energy of liberated conduction electrons (`fermi_sea_ev`),
+    /// so it can exceed the energy the beam imparted; the net energy imparted
+    /// is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev -
+    /// fermi_sea_ev - phonon_absorbed_ev` (see
+    /// [the module docs](self#deposits-and-the-energy-imparted)).
     pub deposited_ev: f64,
     /// Carried out of the target.
     pub escaped_ev: f64,
@@ -1178,6 +1283,12 @@ pub struct EmissionClass {
 }
 
 /// Deposited energy by layer and on the configured grids, eV.
+///
+/// Deposits are measured from the band bottom. With a secondary model in a
+/// layer with a Fermi energy they include the Fermi-sea energy of liberated
+/// conduction electrons, so they can sum to more than the energy the beam
+/// imparted; see [`ElectronEnergyBudget::deposited_ev`] and
+/// [the module docs](self#deposits-and-the-energy-imparted).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DepositionReport {
     /// By the layer the deposit was made in.
@@ -1194,6 +1305,11 @@ pub struct DepositionReport {
 }
 
 /// Deposited energy on a [`CartesianGrid`].
+///
+/// Measured from the band bottom: with a secondary model in a layer with a
+/// Fermi energy the cells include the Fermi-sea energy of liberated
+/// conduction electrons, so they can sum to more than the energy the beam
+/// imparted (see [`ElectronEnergyBudget::deposited_ev`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CartesianDeposition {
     /// The grid.
@@ -1218,6 +1334,11 @@ impl CartesianDeposition {
 }
 
 /// Deposited energy on a [`CylindricalGrid`].
+///
+/// Measured from the band bottom: with a secondary model in a layer with a
+/// Fermi energy the cells include the Fermi-sea energy of liberated
+/// conduction electrons, so they can sum to more than the energy the beam
+/// imparted (see [`ElectronEnergyBudget::deposited_ev`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CylindricalDeposition {
     /// The grid.

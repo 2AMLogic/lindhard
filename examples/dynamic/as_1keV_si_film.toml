@@ -40,6 +40,9 @@ ions_per_step = 500
 max_change = 0.1
 # Slabs at most 2 nm thick (each layer is split into equal slabs).
 slab_nm = 2.0
+# Sputter erosion with surface recession is off by default (surface fixed at
+# x = 0); uncomment to let the surface follow the sputtered material.
+# erosion = true
 
 # The implanted species enters the film, so it needs displacement energy
 # (illustrative, as above). Atomic volumes default to the elemental solids.

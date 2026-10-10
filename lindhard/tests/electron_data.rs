@@ -9,7 +9,8 @@
 
 use lindhard::electron::data::{
     AtomBindings, CrossSectionTable, CrossSectionTableParts, ElectronDataError, OpticalElf,
-    SamplingAxis, ShellBinding, Subshell, SubshellBindingTable, CACHE_FORMAT_VERSION,
+    SamplingAxis, ShellBinding, ShellChannelTable, Subshell, SubshellBindingTable,
+    CACHE_FORMAT_VERSION, SHELL_CHANNEL_FORMAT_VERSION,
 };
 
 const SYNTHETIC: &str = "synthetic test fixture, not physical data";
@@ -746,4 +747,170 @@ fn zero_rate_rows_are_never_sampled() {
     // And they survive a round trip as empty rows.
     let back = CrossSectionTable::from_toml_str(&t.to_toml_string().unwrap()).unwrap();
     assert_eq!(back.quantiles(0), None);
+}
+
+// ---------------------------------------------------------------------------
+// ShellChannelTable
+// ---------------------------------------------------------------------------
+
+/// A synthetic inner-shell loss table with binding energy 100 eV: zero rate
+/// at 10 eV, losses in `[100, 100]` at 100 eV and `[100, 150]` above.
+fn shell_loss_table(axis: SamplingAxis, lowest_loss: f64) -> CrossSectionTable {
+    let energy_ev = vec![10.0, 100.0, 1000.0, 10_000.0];
+    CrossSectionTable::new(CrossSectionTableParts {
+        model: "synthetic shell channel".into(),
+        material: "synthetic-material".into(),
+        provenance: SYNTHETIC.into(),
+        axis,
+        energy_ev,
+        inverse_mfp_per_m: vec![0.0, 1e7, 2e7, 2e7],
+        probability: vec![0.0, 0.5, 1.0],
+        quantiles: vec![
+            vec![],
+            vec![100.0, 100.0, 100.0],
+            vec![lowest_loss, 125.0, 150.0],
+            vec![lowest_loss, 125.0, 150.0],
+        ],
+    })
+    .unwrap()
+}
+
+fn shell_channel() -> ShellChannelTable {
+    ShellChannelTable::new(
+        14,
+        Subshell::from_label("L3").unwrap(),
+        100.0,
+        "synthetic binding energy, not physical data",
+        shell_loss_table(SamplingAxis::InelasticEnergyLoss, 100.0),
+    )
+    .unwrap()
+}
+
+#[test]
+fn shell_channel_table_round_trips_identity_binding_and_provenance() {
+    let t = shell_channel();
+    assert_eq!(t.format_version(), SHELL_CHANNEL_FORMAT_VERSION);
+    let text = t.to_toml_string().unwrap();
+    assert!(text.contains("subshell = \"L3\""), "{text}");
+    let back = ShellChannelTable::from_toml_str(&text).unwrap();
+    assert_eq!(back, t);
+    assert_eq!((back.z(), back.subshell().label()), (14, "L3"));
+    assert_eq!(back.binding_energy_ev(), 100.0);
+    assert_eq!(
+        back.binding_provenance(),
+        "synthetic binding energy, not physical data"
+    );
+    assert_eq!(back.table().provenance(), SYNTHETIC);
+    // Through a file too.
+    let path = std::env::temp_dir().join(format!(
+        "lindhard-shell-channel-{}.toml",
+        std::process::id()
+    ));
+    t.write_toml_file(&path).unwrap();
+    let from_file = ShellChannelTable::from_toml_file(&path);
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(from_file.unwrap(), t);
+}
+
+#[test]
+fn shell_channel_table_rejects_stale_or_incompatible_files() {
+    let text = shell_channel().to_toml_string().unwrap();
+    // The wrapper's own version is checked first.
+    let stale = text.replacen(
+        &format!("format_version = {SHELL_CHANNEL_FORMAT_VERSION}"),
+        "format_version = 999",
+        1,
+    );
+    assert!(matches!(
+        ShellChannelTable::from_toml_str(&stale),
+        Err(ElectronDataError::UnsupportedVersion {
+            found: Some(999),
+            ..
+        })
+    ));
+    let missing = text.replacen(
+        &format!("format_version = {SHELL_CHANNEL_FORMAT_VERSION}\n"),
+        "",
+        1,
+    );
+    assert!(matches!(
+        ShellChannelTable::from_toml_str(&missing),
+        Err(ElectronDataError::UnsupportedVersion { found: None, .. })
+    ));
+    // The nested cross-section table keeps its own version check, with the
+    // typed error.
+    let (head, tail) = text.split_at(text.find("[table]").unwrap());
+    let inner = tail.replacen(
+        &format!("format_version = {CACHE_FORMAT_VERSION}"),
+        "format_version = 998",
+        1,
+    );
+    assert!(matches!(
+        ShellChannelTable::from_toml_str(&format!("{head}{inner}")),
+        Err(ElectronDataError::UnsupportedVersion {
+            found: Some(998),
+            ..
+        })
+    ));
+    // Unknown keys, a bad label, blank provenance, a missing table.
+    let unknown = format!("fermi_shift_ev = 1.0\n{text}");
+    assert!(matches!(
+        ShellChannelTable::from_toml_str(&unknown),
+        Err(ElectronDataError::Parse(_))
+    ));
+    let label = text.replacen("subshell = \"L3\"", "subshell = \"L9\"", 1);
+    assert!(matches!(
+        ShellChannelTable::from_toml_str(&label),
+        Err(ElectronDataError::MalformedText {
+            field: "subshell",
+            ..
+        })
+    ));
+    let blank = text.replacen(
+        "binding_provenance = \"synthetic binding energy, not physical data\"",
+        "binding_provenance = \"  \"",
+        1,
+    );
+    assert_eq!(
+        ShellChannelTable::from_toml_str(&blank),
+        Err(ElectronDataError::MissingProvenance)
+    );
+    assert!(matches!(
+        ShellChannelTable::from_toml_str(head),
+        Err(ElectronDataError::Parse(_))
+    ));
+}
+
+#[test]
+fn shell_channel_table_rejects_invalid_metadata() {
+    let l3 = Subshell::from_label("L3").unwrap();
+    let ok = || shell_loss_table(SamplingAxis::InelasticEnergyLoss, 100.0);
+    assert!(ShellChannelTable::new(0, l3, 100.0, SYNTHETIC, ok()).is_err());
+    for b in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+        assert!(
+            ShellChannelTable::new(14, l3, b, SYNTHETIC, ok()).is_err(),
+            "{b}"
+        );
+    }
+    assert_eq!(
+        ShellChannelTable::new(14, l3, 100.0, "", ok()),
+        Err(ElectronDataError::MissingProvenance)
+    );
+    // A loss below the binding energy, or a binding energy above some loss.
+    let low = shell_loss_table(SamplingAxis::InelasticEnergyLoss, 99.0);
+    assert!(ShellChannelTable::new(14, l3, 100.0, SYNTHETIC, low).is_err());
+    assert!(ShellChannelTable::new(14, l3, 100.5, SYNTHETIC, ok()).is_err());
+    // An elastic table is not a loss channel.
+    let elastic = CrossSectionTable::new(CrossSectionTableParts {
+        axis: SamplingAxis::ElasticPolarAngle,
+        quantiles: vec![
+            vec![],
+            vec![0.0, 1.0, 2.0],
+            vec![0.0, 1.0, 2.0],
+            vec![0.0, 1.0, 2.0],
+        ],
+        ..ok().parts().clone()
+    })
+    .unwrap();
+    assert!(ShellChannelTable::new(14, l3, 0.5, SYNTHETIC, elastic).is_err());
 }

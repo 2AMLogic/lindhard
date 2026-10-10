@@ -90,9 +90,12 @@ The orchestrator-side gate above runs *after* the Builder exits, so the failing 
 |------|---------|
 | `0` | Gate passed (a receipt for `HEAD` is recorded), or no enabled `buildGate` command — a no-op. |
 | `1` | Failed, attempts remain: the output tail is printed; fix, commit, re-run. |
-| `4` | Attempts exhausted: `reason=preflight_unresolved`. The claim is released via the protected restore path (a parked, closed or PR target is not re-queued; a failed release is reported) and the Builder opens **no PR**. |
-| `5` | Timed out at `timeoutSeconds` (#10860). Not a check failure: it does not count toward the failure cap, writes no receipt, and **never releases the claim**. The message names the running `[build-gate]` stage. Re-run when the host is less loaded; once timeouts reach `preflightMaxAttempts` it prints `reason=preflight_timeout` and the Builder opens **no PR** (claim kept). |
+| `4` | Attempts exhausted: `reason=preflight_unresolved`. The claim is released via the protected restore path (a parked, closed or PR target is not re-queued, and neither is an issue that did not carry `loom:issue` when it was claimed, #10955; a failed release is reported) and the Builder opens **no PR**. |
+| `5` | Timed out at `timeoutSeconds` (#10860). Not a check failure: it does not count toward the failure cap, writes no receipt, and **never releases the claim**. The message names the running `[build-gate]` stage. The gate's whole process tree is ended first, including stages in other process groups or sessions: SIGTERM, 5 s for the gate's EXIT trap, then SIGKILL (#10955). Re-run when the host is less loaded; once timeouts reach `preflightMaxAttempts` it prints `reason=preflight_timeout`, the Builder opens **no PR** (claim kept), and a further run in the same episode exits `5` without running the gate. |
+| `6` | Deferred (#10955): the host's 1-minute load per CPU is above `buildGate.loadThreshold` (default 0.9, the orchestrator gate's threshold), so the gate was **not run**. Not a failure and not a timeout: no counter moves, and the claim is kept. Re-run in a few minutes. Once deferrals in one episode span `buildGate.maxDeferSeconds` (default 1800) the gate runs regardless of load. |
 | `7` | `--check` only: `HEAD` has no passing receipt. |
+
+**Flaky tests (#10955).** `build-gate.sh` runs nextest with `--retries 1` (`LOOM_BUILD_GATE_TEST_RETRIES` overrides; `0` turns it off), so a test that fails once and passes on its retry does not fail the gate or consume an attempt. Pre-flight then prints `preflight: PASS (flaky, passed on retry: <names>)`. CI does not retry (`retries = 0` in `.config/nextest.toml`), so the same flake can still fail CI: file it.
 
 Attempts and the receipt live in the worktree's git dir (never committed); `buildGate.preflightMaxAttempts` (default 3) bounds the loop within one dispatch episode (`LOOM_SWEEP_ID`); a re-dispatch into the same worktree starts a fresh budget. **Enforcement:** `create-pr.sh` runs `loom-daemon preflight --check` and exits `7` for an un-gated `HEAD`; a binary predating the subcommand skips the check (fail-open, like its sibling guards). A new commit invalidates the receipt, so fixes must be re-gated. Repos with no `buildGate` block are unchanged.
 
@@ -453,6 +456,29 @@ Two concrete failure classes motivated the split (#3985):
   [`troubleshooting.md`](troubleshooting.md) → "Several unrelated things hang at
   once (macOS Gatekeeper / `syspolicyd`)".
 
+A third class was added by #9360, and it is the one to reach for first when the
+gate reds on a **dispatch worker** while the same commit is green in CI:
+
+- **An inherited runtime pin.** The gate runs *inside* an agent session, and
+  every Loom agent session is deliberately spawned with the admitted runtime
+  pinned into its environment (`LOOM_RUNTIME`, plus `LOOM_RUNTIME_<ROLE>` —
+  `launch_env::apply_launch_env`, so `spawn-worker.sh` cannot re-resolve a
+  different runtime after the pre-spawn decision). Those variables outrank every
+  config file a unit-test fixture can write, and the shared
+  `runtime_admission::resolve_binding` reads them first — so on a native worker
+  (`LOOM_RUNTIME=opencode`) a test that installs a Claude surface gets
+  `RuntimeRejected`, and a test asserting the `--model` pin gets no `--model` at
+  all, because the native default-model branch has no shipped default. Three
+  tests failed exactly that way; see #9360's gate log. **The fix belongs in the
+  test, not in the gate**: take
+  `runtime_selection_test_support::ClearedRuntimeSelectionEnv` (an RAII guard
+  that clears every variable `resolve_binding` reads and restores them on drop)
+  in any test that asserts on a runtime binding, an admission outcome, or a
+  resolved dispatch model, and hold a `serial_test` key while it is alive. The
+  gate deliberately does **not** sanitize the environment wholesale: it needs
+  the real `PATH`/`HOME`/credential environment to run at all, and an `env -i`
+  wrapper would hide exactly the host-shaped reds this section is about.
+
 **The gate runs at a mild throttle relative to sweeps (#4020, revises #3985).**
 `build-gate.sh` now defaults to `nice 5` — a mild positive niceness, a real but
 small step down from the sweep children's `nice 0`. It previously re-exec'd
@@ -802,6 +828,70 @@ a spawn adapter) is unaffected. The default is unconditional rather than
 would silently re-enable both failure modes. A worker that genuinely wants
 incremental for one command still can — an inline `CARGO_INCREMENTAL=1 cargo
 build` prefix outranks the ambient value for that invocation only.
+
+### Worker builds cap debuginfo at `line-tables-only` (#11190)
+
+The same dispatcher seam also sets `CARGO_PROFILE_DEV_DEBUG=line-tables-only`
+and `CARGO_PROFILE_TEST_DEBUG=line-tables-only` for every Loom-spawned worker.
+Cargo's default `dev`/`test` profile emits full DWARF, and in a workspace whose
+`tests/*.rs` files are each a crate linking the whole library, every
+integration-test binary carries its own copy: on loom-worker-1 (2026-10-09) one
+loom sweep's run dir reached 26 GB, and a typical test binary was 438 MB, of
+which 425 MB was `.debug_*` sections. `line-tables-only` keeps `file:line` in
+panic backtraces and drops nearly all of the rest. Loom's own CI has built this
+way since #9065 (`.github/workflows/ci.yml`).
+
+Unlike `CARGO_INCREMENTAL=0`, this default never overrides a choice that was
+already made, because a `CARGO_PROFILE_*` variable outranks every `[profile]`
+table cargo reads:
+
+- **Ambient env wins.** A `CARGO_PROFILE_DEV_DEBUG` or `CARGO_PROFILE_TEST_DEBUG`
+  already in the spawning environment is left as it is.
+- **The repo's profile wins.** A `debug` key in the `dev` or `test` profile
+  table of the repo's root `Cargo.toml`, or of a cargo config file a
+  build there reads (`.cargo/config.toml` in the repo or an ancestor, then
+  `$CARGO_HOME/config.toml`), suppresses that profile's variable.
+- **`test` inherits from `dev`.** When `dev` was chosen either way, the `test`
+  variable is not set either, so test binaries keep the inherited choice.
+
+The level is configurable per repo, with an opt-out:
+
+```json
+{ "cargo": { "debuginfo": "full" } }
+```
+
+`cargo.debuginfo` (env override `LOOM_CARGO_DEBUGINFO`; env > config > default)
+takes `line-tables-only` (the default), `limited`, `line-directives-only`,
+`none`, `0` or `1` to inject that level, and `full`, `inherit` or `false` (the
+JSON bool works too) to inject nothing and leave cargo's own resolution alone. Use the opt-out for a repo whose
+agents need a debugger. An unrecognized value falls back to the default. Each
+spawn writes one `# LOOM_CARGO_DEBUGINFO …` line to the worker log saying what
+it set and what it kept, and why. For example:
+`dev=kept(repo-profile) test=kept(inherits-dev)`.
+
+Docker boundaries:
+
+- **Native containment** (Pi, OpenCode) re-execs `spawn-worker.sh`, which
+  re-enters the seam inside the container. Both variables are in its by-name
+  env passthrough, so a value set on the host is ambient in the container and
+  is kept.
+- **Claude containment** re-execs `spawn-claude.sh`, not `spawn-worker.sh`, so
+  nothing in the container re-runs the seam. `spawn-claude.sh` forwards both
+  variables by name next to `-e CARGO_INCREMENTAL=0`, carrying the values the
+  host-side seam chose or kept.
+- `spawn-codex.sh`'s session-exec forwards both variables by name with the other
+  Loom context variables. The private-workspace Codex transport does not
+  forward them.
+
+A host that shares one `CARGO_TARGET_DIR` between worker and interactive builds
+no longer shares artifacts between the two: cargo does not reuse an artifact
+built with a different debuginfo setting. Set `cargo.debuginfo: "full"`, or the same
+`CARGO_PROFILE_*_DEBUG` in the interactive shell, if that matters more than the
+disk the cap saves.
+
+Not covered: a cargo workspace that is not at the repo root (for example
+`src-tauri/`). Its `[profile]` table is not read, so the cap applies over it.
+Set `cargo.debuginfo: "full"` for such a repo if its profile must win.
 
 ## Failure semantics
 

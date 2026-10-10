@@ -21,9 +21,15 @@ licenses are gated separately by `cargo deny` (`deny.toml`).
 - cstool, <https://github.com/Nebula-simulator/cstool>, commit
   `0c739eb3fcc3fe5297e74c601ac4a9546db596cf`:
   `cstool/input_data/band_structure.py` (the metal and insulator band models:
-  Fermi energy and inner potential), ported to
-  `lindhard/src/electron/boundary.rs` (`BandModel`, `BandStructure`). No
-  cstool data file is copied.
+  Fermi energy, minimum excitation energy and inner potential), ported to
+  `lindhard/src/electron/boundary.rs` (`BandModel`, `BandStructure`);
+  `cstool/dielectric_function/compile.py` (`compile_full_imfp_icdf`) and its
+  caller `compile_full_penn` in `apps/cstool.py` (the energy axis of the
+  inelastic table: rows at the kinetic energy above the band bottom, losses
+  below that energy minus the band's minimum excitation energy), followed in
+  `lindhard/src/electron/inelastic/table.rs` (`EnergyAxis::BandBottom`) and
+  `lindhard-cli/src/electron.rs` (`inelastic_axis`); the convention only,
+  no code of the compiler. No cstool data file is copied.
 
 Both repositories carry the same licence:
 

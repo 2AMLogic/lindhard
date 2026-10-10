@@ -17,6 +17,17 @@ lindhard = { path = "lindhard", version = "0.0.1" }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 
+[workspace.lints.rust]
+# `deny`, not `forbid`: a `forbid` cannot be narrowed, and the allocation-count
+# test (lindhard/tests/alloc.rs) must implement `GlobalAlloc`, which is unsafe.
+# The library keeps its own crate-level `#![forbid(unsafe_code)]`.
+unsafe_code = "deny"
+# `warn`, promoted to an error by `-D warnings` in CI: a `pub` item that is not
+# reachable from the crate root should say `pub(crate)`, and every public type
+# implements `Debug` (a manual impl elides trait objects and large tables).
+unreachable_pub = "warn"
+missing_debug_implementations = "warn"
+
 [profile.release]
 codegen-units = 1
 lto = "fat"

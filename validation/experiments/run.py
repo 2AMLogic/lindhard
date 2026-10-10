@@ -45,8 +45,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import random
 import sys
 from pathlib import Path
 
@@ -609,6 +611,225 @@ def run_rustbca_context(ions: int, binary: Path, groups: list[dict], targets: li
         print(f"wrote {path.relative_to(lindhard_cli.REPO)}")
 
 
+# --- opt-in tuning pilot: fit and held-out evaluation (#80) ---
+#
+# A separate path from the comparison above, which it never changes: it reads
+# the same measured sputter-yield datasets (never rewritten), fits one surface
+# binding energy multiplier per target element to a training subset of them,
+# and scores the fit on held-out sets. It is a phenomenological calibration,
+# not a published model choice. Only measured data enter it: no SRIM-derived
+# table and no other code's output (CONTRIBUTING.md). Recipe:
+#
+# 1. Split, before any simulation: per target, the measured sets (one per
+#    original publication) are ordered by the SHA-256 of their id and the first
+#    round(n/3) (at least 1) are held out. Splitting by set keeps the points of
+#    one experimental series on one side.
+# 2. Training points are grouped by energy with the comparison's 2 % rule
+#    (`MERGE_REL`); lindhard runs once per group and factor, on the matched
+#    problem (`sputter_problem`, K = 0) with E_s = factor x the tabulated E_s
+#    and everything else, E_d included, unchanged. This is exactly what
+#    `[physics] tuning` does to that problem (it multiplies the resolved E_s).
+# 3. Objective: the mean over training points of ln(Y_lindhard / Y_measured)^2,
+#    each point against the run of its group. The factor is the grid point
+#    (`TUNING_GRID`) of least objective (ties: the one nearer 1).
+# 4. Uncertainty of the factor: the same selection on `TUNING_BOOTSTRAP`
+#    resamples of the training sets (sets drawn with replacement, seeded),
+#    reusing the grid runs; 16th/50th/84th percentiles are reported.
+# 5. Evaluation: fresh runs with `TUNING_EVAL_IONS` ions at factor 1 (the
+#    untuned control) and at the fitted factor, on the training groups and on
+#    the held-out points grouped by themselves; objective and geometric-mean
+#    ratio to the measurement are reported for each. The held-out side is
+#    simulated only after every factor is chosen and cannot influence it.
+#
+# The fitted factors hold for these matched settings (Ar, normal incidence,
+# E_d = untuned E_s, E_b = 0, cutoffs 2 / 1 eV, ZBL, Lindhard-Scharff,
+# constant free path); their transfer to other settings is not tested here.
+
+TUNING_RESULTS = HERE / "tuning_results.json"
+TUNING_ION = "Ar"
+TUNING_GRID = tuple(round(0.30 + 0.05 * i, 2) for i in range(19))  # 0.30 .. 1.20, bounded
+TUNING_FIT_IONS = 5000
+TUNING_EVAL_IONS = 20000
+TUNING_BOOTSTRAP = 1000
+TUNING_SEED = 1  # lindhard run seed, and the bootstrap's
+TUNING_OBJECTIVE = "mean over points of ln(Y_lindhard / Y_measured)^2"
+
+
+def tuning_split(datasets: list[tuple[Path, dict]]) -> dict[str, dict[str, list[str]]]:
+    """Training and held-out set ids per target (recipe step 1). Depends only
+    on the ids, never on the measured values. A target with one set has no
+    holdout and is left out."""
+    by_target: dict[str, list[str]] = {}
+    for _, d in datasets:
+        if d["ion"] == TUNING_ION and d["incidence_deg"] == 0.0:
+            by_target.setdefault(d["target"], []).append(d["id"])
+    out = {}
+    for target, ids in sorted(by_target.items()):
+        if len(ids) < 2:
+            continue
+        order = sorted(ids, key=lambda i: (hashlib.sha256(i.encode()).hexdigest(), i))
+        n_hold = max(1, round(len(ids) / 3))
+        out[target] = {"train": sorted(order[n_hold:]), "holdout": sorted(order[:n_hold])}
+    return out
+
+
+def tuning_observations(datasets: list[tuple[Path, dict]], ids: list[str]) -> list[dict]:
+    """The measured points of the named sets (flagged points left out, as in
+    `energy_groups`), each with the run energy of its 2 % group within this
+    list. New dicts; the datasets are not modified."""
+    want = set(ids)
+    obs = []
+    for _, d in datasets:
+        if d["id"] not in want:
+            continue
+        for p in d["points"]:
+            if p.get("flag") == "disagrees_between_compilations":
+                continue
+            obs.append({"set": d["id"], "energy_ev": p["energy_ev"], "yield": p["yield"]})
+    obs.sort(key=lambda o: (o["energy_ev"], o["set"], o["yield"]))
+    group: list[dict] = []
+    for o in obs + [None]:
+        if group and (o is None or o["energy_ev"] > group[0]["energy_ev"] * (1 + MERGE_REL)):
+            e = math.exp(sum(math.log(g["energy_ev"]) for g in group) / len(group))
+            for g in group:
+                g["run_energy_ev"] = float(f"{e:.4g}")
+            group = []
+        if o is not None:
+            group.append(o)
+    return obs
+
+
+def tuning_loss(obs: list[dict], sim: dict[float, float]) -> float:
+    """The objective: mean of ln(sim / measured)^2 over `obs`, `sim` keyed by run energy."""
+    return sum(math.log(sim[o["run_energy_ev"]] / o["yield"]) ** 2 for o in obs) / len(obs)
+
+
+def select_factor(grid: tuple[float, ...], obs: list[dict], sims: dict[float, dict[float, float]]) -> tuple[float, list[float]]:
+    """The grid factor of least objective on `obs` (ties: nearer 1), and the
+    objective at every grid point. `sims[factor][run_energy]` is the yield."""
+    losses = [tuning_loss(obs, sims[f]) for f in grid]
+    best = min(range(len(grid)), key=lambda i: (losses[i], abs(math.log(grid[i]))))
+    return grid[best], losses
+
+
+def bootstrap_factor(grid: tuple[float, ...], obs: list[dict], sims: dict, n: int, seed: int) -> dict:
+    """16th, 50th and 84th percentile of the selected factor over `n`
+    resamples of the sets in `obs` (drawn with replacement; recipe step 4)."""
+    sets = sorted({o["set"] for o in obs})
+    by_set = {s: [o for o in obs if o["set"] == s] for s in sets}
+    rng = random.Random(seed)
+    picks = []
+    for _ in range(n):
+        draw = [sets[rng.randrange(len(sets))] for _ in sets]
+        picks.append(select_factor(grid, [o for s in draw for o in by_set[s]], sims)[0])
+    picks.sort()
+
+    def pct(q: float) -> float:
+        return picks[min(n - 1, int(q * n))]
+
+    return {"resamples": n, "seed": seed, "p16": pct(0.16), "p50": pct(0.50), "p84": pct(0.84)}
+
+
+def tuned_problem(target: str, energy_ev: float, ions: int, e_s_ev: float, factor: float) -> dict:
+    """The matched problem (K = 0) with E_s scaled by `factor`; E_d stays the untuned E_s."""
+    p = sputter_problem(TUNING_ION, target, energy_ev, 0, ions, e_s_ev)
+    p["id"] += f"_f{factor:.2f}_n{ions}"
+    p["physics"]["energies"][target]["e_s_ev"] = e_s_ev * factor
+    p["run"]["seed"] = TUNING_SEED
+    return p
+
+
+def _score(obs: list[dict], sim: dict[float, float]) -> dict:
+    lr = [math.log(sim[o["run_energy_ev"]] / o["yield"]) for o in obs]
+    return {"objective": round(tuning_loss(obs, sim), 5), "geo_mean_ratio": round(math.exp(sum(lr) / len(lr)), 4),
+            "points": len(obs), "sets": len({o["set"] for o in obs})}
+
+
+def run_tuning_fit(binary: Path) -> None:
+    """Recipe steps 1-5 for every target; writes `TUNING_RESULTS`."""
+    import subprocess
+
+    datasets = load_sputter_datasets()
+    hashes = {d["id"]: hashlib.sha256(f.read_bytes()).hexdigest() for f, d in datasets}
+    paths = {d["id"]: str(f.relative_to(lindhard_cli.REPO)) for f, d in datasets}
+    split = tuning_split(datasets)  # step 1: fixed before any run
+    runs = lindhard_cli.RUNS / "experiments" / "tuning"
+    version = lindhard_cli.version(binary)
+    # Resume: a run already in `runs` from the same build and input is reused.
+    describe = version[version.find("(") + 1:version.rfind(")")] if "(" in version else None
+
+    def sim(target, energies, ions, e_s, factor):
+        out, se = {}, {}
+        for e in sorted(set(energies)):
+            p = tuned_problem(target, e, ions, e_s, factor)
+            r = lindhard_cli.run(p, runs / p["id"], binary, reuse_describe=describe)
+            out[e], se[e] = r["sputter_yield"], r["sputter_yield_se"]
+        return out, se
+
+    targets = {}
+    for target, s in split.items():
+        e_s, _ = probe_target(TUNING_ION, target, binary)
+        train = tuning_observations(datasets, s["train"])
+        energies = [o["run_energy_ev"] for o in train]
+        sims = {}
+        for f in TUNING_GRID:  # step 2
+            sims[f] = sim(target, energies, TUNING_FIT_IONS, e_s, f)[0]
+        factor, losses = select_factor(TUNING_GRID, train, sims)  # step 3
+        boot = bootstrap_factor(TUNING_GRID, train, sims, TUNING_BOOTSTRAP, TUNING_SEED)  # step 4
+        print(f"{target}: E_s {e_s} eV, factor {factor} (bootstrap {boot['p16']}..{boot['p84']}), "
+              f"training objective {min(losses):.4f} (factor 1: {losses[TUNING_GRID.index(1.0)]:.4f})")
+        # Step 5: the held-out points are read and simulated only now.
+        hold = tuning_observations(datasets, s["holdout"])
+        ev = {}
+        for side, obs in (("training", train), ("holdout", hold)):
+            ev[side] = {}
+            for label, f in (("untuned", 1.0), ("tuned", factor)):
+                y, se = sim(target, [o["run_energy_ev"] for o in obs], TUNING_EVAL_IONS, e_s, f)
+                ev[side][label] = {**_score(obs, y), "max_poisson_rel": round(max(se[e] / y[e] for e in y), 4),
+                                   "runs": [{"energy_ev": e, "yield": y[e], "se": round(se[e], 5)} for e in sorted(y)]}
+        improves = ev["holdout"]["tuned"]["objective"] < ev["holdout"]["untuned"]["objective"]
+        print(f"  holdout objective: untuned {ev['holdout']['untuned']['objective']}, "
+              f"tuned {ev['holdout']['tuned']['objective']} ({'improves' if improves else 'does not improve'})")
+        targets[target] = {
+            "e_s_tabulated_ev": e_s,
+            "factor": factor,
+            "e_s_effective_ev": e_s * factor,
+            "holdout_improves": improves,
+            "bootstrap": boot,
+            "grid_objective": [{"factor": f, "objective": round(v, 5)} for f, v in zip(TUNING_GRID, losses)],
+            "training_sets": s["train"],
+            "holdout_sets": s["holdout"],
+            "training_points": train,
+            "holdout_points": hold,
+            "evaluation": ev,
+        }
+    head = subprocess.run(["git", "-C", str(lindhard_cli.REPO), "rev-parse", "HEAD"], capture_output=True, text=True)
+    TUNING_RESULTS.write_text(json.dumps({
+        "format": "lindhard-tuning-fit/1",
+        "issue": 80,
+        "kind": "phenomenological calibration (opt-in); not a published model choice",
+        "quantity": "surface-binding-energy multiplier per target element",
+        "lindhard_version": version,
+        "repo_head": head.stdout.strip(),
+        "ion": TUNING_ION,
+        "physics": SPUTTER_PHYSICS,
+        "weak_collisions": 0,
+        "e_d_ev": "untuned tabulated e_s_ev",
+        "e_b_ev": 0.0,
+        "split": "per target, sets ordered by sha256(id); first round(n/3) (at least 1) held out",
+        "energy_merge_rel": MERGE_REL,
+        "objective": TUNING_OBJECTIVE,
+        "grid": list(TUNING_GRID),
+        "fit_ions": TUNING_FIT_IONS,
+        "eval_ions": TUNING_EVAL_IONS,
+        "seed": TUNING_SEED,
+        "std_err": "Poisson, sqrt(sputtered) / ions; underestimates the true error (correlated bursts)",
+        "datasets": {i: {"path": paths[i], "sha256": hashes[i]} for i in sorted(hashes)},
+        "targets": targets,
+    }, indent=2) + "\n")
+    print(f"wrote {TUNING_RESULTS.relative_to(lindhard_cli.REPO)}")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ions", type=int, default=20000)
@@ -616,8 +837,14 @@ def main() -> int:
     ap.add_argument("--rustbca", action="store_true", help="also run RustBCA at the sputtering energies (context)")
     ap.add_argument("--rustbca-target", action="append", metavar="T",
                     help="with --rustbca: only this target (repeatable; default every target)")
+    ap.add_argument("--fit-tuning", action="store_true",
+                    help="run the opt-in E_s tuning pilot fit and held-out evaluation only (#80); "
+                         "writes validation/experiments/tuning_results.json, leaves results.json alone")
     args = ap.parse_args()
 
+    if args.fit_tuning:
+        run_tuning_fit(lindhard_cli.lindhard_binary())
+        return 0
     datasets = load_datasets()
     sputter = load_sputter_datasets()
     if args.check:

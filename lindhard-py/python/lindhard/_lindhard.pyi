@@ -3,12 +3,31 @@
 import os
 from typing import Any, Mapping, Sequence
 
+from typing_extensions import Self, final
+
 import numpy as np
 import numpy.typing as npt
 
 __version__: str
+__all__ = [
+    "FATE_NAMES",
+    "Beam",
+    "Element",
+    "Histogram",
+    "InputError",
+    "Layer",
+    "LindhardError",
+    "Material",
+    "Physics",
+    "Run",
+    "RunError",
+    "RunResult",
+    "Tally",
+    "Target",
+    "__version__",
+]
 
-FATE_NAMES: tuple[str, str, str, str]
+FATE_NAMES: list[str]
 """Names of the codes in ``RunResult.ions["fate"]``: stopped, backscattered, transmitted, lateral."""
 
 class LindhardError(Exception):
@@ -20,6 +39,7 @@ class InputError(LindhardError, ValueError):
 class RunError(LindhardError, RuntimeError):
     """The configuration was accepted but the run failed."""
 
+@final
 class Element:
     """One element of a material (give `symbol` or `z`, and one fraction kind)."""
 
@@ -30,8 +50,8 @@ class Element:
     e_d_ev: float | None
     e_b_ev: float | None
     e_s_ev: float | None
-    def __init__(
-        self,
+    def __new__(
+        cls,
         symbol: str | None = None,
         *,
         z: int | None = None,
@@ -40,58 +60,76 @@ class Element:
         e_d_ev: float | None = None,
         e_b_ev: float | None = None,
         e_s_ev: float | None = None,
-    ) -> None: ...
+    ) -> Self: ...
 
+@final
 class Material:
     """Elements with fractions and a mass density (required for compounds)."""
 
     elements: list[Element]
     density_g_cm3: float | None
     name: str | None
-    def __init__(
-        self,
+    def __new__(
+        cls,
         elements: Sequence[Element],
         density_g_cm3: float | None = None,
         name: str | None = None,
-    ) -> None: ...
+    ) -> Self: ...
 
+@final
 class Layer:
     """One finite layer: a material (name or `Material`) and a thickness in nm."""
 
     material: str | Material
     thickness_nm: float
-    def __init__(self, material: str | Material, thickness_nm: float) -> None: ...
+    def __new__(cls, material: str | Material, thickness_nm: float) -> Self: ...
 
+@final
 class Target:
     """Finite layers front to back, then an optional semi-infinite substrate."""
 
     layers: list[Layer]
     substrate: str | Material | None
-    def __init__(
-        self,
+    def __new__(
+        cls,
         layers: Sequence[Layer] | None = None,
         substrate: str | Material | None = None,
-    ) -> None: ...
+    ) -> Self: ...
 
+@final
 class Beam:
-    """The incident beam."""
+    """The incident beam.
+
+    ``divergence_model`` is ``"gaussian"`` (``divergence_deg`` is the standard
+    deviation per plane) or ``"uniform-cone"`` (``divergence_deg`` is the cone
+    half-angle); both in degrees. ``None``: no divergence.
+    """
 
     ion: str
     energy_ev: float
     mass_amu: float | None
     tilt_deg: float
     azimuth_deg: float
-    def __init__(
-        self,
+    divergence_model: str | None
+    divergence_deg: float | None
+    def __new__(
+        cls,
         ion: str,
         energy_ev: float,
         mass_amu: float | None = None,
         tilt_deg: float = 0.0,
         azimuth_deg: float = 0.0,
-    ) -> None: ...
+        divergence_model: str | None = None,
+        divergence_deg: float | None = None,
+    ) -> Self: ...
 
+@final
 class Physics:
-    """Model choices and cutoffs (the `[physics]` table)."""
+    """Model choices and cutoffs (the `[physics]` table).
+
+    Defaults: potential "zbl", stopping "lindhard-scharff", free_path "constant"
+    (the extension cannot expose these string defaults as signature values).
+    """
 
     primary_cutoff_ev: float
     recoil_cutoff_ev: float
@@ -104,22 +142,23 @@ class Physics:
     follow_recoils: bool
     primary_surface_binding_ev: float
     energies: dict[str, dict[str, float]]
-    def __init__(
-        self,
+    def __new__(
+        cls,
         primary_cutoff_ev: float,
         recoil_cutoff_ev: float,
         *,
-        potential: str = "zbl",
+        potential: str = ...,
         screening_length: str | None = None,
-        stopping: str = "lindhard-scharff",
-        free_path: str = "constant",
+        stopping: str = ...,
+        free_path: str = ...,
         min_cm_angle_deg: float | None = None,
         weak_collisions: int = 0,
         follow_recoils: bool = True,
         primary_surface_binding_ev: float = 0.0,
         energies: Mapping[str, Mapping[str, float]] | None = None,
-    ) -> None: ...
+    ) -> Self: ...
 
+@final
 class Tally:
     """What the run records (the `[tally]` table); defaults are the CLI's."""
 
@@ -132,8 +171,8 @@ class Tally:
     escape_energy_bins: int
     escape_polar_bins: int
     dual_pearson: bool
-    def __init__(
-        self,
+    def __new__(
+        cls,
         depth_bin_nm: float | None = None,
         depth_bins: int | None = None,
         per_ion: bool | None = None,
@@ -143,8 +182,9 @@ class Tally:
         escape_energy_bins: int | None = None,
         escape_polar_bins: int | None = None,
         dual_pearson: bool | None = None,
-    ) -> None: ...
+    ) -> Self: ...
 
+@final
 class Histogram:
     """Counts over uniform bins with edges and per-ion densities."""
 
@@ -164,6 +204,7 @@ class Histogram:
     def unit(self) -> str: ...
     def __len__(self) -> int: ...
 
+@final
 class RunResult:
     """The tallies of a finished run."""
 
@@ -191,6 +232,7 @@ class RunResult:
     def summary_json(self) -> str: ...
     def write(self, out_dir: str | os.PathLike[str]) -> None: ...
 
+@final
 class Run:
     """A complete run description: the whole input document of the CLI."""
 
@@ -204,8 +246,8 @@ class Run:
     ions: int
     seed: int
     threads: int | None
-    def __init__(
-        self,
+    def __new__(
+        cls,
         beam: Beam,
         target: Target,
         physics: Physics,
@@ -217,7 +259,7 @@ class Run:
         materials: Mapping[str, Material] | None = None,
         stopping_tables: Sequence[str] | None = None,
         base_dir: str | os.PathLike[str] | None = None,
-    ) -> None: ...
+    ) -> Self: ...
     @staticmethod
     def from_toml(text: str, base_dir: str | os.PathLike[str] | None = None) -> Run: ...
     @staticmethod

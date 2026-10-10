@@ -7,6 +7,9 @@
 //! are then run again and must allocate nothing, whatever the number of
 //! collisions.
 
+// The one place unsafe is needed: a counting `GlobalAlloc` (workspace lint is `deny`).
+#![allow(unsafe_code)]
+
 use std::alloc::{GlobalAlloc, Layout, System};
 use std::cell::Cell;
 

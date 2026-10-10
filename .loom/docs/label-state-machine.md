@@ -43,12 +43,25 @@ pipeline state already lives.
 
 ## Two ways to reach a human (#10000)
 
-An agent reaches a human in exactly two ways: a call is a decision, a human task is a mail.
+Loom signals a human ask with **labels only** (#11087). It sends no mail and
+posts to no inbox or chat; a notifier failure can never reach a role's tick.
 
-1. **It needs a call made:** file a decision (`loom:operator-decision`, 2 to 4 ranked options, each with a why).
-2. **It needs a human to do something:** send one keyed mail to the loom-ui inbox saying in a sentence what to do, and resolve it when the item clears. Helper, key scheme and no-op-when-unconfigured behavior: [`inbox-mail.md`](inbox-mail.md).
+1. **A decision** (a call to make): `loom:operator-decision`, with 2 to 4
+   ranked options, each with a why.
+2. **A task** (something for a human to do): a human-gated label plus a park
+   record whose `reason="…"` says in one sentence what to do.
 
-Nothing else asks a human. The `loom:operator*` labels keep their engine meaning (skip, hold, dispatch lanes) and no label is removed; they are engine-internal, not how a human finds out. First user: the Champion critical-file hold (one mail once the PR is otherwise mergeable). Remaining holds are tracked on #10000.
+**Notifier contract.** The registry property `human_gated`
+(`loom-daemon labels list --property human_gated`) is the authoritative set of
+labels that mean "a human must act": `loom:operator`, `loom:operator-only` and
+its `-mechanical` / `-decision` / `-objective` sub-kinds, and `external`
+(maintainer approval). Not in it: `loom:operator-blocked` (self-clearing),
+`loom:needs-capability` (an agent capability gap), `loom:decision-malformed`
+(Curator repairs it), and the curation and claim labels. An external notifier
+(the 2am `github-events` worker) reads that property instead of hard-coding
+names, turns a human-gated label being added into a notification, and resolves
+it when the label is removed or the item closes or merges. Pinned by
+`label_registry::tests::human_gated_is_exactly_the_human_must_act_labels`.
 
 ## Definition
 
@@ -89,7 +102,7 @@ guard consults.
 
 ## `loom:operator-priority` is not a hold (#9244)
 
-`loom:operator-priority` (the operator's "star") shares a prefix with
+`loom:operator-priority` (the operator's "star"; being replaced by `loom:important` / `loom:very-important`, see [`priority-model.md`](priority-model.md)) shares a prefix with
 `loom:operator` but means the opposite: not "the engine stopped, a human must
 act" but "a human wants this landed ASAP, act now". It is the one "land this
 ASAP" signal; the older urgent label is retired (its `labels.yml` description
@@ -99,12 +112,13 @@ says so, and no role applies it).
   daemon relays a loom-ui star intent; Builder copies it onto the PR it opens;
   `create-issue.sh --parent N` stars a new child of a starred N (audit comment
   `inherited_from=#N`), and, when `autonomous.operatorPriority.materializeLabels`
-  is on (default off), the star-liveness pass writes it on every open
+  is on (the default), the star-liveness pass writes it on every open
   child a starred issue's text links, removing it once that root loses its
   star (never an operator's own star, never because the root closed).
   Never propagated: holds, claim/lifecycle labels, `loom:heavy`, `points:*`.
   Only the star, `external` and (as a default) `tier:*` travel to children;
-  the table and full never-list: `daemon-reference.md` → "What travels to children".
+  the table is each label's registry `propagate` field; full never-list:
+  `daemon-reference.md` → "What travels to children".
 - **Starred first, every stage.** Curator curates starred issues first (a
   starred issue with no workflow label counts as `loom:triage`) and promotes
   them straight to `loom:issue`, because the star is the Tier-3 approval. A
@@ -667,7 +681,8 @@ with `loom:operator-objective` available to all of them as a fourth choice
 
 | Role | Site | Sub-kind it applies |
 |---|---|---|
-| Champion | Unrevised-proposal N=2 escalation (`champion-issue-promo.md`), epic-complete-unpromoted escalation (`champion-common.md`) | `loom:operator-blocked` when the recurring finding is itself a live, open dependency; `loom:operator-decision` otherwise. **Exception, no label applied (#7657)**: when every recurring finding is `premise-false` (a cited path/line-range/repo-state claim, re-verified false on current `main`), Champion closes the proposal (`<!-- champion:premise-false-closed:<main-sha> -->`, `gh issue close --reason "not planned"`) instead of escalating — no `loom:operator-only` and no sub-kind, since nothing is routed to a human. Any mixed premise-false + ordinary finding set still escalates via the row above, unchanged. |
+| Champion | Unrevised-proposal bound (`champion-issue-promo.md` Step 4), reached only after the Curator revision loop (#10753) | `loom:operator-decision`, filed by `loom-daemon operator-decision apply` with ranked options; never a bare hold (#10753). **Exception, no label applied (#7657)**: when every recurring finding is `premise-false` (a cited path/line-range/repo-state claim, re-verified false on current `main`), Champion closes the proposal (`<!-- champion:premise-false-closed:<main-sha> -->`, `gh issue close --reason "not planned"`) instead of escalating — no `loom:operator-only` and no sub-kind, since nothing is routed to a human. Any mixed premise-false + ordinary finding set still escalates via the row above, unchanged. |
+| Champion | Epic-complete-unpromoted escalation (`champion-common.md`) | `loom:operator-blocked` when the recurring finding is itself a live, open dependency; `loom:operator-decision` otherwise |
 | Champion | Dependency-cycle detector (`detect-dependency-cycle.sh`, invoked from `champion-issue-promo.md` and `champion-pr-merge.md`), capped-PR close recommendation (`champion-pr-merge.md`) | `loom:operator-decision` — matching their own rationale ("breaking a cycle is a human decision" / "the approach itself is not viable") |
 | Curator | "Applying `loom:operator-only`" (`curator.md`) — routing an issue that encodes a still-pending human decision instead of closing it | Caller's choice among all four sub-kinds |
 | Builder | "Applying `loom:operator-only`" (`builder.md`) — parking a claimed issue that turns out to need a human; `builder-complexity.md` additionally states that a *size* finding is `loom:blocked`, never this label | Caller's choice among all four sub-kinds |
@@ -729,6 +744,15 @@ rationale: [`premise-gate.md`](premise-gate.md).
 `loom:operator-decision` issue without a valid `decision` block into this label.
 Curator repairs it (back to `loom:operator-decision`) or, if no operator call
 exists, removes it and re-routes; a repeat bounce is left alone.
+
+**`loom:needs-revision` (#10753)**: Champion adds it with a `NEEDS REVISION`
+verdict, routing the issue to Curator instead of waiting for someone to edit
+it. Champion's discovery skips it. Curator revises the body (a dated
+`## Revision` section) and removes it, and the new body hash brings Champion
+back. After at most two rounds plus one final round, Champion files a ranked
+decision with `operator-decision apply` when a preference or authority
+question is named (never a bare `loom:operator-only` hold); factual findings
+get one Curator disposition round instead. Contract and bound: [`promotion-throughput.md`](promotion-throughput.md).
 
 ## `loom:needs-capability` — a narrower claim than `loom:operator-only` (#5817)
 
@@ -988,7 +1012,8 @@ above. Nothing about the guard changes for any other blocking label.
 label's name, description, color, `kind`, `applied_by`/`removed_by`, and the
 boolean properties the daemon's label tables encode (`park`, `skip`,
 `hold`, `operator_gate`, `blocked_colabel`, `hard_exclusion`, `champion_path`,
-`human_gated`, `merge_hold`, `operator_hold`, `contradicts_approval`). It is embedded in `loom-daemon`; query
+`human_gated` (the notifier contract, see "Two ways to reach a human"),
+`merge_hold`, `operator_hold`, `contradicts_approval`). It is embedded in `loom-daemon`; query
 it with `loom-daemon labels list --property park` / `labels get <name>`
 (non-zero exit on an unknown label or property).
 
@@ -1002,4 +1027,6 @@ registry.
 Every daemon table named by a boolean property above is derived from the
 registry; dep_classify's operator-only names stay consts, lockstep-tested
 against `requires_base`/`remove_with` (#5671). Changes go in the registry.
-`stale_after_minutes`, `lifecycle` and `propagate` are inert.
+`propagate` holds #10012's propagation table (`null` = never propagates);
+`star_liveness::propagation_rules` derives its rules from it.
+`stale_after_minutes` and `lifecycle` are inert.

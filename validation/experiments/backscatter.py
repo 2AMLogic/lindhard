@@ -20,15 +20,23 @@ data and schema: validation/data/README.md).
 4. Sensitivity: at SENSITIVITY_ENERGIES_KEV the same input is rerun with the
    two elastic corrections switched off one at a time and together.
 
-A target without a committed input is not run: today that is Si, whose
-optical ELF is a documented gap (#125, docs/data-provenance.md). Its measured
-groups are still reported.
+5. Fast-secondary sensitivity (#148 part 1): Al, Cu, Au and Si rerun with Kieft-Bosch
+   secondaries and the step barrier, band inputs from se_yield.py; `--secondaries-only`
+   runs just these and merges them into the committed results, after rerunning
+   the baseline at the same points and checking it reproduces bit for bit
+   (`--targets Si` limits it to some targets, `--verify-baseline-only` does only
+   the reproduction check, writing nothing).
+
+A target without a committed input is not run; its measured groups are
+still reported. All five targets have one (Si since #169).
 
 Writes `validation/experiments/backscatter_results.json`, which
 `validation/update_docs.py` turns into the tables in docs/validation.md.
 
 Usage:
     validation/experiments/backscatter.py [--histories N] [--threads N] [--reuse]
+    validation/experiments/backscatter.py --secondaries-only [--targets Si,Au] [--threads N] [--reuse]
+    validation/experiments/backscatter.py --verify-baseline-only [--targets Al,Cu] [--threads N] [--reuse]
     validation/experiments/backscatter.py --check
 """
 
@@ -46,6 +54,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
 import lindhard_cli  # noqa: E402
+import se_yield  # noqa: E402  (BAND, METAL_BAND_PROVENANCE: the delta(E) band inputs, read only)
 
 DATA = HERE.parent / "data" / "backscatter"
 INPUTS = HERE / "backscatter"
@@ -71,6 +80,21 @@ VARIANTS = [
     ("polarization", "polarization only", False, True),
     ("none", "no corrections", False, False),
 ]
+
+# Fast-secondary sensitivity (#148, part 1): the baseline input rerun with
+# `secondaries = "kieft-bosch"` and a step barrier at the mid work function,
+# with exactly the band inputs of the delta(E) runs (se_yield.BAND and
+# se_yield.BAND_PROVENANCE): free-electron metal for Al, Cu and Au; for Si the
+# insulator band (gap and affinity: BAND_DEFAULTS, #115; valence-band width:
+# Chelikowsky and Cohen 1974, added by #149), whose barrier is the electron
+# affinity. C has no band data, so it is a stated gap, not run. Everything else
+# (elastic model, optical ELF, tables, 50 eV band-bottom cutoff, seed, primaries)
+# is the baseline's.
+SECONDARY_TARGETS = ["Al", "Cu", "Si", "Au"]
+SECONDARY_ENERGIES_KEV = [1.0, 5.0, 10.0, 30.0]
+SECONDARY_GAPS = {
+    "C": "no band data committed",
+}
 
 # --- dataset checks ---------------------------------------------------------
 
@@ -168,7 +192,7 @@ def measured_group(datasets: list[dict], target: str, e_kev: float) -> dict:
 # --- runs -------------------------------------------------------------------
 
 
-def _replace_once(text: str, pattern: str, repl: str) -> str:
+def _replace_once(text: str, pattern: str, repl) -> str:
     new, n = re.subn(pattern, repl, text, flags=re.M)
     if n != 1:
         raise SystemExit(f"error: expected one match of {pattern!r} in the committed input, found {n}")
@@ -196,6 +220,17 @@ def variant_input(base: str, base_dir: Path, e_kev: float, histories: int,
         if n != 1:
             raise SystemExit("error: the committed input has no correlation_polarization table")
     return t
+
+
+def secondary_input(base: str, base_dir: Path, target: str, e_kev: float, histories: int) -> str:
+    """The baseline input of `target` at `e_kev` with Kieft-Bosch secondaries on,
+    the step barrier (metals: the mid work function; Si: its electron affinity) and
+    the delta(E) band inputs (se_yield.band_line)."""
+    t = variant_input(base, base_dir, e_kev, histories, True, True)
+    t = _replace_once(t, r'^secondaries = ".*"$', 'secondaries = "kieft-bosch"')
+    t = _replace_once(t, r'^boundary = ".*"$', 'boundary = "step-barrier"')
+    line = se_yield.band_line(target, "mid")
+    return _replace_once(t, r"^(optical_elf = .*)$", lambda m: m.group(1) + "\n" + line)
 
 
 def reusable(workdir: Path, text: str, version: str) -> bool:
@@ -233,6 +268,7 @@ def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
     r = s["results"]
     n = r["histories"]
     eta = r["yields"]["backscatter_eta"]
+    fast = r["front"]["fast"]
     elastic = s["physics"]["transport"]["layers"][0]["elastic_model"]
     return {
         "version": s["software"]["git_describe"],
@@ -240,9 +276,64 @@ def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
         "eta": eta,
         "eta_se": math.sqrt(eta * (1.0 - eta) / n),
         "secondary_delta": r["yields"]["secondary_delta"],
+        "fast_count": fast["count"],
         "relative_imbalance": r["budget"]["relative_imbalance"],
         "elastic_model": elastic,
         "table_build_s": s["run"]["table_build_s"],
+    }
+
+
+def run_secondaries(binary: Path, entry: dict, histories: int, threads: int | None, reuse,
+                    verify_baseline: bool, baseline_only: bool = False) -> None:
+    """Fill entry["secondary_sensitivity"] for a target with band inputs.
+
+    With `verify_baseline` (the `--secondaries-only` mode, which keeps the
+    committed baseline) the baseline run at each energy is redone first with
+    this binary and must reproduce the committed eta and delta bit for bit;
+    otherwise the comparison would be against a baseline this binary does not
+    give, and the script stops."""
+    t = entry["target"]
+    inp = INPUTS / f"eta_{t.lower()}.toml"
+    base = inp.read_text()
+    out = {}
+    for e in SECONDARY_ENERGIES_KEV:
+        if verify_baseline:
+            print(f"{t} {e:g} keV baseline (reproduction check)", file=sys.stderr)
+            text = variant_input(base, inp.parent, e, histories, True, True)
+            again = run_one(binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_both", threads, reuse)
+            committed = entry["runs"][f"{e:g}"]
+            for key in ("histories", "eta", "secondary_delta"):
+                if again[key] != committed[key]:
+                    lindhard_cli.die(f"{t} {e:g} keV: baseline {key} {again[key]!r} does not reproduce the "
+                                     f"committed {committed[key]!r} ({committed['version']}); regenerate the "
+                                     "whole table instead")
+        if baseline_only:
+            continue
+        print(f"{t} {e:g} keV secondaries", file=sys.stderr)
+        text = secondary_input(base, inp.parent, t, e, histories)
+        run = run_one(binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_secondaries", threads, reuse)
+        # With secondaries on a primary can yield several fast electrons, so the
+        # binomial error of the baseline does not apply. The summary has no
+        # per-primary multiplicity, so this is the Poisson estimate sqrt(n)/N:
+        # it exceeds the binomial error if no primary yields more than one, and
+        # can understate the error only to the extent that some yield several.
+        run["eta_se"] = math.sqrt(run["fast_count"]) / run["histories"]
+        run["eta_se_kind"] = "poisson"
+        out[f"{e:g}"] = run
+    if not baseline_only:
+        entry["secondary_sensitivity"] = out
+
+
+def secondary_meta(binary: Path) -> dict:
+    return {
+        "lindhard": lindhard_cli.version(binary),
+        "energies_kev": SECONDARY_ENERGIES_KEV,
+        "secondaries": "kieft-bosch",
+        "boundary": "step-barrier",
+        "work_function": "mid",
+        "band_inputs": {t: se_yield.BAND[t] for t in SECONDARY_TARGETS},
+        "band_provenance": {t: se_yield.BAND_PROVENANCE[t] for t in SECONDARY_TARGETS},
+        "gaps": SECONDARY_GAPS,
     }
 
 
@@ -252,6 +343,15 @@ def main() -> int:
     ap.add_argument("--histories", type=int, default=100000)
     ap.add_argument("--threads", type=int, default=None,
                     help="threads per run (results do not depend on it)")
+    ap.add_argument("--secondaries-only", action="store_true",
+                    help="run only the fast-secondary sensitivity and merge it into the committed "
+                         "backscatter_results.json (baseline entries stay as committed)")
+    ap.add_argument("--targets", default=None,
+                    help="with --secondaries-only / --verify-baseline-only: comma-separated targets to "
+                         "run (default: all of SECONDARY_TARGETS); the others keep their committed entries")
+    ap.add_argument("--verify-baseline-only", action="store_true",
+                    help="only rerun the baseline at the secondary-sensitivity points and check it "
+                         "reproduces the committed eta and delta bit for bit; writes nothing")
     ap.add_argument("--reuse", action="store_true",
                     help="reuse a finished run under validation/oracle-runs/backscatter/ whose input is "
                          "byte-identical and whose summary names this binary's version (resumes an "
@@ -263,6 +363,28 @@ def main() -> int:
         return 0
     binary = lindhard_cli.lindhard_binary()
     reuse = lindhard_cli.version(binary) if args.reuse else None
+    if args.secondaries_only or args.verify_baseline_only:
+        res = json.loads(RESULTS.read_text())
+        if res["histories"] != args.histories:
+            lindhard_cli.die(f"--histories {args.histories} differs from the committed {res['histories']}")
+        chosen = args.targets.split(",") if args.targets else SECONDARY_TARGETS
+        bad = [t for t in chosen if t not in SECONDARY_TARGETS]
+        if bad:
+            lindhard_cli.die(f"--targets {bad} not in {SECONDARY_TARGETS}")
+        for entry in res["targets"]:
+            if entry["target"] in chosen:
+                run_secondaries(binary, entry, args.histories, args.threads, reuse, True,
+                                baseline_only=args.verify_baseline_only)
+        if args.verify_baseline_only:
+            print("baseline reproduces the committed eta and delta bit for bit")
+            return 0
+        # Each run keeps the `version` of the binary that produced it; the
+        # top-level entry names the binary of this invocation.
+        res["secondary_sensitivity"] = secondary_meta(binary)
+        res["secondary_sensitivity"]["baseline_reproduced"] = True
+        RESULTS.write_text(json.dumps(res, indent=1) + "\n")
+        print(f"updated {RESULTS.relative_to(lindhard_cli.REPO)}")
+        return 0
     targets = []
     for t in TARGETS:
         groups = [measured_group(datasets, t, e) for e in ENERGIES_KEV]
@@ -284,6 +406,8 @@ def main() -> int:
                     row[vid] = run_one(
                         binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_{vid}", args.threads, reuse)
                 entry["sensitivity"][f"{e:g}"] = row
+        if t in SECONDARY_TARGETS and inp.is_file():
+            run_secondaries(binary, entry, args.histories, args.threads, reuse, False)
         targets.append(entry)
     RESULTS.write_text(json.dumps({
         "format": "lindhard-backscatter-results/1",
@@ -295,6 +419,7 @@ def main() -> int:
         "pass_min_kev": PASS_MIN_KEV,
         "tolerance": TOLERANCE,
         "variants": [{"id": v[0], "label": v[1], "exchange": v[2], "polarization": v[3]} for v in VARIANTS],
+        "secondary_sensitivity": secondary_meta(binary),
         "targets": targets,
     }, indent=1) + "\n")
     print(f"wrote {RESULTS.relative_to(lindhard_cli.REPO)}")

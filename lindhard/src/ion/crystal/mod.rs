@@ -43,8 +43,9 @@
 //!   [`crate::ion::bca::Beam::direction`].
 //!
 //! Thermal vibration of lattice atoms is the Debye model in [`debye`]
-//! (displacement sampling only; it is not yet used by the engine, which
-//! treats the lattice as static).
+//! (amplitude and displacement sampling). The crystal flight model of the
+//! engine uses it when a crystal is given a temperature
+//! ([`CrystalTarget::thermal`](crate::ion::bca::CrystalTarget::thermal)).
 //!
 //! [`search`] finds the lattice sites within an impact parameter of a path
 //! segment by walking rectangular cells ([`Lattice::orthogonal_cell`]: the

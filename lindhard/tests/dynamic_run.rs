@@ -45,13 +45,23 @@ fn si() -> Material {
 
 /// `n_slabs` slabs of `slab_nm` of Si, with a Si substrate if asked.
 fn grid(n_slabs: usize, slab_nm: f64, substrate: bool) -> CompositionGrid {
-    let layers = (0..n_slabs).map(|_| (si(), slab_nm * NM)).collect();
-    let stack = Stack::new(layers, substrate.then(si)).unwrap();
-    let mut g = CompositionGrid::from_stack(
-        &stack,
+    grid_with(
+        n_slabs,
+        slab_nm,
+        substrate,
         Relaxation::ideal_mixing_elemental(&[SI, AS]).unwrap(),
     )
-    .unwrap();
+}
+
+fn grid_with(
+    n_slabs: usize,
+    slab_nm: f64,
+    substrate: bool,
+    relaxation: Relaxation,
+) -> CompositionGrid {
+    let layers = (0..n_slabs).map(|_| (si(), slab_nm * NM)).collect();
+    let stack = Stack::new(layers, substrate.then(si)).unwrap();
+    let mut g = CompositionGrid::from_stack(&stack, relaxation).unwrap();
     // The beam species enters the slabs by implantation.
     g.seed_energies(AS, Some(15.0), None, Some(2.0));
     g
@@ -87,6 +97,17 @@ fn drive(
     policy: StepPolicy,
     seed: u64,
 ) -> Outcome {
+    drive_with(g, count, fluence_m2, policy, seed, false)
+}
+
+fn drive_with(
+    g: CompositionGrid,
+    count: u64,
+    fluence_m2: f64,
+    policy: StepPolicy,
+    seed: u64,
+    erosion: bool,
+) -> Outcome {
     let ls = LindhardScharff::new();
     let mut run = DynamicRun::new(
         g,
@@ -94,7 +115,11 @@ fn drive(
         config(seed),
         &ls,
         table(),
-        DynamicConfig { fluence_m2, policy },
+        DynamicConfig {
+            fluence_m2,
+            policy,
+            erosion,
+        },
     )
     .unwrap();
     let mut records = Vec::new();
@@ -127,6 +152,8 @@ fn fingerprint(o: &Outcome) -> Vec<u64> {
         v.push(r.yields.sputtered_total());
         v.push(r.yields.backscattered);
         v.push(r.removed_slabs.len() as u64);
+        v.push(r.recession_m.to_bits());
+        v.push(r.recession_total_m.to_bits());
     }
     v.extend(o.grid.thicknesses_m().iter().map(|t| t.to_bits()));
     for i in 0..o.grid.n_slabs() {
@@ -302,4 +329,175 @@ fn halving_the_step_converges() {
     let (d2, d4, d8) = (d(2), d(4), d(8));
     eprintln!("thickness differences from the 60-step run: {d2:e} {d4:e} {d8:e}");
     assert!(d4 < d2 && 2.0 * d8 < d2, "{d2:e} {d4:e} {d8:e}");
+}
+
+fn volume(z: u8) -> f64 {
+    lindhard::ion::dynamic::atomic_volume_from_density(z).unwrap()
+}
+
+/// Cumulative recession from the per-element sputtered counts and the stated
+/// relaxation volume (`per_atom` converts atoms/m^2 to m).
+fn expected_recession(o: &Outcome, per_ion: f64, per_atom: impl Fn(u8) -> f64) -> f64 {
+    let mut r = 0.0;
+    for rec in &o.records {
+        for (&z, &n) in &rec.yields.sputtered {
+            r += n as f64 * per_ion * per_atom(z);
+        }
+    }
+    r
+}
+
+#[test]
+fn erosion_recession_is_yield_times_fluence_over_density() {
+    // No substrate, slabs thick enough that nothing empties: every sputtered
+    // atom comes from a slab, so the recession is the sputtered atoms' volume.
+    let (count, fluence) = (3000u64, 1e20);
+    let per_ion = fluence / count as f64;
+    let ideal = drive_with(grid(4, 5.0, false), count, fluence, fixed(250), 9, true);
+    let last = ideal.records.last().unwrap();
+    assert!(ideal
+        .records
+        .iter()
+        .all(|r| r.clamped == 0 && r.removed_slabs.is_empty()));
+    let sputtered: u64 = ideal
+        .records
+        .iter()
+        .map(|r| r.yields.sputtered_total())
+        .sum();
+    assert!(
+        sputtered > 20,
+        "need sputtering to test erosion ({sputtered})"
+    );
+    let want = expected_recession(&ideal, per_ion, volume);
+    assert!(
+        (last.recession_total_m / want - 1.0).abs() < 1e-9,
+        "{} vs {want}",
+        last.recession_total_m
+    );
+    // Per-step values add up to the cumulative one.
+    let sum: f64 = ideal.records.iter().map(|r| r.recession_m).sum();
+    assert!((sum / last.recession_total_m - 1.0).abs() < 1e-9);
+    // Y * fluence / n for a (nearly) pure Si target: the implanted As is a
+    // trace, so the volume per atom is that of Si to a fraction of a percent.
+    let y = sputtered as f64 / count as f64;
+    let analytic = y * fluence * volume(SI);
+    assert!((last.recession_total_m / analytic - 1.0).abs() < 0.02);
+
+    // The same under a fixed total number density.
+    let n_mix = 5.0e28;
+    let fixed_n = drive_with(
+        grid_with(
+            4,
+            5.0,
+            false,
+            Relaxation::fixed_number_density(n_mix).unwrap(),
+        ),
+        count,
+        fluence,
+        fixed(250),
+        9,
+        true,
+    );
+    let want = expected_recession(&fixed_n, per_ion, |_| 1.0 / n_mix);
+    let got = fixed_n.records.last().unwrap().recession_total_m;
+    assert!((got / want - 1.0).abs() < 1e-9, "{got} vs {want}");
+}
+
+#[test]
+fn erosion_conserves_atoms_with_no_double_removal() {
+    let (count, fluence) = (2000u64, 2e19);
+    let per_ion = fluence / count as f64;
+    let g0 = grid(4, 5.0, false);
+    let (si0, as0) = (g0.total_inventory(SI), g0.total_inventory(AS));
+    let o = drive_with(g0, count, fluence, fixed(100), 2, true);
+    let (mut kept, mut sp_si, mut sp_as, mut back) = (0u64, 0u64, 0u64, 0u64);
+    for r in &o.records {
+        assert_eq!(r.clamped, 0);
+        kept += r.yields.primaries_in_slabs;
+        sp_si += r.yields.sputtered.get(&SI).copied().unwrap_or(0);
+        sp_as += r.yields.sputtered.get(&AS).copied().unwrap_or(0);
+        back += r.yields.recoils_transmitted;
+    }
+    assert_eq!(back, 0, "target meant to be thick enough");
+    assert!(sp_si > 0);
+    let tol = 1e-9 * si0;
+    let d_si = o.grid.total_inventory(SI) - si0;
+    assert!((d_si + sp_si as f64 * per_ion).abs() <= tol, "{d_si}");
+    let d_as = o.grid.total_inventory(AS) - as0;
+    assert!(
+        (d_as - (kept as f64 - sp_as as f64) * per_ion).abs() <= tol,
+        "{d_as}"
+    );
+    // Erosion removes from the front: the front slab is thinner than the
+    // same run without erosion would leave it only through removal, so the
+    // totals agree with the default conventions, which also lose the atoms.
+    let off = drive(grid(4, 5.0, false), count, fluence, fixed(100), 2);
+    assert!(
+        (off.grid.total_inventory(SI) - o.grid.total_inventory(SI)).abs() <= tol,
+        "erosion must not change the total inventory"
+    );
+}
+
+#[test]
+fn erosion_spills_into_deeper_slabs_when_the_front_is_used_up() {
+    let o = drive_with(
+        grid(4, 1.0, false),
+        3000,
+        4e20,
+        StepPolicy::Adaptive {
+            max_ions_per_step: 300,
+            min_ions_per_step: 1,
+            max_change: 0.25,
+        },
+        2,
+        true,
+    );
+    assert!(o.records.iter().any(|r| !r.removed_slabs.is_empty()));
+    // Front slabs are the ones that vanish.
+    assert!(o.records.iter().any(|r| r.removed_slabs.contains(&0)));
+    let last = o.records.last().unwrap();
+    let sum: f64 = o.records.iter().map(|r| r.recession_m).sum();
+    assert!((sum / last.recession_total_m - 1.0).abs() < 1e-9);
+    assert!(last.recession_total_m > 0.0);
+    // Cumulative recession never decreases.
+    assert!(o
+        .records
+        .windows(2)
+        .all(|w| w[1].recession_total_m >= w[0].recession_total_m));
+}
+
+#[test]
+fn erosion_off_reports_no_recession() {
+    let o = drive(grid(3, 5.0, true), 400, 2e19, fixed(100), 4);
+    assert!(o
+        .records
+        .iter()
+        .all(|r| r.recession_m == 0.0 && r.recession_total_m == 0.0));
+}
+
+#[test]
+fn erosion_is_bit_identical_at_1_2_and_8_threads() {
+    let policies = [
+        fixed(50),
+        StepPolicy::Adaptive {
+            max_ions_per_step: 200,
+            min_ions_per_step: 5,
+            max_change: 0.05,
+        },
+    ];
+    for policy in policies {
+        let run = |n| {
+            with_threads(n, || {
+                drive_with(grid(4, 4.0, true), 600, 4e19, policy, 11, true)
+            })
+        };
+        let fp = fingerprint(&run(1));
+        for n in [2, 8] {
+            assert_eq!(
+                fp,
+                fingerprint(&run(n)),
+                "{policy:?} differs on {n} threads"
+            );
+        }
+    }
 }

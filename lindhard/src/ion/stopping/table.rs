@@ -157,6 +157,15 @@ pub struct TableOverride {
     base: Box<dyn ElectronicStopping + Send + Sync>,
 }
 
+// Manual: the base model is a trait object without `Debug`.
+impl std::fmt::Debug for TableOverride {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TableOverride")
+            .field("tables", &self.tables)
+            .finish_non_exhaustive()
+    }
+}
+
 impl TableOverride {
     /// `tables` take precedence over `base` for the pairs they declare.
     pub fn new(

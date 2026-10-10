@@ -11,7 +11,7 @@ use std::fmt::Write as _;
 
 use lindhard::input::TuningReport;
 use lindhard::input::{ModelInfo, Resolved};
-use lindhard::ion::bca::{EnergyBudget, MeanFreePath};
+use lindhard::ion::bca::{CrystalMetadata, EnergyBudget, MeanFreePath};
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::material::MaterialSpec;
 use lindhard::tally::{
@@ -42,13 +42,13 @@ pub const DYNAMIC_COMPOSITION_FILE: &str = "dynamic_composition.csv";
 
 pub const NM: f64 = 1e-9;
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Format {
     pub name: &'static str,
     pub version: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Software {
     pub name: &'static str,
     pub version: &'static str,
@@ -121,6 +121,18 @@ struct Physics {
     /// calibration applied, with original and effective energies.
     #[serde(skip_serializing_if = "Option::is_none")]
     tuning: Option<TuningReport>,
+    /// Present only for a run with `[[crystal]]`: what the engine reports for
+    /// each crystal (lattice, orientation, search and thermal parameters,
+    /// `electronic_constants_unverified` where it applies). Added without a
+    /// `format.version` bump (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    crystal: Vec<CrystalMetadata>,
+    /// Present only for a run with `[beam.divergence]`: the resolved
+    /// distribution, width (radians and degrees), incidence policy and
+    /// random-stream segment. Added without a `format.version` bump
+    /// (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    beam_divergence: Option<lindhard::ion::bca::DivergenceMetadata>,
 }
 
 #[derive(Serialize)]
@@ -475,7 +487,7 @@ struct Files {
 }
 
 /// The only nondeterministic part of the summary.
-#[derive(Serialize, Clone, Copy)]
+#[derive(Debug, Serialize, Clone, Copy)]
 pub struct RunInfo {
     pub threads: usize,
     pub table_build_s: f64,
@@ -523,6 +535,7 @@ pub fn summary_json(
     table: &ScatteringTable,
     t: &CliTally,
     report: &IonReport,
+    crystals: &[CrystalMetadata],
     run: RunInfo,
 ) -> serde_json::Result<String> {
     let c = &r.config;
@@ -610,6 +623,8 @@ pub fn summary_json(
                 })
                 .collect(),
             tuning: r.tuning.clone(),
+            crystal: crystals.to_vec(),
+            beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
         },
         results: Results {
             histories: s.histories,
@@ -848,7 +863,7 @@ pub fn dynamic_steps_csv(d: &DynamicSimulation) -> String {
             s.clamped,
             s.removed_slabs,
             s.slabs.len(),
-            0.0f64,
+            s.recession_m / NM,
             thickness / NM,
             y.backscattered,
             y.transmitted,
@@ -928,6 +943,10 @@ struct DynamicTotals {
     backscattered_per_ion: f64,
     transmitted_per_ion: f64,
     sputtered_per_ion: f64,
+    /// Present only with erosion on, so the summary of a run without it is
+    /// byte-identical to what it was before erosion existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recession_nm: Option<f64>,
 }
 
 #[derive(Serialize)]
@@ -973,6 +992,12 @@ pub fn dynamic_summary_json(r: &Resolved, d: &DynamicSimulation) -> serde_json::
             backscattered_per_ion: last.cumulative.backscattered as f64 / n,
             transmitted_per_ion: last.cumulative.transmitted as f64 / n,
             sputtered_per_ion: last.cumulative.sputtered_total() as f64 / n,
+            recession_nm: r
+                .input
+                .dynamic
+                .as_ref()
+                .is_some_and(|d| d.erosion)
+                .then(|| last.recession_m / NM),
         },
         files: DynamicFiles {
             steps: DYNAMIC_STEPS_FILE,

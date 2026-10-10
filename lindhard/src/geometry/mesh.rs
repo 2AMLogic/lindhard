@@ -106,7 +106,7 @@ use crate::material::Material;
 
 /// Relative size of the geometric tolerance: `tol = TOL_REL x` the scene
 /// diagonal.
-const TOL_REL: f64 = 1e-10;
+pub(super) const TOL_REL: f64 = 1e-10;
 
 fn sub(a: V3, b: V3) -> V3 {
     [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
@@ -527,7 +527,7 @@ impl MeshGeometry {
 }
 
 /// The face class of an outward normal (module docs).
-fn face_of(n: V3) -> Face {
+pub(super) fn face_of(n: V3) -> Face {
     let (ax, ay, az) = (n[0].abs(), n[1].abs(), n[2].abs());
     if ax > ay && ax > az {
         if n[0] < 0.0 {

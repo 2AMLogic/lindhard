@@ -6,7 +6,8 @@
 use std::collections::BTreeMap;
 
 use lindhard::input::{
-    BeamSpec, EnergyOverride, LayerSpec, MaterialRef, PhysicsSpec, TallySpec, TargetSpec,
+    BeamSpec, DivergenceSpec, EnergyOverride, LayerSpec, MaterialRef, PhysicsSpec, TallySpec,
+    TargetSpec,
 };
 use lindhard::material::{ElementSpec, MaterialSpec};
 use pyo3::prelude::*;
@@ -37,7 +38,7 @@ fn enum_parse<T: DeserializeOwned>(field: &str, s: &str) -> PyResult<T> {
 /// use the same kind. `e_d_ev`, `e_b_ev` and `e_s_ev` override the displacement,
 /// lattice-binding and surface-binding energies (eV).
 #[pyclass(module = "lindhard", get_all, set_all, from_py_object)]
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Element {
     pub symbol: Option<String>,
     pub z: Option<u8>,
@@ -107,7 +108,7 @@ impl Element {
 /// compounds; optional for a single element, which then takes its tabulated
 /// density).
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone, Default)]
+#[derive(Debug, Clone, Default)]
 pub struct Material {
     pub elements: Vec<Element>,
     pub density_g_cm3: Option<f64>,
@@ -151,7 +152,7 @@ impl Material {
 
 /// Convert a Python `str` (a name from the run's materials, or an element
 /// symbol) or [`Material`] to a [`MaterialRef`].
-pub fn material_ref(field: &str, obj: &Bound<'_, PyAny>) -> PyResult<MaterialRef> {
+pub(crate) fn material_ref(field: &str, obj: &Bound<'_, PyAny>) -> PyResult<MaterialRef> {
     if let Ok(s) = obj.extract::<String>() {
         Ok(MaterialRef::Name(s))
     } else if let Ok(m) = obj.extract::<PyRef<'_, Material>>() {
@@ -174,6 +175,7 @@ fn material_obj(py: Python<'_>, r: &MaterialRef) -> PyResult<Py<PyAny>> {
 /// One finite layer: a material (a name, or an inline `Material`) and a
 /// thickness in nm.
 #[pyclass(module = "lindhard")]
+#[derive(Debug)]
 pub struct Layer {
     material: MaterialRef,
     /// Thickness, nm.
@@ -231,7 +233,7 @@ impl Layer {
 /// semi-infinite substrate. At least one of the two is required; without a
 /// substrate the target has a back face and particles can be transmitted.
 #[pyclass(module = "lindhard")]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct Target {
     layers: Vec<LayerSpec>,
     substrate: Option<MaterialRef>,
@@ -316,25 +318,29 @@ impl Target {
 /// standard atomic weight), polar angle of incidence from the surface normal
 /// in `[0, 90)` degrees, and azimuth of the incidence plane (degrees).
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Beam {
     pub ion: String,
     pub energy_ev: f64,
     pub mass_amu: Option<f64>,
     pub tilt_deg: f64,
     pub azimuth_deg: f64,
+    pub divergence_model: Option<String>,
+    pub divergence_deg: Option<f64>,
 }
 
 #[pymethods]
 impl Beam {
     #[new]
-    #[pyo3(signature = (ion, energy_ev, mass_amu=None, tilt_deg=0.0, azimuth_deg=0.0))]
+    #[pyo3(signature = (ion, energy_ev, mass_amu=None, tilt_deg=0.0, azimuth_deg=0.0, divergence_model=None, divergence_deg=None))]
     fn new(
         ion: String,
         energy_ev: f64,
         mass_amu: Option<f64>,
         tilt_deg: f64,
         azimuth_deg: f64,
+        divergence_model: Option<String>,
+        divergence_deg: Option<f64>,
     ) -> Self {
         Self {
             ion,
@@ -342,22 +348,53 @@ impl Beam {
             mass_amu,
             tilt_deg,
             azimuth_deg,
+            divergence_model,
+            divergence_deg,
         }
     }
 
     fn __repr__(&self) -> String {
-        format!("{:?}", self.to_spec())
+        match self.to_spec() {
+            Ok(s) => format!("{s:?}"),
+            Err(_) => "Beam(<invalid>)".to_string(),
+        }
     }
 }
 
 impl Beam {
-    pub fn to_spec(&self) -> BeamSpec {
-        BeamSpec {
+    pub fn to_spec(&self) -> PyResult<BeamSpec> {
+        Ok(BeamSpec {
             ion: self.ion.clone(),
             mass_amu: self.mass_amu,
             energy_ev: self.energy_ev,
             tilt_deg: self.tilt_deg,
             azimuth_deg: self.azimuth_deg,
+            divergence: self.divergence_spec()?,
+        })
+    }
+
+    /// The `[beam.divergence]` table. The model name and width must be given
+    /// together and the name must be `gaussian` or `uniform-cone`; anything
+    /// else is rejected here, before the name is lost in the shared schema.
+    /// (The width's range is checked later, at resolution.)
+    fn divergence_spec(&self) -> PyResult<Option<DivergenceSpec>> {
+        match (self.divergence_model.as_deref(), self.divergence_deg) {
+            (None, None) => Ok(None),
+            (Some(_), None) => Err(errors::input(
+                "beam.divergence_deg: required when beam.divergence_model is set",
+            )),
+            (None, Some(_)) => Err(errors::input(
+                "beam.divergence_model: required when beam.divergence_deg is set \
+                 (expected `gaussian` or `uniform-cone`)",
+            )),
+            (Some("gaussian"), Some(w)) => Ok(Some(DivergenceSpec::Gaussian { sigma_deg: w })),
+            (Some("uniform-cone"), Some(w)) => {
+                Ok(Some(DivergenceSpec::UniformCone { half_angle_deg: w }))
+            }
+            (Some(other), Some(_)) => Err(errors::input(format!(
+                "beam.divergence_model: unknown model `{other}` \
+                 (expected `gaussian` or `uniform-cone`)"
+            ))),
         }
     }
 
@@ -368,6 +405,17 @@ impl Beam {
             mass_amu: s.mass_amu,
             tilt_deg: s.tilt_deg,
             azimuth_deg: s.azimuth_deg,
+            divergence_model: s.divergence.map(|d| {
+                match d {
+                    DivergenceSpec::Gaussian { .. } => "gaussian",
+                    DivergenceSpec::UniformCone { .. } => "uniform-cone",
+                }
+                .to_string()
+            }),
+            divergence_deg: s.divergence.map(|d| match d {
+                DivergenceSpec::Gaussian { sigma_deg } => sigma_deg,
+                DivergenceSpec::UniformCone { half_angle_deg } => half_angle_deg,
+            }),
         }
     }
 }
@@ -382,7 +430,7 @@ const ENERGY_KEYS: [&str; 3] = ["e_d_ev", "e_b_ev", "e_s_ev"];
 /// with any of `e_d_ev`, `e_b_ev`, `e_s_ev`, overriding that element's
 /// energies in every layer.
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Physics {
     pub primary_cutoff_ev: f64,
     pub recoil_cutoff_ev: f64,
@@ -515,7 +563,7 @@ impl Physics {
 /// What the run records; the `[tally]` table of the input. Defaults are the
 /// CLI's.
 #[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Tally {
     pub depth_bin_nm: f64,
     pub depth_bins: usize,

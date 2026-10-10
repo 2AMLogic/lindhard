@@ -16,4 +16,20 @@ from ._lindhard import (
     __version__ as __version__,
 )
 
-__all__: list[str]
+__all__ = [
+    "FATE_NAMES",
+    "Beam",
+    "Element",
+    "Histogram",
+    "InputError",
+    "Layer",
+    "LindhardError",
+    "Material",
+    "Physics",
+    "Run",
+    "RunError",
+    "RunResult",
+    "Tally",
+    "Target",
+    "__version__",
+]

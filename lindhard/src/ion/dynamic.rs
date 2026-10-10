@@ -22,11 +22,14 @@
 //! As in [`crate::geometry`]: depth `x = 0` is the front surface and grows into
 //! the target. After every relaxation the cumulative boundaries are rebuilt
 //! from the front surface by [`Stack::new`], so layers are contiguous. The
-//! front surface is fixed at `x = 0`: erosion or swelling moves the interior
-//! interfaces and the back face, never the front surface. (Following the
-//! surface as it recedes is a choice for the caller that maps depth between
-//! steps.) Only finite slabs are mutable. An optional semi-infinite substrate
-//! is an immutable backing material and is never part of the inventory.
+//! front surface is fixed at `x = 0`: swelling moves the interior interfaces
+//! and the back face, never the front surface. With sputter erosion on
+//! ([`DynamicConfig::erosion`]) the lost material is removed from the front
+//! and the grid is re-anchored, so the new surface is again `x = 0`; the
+//! cumulative recession `R` (m, reported per step) maps a depth back to the
+//! original frame as `x + R`. With erosion off the surface never moves. Only
+//! finite slabs are mutable. An optional semi-infinite substrate is an
+//! immutable backing material and is never part of the inventory.
 //!
 //! # Volume relaxation
 //!
@@ -77,7 +80,13 @@
 //!   inventory; the roles differ only in how the deltas are produced.
 //! * Aggregate front/back escape counts cannot say which slab an escaped atom
 //!   came from; loss deltas need the origin slab from the transport events,
-//!   not the exit position.
+//!   not the exit position. The default tally gets it by subtracting at the
+//!   recoil event; [`InventoryTally`] also counts sputtered atoms per origin
+//!   slab (`Particle::origin_layer`).
+//! * With erosion on, the loss of a sputtered atom is not taken at its origin
+//!   slab but from the front of the target, element by element, the origin
+//!   loss being cancelled so nothing is removed twice (see
+//!   [`DynamicRun`], "Erosion").
 //!
 //! # Transactions
 //!

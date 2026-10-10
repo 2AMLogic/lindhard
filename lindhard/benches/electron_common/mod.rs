@@ -45,7 +45,7 @@ use lindhard::electron::elastic::table::{
 };
 use lindhard::electron::elastic::SolverOptions;
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, InelasticTableOptions,
+    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{DrudeLorentz, DrudeLorentzOscillator, PennInelastic};
 use lindhard::electron::transport::{LayerTables, Transport};
@@ -56,31 +56,31 @@ use lindhard::material::Material;
 use lindhard::tally::{ElectronReport, FullElectronTally};
 use sha2::{Digest, Sha256};
 
-pub type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
+pub(crate) type Result<T> = std::result::Result<T, Box<dyn Error + Send + Sync>>;
 
 /// Histories per work chunk, as `lindhard-cli` (`CHUNK_SIZE` in
 /// `lindhard-cli/src/electron.rs`). Fixed, so results do not depend on the
 /// thread count.
-pub const CHUNK_SIZE: u64 = 16;
+pub(crate) const CHUNK_SIZE: u64 = 16;
 
 /// Seed of every benchmark run.
-pub const SEED: u64 = 1;
+pub(crate) const SEED: u64 = 1;
 
 /// Environment variable naming a directory of matched inputs.
-pub const INPUTS_ENV: &str = "LINDHARD_BENCH_ELECTRON_INPUTS";
+pub(crate) const INPUTS_ENV: &str = "LINDHARD_BENCH_ELECTRON_INPUTS";
 
 /// One benchmark problem: the #150 problem id, the target element and the
 /// beam energy, and the histories one Criterion iteration runs (chosen so an
 /// iteration takes of the order of a second on one thread).
 #[derive(Debug, Clone, Copy)]
-pub struct ElectronProblem {
+pub(crate) struct ElectronProblem {
     pub id: &'static str,
     pub symbol: &'static str,
     pub energy_ev: f64,
     pub bench_histories: u64,
 }
 
-pub const PROBLEMS: [ElectronProblem; 6] = [
+pub(crate) const PROBLEMS: [ElectronProblem; 6] = [
     ElectronProblem {
         id: "e_1keV_si",
         symbol: "Si",
@@ -119,13 +119,13 @@ pub const PROBLEMS: [ElectronProblem; 6] = [
     },
 ];
 
-pub fn problem(id: &str) -> Option<ElectronProblem> {
+pub(crate) fn problem(id: &str) -> Option<ElectronProblem> {
     PROBLEMS.iter().copied().find(|p| p.id == id)
 }
 
 /// Settings of the synthetic input; [`Settings::matched`] is the #150 one.
 #[derive(Debug, Clone, Copy)]
-pub struct Settings {
+pub(crate) struct Settings {
     pub points_per_decade: f64,
     /// Outer edge (nm) and bins of the radial deposition grid.
     pub rmax_nm: f64,
@@ -135,7 +135,7 @@ pub struct Settings {
 impl Settings {
     /// `validation/oracles/electron_problems.json`: 20 points per decade, a
     /// radial grid out to `E0 / (1 eV)` nm in 10^4 bins.
-    pub fn matched(p: &ElectronProblem) -> Self {
+    pub(crate) fn matched(p: &ElectronProblem) -> Self {
         Self {
             points_per_decade: 20.0,
             rmax_nm: p.energy_ev,
@@ -185,7 +185,7 @@ fn synthetic_band(symbol: &str) -> &'static str {
 }
 
 /// The synthetic input of a problem (see the module docs).
-pub fn synthetic_input_toml(p: &ElectronProblem, s: &Settings, histories: u64) -> String {
+pub(crate) fn synthetic_input_toml(p: &ElectronProblem, s: &Settings, histories: u64) -> String {
     let mut t = String::new();
     let _ = write!(
         t,
@@ -213,7 +213,7 @@ pub fn synthetic_input_toml(p: &ElectronProblem, s: &Settings, histories: u64) -
 }
 
 /// Write the synthetic input of a problem into `dir` and return its path.
-pub fn write_synthetic(
+pub(crate) fn write_synthetic(
     dir: &Path,
     p: &ElectronProblem,
     s: &Settings,
@@ -227,7 +227,7 @@ pub fn write_synthetic(
 }
 
 /// Read and validate an electron input file.
-pub fn resolve(path: &Path) -> Result<ResolvedElectron> {
+pub(crate) fn resolve(path: &Path) -> Result<ResolvedElectron> {
     let text = std::fs::read_to_string(path)?;
     let input = ElectronInput::from_toml_str(&text)?;
     let base = path.parent().unwrap_or(Path::new("."));
@@ -237,7 +237,10 @@ pub fn resolve(path: &Path) -> Result<ResolvedElectron> {
 /// The input of a problem: the matched one from [`INPUTS_ENV`] if set, else
 /// the synthetic one written under the system temporary directory. Returns
 /// the resolved input and whether it is the matched one.
-pub fn problem_input(p: &ElectronProblem, histories: u64) -> Result<(ResolvedElectron, bool)> {
+pub(crate) fn problem_input(
+    p: &ElectronProblem,
+    histories: u64,
+) -> Result<(ResolvedElectron, bool)> {
     if let Some(dir) = std::env::var_os(INPUTS_ENV) {
         let path = Path::new(&dir).join(p.id).join("input.toml");
         return Ok((resolve(&path)?, true));
@@ -248,7 +251,7 @@ pub fn problem_input(p: &ElectronProblem, histories: u64) -> Result<(ResolvedEle
 }
 
 /// The elastic table of one material, as `lindhard-cli` builds it.
-pub fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossSectionTable> {
+pub(crate) fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossSectionTable> {
     let grid = &r.table_energy_ev;
     match r.elastic.potential {
         PotentialChoice::SalvatDhfs => {
@@ -291,22 +294,29 @@ pub fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossSectionT
     }
 }
 
-/// The inelastic table of one material, as `lindhard-cli` builds it.
-pub fn inelastic_table(
+/// The inelastic table of one material, as `lindhard-cli` builds it: on the
+/// band-bottom axis with the band's minimum excitation energy as the model's
+/// Fermi energy for a material with a band, on the model's own axis with
+/// `[electron.inelastic] fermi_energy_ev` otherwise (#241).
+pub(crate) fn inelastic_table(
     r: &ResolvedElectron,
     m: &ResolvedElectronMaterial,
 ) -> Result<CrossSectionTable> {
+    let (fermi_ev, axis) = match &m.band {
+        Some(b) => (b.min_excitation_ev(), EnergyAxis::BandBottom),
+        None => (r.inelastic_fermi_ev, EnergyAxis::ModelFermiLevel),
+    };
     let model = PennInelastic::try_new(r.inelastic, m.optical_elf.clone())?
-        .with_fermi_energy_ev(r.inelastic_fermi_ev)?;
+        .with_fermi_energy_ev(fermi_ev)?;
     Ok(build_inelastic_table_for_model(
         &model,
         &m.material,
-        &InelasticTableOptions::new(r.table_energy_ev.clone()),
+        &InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis),
     )?)
 }
 
 /// Both tables of every material, in `r.materials` order.
-pub fn tables(r: &ResolvedElectron) -> Result<Vec<LayerTables>> {
+pub(crate) fn tables(r: &ResolvedElectron) -> Result<Vec<LayerTables>> {
     r.materials
         .iter()
         .map(|m| {
@@ -319,7 +329,7 @@ pub fn tables(r: &ResolvedElectron) -> Result<Vec<LayerTables>> {
 }
 
 /// The transport and a fresh full tally, set up as `lindhard-cli` does.
-pub fn transport(
+pub(crate) fn transport(
     r: &ResolvedElectron,
     tables: &[LayerTables],
 ) -> Result<(Transport, FullElectronTally)> {
@@ -348,7 +358,7 @@ pub fn transport(
 }
 
 /// Run `histories` primaries on the current rayon pool and report.
-pub fn run(
+pub(crate) fn run(
     r: &ResolvedElectron,
     t: &Transport,
     proto: &FullElectronTally,
@@ -360,7 +370,7 @@ pub fn run(
 
 /// SHA-256 of the report's JSON text: equal digests mean bit-identical
 /// reports (`serde_json` writes every `f64` so that it reads back exactly).
-pub fn report_digest(report: &ElectronReport) -> Result<String> {
+pub(crate) fn report_digest(report: &ElectronReport) -> Result<String> {
     let text = serde_json::to_string(report)?;
     Ok(Sha256::digest(text.as_bytes())
         .iter()

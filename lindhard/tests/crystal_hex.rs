@@ -586,3 +586,74 @@ fn long_polytype_basis_indices_do_not_alias() {
     keys.dedup();
     assert_eq!(keys.len(), total, "a (cell, basis) pair repeats");
 }
+
+/// A hexagonal crystal runs in the BCA engine (`Bca::with_crystal`): the
+/// thermal amplitudes are indexed by the sites of the orthohexagonal search
+/// cell (twice the basis), the default `p_max` is the nearest-neighbour
+/// distance of the hexagonal crystal, and the lattice-constant temperature
+/// of a source that states none is `None` in the run metadata. A plumbing
+/// check only: no hexagonal channeling result is validated here.
+#[test]
+fn hexagonal_crystal_runs_in_the_bca_engine() {
+    use lindhard::geometry::Stack;
+    use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, SummaryTally, Thermal};
+    use lindhard::ion::potential::{Potential, Screening};
+    use lindhard::ion::scattering::{ScatteringTable, TableSpec};
+    use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
+    use lindhard::ion::stopping::Ion;
+
+    let lat = Lattice::silicon_carbide_6h();
+    let (a, c) = (lat.lattice_constant(), lat.lattice_constant_c());
+    let rho = g_cm3_to_kg_m3(SIC_6H_DENSITY_G_CM3);
+    let mut m = Material::from_atom_fractions(&[(14, 1.0), (6, 1.0)], Some(rho)).unwrap();
+    for z in [14, 6] {
+        m.set_displacement_energy_ev(z, 15.0).unwrap();
+        if m.surface_binding_energy_ev(z).is_err() {
+            m.set_surface_binding_energy_ev(z, 5.0).unwrap();
+        }
+    }
+    let st = Stack::new(vec![(m, 1e-6)], None).unwrap();
+    let table = ScatteringTable::build(
+        &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
+        &TableSpec {
+            eps_min: 1e-6,
+            eps_max: 1e4,
+            beta_min: 1e-5,
+            beta_max: 1e2,
+            per_decade: 8,
+        },
+    );
+    let ls = LindhardScharff::new();
+    let o =
+        Orientation::new_miller_bravais(&lat, [0, 0, 0, 1], [1, 1, -2, 0], 0.0, 0.0, 0.0).unwrap();
+    // 300 K and an arbitrary 1000 K Debye temperature: test inputs, not
+    // SiC properties.
+    let target = CrystalTarget::new(lat, o).with_thermal(Thermal::new(300.0, 1000.0));
+    let beam = Beam {
+        ion: Ion::new(7).unwrap(),
+        energy_ev: 5e3,
+        polar_rad: 7f64.to_radians(),
+        azimuth_rad: 0.0,
+        count: 20,
+    };
+    let bca = Bca::new(beam, &st, BcaConfig::new(5.0, 2.0), &ls, &table)
+        .unwrap()
+        .with_crystal(target, &[0])
+        .unwrap();
+
+    let meta = &bca.crystal_metadata()[0];
+    assert_eq!(meta.lattice_constant_m, a);
+    assert_eq!(meta.lattice_constant_temperature_k, None);
+    // The Si-C bond of the near-ideal 6H crystal: a sqrt(3/8) in the basal
+    // network, about 3c/24 along c (both within 1 %).
+    let bond = a * (3.0f64 / 8.0).sqrt();
+    assert!(
+        (meta.p_max_m / bond - 1.0).abs() < 1e-2,
+        "p_max {} m, bond {bond} m (c/8 = {})",
+        meta.p_max_m,
+        c / 8.0
+    );
+
+    let t = bca.run(|| SummaryTally::new(1e-9, 1000)).unwrap();
+    assert_eq!(t.histories, 20);
+}

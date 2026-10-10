@@ -1,5 +1,6 @@
 //! Inelastic validation (issue #99): our full Penn IMFPs, built from the
-//! committed optical ELFs of Al and Cu (`validation/data/optical/`, #98),
+//! committed optical ELFs of Al and Cu (`validation/data/optical/`, #98) and
+//! of Si (#125),
 //! against the published IMFPs of Tanuma, Powell & Penn, Surf. Interface
 //! Anal. 43, 689 (2011), doi:10.1002/sia.3522 ("TPP 2011"), Table 4, at the
 //! rows nearest 100 eV, 1 keV and 10 keV. Fixture:
@@ -25,6 +26,12 @@
 //!   are in Table 2 of their Ref. 10, which was not read. They report f-sum
 //!   errors of +0.9 % (Al) and -1.5 % (Cu) (their Table 3, p. 35). A larger
 //!   ELF gives a shorter IMFP.
+//! - Si: ours is the ELF of Yang et al., Phys. Rev. B 100, 245209 (2019),
+//!   digitized from their Fig. 7 (from REELS, not an optical measurement),
+//!   which ends at 199 eV: nothing above 199 eV (L-shell tail, K shell)
+//!   enters our IMFP, which can only lengthen it at 1 and 10 keV. TPP 2011
+//!   took Si from Palik's handbook (their Ref. 23) to 2 keV and Henke et al.
+//!   above (their Table 2, manuscript p. 33), and E_F = 12.5 eV (Table 1).
 //! - Below 200 eV TPP 2011 expect larger uncertainties (manuscript p. 9), and
 //!   our full Penn procedure is our own reading of S2017 (`full_penn` module
 //!   docs), not Penn's formulae, so the 100 eV tolerance is wider.
@@ -102,19 +109,19 @@ fn tolerance_for(nominal_energy_ev: f64) -> f64 {
 }
 
 #[test]
-fn fixture_covers_al_and_cu_at_the_three_energies_with_the_issue_tolerances() {
+fn fixture_covers_al_cu_and_si_at_the_three_energies_with_the_issue_tolerances() {
     let f = fixture();
     assert_eq!(f.tolerance.rel_at_100_ev, TOL_100EV);
     assert_eq!(f.tolerance.rel_at_1000_ev, TOL_1KEV);
     assert_eq!(f.tolerance.rel_at_10000_ev, TOL_10KEV);
-    assert_eq!(f.material.len(), 2);
+    assert_eq!(f.material.len(), 3);
     for m in &f.material {
         assert!(m.fermi_energy_ev > 0.0, "{}", m.symbol);
         assert!(m.fermi_cite.contains("Table 1"), "{}", m.symbol);
     }
     // Table 4 rows nearest the nominal energies (10 % logarithmic grid).
     let rows = [(100.0, 99.5), (1000.0, 992.3), (10000.0, 9897.1)];
-    for sym in ["Al", "Cu"] {
+    for sym in ["Al", "Cu", "Si"] {
         assert!(f.material.iter().any(|m| m.symbol == sym), "{sym}");
         for (nominal, row) in rows {
             let hits: Vec<&Case> = f
@@ -126,7 +133,7 @@ fn fixture_covers_al_and_cu_at_the_three_energies_with_the_issue_tolerances() {
             assert_eq!(hits[0].energy_ev, row, "{sym} {nominal}");
         }
     }
-    assert_eq!(f.case.len(), 6);
+    assert_eq!(f.case.len(), 9);
     // Every value carries its table, row and page.
     for c in &f.case {
         assert!(c.imfp_angstrom > 0.0);
@@ -146,7 +153,7 @@ fn fixture_covers_al_and_cu_at_the_three_energies_with_the_issue_tolerances() {
 }
 
 #[test]
-fn full_penn_imfps_match_tpp_2011_for_al_and_cu() {
+fn full_penn_imfps_match_tpp_2011_for_al_cu_and_si() {
     if !optical_dir().is_dir() {
         // A packaged crate does not ship validation/data.
         eprintln!("validation/data/optical not found; TPP comparison skipped");

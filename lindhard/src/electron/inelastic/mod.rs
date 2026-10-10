@@ -11,14 +11,17 @@
 //! analytic Drude-Lorentz ELF with closed-form sum rules, used as a synthetic
 //! fixture by the tests, examples and benchmarks.
 //!
-//! No optical data is committed (`docs/data-provenance.md`); every ELF comes
-//! from the caller.
+//! No optical data is committed for this module (`docs/data-provenance.md`):
+//! the valence ELF comes from the caller.
 //!
 //! [`inner_shell`] resolves the losses into a valence channel and
 //! inner-shell ionization channels (secondary energy `ω - B`), each from its
-//! own caller-supplied optical ELF, and the optional Born-Ochkur
+//! own optical ELF, and the optional Born-Ochkur
 //! [`ExchangeCorrection`] makes the primary and the struck electron
-//! indistinguishable at low energy.
+//! indistinguishable at low energy. [`shell_elf`] builds the inner-shell
+//! ELFs of the K, L1, L2 and L3 subshells from the hydrogenic
+//! photoionization formulas and a subshell binding-energy table; other
+//! shells come from the caller.
 //!
 //! [`table`] builds the inelastic energy-loss `CrossSectionTable` and a
 //! momentum-transfer sampler from the model.
@@ -48,11 +51,12 @@ pub mod mermin_fit;
 pub mod model;
 pub mod penn;
 mod quadrature;
+pub mod shell_elf;
 pub mod sum_rules;
 pub mod table;
 
 pub use drude::{DrudeLorentz, DrudeLorentzOscillator};
-pub use full_penn::{FullPenn, DEFAULT_FULL_TOLERANCE};
+pub use full_penn::{DiimfpGrid, FullPenn, DEFAULT_FULL_TOLERANCE};
 pub use inner_shell::{
     Channel, ChannelDiimfp, ChannelInverseImfp, InnerShell, ShellResolvedChannels,
 };
@@ -65,5 +69,11 @@ pub use model::{PennAlgorithm, PennInelastic};
 pub use penn::{
     born_ochkur_factor, ExchangeCorrection, InelasticPoint, SinglePolePenn,
     DEFAULT_RELATIVE_TOLERANCE,
+};
+pub use shell_elf::{
+    hydrogenic_2p_oscillator_strength_density_per_ev,
+    hydrogenic_2s_oscillator_strength_density_per_ev,
+    hydrogenic_k_oscillator_strength_density_per_ev, hydrogenic_shell_elf, hydrogenic_shell_elfs,
+    ShellElfGrid,
 };
 pub use sum_rules::SumRuleReport;
