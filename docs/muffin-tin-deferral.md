@@ -65,6 +65,36 @@ around any inner potential would need no solver change: its `breakpoints()`
 must include the truncation radius and its `matching_radius` must not exceed
 it. Compounds and per-layer densities are out of scope for a first version.
 
+## Rechecked 2026-10-10 (#315): still deferred
+
+Issue #315 (the muffin-tin candidate of #301 item 4, a sensitivity row for
+the Au and Cu secondary-electron yield) checked again whether a definition
+can now be opened. It cannot, so the deferral holds and no row is run. Every
+source tried is listed in the muffin-tin row of
+[`data-provenance.md`](data-provenance.md). In short:
+
+- Salvat, Jablonski and Powell (2005) is still closed (Unpaywall
+  `is_oa: false`, no repository copy). Their 2021 new-version announcement,
+  Comput. Phys. Commun. 261, 107704, is listed as open access, but the
+  publisher returned only metadata or HTTP 403 to this host, so it was not
+  read.
+- Jablonski, Salvat and Powell, J. Phys. Chem. Ref. Data 33, 409 (2004), was
+  read again in the NIST reprint. It **does not define** the construction.
+  On p. 431 it says the muffin-tin potential "vanishes outside the muffin-tin
+  sphere", so the small-angle DCS of an atom in a solid comes out smaller
+  than for the free atom, the opposite direction to the polarization
+  correction. On p. 445 it quotes two effect sizes, both at or above 200 eV
+  and both from papers not opened here. Berger and Seltzer found that
+  transport cross sections of solid Au (Raith truncation) are within 0.1 %
+  of atomic Au from 1 to 500 keV. Cumpson and Seah found that effective
+  attenuation lengths of 18 solids from a Thomas-Fermi/muffin-tin potential
+  differ from those of the atomic relativistic HFS potentials with a
+  standard deviation of 2.5 % at 200 eV and 1.5 % at 1 keV. These
+  numbers say nothing about the slow electrons (below 50 eV) that δ depends
+  on, so the section above still gives no number for that range.
+- Raith, Acta Cryst. A 24, 85 (1968), the truncation method cited there, is
+  closed (Unpaywall `is_oa: false`, publisher 403).
+
 ## To lift the deferral
 
 A reader with access to Salvat, Jablonski and Powell (2005) (or another source

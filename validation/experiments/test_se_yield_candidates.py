@@ -37,9 +37,11 @@ class OneChangeAtATime(unittest.TestCase):
     def test_every_candidate_changes_exactly_one_line(self):
         expect = {"elastic-stand-in": "potential = ", "elastic-no-exchange": "exchange = ", "phi-low": "band = ",
                   "phi-high": "band = ", "fermi-tpp2011": "band = ", "barrier-off": "boundary = ",
-                  "binding-azzolini": "band = "}
+                  "binding-azzolini": "band = ", "au-elf-table6": "optical_elf = "}
         for m in sc.MATERIALS:
             for cand, start in expect.items():
+                if not sc.applies(m, cand):
+                    continue
                 diff = changed_lines(m, cand)
                 self.assertEqual(len(diff), 1, (m, cand, diff))
                 self.assertTrue(diff[0][0].startswith(start) and diff[0][1].startswith(start), (m, cand, diff))
@@ -84,6 +86,17 @@ class OneChangeAtATime(unittest.TestCase):
             # Everything else of the baseline band is kept: kind, valence count, mid work function.
             self.assertEqual(new.replace(f"valence_binding_ev = {b!r}, ", "").replace(
                 f"{sc.AZZOLINI_PROVENANCE}; ", ""), base)
+
+    def test_elf_row_swaps_only_the_au_elf_for_the_committed_table6_file(self):
+        (base, new), = changed_lines("Au", "au-elf-table6")
+        self.assertEqual(base, 'optical_elf = "elf.toml"')
+        self.assertEqual(new, 'optical_elf = "au_elf_hagemann1975_t6.toml"')
+        self.assertTrue((sy.OPTICAL / "au_elf_hagemann1975_t6.toml").is_file())
+        self.assertNotEqual(sy.OPTICAL_ELF["Au"], "au_elf_hagemann1975_t6.toml")
+        # Cu has no second ELF: the row is not testable there, not run with the baseline ELF.
+        self.assertFalse(sc.applies("Cu", "au-elf-table6"))
+        with self.assertRaises(ValueError):
+            sc.make_input("Cu", "au-elf-table6", 2000, 1, "elf.toml")
 
     def test_no_exchange_keeps_the_dhfs_potential(self):
         text = sc.make_input("Au", "elastic-no-exchange", 2000, 1, "elf.toml")
