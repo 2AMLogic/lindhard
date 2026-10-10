@@ -147,6 +147,38 @@
 //! rows with `0 < T <= elf_min`, stored empty from #340 to #342, carry the
 //! model's rate and losses in `(1e-8 T, T]`.
 //!
+//! # Rate refinement
+//!
+//! On the band-bottom axis the rate `λ⁻¹(E)` is zero at `E_F` and climbs
+//! by two orders of magnitude within about 20 eV above it, and the transport
+//! interpolates it linearly between rows (`crate::electron::transport`,
+//! "Free flight"). A log grid fine enough there is far finer than needed
+//! everywhere else (#291, #339). [`InelasticTableOptions::rate_refinement`]
+//! ([`RateRefinement`], off by default) adds rows to this one table instead:
+//! every cell of the grid that overlaps `E - E_F` in
+//! [`RateRefinement::window_ev`] ([`RATE_WINDOW_EV`] by default) is bisected
+//! at its midpoint in `E` while the linear interpolation of the exact row
+//! rate between the cell's ends differs from the exact rate at the midpoint
+//! by more than [`RateRefinement::tolerance`] ([`RATE_TOLERANCE`]) of it.
+//! Children that no longer overlap the window are not tested, so the
+//! bisection never approaches the zero of the rate at `E_F`, and cells
+//! outside the window are never split. Only the scalar rate is evaluated
+//! while refining (the row rule of the table: zero for an empty row); each
+//! level's midpoints are evaluated in parallel and merged in sorted order,
+//! so the grid is the same on any thread count. The rows are then built as
+//! any other, from the merged grid, which contains the given grid. A
+//! refinement that would add more than [`RateRefinement::max_rows`] rows is
+//! an error naming the cell that still fails (a bound against a rate the
+//! bisection cannot resolve, not a tuned value).
+//!
+//! The midpoint test is a criterion, not a bound: for a smooth rate the
+//! midpoint error of a cell is close to its largest, but the acceptance
+//! check is the dense evaluation of the `rate` mode of
+//! `lindhard-cli/examples/inelastic_low_energy.rs` (every 0.1 eV over the
+//! window, `docs/validation.md`). The table's other grid (the elastic table
+//! of a run, or a table without the option) is unchanged: the transport
+//! reads each table on its own [`CrossSectionTable::energy_ev`].
+//!
 //! # Momentum-transfer sampler
 //!
 //! Given `(E, W)`, the DIIMFP integrand in `q` is, in `u = ln q`
@@ -471,6 +503,11 @@ pub struct InelasticTableOptions {
     /// Target of the probability-grid refinement, relative to the mean loss
     /// of each row (`None`: no refinement).
     pub refine_tolerance: Option<f64>,
+    /// Extra rows that resolve the inelastic rate just above the Fermi level
+    /// (module docs, "Rate refinement"; #339). `None` (the default): the
+    /// table has exactly the rows of `energy_ev`. Only valid with
+    /// [`EnergyAxis::BandBottom`]; refused on the model's own axis.
+    pub rate_refinement: Option<RateRefinement>,
 }
 
 impl InelasticTableOptions {
@@ -482,6 +519,7 @@ impl InelasticTableOptions {
             probability: default_probability_grid(),
             density_tolerance: DEFAULT_DENSITY_TOLERANCE,
             refine_tolerance: Some(DEFAULT_REFINE_TOLERANCE),
+            rate_refinement: None,
         }
     }
 
@@ -489,6 +527,72 @@ impl InelasticTableOptions {
     pub fn with_axis(mut self, axis: EnergyAxis) -> Self {
         self.axis = axis;
         self
+    }
+
+    /// The same options with the rate refinement `refinement` (module docs,
+    /// "Rate refinement"); needs [`EnergyAxis::BandBottom`].
+    pub fn with_rate_refinement(mut self, refinement: RateRefinement) -> Self {
+        self.rate_refinement = Some(refinement);
+        self
+    }
+}
+
+/// The tolerance of the rate refinement (#339) and of the `rate` gate of
+/// `lindhard-cli/examples/inelastic_low_energy.rs` (#291), fixed there before
+/// any value was measured: the largest relative error of the interpolated
+/// `1/λ` over [`RATE_WINDOW_EV`] above the Fermi level must not exceed 1 %.
+/// It is the statistical error of the most precise committed `default` δ
+/// entries, rounded up: in `validation/experiments/se_yield_results.json`
+/// the Poisson floor of Al `default` is 0.0585 on δ = 6.85 at 600 eV
+/// (0.85 %) and 0.0571 on δ = 6.52 at 400 eV (0.88 %). Other configurations
+/// are more precise: Al `barrier-off` reaches 0.60 % (600 eV), and at 400 eV
+/// the Al `barrier-off`, `cutoff-band-bottom`, `phi-low` and `phi-high`
+/// entries are 0.63 to 0.90 %; the Au, Cu and Si `default` entries at 400 eV
+/// are 1.4, 1.7 and 2.8 %. A grid error below the tolerance cannot be told
+/// from the noise of those tables if δ responds at most in proportion to the
+/// rate in that window; that response is not measured here.
+pub const RATE_TOLERANCE: f64 = 0.01;
+
+/// The window of the rate refinement and of the `rate` gate (#291, #339):
+/// `E - E_F` from 2 to 20 eV. The upper end covers the steep rise of the
+/// rate above the Fermi level, which for the Al single pole peaks in error at
+/// 15 to 17 eV. The lower end lies below the transport cutoff of every
+/// `default` δ run of `validation/experiments/se_yield.py` (1 eV above the
+/// vacuum level, at least 5 eV above `E_F`); the `cutoff-band-bottom` runs
+/// read the rate down to 1 eV above `E_F`. Below 2 eV the rate starts from
+/// zero at `E_F`, and a relative tolerance there would bisect towards that
+/// node without end.
+pub const RATE_WINDOW_EV: (f64, f64) = (2.0, 20.0);
+
+/// The default bound on the rows the rate refinement may add (a safety
+/// bound against a rate bisection cannot resolve, such as a step; not a
+/// tuned value): 1000 rows, so cells of 18 meV on average across the 18 eV
+/// of [`RATE_WINDOW_EV`], far below the 0.1 eV step of the `rate` gate.
+pub const DEFAULT_RATE_REFINEMENT_MAX_ROWS: usize = 1000;
+
+/// Extra rows that resolve the inelastic rate `λ⁻¹(E)` near the Fermi level
+/// on the band-bottom axis (module docs, "Rate refinement"; #339).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RateRefinement {
+    /// The window of `E - E_F` (eV) whose cells are refined: a cell is
+    /// refined when it overlaps it.
+    pub window_ev: (f64, f64),
+    /// The relative tolerance of the linear interpolation of the rate at a
+    /// cell's midpoint.
+    pub tolerance: f64,
+    /// The most rows the refinement may add; more is an error.
+    pub max_rows: usize,
+}
+
+impl Default for RateRefinement {
+    /// [`RATE_WINDOW_EV`], [`RATE_TOLERANCE`] and
+    /// [`DEFAULT_RATE_REFINEMENT_MAX_ROWS`].
+    fn default() -> Self {
+        Self {
+            window_ev: RATE_WINDOW_EV,
+            tolerance: RATE_TOLERANCE,
+            max_rows: DEFAULT_RATE_REFINEMENT_MAX_ROWS,
+        }
     }
 }
 
@@ -816,7 +920,193 @@ fn check_options(o: &InelasticTableOptions) -> Result<(), InelasticTableError> {
             ));
         }
     }
+    if let Some(r) = &o.rate_refinement {
+        if o.axis != EnergyAxis::BandBottom {
+            return Err(invalid(
+                "rate refinement",
+                "only the band-bottom energy axis is refined (EnergyAxis::BandBottom)",
+            ));
+        }
+        let (lo, hi) = r.window_ev;
+        if !(lo.is_finite() && hi.is_finite() && lo > 0.0 && hi > lo) {
+            return Err(invalid(
+                "rate refinement window",
+                format!("{lo}..{hi} eV above E_F (need finite, 0 < low < high)"),
+            ));
+        }
+        if !(r.tolerance.is_finite() && r.tolerance > 0.0) {
+            return Err(invalid(
+                "rate refinement tolerance",
+                format!("{} (need finite, > 0)", r.tolerance),
+            ));
+        }
+    }
     Ok(())
+}
+
+/// The inverse mean free path of the row at model energy `t` (`T`, module
+/// docs, "Energy axis"): zero where the row is stored empty (`T <= 0` on the
+/// band-bottom axis, or an empty loss window), else the model's, floored at
+/// zero. The rate every row of a table stores.
+fn row_rate<M: LossModel>(penn: &M, axis: EnergyAxis, t: f64) -> Result<f64, InelasticTableError> {
+    if axis == EnergyAxis::BandBottom && t <= 0.0 {
+        // A band-bottom energy at or below the Fermi level: no loss is
+        // allowed. (On the model's own axis the model rejects such an
+        // energy.)
+        return Ok(0.0);
+    }
+    if t <= penn.loss_min_ev(t) {
+        // The sampled loss window (loss_min, T] is empty (#340): no loss can
+        // be drawn, so the row is empty, whatever rate the model reports
+        // below its lowest loss (module docs, "Rows below the ELF table").
+        return Ok(0.0);
+    }
+    let inv = penn.inverse_imfp(t)?;
+    Ok(if inv > 0.0 { inv } else { 0.0 })
+}
+
+/// The energy grid of a table with the rows of the rate refinement of
+/// `options` merged in (module docs, "Rate refinement"), or `None` without
+/// one. `options` is checked.
+fn refined_energy_grid<M: LossModel>(
+    penn: &M,
+    options: &InelasticTableOptions,
+) -> Result<Option<Vec<f64>>, InelasticTableError> {
+    let Some(r) = options.rate_refinement else {
+        return Ok(None);
+    };
+    let ef = penn.fermi_energy_ev();
+    let (lo, hi) = (ef + r.window_ev.0, ef + r.window_ev.1);
+    let grid = &options.energy_ev;
+    let overlaps = |a: f64, b: f64| b > lo && a < hi;
+    // The cells that overlap the window are contiguous: [first, last].
+    let Some(first) = grid.windows(2).position(|w| overlaps(w[0], w[1])) else {
+        return Ok(Some(grid.clone()));
+    };
+    let last = grid
+        .windows(2)
+        .rposition(|w| overlaps(w[0], w[1]))
+        .expect("one cell");
+    let rate = |e: f64| row_rate(penn, options.axis, e - ef);
+    // The nodes of the refined span and their exact rates, in parallel and
+    // collected in grid order; the lowest failing energy is the error.
+    let mut x: Vec<f64> = grid[first..=last + 1].to_vec();
+    let mut y: Vec<f64> = x.par_iter().map(|&e| rate(e)).collect::<Result<_, _>>()?;
+    // Cells still to test: those that overlap the window.
+    let mut todo: Vec<bool> = vec![true; x.len() - 1];
+    let mut added = 0usize;
+    loop {
+        let cells: Vec<usize> = (0..todo.len())
+            .filter(|&i| todo[i])
+            .filter(|&i| {
+                let m = 0.5 * (x[i] + x[i + 1]);
+                m > x[i] && m < x[i + 1] // a cell exhausted to rounding stays
+            })
+            .collect();
+        if cells.is_empty() {
+            break;
+        }
+        let mids: Vec<f64> = cells.iter().map(|&i| 0.5 * (x[i] + x[i + 1])).collect();
+        let exact: Vec<f64> = mids
+            .par_iter()
+            .map(|&e| rate(e))
+            .collect::<Result<_, _>>()?;
+        // Split where the transport's linear interpolation misses the exact
+        // rate at the midpoint by more than the tolerance (a zero exact rate
+        // with a nonzero interpolant always fails).
+        let split: Vec<bool> = cells
+            .iter()
+            .zip(&exact)
+            .map(|(&i, &m)| (0.5 * (y[i] + y[i + 1]) - m).abs() > r.tolerance * m)
+            .collect();
+        let n_split = split.iter().filter(|&&s| s).count();
+        if n_split == 0 {
+            break;
+        }
+        if added + n_split > r.max_rows {
+            let k = split.iter().position(|&s| s).expect("one split");
+            let i = cells[k];
+            return Err(invalid(
+                "rate refinement",
+                format!(
+                    "more than {} rows needed to hold the rate to {} between E - E_F = {} and \
+                     {} eV (cell {}..{} eV still fails at its midpoint: interpolated {:e}, \
+                     exact {:e} 1/m)",
+                    r.max_rows,
+                    r.tolerance,
+                    r.window_ev.0,
+                    r.window_ev.1,
+                    x[i],
+                    x[i + 1],
+                    0.5 * (y[i] + y[i + 1]),
+                    exact[k]
+                ),
+            ));
+        }
+        added += n_split;
+        let mut nx = Vec::with_capacity(x.len() + n_split);
+        let mut ny = Vec::with_capacity(x.len() + n_split);
+        let mut ntodo = Vec::with_capacity(todo.len() + n_split);
+        let mut k = 0;
+        for i in 0..todo.len() {
+            nx.push(x[i]);
+            ny.push(y[i]);
+            if k < cells.len() && cells[k] == i {
+                if split[k] {
+                    let m = mids[k];
+                    nx.push(m);
+                    ny.push(exact[k]);
+                    ntodo.push(overlaps(x[i], m));
+                    ntodo.push(overlaps(m, x[i + 1]));
+                } else {
+                    ntodo.push(false);
+                }
+                k += 1;
+            } else {
+                ntodo.push(false);
+            }
+        }
+        nx.push(x[x.len() - 1]);
+        ny.push(y[y.len() - 1]);
+        x = nx;
+        y = ny;
+        todo = ntodo;
+    }
+    let mut out = Vec::with_capacity(grid.len() + added);
+    out.extend_from_slice(&grid[..first]);
+    out.extend_from_slice(&x);
+    out.extend_from_slice(&grid[last + 2..]);
+    Ok(Some(out))
+}
+
+/// `options` with the rows of its rate refinement merged into the energy
+/// grid (and the refinement then spent), or `options` itself without one.
+fn with_refined_grid<'a, M: LossModel>(
+    penn: &M,
+    options: &'a InelasticTableOptions,
+) -> Result<(std::borrow::Cow<'a, InelasticTableOptions>, usize), InelasticTableError> {
+    Ok(match refined_energy_grid(penn, options)? {
+        None => (std::borrow::Cow::Borrowed(options), 0),
+        Some(energy_ev) => {
+            let added = energy_ev.len() - options.energy_ev.len();
+            let mut o = options.clone();
+            o.energy_ev = energy_ev;
+            (std::borrow::Cow::Owned(o), added)
+        }
+    })
+}
+
+/// The provenance text of the rate refinement: empty without one (so tables
+/// built without it keep their bytes).
+fn refinement_provenance(options: &InelasticTableOptions, added: usize) -> String {
+    match &options.rate_refinement {
+        None => String::new(),
+        Some(r) => format!(
+            "; rate refinement (#339): {added} rows added where the linear interpolation of \
+             the rate missed it by more than {} at a cell midpoint, E - E_F = {}..{} eV",
+            r.tolerance, r.window_ev.0, r.window_ev.1
+        ),
+    }
 }
 
 /// Build the inelastic energy-loss table of `penn` on the grid of `options`.
@@ -834,6 +1124,8 @@ pub fn build_inelastic_table(
 ) -> Result<CrossSectionTable, InelasticTableError> {
     check_no_exchange(penn)?;
     check_options(options)?;
+    let (options, added) = with_refined_grid(penn, options)?;
+    let options = options.as_ref();
     let (inverse_mfp_per_m, probability, quantiles) = loss_rows(penn, options)?;
     let energy = &options.energy_ev;
     let elf = penn.optical_elf();
@@ -856,7 +1148,8 @@ pub fn build_inelastic_table(
         energy[0],
         energy[energy.len() - 1],
         probability.len()
-    ) + &axis_provenance(penn, options);
+    ) + &axis_provenance(penn, options)
+        + &refinement_provenance(options, added);
     Ok(CrossSectionTable::new(CrossSectionTableParts {
         model,
         material: material_identity(material),
@@ -894,6 +1187,8 @@ pub fn build_inelastic_table_for_model(
         check_no_exchange(p)?;
     }
     check_options(options)?;
+    let (options, added) = with_refined_grid(model, options)?;
+    let options = options.as_ref();
     let (inverse_mfp_per_m, probability, quantiles) = loss_rows(model, options)?;
     let energy = &options.energy_ev;
     let elf = model.optical_elf();
@@ -920,7 +1215,8 @@ pub fn build_inelastic_table_for_model(
         energy[0],
         energy[energy.len() - 1],
         probability.len()
-    ) + &axis_provenance(model, options);
+    ) + &axis_provenance(model, options)
+        + &refinement_provenance(options, added);
     Ok(CrossSectionTable::new(CrossSectionTableParts {
         model: model_text,
         material: material_identity(material),
@@ -1071,20 +1367,7 @@ fn loss_rows<M: LossModel>(
     let results: Vec<Row> = energy
         .par_iter()
         .map(|&e| {
-            if options.axis == EnergyAxis::BandBottom && e <= 0.0 {
-                // A band-bottom energy at or below the Fermi level: no loss
-                // is allowed. (On the model's own axis the model rejects
-                // such an energy.)
-                return Ok((0.0, None));
-            }
-            if e <= penn.loss_min_ev(e) {
-                // The sampled loss window (loss_min, T] is empty (#340): no
-                // loss can be drawn, so the row is empty, whatever rate the
-                // model reports below its lowest loss (module docs, "Rows
-                // below the ELF table").
-                return Ok((0.0, None));
-            }
-            let inv = penn.inverse_imfp(e)?;
+            let inv = row_rate(penn, options.axis, e)?;
             if inv > 0.0 {
                 let d = loss_density(penn, grid.as_ref(), e, inv, options.density_tolerance)?;
                 Ok((inv, Some(d)))
@@ -1439,5 +1722,128 @@ mod tests {
             }
             other => panic!("expected EmptyDistribution, got {other:?}"),
         }
+    }
+
+    /// A loss model with Fermi energy 10 eV whose rate is `rate(T)`, and a
+    /// flat DIIMFP: synthetic.
+    struct SteepRate(fn(f64) -> f64);
+
+    impl LossModel for SteepRate {
+        fn elf_min_ev(&self) -> f64 {
+            0.05
+        }
+        fn fermi_energy_ev(&self) -> f64 {
+            10.0
+        }
+        fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
+            Ok(if loss_ev > 0.0 && loss_ev <= energy_ev {
+                1.0
+            } else {
+                0.0
+            })
+        }
+        fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
+            Ok((self.0)(energy_ev))
+        }
+    }
+
+    fn band_options(grid: Vec<f64>) -> InelasticTableOptions {
+        InelasticTableOptions::new(grid)
+            .with_axis(EnergyAxis::BandBottom)
+            .with_rate_refinement(RateRefinement::default())
+    }
+
+    /// A rate that climbs steeply above `E_F`, like the band-bottom rates of
+    /// #291 (synthetic).
+    fn steep(t: f64) -> f64 {
+        1e6 * t.powi(3) / (1.0 + (t / 15.0).powi(4))
+    }
+
+    #[test]
+    fn rate_refinement_adds_rows_only_in_the_window_and_meets_the_midpoint_test() {
+        let model = SteepRate(steep);
+        let grid = vec![5.0, 9.0, 14.0, 22.0, 35.0, 60.0, 100.0];
+        let o = band_options(grid.clone());
+        let refined = refined_energy_grid(&model, &o).unwrap().unwrap();
+        assert!(refined.len() > grid.len());
+        assert!(refined.windows(2).all(|w| w[1] > w[0]));
+        // The given grid is a subsequence of the refined one.
+        let mut it = refined.iter();
+        assert!(grid.iter().all(|g| it.any(|r| r == g)));
+        let (lo, hi) = (10.0 + RATE_WINDOW_EV.0, 10.0 + RATE_WINDOW_EV.1);
+        // Rows are added only inside cells of the grid that overlap the
+        // window (here 9..35 eV), never in a cell outside it.
+        for e in refined.iter().filter(|e| !grid.contains(e)) {
+            let k = grid.partition_point(|g| g < e);
+            let (a, b) = (grid[k - 1], grid[k]);
+            assert!(b > lo && a < hi, "{e} in the cell {a}..{b}");
+        }
+        // Every final cell overlapping the window passes the midpoint test.
+        let rate = |e: f64| row_rate(&model, EnergyAxis::BandBottom, e - 10.0).unwrap();
+        for w in refined.windows(2) {
+            if w[1] > lo && w[0] < hi {
+                let m = rate(0.5 * (w[0] + w[1]));
+                let lin = 0.5 * (rate(w[0]) + rate(w[1]));
+                assert!((lin - m).abs() <= RATE_TOLERANCE * m, "{w:?}");
+            }
+        }
+        // Without the option the grid is the given one.
+        let mut off = o.clone();
+        off.rate_refinement = None;
+        assert_eq!(refined_energy_grid(&model, &off).unwrap(), None);
+    }
+
+    #[test]
+    fn rate_refinement_is_the_same_on_any_thread_count() {
+        let model = SteepRate(steep);
+        let o = band_options(vec![5.0, 9.0, 14.0, 22.0, 35.0, 60.0, 100.0]);
+        let on = |threads: usize| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| refined_energy_grid(&model, &o).unwrap())
+        };
+        let one = on(1);
+        assert_eq!(on(3), one);
+        assert_eq!(on(8), one);
+    }
+
+    #[test]
+    fn rate_refinement_of_a_step_stops_at_the_row_bound() {
+        // A step in the rate inside the window cannot be resolved by
+        // bisection: an error naming the cell, not a runaway.
+        let model = SteepRate(|t| if t < 7.3 { 1e6 } else { 2e6 });
+        let mut o = band_options(vec![5.0, 9.0, 14.0, 22.0, 35.0, 60.0, 100.0]);
+        o.rate_refinement.as_mut().unwrap().max_rows = 30;
+        let err = refined_energy_grid(&model, &o).unwrap_err().to_string();
+        assert!(err.contains("more than 30 rows"), "{err}");
+        assert!(err.contains("cell 17."), "{err}");
+    }
+
+    #[test]
+    fn rate_refinement_needs_the_band_bottom_axis_and_a_valid_window() {
+        let mut o = InelasticTableOptions::new(vec![5.0, 20.0])
+            .with_rate_refinement(RateRefinement::default());
+        assert!(check_options(&o)
+            .unwrap_err()
+            .to_string()
+            .contains("band-bottom"));
+        o.axis = EnergyAxis::BandBottom;
+        assert!(check_options(&o).is_ok());
+        for (window, tol) in [((3.0, 2.0), 0.01), ((0.0, 2.0), 0.01), ((2.0, 20.0), 0.0)] {
+            let r = o.rate_refinement.as_mut().unwrap();
+            r.window_ev = window;
+            r.tolerance = tol;
+            assert!(check_options(&o).is_err(), "{window:?} {tol}");
+        }
+    }
+
+    #[test]
+    fn a_window_above_the_grid_adds_no_rows() {
+        let model = SteepRate(steep);
+        let grid = vec![1.0, 5.0, 11.0];
+        let o = band_options(grid.clone());
+        assert_eq!(refined_energy_grid(&model, &o).unwrap(), Some(grid));
     }
 }

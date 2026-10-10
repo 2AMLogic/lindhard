@@ -528,22 +528,22 @@ largest possible energy warns.
 inelastic rate is zero at `E_F` and climbs steeply above it (within the
 first few eV, and for the Al single pole again at 15 to 17 eV), and the
 transport interpolates it linearly between grid rows. None of 10, 20 or
-40 points per decade resolves that region to 1 %. At 80 Al Mermin
-passes, the Al and Si single poles still miss it, and a Si Mermin table
-was refused (#340), so it was not measured. The largest relative error of
-the interpolated `1/λ` over `E - E_F` = 2 to 20 eV (Al and Si, 400 eV
-inputs) was 4 to 75 % at the default 20 points per decade and 2 to 27 % at 40, depending on material
-and model; the single-pole model is worse than Mermin. Full table in
-[`validation.md`](validation.md), "Table grid above the Fermi level";
-reproduce with `lindhard-cli/examples/inelastic_low_energy.rs`, mode
-`rate`. Until the grid gains rows from `E_F` upward (#339), a denser grid
-helps but does not close the gap: 40 points per decade cuts the error by a
-factor of 2 to 4 from 20. A Si Mermin table now builds when a row lands
-within about 0.5 eV above `E_F` (#340, #342), which happens with
-`min_energy_ev = 5` at 20 and 80 points per decade, and with
-`min_energy_ev = 10` at 80. The Si Mermin rate-error entries in
-[`validation.md`](validation.md) were not measured with it; #291
-re-measures them.
+40 points per decade resolves that region to 1 %; at 80 the Mermin tables
+of Al and Si pass and the single poles still miss it. The largest relative
+error of the interpolated `1/λ` over `E - E_F` = 2 to 20 eV (Al and Si,
+400 eV inputs) is 4 to 75 % at the default 20 points per decade and 2 to
+27 % at 40, depending on material and model; the single-pole model is
+worse than Mermin. Full table in [`validation.md`](validation.md), "Table
+grid above the Fermi level"; reproduce with
+`lindhard-cli/examples/inelastic_low_energy.rs`, mode `rate`. The library
+can add rows to the inelastic table from `E_F` upward
+(`InelasticTableOptions::rate_refinement`, #339), which brings every one of
+those tables to about 1 % at both the default grid and the grid of
+`validation/experiments/se_yield.py`, but one of them (the Al single pole
+from 5 eV at 10 points per decade) misses 1 % by 0.0008 points, so
+`lindhard run` does not use it yet (#339). Until then a denser grid helps
+but does not close the gap: 40 points per decade cuts the error by a
+factor of 2 to 4 from 20.
 
 **`[electron.materials.<name>]`**: the electron data of each material the
 target uses, keyed by the name the target gives it (a `[materials]` key or an
