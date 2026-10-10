@@ -70,6 +70,34 @@
 //! refined exactly as before. [`loss_density_node_count`] reports the node
 //! count of a row.
 //!
+//! **Floating-point resolution** (#345). Every model is a numerical integral
+//! at its own tolerance, so its DIIMFP carries small jumps where the
+//! adaptive quadrature changes its subdivision between two adjacent `W`.
+//! The Mermin DIIMFP ([`super::mermin`], integration tolerance 1e-5, the
+//! same as the default density tolerance) has them: the Si row at
+//! `T = 1000 eV` of the committed Yang et al. (2019) ELF (model Fermi energy
+//! 13.46 eV) has 18, of 0.4 to 7 times 1e-5 of the local density, between
+//! `W` = 20 and 976 eV. A jump is not a shape the density can resolve: as
+//! for the model switch at an unresolved cell, the split test of a panel
+//! across it does not fall with the width, so the panel is bisected until
+//! its midpoint rounds onto one of its ends. Such a panel (one ulp of
+//! `ln W` wide) is not split: its midpoint is not a new node, and splitting
+//! it would only add zero-width panels, up to [`MAX_NODES`] of them. This is
+//! this project's choice of floor, with no tuned width: it is the point
+//! where bisection can no longer place a node. A jump bisected to it costs
+//! about 50 nodes (the levels from the starting panel to one ulp), and
+//! leaves nothing of the density unresolved: the panel holding it has no
+//! interior. Before #345 the zero-width panels were added until the row
+//! reached [`MAX_NODES`]; they carry no integral (`h = 0`), so a row whose
+//! other panels had converged is stored the same, with fewer evaluations
+//! (the Si row above: 20 099 nodes before, 5 792 now).
+//!
+//! **Node bound.** A row whose refinement still has a failing panel when it
+//! reaches [`MAX_NODES`] nodes is refused,
+//! [`InelasticTableError::DensityNodeLimit`], rather than stored with that
+//! panel unresolved (the convention of the rate refinement's row bound,
+//! below).
+//!
 //! **Probability grid.** The stored inverse CDF is interpolated linearly in
 //! `u` ([`CrossSectionTable::inverse_cdf`]). Its first moment, which is what
 //! sets the stopping power `S = λ⁻¹ ⟨W⟩` with `⟨W⟩ = ∫_0^1 W(u) du`, is
@@ -286,6 +314,18 @@ pub enum InelasticTableError {
         /// The integral of the sampled density.
         integral: f64,
     },
+    /// The loss density of a row still failed its split test when it reached
+    /// [`MAX_NODES`] nodes (module docs, "Floating-point resolution").
+    #[error(
+        "the loss density at {energy_ev} eV is not resolved to its tolerance \
+         within {max_nodes} nodes"
+    )]
+    DensityNodeLimit {
+        /// Incident energy, eV.
+        energy_ev: f64,
+        /// The node bound, [`MAX_NODES`].
+        max_nodes: usize,
+    },
     /// The model or the assembled table failed.
     #[error(transparent)]
     Data(#[from] ElectronDataError),
@@ -395,7 +435,12 @@ fn panel_exp_moment(x0: f64, x1: f64, g0: f64, g1: f64) -> f64 {
 /// be smooth below the width `rough_width` (the unresolved cells of a
 /// [`DiimfpGrid`], module docs): a panel within `rough_width` of one of them
 /// is not split once it is no wider than `rough_width`. With no ranges the
-/// refinement is the plain one.
+/// refinement is the plain one. A panel whose midpoint is not a floating-point
+/// number strictly inside it is never split (module docs, "Floating-point
+/// resolution").
+///
+/// Returns the density and whether the refinement stopped at [`MAX_NODES`]
+/// with a panel still failing the split test.
 fn adaptive_density(
     f: &(impl Fn(f64) -> f64 + ?Sized),
     breaks: &[f64],
@@ -404,7 +449,7 @@ fn adaptive_density(
     first_moment: bool,
     rough: &[(f64, f64)],
     rough_width: f64,
-) -> LinearDensity {
+) -> (LinearDensity, bool) {
     let at_resolution = |a: f64, b: f64| {
         b - a <= rough_width
             && rough
@@ -433,26 +478,37 @@ fn adaptive_density(
         let i1 = if first_moment { d.first_moment() } else { 0.0 };
         let mut split = vec![false; mids.len()];
         let mut any = false;
+        let mut capped = false;
         for i in 0..mids.len() {
             let h = x[i + 1] - x[i];
+            // The midpoint of a panel one ulp wide rounds onto an end: there
+            // is nothing left to split (module docs, "Floating-point
+            // resolution").
+            let xm = 0.5 * (x[i] + x[i + 1]);
+            if !(xm > x[i] && xm < x[i + 1]) {
+                continue;
+            }
             let gm = mids[i].expect("filled");
             let allowed = h / span * tol;
             let e0 = (2.0 * h / 3.0 * (gm - 0.5 * (g[i] + g[i + 1]))).abs();
             let mut bad = e0 > allowed * i0;
             if first_moment {
                 let w = |xx: f64, gg: f64| xx.exp() * gg;
-                let xm = 0.5 * (x[i] + x[i + 1]);
                 let lin = 0.5 * (w(x[i], g[i]) + w(x[i + 1], g[i + 1]));
                 let e1 = (2.0 * h / 3.0 * (w(xm, gm) - lin)).abs();
                 bad |= e1 > allowed * i1;
             }
-            if bad && x.len() + 1 < MAX_NODES && !at_resolution(x[i], x[i + 1]) {
-                split[i] = true;
-                any = true;
+            if bad && !at_resolution(x[i], x[i + 1]) {
+                if x.len() + 1 < MAX_NODES {
+                    split[i] = true;
+                    any = true;
+                } else {
+                    capped = true;
+                }
             }
         }
         if !any {
-            return d;
+            return (d, capped);
         }
         let mut nx = Vec::with_capacity(x.len() + 16);
         let mut ng = Vec::with_capacity(x.len() + 16);
@@ -701,13 +757,14 @@ fn row_diimfp<M: LossModel>(
 }
 
 /// The density model of the row at `energy_ev`, on `ln W` from the model's
-/// lowest loss ([`LossModel::loss_min_ev`]) to `energy_ev` (module docs).
+/// lowest loss ([`LossModel::loss_min_ev`]) to `energy_ev` (module docs),
+/// and whether its refinement stopped at [`MAX_NODES`].
 fn row_density<M: LossModel>(
     penn: &M,
     grid: Option<&DiimfpGrid>,
     energy_ev: f64,
     tol: f64,
-) -> LinearDensity {
+) -> (LinearDensity, bool) {
     let w_lo = penn.loss_min_ev(energy_ev);
     let f = |s: f64| {
         let w = s.exp().min(energy_ev);
@@ -735,8 +792,9 @@ fn row_density<M: LossModel>(
 /// tolerance `density_tolerance`, reading the DIIMFP from `grid` where it
 /// covers the loss as a table build does (pass the grid of
 /// [`FullPenn::diimfp_grid`] for the table's energies, or `None`). The
-/// count is bounded by [`MAX_NODES`]; a row near that bound has spent its
-/// evaluations on something the split test cannot resolve. Each node not
+/// count is bounded by [`MAX_NODES`] (a few more: the last refinement pass
+/// splits every failing panel); a row that reaches it is refused by the
+/// table build ([`InelasticTableError::DensityNodeLimit`]). Each node not
 /// covered by the grid costs one direct DIIMFP evaluation.
 pub fn loss_density_node_count(
     model: &PennInelastic,
@@ -745,6 +803,7 @@ pub fn loss_density_node_count(
     density_tolerance: f64,
 ) -> usize {
     row_density(model, grid, energy_ev, density_tolerance)
+        .0
         .x
         .len()
 }
@@ -757,12 +816,18 @@ fn loss_density<M: LossModel>(
     inverse_mfp: f64,
     tol: f64,
 ) -> Result<LinearDensity, InelasticTableError> {
-    let d = row_density(penn, grid, energy_ev, tol);
+    let (d, capped) = row_density(penn, grid, energy_ev, tol);
     if !(d.total() > 0.0 && d.total().is_finite()) {
         return Err(InelasticTableError::EmptyDistribution {
             energy_ev,
             inverse_mfp_per_m: inverse_mfp,
             integral: d.total(),
+        });
+    }
+    if capped {
+        return Err(InelasticTableError::DensityNodeLimit {
+            energy_ev,
+            max_nodes: MAX_NODES,
         });
     }
     Ok(d)
@@ -1614,7 +1679,9 @@ impl MomentumTransferSampler {
             )
         })?;
         let f = |u: f64| penn.q_integrand_au(w, u);
-        let density = adaptive_density(&f, &breaks, 8, tol, false, &[], 0.0);
+        // The node bound is an error for the loss rows of a table (#345); a
+        // momentum-transfer slice keeps the density it reached, as before.
+        let (density, _) = adaptive_density(&f, &breaks, 8, tol, false, &[], 0.0);
         if !(density.total() > 0.0 && density.total().is_finite()) {
             return Err(invalid(
                 "momentum-transfer slice",
@@ -1701,8 +1768,10 @@ mod tests {
         let f = stepped_row(c);
         let breaks = [0.0, 8.0];
         let cells = [(c, c + 1.5e-4)];
-        let d = adaptive_density(&f, &breaks, INITIAL_LOSS_PANELS, 1e-5, true, &cells, 1e-4);
-        let smooth = adaptive_density(
+        let (d, capped) =
+            adaptive_density(&f, &breaks, INITIAL_LOSS_PANELS, 1e-5, true, &cells, 1e-4);
+        assert!(!capped);
+        let (smooth, _) = adaptive_density(
             &|x: f64| (-(x - 3.0).powi(2)).exp(),
             &breaks,
             INITIAL_LOSS_PANELS,
@@ -1743,6 +1812,102 @@ mod tests {
             1e-4,
         );
         assert_eq!(plain, far);
+    }
+
+    /// The smooth row of [`stepped_row`] with jumps of a fixed relative size
+    /// `rel` at `at` (up, then down at the next, and so on): the shape of the
+    /// quadrature noise of the Mermin DIIMFP at high `T` (module docs,
+    /// "Floating-point resolution"). Synthetic, not a material.
+    fn jumped_row(at: &'static [f64], rel: f64) -> impl Fn(f64) -> f64 {
+        move |x: f64| {
+            let up = at.iter().filter(|&&a| x >= a).count() % 2;
+            (-(x - 3.0).powi(2)).exp() * (1.0 + rel * up as f64)
+        }
+    }
+
+    #[test]
+    fn a_jump_is_bisected_to_floating_point_resolution_and_no_further() {
+        // Two pairs of jumps of 2e-5 of the density near its peak: each fails
+        // the split test at every width (about 3 tol of the mean). Before
+        // #345 the panel around each was bisected until it was one ulp wide
+        // and then padded with zero-width panels up to MAX_NODES.
+        const AT: &[f64] = &[2.8765432, 2.8812345, 3.1234567, 3.1301234];
+        let breaks = [0.0, 8.0];
+        let (d, capped) = adaptive_density(
+            &jumped_row(AT, 2e-5),
+            &breaks,
+            INITIAL_LOSS_PANELS,
+            1e-5,
+            true,
+            &[],
+            0.0,
+        );
+        let (smooth, _) = adaptive_density(
+            &jumped_row(&[], 0.0),
+            &breaks,
+            INITIAL_LOSS_PANELS,
+            1e-5,
+            true,
+            &[],
+            0.0,
+        );
+        let (n, n0) = (d.x.len(), smooth.x.len());
+        eprintln!("nodes: {n} with four jumps, {n0} for the smooth row");
+        assert!(!capped);
+        // About 50 bisection levels per jump, not MAX_NODES.
+        assert!(
+            n < n0 + 4 * 60,
+            "{n} nodes vs {n0} (MAX_NODES = {MAX_NODES})"
+        );
+        // No zero-width panel; the narrowest are one ulp wide, at the jumps.
+        let narrowest = d.x.windows(2).map(|w| w[1] - w[0]).fold(f64::MAX, f64::min);
+        assert!(narrowest > 0.0, "{narrowest:e}");
+        assert!(narrowest <= 3.2 * f64::EPSILON, "{narrowest:e}");
+        // The jumps add about 1e-7 of the integral.
+        let rel = (d.total() / smooth.total() - 1.0).abs();
+        assert!(rel < 1e-5, "{rel:e}");
+    }
+
+    /// A loss model whose DIIMFP carries relative noise of 1e-2 at every
+    /// loss, which no panel width resolves: synthetic.
+    struct NoisyRow;
+
+    impl LossModel for NoisyRow {
+        fn elf_min_ev(&self) -> f64 {
+            0.5
+        }
+        fn fermi_energy_ev(&self) -> f64 {
+            0.0
+        }
+        fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
+            if !(loss_ev > 0.0 && loss_ev <= energy_ev) {
+                return Ok(0.0);
+            }
+            // a deterministic hash of the loss, in [0, 1)
+            let h = loss_ev.to_bits().wrapping_mul(0x9e37_79b9_7f4a_7c15) >> 11;
+            Ok(1.0 + 1e-2 * (h as f64 / (1u64 << 53) as f64))
+        }
+        fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
+            Ok(energy_ev - 0.5)
+        }
+    }
+
+    #[test]
+    fn a_row_that_reaches_the_node_bound_is_refused() {
+        let opts = InelasticTableOptions::new(vec![10.0]);
+        match loss_rows(&NoisyRow, &opts) {
+            Err(InelasticTableError::DensityNodeLimit {
+                energy_ev,
+                max_nodes,
+            }) => {
+                assert_eq!(energy_ev, 10.0);
+                assert_eq!(max_nodes, MAX_NODES);
+            }
+            Err(e) => panic!("unexpected error: {e}"),
+            Ok(_) => panic!("a row at the node bound was stored"),
+        }
+        let msg = loss_rows(&NoisyRow, &opts).unwrap_err().to_string();
+        assert!(msg.contains("within 20000 nodes"), "{msg}");
     }
 
     /// The committed Si ELF (Yang et al. 2019, `validation/data/optical`,
@@ -1796,6 +1961,42 @@ mod tests {
             assert!((row[row.len() - 1] - t).abs() <= 1e-12 * t, "T = {t}");
             assert!(row.windows(2).all(|w| w[1] >= w[0]), "T = {t}");
         }
+    }
+
+    #[test]
+    fn the_si_mermin_row_at_1000_ev_stops_at_floating_point_resolution() {
+        // Issue #345. The Mermin row at T = 1000 eV of the committed Si ELF
+        // (model Fermi energy 13.46 eV, density tolerance 1e-5) reached
+        // MAX_NODES (20 099 nodes, 14 307 of them zero-width panels) on 18
+        // jumps of its DIIMFP's quadrature noise; the rows at T <= 100 eV
+        // need 2 000 to 3 300 nodes.
+        let Some(elf) = si_elf() else { return };
+        let model = PennInelastic::try_new(super::super::model::PennAlgorithm::Mermin, elf)
+            .unwrap()
+            .with_fermi_energy_ev(13.46)
+            .unwrap();
+        let (low, _) = row_density(&model, None, 100.0, 1e-5);
+        let (d, capped) = row_density(&model, None, 1000.0, 1e-5);
+        let (n, n_low) = (d.x.len(), low.x.len());
+        eprintln!("nodes: {n} at T = 1000 eV, {n_low} at T = 100 eV");
+        assert!(!capped);
+        assert!(
+            n < 3 * n_low && n < MAX_NODES / 2,
+            "{n} nodes vs {n_low} at 100 eV (MAX_NODES = {MAX_NODES})"
+        );
+        assert_eq!(
+            n,
+            loss_density_node_count(&model, None, 1000.0, 1e-5),
+            "the public count is the row's"
+        );
+        assert!(d.x.windows(2).all(|w| w[1] > w[0]), "a zero-width panel");
+        // The row's mean loss is the model's, S / λ⁻¹, to the tolerances.
+        let p = model.imfp_and_stopping(1000.0).unwrap();
+        let mean = d.first_moment() / d.total();
+        let want = p.stopping_ev_per_m / p.inverse_imfp_per_m;
+        let rel = (mean / want - 1.0).abs();
+        eprintln!("mean loss {mean} eV vs model {want} eV: {rel:e}");
+        assert!(rel < 1e-5, "{rel:e}");
     }
 
     /// A loss model whose rate counts losses down to `loss_min < elf_min`,

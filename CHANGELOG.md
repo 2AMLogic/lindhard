@@ -29,6 +29,20 @@ one version).
 
 ### Fixed
 
+- Inelastic table rows no longer bisect a jump in the DIIMFP past
+  floating-point resolution (#345). The Mermin DIIMFP is an adaptive
+  integral at 1e-5, and its quadrature noise has jumps of about that size
+  that the loss-density split test cannot resolve at any width; a panel was
+  bisected to one ulp of `ln W` and then padded with zero-width panels up to
+  `MAX_NODES` (the Si row at `T = 1000 eV`: 20 099 nodes, now 5 792). A
+  panel whose midpoint rounds onto an end is now not split. The padding
+  carried no integral, so **stored tables are unchanged, bit for bit**: the
+  Mermin tables of the Al, Cu, Si and Au δ(E) runs to 3 keV are identical,
+  and build in about half the time (12, 33, 8 and 3 of their rows had
+  reached that resolution). A row that still has a failing panel at
+  `MAX_NODES` is now refused with the new
+  `InelasticTableError::DensityNodeLimit` instead of being stored silently;
+  none of those tables has one.
 - Python `RunResult.write()` now follows the command's output lifecycle: it
   removes the previous `summary.json` before replacing any CSV, removes a
   stale `ions.csv` when per-ion output is off, and writes the summary last.
