@@ -1,0 +1,91 @@
+{
+  "format": "lindhard-backscatter-results/1",
+  "lindhard": "lindhard 0.0.1 (aa04511)",
+  "histories": 100000,
+  "seed": 1,
+  "group_tolerance": 0.02,
+  "pass_min_kev": 5.0,
+  "tolerance": 0.05,
+  "targets": [
+    {
+      "target": "C",
+      "groups": [
+        {
+          "energy_kev": 1.0,
+          "sets": 2,
+          "median": 0.10450000000000001,
+          "min": 0.076,
+          "max": 0.133
+        },
+        {
+          "energy_kev": 5.0,
+          "sets": 5,
+          "median": 0.082,
+          "min": 0.058,
+          "max": 0.0857
+        },
+        {
+          "energy_kev": 10.0,
+          "sets": 4,
+          "median": 0.07050000000000001,
+          "min": 0.066,
+          "max": 0.0743
+        }
+      ],
+      "runs": {
+        "1": {
+          "eta": 0.0925,
+          "eta_se": 0.0009162082186926724
+        },
+        "5": {
+          "eta": 0.05576,
+          "eta_se": 0.0007256088643339467
+        },
+        "10": {
+          "eta": 0.04753,
+          "eta_se": 0.0006728365262082611
+        }
+      }
+    },
+    {
+      "target": "Au",
+      "groups": [
+        {
+          "energy_kev": 1.0,
+          "sets": 3,
+          "median": 0.395,
+          "min": 0.289,
+          "max": 0.419
+        },
+        {
+          "energy_kev": 5.0,
+          "sets": 7,
+          "median": 0.459,
+          "min": 0.43,
+          "max": 0.489
+        },
+        {
+          "energy_kev": 10.0,
+          "sets": 5,
+          "median": 0.476,
+          "min": 0.47,
+          "max": 0.501
+        }
+      ],
+      "runs": {
+        "1": {
+          "eta": 0.37116,
+          "eta_se": 0.0015277442665577246
+        },
+        "5": {
+          "eta": 0.41552,
+          "eta_se": 0.0015584066529632117
+        },
+        "10": {
+          "eta": 0.43339,
+          "eta_se": 0.00156704533406025
+        }
+      }
+    }
+  ]
+}
