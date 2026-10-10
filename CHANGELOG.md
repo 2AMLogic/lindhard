@@ -28,7 +28,8 @@ one version).
   level upward. Every grid cell overlapping `E - E_F` = 2 to 20 eV is
   bisected at its midpoint while the linear interpolation of the exact rate
   misses it there by more than 1 %; more than `max_rows` added rows is an
-  error. The grid is the same on any thread count. Off by default, so every
+  error, and so is a failing cell bisected down to rounding (a step in the
+  rate), each naming the cell. The grid is the same on any thread count. Off by default, so every
   existing table is unchanged, and refused on the model's own axis.
   `RATE_TOLERANCE` and `RATE_WINDOW_EV` (the #291 gate, moved from the
   example into `electron::inelastic::table`) are its defaults. The `rate`

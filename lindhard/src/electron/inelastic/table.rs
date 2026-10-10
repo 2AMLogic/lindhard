@@ -169,7 +169,11 @@
 //! any other, from the merged grid, which contains the given grid. A
 //! refinement that would add more than [`RateRefinement::max_rows`] rows is
 //! an error naming the cell that still fails (a bound against a rate the
-//! bisection cannot resolve, not a tuned value).
+//! bisection cannot resolve, not a tuned value), and so is a cell still to
+//! test that can no longer be bisected because its midpoint rounds to an
+//! end. A step in the rate splits one cell per level, so it reaches
+//! rounding (about 50 levels) before any useful row bound: that second
+//! error, not the row bound, is what stops it.
 //!
 //! The midpoint test is a criterion, not a bound: for a smooth rate the
 //! midpoint error of a cell is close to its largest, but the acceptance
@@ -565,9 +569,12 @@ pub const RATE_TOLERANCE: f64 = 0.01;
 pub const RATE_WINDOW_EV: (f64, f64) = (2.0, 20.0);
 
 /// The default bound on the rows the rate refinement may add (a safety
-/// bound against a rate bisection cannot resolve, such as a step; not a
-/// tuned value): 1000 rows, so cells of 18 meV on average across the 18 eV
-/// of [`RATE_WINDOW_EV`], far below the 0.1 eV step of the `rate` gate.
+/// bound against a rate that fails the midpoint test in many cells at once;
+/// not a tuned value): 1000 rows, so cells of 18 meV on average across the
+/// 18 eV of [`RATE_WINDOW_EV`], far below the 0.1 eV step of the `rate`
+/// gate. A step in the rate splits one cell per level and is stopped
+/// earlier, when its cell is exhausted to rounding (module docs, "Rate
+/// refinement").
 pub const DEFAULT_RATE_REFINEMENT_MAX_ROWS: usize = 1000;
 
 /// Extra rows that resolve the inelastic rate `λ⁻¹(E)` near the Fermi level
@@ -996,13 +1003,32 @@ fn refined_energy_grid<M: LossModel>(
     let mut todo: Vec<bool> = vec![true; x.len() - 1];
     let mut added = 0usize;
     loop {
-        let cells: Vec<usize> = (0..todo.len())
-            .filter(|&i| todo[i])
-            .filter(|&i| {
-                let m = 0.5 * (x[i] + x[i + 1]);
-                m > x[i] && m < x[i + 1] // a cell exhausted to rounding stays
-            })
-            .collect();
+        let cells: Vec<usize> = (0..todo.len()).filter(|&i| todo[i]).collect();
+        // A cell still to test is the child of a cell that failed. If it
+        // can no longer be bisected (its midpoint rounds to an end), the
+        // rate does not meet the tolerance there at any width, as at a
+        // step: an error naming the lowest such cell, never a grid that
+        // leaves it unresolved.
+        if let Some(&i) = cells.iter().find(|&&i| {
+            let m = 0.5 * (x[i] + x[i + 1]);
+            !(m > x[i] && m < x[i + 1])
+        }) {
+            return Err(invalid(
+                "rate refinement",
+                format!(
+                    "cannot hold the rate to {} between E - E_F = {} and {} eV: cell {}..{} eV \
+                     is exhausted to rounding and its parent still failed at its midpoint (end \
+                     rates {:e} and {:e} 1/m)",
+                    r.tolerance,
+                    r.window_ev.0,
+                    r.window_ev.1,
+                    x[i],
+                    x[i + 1],
+                    y[i],
+                    y[i + 1]
+                ),
+            ));
+        }
         if cells.is_empty() {
             break;
         }
@@ -1818,6 +1844,23 @@ mod tests {
         o.rate_refinement.as_mut().unwrap().max_rows = 30;
         let err = refined_energy_grid(&model, &o).unwrap_err().to_string();
         assert!(err.contains("more than 30 rows"), "{err}");
+        assert!(err.contains("cell 17."), "{err}");
+    }
+
+    #[test]
+    fn rate_refinement_of_a_step_is_an_error_at_the_default_bound() {
+        // A step splits one cell per level, so at the default bound the
+        // cell around it reaches rounding (about 51 levels) long before the
+        // row bound: still an error naming the cell, never a grid with the
+        // step unresolved.
+        let model = SteepRate(|t| if t < 7.3 { 1e6 } else { 2e6 });
+        let o = band_options(vec![5.0, 9.0, 14.0, 22.0, 35.0, 60.0, 100.0]);
+        assert_eq!(
+            o.rate_refinement.unwrap().max_rows,
+            DEFAULT_RATE_REFINEMENT_MAX_ROWS
+        );
+        let err = refined_energy_grid(&model, &o).unwrap_err().to_string();
+        assert!(err.contains("exhausted to rounding"), "{err}");
         assert!(err.contains("cell 17."), "{err}");
     }
 
