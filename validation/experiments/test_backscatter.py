@@ -26,21 +26,24 @@ def committed(target: str) -> tuple[str, Path]:
 
 
 class SecondaryInputs(unittest.TestCase):
-    def test_band_provenance_is_the_metal_string(self):
-        # se_yield.BAND_PROVENANCE is a per-material dict (#149); backscatter.py
-        # reads the single free-electron-metal string, which is what every
-        # secondary target uses in the delta(E) runs and what the results JSON
-        # records under "band_provenance" (a string, not a dict).
+    def test_band_provenance_per_material(self):
+        # Al, Cu and Au use the single free-electron-metal string; Si is an
+        # insulator with its own provenance (#149). The results JSON records
+        # the per-target dict under "band_provenance".
         self.assertIsInstance(se_yield.METAL_BAND_PROVENANCE, str)
         for t in bs.SECONDARY_TARGETS:
-            self.assertEqual(se_yield.BAND[t]["kind"], "free-electron-metal")
-            self.assertIs(se_yield.BAND_PROVENANCE[t], se_yield.METAL_BAND_PROVENANCE)
+            if t == "Si":
+                self.assertEqual(se_yield.BAND[t]["kind"], "insulator")
+            else:
+                self.assertEqual(se_yield.BAND[t]["kind"], "free-electron-metal")
+                self.assertIs(se_yield.BAND_PROVENANCE[t], se_yield.METAL_BAND_PROVENANCE)
         committed_meta = json.loads(bs.RESULTS.read_text())["secondary_sensitivity"]
-        self.assertIsInstance(committed_meta["band_provenance"], str)
+        self.assertEqual(committed_meta["band_provenance"],
+                         {t: se_yield.BAND_PROVENANCE[t] for t in bs.SECONDARY_TARGETS})
 
     def test_targets_and_gaps(self):
-        self.assertEqual(bs.SECONDARY_TARGETS, ["Al", "Cu", "Au"])
-        self.assertEqual(set(bs.SECONDARY_GAPS), {"Si", "C"})
+        self.assertEqual(bs.SECONDARY_TARGETS, ["Al", "Cu", "Si", "Au"])
+        self.assertEqual(set(bs.SECONDARY_GAPS), {"C"})
         for t in bs.SECONDARY_TARGETS:
             self.assertIn(t, se_yield.BAND)
         for e in (1.0, 5.0, 10.0, 30.0):
@@ -52,11 +55,16 @@ class SecondaryInputs(unittest.TestCase):
             plain = tomllib.loads(bs.variant_input(base, d, 5.0, 1000, True, True))
             sec = tomllib.loads(bs.secondary_input(base, d, t, 5.0, 1000))
             band = sec["electron"]["materials"][t].pop("band")
-            self.assertEqual(band["kind"], "free-electron-metal")
-            self.assertEqual(band["valence_electrons_per_atom"],
-                             se_yield.BAND[t]["valence_electrons_per_atom"])
-            self.assertEqual(band["work_function_ev"], se_yield.BAND[t]["work_function_ev"]["mid"])
-            self.assertEqual(band["provenance"], se_yield.METAL_BAND_PROVENANCE.replace('"', "'"))
+            expected = tomllib.loads(se_yield.band_line(t, "mid"))["band"]
+            self.assertEqual(band, expected)
+            self.assertEqual(band["provenance"], se_yield.BAND_PROVENANCE[t].replace('"', "'"))
+            if t == "Si":
+                self.assertEqual(band["kind"], "insulator")
+            else:
+                self.assertEqual(band["kind"], "free-electron-metal")
+                self.assertEqual(band["valence_electrons_per_atom"],
+                                 se_yield.BAND[t]["valence_electrons_per_atom"])
+                self.assertEqual(band["work_function_ev"], se_yield.BAND[t]["work_function_ev"]["mid"])
             tr = sec["electron"]["transport"]
             self.assertEqual(tr.pop("secondaries"), "kieft-bosch")
             self.assertEqual(tr.pop("boundary"), "step-barrier")
