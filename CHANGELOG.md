@@ -7,6 +7,11 @@ one version).
 
 ## [Unreleased]
 
+### Added
+
+- `electron_psf_parameters.csv` gains `converged` (1/0) and `iterations` rows per
+  fit, so the standalone CSV shows whether a fit hit its iteration budget (#347).
+
 ### Fixed
 
 - Python `RunResult.write()` now follows the command's output lifecycle: it
