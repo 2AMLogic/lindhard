@@ -1402,6 +1402,20 @@ fn electron_table_cache_reuse_is_bit_identical() {
     );
     let plain = json(&out("plain").join("electron_summary.json"));
     assert!(plain["physics"]["materials"][0]["inelastic_table"]["cache"].is_null());
+    // The example's material has a band, so its inelastic table holds the
+    // rows of the rate refinement (#339) as well: a refined table read back
+    // from the cache gives the same results, bit for bit (below).
+    let energies = |t: &str| {
+        plain["physics"]["materials"][0][t]["energies"]
+            .as_u64()
+            .unwrap()
+    };
+    assert!(
+        energies("inelastic_table") > energies("elastic_table"),
+        "{} vs {}",
+        energies("inelastic_table"),
+        energies("elastic_table")
+    );
     let miss = json(&out("miss").join("electron_summary.json"));
     let hit = json(&out("hit-1").join("electron_summary.json"));
     for t in ["elastic_table", "inelastic_table"] {
@@ -1485,6 +1499,36 @@ fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
     };
     ok(&go(&src, "a"));
     assert_eq!(cache_files(&cache).len(), 6);
+
+    // The inelastic table of the example's band material holds the rows of
+    // its rate refinement (#339) besides the run's grid. One whose grid no
+    // longer contains the run's grid (an energy of the grid edited, the
+    // hash with it) is refused; restored, it is read.
+    let ikey = cache_files(&cache)
+        .into_iter()
+        .find(|f| f.starts_with("inelastic-") && f.ends_with(".key.json"))
+        .unwrap();
+    let itable_path = cache.join(ikey.replace(".key.json", ".toml"));
+    let itable = std::fs::read_to_string(&itable_path).unwrap();
+    let first = itable.find("energy_ev = [").unwrap() + "energy_ev = [".len();
+    let end = first + itable[first..].find(',').unwrap();
+    write_table_and_hash(
+        &itable_path,
+        &format!("{}10.5{}", &itable[..first], &itable[end..]),
+    );
+    let o = go(&src, "i");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        e.contains("field `energy_ev` does not contain this run's grid"),
+        "{e}"
+    );
+    write_table_and_hash(&itable_path, &itable);
+    ok(&go(&src, "j"));
+    assert_eq!(
+        table_sources(&dir.join("j")),
+        ("cache".into(), "cache".into())
+    );
 
     // Another band with the same inner potential (so the same table grid):
     // the inelastic table, built on the band-bottom axis with the band's

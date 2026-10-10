@@ -158,13 +158,17 @@
 //! every cell of the grid that overlaps `E - E_F` in
 //! [`RateRefinement::window_ev`] ([`RATE_WINDOW_EV`] by default) is bisected
 //! at its midpoint in `E` while the linear interpolation of the exact row
-//! rate between the cell's ends differs from the exact rate at the midpoint
-//! by more than [`RateRefinement::tolerance`] ([`RATE_TOLERANCE`]) of it.
+//! rate between the cell's ends differs from the exact rate at any of the
+//! cell's test points by more than [`RateRefinement::tolerance`]
+//! ([`RATE_TOLERANCE`]) of it. The test points are the cell's quartiles and
+//! midpoint (`rate_test_points`) and, where those pass, the estimated
+//! position of the largest error: the vertex of the parabola through the
+//! largest of the sampled errors and its two neighbours (`rate_error_peak`).
 //! Children that no longer overlap the window are not tested, so the
 //! bisection never approaches the zero of the rate at `E_F`, and cells
 //! outside the window are never split. Only the scalar rate is evaluated
 //! while refining (the row rule of the table: zero for an empty row); each
-//! level's midpoints are evaluated in parallel and merged in sorted order,
+//! level's test points are evaluated in parallel and merged in sorted order,
 //! so the grid is the same on any thread count. The rows are then built as
 //! any other, from the merged grid, which contains the given grid. A
 //! refinement that would add more than [`RateRefinement::max_rows`] rows is
@@ -175,9 +179,13 @@
 //! rounding (about 50 levels) before any useful row bound: that second
 //! error, not the row bound, is what stops it.
 //!
-//! The midpoint test is a criterion, not a bound: for a smooth rate the
-//! midpoint error of a cell is close to its largest, but the acceptance
-//! check is the dense evaluation of the `rate` mode of
+//! The test is a criterion, not a bound. A test of the midpoint alone
+//! (#351) left cells whose error peaked off the midpoint above the
+//! tolerance, and so did one of the quartiles and midpoint (the Al single
+//! pole from 5 eV at 10 per decade, 1.0008 % at 6.1 eV, between the first
+//! quartile and the midpoint of its cell); the parabolic vertex locates such
+//! a peak without a tuned number of samples. The acceptance check is the dense
+//! evaluation of the `rate` mode of
 //! `lindhard-cli/examples/inelastic_low_energy.rs` (every 0.1 eV over the
 //! window, `docs/validation.md`). The table's other grid (the elastic table
 //! of a run, or a table without the option) is unchanged: the transport
@@ -569,7 +577,7 @@ pub const RATE_TOLERANCE: f64 = 0.01;
 pub const RATE_WINDOW_EV: (f64, f64) = (2.0, 20.0);
 
 /// The default bound on the rows the rate refinement may add (a safety
-/// bound against a rate that fails the midpoint test in many cells at once;
+/// bound against a rate that fails the test in many cells at once;
 /// not a tuned value): 1000 rows, so cells of 18 meV on average across the
 /// 18 eV of [`RATE_WINDOW_EV`], far below the 0.1 eV step of the `rate`
 /// gate. A step in the rate splits one cell per level and is stopped
@@ -585,7 +593,7 @@ pub struct RateRefinement {
     /// refined when it overlaps it.
     pub window_ev: (f64, f64),
     /// The relative tolerance of the linear interpolation of the rate at a
-    /// cell's midpoint.
+    /// cell's test points (its quartiles and midpoint).
     pub tolerance: f64,
     /// The most rows the refinement may add; more is an error.
     pub max_rows: usize,
@@ -972,6 +980,64 @@ fn row_rate<M: LossModel>(penn: &M, axis: EnergyAxis, t: f64) -> Result<f64, Ine
     Ok(if inv > 0.0 { inv } else { 0.0 })
 }
 
+/// The points at which the rate refinement tests the cell `a..b` (module
+/// docs, "Rate refinement"): its first quartile, midpoint and third
+/// quartile, each formed as the midpoint of a half, so that a quartile is
+/// bitwise the midpoint of the half a bisection would make.
+///
+/// The interpolation error of a function with constant curvature peaks at
+/// the midpoint; the band-bottom rate's curvature changes across a cell,
+/// and the relative error divides by a rate that changes across it, so the
+/// peak moves off the midpoint (#339 measured misses of up to 1.43 % in
+/// cells whose midpoint missed by less than 1 %). The quartiles are the
+/// points of the next level of the bisection itself, a fixed dyadic set
+/// rather than a tuned count; they bracket the peak, which
+/// `rate_error_peak` then locates.
+fn rate_test_points(a: f64, b: f64) -> [f64; 3] {
+    let m = 0.5 * (a + b);
+    [0.5 * (a + m), m, 0.5 * (m + b)]
+}
+
+/// The estimated position of the largest relative interpolation error in
+/// the cell `a..b`, from its signed relative errors `e` at the quartiles and
+/// midpoint (`rate_test_points`; the error is zero at the cell's ends): the
+/// vertex of the parabola through the largest of the five samples and its
+/// two neighbours (parabolic interpolation of an extremum, the step of
+/// Brent's method; R. P. Brent, *Algorithms for Minimization without
+/// Derivatives*, Prentice-Hall 1973, ch. 5). The largest sample's
+/// neighbours do not exceed it in magnitude, so the vertex lies between
+/// them. `None` where every sample is zero or the three are collinear.
+fn rate_error_peak(a: f64, b: f64, e: [f64; 3]) -> Option<f64> {
+    let s = [0.0, e[0], e[1], e[2], 0.0];
+    // The largest sample in magnitude (the midpoint on a tie).
+    let k = [2, 1, 3]
+        .into_iter()
+        .fold(2, |k, j| if s[j].abs() > s[k].abs() { j } else { k });
+    let (l, c, r) = (s[k - 1], s[k], s[k + 1]);
+    let curvature = l - 2.0 * c + r;
+    if c == 0.0 || curvature == 0.0 || !curvature.is_finite() {
+        return None;
+    }
+    let h = 0.25 * (b - a);
+    let xk = a + h * k as f64;
+    let v = xk + 0.5 * h * (l - r) / curvature;
+    (v > a && v < b && v.is_finite()).then_some(v)
+}
+
+/// The miss of the interpolated rate at a test point of the rate refinement.
+#[derive(Debug, Clone, Copy)]
+struct RateMiss {
+    /// `(interpolated - exact) / exact` (infinite where the exact rate is
+    /// zero and the interpolated one is not).
+    rel: f64,
+    /// The energy of the test point, eV.
+    at: f64,
+    /// The interpolated rate, 1/m.
+    interpolated: f64,
+    /// The exact rate, 1/m.
+    exact: f64,
+}
+
 /// The energy grid of a table with the rows of the rate refinement of
 /// `options` merged in (module docs, "Rate refinement"), or `None` without
 /// one. `options` is checked.
@@ -1017,7 +1083,7 @@ fn refined_energy_grid<M: LossModel>(
                 "rate refinement",
                 format!(
                     "cannot hold the rate to {} between E - E_F = {} and {} eV: cell {}..{} eV \
-                     is exhausted to rounding and its parent still failed at its midpoint (end \
+                     is exhausted to rounding and its parent still failed at a test point (end \
                      rates {:e} and {:e} 1/m)",
                     r.tolerance,
                     r.window_ev.0,
@@ -1032,19 +1098,72 @@ fn refined_energy_grid<M: LossModel>(
         if cells.is_empty() {
             break;
         }
-        let mids: Vec<f64> = cells.iter().map(|&i| 0.5 * (x[i] + x[i + 1])).collect();
-        let exact: Vec<f64> = mids
-            .par_iter()
-            .map(|&e| rate(e))
-            .collect::<Result<_, _>>()?;
-        // Split where the transport's linear interpolation misses the exact
-        // rate at the midpoint by more than the tolerance (a zero exact rate
-        // with a nonzero interpolant always fails).
-        let split: Vec<bool> = cells
+        // The test points of each cell, in cell order: its quartiles and
+        // midpoint (`rate_test_points`), then the estimated peak of its
+        // error (`rate_error_peak`) where those pass.
+        let points: Vec<[f64; 3]> = cells
             .iter()
-            .zip(&exact)
-            .map(|(&i, &m)| (0.5 * (y[i] + y[i + 1]) - m).abs() > r.tolerance * m)
+            .map(|&i| rate_test_points(x[i], x[i + 1]))
             .collect();
+        let exact: Vec<f64> = points
+            .par_iter()
+            .flat_map_iter(|p| p.iter().copied())
+            .map(rate)
+            .collect::<Result<_, _>>()?;
+        // The miss of the transport's linear interpolation in cell `i` at
+        // `e`, where the exact rate is `m`: signed, relative to `m` (a zero
+        // exact rate with a nonzero interpolant is an infinite miss), with
+        // the interpolated rate.
+        let miss = |i: usize, e: f64, m: f64| {
+            let lin = y[i] + (e - x[i]) / (x[i + 1] - x[i]) * (y[i + 1] - y[i]);
+            let d = lin - m;
+            let rel = if d == 0.0 {
+                0.0
+            } else if m > 0.0 {
+                d / m
+            } else {
+                f64::INFINITY
+            };
+            RateMiss {
+                rel,
+                at: e,
+                interpolated: lin,
+                exact: m,
+            }
+        };
+        let mut worst: Vec<RateMiss> = Vec::with_capacity(cells.len());
+        let mut peaks: Vec<(usize, f64)> = Vec::new();
+        for (k, (&i, (p, ex))) in cells
+            .iter()
+            .zip(points.iter().zip(exact.chunks_exact(3)))
+            .enumerate()
+        {
+            let m: Vec<RateMiss> = p.iter().zip(ex).map(|(&e, &v)| miss(i, e, v)).collect();
+            let w = m
+                .iter()
+                .fold(m[1], |a, &b| if b.rel.abs() > a.rel.abs() { b } else { a });
+            if w.rel.abs() <= r.tolerance {
+                if let Some(e) = rate_error_peak(x[i], x[i + 1], [m[0].rel, m[1].rel, m[2].rel]) {
+                    peaks.push((k, e));
+                }
+            }
+            worst.push(w);
+        }
+        // The estimated peaks of the cells that passed at their quartiles and
+        // midpoint, in parallel and in cell order.
+        let peak_exact: Vec<f64> = peaks
+            .par_iter()
+            .map(|&(_, e)| rate(e))
+            .collect::<Result<_, _>>()?;
+        for (&(k, e), &v) in peaks.iter().zip(&peak_exact) {
+            let p = miss(cells[k], e, v);
+            if p.rel.abs() > worst[k].rel.abs() {
+                worst[k] = p;
+            }
+        }
+        // Split at the midpoint where the miss at any test point exceeds the
+        // tolerance.
+        let split: Vec<bool> = worst.iter().map(|w| w.rel.abs() > r.tolerance).collect();
         let n_split = split.iter().filter(|&&s| s).count();
         if n_split == 0 {
             break;
@@ -1052,20 +1171,27 @@ fn refined_energy_grid<M: LossModel>(
         if added + n_split > r.max_rows {
             let k = split.iter().position(|&s| s).expect("one split");
             let i = cells[k];
+            let RateMiss {
+                at,
+                interpolated: lin,
+                exact: m,
+                ..
+            } = worst[k];
             return Err(invalid(
                 "rate refinement",
                 format!(
                     "more than {} rows needed to hold the rate to {} between E - E_F = {} and \
-                     {} eV (cell {}..{} eV still fails at its midpoint: interpolated {:e}, \
-                     exact {:e} 1/m)",
+                     {} eV (cell {}..{} eV still fails at {} eV: interpolated {:e}, exact {:e} \
+                     1/m)",
                     r.max_rows,
                     r.tolerance,
                     r.window_ev.0,
                     r.window_ev.1,
                     x[i],
                     x[i + 1],
-                    0.5 * (y[i] + y[i + 1]),
-                    exact[k]
+                    at,
+                    lin,
+                    m
                 ),
             ));
         }
@@ -1079,9 +1205,10 @@ fn refined_energy_grid<M: LossModel>(
             ny.push(y[i]);
             if k < cells.len() && cells[k] == i {
                 if split[k] {
-                    let m = mids[k];
+                    // The midpoint, a test point: its exact rate is known.
+                    let m = points[k][1];
                     nx.push(m);
-                    ny.push(exact[k]);
+                    ny.push(exact[3 * k + 1]);
                     ntodo.push(overlaps(x[i], m));
                     ntodo.push(overlaps(m, x[i + 1]));
                 } else {
@@ -1129,7 +1256,8 @@ fn refinement_provenance(options: &InelasticTableOptions, added: usize) -> Strin
         None => String::new(),
         Some(r) => format!(
             "; rate refinement (#339): {added} rows added where the linear interpolation of \
-             the rate missed it by more than {} at a cell midpoint, E - E_F = {}..{} eV",
+             the rate missed it by more than {} at a cell's quartiles, midpoint or estimated \
+             error peak, E - E_F = {}..{} eV",
             r.tolerance, r.window_ev.0, r.window_ev.1
         ),
     }
@@ -1786,7 +1914,7 @@ mod tests {
     }
 
     #[test]
-    fn rate_refinement_adds_rows_only_in_the_window_and_meets_the_midpoint_test() {
+    fn rate_refinement_adds_rows_only_in_the_window_and_meets_the_test() {
         let model = SteepRate(steep);
         let grid = vec![5.0, 9.0, 14.0, 22.0, 35.0, 60.0, 100.0];
         let o = band_options(grid.clone());
@@ -1804,13 +1932,16 @@ mod tests {
             let (a, b) = (grid[k - 1], grid[k]);
             assert!(b > lo && a < hi, "{e} in the cell {a}..{b}");
         }
-        // Every final cell overlapping the window passes the midpoint test.
+        // Every final cell overlapping the window passes the test at its
+        // quartiles and midpoint.
         let rate = |e: f64| row_rate(&model, EnergyAxis::BandBottom, e - 10.0).unwrap();
         for w in refined.windows(2) {
             if w[1] > lo && w[0] < hi {
-                let m = rate(0.5 * (w[0] + w[1]));
-                let lin = 0.5 * (rate(w[0]) + rate(w[1]));
-                assert!((lin - m).abs() <= RATE_TOLERANCE * m, "{w:?}");
+                for e in rate_test_points(w[0], w[1]) {
+                    let m = rate(e);
+                    let lin = rate(w[0]) + (e - w[0]) / (w[1] - w[0]) * (rate(w[1]) - rate(w[0]));
+                    assert!((lin - m).abs() <= RATE_TOLERANCE * m, "{w:?} at {e}");
+                }
             }
         }
         // Without the option the grid is the given one.
@@ -1880,6 +2011,34 @@ mod tests {
             r.tolerance = tol;
             assert!(check_options(&o).is_err(), "{window:?} {tol}");
         }
+    }
+
+    #[test]
+    fn rate_test_points_are_the_quartiles_and_midpoint() {
+        let p = rate_test_points(2.0, 6.0);
+        assert_eq!(p, [3.0, 4.0, 5.0]);
+        // A quartile is bitwise the midpoint of the half a bisection makes.
+        let (a, b) = (0.1, 0.7);
+        let p = rate_test_points(a, b);
+        assert_eq!(p[0], rate_test_points(a, p[1])[1]);
+        assert_eq!(p[2], rate_test_points(p[1], b)[1]);
+    }
+
+    #[test]
+    fn rate_error_peak_is_the_vertex_of_the_parabola_at_the_largest_sample() {
+        // Samples of 1.69 - (x - 1.3)^2 at the quartiles and midpoint of
+        // 0..4 (zero at x = 0): the largest is at x = 1, and the parabola
+        // through it and its neighbours x = 0 and 2 has its vertex at 1.3.
+        let g = |x: f64| 1.69 - (x - 1.3) * (x - 1.3);
+        let v = rate_error_peak(0.0, 4.0, [g(1.0), g(2.0), g(3.0)]).unwrap();
+        assert!((v - 1.3).abs() < 1e-12, "{v}");
+        // The same with the sign reversed (an interpolant below the rate).
+        let v = rate_error_peak(0.0, 4.0, [-g(1.0), -g(2.0), -g(3.0)]).unwrap();
+        assert!((v - 1.3).abs() < 1e-12, "{v}");
+        // A symmetric profile peaks at the midpoint; no samples, no peak.
+        let v = rate_error_peak(0.0, 4.0, [0.75, 1.0, 0.75]).unwrap();
+        assert!((v - 2.0).abs() < 1e-12, "{v}");
+        assert_eq!(rate_error_peak(0.0, 4.0, [0.0; 3]), None);
     }
 
     #[test]

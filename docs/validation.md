@@ -1994,38 +1994,51 @@ result worse, not better; no Cu, Si or Au set changes status.
   rate needs rows from `E_F` upward, not a denser uniform grid.
 
   **Rate refinement (#339).** `InelasticTableOptions::rate_refinement`
-  (`electron::inelastic::table`, "Rate refinement"; off by default) gives
-  one band-bottom table those rows: every grid cell overlapping `E - E_F`
-  = 2 to 20 eV is bisected at its midpoint while the linear interpolation
-  of the exact rate misses the exact rate there by more than 1 %
-  (`RATE_TOLERANCE` and `RATE_WINDOW_EV`, the gate's own constants, now in
-  the library and read by the example). The `rate` mode builds each coarse
-  table again with it (`+refined`: the coarse rows and every row the
-  construction adds) and gates it the same way. Largest error over 2 to 20
-  eV (where it falls) and rows of the refined table (the coarse rows
+  (`electron::inelastic::table`, "Rate refinement") gives one band-bottom
+  table those rows: every grid cell overlapping `E - E_F` = 2 to 20 eV is
+  bisected at its midpoint while the linear interpolation of the exact
+  rate misses the exact rate by more than 1 % (`RATE_TOLERANCE` and
+  `RATE_WINDOW_EV`, the gate's own constants, in the library and read by
+  the example) at any of the cell's test points: its quartiles and
+  midpoint, and, where those pass, the vertex of the parabola through the
+  largest sampled error and its two neighbours (the estimated peak). The
+  `rate` mode builds each coarse table again with it (`+refined`: the
+  coarse rows and every row the construction adds) and gates it the same
+  way. The first version (#351) tested the midpoint only and missed in
+  four tables, by 1.0008 % (Al single pole, 5 eV, 10 per decade, at 6.1
+  eV) to 1.43 %: there the error peaks off the midpoint. Testing the
+  quartiles as well still left the first of them at 1.0008 % (its peak lies
+  between the first quartile and the midpoint of the cell 5.3 to 7.2 eV,
+  which miss by 0.84 and 0.99 %) and Al Mermin from 10 eV at 10 per decade
+  at 1.03 %; the estimated peak closes both. No constant was tuned: the
+  tolerance and window are #291's, and the test points are the next level
+  of the bisection and the parabolic vertex. Largest error over 2 to 20 eV
+  (where it falls) and rows of the refined table (the coarse rows
   bracketing 0.5 to 20 eV above `E_F` plus the rows added), at the two
   grids that matter, the `se_yield.py` grid (5 eV, 10 per decade) and the
-  library default (10 eV, 20 per decade):
+  library default (10 eV, 20 per decade), 2026-10-10:
 
   | Table | 5 eV, 10 / decade | rows (coarse + added) | 10 eV, 20 / decade | rows (coarse + added) |
   |---|---|---|---|---|
-  | Al single-pole | **1.0008 % (6.1), fails** | 6 + 22 | 0.84 % (3.1) | 11 + 24 |
-  | Al Mermin | 0.66 % (18.6) | 6 + 10 | 1.00 % (2.7) | 11 + 6 |
-  | Si single-pole | 0.84 % (15.2) | 6 + 25 | 0.96 % (3.9) | 10 + 21 |
-  | Si Mermin | 0.93 % (3.0) | 6 + 7 | 0.72 % (15.8) | 10 + 5 |
+  | Al single-pole | 0.967 % (16.4) | 6 + 23 | 0.843 % (3.1) | 11 + 24 |
+  | Al Mermin | 0.656 % (18.6) | 6 + 10 | 0.880 % (4.8) | 11 + 7 |
+  | Si single-pole | 0.843 % (15.2) | 6 + 25 | 0.953 % (4.9) | 10 + 22 |
+  | Si Mermin | 0.934 % (3.0) | 6 + 7 | 0.721 % (15.8) | 10 + 5 |
 
-  At the other grids of the mode (5 or 10 eV, 10 to 80 per decade) the
-  refined tables pass except the Al single pole from 5 eV at 20 per
-  decade (1.43 % at 17.6 eV), Al Mermin from 10 eV at 10 per decade
-  (1.03 %, 4.6 eV) and Si Mermin from 10 eV at 10 per decade (1.40 %,
-  18.6 eV); the uniform grids alone fail everywhere below 80 per decade.
-  The midpoint test is a criterion, not a bound: in those cells the error
-  peaks away from the midpoint the test samples. By the stop rule of #339
-  the criterion is not tightened by an empirical factor and neither the
-  tolerance nor the window is widened, so **`lindhard run` does not use
-  the refinement yet** and the grid of these runs is unchanged. #339 stays
-  open for that decision; #291 and #287 are not settled by it.
-  The committed results are unchanged.
+  Every refined table of the mode passes (5 and 10 eV, 10 to 80 per
+  decade, 32 tables), including the three that failed with the midpoint
+  test outside these grids: the Al single pole from 5 eV at 20 per decade
+  0.772 % (15.9; 11 + 23 rows), Al Mermin from 10 eV at 10 per decade
+  0.893 % (2.7; 7 + 11) and Si Mermin from 10 eV at 10 per decade 0.842 %
+  (18.2; 6 + 10). The uniform grids alone fail everywhere below 80 per
+  decade. The test is a criterion, not a bound; the dense gate is the
+  check. **`lindhard run` now builds the inelastic table of every material
+  with a band with the refinement** (`RateRefinement::default()`; the
+  elastic table and tables without a band keep the grid), which settles the
+  grid question of #291 for the δ runs: the `se_yield.py` grid (5 eV, 10
+  per decade) needs no change. The committed δ tables below were computed
+  before it, so they are stale until the re-run of #287; this change does
+  not re-run them.
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
   level (`cutoff_reference = "vacuum-level"`) unless a row says otherwise.
