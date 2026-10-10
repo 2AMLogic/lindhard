@@ -7,6 +7,12 @@ one version).
 
 ## [Unreleased]
 
+### Changed
+
+- The minimum supported Rust version is now 1.89 (was 1.85), for
+  `std::fs::File::lock`, which the table cache's per-entry lock uses
+  (#305).
+
 ### Fixed
 
 - Python `RunResult.write()` now follows the command's output lifecycle: it
@@ -17,6 +23,13 @@ one version).
   before replacing any CSV, and publishes the new summary through a
   temporary file and rename, so a failed rerun no longer leaves an old summary
   beside replaced CSVs (#321).
+- Concurrent runs sharing a `--table-cache` directory no longer build the
+  same table more than once or fail on a shared temporary file name (#305).
+  Each entry is locked (`<kind>-<sha256>.lock`, an OS advisory lock released
+  when its holder exits or is killed) across its lookup, build and storage;
+  a waiting run reads the entry the first one stored, and different entries
+  never wait for each other. Temporary files have unique names and are
+  removed on error. See `docs/cli.md`, "Concurrent runs".
 - Dynamic runs write `dynamic_summary.json` last, after
   `dynamic_steps.csv` and the composition CSV, like ion and electron runs
   (#292). A failed CSV write no longer leaves a new summary.

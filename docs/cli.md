@@ -791,13 +791,55 @@ part of the key. Writes go to a temporary file renamed into place, the table
 first, then its hash, then its key, so a key on disk always has its table and
 hash beside it.
 
+**Concurrent runs.** Several runs may share one cache directory at once
+(threads of one process or separate `lindhard` processes, such as a seed
+sweep started in parallel on a cold cache). Each entry has a lock file,
+`<kind>-<sha256>.lock`, and a run holds the entry's lock while it looks the
+entry up, builds the table and stores it. So for one key:
+
+- one run builds the table; every other run waits for it, then finds the
+  stored entry (the lookup is made only once the lock is held) and reads it.
+  A run that has to wait for another process prints
+  `note: waiting for another process to finish the table cache entry <lock file>`
+  on standard error. A run whose build fails stores nothing, and the next
+  waiting run builds in turn;
+- runs that need different tables (another material, kind or key) take
+  different locks and do not wait for each other;
+- there is no timeout: a run waits as long as the holder is alive, since a
+  build can take minutes. A holder that exits or is killed releases its lock
+  (the operating system drops it with the process), so it never blocks the
+  next run. A holder that is stopped but alive (for example suspended with
+  Ctrl-Z) does block it. A waiting run can be interrupted safely;
+- a holder killed while storing can leave temporary files
+  (`.<file>.tmp.<pid>.<n>`) and a table without its key. The key is the
+  commit marker, so that entry was never stored: the next run to take the
+  lock removes the temporary files and rebuilds it. A stored entry that fails
+  any check above is still an error, never a rebuild.
+
+Temporary files are created under names unique to the process and the write,
+and removed if the write fails. The lock files are empty and stay in the
+directory; removing them while no run uses the cache is harmless.
+
+The lock is an operating-system advisory lock on the lock file (`flock` on
+Unix, `LockFileEx` on Windows, through Rust's `std::fs::File::lock`), and
+inside one process the run also excludes its own threads without relying on
+it. This is supported on a **local file system**. On a network file system
+(NFS, SMB) whether locks are honoured between machines depends on the server
+and mount options, and is not guaranteed; share a cache between machines at
+your own risk, or give each machine its own. If the file system refuses the
+lock altogether the run fails with an error naming the lock file (use a local
+directory, or run without `--table-cache`). Older `lindhard` builds take no
+lock, so do not point one at a directory a current run is writing.
+
 A cached table is the built one bit for bit (the TOML cache form round-trips
 every `f64`), so outputs do not depend on whether the tables were built or
 read, nor on the thread count. Only `physics.materials.*_table.source` and
 `.cache`, and the timings in `run`, differ. `lindhard-cli/tests/examples.rs`
 checks a building run, a storing run and reading runs on 1 and 8 threads
-against each other. Remove the directory to reclaim space; nothing else
-prunes it.
+against each other; `lindhard-cli/tests/table_cache_concurrency.rs` checks
+the concurrency contract above (threads and processes on one cold entry
+build once, different entries build at the same time, a killed holder does
+not block). Remove the directory to reclaim space; nothing else prunes it.
 
 ## Reusing an output directory
 
