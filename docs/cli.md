@@ -559,8 +559,18 @@ table's (`MerminFit`), which are worth checking when choosing the options.
 Three oscillators do not describe every ELF: the default fit of the Cu ELF
 in `validation/data/optical` recovers 57 % of its f-sum and 67 % of its
 `P_eff` (`docs/validation.md`, "Cu: the Mermin IMFP and the default oscillator fit"), so such a material
-should use more. More oscillators can also give very wide ones (#311). For
-example:
+should use more. More oscillators can also give a very wide one, far wider
+than the table's energy range, whose f-sum lies above the table (#311).
+Measured on that Cu ELF (same section, "Weighting options and the wide
+oscillator"): at 10 oscillators the default weighting gives one (f-sum 188
+times the table's, unconverged), `relative_floor = 0.1` and `1` do not
+(f-sum 0.79 and 0.87 of the table's, `P_eff` 0.98 and 1.03, converged), and
+`uniform` is worse (4e4 times). At 16 oscillators none of `relative_floor`
+1e-3, 1e-2, 0.1, 1 or `uniform` avoids it (31 to 3e33 times the table's
+f-sum), including fits that report convergence. So, whatever the options,
+**check the fit's f-sum and `P_eff` against the table's** in the fit report
+(`MerminFit`); convergence alone and a plausible IMFP do not show a sound
+fit. For example:
 
 ```toml
 [electron.inelastic]
