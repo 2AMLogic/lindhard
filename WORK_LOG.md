@@ -4,6 +4,12 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-10
 
+- **Issue #149** (closed): [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements
+- **Issue #241** (closed): Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp
+- **Issue #321** (closed): CLI: invalidate prior summaries when a rerun starts replacing outputs
+- **PR #289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
+- **PR #322**: CLI: invalidate prior summaries when a rerun starts replacing outputs
+- **PR #324**: Backscatter (#148): Si in the fast-secondary sensitivity of eta
 - **Issue #300** (closed): Cu Mermin inelastic mean free path is 15 to 41 % longer than TPP 2011 and than the single-pole model on the same ELF
 - **Issue #307** (closed): Mermin fit with 10 or 16 oscillators puts a sub-meV oscillator between ELF knots (f-sum x7000 for Cu)
 - **Issue #312** (closed): SE yield candidates (#301 item 1): acoustic-phonon scattering for Cu, or the gap
