@@ -447,12 +447,13 @@ pub(crate) fn integrate_panels(
 
 /// Budget of rule applications for the bisection of one segment of
 /// [`integrate_weighted`] and of [`integrate_panels`] (each application is
-/// `n` evaluations of the integrand). A segment that has not met its tolerance when the budget is
-/// spent is not reported as converged: see [`Weighted`].
+/// `n` evaluations of the integrand). A segment that has not met its
+/// tolerance when the budget is spent is not reported as converged: see
+/// [`Weighted`].
 ///
 /// Chosen from measurements (#298) on the full Penn loss function, model
 /// tolerance 1e-4: the most any one knot interval used was 78 at the two
-/// Si edge-resonance points of `tests/penn_full.rs` (0.6 and 2.9 million
+/// Si edge-resonance points of `tests/penn_full.rs` (1.2 and 5.8 million
 /// before the relative acceptance), and at most 62 on scans of 2000 momenta
 /// from 0.005 to 40 a.u. at 11 losses each on the committed Si and Al ELFs.
 /// The budget is some 50 times that, so it acts only as a backstop against
@@ -462,7 +463,8 @@ pub(crate) fn integrate_panels(
 pub(crate) const SEGMENT_BUDGET: u64 = 4096;
 
 /// The result of [`integrate_weighted`] with what it cost and whether every
-/// cell met its tolerance.
+/// cell met its tolerance (also the bookkeeping of [`integrate_panels`],
+/// whose `value` is unused).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Weighted<const N: usize> {
     /// The integral.
@@ -472,8 +474,7 @@ pub(crate) struct Weighted<const N: usize> {
     pub(crate) rules: u64,
     /// Cells accepted *without* meeting their tolerance: at [`MAX_DEPTH`],
     /// where the midpoint is no longer representable, or when the segment's
-    /// [`SEGMENT_BUDGET`] ran out. Zero when the integration
-    /// converged.
+    /// [`SEGMENT_BUDGET`] ran out. Zero when the integration converged.
     pub(crate) unconverged_cells: u64,
     /// The sum of `|halves - whole|` over those cells: the error estimate of
     /// the part of `value` that did not converge (zero when it did).
@@ -549,7 +550,7 @@ const GROUP_FRACTION: f64 = 0.1;
 /// by the peak's share, which falls below the floating-point noise of the
 /// integrand long before [`MAX_DEPTH`]. The bisection then fills the peak
 /// with cells down to [`MAX_DEPTH`]: on the full Penn loss function of the
-/// Si ELF at two `(q, ω)` points this was 0.6 and 2.9 million rule
+/// Si ELF at two `(q, ω)` points this was 1.2 and 5.8 million rule
 /// applications for one segment, with an error of the exhausted cells of
 /// 1e-11 of the result (`docs/validation.md`, "Electron oracles").
 ///

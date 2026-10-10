@@ -529,8 +529,8 @@ fn si_continuum_edge_resonance_points_are_bounded_and_accurate() {
     // Work is counted, not timed. Measured (x86-64 Linux, #298): 1350 and
     // 995 Lindhard evaluations at the two points, at most 78 rule
     // applications in any one knot interval; before the bound the first
-    // knot interval alone took 0.62 and 2.9 million rule applications (3.1
-    // and 14.5 million evaluations), 0.26 and 1.3 million of its cells
+    // knot interval alone took 1.2 and 5.8 million rule applications (6.2
+    // and 29 million evaluations), 0.26 and 1.3 million of its cells
     // ending at the maximum depth. The neighbours (q within 1e-8 to 1e-2
     // relative) took 585 to 1350. The reference is the same model at 1e-6,
     // which converges at all of them; measured differences at most 2.3e-6.
