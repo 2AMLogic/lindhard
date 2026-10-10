@@ -56,6 +56,15 @@ jobs:
           python3 validation/experiments/test_backscatter.py
           python3 validation/oracles/test_run_electron.py
 
+  workflow-checks:
+    name: Workflow checks (clippy pin, canary reporting)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install pyyaml
+      - run: python3 .github/scripts/test_clippy_canary.py
+
   figures:
     name: Validation figures match the committed results
     runs-on: ubuntu-latest
@@ -98,6 +107,10 @@ jobs:
     name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    env:
+      # Exact Rust release for the required clippy gate (rustc 1.99.0,
+      # released 2026-09-28). Bump deliberately; see CONTRIBUTING.md.
+      CLIPPY_TOOLCHAIN: "1.99.0"
     strategy:
       fail-fast: false
       matrix:
@@ -106,12 +119,18 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt
+      - name: Install the pinned clippy toolchain
+        # The required clippy gate runs on an exact release so that a new Rust
+        # stable cannot change the lint set under unrelated pull requests.
+        # Latest-stable and beta drift is reported by clippy-canary.yml.
+        # Bump procedure: CONTRIBUTING.md, "Clippy pin and canary".
+        run: rustup toolchain install "$CLIPPY_TOOLCHAIN" --profile minimal --component clippy
       - uses: Swatinem/rust-cache@v2
       - name: fmt
         run: cargo fmt --all --check
-      - name: clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: clippy (pinned toolchain)
+        run: cargo +"$CLIPPY_TOOLCHAIN" clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
 

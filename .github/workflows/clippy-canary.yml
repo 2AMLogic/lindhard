@@ -1,0 +1,84 @@
+name: Clippy canary
+
+# Latest-stable and beta clippy drift, reported but never gating. The required
+# clippy gate in ci.yml is pinned to an exact release (CLIPPY_TOOLCHAIN); this
+# workflow shows when a newer toolchain would turn it red, through one
+# marker-identified tracking issue. Not a pull_request workflow and not
+# referenced by ci.yml. See CONTRIBUTING.md, "Clippy pin and canary".
+
+on:
+  schedule:
+    - cron: "43 4 * * 1" # Mondays 04:43 UTC
+  workflow_dispatch:
+    inputs:
+      simulate-failure:
+        description: "Force the canary red to exercise issue reporting (never set by schedule)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clippy-canary
+  cancel-in-progress: false
+
+jobs:
+  clippy:
+    name: clippy (${{ matrix.channel }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        channel: [stable, beta]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.channel }}
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: canary-${{ matrix.channel }}
+      - name: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Simulated failure (workflow_dispatch only)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate-failure }}
+        run: |
+          echo "::error::simulated canary failure requested by the simulate-failure input"
+          exit 1
+      - name: Record the result for the reporter
+        if: always()
+        run: |
+          mkdir -p result
+          echo "${{ job.status }}" > "result/${{ matrix.channel }}.txt"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: result-${{ matrix.channel }}
+          path: result/${{ matrix.channel }}.txt
+
+  report:
+    name: Report to the tracking issue
+    needs: clippy
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: result-*
+          path: results
+          merge-multiple: true
+      - name: Create, comment on, reopen or close the canonical issue
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          RESULTS_DIR: results
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: python3 .github/scripts/clippy_canary_report.py
