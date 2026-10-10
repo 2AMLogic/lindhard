@@ -212,15 +212,46 @@ fn density_cases() -> [DensityCase; 3] {
 }
 
 /// Prints, for each material, the source values, temperatures, printed
-/// precision, and the relative difference of the lattice against the
-/// `material` module (whole crystal and per species). Returns the
-/// whole-crystal difference.
+/// precision, the computed densities with units, and the relative difference
+/// of the lattice against the `material` module (whole crystal and per
+/// species). The computed densities are the lattice and `material` atom number
+/// densities in atoms/m³ (whole crystal, then per species), and the cited mass
+/// density next to the mass density the lattice implies, ρ_cited (1 + Δ), in
+/// g/cm³; both sides share one mean atomic weight, so the ratio of number
+/// densities is the ratio of mass densities. Returns the whole-crystal
+/// difference.
 fn report(c: &DensityCase) -> f64 {
     let d = density_differences(&c.lattice, c.rho_g_cm3, c.z);
+    let m = Material::from_atom_fractions(
+        &[(c.z[0], 1.0), (c.z[1], 1.0)],
+        Some(g_cm3_to_kg_m3(c.rho_g_cm3)),
+    )
+    .unwrap();
     println!(
         "{}: density [{}]; cell [{}]; printed precision (half last digit) {:.2e}; \
+         atom density lattice {:.6e} /m3 (Z={} {:.6e}, Z={} {:.6e}), \
+         material {:.6e} /m3 (Z={} {:.6e}, Z={} {:.6e}); \
+         mass density cited {:.5} g/cm3, implied by lattice {:.5} g/cm3; \
          lattice/material - 1 = {:+.3e} (species {:+.3e}, {:+.3e})",
-        c.name, c.density_source, c.cell_source, c.printed_precision, d[0], d[1], d[2]
+        c.name,
+        c.density_source,
+        c.cell_source,
+        c.printed_precision,
+        c.lattice.atom_number_density(),
+        c.z[0],
+        c.lattice.number_density_of(c.z[0]),
+        c.z[1],
+        c.lattice.number_density_of(c.z[1]),
+        m.atom_number_density(),
+        c.z[0],
+        m.number_density_of(c.z[0]).unwrap(),
+        c.z[1],
+        m.number_density_of(c.z[1]).unwrap(),
+        c.rho_g_cm3,
+        c.rho_g_cm3 * (1.0 + d[0]),
+        d[0],
+        d[1],
+        d[2]
     );
     d[0]
 }
