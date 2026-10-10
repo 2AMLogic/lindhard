@@ -336,6 +336,7 @@ fn diimfp_grid_reproduces_the_direct_diimfp() {
     let fpa = coarse_full();
     let grid = fpa.diimfp_grid(&GRID_ENERGIES).unwrap();
     assert!(!grid.is_empty() && grid.panel_count() > grid.len());
+    assert_eq!(grid.unconverged_profile_loss_evaluations(), 0);
     let reference = FullPenn::new(coarse_fixture())
         .with_relative_tolerance(0.1 * TOL)
         .unwrap();
@@ -553,6 +554,30 @@ fn si_continuum_edge_resonance_points_are_bounded_and_accurate() {
             "Si {w} eV near q {q0} a.u.: worst difference from the 1e-6 reference {worst:.2e}"
         );
     }
+}
+
+#[test]
+fn imfp_outer_integral_converges_at_the_model_tolerance_on_the_committed_elfs() {
+    // The outer ω_p integral of the IMFP and stopping power has the bounded
+    // bisection too (#298); at the model tolerance it must not exhaust it or leave a cell with a noticeable error.
+    for (file, energies) in [
+        ("si_elf_yang2019.toml", [10.0, 60.0, 200.0, 1000.0, 5000.0]),
+        (
+            "al_elf_hagemann1975.toml",
+            [10.0, 60.0, 200.0, 1000.0, 5000.0],
+        ),
+    ] {
+        let model = FullPenn::new(committed_elf(file));
+        for e in energies {
+            // Measured: all converge but Al at 10 eV, one cell stopped at
+            // floating-point resolution with an error of 5e-18 of λ⁻¹.
+            let (cells, err) = model.imfp_unconverged(e).unwrap();
+            assert!(cells <= 1 && err < 1e-12, "{file} {e} eV: {cells}, {err:e}");
+        }
+    }
+    assert!(FullPenn::new(committed_elf("si_elf_yang2019.toml"))
+        .imfp_unconverged(f64::NAN)
+        .is_err());
 }
 
 #[test]

@@ -111,8 +111,12 @@
 //! [`OMEGA_P_INTERVAL_BUDGET`] rule applications; anything accepted without
 //! meeting its tolerance is counted and reported by
 //! [`FullPenn::loss_function_evaluation`] ([`LossFunctionEvaluation`]).
-//! The values elsewhere are unchanged (measured differences in
-//! `docs/validation.md`, "Electron oracles").
+//! The values elsewhere are unchanged within the tolerance (the inverse
+//! IMFP and stopping power by up to about 1e-7; measured differences in
+//! `docs/validation.md`, "Electron oracles"). The outer `ω_p` integral of
+//! [`FullPenn::imfp_and_stopping`] has the same bisection and budget and
+//! counts its unconverged cells ([`FullPenn::imfp_unconverged`]); its
+//! inner integrals over `q` and `ω` are not bounded and report nothing.
 //!
 //! The momentum profiles of a [`DiimfpGrid`] had the same failure one level
 //! up. Above the end of a table whose last ELF value is not zero (Si:
@@ -123,7 +127,11 @@
 //! `ω` = 208.07 eV: over 10⁵ loss evaluations for one profile). The
 //! profiles' bisection (`quadrature::integrate_panels`) has the same
 //! relative acceptance and budget, and counts what did not converge
-//! ([`DiimfpGrid::unconverged_profile_panels`]).
+//! ([`DiimfpGrid::unconverged_profile_panels`]), and the loss evaluations
+//! inside a profile that did not converge
+//! ([`DiimfpGrid::unconverged_profile_loss_evaluations`]). The direct
+//! [`FullPenn::diimfp_per_m_ev`] does not report exhaustion of the loss
+//! evaluations it integrates.
 //!
 //! **Tables.** An inelastic table needs the DIIMFP at some 10⁴ losses per
 //! row, which at about 15 ms per evaluation (and with the quadrature noise
@@ -656,8 +664,17 @@ impl FullPenn {
     /// `(λ⁻¹, S)` at kinetic energy `t` (Hartree) above the Fermi level, in
     /// atomic units.
     fn imfp_and_stopping_au(&self, t: f64) -> (f64, f64) {
+        let (inv, s, ..) = self.imfp_and_stopping_eval_au(t);
+        (inv, s)
+    }
+
+    /// [`Self::imfp_and_stopping_au`] with the number of cells of the outer
+    /// `ω_p` integral accepted without meeting their tolerance, and their
+    /// error estimate relative to `λ⁻¹`. The inner integrals over `q` and
+    /// `ω` are not bounded and report nothing.
+    fn imfp_and_stopping_eval_au(&self, t: f64) -> (f64, f64, u64, f64) {
         if t.is_nan() || t <= 0.0 {
-            return (0.0, 0.0);
+            return (0.0, 0.0, 0, 0.0);
         }
         let tp = t + self.fermi;
         let hint = Cell::new(1);
@@ -667,9 +684,28 @@ impl FullPenn {
             &mut |x: f64| self.gas_moments(x, t),
             &self.outer,
             self.rel_tol,
+        );
+        (
+            r.value[0] / (PI * tp),
+            r.value[1] / (PI * tp),
+            r.unconverged_cells,
+            if r.unconverged_error[0] > 0.0 && r.value[0] != 0.0 {
+                r.unconverged_error[0] / r.value[0].abs()
+            } else {
+                0.0
+            },
         )
-        .value;
-        (r[0] / (PI * tp), r[1] / (PI * tp))
+    }
+
+    /// Cells of the outer `ω_p` integral of [`Self::imfp_and_stopping`] at
+    /// `energy_ev` that were accepted without meeting their tolerance
+    /// (budget of the bisection spent, maximum depth, or a midpoint that is
+    /// not representable; #298), and the error estimate of those cells
+    /// relative to `λ⁻¹`. `(0, 0.0)` when the integral converged.
+    pub fn imfp_unconverged(&self, energy_ev: f64) -> Result<(u64, f64)> {
+        check_energy("electron energy", energy_ev)?;
+        let (_, _, cells, err) = self.imfp_and_stopping_eval_au(energy_ev / hartree_ev());
+        Ok((cells, err))
     }
 
     /// The inverse IMFP (m⁻¹) and the stopping power (eV/m) at kinetic
@@ -718,13 +754,21 @@ impl FullPenn {
         let breaks: Vec<f64> = (0..=n)
             .map(|i| lo + (hi - lo) * i as f64 / n as f64)
             .collect();
+        let inner = Cell::new(0u64);
         integrate_panels(
             &self.gl,
-            &mut |u: f64| self.loss_au(u.exp(), w),
+            &mut |u: f64| {
+                let e = self.loss_eval_au(u.exp(), w);
+                if e.unconverged_cells > 0 {
+                    inner.set(inner.get() + 1);
+                }
+                e.value
+            },
             &breaks,
             self.rel_tol,
             PROFILE_FLOOR,
         )
+        .with_inner_unconverged(inner.get())
     }
 
     /// The DIIMFP of this model tabulated once for the rows of one
@@ -1046,6 +1090,14 @@ impl DiimfpGrid {
         self.profiles.iter().map(Panels::unconverged_panels).sum()
     }
 
+    /// Number of evaluations of the loss function inside the profiles whose
+    /// own `ω_p` integral did not converge (see
+    /// [`FullPenn::loss_function_evaluation`]). Zero when every evaluation
+    /// converged.
+    pub fn unconverged_profile_loss_evaluations(&self) -> u64 {
+        self.profiles.iter().map(Panels::inner_unconverged).sum()
+    }
+
     /// The largest error estimate of the cells counted in
     /// [`Self::unconverged_profile_panels`] within one profile, relative to
     /// that profile's integral over its whole momentum range (zero when
@@ -1177,6 +1229,8 @@ mod tests {
             p.unconverged_relative_error()
         );
         assert!(p.len() < 1000, "{} panels", p.len());
+        // the loss evaluations inside the profile all met their tolerance
+        assert_eq!(p.inner_unconverged(), 0);
         eprintln!(
             "{} panels, {} unconverged, relative error {:.2e}",
             p.len(),

@@ -242,6 +242,9 @@ pub(crate) struct Panels {
     unconverged: u64,
     /// The sum of the error estimates of those cells.
     unconverged_error: f64,
+    /// Evaluations of the integrand whose own integral did not converge,
+    /// as recorded by the caller (see [`Self::with_inner_unconverged`]).
+    inner_unconverged: u64,
 }
 
 impl Panels {
@@ -270,6 +273,19 @@ impl Panels {
             return 0.0;
         }
         self.integral_to(gl, hi) - self.integral_to(gl, lo)
+    }
+
+    /// Records that `n` evaluations of the integrand were themselves
+    /// integrals that did not converge (#298).
+    pub(crate) fn with_inner_unconverged(mut self, n: u64) -> Self {
+        self.inner_unconverged = n;
+        self
+    }
+
+    /// Evaluations of the integrand that did not converge, as recorded by
+    /// [`Self::with_inner_unconverged`] (zero if never recorded).
+    pub(crate) fn inner_unconverged(&self) -> u64 {
+        self.inner_unconverged
     }
 
     /// Number of panels.
@@ -378,8 +394,9 @@ fn refine_recorded(
 /// ([`refine_recorded`], #298); the panels left without meeting their
 /// tolerance are counted in [`Panels::unconverged_panels`]. (Before #298, with
 /// `floor = 1` this was exactly the error control of [`integrate_segments`];
-/// the relative acceptance makes it accept some cells earlier, within the
-/// same error contract.)
+/// the relative acceptance makes it accept some cells earlier, and widens the
+/// bound on the estimated error by the sum of the accepted cells' own
+/// integrals times `rel_tol`: see the contract of [`integrate_weighted`].)
 pub(crate) fn integrate_panels(
     gl: &GaussLegendre,
     f: &mut impl FnMut(f64) -> f64,
@@ -442,6 +459,7 @@ pub(crate) fn integrate_panels(
         cum,
         unconverged: stats.unconverged_cells,
         unconverged_error: stats.unconverged_error[0],
+        inner_unconverged: 0,
     }
 }
 
@@ -539,9 +557,13 @@ const GROUP_FRACTION: f64 = 0.1;
 /// the whole to within `rel_tol` of the halves' own integral. A cell
 /// accepted either way has an estimated error at most `rel_tol` times the
 /// larger of its share of the halved tolerance and its own integral, so the
-/// estimated error of the total is at most `rel_tol · (Σ|I| + Σ_cells|I_c|)`,
-/// at most `2 · rel_tol` times the integral of `|w k|` (up to the first
-/// estimates of `Σ|I|`): the same contract as [`integrate_segments`].
+/// estimated error of the total is at most
+/// `rel_tol · (2 Σ|I| + Σ_cells|I_c|)`: the absolute tolerance of a segment,
+/// `rel_tol · max(|I_s|, Σ|I|/N)`, sums over the segments to at most
+/// `2 · rel_tol · Σ|I|` (the contract of [`integrate_segments`] on its own),
+/// and the cells accepted by the relative test add at most
+/// `rel_tol · Σ_cells|I_c|`. That is at most `3 · rel_tol` times the integral
+/// of `|w k|` (up to the first estimates of `Σ|I|`).
 ///
 /// Without the relative acceptance, a narrow peak that carries much of a
 /// segment's integral cannot converge: a cell at depth `d` must meet

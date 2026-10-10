@@ -99,11 +99,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let g = fp.diimfp_grid(&grid)?;
             eprintln!(
                 "grid: {} loss nodes, {} momentum panels ({} unconverged, largest \
-                 relative error {:.1e}), {} unresolved cells, {:.2} s",
+                 relative error {:.1e}; {} loss evaluations unconverged), {} unresolved \
+                 cells, {:.2} s",
                 g.len(),
                 g.panel_count(),
                 g.unconverged_profile_panels(),
                 g.largest_unconverged_profile_error(),
+                g.unconverged_profile_loss_evaluations(),
                 g.unresolved_cells(),
                 t0.elapsed().as_secs_f64()
             );
