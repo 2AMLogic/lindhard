@@ -261,6 +261,35 @@ impl LindhardGas {
         im / (re * re + im * im)
     }
 
+    /// Whether [`Self::plasmon`] finds a plasmon at `q`: the sign test at the
+    /// head of that method, without the root search (a single evaluation of
+    /// `Re ε`).
+    pub(crate) fn plasmon_exists(&self, q: f64) -> bool {
+        if !(q > 0.0 && q.is_finite()) {
+            return false;
+        }
+        let lo0 = self.continuum_upper_edge(q) * (1.0 + 1e-12);
+        self.re_epsilon(q, lo0) < 0.0
+    }
+
+    /// Whether the plasmon at `q` exists and has energy at least `w`, without
+    /// solving for the plasmon energy. Above the continuum edge `Re ε` rises
+    /// monotonically from a negative value to 1, so the plasmon energy is
+    /// `>= w` exactly when `Re ε(q, w) <= 0` (and always, for `w` at or below
+    /// the edge).
+    pub(crate) fn plasmon_reaches(&self, q: f64, w: f64) -> bool {
+        if !self.plasmon_exists(q) {
+            return false;
+        }
+        w <= self.continuum_upper_edge(q) * (1.0 + 1e-12) || self.re_epsilon(q, w) <= 0.0
+    }
+
+    /// Whether the plasmon at `q` exists and has energy below `w`; the
+    /// complement of [`Self::plasmon_reaches`] among the `q` with a plasmon.
+    pub(crate) fn plasmon_below(&self, q: f64, w: f64) -> bool {
+        self.plasmon_exists(q) && !self.plasmon_reaches(q, w)
+    }
+
     /// The plasmon at momentum `q`, if it exists (above the continuum).
     pub fn plasmon(&self, q: f64) -> Option<LindhardPlasmon> {
         if !(q > 0.0 && q.is_finite()) {
@@ -374,10 +403,13 @@ impl LindhardGas {
             &breaks,
             rel_tol,
         );
-        if let Some(p) = self.plasmon(q) {
-            if p.energy < wcut {
-                r[0] += p.weight;
-                r[1] += p.weight * p.energy;
+        // the root search for the plasmon only if it is inside the range
+        if self.plasmon_below(q, wcut) {
+            if let Some(p) = self.plasmon(q) {
+                if p.energy < wcut {
+                    r[0] += p.weight;
+                    r[1] += p.weight * p.energy;
+                }
             }
         }
         r
@@ -562,6 +594,29 @@ mod tests {
             let [_, s1] = g.loss_moments(&gl, q, wcut, 1e-10);
             assert!((s1 / want - 1.0).abs() < 1e-6, "q = {q}: {s1} vs {want}");
         }
+    }
+
+    /// The sign tests used by the full Penn searches agree with the root
+    /// search of `plasmon` (away from the root itself).
+    #[test]
+    fn plasmon_predicates_agree_with_the_root_search() {
+        let g = gas();
+        let qc = g.plasmon_cutoff();
+        for q in [1e-3, 0.2 * qc, 0.7 * qc, 0.99 * qc, 1.01 * qc, 3.0 * qc] {
+            let p = g.plasmon(q);
+            assert_eq!(g.plasmon_exists(q), p.is_some(), "q = {q}");
+            for f in [0.5, 0.9, 0.999, 1.001, 1.1, 2.0] {
+                let w = f * p.map_or(g.continuum_upper_edge(q), |p| p.energy);
+                let reaches = p.is_some_and(|p| p.energy >= w);
+                assert_eq!(g.plasmon_reaches(q, w), reaches, "q = {q}, w = {w}");
+                assert_eq!(
+                    g.plasmon_below(q, w),
+                    p.is_some_and(|p| p.energy < w),
+                    "q = {q}, w = {w}"
+                );
+            }
+        }
+        assert!(!g.plasmon_exists(0.0) && !g.plasmon_exists(f64::NAN));
     }
 
     #[test]

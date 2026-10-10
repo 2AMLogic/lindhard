@@ -42,6 +42,25 @@ one version).
   its collision step, before the collision changes the particle. The
   amorphous model reports its hard and weak collisions, the crystal flight
   model every simultaneous partner. Results are unchanged.
+- `FullPenn::diimfp_grid` and `electron::inelastic::DiimfpGrid` (#256): the
+  full Penn DIIMFP tabulated once for the energies of one table. The `q`
+  integrand of each loss node is stored as the panels of its adaptive
+  quadrature and integrated over each energy's momentum window; between
+  nodes the window integrals are interpolated in `ln p` against `ln ω`,
+  with nodes added until the interpolation is within the model tolerance
+  (relative, or relative to the row's mean density in `ln ω` where the
+  DIIMFP is below it). Built in parallel, bit-identical on any thread count.
+  `DiimfpGrid::unresolved_cells` and `unresolved_loss_range_ev` report the
+  cells left failing the check and their loss range; the grid does not
+  answer inside those cells, so the table builder uses the direct model
+  there rather than an unchecked interpolation. Near such a cell a row's
+  loss-density panels are not split below the grid's narrowest cell width
+  (1e-4 in `ln ω`): the model switch at the cell edges is a step that the
+  width-invariant split test would otherwise bisect to floating-point
+  resolution and pad up to `MAX_NODES` direct evaluations. Rows away from
+  unresolved cells, and models without a grid, are unchanged. New
+  `table::loss_density_node_count` reports a row's node count. New example
+  `penn_full_build_time` (build time and accuracy checks).
 - Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
   `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the
   bound-free cross sections of Karzas and Latter, Astrophys. J. Suppl. 6, 167
@@ -367,6 +386,23 @@ one version).
   - The δ(E) tables of `docs/validation.md` (secondary-electron yield) and
     the committed electron oracle summaries were produced before this
     change and have not been re-run (#287).
+- Faster full Penn (`penn-full`) inelastic tables (#256). A table now reads
+  its rows' DIIMFP from `FullPenn::diimfp_grid` instead of the nested
+  integrals, and the plasmon term and the `ω_p` integral of the model are
+  cheaper (a sign test instead of a plasmon root solve per bisection step;
+  the knot intervals' error checked in groups, every knot kept). The Al
+  table on the #169 grid (51 eV to 30 keV, 20 points per decade) builds in
+  203 s on two threads; before, one row did not finish in 15 minutes. The
+  model's IMFP and stopping power change by at most 3e-8 and 2e-7 (Al, 57
+  energies); table rows change within the model tolerance (the grid
+  interpolation, `docs/validation.md`), so full-Penn tables built before
+  and after differ in their last digits. Tables of the single-pole and
+  Mermin models are unchanged. The full-Penn table's `model` string now
+  says that its DIIMFP comes from the loss grid. The Si table on the #168
+  grid still does not finish (isolated slow points of the `ω_p` integral,
+  older than this change; #298). On the band-bottom axis (#241) the loss
+  grid is built for the rows above the Fermi level only, the rows that get
+  losses.
 - Crystal off-axis channeling tail (#225). The 7°/22° orientation is
   2.6-2.7° from a {100} and a {110} plane, so it is no longer held to the
   #180 random-direction bound "dRp within 15 % of amorphous". Its ignored

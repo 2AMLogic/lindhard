@@ -56,7 +56,7 @@ pub mod sum_rules;
 pub mod table;
 
 pub use drude::{DrudeLorentz, DrudeLorentzOscillator};
-pub use full_penn::{FullPenn, DEFAULT_FULL_TOLERANCE};
+pub use full_penn::{DiimfpGrid, FullPenn, DEFAULT_FULL_TOLERANCE};
 pub use inner_shell::{
     Channel, ChannelDiimfp, ChannelInverseImfp, InnerShell, ShellResolvedChannels,
 };

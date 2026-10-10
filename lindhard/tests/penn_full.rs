@@ -12,10 +12,14 @@
 
 use lindhard::constants::BOHR_RADIUS;
 use lindhard::electron::data::OpticalElf;
+use lindhard::electron::inelastic::table::{
+    build_inelastic_table_for_model, stopping_power_ev_per_m, EnergyAxis, InelasticTableOptions,
+};
 use lindhard::electron::inelastic::{
     DrudeLorentz, DrudeLorentzOscillator, FullPenn, PennAlgorithm, PennInelastic, SinglePolePenn,
     SumRuleReport,
 };
+use lindhard::material::Material;
 use rayon::prelude::*;
 
 const TOL: f64 = 1e-3;
@@ -298,6 +302,163 @@ fn tables_are_bit_identical_across_thread_counts() {
             );
             assert_eq!(a.stopping_ev_per_m.to_bits(), b.stopping_ev_per_m.to_bits());
         }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The DIIMFP grid of a table build (#256)
+// ---------------------------------------------------------------------------
+
+const GRID_ENERGIES: [f64; 2] = [40.0, 300.0];
+
+/// The fixture on a coarser table (60 knots, 0.5 eV to 2 keV), to keep the
+/// grid builds affordable in an unoptimised test build.
+fn coarse_fixture() -> OpticalElf {
+    DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
+        .unwrap()
+        .to_optical_elf("synthetic Drude plasmon", 0.5, 2e3, 60)
+        .unwrap()
+}
+
+fn coarse_full() -> FullPenn {
+    FullPenn::new(coarse_fixture())
+        .with_relative_tolerance(TOL)
+        .unwrap()
+}
+
+#[test]
+fn diimfp_grid_reproduces_the_direct_diimfp() {
+    // The grid holds its interpolation to the model tolerance relative to
+    // max(W p, the row's mean of W p over ln W) at the midpoints it checks.
+    // Here it is compared, at losses it was never refined on, with the
+    // direct DIIMFP at a 10 times tighter tolerance; the bound is three
+    // times the model tolerance on the same scale.
+    let fpa = coarse_full();
+    let grid = fpa.diimfp_grid(&GRID_ENERGIES).unwrap();
+    assert!(!grid.is_empty() && grid.panel_count() > grid.len());
+    let reference = FullPenn::new(coarse_fixture())
+        .with_relative_tolerance(0.1 * TOL)
+        .unwrap();
+    let w_lo = coarse_fixture().energy_ev()[0];
+    for &e in &GRID_ENERGIES {
+        // ∫ p W d(ln W) = 1/λ, so this is the row's mean of W p over ln W
+        let mean = fpa.imfp_and_stopping(e).unwrap().inverse_imfp_per_m / (e / w_lo).ln();
+        let mut worst: f64 = 0.0;
+        for j in 0..6 {
+            let w = (w_lo.ln() + (j as f64 + 0.41) / 6.0 * (e / w_lo).ln()).exp();
+            let direct = reference.diimfp_per_m_ev(e, w).unwrap();
+            let from_grid = grid.diimfp_per_m_ev(e, w).unwrap();
+            let err = w * (from_grid - direct).abs() / (w * direct).max(mean);
+            worst = worst.max(err);
+        }
+        eprintln!("{e} eV: worst scaled error {worst:.2e}");
+        assert!(worst < 3.0 * TOL, "{e} eV: {worst:e}");
+    }
+    // what the grid does not cover is left to the direct model
+    assert_eq!(grid.diimfp_per_m_ev(2000.0, 10.0), None);
+    assert_eq!(grid.diimfp_per_m_ev(500.0, 0.5 * w_lo), None);
+    assert_eq!(grid.diimfp_per_m_ev(500.0, 600.0), Some(0.0));
+    assert_eq!(grid.diimfp_per_m_ev(500.0, 0.0), Some(0.0));
+    assert!(fpa.diimfp_grid(&[f64::NAN]).is_err());
+    assert!(fpa.diimfp_grid(&[0.5 * w_lo]).unwrap().is_empty());
+}
+
+#[test]
+#[ignore = "slow; run with --release -- --ignored"]
+fn diimfp_grid_leaves_unresolved_cells_to_the_direct_model() {
+    // At a tolerance the profile quadrature cannot meet, the refinement
+    // stops at the narrowest cell width with cells still failing. The grid
+    // must not interpolate in them (the caller then uses the direct model).
+    let strict = FullPenn::new(coarse_fixture())
+        .with_relative_tolerance(1e-5)
+        .unwrap();
+    let e = GRID_ENERGIES[0];
+    let grid = strict.diimfp_grid(&[e]).unwrap();
+    assert!(
+        grid.unresolved_cells() > 0,
+        "the refinement cap was not reached"
+    );
+    let (lo, hi) = grid.unresolved_loss_range_ev().unwrap();
+    let (mut none, mut some) = (0, 0);
+    for j in 0..2000 {
+        let w = lo * (hi / lo).powf(j as f64 / 1999.0);
+        let from_grid = grid.diimfp_per_m_ev(e, w);
+        assert_eq!(from_grid.is_none(), grid.loss_is_unresolved_ev(w), "{w} eV");
+        if from_grid.is_none() {
+            none += 1;
+        } else {
+            some += 1;
+        }
+    }
+    assert!(none > 0, "no probe fell in an unresolved cell");
+    eprintln!(
+        "{} unresolved cells; {none} probes unanswered, {some} answered",
+        grid.unresolved_cells()
+    );
+}
+
+#[test]
+fn full_penn_tables_follow_the_model_on_any_thread_count() {
+    // A table of the full model reads its rows from the DIIMFP grid; the
+    // stopping power of each row (λ⁻¹ ⟨W⟩) must still be the model's, and
+    // the table, grid included, bit-identical on any thread count.
+    let m = PennInelastic::Full(coarse_full());
+    let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
+    let options = InelasticTableOptions::new(GRID_ENERGIES.to_vec());
+    let build = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| build_inelastic_table_for_model(&m, &material, &options).unwrap())
+    };
+    let t1 = build(1);
+    for (i, &e) in t1.energy_ev().iter().enumerate() {
+        let s = stopping_power_ev_per_m(&t1, i).unwrap();
+        let want = m.imfp_and_stopping(e).unwrap();
+        assert_eq!(t1.inverse_mfp_per_m()[i], want.inverse_imfp_per_m);
+        assert!(
+            rel(s, want.stopping_ev_per_m) < 3.0 * TOL,
+            "{e} eV: {s:e} vs {:e}",
+            want.stopping_ev_per_m
+        );
+    }
+    let t3 = build(3);
+    assert_eq!(t1.probability(), t3.probability());
+    for i in 0..t1.energy_ev().len() {
+        assert_eq!(
+            t1.inverse_mfp_per_m()[i].to_bits(),
+            t3.inverse_mfp_per_m()[i].to_bits()
+        );
+        let (a, b) = (t1.quantiles(i).unwrap(), t3.quantiles(i).unwrap());
+        assert!(
+            a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits()),
+            "row {i}"
+        );
+    }
+}
+
+#[test]
+fn full_penn_band_bottom_table_skips_rows_at_or_below_the_fermi_level() {
+    // On the band-bottom axis (#241) a row at or below the Fermi level has
+    // no losses; its energy must not reach the DIIMFP grid, which rejects
+    // energies that are not positive. The other rows are the model's rows at
+    // T = E - E_F, bit for bit.
+    let fermi = 10.0;
+    let m = PennInelastic::Full(coarse_full().with_fermi_energy_ev(fermi).unwrap());
+    let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
+    let mut grid = vec![5.0];
+    grid.extend(GRID_ENERGIES.iter().map(|t| fermi + t));
+    let band = InelasticTableOptions::new(grid).with_axis(EnergyAxis::BandBottom);
+    let own = InelasticTableOptions::new(GRID_ENERGIES.to_vec());
+    let t = build_inelastic_table_for_model(&m, &material, &band).unwrap();
+    let r = build_inelastic_table_for_model(&m, &material, &own).unwrap();
+    assert_eq!(t.inverse_mfp_per_m()[0], 0.0);
+    assert!(t.quantiles(0).is_none());
+    assert_eq!(t.probability(), r.probability());
+    for j in 0..GRID_ENERGIES.len() {
+        assert_eq!(t.inverse_mfp_per_m()[j + 1], r.inverse_mfp_per_m()[j]);
+        assert_eq!(t.quantiles(j + 1), r.quantiles(j));
     }
 }
 

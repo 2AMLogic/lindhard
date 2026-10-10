@@ -772,8 +772,10 @@ validation/oracles/run_electron.py --lindhard-only   # our side alone
 ```
 
 lindhard runs the single-pole Penn inelastic model. Its full Penn model is
-the closer match to Nebula, but one full-Penn table build does not finish in
-a usable time. The batches of a harness run now share their tables through
+the closer match to Nebula, but until #256 one full-Penn table build did not
+finish in a usable time (for Al it now does; for Si, the element of this
+comparison, not yet: see below the cost table). The
+batches of a harness run now share their tables through
 `lindhard run --table-cache` (#168; `docs/cli.md`, "Cross-section table
 cache"), so each (problem, material) builds its tables once; that removes the
 per-batch factor (10 batches) but not the cost of the one build.
@@ -791,8 +793,69 @@ points per decade, Thomas-Fermi stand-in potential with exchange.
 
 The full-Penn rerun of the comparison was therefore not done. Neither
 oracle (Nebula with its cstool, Geant4 MicroElec) was installed on that host
-either, so even a finished build could not have been compared there. Making
-the full-Penn build itself faster is #256.
+either, so even a finished build could not have been compared there.
+
+**After #256** (2026-10-09; release build of the #256 change on `fb4f7b8`;
+x86-64 Linux, Intel Xeon Platinum 8488C, a shared 16-vCPU host with a load
+average of about 5 from other jobs; `cargo run --release -p lindhard
+--example penn_full_build_time`). One full-Penn inelastic table, alone (no
+elastic table, no transport), on the backscatter grid of #169 (Al, the
+committed `al_elf_hagemann1975.toml`, 148 knots; 51 eV to 30 keV at 20
+points per decade, 57 energies):
+
+| Code | Threads | Result | Wall |
+|---|---|---|---|
+| `fb4f7b8` (before) | 1 | one row (51 eV) not finished: over 6250 DIIMFP evaluations at about 0.14 s each | > 900 s per row, stopped |
+| per-call speed-ups only (see below) | 1 | one row (51 eV) not finished: over 21000 DIIMFP evaluations at about 0.03 s each | > 600 s per row, stopped |
+| #256 | 2 | 57 rows, 1521 probability points | 203 s (254 s in a second run at a load average of 14 to 16) |
+
+The same build for Si on the grid of #168 (the committed
+`si_elf_yang2019.toml`, 297 knots 1 eV apart, ending at 199 eV with a
+non-zero value; 10 eV to 5 keV at 20 points per decade, 55 energies) did
+**not** finish within a 40 min cap on two threads. The cause was located
+and is older than #256: at isolated `(q, ω)` points one evaluation of the
+expanded loss function costs seconds instead of about 0.06 ms (Si, 79 eV,
+`q` = 1.1166 a.u.: 0.5 s at the model tolerance 1e-4 and 14 s at 1e-5;
+160 eV, 1.4803 a.u.: 2.2 s and 21 s; the same on `fb4f7b8`), because the
+adaptive `ω_p` integral there refines without converging. The `q`
+refinement of a grid profile (and of the direct DIIMFP) walks into such
+points; on the Al ELF none was hit. Bounding that inner refinement is the
+remaining work for Si (#298).
+
+Where the time went (one thread, counted in the build): the table needs
+the DIIMFP at the nodes of an adaptive density in `ln W`, about 8400 per
+row already for the single-pole model on this ELF, and one full-Penn DIIMFP
+cost 0.03 to 0.25 s: 240 to 425 evaluations of the expanded loss function
+`Im[-1/ε(q, ω)]` (the `q` integral), each an `ω_p` integral over 80 to 120
+knot intervals with 15 Lindhard evaluations per interval (95 to 140 µs) plus
+the plasmon term (140 to 250 µs, a root solve of the plasmon energy at
+every step of two bisections; the larger part). On top of that, the direct DIIMFP carries
+quadrature noise of up to 2e-4 at the model's 1e-4 tolerance, above the
+table's 1e-5 density tolerance, so a row refines to the 20000-node cap.
+The IMFP pass (an `ω_p`, `q`, `ω` triple integral per energy) cost 2.5 s
+per energy, 140 s for the 57 energies on one thread.
+
+What #256 changed: (1) the plasmon term bisects on the sign of `Re ε_L`
+(one evaluation per step) and the `ω_p` integral checks the smooth Lindhard
+factor on groups of knot intervals (every interval still gets its own rule);
+one DIIMFP drops to about 15 ms and the IMFP pass to 27 s (one thread), with
+the inverse IMFP and the stopping power unchanged to 3e-8 and 2e-7 at every
+one of the 57 energies; (2) the table rows read the DIIMFP from a
+`FullPenn::diimfp_grid`, built once per table (3100 loss nodes for this
+grid, 194 s of the 203 s on two threads): the `q` integrand of each loss
+node is tabulated once and integrated over each row's momentum window,
+and nodes are added until the interpolation between them is within the
+model tolerance of the DIIMFP, or of the row's mean density where the DIIMFP
+is below it. Against the direct DIIMFP at a tolerance of 1e-7, at 7 losses
+per row in all 57 rows (399 points the grid was not refined on), the error
+on that scale is at most 3.6e-5; relative to the DIIMFP itself it exceeds
+1e-4 at 17 points (at most 5.7e-4), all at losses of 1 to 2.6 eV or in the
+far tail where the DIIMFP is below the row's mean. 66 cells of the grid
+reached the narrowest width (1e-4 in `ln ω`) still failing the check and
+were left as they are. The stopping power of every table row (`λ⁻¹ ⟨W⟩`)
+agrees with the model's own to 4.6e-5. A `penn-full` harness run of this
+comparison (Si) has not been redone; it needs the Si build above to finish
+first.
 
 **Inputs that differ** (each summary lists them in full under `mismatches`):
 
@@ -1442,9 +1505,12 @@ the issue's "full model":
   Penn is the issue's model, but its tables do not build in a usable time:
   #168 measured Si at 5 keV with `penn-full` on 4 threads, killed unfinished
   at 60 min, against 108 s for the single-pole tables (see "Electron
-  oracles" above). Speeding up that build is #256; once it lands, the
-  full-Penn rerun is a change of `electron.inelastic.model` in the five
-  inputs plus a regenerate. The ELFs: the measured optical ELF of Hagemann,
+  oracles" above). Since #256 the Al table on this grid (51 eV to 30 keV,
+  20 points per decade) builds in 203 s on two threads; the Si build did not
+  finish within 40 min, for a cause located in the model's `ω_p` integral
+  (#298; cost table under "Electron oracles"). The other three ELFs were not
+  timed. The full-Penn rerun is a change of `electron.inelastic.model` in
+  the five inputs plus a regenerate; it has not been done. The ELFs: the measured optical ELF of Hagemann,
   Gudat and Kunz (1975) for Al, Cu, Au (their Table 5, the version fitted to
   transmission) and **glassy carbon**, whose constants the authors give on a
   1.5 g/cm³ basis, so the C target is glassy carbon at 1.5 g/cm³ (not
@@ -1621,7 +1687,9 @@ every energy from 2 keV up. The excess grows with energy, from +0.017 at
 0.219) while the measured median falls from 0.197 to 0.161.
 
 The offsets are not attributed here. Known parts of the reduced model act on
-them. The inelastic model is single-pole Penn, not full Penn (#256). Fast
+them. The inelastic model is single-pole Penn, not full Penn (since #256
+the Al table builds in minutes; the Si table does not yet build, #298; the
+rerun is open). Fast
 secondaries above 50 eV, which a measured η counts, are not generated. For
 Si the ELF ends at 199 eV, so the K shell and the L-shell tail are missing
 from the stopping power. A Si excess that grows with energy is consistent
@@ -1647,8 +1715,9 @@ independent runs; the variants share a seed, so the 2 to 3 σ differences at
 1 keV are lower bounds on their significance. With the stand-in the
 corrections raised Au at 1 keV by 0.015; on DHFS the effect there is 0.003.
 
-Still open: the full-Penn rerun (#256 makes the tables buildable; the inputs
-then change their `electron.inelastic.model`), the Si K and L shells beyond
+Still open: the full-Penn rerun (#256 makes the Al table buildable, 203 s
+on two threads; the Si table still does not build, #298; the inputs then
+change their `electron.inelastic.model`), the Si K and L shells beyond
 the ELF's 199 eV end (an inner-shell channel, #273), and fast secondaries
 for C (no band data; Al, Cu, Au and Si are in the sensitivity table).
 Until then this is a comparison of the reduced model, not of the issue's
@@ -2064,9 +2133,11 @@ nothing was adjusted to these data):
   no phonon energy loss).
 - **Full Penn is missing** from the side-by-side, for every material. One Al
   run at 200 eV, the smallest table, had not finished building its inelastic
-  table after 45 minutes on two threads (2026-10-08) and was stopped. The
-  configuration is defined in `se_yield.py` (`penn-full`, 200 and 800 eV);
-  the rows wait on #256.
+  table after 45 minutes on two threads (2026-10-08) and was stopped. Since
+  #256 the Al full-Penn table builds in minutes (51 eV to 30 keV: 203 s on
+  two threads; Cu and Au were not timed); the Si table still does not build
+  (#298). The configuration is defined in `se_yield.py` (`penn-full`, 200
+  and 800 eV) and has not been rerun.
 - **The barrier matters more than its parameters.** Removing the barrier
   (transparent boundary) multiplies δ at the maximum by 2.0 (Al), 1.8 (Cu),
   1.7 (Au) and 3.4 (Si). Moving the work function across the range of its
@@ -2104,8 +2175,8 @@ or the Si runs. The open gaps are the Au and Cu excess that Mermin shares
 binding-energy row, and what could still not be tested is split into
 #312 to #315), the
 re-run of these tables with the inelastic table on the band-bottom axis
-(the convention changed in #241; #287), full Penn (cost; table reuse is tracked in #168; the rows wait on
-#256), the incomplete high-energy `cutoff-band-bottom` points, the
+(the convention changed in #241; #287), full Penn (the Al table builds since #256; Si waits on #298; table
+reuse is tracked in #168), the incomplete high-energy `cutoff-band-bottom` points, the
 correlation-polarization correction at the low table energies, the cited
 barrier parameters for Al, Cu and Au (#115 found none that can be opened),
 and a δ(E) oracle run for Al, Cu, Si and Au, 100 eV to 5 keV (the #150
