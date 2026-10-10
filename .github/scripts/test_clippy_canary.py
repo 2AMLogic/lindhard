@@ -77,7 +77,14 @@ class StaticWorkflowTests(unittest.TestCase):
         job = doc["jobs"]["clippy"]
         self.assertEqual(job["strategy"]["matrix"]["channel"], ["stable", "beta"])
         runs = [s.get("run", "") for s in job["steps"]]
-        self.assertIn("cargo clippy --workspace --all-targets -- -D warnings", runs)
+        # The channel must be selected explicitly: rust-toolchain.toml outranks
+        # the action's `rustup default`, so a bare `cargo clippy` runs stable.
+        self.assertIn('cargo +"$CANARY_CHANNEL" clippy --workspace --all-targets -- -D warnings',
+                      runs)
+        self.assertNotIn("cargo clippy --workspace --all-targets -- -D warnings", runs)
+        clippy = [s for s in job["steps"] if "clippy" in s.get("run", "")]
+        self.assertEqual(len(clippy), 1)
+        self.assertEqual(clippy[0]["env"]["CANARY_CHANNEL"], "${{ matrix.channel }}")
         sim = [s for s in job["steps"] if "simulate-failure" in str(s.get("if", ""))]
         self.assertEqual(len(sim), 1)
         self.assertIn("workflow_dispatch", sim[0]["if"])

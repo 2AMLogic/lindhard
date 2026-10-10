@@ -41,8 +41,19 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: canary-${{ matrix.channel }}
+      # rust-toolchain.toml pins "stable" and outranks the `rustup default` the
+      # action sets, so the channel must be selected explicitly or the beta leg
+      # would silently run stable.
+      - name: Show the toolchain under test
+        env:
+          CANARY_CHANNEL: ${{ matrix.channel }}
+        run: |
+          rustc +"$CANARY_CHANNEL" --version --verbose
+          cargo +"$CANARY_CHANNEL" --version
       - name: cargo clippy --workspace --all-targets -- -D warnings
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        env:
+          CANARY_CHANNEL: ${{ matrix.channel }}
+        run: cargo +"$CANARY_CHANNEL" clippy --workspace --all-targets -- -D warnings
       - name: Simulated failure (workflow_dispatch only)
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.simulate-failure }}
         run: |
