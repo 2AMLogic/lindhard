@@ -68,6 +68,13 @@ allow = [
     # compiled code). Reaches the tree through `target-lexicon`, a pyo3 build
     # dependency that picks the target triple.
     "Apache-2.0 WITH LLVM-exception",
+    # Permissive, MIT-compatible: attribution plus a no-endorsement clause, no
+    # source-disclosure obligation. Reaches the tree only through `tiny-skia` and
+    # `tiny-skia-path` (an unconditional dependency of `rizzma`), used solely by
+    # the unpublished `lindhard-plots` tool crate, which is never distributed.
+    # The project already carries BSD-3-Clause obligations for the ports listed
+    # in THIRD_PARTY_LICENSES.md. Allowed as an SPDX entry, not an exception.
+    "BSD-3-Clause",
 ]
 
 # When a crate declares no SPDX expression, cargo-deny falls back to scanning
