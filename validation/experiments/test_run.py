@@ -384,7 +384,7 @@ class TuningPilot(unittest.TestCase):
     def test_shipped_factors_match_the_committed_fit_record(self):
         import re
         rec = json.loads(run.TUNING_RESULTS.read_text())
-        src = (run.lindhard_cli.REPO / "lindhard/src/input.rs").read_text()
+        src = (run.lindhard_cli.REPO / "lindhard/src/input/schema.rs").read_text()
         block = src[src.index("pub const ES_SPUTTER_AR_V1"):]
         shipped = {m[0]: float(m[1]) for m in re.findall(r'\("([A-Z][a-z]?)", ([0-9.]+)\)', block[: block.index("provenance")])}
         self.assertEqual(shipped, {t: v["factor"] for t, v in rec["targets"].items()})
@@ -502,7 +502,7 @@ class BackscatterGroups(unittest.TestCase):
         # polarization table removes only that table (eta_c.toml also has a
         # [materials] table for glassy carbon).
         names = sorted(p.name for p in self.b.INPUTS.glob("eta_*.toml"))
-        self.assertEqual(names, [f"eta_{t.lower()}.toml" for t in sorted(self.b.TARGETS) if t != "Si"])
+        self.assertEqual(names, sorted(f"eta_{t.lower()}.toml" for t in self.b.TARGETS))
         for name in names:
             base_path = self.b.INPUTS / name
             base = base_path.read_text()

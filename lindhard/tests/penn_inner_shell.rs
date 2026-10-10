@@ -12,10 +12,14 @@ use lindhard::constants::{ELECTRON_MASS, ELEMENTARY_CHARGE, HBAR};
 use lindhard::electron::data::{
     AtomBindings, ElectronDataError, OpticalElf, ShellBinding, Subshell, SubshellBindingTable,
 };
+use lindhard::electron::inelastic::table::{
+    build_inelastic_table, build_shell_channel_tables, mean_loss_ev, InelasticTableOptions,
+};
 use lindhard::electron::inelastic::{
     born_ochkur_factor, Channel, DrudeLorentz, DrudeLorentzOscillator, ExchangeCorrection,
     InnerShell, ShellResolvedChannels, SinglePolePenn,
 };
+use lindhard::material::Material;
 use rayon::prelude::*;
 
 const SYNTHETIC: &str = "synthetic test fixture, not physical data";
@@ -454,5 +458,114 @@ fn rejects_invalid_inputs() {
     assert_eq!(
         r.total_per_m(),
         v().imfp_and_stopping(300.0).unwrap().inverse_imfp_per_m
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Channel tables for the transport (#273)
+// ---------------------------------------------------------------------------
+
+/// Grid energies at the L3 edge (99 eV), above the L3 and L1 (150 eV) edges
+/// but below the K edge (1800 eV), and above every edge.
+const CHANNEL_GRID: [f64; 3] = [99.0, 400.0, 8000.0];
+const BINDING_PROVENANCE: &str = "synthetic binding energies, not physical data";
+
+fn silicon_label() -> Material {
+    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
+}
+
+/// `⟨ω⟩` of shell `i` at `e` by an independent trapezoid rule in `ln ω` on
+/// the channel's DIIMFP, from its edge to `e`.
+fn independent_mean_loss(c: &ShellResolvedChannels, i: usize, e: f64) -> f64 {
+    let lo = c.shell_model(i).optical_elf().energy_ev()[0];
+    let n = 2_000;
+    let (a, b) = (lo.ln(), e.ln());
+    let (mut num, mut den) = (0.0, 0.0);
+    for k in 0..=n {
+        let w = (a + (b - a) * k as f64 / n as f64).exp();
+        let p = c.diimfps_per_m_ev(e, w).unwrap().shells_per_m_ev[i] * w;
+        let wt = if k == 0 || k == n { 0.5 } else { 1.0 };
+        num += wt * p * w;
+        den += wt * p;
+    }
+    num / den
+}
+
+#[test]
+fn shell_channel_tables_match_the_channel_rates_and_loss_moments() {
+    let c = channels(SinglePolePenn::new(fixture_elf()));
+    let options = InelasticTableOptions::new(CHANNEL_GRID.to_vec());
+    let t = build_shell_channel_tables(&c, &silicon_label(), &options, BINDING_PROVENANCE).unwrap();
+    // The valence table is the plain valence build.
+    assert_eq!(
+        t.valence,
+        build_inelastic_table(c.valence(), &silicon_label(), &options).unwrap()
+    );
+    assert_eq!(t.shells.len(), 3);
+    for (i, (s, tab)) in c.inner_shells().iter().zip(&t.shells).enumerate() {
+        assert_eq!((tab.z(), tab.subshell()), (s.z, s.subshell));
+        assert_eq!(tab.binding_energy_ev(), s.binding_energy_ev);
+        assert_eq!(tab.binding_provenance(), BINDING_PROVENANCE);
+        assert!(tab.table().provenance().contains(BINDING_PROVENANCE));
+        assert!(tab.table().model().contains(s.subshell.label()));
+        assert_eq!(tab.table().material(), t.valence.material());
+        for (j, &e) in CHANNEL_GRID.iter().enumerate() {
+            let want = c.inverse_imfps(e).unwrap().shells_per_m[i];
+            let got = tab.table().inverse_mfp_per_m()[j];
+            assert_eq!(got, want, "shell {i} at {e} eV");
+            match tab.table().quantiles(j) {
+                None => assert_eq!(want, 0.0),
+                Some(q) => {
+                    assert!(want > 0.0);
+                    assert!(q.iter().all(|&w| w >= s.binding_energy_ev && w <= e));
+                    let mean = mean_loss_ev(tab.table().probability(), q);
+                    let indep = independent_mean_loss(&c, i, e);
+                    assert!(
+                        rel(mean, indep) < 2e-3,
+                        "shell {i} at {e} eV: table <w> {mean} vs {indep}"
+                    );
+                    // And against the model's closed-form stopping power.
+                    let s_model = c
+                        .shell_model(i)
+                        .imfp_and_stopping(e)
+                        .unwrap()
+                        .stopping_ev_per_m;
+                    assert!(rel(got * mean, s_model) < 2e-3, "shell {i} at {e} eV");
+                }
+            }
+        }
+    }
+    // At the L3 edge no shell is open (no loss room); between the L1 and K
+    // edges L3 and L1 are open; well above the K edge every shell is open.
+    let open = |j: usize| -> Vec<bool> {
+        t.shells
+            .iter()
+            .map(|s| s.table().inverse_mfp_per_m()[j] > 0.0)
+            .collect()
+    };
+    assert_eq!(open(0), vec![false, false, false]);
+    assert_eq!(open(1), vec![true, true, false]);
+    assert_eq!(open(2), vec![true, true, true]);
+}
+
+#[test]
+fn shell_channel_tables_are_deterministic_and_refuse_exchange() {
+    let options = InelasticTableOptions::new(vec![150.0, 400.0, 2500.0]);
+    let build = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| {
+                let c = channels(SinglePolePenn::new(fixture_elf()));
+                build_shell_channel_tables(&c, &silicon_label(), &options, BINDING_PROVENANCE)
+                    .unwrap()
+            })
+    };
+    let one = build(1);
+    assert_eq!(one, build(3));
+    let c = channels(with_exchange());
+    assert!(
+        build_shell_channel_tables(&c, &silicon_label(), &options, BINDING_PROVENANCE).is_err()
     );
 }

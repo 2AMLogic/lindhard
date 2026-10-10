@@ -53,10 +53,54 @@
 //!
 //! # Coordinates
 //!
-//! The front surface stays at `x = 0` ([parent module](super), "Coordinates").
-//! Per-step outputs report the thickness of the finite slabs and the interface
-//! depths measured from that fixed surface; they do not follow sputter
-//! recession of the front.
+//! The front surface is `x = 0` of the grid at every step ([parent
+//! module](super), "Coordinates"). Per-step outputs report the thickness of
+//! the finite slabs and the interface depths measured from the surface of that
+//! moment. With [`DynamicConfig::erosion`] off the surface never moves in the
+//! sample frame either, and the depths are the depths of the original frame.
+//! With erosion on, the surface recedes ("Erosion" below) and a depth `x`
+//! at some step is `x + R` in the original frame, with `R` the cumulative
+//! recession ([`StepRecord::recession_total_m`]) at that step.
+//!
+//! # Erosion
+//!
+//! With [`DynamicConfig::erosion`] on, sputtered atoms leave the target from
+//! its front, not from the slab where they were displaced, as in the
+//! dynamic-composition codes TRIDYN (Moller and Eckstein, Nucl. Instrum.
+//! Methods B 2 (1984) 814, and the later TRIDYN papers: the target is updated
+//! by removing the sputtered atoms from the surface layers and letting the
+//! remaining material move up) and SDTrimSP (Mutzke et al., IPP report
+//! 2019-02, the sections on the dynamic target and sputter erosion). Only the
+//! published descriptions were used. The update, per accepted step:
+//!
+//! 1. The default tally subtracts every recoil at its origin slab, so an
+//!    escaped recoil is already a loss there. Erosion adds those losses back
+//!    (the tally counts them per origin slab, as integers, from
+//!    `Particle::origin_layer`) and instead removes the same number of atoms
+//!    of the same element, `Y_Z` per element, from the front of the target:
+//!    slab 0 first, then deeper slabs when the element is used up (counting
+//!    what the slab holds after the step's other deltas). Nothing is removed
+//!    twice and no atom is created or lost: for each `Z` the net change of
+//!    [`CompositionGrid::total_inventory`](super::CompositionGrid::total_inventory)
+//!    is the implanted atoms minus the sputtered ones, as with erosion off.
+//!    Atoms that came from the substrate were never in the inventory and
+//!    remove nothing. Counts are scaled to atoms/m² like all other deltas.
+//! 2. The step recession `dR` is the thickness the removed inventory occupied
+//!    under the grid's [`Relaxation`](super::Relaxation):
+//!    `sum_Z removed_Z v_Z` (ideal mixing) or `sum_Z removed_Z / n_mix` (fixed
+//!    number density). It is tracked explicitly and summed over accepted steps
+//!    into `R`; it cannot be recovered from the thickness, which also grows
+//!    with implantation.
+//! 3. Removal is part of the deltas the step is checked and applied with, so
+//!    `max_change` and the adaptive policy see it. Removal never exceeds what
+//!    the slabs hold, so it is never the cause of the `clamped` cap.
+//! 4. The grid is rebuilt from `x = 0` as usual, which is the re-anchoring.
+//!
+//! Erosion is a pure function of the step's merged integer tally and draws no
+//! random numbers, so it keeps the determinism of the run. With erosion off
+//! none of this code runs and results are unchanged.
+
+use std::collections::BTreeMap;
 
 use crate::ion::bca::{Bca, BcaConfig, BcaError, Beam};
 use crate::ion::scattering::ScatteringTable;
@@ -93,6 +137,9 @@ pub struct DynamicConfig {
     pub fluence_m2: f64,
     /// Step sizes.
     pub policy: StepPolicy,
+    /// Sputter erosion and surface recession (see the [`DynamicRun`] docs,
+    /// "Erosion"). Off reproduces the fixed-front behaviour exactly.
+    pub erosion: bool,
 }
 
 /// Errors from the fluence loop.
@@ -131,6 +178,12 @@ pub struct StepRecord {
     pub yields: Yields,
     /// Slabs (indices before the step) that emptied and were removed.
     pub removed_slabs: Vec<usize>,
+    /// Surface recession of this step, m (0 with erosion off).
+    pub recession_m: f64,
+    /// Cumulative recession up to and including this step, m (0 with erosion
+    /// off): add it to a depth of this step to get the depth in the original
+    /// frame.
+    pub recession_total_m: f64,
 }
 
 /// A fluence-stepped run. See the [module docs](super).
@@ -145,6 +198,24 @@ pub struct DynamicRun<'a> {
     steps: u64,
     current_n: u64,
     cumulative: Yields,
+    recession_m: f64,
+}
+
+// Manual: the borrowed stopping model is a trait object without `Debug`, and
+// the scattering table is large.
+impl std::fmt::Debug for DynamicRun<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DynamicRun")
+            .field("beam", &self.beam)
+            .field("config", &self.config)
+            .field("cfg", &self.cfg)
+            .field("next_index", &self.next_index)
+            .field("steps", &self.steps)
+            .field("current_n", &self.current_n)
+            .field("cumulative", &self.cumulative)
+            .field("recession_m", &self.recession_m)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> DynamicRun<'a> {
@@ -196,6 +267,7 @@ impl<'a> DynamicRun<'a> {
             steps: 0,
             current_n,
             cumulative: Yields::default(),
+            recession_m: 0.0,
         })
     }
 
@@ -234,6 +306,12 @@ impl<'a> DynamicRun<'a> {
         &self.cumulative
     }
 
+    /// Cumulative surface recession of the accepted steps, m (0 with erosion
+    /// off).
+    pub fn recession_m(&self) -> f64 {
+        self.recession_m
+    }
+
     /// Run the next step. `Ok(None)` when all primaries are used. On error the
     /// grid and the run state are unchanged.
     pub fn step(&mut self) -> Result<Option<StepRecord>, DynamicRunError> {
@@ -256,14 +334,19 @@ impl<'a> DynamicRun<'a> {
             let tally = bca.run_range(first, n, || InventoryTally::new(n_slabs))?;
 
             let per_ion = self.fluence_per_ion_m2();
-            let deltas: Vec<InventoryDelta> = tally
-                .counts()
-                .map(|((slab, z), c)| InventoryDelta {
-                    slab,
-                    z,
-                    delta_atoms_m2: c as f64 * per_ion,
-                })
-                .collect();
+            let (deltas, step_recession, leftover) = if self.cfg.erosion {
+                self.erosion_deltas(&tally, per_ion)?
+            } else {
+                let d = tally
+                    .counts()
+                    .map(|((slab, z), c)| InventoryDelta {
+                        slab,
+                        z,
+                        delta_atoms_m2: c as f64 * per_ion,
+                    })
+                    .collect();
+                (d, 0.0, 0)
+            };
             let change = self.max_change(&deltas);
 
             let shrink = match self.cfg.policy {
@@ -286,7 +369,7 @@ impl<'a> DynamicRun<'a> {
                 continue;
             }
 
-            let mut clamped = 0u32;
+            let mut clamped = leftover;
             let outcome = match self.grid.apply(&deltas) {
                 Ok(o) => o,
                 Err(e) => {
@@ -330,6 +413,7 @@ impl<'a> DynamicRun<'a> {
             self.steps += 1;
             self.next_index += n;
             self.cumulative.add(tally.yields());
+            self.recession_m += step_recession;
             if let StepPolicy::Adaptive {
                 max_ions_per_step,
                 max_change,
@@ -351,8 +435,76 @@ impl<'a> DynamicRun<'a> {
                 clamped,
                 yields: tally.yields().clone(),
                 removed_slabs: outcome.removed_slabs,
+                recession_m: step_recession,
+                recession_total_m: self.recession_m,
             }));
         }
+    }
+
+    /// The deltas of a step with erosion on, its recession in m, and the
+    /// number of elements whose sputtered count exceeded what the slabs hold
+    /// (that excess is not removed; the step reports it in `clamped`). See the
+    /// `DynamicRun` docs, "Erosion".
+    fn erosion_deltas(
+        &self,
+        tally: &InventoryTally,
+        per_ion: f64,
+    ) -> Result<(Vec<InventoryDelta>, f64, u32), DynamicRunError> {
+        // Integer net counts with the origin-slab loss of sputtered atoms
+        // cancelled; sputtered atoms per element to take from the front.
+        let mut net: BTreeMap<(usize, u8), i64> = tally.counts().collect();
+        let mut sputtered: BTreeMap<u8, u64> = BTreeMap::new();
+        for ((slab, z), n) in tally.sputtered_from() {
+            *net.entry((slab, z)).or_insert(0) += n as i64;
+            *sputtered.entry(z).or_insert(0) += n;
+        }
+        let mut delta: BTreeMap<(usize, u8), f64> = net
+            .into_iter()
+            .map(|(k, c)| (k, c as f64 * per_ion))
+            .collect();
+        let inventories: Vec<Vec<(u8, f64)>> = (0..self.grid.n_slabs())
+            .map(|i| self.grid.inventory(i).unwrap_or_default())
+            .collect();
+        let mut removed: BTreeMap<u8, f64> = BTreeMap::new();
+        let mut leftover = 0u32;
+        for (&z, &y) in &sputtered {
+            let mut rem = y as f64 * per_ion;
+            for (slab, inv) in inventories.iter().enumerate() {
+                if rem <= 0.0 {
+                    break;
+                }
+                let have = inv
+                    .iter()
+                    .find(|&&(zz, _)| zz == z)
+                    .map_or(0.0, |&(_, a)| a);
+                let d = delta.entry((slab, z)).or_insert(0.0);
+                let avail = (have + *d).max(0.0);
+                let take = avail.min(rem);
+                if take > 0.0 {
+                    *d -= take;
+                    rem -= take;
+                    *removed.entry(z).or_insert(0.0) += take;
+                }
+            }
+            if rem > 0.0 {
+                leftover += 1;
+            }
+        }
+        let recession = if removed.is_empty() {
+            0.0
+        } else {
+            self.grid.relaxation().thickness_m(&removed)?
+        };
+        let deltas = delta
+            .into_iter()
+            .filter(|&(_, d)| d != 0.0)
+            .map(|((slab, z), d)| InventoryDelta {
+                slab,
+                z,
+                delta_atoms_m2: d,
+            })
+            .collect();
+        Ok((deltas, recession, leftover))
     }
 
     /// Largest `|delta_Z| / (atoms/m^2 of the slab)` over the deltas.

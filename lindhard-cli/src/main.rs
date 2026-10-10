@@ -7,6 +7,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
+use lindhard_cli::table_cache::TableCache;
 use lindhard_cli::{dynamic, electron, output, sim};
 
 const LONG_VERSION: &str = concat!(
@@ -49,6 +50,12 @@ enum Command {
         /// Override `run.threads`. Never changes the results.
         #[arg(long)]
         threads: Option<usize>,
+        /// Electron runs only: read the cross-section tables from this
+        /// directory when it holds them for exactly this physics, grid and
+        /// build, and store the tables built otherwise. Never changes the
+        /// results (docs/cli.md, "Cross-section table cache").
+        #[arg(long, value_name = "DIR")]
+        table_cache: Option<PathBuf>,
     },
 }
 
@@ -143,6 +150,7 @@ fn run_electron(
     histories: Option<u64>,
     seed: Option<u64>,
     threads: Option<usize>,
+    table_cache: Option<&Path>,
 ) -> Result<()> {
     let mut input = load_electron(path, text)?;
     if let Some(n) = histories {
@@ -155,7 +163,22 @@ fn run_electron(
         input.run.threads = threads;
     }
     let r = resolve_electron(path, &input)?;
-    let sim = electron::simulate_electron(&r, input.run.threads)?;
+    let cache = table_cache.map(TableCache::open).transpose()?;
+    let sim = electron::simulate_electron(&r, input.run.threads, cache.as_ref())?;
+    if let Some(c) = &cache {
+        let read = sim
+            .tables
+            .iter()
+            .flat_map(|t| [&t.elastic_origin, &t.inelastic_origin])
+            .filter(|o| o.source == lindhard_cli::table_cache::TableSource::Cache)
+            .count();
+        eprintln!(
+            "tables: {read} read from the cache, {} built ({:.1} s), cache {}",
+            2 * sim.tables.len() - read,
+            sim.info.table_build_s,
+            c.dir().display()
+        );
+    }
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let write = |name: &str, text: String| -> Result<()> {
         let p = out.join(name);
@@ -173,6 +196,16 @@ fn run_electron(
         out,
         electron::CYLINDRICAL_FILE,
         electron::cylindrical_csv(&sim.report),
+    )?;
+    reconcile_optional(
+        out,
+        electron::PSF_PROFILE_FILE,
+        electron::psf_profile_csv(&sim),
+    )?;
+    reconcile_optional(
+        out,
+        electron::PSF_PARAMETERS_FILE,
+        electron::psf_parameters_csv(&sim),
     )?;
     // Last, so the summary describes the completed output set.
     write(electron::SUMMARY_FILE, summary)?;
@@ -243,6 +276,28 @@ fn check(path: &Path) -> Result<()> {
                 .map_or(String::new(), |c| format!(" (adaptive, max change {c})"))
         );
     }
+    if let Some(d) = lindhard::ion::bca::DivergenceMetadata::new(&r.divergence) {
+        println!(
+            "  beam divergence: {} {} = {} deg, {}",
+            d.model, d.width_kind, d.width_deg, d.incidence
+        );
+    }
+    for (i, c) in r.input.crystal.iter().enumerate() {
+        println!(
+            "  crystal[{i}]: {} on layers {:?}, normal {:?}, reference {:?}, wafer rotation {} deg{}",
+            c.preset.name(),
+            c.layers,
+            c.normal,
+            c.reference,
+            c.wafer_rotation_deg,
+            c.thermal
+                .as_ref()
+                .map_or(", static lattice".to_string(), |t| format!(
+                    ", thermal {} K",
+                    t.temperature_k
+                ))
+        );
+    }
     for m in r.models() {
         if m.name == "user-table" {
             // A user table is identified by its file: "path: provenance".
@@ -260,10 +315,14 @@ fn run(
     ions: Option<u64>,
     seed: Option<u64>,
     threads: Option<usize>,
+    table_cache: Option<&Path>,
 ) -> Result<()> {
     let text = read(path)?;
     if ElectronInput::is_electron_toml(&text) {
-        return run_electron(path, &text, out, ions, seed, threads);
+        return run_electron(path, &text, out, ions, seed, threads, table_cache);
+    }
+    if table_cache.is_some() {
+        bail!("--table-cache applies to electron runs only (an input with an [electron] table)");
     }
     let mut input = load(path, &text)?;
     if let Some(n) = ions {
@@ -288,6 +347,7 @@ fn run(
         tally,
         table,
         report,
+        crystals,
         info,
     } = sim::simulate(&r, input.run.threads)?;
 
@@ -296,7 +356,7 @@ fn run(
         let p = out.join(name);
         std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
     };
-    let summary = output::summary_json(&r, &table, &tally, &report, info)?;
+    let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
     write(output::DEPTH_FILE, output::depth_csv(&tally))?;
     write(output::LATERAL_FILE, output::lateral_csv(&report))?;
     write(output::DAMAGE_FILE, output::damage_csv(&report))?;
@@ -330,15 +390,15 @@ fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
         let p = out.join(name);
         std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
     };
-    write(
-        output::DYNAMIC_SUMMARY_FILE,
-        output::dynamic_summary_json(r, &d)?,
-    )?;
+    // Serialize first, so a failure writes nothing.
+    let summary = output::dynamic_summary_json(r, &d)?;
     write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(&d))?;
     write(
         output::DYNAMIC_COMPOSITION_FILE,
         output::dynamic_composition_csv(&d),
     )?;
+    // Last, so the summary describes the completed output set.
+    write(output::DYNAMIC_SUMMARY_FILE, summary)?;
     let last = d.steps.last().expect("step 0");
     eprintln!(
         "{} ions in {} steps ({} attempts rejected): {} sputtered atoms, {} slabs left; wrote {}",
@@ -361,6 +421,7 @@ fn main() -> Result<()> {
             ions,
             seed,
             threads,
-        } => run(&input, &out, ions, seed, threads),
+            table_cache,
+        } => run(&input, &out, ions, seed, threads, table_cache.as_deref()),
     }
 }

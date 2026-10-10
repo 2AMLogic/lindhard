@@ -67,7 +67,10 @@ use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
 use crate::material::{Material, MaterialSpec};
 use crate::tally::electron::SE_BSE_SPLIT_SOURCE;
-use crate::tally::{Binning, CartesianGrid, CylindricalGrid, ElectronTallyConfig, SE_BSE_SPLIT_EV};
+use crate::tally::{
+    Binning, CartesianGrid, CylindricalGrid, ElectronTallyConfig, LogRadialBinning, PsfConfig,
+    PsfModel, PsfNormalization, SE_BSE_SPLIT_EV,
+};
 
 const NM: f64 = 1e-9;
 
@@ -225,6 +228,15 @@ pub enum ElasticModelChoice {
     Mott,
 }
 
+impl ElasticModelChoice {
+    /// The stable label (the input spelling).
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Mott => "mott",
+        }
+    }
+}
+
 /// Atomic potential of the elastic model.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -233,8 +245,8 @@ pub enum PotentialChoice {
     /// ([`crate::electron::elastic::table::ThomasFermiYukawa`]).
     ThomasFermiYukawa,
     /// Salvat et al. (1987) DHFS
-    /// ([`crate::electron::elastic::table::SalvatDhfsTable`]); its
-    /// coefficient table is a documented gap, so a run with it fails.
+    /// ([`crate::electron::elastic::table::SalvatDhfsTable`]), Table I
+    /// coefficients for Z = 1..92.
     SalvatDhfs,
 }
 
@@ -354,6 +366,17 @@ impl Default for TableGridSpec {
     }
 }
 
+/// `band` with the optional valence binding of a metal applied.
+fn with_valence_binding(
+    band: BandStructure,
+    binding_ev: Option<f64>,
+) -> Result<BandStructure, crate::electron::boundary::BandError> {
+    match binding_ev {
+        None => Ok(band),
+        Some(b) => band.with_valence_binding_ev(b),
+    }
+}
+
 /// Band parameters of a material ([`BandStructure`]).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
@@ -364,6 +387,11 @@ pub enum BandSpec {
         fermi_ev: f64,
         /// Work function, eV.
         work_function_ev: f64,
+        /// Binding energy below the Fermi level of the electron a valence
+        /// event liberates, eV ([`BandStructure::with_valence_binding_ev`]);
+        /// absent: the Fermi level, the default.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        valence_binding_ev: Option<f64>,
         /// Source of the values.
         provenance: String,
     },
@@ -385,7 +413,11 @@ pub enum BandSpec {
         valence_electrons_per_atom: f64,
         /// Work function, eV.
         work_function_ev: f64,
-        /// Source of the work function and of the valence count.
+        /// As for [`BandSpec::Metal`].
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        valence_binding_ev: Option<f64>,
+        /// Source of the work function and of the valence count (and of
+        /// `valence_binding_ev`, if given).
         provenance: String,
     },
 }
@@ -480,6 +512,73 @@ pub struct CylindricalSpec {
     pub depth: BinsNm,
 }
 
+/// A PSF form to fit (`fits` of `[electron.tally.psf]`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PsfFitSpec {
+    /// Double Gaussian ([`PsfModel::DoubleGaussian`]).
+    Double,
+    /// Triple Gaussian ([`PsfModel::TripleGaussian`]).
+    Triple,
+}
+
+impl From<PsfFitSpec> for PsfModel {
+    fn from(f: PsfFitSpec) -> Self {
+        match f {
+            PsfFitSpec::Double => PsfModel::DoubleGaussian,
+            PsfFitSpec::Triple => PsfModel::TripleGaussian,
+        }
+    }
+}
+
+/// How the energy scale of a PSF fit is set (`normalization`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum PsfNormalizationSpec {
+    /// Fixed to the slab energy ([`PsfNormalization::SlabTotal`]).
+    #[default]
+    SlabTotal,
+    /// A free parameter ([`PsfNormalization::Free`]).
+    Free,
+}
+
+impl From<PsfNormalizationSpec> for PsfNormalization {
+    fn from(n: PsfNormalizationSpec) -> Self {
+        match n {
+            PsfNormalizationSpec::SlabTotal => PsfNormalization::SlabTotal,
+            PsfNormalizationSpec::Free => PsfNormalization::Free,
+        }
+    }
+}
+
+fn default_psf_fits() -> Vec<PsfFitSpec> {
+    vec![PsfFitSpec::Double, PsfFitSpec::Triple]
+}
+
+/// `[electron.tally.psf]`: the radial profile of the energy deposited in a
+/// depth slab, on log radial bins, and the PSF fits to it
+/// ([`crate::tally::psf`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct PsfSpec {
+    /// Lower depth of the slab, nm.
+    pub depth_lo_nm: f64,
+    /// Upper depth of the slab (excluded), nm.
+    pub depth_hi_nm: f64,
+    /// Outer edge of the central disc and inner edge of the first log bin, nm.
+    pub r_min_nm: f64,
+    /// Outer edge of the last bin, nm.
+    pub r_max_nm: f64,
+    /// Log bins between `r_min_nm` and `r_max_nm`.
+    pub bins: usize,
+    /// Forms to fit (`"double"`, `"triple"`); may be empty.
+    #[serde(default = "default_psf_fits")]
+    pub fits: Vec<PsfFitSpec>,
+    /// How the energy scale of the fits is set.
+    #[serde(default)]
+    pub normalization: PsfNormalizationSpec,
+}
+
 fn default_split() -> f64 {
     SE_BSE_SPLIT_EV
 }
@@ -520,6 +619,9 @@ pub struct ElectronTallySpec {
     /// Cylindrical deposition grid.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cylindrical: Option<CylindricalSpec>,
+    /// Radial profile of a depth slab and its PSF fits.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub psf: Option<PsfSpec>,
 }
 
 impl Default for ElectronTallySpec {
@@ -532,6 +634,7 @@ impl Default for ElectronTallySpec {
             escape_polar_bins: default_polar_bins(),
             cartesian: None,
             cylindrical: None,
+            psf: None,
         }
     }
 }
@@ -563,6 +666,8 @@ pub struct DataFile {
 /// The elastic choices after validation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ElasticChoice {
+    /// The elastic model.
+    pub model: ElasticModelChoice,
     /// The atomic potential.
     pub potential: PotentialChoice,
     /// Furness-McCarthy exchange on or off.
@@ -665,6 +770,11 @@ pub struct ResolvedElectron {
     pub table_energy_ev: Vec<f64>,
     /// Tally configuration (SI units).
     pub tally: ElectronTallyConfig,
+    /// The PSF forms to fit to the profile of `tally.psf`, in input order
+    /// (duplicates removed).
+    pub psf_fits: Vec<PsfModel>,
+    /// How the PSF fits set their energy scale.
+    pub psf_normalization: PsfNormalization,
     /// Non-fatal advice.
     pub warnings: Vec<String>,
 }
@@ -736,6 +846,15 @@ impl ElectronInput {
 
     /// Parse a TOML document (schema errors name the key and line).
     pub fn from_toml_str(text: &str) -> Result<Self, InputError> {
+        if text
+            .parse::<toml::Table>()
+            .is_ok_and(|t| t.contains_key("crystal"))
+        {
+            return Err(invalid(
+                "crystal",
+                "not supported with an [electron] run (crystal transport is for ion runs)",
+            ));
+        }
         toml::from_str(text).map_err(|e| InputError::Parse(e.to_string()))
     }
 
@@ -1042,6 +1161,7 @@ impl ElectronInput {
             }
         }
         let elastic = ElasticChoice {
+            model: el.model,
             potential: el.potential,
             exchange: el.exchange,
             correlation_polarization: cp,
@@ -1091,7 +1211,8 @@ impl ElectronInput {
         if max_energy < top {
             warnings.push(format!(
                 "electron.tables.max_energy_ev: {max_energy} eV is below the largest energy \
-                 an electron can have ({top} eV); rates above it are held at the last row"
+                 an electron can have ({top} eV); rates above it are held at the last row \
+                 (results.table_coverage counts how often)"
             ));
         }
         // The lowest energy an electron is followed at: the cutoff, or
@@ -1100,7 +1221,8 @@ impl ElectronInput {
         if g.min_energy_ev > lowest {
             warnings.push(format!(
                 "electron.tables.min_energy_ev: {} eV is above the lowest stopping threshold \
-                 ({lowest} eV); rates below it are held at the first row",
+                 ({lowest} eV); rates below it are held at the first row \
+                 (results.table_coverage counts how often)",
                 g.min_energy_ev
             ));
         }
@@ -1160,6 +1282,51 @@ impl ElectronInput {
                 depth: binning_nm(&format!("{f}.cylindrical.depth"), &c.depth)?,
             });
         }
+        let mut psf_fits: Vec<PsfModel> = Vec::new();
+        let mut psf_normalization = PsfNormalization::default();
+        if let Some(p) = &ts.psf {
+            let nm = |key: &str, v: f64| -> Result<f64, InputError> {
+                if v.is_finite() {
+                    Ok(v * NM)
+                } else {
+                    Err(invalid(format!("{f}.psf.{key}"), "must be finite"))
+                }
+            };
+            let depth_lo = nm("depth_lo_nm", p.depth_lo_nm)?;
+            let depth_hi = nm("depth_hi_nm", p.depth_hi_nm)?;
+            if depth_hi <= depth_lo {
+                return Err(invalid(
+                    format!("{f}.psf.depth_hi_nm"),
+                    "must be greater than depth_lo_nm",
+                ));
+            }
+            let r_min = nm("r_min_nm", p.r_min_nm)?;
+            let r_max = nm("r_max_nm", p.r_max_nm)?;
+            if r_min <= 0.0 {
+                return Err(invalid(format!("{f}.psf.r_min_nm"), "must be positive"));
+            }
+            if r_max <= r_min {
+                return Err(invalid(
+                    format!("{f}.psf.r_max_nm"),
+                    "must be greater than r_min_nm",
+                ));
+            }
+            if p.bins == 0 {
+                return Err(invalid(format!("{f}.psf.bins"), "must be at least 1"));
+            }
+            let radial = LogRadialBinning::new(r_min, r_max, p.bins)
+                .map_err(|e| invalid(format!("{f}.psf.bins"), e.to_string()))?;
+            tally.psf = Some(
+                PsfConfig::new(radial, depth_lo, depth_hi)
+                    .map_err(|e| invalid(format!("{f}.psf"), e.to_string()))?,
+            );
+            for m in p.fits.iter().copied().map(PsfModel::from) {
+                if !psf_fits.contains(&m) {
+                    psf_fits.push(m);
+                }
+            }
+            psf_normalization = p.normalization.into();
+        }
 
         Ok(ResolvedElectron {
             input: echo,
@@ -1174,6 +1341,8 @@ impl ElectronInput {
             inelastic_fermi_ev: e.inelastic.fermi_energy_ev,
             table_energy_ev,
             tally,
+            psf_fits,
+            psf_normalization,
             warnings,
         })
     }
@@ -1207,6 +1376,7 @@ impl ElectronInput {
                     BandSpec::Metal {
                         fermi_ev,
                         work_function_ev,
+                        valence_binding_ev,
                         provenance,
                     } => BandStructure::new(
                         BandModel::Metal {
@@ -1214,7 +1384,8 @@ impl ElectronInput {
                             work_function_ev: *work_function_ev,
                         },
                         provenance.trim(),
-                    ),
+                    )
+                    .and_then(|b| with_valence_binding(b, *valence_binding_ev)),
                     BandSpec::Insulator {
                         valence_band_width_ev,
                         band_gap_ev,
@@ -1231,13 +1402,15 @@ impl ElectronInput {
                     BandSpec::FreeElectronMetal {
                         valence_electrons_per_atom,
                         work_function_ev,
+                        valence_binding_ev,
                         provenance,
                     } => BandStructure::free_electron_metal(
                         material,
                         *valence_electrons_per_atom,
                         *work_function_ev,
                         provenance.trim(),
-                    ),
+                    )
+                    .and_then(|b| with_valence_binding(b, *valence_binding_ev)),
                 };
                 Some(r.map_err(|err| invalid(format!("{field}.band"), err.to_string()))?)
             }
@@ -1529,6 +1702,61 @@ seed = 1
     }
 
     #[test]
+    fn metal_band_takes_an_optional_valence_binding() {
+        let d = dir("valence-binding");
+        std::fs::write(d.join("elf.toml"), ELF).unwrap();
+        let with = |band: &str| {
+            GOOD.replace(
+                "optical_elf = \"elf.toml\"",
+                &format!("optical_elf = \"elf.toml\"\nband = {band}"),
+            )
+        };
+        let resolve =
+            |text: &str| ElectronInput::from_toml_str(text).and_then(|i| i.resolve_in(&d));
+        // Absent: no binding, and the echo has no such key.
+        let r = resolve(&with(
+            "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, provenance = \"p\" }",
+        ))
+        .unwrap();
+        assert_eq!(
+            r.materials[0].band.as_ref().unwrap().valence_binding_ev(),
+            None
+        );
+        assert!(!r
+            .input
+            .to_toml_string()
+            .unwrap()
+            .contains("valence_binding_ev"));
+        for band in [
+            "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, valence_binding_ev = 7.5, \
+             provenance = \"p\" }",
+            "{ kind = \"free-electron-metal\", valence_electrons_per_atom = 1.0, \
+             work_function_ev = 4.0, valence_binding_ev = 7.5, provenance = \"p\" }",
+        ] {
+            let r = resolve(&with(band)).unwrap();
+            assert_eq!(
+                r.materials[0].band.as_ref().unwrap().valence_binding_ev(),
+                Some(7.5)
+            );
+            let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
+            assert_eq!(back, r.input);
+        }
+        // Refused: a negative binding, and any binding on an insulator.
+        let e = resolve(&with(
+            "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, valence_binding_ev = -1.0, \
+             provenance = \"p\" }",
+        ))
+        .unwrap_err()
+        .to_string();
+        assert!(e.contains("electron.materials.Si.band"), "{e}");
+        assert!(resolve(&with(
+            "{ kind = \"insulator\", valence_band_width_ev = 6.0, band_gap_ev = 3.0, \
+             affinity_ev = 1.0, valence_binding_ev = 1.0, provenance = \"p\" }",
+        ))
+        .is_err());
+    }
+
+    #[test]
     fn errors_name_the_field() {
         let d = dir("errors");
         std::fs::write(d.join("elf.toml"), ELF).unwrap();
@@ -1564,6 +1792,73 @@ seed = 1
             "potential = \"thomas-fermi-yukawa\"\n[electron.elastic.correlation_polarization.polarizability]\n",
         ));
         assert!(e.contains("no polarizability for Si"), "{e}");
+    }
+
+    #[test]
+    fn psf_section_defaults_echo_and_errors_name_fields() {
+        let d = dir("psf");
+        std::fs::write(d.join("elf.toml"), ELF).unwrap();
+        let psf = "\n[electron.tally.psf]\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\nr_min_nm = 0.5\nr_max_nm = 50.0\nbins = 8\n";
+        let text = format!("{GOOD}{psf}");
+        let r = ElectronInput::from_toml_str(&text)
+            .unwrap()
+            .resolve_in(&d)
+            .unwrap();
+        let c = r.tally.psf.unwrap();
+        assert_eq!(c.depth_hi_m, 5e-9);
+        assert_eq!(c.radial.bins, 8);
+        assert_eq!(
+            r.psf_fits,
+            vec![PsfModel::DoubleGaussian, PsfModel::TripleGaussian]
+        );
+        assert_eq!(r.psf_normalization, PsfNormalization::SlabTotal);
+        let echo = r.input.electron.tally.psf.clone().unwrap();
+        assert_eq!(echo.fits, default_psf_fits());
+        assert_eq!(echo.normalization, PsfNormalizationSpec::SlabTotal);
+        let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
+        assert_eq!(back, r.input);
+        // No PSF: nothing resolved.
+        let r0 = ElectronInput::from_toml_str(GOOD)
+            .unwrap()
+            .resolve_in(&d)
+            .unwrap();
+        assert!(r0.tally.psf.is_none() && r0.psf_fits.is_empty());
+        // Empty and explicit fit lists, free normalisation.
+        let r = ElectronInput::from_toml_str(&text.replace(
+            "bins = 8",
+            "bins = 8\nfits = [\"triple\", \"triple\"]\nnormalization = \"free\"",
+        ))
+        .unwrap()
+        .resolve_in(&d)
+        .unwrap();
+        assert_eq!(r.psf_fits, vec![PsfModel::TripleGaussian]);
+        assert_eq!(r.psf_normalization, PsfNormalization::Free);
+        let r = ElectronInput::from_toml_str(&text.replace("bins = 8", "bins = 8\nfits = []"))
+            .unwrap()
+            .resolve_in(&d)
+            .unwrap();
+        assert!(r.psf_fits.is_empty());
+        // Errors.
+        let bad = |from: &str, to: &str| {
+            ElectronInput::from_toml_str(&text.replace(from, to))
+                .and_then(|i| i.resolve_in(&d))
+                .unwrap_err()
+                .to_string()
+        };
+        let e = bad("depth_hi_nm = 5.0", "depth_hi_nm = 0.0");
+        assert!(e.contains("electron.tally.psf.depth_hi_nm"), "{e}");
+        let e = bad("r_max_nm = 50.0", "r_max_nm = 0.5");
+        assert!(e.contains("electron.tally.psf.r_max_nm"), "{e}");
+        let e = bad("r_min_nm = 0.5", "r_min_nm = 0.0");
+        assert!(e.contains("electron.tally.psf.r_min_nm"), "{e}");
+        let e = bad("bins = 8", "bins = 0");
+        assert!(e.contains("electron.tally.psf.bins"), "{e}");
+        let e = bad("bins = 8", "bins = 8\nfits = [\"quadruple\"]");
+        assert!(e.contains("quadruple") && e.contains("fits"), "{e}");
+        let e = bad("bins = 8", "bins = 8\nnormalization = \"x\"");
+        assert!(e.contains("normalization"), "{e}");
+        let e = bad("bins = 8", "bins = 8\nbogus = 1");
+        assert!(e.contains("bogus"), "{e}");
     }
 
     #[test]

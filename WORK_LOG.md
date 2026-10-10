@@ -2,6 +2,106 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-10
+
+- **Issue #300** (closed): Cu Mermin inelastic mean free path is 15 to 41 % longer than TPP 2011 and than the single-pole model on the same ELF
+- **Issue #307** (closed): Mermin fit with 10 or 16 oscillators puts a sub-meV oscillator between ELF knots (f-sum x7000 for Cu)
+- **Issue #312** (closed): SE yield candidates (#301 item 1): acoustic-phonon scattering for Cu, or the gap
+- **Issue #314** (closed): SE yield candidates (#301 item 3): a second Au ELF, licence verdict first, or the gap
+- **Issue #315** (closed): SE yield candidates (#301 item 4): low-energy elastic corrections (correlation-polarization, muffin-tin), or the gap
+- **PR #308**: validation: Cu Mermin IMFP excess is the default 3-oscillator fit (#300)
+- **PR #310**: fix: bound Mermin fit widths below by the local knot spacing (#307)
+- **PR #316**: feat(electron): secondary binding switch; run #301 item 5 (Azzolini B), split items 1-4
+- **PR #317**: docs(provenance): Cu acoustic-phonon inputs from Arat 2019 and the gap (#312)
+- **PR #318**: Au ELF from Hagemann Table 6 as a second ELF; licence verdicts; au-elf-table6 run (#314)
+- **PR #320**: docs(provenance): record the #301 item 4 elastic rows as gaps (#315)
+
+
+### 2026-10-10
+
+- **PR #304**: feat(electron): sample inner-shell ionisation channels in the transport (#273)
+- **PR #284**: Screen-oxide substrate channeling tail characterization (#280)
+- **Issue #280** (closed): Crystal validation: characterize screen-oxide effects on substrate channeling tails
+- **Issue #273** (closed): Electron transport: sample inner-shell ionisation channels in the transport loop
+
+### 2026-10-09
+
+- **PR #302**: validation: no tested candidate explains the Au and Cu Mermin secondary-yield excess (#242)
+- **Issue #242** (closed): Au secondary-electron yield stays 77 % above the measured δ_max with the Mermin model (residual of #173)
+- **PR #297**: cli: write dynamic summary last (#292)
+- **PR #296**: fix: crystal local loss, explain the fixed-direction excess and assert the direction average (#250)
+- **PR #295**: validation: delta(E) on DHFS, Si curves, band text (Part of #149)
+- **PR #294**: Backscatter (#148): fast-secondary sensitivity of eta for Al, Cu and Au
+- **PR #293**: feat: hydrogenic L-subshell ELFs for the inner-shell builder (#245)
+- **PR #288**: Ion beam: connect divergence sampling to transport and shared TOML
+- **PR #247**: CLI: expose the radial PSF tally in the [electron] section
+- **Issue #292** (closed): Dynamic CLI: publish the summary only after required CSV writes succeed
+- **Issue #250** (closed): Crystal flight: local/nonlocal electronic loss ratio is 5-8 % above the amorphous value at the same p_max in random directions
+- **Issue #245** (closed): Penn inelastic: hydrogenic L-subshell ELFs for the inner-shell builder (follow-up to #135)
+- **Issue #285** (closed): Ion beam: connect existing divergence sampling to transport and shared TOML
+- **Issue #165** (closed): CLI: expose the radial PSF tally in the [electron] section
+- **Issue #201** (closed): Pilot E_s tuning set: fit and held-out evaluation (follow-up to #80)
+- **Issue #79** (closed): bca: opt-in time-integral path length for nonlocal electronic loss (TRIM tau = p tan(theta/2))
+- **Issue #135** (closed): Penn inelastic: build per-shell optical ELFs for ShellResolvedChannels from a published source
+- **PR #286**: Table cache: verify cached table bytes and key the elastic model choice
+- **PR #281**: docs: correct the PSF summary and CSV description in cli.md
+- **PR #283**: Derive Debug on PsfOutcome (fix red CI on main)
+- **PR #278**: Enable unreachable_pub and missing_debug_implementations in [workspace.lints]
+- **PR #275**: Crystal: validate the off-axis thermal tail and rescope the 7/22 criterion (#225)
+- **PR #274**: feat: CSG primitives and boolean combinations on the Geometry trait
+- **Issue #282** (closed): CI red on main: PsfOutcome lacks Debug under missing_debug_implementations
+- **Issue #271** (closed): CLI: expose cubic crystal targets and orientation through shared TOML input
+- **Issue #268** (closed): Electron diagnostics: count capped secondary tracks and affected histories
+- **Issue #265** (closed): CI: run the validation Python unit tests (three test files never run on PRs)
+- **Issue #264** (closed): Refactor: split lindhard/src/geometry.rs into stack and voxel modules (no behaviour change)
+- **Issue #260** (closed): Refactor: split lindhard/src/input.rs into schema and resolve modules (no behaviour change)
+- **Issue #259** (closed): CI: scheduled release-mode run of the #[ignore]d statistical and slow tests
+- **Issue #254** (closed): Correct the PSF summary and CSV documentation
+- **Issue #253** (closed): Electron validation: report actual cross-section table endpoint use
+- **Issue #249** (closed): Table cache: verify cached table bytes and key the elastic model choice (follow-up to #248)
+- **Issue #225** (closed): Crystal: off-axis channeling tail grows with thermal vibration (7°/22°, 30°/17°): validate and rescope the 7/22 dRp criterion
+- **Issue #222** (closed): Enable unreachable_pub and missing_debug_implementations in [workspace.lints]
+- **Issue #194** (closed): [Epic #25] CSG primitives and boolean combinations on the Geometry trait
+- **Issue #169** (closed): Backscatter validation: evaluate C, Si, Au and rerun with full Penn + DHFS (follow-up to #148)
+- **Issue #131** (closed): Elastic solver: start-radius rule r_t exp(-60/|kappa|) is too close to the turning point for |kappa| of several hundred
+- **Issue #123** (closed): tally::electron: state (or change) the energy reference of deposits when secondaries are on
+- **Issue #81** (closed): docs: clean-room warning — cited IPP 9/64 PDF contains the TRIDYN program listing (Appendix 1)
+- **PR #276**: CLI: expose cubic crystal targets and orientation through shared TOML input
+- **PR #272**: Backscatter validation: DHFS for all five targets, add Si (#169)
+- **PR #270**: Electron diagnostics: count capped secondary tracks and affected histories
+- **PR #269**: Split geometry.rs into stack and voxel modules (no behaviour change)
+- **PR #267**: Run the validation Python unit tests in CI
+- **PR #266**: docs: warn that IPP 9/64 bundles the TRIDYN listing (Tier C)
+- **PR #263**: Split input.rs into schema, resolve and resolved modules (no behaviour change)
+- **PR #262**: CI: scheduled release-mode run of the #[ignore]d statistical and slow tests
+- **PR #261**: Use the WKB start radius for every elastic potential (#131)
+- **PR #258**: Document the band-bottom reference of electron deposits (#123)
+- **PR #257**: Report electron cross-section table endpoint use (#253)
+- **PR #246**: Build hydrogenic K-shell optical ELFs for the inner-shell channels (#135)
+- **PR #252**: test: validate the crystal Oen-Robinson local loss and flag its unverified constants
+- **PR #248**: Electron CLI: reuse built cross-section tables across runs (--table-cache)
+- **PR #244**: docs(electron): trace the Al/Au single-pole Penn delta overestimate to the low-energy IMFP
+- **PR #243**: Cited electron band defaults (Si, SiO2) and a narrowed band-parameter gap (#115)
+- **PR #240**: Add Si optical ELF digitized from Yang et al. (2019) (#125)
+- **PR #239**: Enter the Salvat et al. (1987) DHFS screening table (Z = 1..92)
+- **PR #238**: feat(dynamic): sputter erosion and surface recession (#234)
+- **Issue #234** (closed): Dynamic composition: sputter erosion and surface recession in the fluence loop (Epic #22, Phase 2)
+- **Issue #226** (closed): Crystal flight: impact-parameter-dependent (Oen-Robinson) electronic loss for channeled ions (Epic #12, Phase 2)
+- **Issue #205** (closed): validation: Au secondary-electron yield delta_max overestimate (3.42 vs 1.468)
+- **Issue #204** (closed): Au secondary-electron yield with the default (single-pole Penn) model is about 2.3x the measured δ_max
+- **Issue #173** (closed): Al secondary-electron yield with the default (single-pole Penn) model is about 5x the measured δ_max
+- **Issue #168** (closed): Electron CLI: reuse built cross-section tables across runs, so the full Penn model can enter the #150 oracle comparison
+- **Issue #130** (closed): Enter the Salvat et al. (1987) DHFS screening table (Z=1..92): the paper is now reachable in an open repository
+- **Issue #127** (closed): Fix clippy nonminimal_bool in ion/scattering.rs:50 (blocks clippy -D warnings)
+- **Issue #125** (closed): Source Si valence-region optical ELF data (6 to 30 eV) for #98
+- **Issue #115** (closed): Electron band parameters: cited per-material defaults for work function, Fermi energy, affinity and band gap
+- **PR #235**: ci: tag-triggered release workflow
+- **Issue #184** (closed): Add #![forbid(unsafe_code)] to lindhard-cli and lindhard-py
+- **Issue #231** (closed): Guard telemetry disposition: retain scope protection for /dev/shm cleanup
+- **Issue #215** (closed): Guard decision review: stash-scope:create-redirect
+- **Issue #232** (closed): Release workflow: tag-triggered CLI binaries, checksums and crates.io publish (Epic #30, Phase 2)
+- **Issue #214** (closed): Guard decision review: worktree-write-confinement-unresolved-var
+
 ### 2026-10-08
 
 - **PR #228**: ci: stubtest the lindhard-py .pyi stubs against the compiled extension

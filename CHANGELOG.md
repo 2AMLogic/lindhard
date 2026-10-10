@@ -7,8 +7,173 @@ one version).
 
 ## [Unreleased]
 
+### Fixed
+
+- Dynamic runs write `dynamic_summary.json` last, after
+  `dynamic_steps.csv` and the composition CSV, like ion and electron runs
+  (#292). A failed CSV write no longer leaves a new summary.
+
 ### Added
 
+- Inner-shell ionisation channels in the electron transport (#273), library
+  only (no CLI input yet; that is #156). `build_shell_channel_tables` builds
+  the valence table and one `ShellChannelTable` per shell of a
+  `ShellResolvedChannels` (single-pole Penn per channel, no exchange);
+  `Transport::with_inner_shells` adds them to a layer. A channel is chosen
+  by its inverse IMFP and the loss drawn from that channel's table; a shell
+  event under the Kieft-Bosch model liberates an electron of energy
+  `E_F + ω - B` and leaves `B - E_F` in the solid. New `ElectronTally::inner_shell`
+  hook, `SummaryTally::inner_shell_events` / `inner_shell_loss_ev`, and
+  `LayerMetadata::inner_shells` (serialized only when a layer has shells).
+  `ShellChannelTable` files carry the shell, its binding energy and that
+  energy's provenance, with their own format version
+  (`SHELL_CHANNEL_FORMAT_VERSION`); the `CrossSectionTable` cache format is
+  unchanged. Layers without shells give bit-identical results.
+- `BcaTally::partner` (#250): a tally hook, a no-op by default, that reports
+  every collision partner's impact parameter and the number of partners of
+  its collision step, before the collision changes the particle. The
+  amorphous model reports its hard and weak collisions, the crystal flight
+  model every simultaneous partner. Results are unchanged.
+- Hydrogenic L-subshell ELFs (#245): `hydrogenic_shell_elf` and
+  `hydrogenic_shell_elfs` now also build L1 (2s) and L2 / L3 (2p), from the
+  bound-free cross sections of Karzas and Latter, Astrophys. J. Suppl. 6, 167
+  (1961), eqs. (36) and (37), reduced for `n = 2` and checked against the
+  Gaunt factors of that paper's Table 1. L2 and L3 use the same 2p formula,
+  each with its own binding energy and occupancy. New public
+  `hydrogenic_2s_oscillator_strength_density_per_ev` and
+  `hydrogenic_2p_oscillator_strength_density_per_ev`. K-shell results are
+  unchanged; the M shell and above are still an error (with a new message).
+- Ion beam divergence in transport (#285): the optional `[beam.divergence]`
+  input table (`model = "gaussian"` with `sigma_deg` per plane, or
+  `"uniform-cone"` with `half_angle_deg`; widths in `[0, 10]` degrees; static
+  ion runs only), the opt-in `Bca::with_divergence` engine setter,
+  `Bca::primary_direction`, `Bca::divergence_metadata`, and `Beam`-level
+  Python arguments `divergence_model` / `divergence_deg`. Each primary's
+  direction is sampled once about the nominal direction on a dedicated
+  segment of its own stream (word `2^65`) and conditioned on pointing into the
+  target (bounded rejection, error `BcaError::BeamDivergence` on exhaustion).
+  Without it results are unchanged. The summary gains
+  `physics.beam_divergence` (no `format.version` bump). `Bca::history` and
+  `history_in` now return the new `HistoryError` (wrapping `StoppingError`)
+  and `BcaError` gains the `BeamDivergence` variant. An input capability, not
+  a validated channeling prediction. Example:
+  `examples/b_5keV_si_crystal_divergence.toml`.
+- `geometry::CsgGeometry`, `geometry::Csg` and `geometry::Primitive`:
+  constructive-solid-geometry targets of box, capped-cylinder and half-space
+  primitives combined by nestable union, intersection and difference, one
+  region per top-level solid, each tagged with a material. Rays are
+  classified by span combination (Roth 1982), with the overlap,
+  surface-ownership and tolerance rules of the mesh target, so a CSG box gives
+  the same events as the equivalent `VoxelGrid` and `MeshGeometry` (tested).
+  Every top-level solid must be bounded (a half-space only inside an
+  intersection or difference that bounds it), else the new
+  `GeometryError::CsgUnbounded`; a bad primitive or an empty operator is the
+  new `GeometryError::CsgInvalid`. `GeometryError` is not `non_exhaustive`, so
+  an exhaustive `match` on it must add the two variants. Not yet reachable
+  from the CLI or TOML input (#194).
+- Electron event-cap diagnostics (#268): how many secondary tracks the
+  collision cap (`max_events`) cut off, and how many primary histories had
+  the primary or any secondary cut off (each history counted once). New
+  public `tally::EventCapCounts` (`secondary_tracks`, `affected_histories`)
+  and field `ElectronReport::event_caps` (so `results.event_caps` in
+  `electron_summary.json`); reports written before it read back with zeros.
+  New public field `SummaryTally::secondaries_event_capped` in
+  `electron::transport`. Both are new public struct fields, so code that
+  builds `ElectronReport` or `SummaryTally` with a struct literal must add
+  them (`SummaryTally` derives `Default`). `FateCounts` still counts one
+  fate per primary, and the `event_cap_ev` energy accounting, the random
+  number sequence and every other result are unchanged.
+- Electron table-coverage diagnostics (#253): per layer and per channel
+  (elastic, inelastic), how many rate evaluations of the transport read the
+  cross-section table inside its energy grid (endpoints included) and how
+  many used the constant continuation below or above it, with the grid
+  bounds, primaries and secondaries together. New `ElectronTally::table_lookup`
+  hook (no-op default, so existing tallies compile unchanged),
+  `electron::transport::{TableChannel, GridCoverage}`,
+  `Transport::layer_tables`, and `tally::table_coverage`
+  (`TableCoverageTally`, `LayerTableCoverage`, `TableCoverageCounts`).
+  `ElectronReport::table_coverage` (and so `results.table_coverage` in
+  `electron_summary.json`) carries the counts; reports written before it
+  read back with an empty list. `validation/oracles/run_electron.py` sums
+  them over its batches into the lindhard summary. These are evaluation
+  counts, not collision counts. Counting draws no random number and changes
+  no result.
+- Validation and run metadata for the local Oen-Robinson electronic loss
+  (`ElectronicLoss::EquipartitionLsOr`) in the crystal flight model (#226).
+  The model was already in place: each lattice partner within `p_max` takes
+  the local loss at its closest approach. New public
+  `CrystalMetadata::electronic_constants_unverified`, `true` for crystal runs
+  that use the local loss while the Oen-Robinson constants are not verified
+  against the 1976 paper. It follows the new constant
+  `ion::stopping::oen_robinson::OR_CONSTANTS_UNVERIFIED`, and a `false`
+  value is left out of the serialised metadata. The new tests are in
+  `tests/crystal_electronic.rs` and measure `R = E_local / E_nonlocal`
+  (Ar 20 keV into Si). Along <110> and <100>, R is 0.26 and 0.60 times the
+  off-axis value. Along the fixed off-axis direction 30/17 the crystal R is
+  7.6 % above the amorphous one at the same `p_max`, outside the 5 % that
+  #226 asked for. #250 traced this to the directions, not to the counting:
+  averaged over all beam directions the crystal R is 0.990 of the amorphous
+  one (the rule of angular averages of Lindhard, Mat. Fys. Medd. Dan. Vid.
+  Selsk. 34, no. 14 (1965), section 5), and the channeling directions lie
+  below that average. The 5 % criterion is now asserted on the direction
+  average, and the 30/17 quotient is a recorded value. The module docs no
+  longer call impact-parameter-dependent stopping in crystals a later step.
+  Results are unchanged.
+- Cited electron band defaults (#115): `electron::boundary::BAND_DEFAULTS`,
+  `band_defaults`, `BandDefaults`, `BandKind`, `CitedValue`, `BandFill`,
+  `BandDefaults::complete` and `BandStructure::from_defaults`. The table
+  cites the Si band gap (1.1 eV) and electron affinity (4.05 eV) and the
+  SiO2 band gap (9 eV) to Robertson and Wallace (2015), by table or figure
+  and page. Parameters with no source that could be opened (the work
+  function and Fermi energy of Al, Cu, Au and W, the valence band width of
+  Si and SiO2, and the affinity of SiO2) have no number. `complete` takes
+  them from the caller with their provenance.
+- Electron table cache (#168): `lindhard run --table-cache DIR` reads the
+  elastic and inelastic cross-section tables from `DIR` when it holds them
+  for exactly this run's physics, grid and executable, and stores the tables
+  it builds otherwise, so a series of runs builds its tables once. Entries are
+  named by the SHA-256 of a key document covering every input of the build;
+  a file that does not match its key is refused, never silently reused.
+  Outputs are bit-identical with and without the cache; the summary records
+  each table's `source` (`built` or `cache`) and its cache file (`path`,
+  `sha256`, `key_sha256`) under `physics.materials`.
+  `validation/oracles/run_electron.py` uses it across batches.
+- Table cache integrity (#249): each entry now also stores the SHA-256 of
+  the table file (`<kind>-<hash>.sha256`), and a lookup refuses a table whose
+  bytes do not match it (or whose hash file is missing), naming the file,
+  before parsing it. The elastic key includes `electron.elastic.model`
+  (`ElasticChoice::model`, `ElasticModelChoice::label`), and the key version
+  is 2, so entries written before this change are rebuilt.
+- Inner-shell ELFs built in the engine (#135): `electron::inelastic::shell_elf`
+  builds the optical ELF of a K shell from Stobbe's hydrogenic
+  photoionization formula (dV2022 eq. (2), edge and occupancy from a
+  `SubshellBindingTable`), ready for `ShellResolvedChannels::new`. New public
+  `hydrogenic_shell_elf`, `hydrogenic_shell_elfs`,
+  `hydrogenic_k_oscillator_strength_density_per_ev` and `ShellElfGrid`.
+  Other subshells are still caller-supplied.
+- Radial PSF tally in the electron CLI (#165): `[electron.tally.psf]` (depth
+  slab, log radial bins, `fits`, `normalization`) writes
+  `electron_psf_profile.csv` and `electron_psf_parameters.csv` and adds
+  `results.psf` and `files.psf_profile` / `files.psf_parameters` to
+  `electron_summary.json`. A failing fit is reported in `results.psf.fit_errors`
+  without stopping the run. `ResolvedElectron` gains `psf_fits` and
+  `psf_normalization`; `ElectronTallySpec` gains `psf`. Without the table,
+  output is unchanged.
+- Sputter erosion in dynamic runs (#234): `[dynamic] erosion = true` removes
+  sputtered atoms from the front of the target (slab 0 first) instead of the
+  slab where they were displaced, and the surface recedes. New public fields
+  `DynamicConfig::erosion`, `StepRecord::{recession_m, recession_total_m}`,
+  `Particle::origin_layer` and `DynamicRun::recession_m()`; `recession_nm` in
+  `dynamic_summary.json` totals (erosion on only). With erosion off, results
+  are bit-identical to before.
+- The Salvat et al. (1987) DHFS screening table (Table I, Z = 1..92, #130):
+  `SalvatDhfs::for_element` now returns the published coefficients (two-term
+  potentials for the asterisked rows, `SalvatDhfs::from_two_terms`), so
+  `potential = "salvat-dhfs"` runs instead of failing.
+- Release workflow (`.github/workflows/release.yml`): tag-triggered `lindhard`
+  CLI archives for five targets, `SHA256SUMS`, a GitHub Release, and a
+  crates.io publish gated on a protected environment; see "Releasing" in
+  `CONTRIBUTING.md`.
 - Thermal vibration in the crystal flight model (#181): `CrystalTarget::thermal`
   / `with_thermal(Thermal { temperature_k, debye_temperature_k,
   include_zero_point })` displaces every lattice site the particle meets by an
@@ -159,6 +324,42 @@ one version).
 
 ### Changed
 
+- Crystal off-axis channeling tail (#225). The 7°/22° orientation is
+  2.6-2.7° from a {100} and a {110} plane, so it is no longer held to the
+  #180 random-direction bound "dRp within 15 % of amorphous". Its ignored
+  tests are renamed `near_planar_7_22_static_lattice` and
+  `near_planar_7_22_at_300_k` and are now recorded-value regression checks;
+  tolerances are three seed-to-seed standard deviations.
+  - A new ignored test, `off_axis_tail_grows_with_vibration_under_both_losses`,
+    records that at 7°/22° and 30°/17° the tail beyond twice the amorphous
+    Rp grows at 300 K. It does so under both `NonLocal` and
+    `EquipartitionLsOr`, by 5-9 σ at 16000 ions.
+  - The 30°/17° check at 300 K now also asserts the 90th percentile within
+    10 % of amorphous, and bounds dRp at its recorded value plus 0.12.
+  - The `ion::bca::crystal` module docs record the literature search. No
+    measured profile at matched conditions was usable. One published
+    simulation (Bratchenko et al. 2009) found the same sign of thermal
+    feeding-in, so the effect is consistent with it but not validated
+    against measurement.
+  - No transport code changed.
+- `lindhard run` with `electron.elastic.potential = "salvat-dhfs"` now
+  applies the `exchange` and `correlation_polarization` corrections the input
+  asks for, solved on the DHFS Poisson density (Salvat et al. 1987,
+  Eq. (12)). Before, the DHFS elastic table was built without them and the
+  settings were silently ignored; DHFS runs with either correction on change
+  results (#169). The stand-in path is unchanged.
+- Elastic cross sections change for potentials without a polarization tail
+  (static `Yukawa`, `SalvatDhfs`, `SquareWell`, and `CorrectedPotential` with
+  exchange only): the radial Dirac solver now starts the outward integration
+  by the WKB criterion of #91 for every potential, instead of
+  `r_t exp(-60/|kappa|)`. For Au (Salvat DHFS) the change is below `1e-11`
+  relative in `sigma_el` and `sigma_tr1` up to 50 keV, and `2.4e-5` in
+  `sigma_tr1` at 100 keV, where the old rule was off by up to `2.5e-4` rad at
+  `|kappa| = 779`. Breaking: `ScreenedPotential::long_range()` is removed; it
+  no longer selected anything (#131).
+- Dynamic runs: `surface_nm` is now the cumulative surface recession (always 0
+  with `erosion = false`). Breaking for struct-literal construction: new public
+  fields on `Particle`, `DynamicConfig` and `StepRecord` (#234).
 - Lint policy is declared once in `[workspace.lints]` (`unsafe_code = "deny"`) and
   every crate opts in with `[lints] workspace = true`, so `lindhard-cli` and
   `lindhard-py` no longer lack the guard the library has (#218, supersedes #184).
@@ -191,6 +392,13 @@ one version).
   energy grid, with `stopping_power_ev_per_m` recovering `S(E)` from it to
   1e-3; `MomentumTransferSampler` draws the momentum transfer given `(E, W)`
   and gives the deflection cosine.
+- Optical ELF dataset for Si (`validation/data/optical/si_elf_yang2019.toml`,
+  #125): the bulk ELF of Yang et al., Phys. Rev. B 100, 245209 (2019), from
+  REELS, 0.5 to 199 eV, digitized from their Fig. 7 (script and second read in
+  `validation/data/digitize/`). The sum-rule test now checks a nonconductor's
+  perfect-screening sum against `1 - 1/eps1(0)` (Si: 0.9135 against 0.9143);
+  Si N_eff is 7.66 of 14 because the table stops before the K shell, pinned.
+  The TPP 2011 IMFP check gains Si (99.5 eV to 9.9 keV, within 3.6 %).
 - Optical ELF datasets for Al and Cu (`validation/data/optical/`, Hagemann,
   Gudat and Kunz 1975, read through the CC0 refractiveindex.info
   transcription and checked against the scanned tables of DESY report

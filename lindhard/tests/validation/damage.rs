@@ -36,7 +36,7 @@ impl ElectronicStopping for NoElectronic {
     }
 }
 
-pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
+pub(crate) fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let mut out = Vec::new();
     let e_d = 40.0;
 

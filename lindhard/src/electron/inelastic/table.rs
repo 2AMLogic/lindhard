@@ -53,8 +53,9 @@
 //! energy.
 //!
 //! Rows where `λ⁻¹ = 0` (no loss allowed) are stored empty. The table covers
-//! the direct single-pole model only: no exchange, no inner shells and no
-//! surface or band-gap structure (see [`super::penn`]). A model with the
+//! the direct single-pole model only: no exchange and no surface or band-gap
+//! structure (see [`super::penn`]). Inner shells get one table each, beside
+//! the valence table, from [`build_shell_channel_tables`]. A model with the
 //! exchange correction enabled ([`SinglePolePenn::with_exchange`]) is
 //! rejected by [`build_inelastic_table`] and [`MomentumTransferSampler`].
 //!
@@ -93,11 +94,12 @@
 //! Samplers consume uniforms `u` supplied by the caller (for example from
 //! [`crate::rng::stream`]) and keep no state of their own.
 
+use super::inner_shell::ShellResolvedChannels;
 use super::model::PennInelastic;
 use super::penn::{hartree_ev, SinglePolePenn};
 use crate::constants::BOHR_RADIUS;
 use crate::electron::data::{
-    CrossSectionTable, CrossSectionTableParts, ElectronDataError, SamplingAxis,
+    CrossSectionTable, CrossSectionTableParts, ElectronDataError, SamplingAxis, ShellChannelTable,
 };
 use crate::electron::elastic::table::{
     logistic, logistic_probability_grid, logit, material_identity,
@@ -701,6 +703,87 @@ pub fn build_inelastic_table_for_model(
         probability,
         quantiles,
     })?)
+}
+
+/// The tables of a [`ShellResolvedChannels`]: the valence channel's and one
+/// per inner shell, in the order of
+/// [`ShellResolvedChannels::inner_shells`]
+/// ([`build_shell_channel_tables`]).
+#[derive(Debug, Clone, PartialEq)]
+pub struct ShellResolvedTables {
+    /// The valence channel, as [`build_inelastic_table`] of
+    /// [`ShellResolvedChannels::valence`].
+    pub valence: CrossSectionTable,
+    /// The inner-shell channels.
+    pub shells: Vec<ShellChannelTable>,
+}
+
+/// Build the energy-loss tables of every channel of `channels` on the grid of
+/// `options`: the valence table, and for inner shell `i` the table of
+/// [`ShellResolvedChannels::shell_model`] (that shell's own optical ELF with
+/// the valence model's settings), wrapped with the shell's identity, binding
+/// energy and `binding_provenance` (the origin of the binding energies, for
+/// example [`crate::electron::data::SubshellBindingTable::provenance`]).
+///
+/// Each table is built by [`build_inelastic_table`], one after the other in
+/// channel order, so the result is bit-identical at any thread count. Its
+/// rate is the channel's own `λ⁻¹_j(E)` and its rows the inverse CDF of that
+/// channel's DIIMFP: the **channel-first** construction, in which a
+/// transport picks a channel with probability `λ⁻¹_j / Σ λ⁻¹` and then draws
+/// the loss from that channel's table (not the conditional channel choice of
+/// [`ShellResolvedChannels::sample_channel`], which belongs with a loss drawn
+/// from the total DIIMFP; the two are not mixed).
+///
+/// **Supported model.** Single-pole Penn per channel only, without the
+/// exchange correction (rejected, as by [`build_inelastic_table`]); so the
+/// binding energy does not enter a shell's DIIMFP, which is zero below the
+/// first energy of the shell's ELF (at or above `B` by construction of
+/// [`ShellResolvedChannels::new`]). Each shell row is floored at `B`, which
+/// only removes the rounding of `exp(ln W)` at the edge. No full Penn or
+/// Mermin valence model is wired to shell channels, and the valence ELF must
+/// not already contain the shells (no partition rule is applied, see
+/// [`super::inner_shell`]).
+///
+/// **Energy axis.** As for [`build_inelastic_table`], row energies are
+/// kinetic energies above the model's Fermi energy (zero by default); see
+/// `crate::electron::transport`, "Energy reference of the inelastic table",
+/// for how the transport reads them.
+pub fn build_shell_channel_tables(
+    channels: &ShellResolvedChannels,
+    material: &Material,
+    options: &InelasticTableOptions,
+    binding_provenance: &str,
+) -> Result<ShellResolvedTables, InelasticTableError> {
+    let valence = build_inelastic_table(channels.valence(), material, options)?;
+    let mut shells = Vec::with_capacity(channels.inner_shells().len());
+    for (i, s) in channels.inner_shells().iter().enumerate() {
+        let b = s.binding_energy_ev;
+        let base = build_inelastic_table(channels.shell_model(i), material, options)?;
+        let mut parts = base.parts().clone();
+        let label = s.subshell.label();
+        parts.model = format!("{} [inner-shell channel Z = {} {label}]", parts.model, s.z);
+        parts.provenance = format!(
+            "{}; inner-shell channel Z = {} {label}, binding energy {b} eV ({}), \
+             losses floored at the binding energy",
+            parts.provenance,
+            s.z,
+            binding_provenance.trim()
+        );
+        for row in &mut parts.quantiles {
+            for w in row.iter_mut() {
+                *w = w.max(b);
+            }
+        }
+        let table = CrossSectionTable::new(parts)?;
+        shells.push(ShellChannelTable::new(
+            s.z,
+            s.subshell,
+            b,
+            binding_provenance,
+            table,
+        )?);
+    }
+    Ok(ShellResolvedTables { valence, shells })
 }
 
 /// Inverse mean free paths, the (refined) probability grid and the quantile

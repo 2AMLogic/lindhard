@@ -47,11 +47,33 @@
 //!   [`Fate::PolaronTrapped`]. Layers default to no insulator channel, which
 //!   is the right choice for a metal; the per-layer choice is in
 //!   [`LayerMetadata`].
+//! - **Inner-shell channels (opt-in per layer).** A layer given
+//!   [`ShellChannelTable`]s through [`Transport::with_inner_shells`] adds one
+//!   rate per shell `j`, read from that shell's table like the others; the
+//!   layer's inelastic table is then the valence channel. The construction
+//!   is **channel-first**: the inelastic rate is the sum of the valence and
+//!   shell rates, a channel is chosen with probability proportional to its
+//!   rate (below), and the loss `ω` is drawn from the chosen channel's own
+//!   inverse CDF. (The conditional choice of
+//!   [`crate::electron::inelastic::ShellResolvedChannels::sample_channel`]
+//!   belongs with a loss drawn from the total DIIMFP and is not used.) A
+//!   shell channel is **closed** (rate zero) when the electron cannot pay its
+//!   binding energy `B_j`: when `E <= B_j` without a secondary model and
+//!   `E - E_F <= B_j` with one. An open channel's `ω` is kept in
+//!   `[B_j, E]` (`[B_j, E - E_F]` with a secondary model), so the primary
+//!   never ends below the Fermi level and the shell's secondary energy is
+//!   never negative. With [`SecondaryModel::Off`] the event only takes `ω`;
+//!   with [`SecondaryModel::KieftBosch`] it liberates an electron of energy
+//!   `E_F + ω - B_j` and leaves `B_j - E_F` in the solid
+//!   ([`crate::electron::secondary`], "Inner-shell events"). Layers default
+//!   to no shell channel, which is exactly the valence-only transport.
 //! - **Channel choice.** With the rates in the fixed order elastic,
-//!   inelastic, phonon emission, phonon absorption, polaron trapping, the
-//!   channel is the first whose cumulative rate exceeds `u · total`; channels
-//!   with zero rate are never chosen (a rounding overshoot falls to the last
-//!   channel with a positive rate).
+//!   inelastic (valence), phonon emission, phonon absorption, polaron
+//!   trapping, then the inner shells in the order given, the channel is the
+//!   first whose cumulative rate exceeds `u · total`; channels with zero
+//!   rate are never chosen (a rounding overshoot falls to the last channel
+//!   with a positive rate). A layer without shells sums and compares exactly
+//!   the five rates of before.
 //! - **Faces.** With [`BoundaryModel::Transparent`] a face changes nothing:
 //!   the electron enters the next layer or leaves the target at its energy
 //!   and direction. With [`BoundaryModel::StepBarrier`] every face is a step
@@ -85,6 +107,66 @@
 //! [`crate::electron::boundary`]). A secondary below the threshold of its
 //! layer is not created; its energy is recorded as deposited.
 //!
+//! # Energy reference of the inelastic table
+//!
+//! The transport looks up both tables of a layer at the electron's kinetic
+//! energy `E` as it measures it: from the band bottom of the layer (with the
+//! step barrier, the vacuum energy plus the inner potential `U`). An
+//! inelastic table built by [`crate::electron::inelastic::table`] has the
+//! model's own axis instead: `T`, the energy above the *model's* Fermi
+//! energy, with kinematics on `T' = T + E_F(model)` and losses up to `T`
+//! (Shinotsuka et al. 2017, eqs. (2)-(3), as in
+//! [`crate::electron::inelastic::penn`]). A table does not know the band.
+//!
+//! - With the model's Fermi energy at its default, 0, a row read at the
+//!   band-bottom energy `E` has the right kinematics (`T' = E`) but losses
+//!   up to `E` instead of `E - E_F`. Under [`SecondaryModel::KieftBosch`] the
+//!   clamp above takes every loss beyond `E - E_F` to `E - E_F`: the primary
+//!   is left at the Fermi level and the secondary takes its whole energy.
+//!   This is how `lindhard run` uses the tables
+//!   (`[electron.inelastic] fermi_energy_ev = 0`), and the tests
+//!   `inelastic_table_is_read_at_the_band_bottom_energy` and
+//!   `losses_beyond_the_fermi_level_are_clamped_to_it`
+//!   (`tests/electron_secondaries.rs`) pin it.
+//! - Setting the model's Fermi energy to the band's while still reading rows
+//!   at `E` counts `E_F` twice (`T' = E + E_F`).
+//! - The consistent convention, that of the cstool table compiler which builds
+//!   Nebula's tables (rows on the band-bottom axis `K`, kinematics on `K`,
+//!   losses below `K - E_F`, the "Fermi correction" of
+//!   `compile_full_imfp_icdf` in `cstool/dielectric_function/compile.py`,
+//!   Nebula-simulator/cstool commit `0c739eb`), would be rows at
+//!   `T = E - E_F` with the model's Fermi energy set to the band's. It is not
+//!   what `lindhard run` builds (tracked in #241).
+//!
+//! Inner-shell channel tables
+//! ([`crate::electron::inelastic::table::build_shell_channel_tables`]) have
+//! the same model axis as the valence table and are read the same way, at
+//! the band-bottom energy `E`; the correction of #241 (open when the shell
+//! channels were added) has not been applied to them either. On top of the
+//! table, the transport applies the shell's own limits on the band-bottom
+//! axis: the channel is closed unless the largest allowed loss (`E`, or
+//! `E - E_F` under the secondary model) exceeds `B_j`, and `ω` is clamped
+//! into `[B_j`, that loss`]`. Near an edge this clamp moves losses that the
+//! table row (built for losses up to `E` above the model's Fermi energy)
+//! puts above `E - E_F` down to `E - E_F`, as for valence losses.
+//!
+//! **Measured effect (#173).** With the single-pole Penn default, the Al
+//! input of `validation/experiments/se_yield.py` (`E_F` = 11.66 eV) sends
+//! 78 to 82 % of the inelastic events of electrons 5 to 20 eV above the Fermi
+//! level into the clamp (Al 400 eV, 200 histories). Rebuilding the table in
+//! the cstool convention removes every clamped event and changes δ by a few
+//! per cent, upward, against a factor of about 5 to explain (1000
+//! histories, seed 1): single pole Al 7.61 to 8.17 and Au 3.23 to 3.37
+//! (800 eV); Mermin Al 1.34 to 1.26 (400 eV). With 200 histories: single
+//! pole Cu 1.67 to 1.80, Mermin Au 2.62 to 2.58 and Cu 2.02 (800 eV). The
+//! gap between the single pole and Mermin is the same in both conventions.
+//! Setting `fermi_energy_ev` to the band value raises Al δ (6.89 to 7.63 at
+//! 400 eV, 7.44 to 9.01 at 800 eV, 200 histories). The reference mismatch is
+//! therefore real but is not the cause of the δ overestimate of #173; that is
+//! the single-pole model's inelastic mean free path at low energy
+//! ([`crate::electron::inelastic::penn`], "Low energies"). The commands are
+//! in `lindhard-cli/examples/inelastic_low_energy.rs`.
+//!
 //! # Random draw order
 //!
 //! The order of draws from the per-history stream is part of the contract (the
@@ -95,8 +177,11 @@
 //! (phonon emission or absorption) or nothing (polaron trapping). Under the
 //! Kieft-Bosch secondary model an inelastic event that liberates an electron
 //! then draws the secondary's azimuth and, with the instantaneous momentum on,
-//! two more uniforms. With no insulator channel switched on, the draws are
-//! exactly those of a run without them. A path drawn for a flight that ends at a layer face is discarded;
+//! two more uniforms. An inner-shell event draws one uniform for `ω`, then,
+//! under the Kieft-Bosch model, the secondary's azimuth and, with the
+//! instantaneous momentum on, two more uniforms (a shell event always
+//! liberates an electron). With no insulator or inner-shell channel switched
+//! on, the draws are exactly those of a run without them. A path drawn for a flight that ends at a layer face is discarded;
 //! with the step barrier, the face draws one uniform if the electron has the
 //! normal energy to get over (and none if it is surely reflected). A flight
 //! with zero total rate draws nothing. Secondaries continue on the same
@@ -119,18 +204,30 @@
 //! [`ElectronTally::begin_secondary`] and [`ElectronTally::end_secondary`]
 //! bracket each secondary, and [`ElectronTally::end_history`] comes last, with
 //! the primary's fate. The insulator channels report through
-//! [`ElectronTally::phonon`] and [`ElectronTally::polaron_trapped`].
+//! [`ElectronTally::phonon`] and [`ElectronTally::polaron_trapped`]. An
+//! inner-shell event calls [`ElectronTally::inelastic`] like a valence one,
+//! then [`ElectronTally::inner_shell`] with the shell, then (with a
+//! secondary model) [`ElectronTally::secondary`].
+//!
+//! [`ElectronTally::table_lookup`] is a diagnostic hook, also with a no-op
+//! default: it reports, per channel, whether each rate evaluation read the
+//! table inside its energy grid or used the constant continuation beyond an
+//! end ([`GridCoverage`]). It draws nothing and changes nothing, so a tally
+//! that uses it sees the same histories as one that does not.
+//! [`crate::tally::TableCoverageTally`] counts these evaluations. The rates
+//! of inner-shell channel tables are not reported to it.
 
 use serde::Serialize;
 
 use rand_core::Rng;
 
 use crate::electron::boundary::{cross_step, BandStructure, StepOutcome};
-use crate::electron::data::{CrossSectionTable, SamplingAxis};
+use crate::electron::data::{CrossSectionTable, SamplingAxis, ShellChannelTable};
+use crate::electron::inelastic::InnerShell;
 use crate::electron::phonon::{
     sample_cos_theta, FrohlichPhonon, InsulatorChannels, PolaronTrapping,
 };
-use crate::electron::secondary::{kieft_bosch, SecondaryEvent, SecondaryModel};
+use crate::electron::secondary::{kieft_bosch, kieft_bosch_shell, SecondaryEvent, SecondaryModel};
 use crate::geometry::Stack;
 use crate::rng::run_particles;
 
@@ -284,6 +381,51 @@ pub enum PhononEvent {
     Absorption,
 }
 
+/// One of the two cross-section tables of a layer ([`LayerTables`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum TableChannel {
+    /// The elastic table.
+    Elastic,
+    /// The inelastic table.
+    Inelastic,
+}
+
+/// Where an energy lies against the energy grid of one table, as reported to
+/// [`ElectronTally::table_lookup`].
+///
+/// The grid is the table's own [`CrossSectionTable::energy_ev`], from its
+/// first value `E_min` to its last `E_max`. Inside `[E_min, E_max]` the rate
+/// and the inverse CDF are interpolated between rows (an energy equal to an
+/// endpoint reads that row exactly); outside it they are the endpoint row's,
+/// held constant (module docs, "Free flight"). This enum says which of the
+/// two happened; it measures how often that continuation is used, not
+/// whether it is accurate.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum GridCoverage {
+    /// `E < E_min`: the first row's values were used.
+    Below,
+    /// `E_min <= E <= E_max` (both endpoints included).
+    Within,
+    /// `E > E_max`: the last row's values were used.
+    Above,
+}
+
+impl GridCoverage {
+    /// Where `energy_ev` lies against the grid of `table`.
+    pub fn of(table: &CrossSectionTable, energy_ev: f64) -> Self {
+        let g = table.energy_ev();
+        if energy_ev < g[0] {
+            Self::Below
+        } else if energy_ev > g[g.len() - 1] {
+            Self::Above
+        } else {
+            Self::Within
+        }
+    }
+}
+
 /// Run configuration, recorded in the [`RunMetadata`].
 #[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct TransportConfig {
@@ -385,6 +527,30 @@ pub trait ElectronTally: Send {
     /// `end.energy_ev` (the energy does not change in flight).
     fn step(&mut self, _from: [f64; 3], _end: &ElectronState, _length_m: f64) {}
 
+    /// The rate of `channel`'s table in layer `at.layer` was evaluated at
+    /// `at.energy_ev`, which lies `coverage` against that table's grid.
+    ///
+    /// Called twice (elastic, then inelastic) at the start of every pass of
+    /// the transport loop that evaluates the rates, before the free path is
+    /// drawn: for every flight, whether it ends at a collision, at a layer
+    /// face (the path is then discarded and the rates are evaluated again in
+    /// the next pass) or nowhere (zero total rate, [`Fate::Trapped`]); after
+    /// a face reflection; and for a channel whose rate is zero. It is not
+    /// called for the primary's entry through the front face (no table is
+    /// read), nor once an electron has reached the event cap, nor for the
+    /// tables of inner-shell channels. The inverse CDF
+    /// sampled at a collision uses the grid position of the same evaluation
+    /// and is not reported again. So these are **rate evaluations**, not
+    /// collisions: their number exceeds the number of collisions by the
+    /// number of boundary-limited and rate-less flights.
+    fn table_lookup(
+        &mut self,
+        _at: &ElectronState,
+        _channel: TableChannel,
+        _coverage: GridCoverage,
+    ) {
+    }
+
     /// An elastic collision deflected the electron by `theta` rad.
     fn elastic(&mut self, _after: &ElectronState, _theta: f64) {}
 
@@ -393,6 +559,15 @@ pub trait ElectronTally: Send {
     fn inelastic(&mut self, _after: &ElectronState, _w_ev: f64) {}
 
     /// Called right after [`ElectronTally::inelastic`] for every inelastic
+    /// event drawn from an inner-shell channel
+    /// ([`Transport::with_inner_shells`]), with or without a secondary
+    /// model: the shell (its element, subshell and binding energy) and the
+    /// loss `w_ev` (the same as passed to [`ElectronTally::inelastic`]). Not
+    /// called for valence events. Comes before [`ElectronTally::secondary`].
+    fn inner_shell(&mut self, _after: &ElectronState, _shell: &InnerShell, _w_ev: f64) {}
+
+    /// Called right after [`ElectronTally::inelastic`] (and
+    /// [`ElectronTally::inner_shell`], for a shell event) for every inelastic
     /// event when a [`SecondaryModel`] is on: the event's energy bookkeeping,
     /// and the secondary that was created (`None` if none was). The
     /// secondary is transported later, between
@@ -500,12 +675,19 @@ pub struct SummaryTally {
     pub secondaries: u64,
     /// Secondaries that left the target through either face.
     pub secondaries_escaped: u64,
+    /// Secondaries cut off by the event cap ([`Fate::EventCap`]), one per
+    /// capped secondary track. A numerical-truncation diagnostic: zero
+    /// `event_capped` primaries does not mean no secondary was capped.
+    pub secondaries_event_capped: u64,
     /// Face reflections (step barrier).
     pub reflections: u64,
     /// Elastic collisions.
     pub elastic_events: u64,
-    /// Inelastic collisions.
+    /// Inelastic collisions (valence and inner-shell).
     pub inelastic_events: u64,
+    /// Inelastic collisions in an inner-shell channel (part of
+    /// `inelastic_events`).
+    pub inner_shell_events: u64,
     /// Layer-face crossings between layers.
     pub interface_crossings: u64,
     /// LO-phonon emissions.
@@ -516,6 +698,9 @@ pub struct SummaryTally {
     pub path_m: f64,
     /// Total energy lost in inelastic collisions, eV.
     pub inelastic_loss_ev: f64,
+    /// Energy lost in inner-shell collisions, eV (part of
+    /// `inelastic_loss_ev`).
+    pub inner_shell_loss_ev: f64,
     /// Energy carried out of the target by escaped electrons, eV.
     pub escaped_energy_ev: f64,
     /// Energy of stopped electrons when they stopped, eV.
@@ -547,6 +732,10 @@ impl ElectronTally for SummaryTally {
     fn inelastic(&mut self, _after: &ElectronState, w_ev: f64) {
         self.inelastic_events += 1;
         self.inelastic_loss_ev += w_ev;
+    }
+    fn inner_shell(&mut self, _after: &ElectronState, _shell: &InnerShell, w_ev: f64) {
+        self.inner_shell_events += 1;
+        self.inner_shell_loss_ev += w_ev;
     }
     fn secondary(&mut self, _p: &ElectronState, e: &SecondaryEvent, c: Option<&ElectronState>) {
         if c.is_some() {
@@ -587,8 +776,10 @@ impl ElectronTally for SummaryTally {
         self.reflections += 1;
     }
     fn end_secondary(&mut self, fate: Fate) {
-        if matches!(fate, Fate::Escaped(_)) {
-            self.secondaries_escaped += 1;
+        match fate {
+            Fate::Escaped(_) => self.secondaries_escaped += 1,
+            Fate::EventCap => self.secondaries_event_capped += 1,
+            _ => {}
         }
     }
     fn stopped(&mut self, at: &ElectronState) {
@@ -620,14 +811,17 @@ impl ElectronTally for SummaryTally {
         self.polaron_trapped += o.polaron_trapped;
         self.secondaries += o.secondaries;
         self.secondaries_escaped += o.secondaries_escaped;
+        self.secondaries_event_capped += o.secondaries_event_capped;
         self.reflections += o.reflections;
         self.elastic_events += o.elastic_events;
         self.inelastic_events += o.inelastic_events;
+        self.inner_shell_events += o.inner_shell_events;
         self.interface_crossings += o.interface_crossings;
         self.phonon_emissions += o.phonon_emissions;
         self.phonon_absorptions += o.phonon_absorptions;
         self.path_m += o.path_m;
         self.inelastic_loss_ev += o.inelastic_loss_ev;
+        self.inner_shell_loss_ev += o.inner_shell_loss_ev;
         self.escaped_energy_ev += o.escaped_energy_ev;
         self.rest_energy_ev += o.rest_energy_ev;
         self.phonon_emitted_ev += o.phonon_emitted_ev;
@@ -665,6 +859,29 @@ pub struct LayerMetadata {
     pub phonon: Option<FrohlichPhonon>,
     /// Polaron-trapping channel of this layer, or `None` when off.
     pub polaron: Option<PolaronTrapping>,
+    /// Inner-shell channels of this layer, in sampling order
+    /// ([`Transport::with_inner_shells`]); empty (and not serialized) when
+    /// none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub inner_shells: Vec<InnerShellMetadata>,
+}
+
+/// Identity of one inner-shell channel table of a layer, for
+/// [`LayerMetadata`].
+#[derive(Debug, Clone, PartialEq, Serialize)]
+pub struct InnerShellMetadata {
+    /// Atomic number.
+    pub z: u8,
+    /// Subshell label (ENDF, e.g. `"K"`).
+    pub subshell: String,
+    /// Binding energy, eV.
+    pub binding_energy_ev: f64,
+    /// Where the binding energy came from.
+    pub binding_provenance: String,
+    /// The channel table's model identity.
+    pub model: String,
+    /// The channel table's provenance.
+    pub provenance: String,
 }
 
 /// What a run was configured with, for output metadata.
@@ -710,6 +927,8 @@ pub struct Transport {
     stack: Stack,
     tables: Vec<LayerTables>,
     channels: Vec<InsulatorChannels>,
+    /// Inner-shell channel tables per layer (empty by default).
+    shells: Vec<Vec<ShellChannelTable>>,
     bands: Option<Vec<BandStructure>>,
     /// Inner potential per layer, eV (zero without band parameters).
     inner: Vec<f64>,
@@ -831,10 +1050,12 @@ impl Transport {
             }
         }
         let channels = vec![InsulatorChannels::none(); tables.len()];
+        let shells = vec![Vec::new(); tables.len()];
         Ok(Self {
             stack,
             tables,
             channels,
+            shells,
             bands,
             inner,
             threshold,
@@ -870,6 +1091,80 @@ impl Transport {
         &self.channels
     }
 
+    /// Add the inner-shell ionisation channels `shells` to layer `layer`
+    /// (they replace that layer's previous shells; an empty list removes
+    /// them). Every layer starts with none, which is the valence-only
+    /// transport of before. The layer's inelastic table is then its
+    /// **valence** channel: it must not already contain these shells (build
+    /// both with
+    /// [`crate::electron::inelastic::table::build_shell_channel_tables`]).
+    /// The channels are sampled in the given order (module docs, "Inner-shell
+    /// channels") and recorded in the [`LayerMetadata`] of the run.
+    ///
+    /// Fails, leaving nothing changed, if `layer` is out of range, if a
+    /// shell's table names a different material from the layer's inelastic
+    /// table (tables built for another target), if a `(Z, subshell)` repeats,
+    /// or, with band parameters, if a binding energy does not exceed the
+    /// layer's Fermi energy (an inner shell lies below the Fermi level).
+    pub fn with_inner_shells(
+        mut self,
+        layer: usize,
+        shells: Vec<ShellChannelTable>,
+    ) -> Result<Self, TransportError> {
+        if layer >= self.shells.len() {
+            return invalid(
+                "layer",
+                format!(
+                    "{layer} is out of range (the stack has {} layers)",
+                    self.shells.len()
+                ),
+            );
+        }
+        let material = self.tables[layer].inelastic.material();
+        for (i, s) in shells.iter().enumerate() {
+            let name = format!(
+                "layer {layer}: inner shell Z = {} {}",
+                s.z(),
+                s.subshell().label()
+            );
+            if s.table().material() != material {
+                return invalid(
+                    "inner-shell channel",
+                    format!(
+                        "{name}: its table is for {:?}, the layer's inelastic table for {material:?}",
+                        s.table().material()
+                    ),
+                );
+            }
+            if shells[..i]
+                .iter()
+                .any(|o| o.z() == s.z() && o.subshell() == s.subshell())
+            {
+                return invalid("inner-shell channel", format!("{name} listed twice"));
+            }
+            if let Some(bands) = &self.bands {
+                let ef = bands[layer].fermi_ev();
+                if s.binding_energy_ev() <= ef {
+                    return invalid(
+                        "inner-shell channel",
+                        format!(
+                            "{name}: binding energy {} eV does not exceed the Fermi energy \
+                             {ef} eV",
+                            s.binding_energy_ev()
+                        ),
+                    );
+                }
+            }
+        }
+        self.shells[layer] = shells;
+        Ok(self)
+    }
+
+    /// The inner-shell channel tables of each layer.
+    pub fn inner_shells(&self) -> &[Vec<ShellChannelTable>] {
+        &self.shells
+    }
+
     /// The configuration.
     pub fn config(&self) -> &TransportConfig {
         &self.config
@@ -878,6 +1173,11 @@ impl Transport {
     /// The target.
     pub fn stack(&self) -> &Stack {
         &self.stack
+    }
+
+    /// The tables of each layer.
+    pub fn layer_tables(&self) -> &[LayerTables] {
+        &self.tables
     }
 
     /// The band parameters per layer, if given.
@@ -893,6 +1193,15 @@ impl Transport {
     /// energy is [`Fate::Trapped`].
     pub fn stopping_thresholds_ev(&self) -> &[f64] {
         &self.threshold
+    }
+
+    /// The largest inelastic loss an electron in state `st` may take: `E`
+    /// without a secondary model, `E - E_F` (the Fermi-level clamp) with one.
+    fn max_loss_ev(&self, st: &ElectronState) -> f64 {
+        match (&self.config.secondaries, &self.bands) {
+            (SecondaryModel::KieftBosch { .. }, Some(b)) => st.energy_ev - b[st.layer].fermi_ev(),
+            _ => st.energy_ev,
+        }
     }
 
     fn step_barrier(&self) -> Option<(bool, bool)> {
@@ -977,6 +1286,17 @@ impl Transport {
                     band_structure: self.bands.as_ref().map(|b| b[index].clone()),
                     phonon: c.phonon.clone(),
                     polaron: c.polaron.clone(),
+                    inner_shells: self.shells[index]
+                        .iter()
+                        .map(|s| InnerShellMetadata {
+                            z: s.z(),
+                            subshell: s.subshell().label().to_string(),
+                            binding_energy_ev: s.binding_energy_ev(),
+                            binding_provenance: s.binding_provenance().to_string(),
+                            model: s.table().model().to_string(),
+                            provenance: s.table().provenance().to_string(),
+                        })
+                        .collect(),
                 })
                 .collect(),
         }
@@ -1090,6 +1410,9 @@ impl Transport {
     ) -> Fate {
         let layers = self.stack.layers();
         let mut events = 0u64;
+        // Rates and grid positions of the layer's inner-shell channels (an
+        // empty Vec does not allocate, so a valence-only run pays nothing).
+        let mut shell_rates: Vec<(f64, GridPos)> = Vec::new();
         loop {
             if events >= self.config.max_events {
                 return Fate::EventCap;
@@ -1098,8 +1421,38 @@ impl Transport {
             let chans = &self.channels[st.layer];
             let (el, el_at) = rate(&tabs.elastic, st.energy_ev);
             let (inel, inel_at) = rate(&tabs.inelastic, st.energy_ev);
+            // Diagnostics only: no draw, no change of state.
+            tally.table_lookup(
+                st,
+                TableChannel::Elastic,
+                GridCoverage::of(&tabs.elastic, st.energy_ev),
+            );
+            tally.table_lookup(
+                st,
+                TableChannel::Inelastic,
+                GridCoverage::of(&tabs.inelastic, st.energy_ev),
+            );
             let (em, ab, tr) = chans.rates(st.energy_ev);
-            let total = el + inel + em + ab + tr;
+            let mut total = el + inel + em + ab + tr;
+            // Inner-shell channels, after the others (module docs). A
+            // channel is closed when the primary cannot pay its binding
+            // energy: the largest loss allowed is `E` without a secondary
+            // model and `E - E_F` with one (the Fermi-level clamp below).
+            let shells = &self.shells[st.layer];
+            shell_rates.clear();
+            if !shells.is_empty() {
+                let max_loss = self.max_loss_ev(st);
+                for s in shells {
+                    let (r, at) = rate(s.table(), st.energy_ev);
+                    let r = if max_loss > s.binding_energy_ev() {
+                        r
+                    } else {
+                        0.0
+                    };
+                    total += r;
+                    shell_rates.push((r, at));
+                }
+            }
             let layer = &layers[st.layer];
             let mu = st.dir[0];
             let to_face = if mu > 0.0 {
@@ -1125,7 +1478,9 @@ impl Transport {
                 }
                 tally.step(from, st, free);
                 events += 1;
-                match choose(uniform(rng) * total, [el, inel, em, ab, tr]) {
+                let x = uniform(rng) * total;
+                let base = [el, inel, em, ab, tr];
+                match choose(x, base.into_iter().chain(shell_rates.iter().map(|r| r.0))) {
                     0 => {
                         let u = uniform(rng);
                         let theta =
@@ -1207,9 +1562,65 @@ impl Transport {
                             return Fate::Stopped;
                         }
                     }
-                    _ => {
+                    4 => {
                         tally.polaron_trapped(st);
                         return Fate::PolaronTrapped;
+                    }
+                    k => {
+                        let j = k - 5;
+                        let sh = &shells[j];
+                        let at = shell_rates[j].1;
+                        let b = sh.binding_energy_ev();
+                        let shell = InnerShell::from(sh);
+                        let threshold = self.threshold[st.layer];
+                        // The channel is open, so `b < max_loss`, and the
+                        // loss lies in `[b, max_loss]` (module docs).
+                        let max_loss = self.max_loss_ev(st);
+                        let u = uniform(rng);
+                        let w = sample(sh.table(), at, u).max(b).min(max_loss);
+                        match self.config.secondaries {
+                            SecondaryModel::Off => {
+                                st.energy_ev -= w;
+                                tally.inelastic(st, w);
+                                tally.inner_shell(st, &shell, w);
+                            }
+                            SecondaryModel::KieftBosch {
+                                instantaneous_momentum,
+                                momentum_conservation,
+                            } => {
+                                let band =
+                                    &self.bands.as_ref().expect("checked in build")[st.layer];
+                                let out = kieft_bosch_shell(
+                                    instantaneous_momentum,
+                                    momentum_conservation,
+                                    band,
+                                    b,
+                                    st.dir,
+                                    st.energy_ev,
+                                    w,
+                                    threshold,
+                                    rng,
+                                );
+                                st.energy_ev -= w;
+                                st.dir = out.primary_dir;
+                                tally.inelastic(st, w);
+                                tally.inner_shell(st, &shell, w);
+                                let created = out.secondary.map(|(dir, energy_ev)| ElectronState {
+                                    pos: st.pos,
+                                    dir,
+                                    energy_ev,
+                                    layer: st.layer,
+                                });
+                                tally.secondary(st, &out.event, created.as_ref());
+                                if let Some(s) = created {
+                                    pending.push((s, generation + 1));
+                                }
+                            }
+                        }
+                        if st.energy_ev < threshold {
+                            tally.stopped(st);
+                            return Fate::Stopped;
+                        }
                     }
                 }
                 continue;
@@ -1289,11 +1700,12 @@ impl Transport {
 /// exceeds `x`, skipping zero rates; if rounding leaves `x` at or past the
 /// sum, the last channel with a positive rate. With only the first two rates
 /// positive this is `x < el` → elastic, else inelastic, as before the
-/// insulator channels existed. Only called when the total is positive.
-fn choose(x: f64, rates: [f64; 5]) -> usize {
+/// insulator and inner-shell channels existed. Only called when the total is
+/// positive.
+fn choose(x: f64, rates: impl IntoIterator<Item = f64>) -> usize {
     let mut cum = 0.0;
     let mut last = 0;
-    for (k, &r) in rates.iter().enumerate() {
+    for (k, r) in rates.into_iter().enumerate() {
         if r > 0.0 {
             cum += r;
             last = k;

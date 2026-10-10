@@ -99,14 +99,14 @@ What it covers:
   as an unsupported `correlation_polarization`, loosened tolerance). Nothing
   here has been validated yet: 0 of 16 values are checked.
 - **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
-  Cu, built from the committed Hagemann optical ELFs (#98) with the Fermi
+  Cu, built from the committed Hagemann optical ELFs (#98), and of Si, built
+  from the Yang et al. (2019) ELF digitized in #125, with the Fermi
   energies of the reference, against Tanuma, Powell & Penn, Surf. Interface
   Anal. 43, 689 (2011), Table 4, at the rows nearest 100 eV, 1 keV and
   10 keV; tolerance 20 % near 100 eV and 10 % near 1 and 10 keV, pinned in
   `lindhard/tests/electron_imfp_tpp.rs` (fixture
-  `lindhard/tests/data/imfp_tpp2011.toml`, provenance row). All six cases
+  `lindhard/tests/data/imfp_tpp2011.toml`, provenance row). All nine cases
   pass; the table is under "Inelastic mean free paths vs TPP 2011" below.
-  Si waits for its optical data (#125).
 - **Electrons (M1, not yet).** Elastic total cross sections from our
   partial-wave Mott solution against published Mott values at spot energies;
   the dielectric model's f-sum and perfect-screening sum rules.
@@ -221,15 +221,16 @@ Level 1, `full` statistics, `lindhard` 0.0.1.
 ### Inelastic mean free paths vs TPP 2011 (#99)
 
 Ours: `FullPenn` (full Penn algorithm at every energy, integration tolerance
-1e-3) on `validation/data/optical/{al,cu}_elf_hagemann1975.toml`, Fermi
-energy 11.2 eV (Al) and 8.7 eV (Cu) from TPP 2011 Table 1. TPP: Tanuma,
+1e-3) on `validation/data/optical/{al,cu}_elf_hagemann1975.toml` and
+`si_elf_yang2019.toml`, Fermi energy 11.2 eV (Al), 8.7 eV (Cu) and 12.5 eV
+(Si) from TPP 2011 Table 1. TPP: Tanuma,
 Powell & Penn, Surf. Interface Anal. 43, 689 (2011), doi:10.1002/sia.3522,
 Table 4, read in the authors' original manuscript (NIMS MDR,
 doi:10.48505/nims.3238; the published version was not reachable, so a value
 changed in review would not show here). Table 4 is on a 10 % logarithmic
 grid, so the rows used are 99.5, 992.3 and 9897.1 eV, and the model is
 evaluated at exactly those energies. Relative difference is ours / TPP - 1.
-Measured 2026-10-07 by
+Measured 2026-10-07 (Al, Cu) and 2026-10-09 (Si) by
 `cargo test -p lindhard --test electron_imfp_tpp -- --nocapture`.
 
 | Material | E (eV) | Ours (Å) | TPP (Å) | Relative difference | Tolerance | Result |
@@ -240,6 +241,9 @@ Measured 2026-10-07 by
 | Cu | 99.5 | 5.16 | 5.00 | +3.1 % | 20 % | pass |
 | Cu | 992.3 | 16.50 | 16.6 | -0.6 % | 10 % | pass |
 | Cu | 9897.1 | 103.4 | 104.8 | -1.3 % | 10 % | pass |
+| Si | 99.5 | 5.19 | 5.25 | -1.2 % | 20 % | pass |
+| Si | 992.3 | 24.75 | 24.3 | +1.8 % | 10 % | pass |
+| Si | 9897.1 | 170.1 | 164.2 | +3.6 % | 10 % | pass |
 
 Reading the table (reported, not tuned):
 
@@ -267,7 +271,112 @@ Reading the table (reported, not tuned):
   Shinotsuka et al. (2017), not Penn's formulae, and is least constrained
   below 200 eV, where TPP 2011 also expect larger uncertainties; the 100 eV
   rows here do not show a larger gap than the others.
-- Si is not compared: no Si valence-region optical data is committed (#125).
+- **Si agrees to 1 % at 100 eV and is 2 to 4 % long at 1 and 10 keV.** Our
+  input is the ELF of Yang et al. (2019), digitized (#125): it comes from
+  REELS inverted through the full Penn algorithm, not from optical
+  measurements, and it ends at 199 eV, so the L-shell tail and the K shell
+  contribute no losses here; a missing loss channel can only lengthen the
+  IMFP, which is the sign seen at 1 and 10 keV. Its perfect-screening sum is
+  within 0.1 % of the nonconductor target and its N_eff is 7.66 of 14 (the
+  truncation; `optical_sumrule.rs`). TPP 2011 took Si from Palik's handbook
+  to 2 keV and Henke et al. above (their Table 2). How much of the gap is the
+  missing tail and how much the different source was not separated.
+
+### Cu: the Mermin IMFP and the default oscillator fit (#300)
+
+The `mermin-melf` IMFP of Cu is 15 to 41 % longer than TPP 2011 and 18 to
+34 % longer than the single-pole model on the same table, while full Penn and single pole
+agree with TPP (table above). The cause is the **default oscillator fit**
+(`MerminFitOptions::default()`: 3 oscillators, relative weighting with
+floor `1e-2 max ELF`), not the Mermin dielectric function or the momentum
+integral. Model Fermi energy 0 throughout, as in the δ(E) runs; ELF
+`validation/data/optical/cu_elf_hagemann1975.toml`; TPP 2011 Table 4
+(continued), column Cu, manuscript p. 41 (copy and citation as above).
+Outputs of this code, measured 2026-10-09 in a release build; the five
+energies are pinned (to 0.5 %) in `lindhard/tests/mermin_inelastic.rs`
+(`cu_*` tests, run with `--nocapture` for the table). Nothing was tuned.
+
+| E (eV) | TPP (Å) | Mermin, default fit (Å) | single pole, table (Å) | single pole, fitted ELF (Å) | single pole fitted / table | Mermin / single pole, both on the fitted ELF |
+|---|---|---|---|---|---|---|
+| 54.6 | 4.94 | 6.967 (+41.0 %) | 5.186 (+5.0 %) | 9.286 | 1.791 | 0.750 |
+| 99.5 | 5.00 | 6.282 (+25.6 %) | 5.065 (+1.3 %) | 7.533 | 1.487 | 0.834 |
+| 200.3 | 6.29 | 7.430 (+18.1 %) | 6.285 (-0.1 %) | 8.504 | 1.353 | 0.874 |
+| 492.7 | 10.3 | 11.807 (+14.6 %) | 10.021 (-2.7 %) | 12.869 | 1.284 | 0.917 |
+| 992.3 | 16.6 | 19.213 (+15.7 %) | 16.164 (-2.6 %) | 20.606 | 1.275 | 0.932 |
+
+"Fitted ELF" is the Drude-Lorentz sum of the fitted oscillators (the `q = 0`
+loss function of the Mermin model) sampled at 4000 log-spaced points over
+the table's range. The Mermin / table single-pole ratio factors exactly into
+the last two columns, so:
+
+- **The fit loses loss strength.** The single-pole model on the fitted ELF
+  is 28 to 79 % longer than on the table. The fit report: f-sum
+  `(π/2) Σ A_j` = 3243 eV² against the table's 5721 eV² (0.567);
+  `P_eff = Σ A_j/(ħω_j)²` = 0.670 against 1.0017 (the table of a metal
+  satisfies perfect screening); weighted rms 0.403; 99 iterations,
+  converged. Of the missing 0.33 of `P_eff`, 0.29 is below 20 eV (`P_eff`
+  below 20 eV: table 0.535, fit 0.243): three Drude-Lorentz terms
+  (8.8, 28.6 and 86.6 eV) cannot follow the 4 to 20 eV structure, where
+  the fitted ELF is a quarter to a half of the table (at 15 eV 0.20 against
+  0.62). That the short-fall matters most at 54.6 eV is consistent with
+  the `1/ω` weight of the low losses (not measured separately).
+- **The Mermin extension shortens, not lengthens.** On the same fitted ELF
+  the Mermin IMFP is 7 to 25 % *shorter* than the single-pole one, the
+  sign of the synthetic Drude comparison in the `mermin` module docs
+  (Mermin / single-pole `1/λ` 1.02 at 1 keV). So neither the momentum
+  integral (limits `q- = k - s = 2ω/(k + s)`, `q+ = k + s`) nor the Mermin function
+  produces the excess; both are tested against their limits and the f-sum
+  rule in `mermin.rs`.
+- **The Fermi energy** (0 against TPP's 8.7 eV) moves the Mermin column by
+  at most 2 % (#242 note below).
+
+The published method is checked against the sum rules: de Vera et al.,
+Int. J. Mol. Sci. 23, 6121 (2022), doi:10.3390/ijms23116121 (PMC9181504,
+opened 2026-10-09), section 2.1.1, after eq. (5): "The consistency of the
+fitting procedure is checked by fulfilling the Kramers–Kronig and f-sum
+rules". The default fit of Cu does not pass that check. The same section
+fits Mermin oscillators to the *outer-shell* ELF only (eqs. (1), (3)) and
+describes the inner shells by atomic GOS (eq. (2)); lindhard fits the whole
+table, inner-shell edges included, with Mermin oscillators. So the excess is
+a property of our default fit, not the published behaviour of the MELF-GOS
+method.
+
+**Oscillator count** (same weighting and default start; a sensitivity probe,
+not a choice; the count is not picked by matching TPP):
+
+| Oscillators | f-sum fit / table | `P_eff` fit | Mermin IMFP at 54.6 / 99.5 / 200.3 / 492.7 / 992.3 eV (Å) | Mermin / TPP - 1 |
+|---|---|---|---|---|
+| 3 (default) | 0.567 | 0.670 | 6.967 / 6.282 / 7.430 / 11.807 / 19.213 | +41 / +26 / +18 / +15 / +16 % |
+| 6 | 0.807 | 0.752 | 6.002 / 5.731 / 6.974 / 11.274 / 18.466 | +22 / +15 / +11 / +9 / +11 % |
+| 10 | 187.9 (unconverged; #311) | 0.754 | 5.973 / 5.700 / 6.926 / 11.172 / 18.200 | +21 / +14 / +10 / +8 / +10 % |
+| 16 | 105.8 (unconverged; #311) | 0.792 | 6.022 / 5.719 / 6.861 / 10.893 / 17.663 | +22 / +14 / +9 / +6 / +6 % |
+
+From 3 to 6 oscillators the fit gains loss strength and the gap halves at
+every energy; the 10- and 16-oscillator IMFPs are within 5 % of the
+6-oscillator ones. The 10 and 16 rows are with the width floor of #307:
+each width is at least the local knot spacing of the table (our choice,
+documented on `fit_mermin_oscillators`), enforced on the fitted parameters.
+Without it those two fits placed an oscillator of width 1e-4 eV and
+amplitude 2e7 to 6e7 eV² between two knots near 1.1 keV, where the
+residuals at the knots cannot see it, with f-sum 6771 and 16467 times the
+table's, `P_eff` 22.7 and 46.4, and IMFPs of 3.70 to 0.41 Å. The floor
+removes that oscillator. **The f-sum of these two fits is still not
+bounded:** each carries a very wide oscillator (A = 6.8e5 and 3.8e5 eV², E =
+9.7 and 7.8 keV, width 8.3e5 and 4.4e5 eV) whose weight lies mostly above
+the table. Under the default relative weighting `1/(ELF + 0.01 max ELF)`
+it changes the weighted residual by only about 1e-3, and it makes the
+f-sum 188 and 106 times the table's. Both fits stop unconverged after 500
+iterations (#311; probably settled by the weighting decision of #306). The
+IMFPs above barely depend on that tail, but they are not results of a
+fit that passes the sum-rule check. Of the default 3-oscillator fits of the
+committed ELFs, only C is touched by the floor: its start width (0.05 eV
+at 0.2 eV) is raised to the 0.1 eV knot spacing, and the fit ends within
+about 1e-7 of the fit without the floor. Al, Au, Cu and Si, and Cu with
+6 oscillators, are bitwise unchanged.
+
+Not changed here: `MerminFitOptions::default()`, and so every `mermin`
+table and δ(E) row. Whether to change the default, expose the fit options
+in the input, or reject a fit that misses the sum rules is #306.
 
 ## 2. Code-to-code oracles (local harness, summaries committed)
 
@@ -663,11 +772,27 @@ validation/oracles/run_electron.py --lindhard-only   # our side alone
 ```
 
 lindhard runs the single-pole Penn inelastic model. Its full Penn model is
-the closer match to Nebula, but on this host one full-Penn Si table build at
-5 keV had not finished after 60 min (killed; the host was also compiling
-Geant4 at the time), against about 20 s for the
-single-pole tables, and every batch builds its own tables; the comparison
-with full Penn is left for when tables can be reused across runs (#168).
+the closer match to Nebula, but one full-Penn table build does not finish in
+a usable time. The batches of a harness run now share their tables through
+`lindhard run --table-cache` (#168; `docs/cli.md`, "Cross-section table
+cache"), so each (problem, material) builds its tables once; that removes the
+per-batch factor (10 batches) but not the cost of the one build.
+
+Cost of one build, measured for #168 (2026-10-09; release build of
+`d000e16`; aarch64 macOS, 28 cores, load average 125 to 175 from concurrent
+builds on the host, so wall times are inflated): Si (the committed
+`si_elf_yang2019.toml`), beam 5 keV, `electron.tables` from 10 eV at 20
+points per decade, Thomas-Fermi stand-in potential with exchange.
+
+| Inelastic model | Threads | Result | Wall | CPU |
+|---|---|---|---|---|
+| `penn-single-pole` | 1 | elastic and inelastic tables built | 108 s | 36 s |
+| `penn-full` | 4 | killed at the stated 60 min cap, not finished | > 60 min | > 59 min (at 40 min wall) |
+
+The full-Penn rerun of the comparison was therefore not done. Neither
+oracle (Nebula with its cstool, Geant4 MicroElec) was installed on that host
+either, so even a finished build could not have been compared there. Making
+the full-Penn build itself faster is #256.
 
 **Inputs that differ** (each summary lists them in full under `mismatches`):
 
@@ -774,7 +899,20 @@ Values are pooled over all histories, ± the batch-means standard error (10 batc
   Sb in amorphous (pre-amorphized) Si, and in Ge and SiC. Cite each dataset in
   [`data-provenance.md`](data-provenance.md).
 - **Channeling (M2):** published SIMS profiles in crystalline Si as a function
-  of tilt and twist, dose and screen oxide.
+  of tilt and twist, dose and screen oxide. No dataset is in the tree yet.
+  The search for #225 found measured off-axis B and As profiles in
+  Cai et al., Phys. Rev. B 54, 17147 (1996) (arXiv:physics/9901056). They
+  were not digitized, for two reasons. The paper does not give the in-plane
+  reference of its "rotation" angle, the beam divergence, or the oxide and
+  dose of the 5 keV data. And each measured line overlaps Tier C simulated
+  curves in the same figure. Several other leads could not be opened. The
+  list, and why the 7°/22° check is now a recorded-value regression rather
+  than a random-direction bound, are in the module docs of
+  `ion::bca::crystal` ("Comparison with the literature" and "The 7°/22°
+  criterion"). What is needed: a profile with the tilt, twist and its
+  reference direction, divergence, oxide and dose all stated, ideally at two
+  wafer temperatures. A single room-temperature profile cannot tell the
+  static and vibrating lattice apart.
 - **Electronic stopping:** IAEA stopping database experimental points, with
   per-system residual statistics reported (terms of reuse still unread; see
   the open questions in [`data-provenance.md`](data-provenance.md)).
@@ -1283,151 +1421,234 @@ not stored) are in [`data-provenance.md`](data-provenance.md); the schema is
 in [`../validation/data/README.md`](../validation/data/README.md).
 
 **Runs.** `validation/experiments/backscatter.py` runs the committed CLI
-inputs `validation/experiments/backscatter/eta_{c,al,cu,au}.toml` (an
+inputs `validation/experiments/backscatter/eta_{c,al,si,cu,au}.toml` (an
 `[electron]` input; as committed, the 10 keV run) at each comparison
 energy. η is the number of electrons leaving the front face with at least
 50 eV, per primary; its σ is binomial. The model, and how it differs from
 the issue's "full model":
 
-- **Elastic:** Mott cross sections from our partial-wave solver with the
+- **Elastic:** Mott cross sections from our partial-wave solver on the
+  **DHFS potential** of Salvat et al. (1987) (#130), with the
   Furness-McCarthy exchange and the correlation-polarization corrections
-  (polarizabilities from Schwerdtfeger and Nagle 2019), but on the
-  **Thomas-Fermi Yukawa stand-in potential**: the DHFS coefficient table is
-  still a gap (#130), and it is the only potential that runs.
-- **Inelastic:** the **single-pole** Penn algorithm on the measured optical
-  ELF of Hagemann, Gudat and Kunz (1975): Al, Cu, Au (their Table 5, the
-  version fitted to transmission) and **glassy carbon**, whose constants the
-  authors give on a 1.5 g/cm³ basis, so the C target is glassy carbon at
-  1.5 g/cm³ (not graphite at 2.27). The full Penn model was tried (Al,
-  2 keV, 5 grid points per decade, two threads) and had not finished its
-  tables after 15 minutes, so a 1 to 30 keV sweep with it is out of reach on
-  this hardware. There is no separate inner-shell channel: the transport loop
-  has none yet, and the shells enter only through the optical ELF.
-- **No secondaries, transparent surface:** no band parameters of these
-  elements are committed. With the 50 eV cutoff no electron that could still count
-  towards η is dropped, but fast secondaries (above 50 eV, which a measured
-  η includes) are not generated.
-- **Si is not compared.** It has no committed optical ELF (inventory in
-  [`data-provenance.md`](data-provenance.md); #125), so it has no input. Its
-  measured data are tabulated below for when one exists: adding
-  `eta_si.toml` is all that is needed. C and Au were added in a second
-  increment of #148 (their optical data, second read and sum rules are in
-  [`data-provenance.md`](data-provenance.md)).
+  (polarizabilities from Schwerdtfeger and Nagle 2019), both solved on the
+  DHFS Poisson density. Before #169 the CLI built DHFS tables without the
+  two corrections even when the input asked for them; it now applies them,
+  and this is the first comparison run on DHFS.
+- **Inelastic:** the **single-pole** Penn algorithm, not full Penn. Full
+  Penn is the issue's model, but its tables do not build in a usable time:
+  #168 measured Si at 5 keV with `penn-full` on 4 threads, killed unfinished
+  at 60 min, against 108 s for the single-pole tables (see "Electron
+  oracles" above). Speeding up that build is #256; once it lands, the
+  full-Penn rerun is a change of `electron.inelastic.model` in the five
+  inputs plus a regenerate. The ELFs: the measured optical ELF of Hagemann,
+  Gudat and Kunz (1975) for Al, Cu, Au (their Table 5, the version fitted to
+  transmission) and **glassy carbon**, whose constants the authors give on a
+  1.5 g/cm³ basis, so the C target is glassy carbon at 1.5 g/cm³ (not
+  graphite at 2.27); for Si the REELS-derived ELF of Yang et al. (2019)
+  (#125), which **ends at 199 eV**: the Si K shell (about 1.84 keV) and the
+  L-shell tail above 199 eV are absent. There is no separate inner-shell
+  channel (the transport loop has none yet, #273), so the shells enter only
+  through the ELF, and for Si the missing ones do not enter at all.
+- **No secondaries, transparent surface in the graded table:** with the 50 eV
+  cutoff no electron that could still count towards η is dropped, but fast
+  secondaries (above 50 eV, which a measured η includes) are not generated.
+  The "Fast secondaries" sensitivity table below reruns Al, Cu, Au and Si
+  with Kieft-Bosch secondaries and a step barrier, using the band inputs of
+  the δ(E) runs (see their provenance rows: caller-supplied for the metals;
+  for Si the cited insulator band of #115 and #149). C has no band data, so it
+  cannot be rerun with secondaries; that is a stated gap, not a result.
+  With secondaries on, η rises at every point, by 0.03 to 0.07 for Al, 0.05
+  to 0.18 for Cu, 0.07 to 0.24 for Au and 0.03 to 0.06 for Si, most at
+  1 keV, and lies above the measured median everywhere (Si: by 0.051 to
+  0.087, up from -0.010 to +0.059 without secondaries, so the Si excess is not
+  a missing-secondaries effect; Si's secondaries use the insulator band with
+  its cited affinity barrier and carry the same `B = 0` caveat below). Read it as the size of the effect under the
+  present model, not as a corrected η: in a metal the library's Kieft-Bosch
+  model takes the binding energy `B = 0` for every inelastic event until a
+  shell channel supplies it (`lindhard::electron::secondary`, module docs;
+  #273), so a loss `W` that the optical ELF owes to a core level gives a
+  secondary of `E_F + W`, not `W` less that level's binding, and more of
+  them clear 50 eV. These runs also switch on the step barrier together with
+  the secondaries, so the two are not separated, and the run summary does
+  not tell an escaping primary from an escaping secondary. In the front-face
+  spectra of the runs (`electron_escape_spectra.csv`, not committed) the
+  added electrons at 1 keV are mostly below 100 eV (Cu, Au), while at 10 keV
+  a large part of them are above 500 eV (Al: about 2900 of 4200 per 100000
+  primaries; Au: about 4600 of 14200).
+
+The committed sweep is 75 runs (9 energies for each of 5 targets, plus 3
+sensitivity variants at 2 energies each), 100000 primaries each, 8 threads
+per run (release build of the results' revision; aarch64 macOS, 28 cores,
+shared with other jobs, load average about 77 at the start): 2491 s wall and
+3.9 CPU-hours in total. The table builds took 7 to 134 s per run, 2096 s
+together (`table_build_s` in the results); the rest, about 5 s per run, is
+transport and I/O.
+
+The fast-secondary sensitivity (`backscatter.py --secondaries-only`) is 24
+runs: the 12 baseline points redone as a reproduction check, and the 12 runs
+with secondaries, 100000 primaries each, 2 threads per run (release build of
+the revision named in its table; a shared x86_64 Linux host). The table
+builds of the runs with secondaries took 46 to 1142 s, 4838 s together, and
+their transport 1 to 39 s.
 
 The pass/fail rule is the issue's initial tolerance: at E ≥ 5 keV,
 |η − measured median| ≤ 0.05 absolute; below 5 keV values are reported only.
 It is pinned in `backscatter.py` and was neither loosened nor tightened.
 
 <!-- validation:level3-backscatter:begin -->
-lindhard 0.0.1 (4d4977b), 100000 primaries per run, seed 1; the model and its gaps are listed above. Measured: per energy, each stored set's point within 2 % of it (at most one per set), median and min-max over the sets.
+lindhard 0.0.1 (aa04511), 100000 primaries per run, seed 1; the model and its gaps are listed above. Measured: per energy, each stored set's point within 2 % of it (at most one per set), median and min-max over the sets.
 
 | Target | E (keV) | Sets | Measured median | Measured min-max | lindhard eta ± σ | lindhard - median | Pass (E ≥ 5 keV: abs. diff. ≤ 0.05) |
 |---|---|---|---|---|---|---|---|
-| C | 1 | 2 | 0.105 | 0.076-0.133 | 0.0947 ± 0.0009 | -0.010 | (reported only) |
-| C | 2 | 3 | 0.077 | 0.071-0.107 | 0.0743 ± 0.0008 | -0.003 | (reported only) |
-| C | 3 | 3 | 0.086 | 0.063-0.088 | 0.0654 ± 0.0008 | -0.020 | (reported only) |
-| C | 4 | 2 | 0.073 | 0.058-0.089 | 0.0598 ± 0.0008 | -0.013 | (reported only) |
-| C | 5 | 5 | 0.082 | 0.058-0.086 | 0.0551 ± 0.0007 | -0.027 | pass |
-| C | 10 | 4 | 0.071 | 0.066-0.074 | 0.0466 ± 0.0007 | -0.024 | pass |
-| C | 15 | 2 | 0.062 | 0.057-0.068 | 0.0439 ± 0.0006 | -0.019 | pass |
-| C | 20 | 4 | 0.060 | 0.049-0.064 | 0.0419 ± 0.0006 | -0.019 | pass |
-| C | 30 | 4 | 0.056 | 0.050-0.060 | 0.0403 ± 0.0006 | -0.016 | pass |
-| Al | 1 | 6 | 0.204 | 0.134-0.235 | 0.1919 ± 0.0012 | -0.012 | (reported only) |
-| Al | 2 | 5 | 0.170 | 0.140-0.203 | 0.1666 ± 0.0012 | -0.003 | (reported only) |
-| Al | 3 | 7 | 0.161 | 0.132-0.213 | 0.1570 ± 0.0012 | -0.004 | (reported only) |
-| Al | 4 | 4 | 0.168 | 0.131-0.191 | 0.1512 ± 0.0011 | -0.017 | (reported only) |
-| Al | 5 | 8 | 0.163 | 0.135-0.200 | 0.1472 ± 0.0011 | -0.016 | pass |
-| Al | 10 | 5 | 0.150 | 0.140-0.188 | 0.1376 ± 0.0011 | -0.012 | pass |
-| Al | 15 | 4 | 0.149 | 0.137-0.171 | 0.1317 ± 0.0011 | -0.018 | pass |
-| Al | 20 | 4 | 0.144 | 0.139-0.164 | 0.1299 ± 0.0011 | -0.014 | pass |
-| Al | 30 | 5 | 0.149 | 0.135-0.155 | 0.1275 ± 0.0011 | -0.021 | pass |
-| Si | 1 | 3 | 0.228 | 0.210-0.235 | not run (no optical ELF committed) | - | - |
-| Si | 2 | 2 | 0.207 | 0.204-0.210 | not run (no optical ELF committed) | - | - |
-| Si | 3 | 3 | 0.200 | 0.192-0.212 | not run (no optical ELF committed) | - | - |
-| Si | 4 | 3 | 0.200 | 0.189-0.204 | not run (no optical ELF committed) | - | - |
-| Si | 5 | 5 | 0.197 | 0.184-0.206 | not run (no optical ELF committed) | - | not evaluated |
-| Si | 10 | 5 | 0.186 | 0.174-0.200 | not run (no optical ELF committed) | - | not evaluated |
-| Si | 15 | 2 | 0.180 | 0.163-0.197 | not run (no optical ELF committed) | - | not evaluated |
-| Si | 20 | 4 | 0.167 | 0.159-0.194 | not run (no optical ELF committed) | - | not evaluated |
-| Si | 30 | 4 | 0.161 | 0.145-0.190 | not run (no optical ELF committed) | - | not evaluated |
-| Cu | 1 | 5 | 0.381 | 0.265-0.438 | 0.3334 ± 0.0015 | -0.048 | (reported only) |
-| Cu | 2 | 5 | 0.379 | 0.301-0.419 | 0.3161 ± 0.0015 | -0.063 | (reported only) |
-| Cu | 3 | 6 | 0.341 | 0.309-0.406 | 0.3098 ± 0.0015 | -0.031 | (reported only) |
-| Cu | 4 | 4 | 0.325 | 0.306-0.340 | 0.3047 ± 0.0015 | -0.020 | (reported only) |
-| Cu | 5 | 8 | 0.324 | 0.298-0.398 | 0.3025 ± 0.0015 | -0.021 | pass |
-| Cu | 10 | 7 | 0.318 | 0.290-0.357 | 0.2983 ± 0.0014 | -0.020 | pass |
-| Cu | 15 | 3 | 0.311 | 0.310-0.335 | 0.2970 ± 0.0014 | -0.014 | pass |
-| Cu | 20 | 6 | 0.310 | 0.290-0.339 | 0.2973 ± 0.0014 | -0.013 | pass |
-| Cu | 30 | 5 | 0.311 | 0.291-0.319 | 0.2957 ± 0.0014 | -0.015 | pass |
-| Au | 1 | 3 | 0.395 | 0.289-0.419 | 0.2646 ± 0.0014 | -0.130 | (reported only) |
-| Au | 2 | 3 | 0.428 | 0.373-0.450 | 0.3977 ± 0.0015 | -0.030 | (reported only) |
-| Au | 3 | 4 | 0.433 | 0.414-0.464 | 0.4240 ± 0.0016 | -0.009 | (reported only) |
-| Au | 4 | 4 | 0.455 | 0.443-0.461 | 0.4297 ± 0.0016 | -0.025 | (reported only) |
-| Au | 5 | 7 | 0.459 | 0.430-0.489 | 0.4346 ± 0.0016 | -0.024 | pass |
-| Au | 10 | 5 | 0.476 | 0.470-0.501 | 0.4474 ± 0.0016 | -0.029 | pass |
-| Au | 15 | 3 | 0.484 | 0.482-0.514 | 0.4561 ± 0.0016 | -0.028 | pass |
-| Au | 20 | 5 | 0.485 | 0.480-0.516 | 0.4622 ± 0.0016 | -0.023 | pass |
-| Au | 30 | 5 | 0.512 | 0.481-0.521 | 0.4711 ± 0.0016 | -0.041 | pass |
+| C | 1 | 2 | 0.105 | 0.076-0.133 | 0.0925 ± 0.0009 | -0.012 | (reported only) |
+| C | 2 | 3 | 0.077 | 0.071-0.107 | 0.0737 ± 0.0008 | -0.003 | (reported only) |
+| C | 3 | 3 | 0.086 | 0.063-0.088 | 0.0649 ± 0.0008 | -0.021 | (reported only) |
+| C | 4 | 2 | 0.073 | 0.058-0.089 | 0.0599 ± 0.0008 | -0.013 | (reported only) |
+| C | 5 | 5 | 0.082 | 0.058-0.086 | 0.0558 ± 0.0007 | -0.026 | pass |
+| C | 10 | 4 | 0.071 | 0.066-0.074 | 0.0475 ± 0.0007 | -0.023 | pass |
+| C | 15 | 2 | 0.062 | 0.057-0.068 | 0.0446 ± 0.0007 | -0.018 | pass |
+| C | 20 | 4 | 0.060 | 0.049-0.064 | 0.0422 ± 0.0006 | -0.018 | pass |
+| C | 30 | 4 | 0.056 | 0.050-0.060 | 0.0394 ± 0.0006 | -0.017 | pass |
+| Al | 1 | 6 | 0.204 | 0.134-0.235 | 0.1791 ± 0.0012 | -0.024 | (reported only) |
+| Al | 2 | 5 | 0.170 | 0.140-0.203 | 0.1573 ± 0.0012 | -0.013 | (reported only) |
+| Al | 3 | 7 | 0.161 | 0.132-0.213 | 0.1488 ± 0.0011 | -0.012 | (reported only) |
+| Al | 4 | 4 | 0.168 | 0.131-0.191 | 0.1447 ± 0.0011 | -0.023 | (reported only) |
+| Al | 5 | 8 | 0.163 | 0.135-0.200 | 0.1422 ± 0.0011 | -0.021 | pass |
+| Al | 10 | 5 | 0.150 | 0.140-0.188 | 0.1322 ± 0.0011 | -0.018 | pass |
+| Al | 15 | 4 | 0.149 | 0.137-0.171 | 0.1269 ± 0.0011 | -0.023 | pass |
+| Al | 20 | 4 | 0.144 | 0.139-0.164 | 0.1245 ± 0.0010 | -0.019 | pass |
+| Al | 30 | 5 | 0.149 | 0.135-0.155 | 0.1219 ± 0.0010 | -0.027 | pass |
+| Si | 1 | 3 | 0.228 | 0.210-0.235 | 0.2182 ± 0.0013 | -0.010 | (reported only) |
+| Si | 2 | 2 | 0.207 | 0.204-0.210 | 0.2121 ± 0.0013 | +0.005 | (reported only) |
+| Si | 3 | 3 | 0.200 | 0.192-0.212 | 0.2133 ± 0.0013 | +0.013 | (reported only) |
+| Si | 4 | 3 | 0.200 | 0.189-0.204 | 0.2137 ± 0.0013 | +0.014 | (reported only) |
+| Si | 5 | 5 | 0.197 | 0.184-0.206 | 0.2144 ± 0.0013 | +0.017 | pass |
+| Si | 10 | 5 | 0.186 | 0.174-0.200 | 0.2168 ± 0.0013 | +0.031 | pass |
+| Si | 15 | 2 | 0.180 | 0.163-0.197 | 0.2166 ± 0.0013 | +0.037 | pass |
+| Si | 20 | 4 | 0.167 | 0.159-0.194 | 0.2180 ± 0.0013 | +0.052 | **FAIL** |
+| Si | 30 | 4 | 0.161 | 0.145-0.190 | 0.2194 ± 0.0013 | +0.059 | **FAIL** |
+| Cu | 1 | 5 | 0.381 | 0.265-0.438 | 0.3261 ± 0.0015 | -0.055 | (reported only) |
+| Cu | 2 | 5 | 0.379 | 0.301-0.419 | 0.3052 ± 0.0015 | -0.074 | (reported only) |
+| Cu | 3 | 6 | 0.341 | 0.309-0.406 | 0.2989 ± 0.0014 | -0.042 | (reported only) |
+| Cu | 4 | 4 | 0.325 | 0.306-0.340 | 0.2982 ± 0.0014 | -0.027 | (reported only) |
+| Cu | 5 | 8 | 0.324 | 0.298-0.398 | 0.2975 ± 0.0014 | -0.026 | pass |
+| Cu | 10 | 7 | 0.318 | 0.290-0.357 | 0.2938 ± 0.0014 | -0.024 | pass |
+| Cu | 15 | 3 | 0.311 | 0.310-0.335 | 0.2936 ± 0.0014 | -0.017 | pass |
+| Cu | 20 | 6 | 0.310 | 0.290-0.339 | 0.2928 ± 0.0014 | -0.017 | pass |
+| Cu | 30 | 5 | 0.311 | 0.291-0.319 | 0.2924 ± 0.0014 | -0.019 | pass |
+| Au | 1 | 3 | 0.395 | 0.289-0.419 | 0.3712 ± 0.0015 | -0.024 | (reported only) |
+| Au | 2 | 3 | 0.428 | 0.373-0.450 | 0.3994 ± 0.0015 | -0.029 | (reported only) |
+| Au | 3 | 4 | 0.433 | 0.414-0.464 | 0.4093 ± 0.0016 | -0.024 | (reported only) |
+| Au | 4 | 4 | 0.455 | 0.443-0.461 | 0.4108 ± 0.0016 | -0.044 | (reported only) |
+| Au | 5 | 7 | 0.459 | 0.430-0.489 | 0.4155 ± 0.0016 | -0.043 | pass |
+| Au | 10 | 5 | 0.476 | 0.470-0.501 | 0.4334 ± 0.0016 | -0.043 | pass |
+| Au | 15 | 3 | 0.484 | 0.482-0.514 | 0.4416 ± 0.0016 | -0.042 | pass |
+| Au | 20 | 5 | 0.485 | 0.480-0.516 | 0.4489 ± 0.0016 | -0.036 | pass |
+| Au | 30 | 5 | 0.512 | 0.481-0.521 | 0.4603 ± 0.0016 | -0.052 | **FAIL** |
 
 **Verdict at E ≥ 5 keV (tolerance 0.05 absolute, generated):**
 
-- C: 5 of 5 energies pass; largest abs. diff. -0.027 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
-- Al: 5 of 5 energies pass; largest abs. diff. -0.021 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
-- Si: not evaluated (5 measured energies; no committed input, because no optical ELF of it is committed).
-- Cu: 5 of 5 energies pass; largest abs. diff. -0.021 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
-- Au: 5 of 5 energies pass; largest abs. diff. -0.041 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- C: 5 of 5 energies pass; largest abs. diff. -0.026 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Al: 5 of 5 energies pass; largest abs. diff. -0.027 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Si: 3 of 5 energies pass, **the tolerance is not met**; largest abs. diff. +0.059 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 1 and above it at 8.
+- Cu: 5 of 5 energies pass; largest abs. diff. -0.026 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Au: 4 of 5 energies pass, **the tolerance is not met**; largest abs. diff. -0.052 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
 
 **Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the correlation-polarization corrections switched off one at a time and together (same seed and primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value for independent runs. The variants share the seed, so their noise is correlated and the true σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, not a conservative test of it.
 
 | Target | E (keV) | exchange + polarization (baseline) | exchange only | polarization only | no corrections | baseline - no corrections |
 |---|---|---|---|---|---|---|
-| C | 1 | 0.0947 ± 0.0009 | 0.0953 ± 0.0009 | 0.0930 ± 0.0009 | 0.0945 ± 0.0009 | +0.0003 (+0.2 σ) |
-| C | 10 | 0.0466 ± 0.0007 | 0.0468 ± 0.0007 | 0.0466 ± 0.0007 | 0.0468 ± 0.0007 | -0.0002 (-0.2 σ) |
-| Al | 1 | 0.1919 ± 0.0012 | 0.1936 ± 0.0012 | 0.1907 ± 0.0012 | 0.1908 ± 0.0012 | +0.0012 (+0.7 σ) |
-| Al | 10 | 0.1376 ± 0.0011 | 0.1374 ± 0.0011 | 0.1366 ± 0.0011 | 0.1371 ± 0.0011 | +0.0005 (+0.3 σ) |
-| Cu | 1 | 0.3334 ± 0.0015 | 0.3329 ± 0.0015 | 0.3284 ± 0.0015 | 0.3305 ± 0.0015 | +0.0029 (+1.4 σ) |
-| Cu | 10 | 0.2983 ± 0.0014 | 0.2983 ± 0.0014 | 0.2970 ± 0.0014 | 0.2973 ± 0.0014 | +0.0010 (+0.5 σ) |
-| Au | 1 | 0.2646 ± 0.0014 | 0.2671 ± 0.0014 | 0.2506 ± 0.0014 | 0.2498 ± 0.0014 | +0.0148 (+7.6 σ) |
-| Au | 10 | 0.4474 ± 0.0016 | 0.4474 ± 0.0016 | 0.4468 ± 0.0016 | 0.4477 ± 0.0016 | -0.0003 (-0.1 σ) |
+| C | 1 | 0.0925 ± 0.0009 | 0.0934 ± 0.0009 | 0.0892 ± 0.0009 | 0.0897 ± 0.0009 | +0.0028 (+2.1 σ) |
+| C | 10 | 0.0475 ± 0.0007 | 0.0475 ± 0.0007 | 0.0471 ± 0.0007 | 0.0471 ± 0.0007 | +0.0005 (+0.5 σ) |
+| Al | 1 | 0.1791 ± 0.0012 | 0.1798 ± 0.0012 | 0.1744 ± 0.0012 | 0.1749 ± 0.0012 | +0.0042 (+2.4 σ) |
+| Al | 10 | 0.1322 ± 0.0011 | 0.1330 ± 0.0011 | 0.1313 ± 0.0011 | 0.1319 ± 0.0011 | +0.0003 (+0.2 σ) |
+| Si | 1 | 0.2182 ± 0.0013 | 0.2184 ± 0.0013 | 0.2120 ± 0.0013 | 0.2132 ± 0.0013 | +0.0050 (+2.7 σ) |
+| Si | 10 | 0.2168 ± 0.0013 | 0.2162 ± 0.0013 | 0.2152 ± 0.0013 | 0.2134 ± 0.0013 | +0.0034 (+1.9 σ) |
+| Cu | 1 | 0.3261 ± 0.0015 | 0.3252 ± 0.0015 | 0.3206 ± 0.0015 | 0.3203 ± 0.0015 | +0.0058 (+2.8 σ) |
+| Cu | 10 | 0.2938 ± 0.0014 | 0.2942 ± 0.0014 | 0.2920 ± 0.0014 | 0.2919 ± 0.0014 | +0.0019 (+0.9 σ) |
+| Au | 1 | 0.3712 ± 0.0015 | 0.3707 ± 0.0015 | 0.3693 ± 0.0015 | 0.3687 ± 0.0015 | +0.0025 (+1.1 σ) |
+| Au | 10 | 0.4334 ± 0.0016 | 0.4329 ± 0.0016 | 0.4308 ± 0.0016 | 0.4306 ± 0.0016 | +0.0028 (+1.3 σ) |
 
-Largest effect of the two corrections together: 0.0148 (7.6 σ, Au at 1 keV); at least one difference exceeds 2 σ.
+Largest effect of the two corrections together: 0.0058 (2.8 σ, Cu at 1 keV); at least one difference exceeds 2 σ.
+
+**Fast secondaries (sensitivity, not graded).** The baseline input rerun with `secondaries = "kieft-bosch"` and a `step-barrier` (metals: at the mid work function; Si: its electron affinity), with the band inputs of the δ(E) runs, `BAND` and `BAND_PROVENANCE` in `validation/experiments/se_yield.py` (Al, Cu, Au: free-electron metal; Si: insulator band, gap and affinity from `BAND_DEFAULTS` (#115), valence-band width from Chelikowsky and Cohen 1974 (#149)); elastic model, optical ELF, tables, 50 eV band-bottom cutoff, seed and primaries as in the baseline (lindhard 343ddc7 and a8a9973; the baseline runs at these points were redone with it and reproduce the committed η bit for bit). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries included. With secondaries on a primary can yield several such electrons, and the run summary does not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the binomial error if no primary yields more than one, an underestimate only to the extent that some yield several. The baseline column is the main table's; the measured median is as above; the graded verdict above is for the baseline and is not re-judged here.
+
+| Target | E (keV) | Baseline η ± σ | With secondaries η ± σ | Change | Measured median | With secondaries - median |
+|---|---|---|---|---|---|---|
+| Al | 1 | 0.1791 ± 0.0012 | 0.2536 ± 0.0016 | +0.0745 | 0.204 | +0.050 |
+| Al | 5 | 0.1422 ± 0.0011 | 0.1932 ± 0.0014 | +0.0509 | 0.163 | +0.030 |
+| Al | 10 | 0.1322 ± 0.0011 | 0.1734 ± 0.0013 | +0.0412 | 0.150 | +0.023 |
+| Al | 30 | 0.1219 ± 0.0010 | 0.1559 ± 0.0012 | +0.0340 | 0.149 | +0.007 |
+| Si | 1 | 0.2182 ± 0.0013 | 0.2789 ± 0.0017 | +0.0607 | 0.228 | +0.051 |
+| Si | 5 | 0.2144 ± 0.0013 | 0.2556 ± 0.0016 | +0.0412 | 0.197 | +0.059 |
+| Si | 10 | 0.2168 ± 0.0013 | 0.2491 ± 0.0016 | +0.0323 | 0.186 | +0.063 |
+| Si | 30 | 0.2194 ± 0.0013 | 0.2475 ± 0.0016 | +0.0281 | 0.161 | +0.087 |
+| Cu | 1 | 0.3261 ± 0.0015 | 0.5032 ± 0.0022 | +0.1771 | 0.381 | +0.122 |
+| Cu | 5 | 0.2975 ± 0.0014 | 0.4004 ± 0.0020 | +0.1028 | 0.324 | +0.076 |
+| Cu | 10 | 0.2938 ± 0.0014 | 0.3703 ± 0.0019 | +0.0765 | 0.318 | +0.052 |
+| Cu | 30 | 0.2924 ± 0.0014 | 0.3416 ± 0.0018 | +0.0492 | 0.311 | +0.031 |
+| Au | 1 | 0.3712 ± 0.0015 | 0.6129 ± 0.0025 | +0.2417 | 0.395 | +0.218 |
+| Au | 5 | 0.4155 ± 0.0016 | 0.5723 ± 0.0024 | +0.1567 | 0.459 | +0.113 |
+| Au | 10 | 0.4334 ± 0.0016 | 0.5433 ± 0.0023 | +0.1099 | 0.476 | +0.067 |
+| Au | 30 | 0.4603 ± 0.0016 | 0.5267 ± 0.0023 | +0.0664 | 0.512 | +0.015 |
+
+Not run, for lack of band inputs: C: no band data committed.
 
 Per-run values: `validation/experiments/backscatter_results.json`; datasets: `validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md).
 <!-- validation:level3-backscatter:end -->
 
-**Limits.** C, Al, Cu and Au meet the tolerance at every energy from 5 to
-30 keV, but lindhard is below the measured median at every compared energy
-of every element. At 5 keV and above the offset is 0.016 to 0.027 for C
-(28 to 34 % of η), 0.012 to 0.021 for Al (8 to 14 %), 0.013 to 0.021 for Cu
-(4 to 7 %) and 0.023 to 0.041 for Au (5 to 8 %). It is not inside the
-measured spread: lindhard is below the lowest measured set at all five C
-energies, at four of the five Al and Au energies and at one Cu energy. So
-the pass rests on the 0.05 absolute tolerance, which is the issue's initial
-value; it was not tightened (0.03 would already fail Au at 30 keV), not
-loosened, and no model parameter was adjusted to these data. Below 5 keV
-(reported only) the largest deviation is Au at 1 keV, -0.130, below every
-measured set.
+**Limits.** The tolerance is **not met** at three of the 25 graded points:
+Si at 20 and 30 keV (+0.052 and +0.059 above the median) and Au at 30 keV
+(-0.052 below it). They are reported as measured. The tolerance stays at the
+issue's 0.05 absolute: it was not loosened to cover them, and no model
+parameter was adjusted to these data. C, Al and Cu meet it at every energy
+from 5 to 30 keV.
 
-The offset is not attributed here. Known parts of the reduced model act on
-it: the elastic potential is the Thomas-Fermi Yukawa stand-in, not DHFS
-(#130); the inelastic model is single-pole Penn, not full Penn (its tables
-are too slow to build for this sweep); fast secondaries above 50 eV (counted
-in a measured η) are not generated; and for C the target is glassy carbon at
-the 1.5 g/cm³ basis of its optical data, while the measured C sets do not
-state the form of carbon (Joy gives no sample description). The measured sets
-are mostly 1947 to 1997 work on surfaces of unstated condition.
+The signs differ by element. For C, Al, Cu and Au lindhard is below the
+measured median at every compared energy. At 5 keV and above the offset is
+0.017 to 0.026 for C (29 to 33 % of η), 0.018 to 0.027 for Al (12 to 18 %),
+0.017 to 0.026 for Cu (6 to 8 %) and 0.036 to 0.052 for Au (7 to 10 %).
+lindhard is below the lowest measured set at all five C and Au energies, at
+four of the five Al energies and at two Cu energies, so the offset is not
+inside the measured spread. Si is the other way round: lindhard is above
+the median at 8 of the 9 energies and above the highest measured set at
+every energy from 2 keV up. The excess grows with energy, from +0.017 at
+5 keV to +0.059 at 30 keV, because the simulated η stays flat (0.214 to
+0.219) while the measured median falls from 0.197 to 0.161.
 
-The elastic corrections (sensitivity table above) change η by at most 0.001
-at 10 keV for any element, well inside the independent-run σ bound. At
-1 keV they are negligible for C and Al and small for Cu (+0.003), and matter
-for Au: +0.015 with both on, nearly all of it from the exchange correction
-(exchange only 0.267, polarization only 0.251, neither 0.250). That is about
-a tenth of the Au 1 keV deficit, so the corrections do not explain it.
+The offsets are not attributed here. Known parts of the reduced model act on
+them. The inelastic model is single-pole Penn, not full Penn (#256). Fast
+secondaries above 50 eV, which a measured η counts, are not generated. For
+Si the ELF ends at 199 eV, so the K shell and the L-shell tail are missing
+from the stopping power. A Si excess that grows with energy is consistent
+with that, but this run does not show it is the cause. For C the target is
+glassy carbon at the 1.5 g/cm³ basis of its optical data, while the measured
+C sets do not state the form of carbon (Joy gives no sample description).
+The measured sets are mostly 1947 to 1997 work on surfaces of unstated
+condition.
 
-Still open (#169): Si waits for its valence-region optical ELF (#125), and a
-rerun with full Penn and the DHFS potential waits for faster full-Penn
-tables and the DHFS table (#130). Until then this is a comparison of the
-reduced model, not of the issue's full model.
+**What DHFS changed** (against the stand-in run this replaces, same seed and
+primaries). At 5 keV and above, η moved by at most 0.001 for C, by -0.003
+to -0.006 for Al and Cu, and by -0.011 to -0.019 for Au. That moved Au at
+30 keV from -0.041 to -0.052, across the tolerance. Below 5 keV the large
+change is Au at 1 keV: η rose from 0.265 to 0.371, so the deficit there,
+-0.130 below every measured set with the stand-in, is now -0.024 and inside
+the measured spread (0.289 to 0.419). Below 5 keV (reported only) the
+largest deviation is now Cu at 2 keV, -0.074, inside its measured spread.
+
+The elastic corrections (sensitivity table above) change η by at most
+0.006 for any element and energy (Cu at 1 keV). That is small next to the
+0.05 tolerance and the measured spread. The σ bound of the table is for
+independent runs; the variants share a seed, so the 2 to 3 σ differences at
+1 keV are lower bounds on their significance. With the stand-in the
+corrections raised Au at 1 keV by 0.015; on DHFS the effect there is 0.003.
+
+Still open: the full-Penn rerun (#256 makes the tables buildable; the inputs
+then change their `electron.inelastic.model`), the Si K and L shells beyond
+the ELF's 199 eV end (an inner-shell channel, #273), and fast secondaries
+for C (no band data; Al, Cu, Au and Si are in the sensitivity table).
+Until then this is a comparison of the reduced model, not of the issue's
+full model.
 
 ### Resist PSF vs a published measurement (#151): gap, no comparison
 
@@ -1441,7 +1662,7 @@ simulating that stack and fitting the deposited-energy profile with the
 |---|---|---|
 | A published measured PSF for a stated stack and energy, cited to a table or figure | **Gap.** No source with a measured PMMA-on-Si PSF could be opened on 2026-10-08: Chang (1975) and Rishton and Kern (1987) are closed access and their publisher pages return HTTP 403, and the open-access papers found report either developed linewidths (no PSF), CASINO-simulated PSFs (simulated, and CASINO is Tier C), or process-calibrated PSFs on a stack that is not stated | [`data-provenance.md`](data-provenance.md), "Published measured resist PSF" row |
 | The PMMA optical ELF | **Gap** (#147, #162). Ritsko et al. (1978) re-attempted 2026-10-08, still 403 and closed access; a later open-access REELS paper (Ridzel et al. 2022) was found but its PDF could not be downloaded | [`data-provenance.md`](data-provenance.md), PMMA inventory row |
-| The Si optical ELF (valence region and core tail) | **Gap** (#125). A three-oscillator REELS fit restated in an open-access review was found; it covers the valence region only and contains a surface-plasmon term, so it is not a bulk optical ELF and was not committed | [`data-provenance.md`](data-provenance.md), Si inventory row |
+| The Si optical ELF (valence region and core tail) | **Committed to 199 eV** (#125): Yang et al. (2019), digitized from their Fig. 7, valence region and L₂,₃ edge; the K shell and the tail above 199 eV are still absent | [`data-provenance.md`](data-provenance.md), Si data and inventory rows |
 
 Following the issue's sourcing rule ("if none can be opened, record the gap
 and stop rather than use remembered values"), **there is no comparison table**:
@@ -1471,8 +1692,9 @@ little about transport. Beam size, resist charging and the substrate's
 surface layer are further differences between a measurement and the
 simulation, to be listed with any result.
 
-**What lifts the gap:** a PMMA ELF (#162) and a Si ELF across the valence and
-core regions (#125) committed with provenance rows, and a measured PSF in an
+**What lifts the gap:** a PMMA ELF (#162) committed with a provenance row (the
+Si ELF is committed to 199 eV, #125; for keV beams its missing core tail is
+a stated limitation), and a measured PSF in an
 openable source, cited to its table or figure (digitized values with the
 second-read discipline of the sputter datasets).
 
@@ -1524,40 +1746,80 @@ result worse, not better; no Cu, Si or Au set changes status.
 
 **Inputs of the simulation, and what is not in them.**
 
-- Optical data: the committed Al and Cu energy-loss functions of Hagemann,
-  Gudat and Kunz (1975) (#98). **Si and Au cannot be simulated**: no Si ELF
-  could be sourced (#98) and no Au file was ingested, so those two materials
-  appear as measurements only.
-- Elastic scattering: Mott partial waves with the Thomas-Fermi Yukawa
-  **stand-in** potential; the DHFS table is a documented gap
-  ([`data-provenance.md`](data-provenance.md)). Muffin-tin is deferred
+- Optical data: the committed energy-loss functions of Hagemann, Gudat and
+  Kunz (1975) for Al and Cu (#98) and Au (#148), and for Si the
+  REELS-derived ELF of Yang et al. (2019) (#125). **The Si ELF ends at
+  199 eV**: the Si K shell (about 1.84 keV) and the L-shell tail above
+  199 eV are absent from the Si runs, as in the backscatter section.
+- Elastic scattering: Mott partial waves on the **DHFS potential** of Salvat
+  et al. (1987) (#130) with the Furness-McCarthy exchange correction, as in
+  the backscatter inputs (`validation/experiments/backscatter/eta_*.toml`).
+  Unlike those inputs, the **correlation-polarization correction is off**:
+  with Seltzer's cutoff rule, the only one the library has a source for, it
+  needs every table energy above 50 eV, and δ(E) needs tables down to 5 eV.
+  No cited `b_pol²` for lower energies is available and choosing one would be
+  a tuned constant, so it is left out. The exchange correction is applied
+  down to 5 eV, below the "about 1 hartree" above which Salvat (2003)
+  quotes it as accurate (`electron::elastic::corrections`). Every row was
+  rerun on DHFS for #149; the Thomas-Fermi Yukawa stand-in runs are
+  replaced ("What DHFS changed", below). Muffin-tin is deferred
   ([`muffin-tin-deferral.md`](muffin-tin-deferral.md)).
-- Barrier: #115 has not landed, so the work function and valence electron
-  count are caller-supplied, with their sources and the fact that the
-  primary table (CRC Handbook) was not opened, in
-  [`data-provenance.md`](data-provenance.md). Work functions are given as
-  ranges by that table; the `phi-low` and `phi-high` configurations run its
-  two ends and the default uses their mean. The Fermi energy is the
-  free-electron value from the valence count.
+- Barrier, metals: #115 landed but found no openable source for the work
+  functions or Fermi energies of Al, Cu and Au (`BAND_DEFAULTS` has none),
+  so the work function and valence electron count stay caller-supplied,
+  with their sources and the fact that the primary table (CRC Handbook) was
+  not opened, in [`data-provenance.md`](data-provenance.md). Work functions
+  are given as ranges by that table; the `phi-low` and `phi-high`
+  configurations run its two ends and the default uses their mean. The
+  Fermi energy is the free-electron value from the valence count.
+- Barrier, Si: an insulator band. The band gap (1.1 eV) and the electron
+  affinity (4.05 eV) are the cited `BAND_DEFAULTS` values of #115 (Robertson
+  and Wallace 2015). `BAND_DEFAULTS` has no valence band width; the runs use
+  12.36 eV, the Γ25'-Γ1 separation computed by Chelikowsky and Cohen, Phys.
+  Rev. B 10, 5095 (1974), Table II, whose Table IV lists the photoemission
+  values 12.4 ± 0.6 eV and 12.5 ± 0.6 eV for the same level (sources and the
+  choice in [`data-provenance.md`](data-provenance.md), "Band inputs of the
+  SE-yield validation runs (Si ...)"). The barrier is the affinity, one
+  cited value, so the work-function configurations `phi-low` and `phi-high`
+  are not defined for Si.
 - Inelastic scattering: the model of each row. The model's own Fermi energy
   (`[electron.inelastic] fermi_energy_ev`) is left at the library default,
   0 eV, in every configuration (the run metadata print `E_F = 0 eV` in the
   inelastic table's model string); it is not the band's Fermi energy, which
-  only the secondary model and the barrier use. It was not varied here.
+  only the secondary model and the barrier use. It was not varied in these
+  tables; #173 measured what it does (below).
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
   level (`cutoff_reference = "vacuum-level"`) unless a row says otherwise.
   The `cutoff-band-bottom` row follows electrons down to 1 eV above the
-  Fermi level instead (Al 12.66 eV, Cu 8.05 eV, Au 6.53 eV above the band bottom; the
-  library refuses a band-bottom threshold at or below the Fermi energy when
-  secondaries are on), so it also counts the electrons that leave with less
-  than 1 eV, which the default drops.
-- Statistics: 2000 histories per point, seed 1, two threads. The Al and Cu
-  runs were made with the build at 6629260; the Au runs with a later build
-  (the table header shows the later one), after which the electron tally
-  code had changed. Al and Cu default runs at 100, 600 and 800 eV were
-  repeated with the later build and reproduce the committed deltas and etas
-  bit for bit.
+  Fermi level instead (Al 12.66 eV, Cu 8.05 eV, Au 6.53 eV above the band
+  bottom; Si 13.91 eV, its Fermi level being mid-gap in the library's
+  insulator band; the library refuses a band-bottom threshold at or below
+  the Fermi energy when secondaries are on), so it also counts the
+  electrons that leave with less than 1 eV, which the default drops.
+- Statistics: 2000 histories per point, seed 1, two threads. Every row of the
+  tables was rerun for #149 with the build named in the table header
+  (`abd6a5e`; the `-dirty` suffix is the uncommitted validation-script and
+  documentation edits of this change, no Rust source was touched) on the DHFS
+  elastic potential. The earlier Thomas-Fermi Yukawa runs (builds 6629260,
+  51af302, then the #173 re-run of the `default` rows) are replaced, not
+  mixed in: `se_yield.py --run` drops a stored run whose elastic model differs
+  ("What DHFS changed", below). The runs were made in two concurrent workers
+  with separate results files that were then merged by key; each run is
+  independent (seed 1), so this does not change any value.
+- **Rows that are incomplete.** Not every grid point of every row was rerun,
+  because a high-energy point with the DHFS tables takes tens of minutes on
+  the shared host. The `default`, `phi-low`, `phi-high` and `barrier-off`
+  rows are complete for Al, Cu and Au, and `default`, `barrier-off` and
+  `cutoff-band-bottom` for Si. The `cutoff-band-bottom` row is incomplete for
+  Al (not run above 400 eV), Cu and Au (not run above 1500 eV): the table
+  prints "not run" for those points and an E_max over the points that were
+  run only. The `mermin` rows are complete at the six energies of
+  `SLOW_ENERGIES_EV` for all four materials. Nothing was interpolated.
+- **`penn-full` was not run for any material.** Its table build took 45
+  minutes on two threads of a shared host and was stopped (#173); making it
+  affordable is #256, and the `penn-full` rows
+  (`PENN_FULL_ENERGIES_EV`) are left for that issue.
 - Oracle codes were **not run for δ(E)**. The electron oracle harness
   exists (#150, "Electron oracles" in section 2, which reports δ for Si
   and Cu at 1 to 20 keV). What is missing for #149 is a δ(E) oracle run for
@@ -1582,112 +1844,234 @@ committed results.
 | Si | 10 | 2: `se_si_dione1973` (550 eV, 0.980), `se_si_dionne1975` (300 eV, 1.167) | 425 [300, 550] | 1.074 [0.980, 1.167] | 8 sets |
 | Au | 10 | 2: `se_au_bronstein1969` (800 eV, 1.395), `se_au_rothwell1988` (700 eV, 1.540) | 750 [700, 800] | 1.468 [1.395, 1.540] | 8 sets |
 
-**Simulated δ(E)** (`lindhard 0.0.1 (51af302-dirty)`; seed 1; histories per run in the results file; δ = electrons escaping the front face below 50 eV per primary). Statistical error: the Poisson floor √N_slow/N is in the results file and understates the true error by the cascade correlation.
+**Simulated δ(E)** (`lindhard 0.0.1 (abd6a5e-dirty)`; seed 1; histories per run in the results file; δ = electrons escaping the front face below 50 eV per primary). Statistical error: the Poisson floor √N_slow/N is in the results file and understates the true error by the cascade correlation.
 
 **Al**
 
 | Configuration | 100 | 150 | 200 | 300 | 400 | 600 | 800 | 1000 | 1500 | 2000 | 3000 | 5000 | E_max (eV) | δ_max |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `default`: single-pole Penn, barrier on (mid work function), vacuum-level cutoff | 2.571 | 3.405 | 4.195 | 5.537 | 6.497 | 7.584 | 7.612 | 7.272 | 6.153 | 4.885 | 3.288 | 2.075 | 800 | 7.612 |
-| `phi-low`: as default, work function at the low end of the cited range | 2.636 | 3.513 | 4.317 | 5.675 | 6.689 | 7.878 | 7.905 | 7.574 | 6.524 | 5.236 | 3.415 | 2.201 | 800 | 7.905 |
-| `phi-high`: as default, work function at the high end of the cited range | 2.528 | 3.311 | 4.051 | 5.316 | 6.298 | 7.335 | 7.244 | 7.041 | 5.954 | 4.599 | 3.155 | 2.038 | 600 | 7.335 |
-| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 4.546 | 6.580 | 8.489 | 11.821 | 14.836 | 18.758 | 20.520 | 20.543 | 18.258 | 15.072 | 10.023 | 5.970 | 1000 | 20.543 |
-| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 2.671 | 3.543 | 4.399 | 5.785 | 6.782 | 8.011 | 8.045 | 7.758 | 6.881 | 5.411 | 3.672 | 2.342 | 800 | 8.045 |
-| `mermin`: Mermin (MELF), barrier on (mid work function), vacuum-level cutoff | 0.824 |  | 1.109 |  | 1.288 |  | 0.928 |  | 0.620 |  | 0.308 |  | 400 | 1.288 |
+| `default`: single-pole Penn, barrier on (metals: mid work function; Si: electron affinity), vacuum-level cutoff | 3.147 | 4.231 | 4.940 | 6.071 | 6.522 | 6.846 | 6.372 | 5.877 | 4.280 | 3.370 | 2.257 | 1.454 | 600 | 6.846 |
+| `phi-low`: as default, work function at the low end of the cited range (metals only) | 3.246 | 4.357 | 5.103 | 6.285 | 6.758 | 6.987 | 6.630 | 6.106 | 4.586 | 3.673 | 2.478 | 1.532 | 600 | 6.987 |
+| `phi-high`: as default, work function at the high end of the cited range (metals only) | 3.037 | 4.175 | 4.856 | 5.858 | 6.233 | 6.562 | 6.180 | 5.595 | 4.013 | 3.276 | 2.253 | 1.405 | 600 | 6.562 |
+| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 4.416 | 6.465 | 8.200 | 10.880 | 12.471 | 13.668 | 13.502 | 12.389 | 9.524 | 7.605 | 5.083 | 3.326 | 600 | 13.668 |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 3.300 | 4.392 | 5.261 | 6.402 | 6.859 |  |  |  |  |  |  |  | incomplete: not run at 600, 800, 1000, 1500, 2000, 3000, 5000 eV | - |
+| `mermin`: Mermin (MELF), barrier on, vacuum-level cutoff | 1.075 |  | 1.258 |  | 1.132 |  | 0.796 |  | 0.445 |  | 0.241 |  | 200 | 1.258 |
 
-Not run for Al: `penn-full` (full Penn, barrier on (mid work function), vacuum-level cutoff). The reason is given in the text below the tables.
+Not run for Al: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The reason is given in the text below the tables.
 
 **Cu**
 
 | Configuration | 100 | 150 | 200 | 300 | 400 | 600 | 800 | 1000 | 1500 | 2000 | 3000 | 5000 | E_max (eV) | δ_max |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `default`: single-pole Penn, barrier on (mid work function), vacuum-level cutoff | 1.200 | 1.467 | 1.667 | 1.765 | 1.812 | 1.812 | 1.639 | 1.538 | 1.290 | 1.043 | 0.836 | 0.520 | 600 | 1.812 |
-| `phi-low`: as default, work function at the low end of the cited range | 1.288 | 1.611 | 1.764 | 1.907 | 1.966 | 1.960 | 1.835 | 1.728 | 1.417 | 1.176 | 0.893 | 0.554 | 400 | 1.966 |
-| `phi-high`: as default, work function at the high end of the cited range | 1.137 | 1.393 | 1.496 | 1.584 | 1.635 | 1.633 | 1.500 | 1.389 | 1.185 | 0.958 | 0.740 | 0.498 | 400 | 1.635 |
-| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 2.244 | 2.986 | 3.340 | 3.742 | 3.830 | 3.838 | 3.830 | 3.521 | 2.917 | 2.356 | 1.679 | 1.234 | 600 | 3.838 |
-| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 1.215 | 1.553 | 1.676 | 1.804 | 1.861 | 1.858 | 1.704 |  |  |  |  |  | 400; not run at 1000, 1500, 2000, 3000, 5000 eV | 1.861 |
-| `mermin`: Mermin (MELF), barrier on (mid work function), vacuum-level cutoff | 1.226 |  | 1.724 |  | 1.939 |  | 1.867 |  | 1.395 |  | 0.840 |  | 400 | 1.939 |
+| `default`: single-pole Penn, barrier on (metals: mid work function; Si: electron affinity), vacuum-level cutoff | 1.131 | 1.353 | 1.474 | 1.609 | 1.647 | 1.709 | 1.540 | 1.337 | 1.139 | 0.910 | 0.709 | 0.418 | 600 | 1.709 |
+| `phi-low`: as default, work function at the low end of the cited range (metals only) | 1.212 | 1.494 | 1.597 | 1.741 | 1.776 | 1.786 | 1.630 | 1.428 | 1.222 | 0.971 | 0.700 | 0.465 | 600 | 1.786 |
+| `phi-high`: as default, work function at the high end of the cited range (metals only) | 1.045 | 1.262 | 1.358 | 1.492 | 1.531 | 1.560 | 1.363 | 1.208 | 1.058 | 0.831 | 0.651 | 0.377 | 600 | 1.560 |
+| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 1.786 | 2.212 | 2.510 | 2.853 | 3.001 | 2.937 | 2.789 | 2.570 | 2.026 | 1.631 | 1.163 | 0.824 | 400 | 3.001 |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 1.171 | 1.405 | 1.532 | 1.676 | 1.740 | 1.718 | 1.604 | 1.460 | 1.181 |  |  |  | 400; not run at 2000, 3000, 5000 eV | 1.740 |
+| `mermin`: Mermin (MELF), barrier on, vacuum-level cutoff | 1.169 |  | 1.550 |  | 1.710 |  | 1.629 |  | 1.225 |  | 0.632 |  | 400 | 1.710 |
 
-Not run for Cu: `penn-full` (full Penn, barrier on (mid work function), vacuum-level cutoff). The reason is given in the text below the tables.
+Not run for Cu: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The reason is given in the text below the tables.
 
-**Si**: not run (no optical energy-loss function is committed for Si; `docs/data-provenance.md`, optical data inventory).
+**Si**
+
+| Configuration | 100 | 150 | 200 | 300 | 400 | 600 | 800 | 1000 | 1500 | 2000 | 3000 | 5000 | E_max (eV) | δ_max |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `default`: single-pole Penn, barrier on (metals: mid work function; Si: electron affinity), vacuum-level cutoff | 0.773 | 0.810 | 0.796 | 0.769 | 0.633 | 0.531 | 0.449 | 0.363 | 0.278 | 0.197 | 0.134 | 0.085 | 150 | 0.810 |
+| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 2.145 | 2.632 | 2.745 | 2.532 | 2.291 | 1.950 | 1.641 | 1.285 | 0.973 | 0.665 | 0.486 | 0.347 | 200 | 2.745 |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 0.753 | 0.838 | 0.850 | 0.728 | 0.676 | 0.540 | 0.446 | 0.352 | 0.267 | 0.214 | 0.151 | 0.082 | 200 | 0.850 |
+| `mermin`: Mermin (MELF), barrier on, vacuum-level cutoff | 0.456 |  | 0.427 |  | 0.323 |  | 0.222 |  | 0.136 |  | 0.065 |  | 100 | 0.456 |
+
+Not run for Si: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The reason is given in the text below the tables.
+
+Not defined for Si: `phi-low`, `phi-high` (work-function ranges of the metals; the barrier of Si is its cited electron affinity).
 
 **Au**
 
 | Configuration | 100 | 150 | 200 | 300 | 400 | 600 | 800 | 1000 | 1500 | 2000 | 3000 | 5000 | E_max (eV) | δ_max |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| `default`: single-pole Penn, barrier on (mid work function), vacuum-level cutoff | 0.817 | 1.230 | 1.536 | 2.069 | 2.547 | 3.238 | 3.279 | 3.420 | 3.214 | 3.001 | 2.652 | 2.058 | 1000 | 3.420 |
-| `phi-low`: as default, work function at the low end of the cited range | 0.845 | 1.280 | 1.622 | 2.126 | 2.696 | 3.349 | 3.514 | 3.542 | 3.386 | 3.235 | 2.826 | 2.154 | 1000 | 3.542 |
-| `phi-high`: as default, work function at the high end of the cited range | 0.783 | 1.188 | 1.501 | 1.990 | 2.474 | 3.075 | 3.138 | 3.244 | 3.067 | 2.838 | 2.404 | 1.952 | 1000 | 3.244 |
-| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 2.163 | 3.314 | 4.280 | 5.855 | 7.297 | 9.650 | 10.543 | 10.899 | 10.685 | 10.399 | 9.076 | 6.946 | 1000 | 10.899 |
-| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 0.849 | 1.228 | 1.569 | 2.122 | 2.678 | 3.317 | 3.377 |  |  |  |  |  | incomplete: not run at 1000, 1500, 2000, 3000, 5000 eV | - |
-| `mermin`: Mermin (MELF), barrier on (mid work function), vacuum-level cutoff | 0.665 |  | 1.264 |  | 2.159 |  | 2.595 |  | 2.233 |  | 1.558 |  | 800 | 2.595 |
+| `default`: single-pole Penn, barrier on (metals: mid work function; Si: electron affinity), vacuum-level cutoff | 1.317 | 1.716 | 2.000 | 2.402 | 2.576 | 2.732 | 2.622 | 2.534 | 2.123 | 1.877 | 1.516 | 0.994 | 600 | 2.732 |
+| `phi-low`: as default, work function at the low end of the cited range (metals only) | 1.327 | 1.772 | 2.052 | 2.462 | 2.689 | 2.800 | 2.716 | 2.554 | 2.215 | 1.895 | 1.540 | 0.987 | 600 | 2.800 |
+| `phi-high`: as default, work function at the high end of the cited range (metals only) | 1.253 | 1.627 | 1.933 | 2.325 | 2.494 | 2.662 | 2.537 | 2.379 | 2.051 | 1.736 | 1.377 | 0.923 | 600 | 2.662 |
+| `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 1.959 | 2.685 | 3.354 | 3.977 | 4.377 | 4.625 | 4.526 | 4.256 | 3.809 | 3.311 | 2.667 | 1.774 | 600 | 4.625 |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 1.313 | 1.746 | 2.046 | 2.454 | 2.665 | 2.822 | 2.668 | 2.572 | 2.232 |  |  |  | 600; not run at 2000, 3000, 5000 eV | 2.822 |
+| `mermin`: Mermin (MELF), barrier on, vacuum-level cutoff | 1.158 |  | 1.713 |  | 2.200 |  | 2.038 |  | 1.564 |  | 0.936 |  | 400 | 2.200 |
 
-Not run for Au: `penn-full` (full Penn, barrier on (mid work function), vacuum-level cutoff). The reason is given in the text below the tables.
+Not run for Au: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The reason is given in the text below the tables.
 
 **Initial bounds** (default configuration; gated by `validation/experiments/se_yield.py --check`):
 
 | Material | Simulated E_max (eV) | Measured median E_max (eV) | Ratio | Within factor 2 | Simulated δ_max | Measured median δ_max | Deviation | Within 50 % |
 |---|---|---|---|---|---|---|---|---|
-| Al | 800 | 350 | 2.29 | **NO** | 7.612 | 1.406 | +441 % | **NO** |
-| Cu | 600 | 800 | 0.75 | yes | 1.812 | 1.276 | +42 % | yes |
-| Si | not run | 425 | - | - | not run | 1.07 | - | - |
-| Au | 1000 | 750 | 1.33 | yes | 3.420 | 1.468 | +133 % | **NO** |
+| Al | 600 | 350 | 1.71 | yes | 6.846 | 1.406 | +387 % | **NO** |
+| Cu | 600 | 800 | 0.75 | yes | 1.709 | 1.276 | +34 % | yes |
+| Si | 150 | 425 | 0.35 | **NO** | 0.810 | 1.074 | -25 % | yes |
+| Au | 600 | 750 | 0.80 | yes | 2.732 | 1.468 | +86 % | **NO** |
 <!-- validation:level3-se-yield:end -->
 
-**What the numbers show** (as of 2026-10-08; nothing was adjusted to these
-data):
+**What the numbers show** (as of 2026-10-09, on the DHFS elastic potential;
+nothing was adjusted to these data):
 
-- **Cu passes both initial bounds, Al fails both, Au passes the energy bound
-  and fails the yield bound.** The Au default curve peaks at δ_max 3.42
-  (1000 eV): E_max is 1.33 times the measured median (750 eV), inside the
-  factor-2 bound, but δ_max is 133 % above the measured median (1.468) and
-  2.2 times the larger of the two resolving sets (1.540). It is reported as
-  it stands and the bound is not loosened. Au has only two resolving sets,
-  which lie within 10 % of each other. The Cu default curve
-  peaks at δ_max 1.81 (600 eV), 42 % above the measured median and inside
-  the factor-2 energy bound. The Al default curve peaks at δ_max 7.6
-  (800 eV): more than three times the largest Al maximum in the compilation
-  (2.17) and more than ten times the smaller one (0.642). The failure is
-  reported as it stands and the bounds are not loosened. #173 tracks it.
-- **The model spread is large for Al and small for Cu.** With the Mermin
-  model in place of the single-pole Penn default, everything else equal, the
-  Al maximum drops to 1.29 (400 eV), inside the measured range, the Cu
-  maximum moves to 1.94 (400 eV), within 7 % of the default, and the Au
-  maximum drops to 2.60 (800 eV), 24 % below the default but still 77 %
-  above the measured median. The single-pole
-  default and Mermin differ by a factor of about 6 for Al at the maximum.
-  This places the Al overestimate in the inelastic model at low energy as
-  configured here (including the inelastic Fermi energy of 0 eV, see the
-  inputs), but these runs do not identify its cause, and Mermin agreeing
+- **Cu passes both initial bounds, Al fails the yield bound, Au passes the
+  energy bound and fails the yield bound, and Si, new here, passes the yield
+  bound and fails the energy bound.**
+  - *Cu*: the default curve peaks at δ_max 1.71 (600 eV), 34 % above the
+    measured median (1.276), E_max 0.75 times the measured median (800 eV).
+  - *Al*: the default curve peaks at δ_max 6.85 (600 eV): 4.9 times the
+    measured median (1.406), 3.2 times the largest Al maximum in the
+    compilation (2.17) and more than ten times the smaller one (0.642). The
+    energy bound is now met (600 / 350 = 1.71; it was 2.29 and failed on the
+    stand-in potential); the yield bound still fails. #173 traced its cause
+    (below).
+  - *Au*: δ_max 2.73 (600 eV): E_max is 0.80 times the measured median
+    (750 eV), inside the factor-2 bound, but δ_max is 86 % above the measured
+    median (1.468), against 133 % before, and 1.8 times the larger of the
+    two resolving sets (1.540). Au has only two resolving sets, which lie
+    within 10 % of each other.
+  - *Si*: the default curve is nearly flat, 0.77 to 0.81 from 100 to 300 eV
+    with its maximum δ_max 0.810 at 150 eV, then falls to 0.085 at 5 keV.
+    δ_max is 25 % below the measured median (1.074), inside the bound; E_max
+    is 0.35 times the measured median (425 eV), outside the factor-2 bound
+    (it would need to lie at 213 eV or above). The two resolving measured
+    sets peak at 300 and 550 eV. Two caveats are inputs and not findings:
+    the Si ELF ends at 199 eV, so the K shell (about 1.84 keV) and the
+    L-shell tail above 199 eV are absent from every Si run and the inelastic
+    cross section at the energies above a few hundred eV is understated; and
+    the valence band width (12.36 eV) is a computed value
+    ([`data-provenance.md`](data-provenance.md)). Neither was varied to
+    improve the comparison, and the failure is reported as it stands.
+  - The failures are reported as they stand and no bound is loosened.
+- **The model spread is large for Al, Au and Si and small for Cu.** With the
+  Mermin model in place of the single-pole Penn default, everything else
+  equal, the Al maximum drops to 1.26 (200 eV), inside the measured range
+  and a factor of 5.4 below the default; the Cu maximum is 1.71 (400 eV),
+  equal to the default's; the Au maximum drops to 2.20 (400 eV), 19 % below
+  the default and still 50 % above the measured median; and the Si value
+  at the lowest energy (100 eV) is 0.456, 41 % below the default's 0.773 there, and
+  falling monotonically (0.456, 0.427, 0.323, ... 0.065 at 3 keV), so the Si
+  Mermin curve does not resolve a maximum above 100 eV. Mermin agreeing
   better for Al is not evidence that it is right: Al has only two resolving
-  sets, 3.4 times apart.
+  sets, 3.4 times apart. The Si Mermin fit accepted the 0.5 to 199 eV ELF
+  without change.
+- **What DHFS changed** (against the Thomas-Fermi Yukawa stand-in runs this
+  rerun replaces; same seed, histories, band inputs and inelastic models;
+  only the elastic potential differs: DHFS with the Furness-McCarthy
+  exchange, correlation-polarization off, see above). Peaks are over the
+  points both runs have:
+
+  | Row | Stand-in: E_max (eV), δ_max | DHFS: E_max (eV), δ_max | Change in δ_max |
+  |---|---|---|---|
+  | Al `default` | 800, 7.612 | 600, 6.846 | -10 % |
+  | Al `barrier-off` | 1000, 20.54 | 600, 13.67 | -33 % |
+  | Al `mermin` | 400, 1.288 | 200, 1.258 | -2 % (at 400 eV: 1.288 to 1.132, -12 %) |
+  | Cu `default` | 600, 1.812 | 600, 1.709 | -6 % |
+  | Cu `barrier-off` | 600, 3.838 | 400, 3.001 | -22 % |
+  | Cu `mermin` | 400, 1.939 | 400, 1.710 | -12 % |
+  | Au `default` | 1000, 3.420 | 600, 2.732 | -20 % |
+  | Au `barrier-off` | 1000, 10.90 | 600, 4.625 | -58 % |
+  | Au `mermin` | 800, 2.595 | 400, 2.200 | -15 % (at 800 eV: 2.595 to 2.038, -21 %) |
+
+  The `phi-low`, `phi-high` and `cutoff-band-bottom` rows move the same way
+  and by similar amounts (Al `phi-low` 7.906 to 6.987, Cu `phi-low` 1.966 to
+  1.786, Au `phi-low` 3.543 to 2.801); the tables above give every point.
+  δ_max falls for every material and every row; the energy of the maximum
+  falls for Al, Cu (barrier off) and Au. The DHFS potential also raises the
+  backscatter coefficient η of Au at 800 eV from 0.393 to 0.578 (default),
+  and leaves those of Al (0.251 to 0.253) and Cu (0.473 to 0.481) about
+  where they were. The effect on the bounds: the Al energy bound goes from
+  failing (ratio 2.29) to passing (1.71); the Au yield deviation falls from
+  +133 % to +86 % and still fails; Al's yield deviation (+441 % to +387 %) and
+  Cu's (+42 % to +34 %) move without changing the verdict. The mechanism (which part of the elastic cross section
+  or angular distribution moves δ) was not isolated by a separate test.
+
+- **Cause of the Al and Au overestimate of the default (#173).** (The
+  measurements quoted in this item were made on the Thomas-Fermi Yukawa
+  stand-in and were not repeated on DHFS; the DHFS tables above show the same
+  excess, smaller for Au.) It is the
+  single-pole approximation's inelastic mean free path at low energy, which
+  is the published behaviour of that approximation. Shinotsuka et al.,
+  Surf. Interface Anal. 49, 238 (2017) (open at PMC5524379, section
+  "Calculated IMFPs from the four algorithms" and the Summary), computed
+  IMFPs for liquid water. They report that the single-pole and full Penn
+  IMFPs agree above 50 eV and that below 30 eV the single-pole IMFP grows
+  larger as the energy falls, because the single pole neglects
+  single-electron excitations. They call their values below 50 eV less
+  reliable, and they computed no metal. For the same ELFs, this code's single-pole IMFP is 9.8 to
+  24.6 nm for Al at 12 to 19 eV above the band bottom, where its full Penn
+  and Mermin models give 0.72 to 1.11 nm; for Au it is 1.5 to 1.8 times the
+  full Penn value at 12 to 50 eV; above 100 eV the single pole and full
+  Penn agree to about 1 % (table in the module docs of
+  `electron::inelastic::penn`, "Low energies"). The secondaries that make
+  δ live at those energies. Measured with
+  `lindhard-cli/examples/inelastic_low_energy.rs` on the default inputs
+  (200 histories, seed 1, so about ±0.1 to 0.2 in δ):
+  - *Al*: replacing only the inelastic-table rows below 30 eV (band-bottom
+    energy) with Mermin rows takes δ at 400 eV from 6.89 to 1.41, the full
+    Mermin value (1.39 in the same run, 1.29 committed); the reverse,
+    Mermin with single-pole rows below 30 eV, gives 6.45. The cause is
+    therefore entirely below 30 eV.
+  - *Au*: δ at 800 eV is 3.43 with the single pole, 3.01, 2.70 and 2.77
+    with Mermin rows below 30, 50 and 100 eV, and 2.62 with Mermin rows
+    everywhere. Most of the single-pole excess over Mermin (0.81) sits below
+    50 eV, the same cause as Al, smaller because Au's ELF has weight at low
+    energy. The rest of the Au excess over the measured median (Mermin
+    still +77 %) is **not** from the single-pole approximation and is not
+    identified here; it is shared by the inelastic models. #242 tested the
+    candidates one at a time ("The Au and Cu excess of the Mermin model",
+    below): none explains it.
+  - *Cu* is consistent with this: its single-pole IMFP stays within a factor of about
+    2 of full Penn at those energies and close to Mermin's.
+  - *Not the cause: the energy reference.* The tables are built with the
+    model's Fermi energy 0 and read at the band-bottom energy, so their
+    losses reach `E` while the transport clamps them at `E - E_F`; 78 to
+    82 % of the Al events 5 to 20 eV above the Fermi level hit the clamp.
+    Rebuilding the table in the consistent convention (cstool's: rows at
+    `E - E_F` with the band's Fermi energy) removes every clamped event and
+    changes δ by a few per cent. With 1000 histories, the single pole goes
+    from 7.61 to 8.17 for Al and from 3.23 to 3.37 for Au at 800 eV, and
+    Mermin from 1.34 to 1.26 for Al at 400 eV. The single-pole excess over
+    Mermin is the same in both conventions. Setting `fermi_energy_ev` to the
+    band value raises Al δ (to 7.63 and 9.01 at 400 and 800 eV), because it
+    counts `E_F` twice. The convention is documented, with these numbers, in
+    the module docs of `electron::transport`, "Energy reference of the
+    inelastic table", and pinned by tests. Building the tables in the
+    consistent convention is #241.
+
+  No model, default or bound was changed for #173: the single-pole default
+  still fails the Al and Au bounds, and the tables above are re-runs of the
+  same code.
 - **#150 reports a δ excess against Nebula for Si and Cu as well.** In
   "Electron oracles" (section 2), lindhard's δ is 2.7 to 7.1 times
   Nebula's at every energy and in both elements (`e_1keV_si` and
-  `e_5keV_si` among them), with the same default single-pole model, the
-  same escape barrier and the same secondary model on both sides. That is context for #173; the two sections
-  together do not identify a cause, and no cause is inferred here.
-- **Full Penn is missing** from the side-by-side. One Al run at 200 eV, the
-  smallest table, had not finished building its inelastic table after
-  45 minutes on two threads (2026-10-08) and was stopped. The configuration
-  is defined in `se_yield.py` (`penn-full`, 200 and 800 eV) and can be added
-  on a machine with the time for it.
+  `e_5keV_si` among them), with the same escape barrier and the same
+  secondary model on both sides; lindhard ran the single-pole model and
+  Nebula full Penn (section 2). The cause found in #173 is consistent with
+  part of that gap, but the comparison does not isolate it: the elastic
+  model and Nebula's quasi-elastic channel below 100 eV differ as well, and
+  lindhard's Mermin δ is still above the measured one for Cu and Au (#242,
+  below, where replacing the Mott rows below 100 eV by the acoustic-phonon
+  mean free path of Verduin (2017) for Au raises δ by 31 %; that run has
+  no phonon energy loss).
+- **Full Penn is missing** from the side-by-side, for every material. One Al
+  run at 200 eV, the smallest table, had not finished building its inelastic
+  table after 45 minutes on two threads (2026-10-08) and was stopped. The
+  configuration is defined in `se_yield.py` (`penn-full`, 200 and 800 eV);
+  the rows wait on #256.
 - **The barrier matters more than its parameters.** Removing the barrier
-  (transparent boundary) multiplies δ at the maximum by 2.7 (Al), 2.1 (Cu)
-  and 3.2 (Au). Moving the work function across the range of its cited table
-  changes δ_max by about ±4 % (Al), ±9 to 10 % (Cu) and ±4 to 5 % (Au).
+  (transparent boundary) multiplies δ at the maximum by 2.0 (Al), 1.8 (Cu),
+  1.7 (Au) and 3.4 (Si). Moving the work function across the range of its
+  cited table changes δ_max by +2 / -4 % (Al, low / high), +5 / -9 % (Cu)
+  and +3 / -3 % (Au). (Si has one cited affinity, no range.)
 - **The cutoff reference matters little.** Following electrons to 1 eV
-  above the Fermi level instead of 1 eV above the vacuum level raises the Al
-  maximum by 6 % (8.05, still at 800 eV) and the Cu maximum by 3 % (1.86,
-  at 400 instead of 600 eV, a shift within the noise of a flat top); for Au
-  the values at 100 to 800 eV are within 5 % of the default (3.38 against 3.28
-  at 800 eV). The row is complete for Al; for Cu and Au it was run from 100
-  to 800 eV only, so no Au maximum is reported for it, because
-  each point costs minutes to over an hour on two threads (electrons trapped
-  under the barrier are followed until they drop below the cutoff).
-- **Si** has measured sets and reference statistics but no simulation (no
-  optical ELF; see the inputs).
+  above the Fermi level instead of 1 eV above the vacuum level changes δ at
+  the points run by -6 to +14 % for Si, +4 to +7 % for Al (to 400 eV only),
+  +0.5 to +9 % for Cu (to 1500 eV) and -0.2 to +5 % for Au (to 1500 eV), with
+  no maximum moved by more than one grid step. The row is incomplete for Al
+  (not run above 400 eV) and for Cu and Au (not run above 1500 eV), because
+  each point costs tens of minutes on two threads (electrons trapped under
+  the barrier are followed until they drop below the cutoff).
+- **Si** is now simulated (default, `barrier-off`, `cutoff-band-bottom` and
+  `mermin` rows); its inputs, the 199 eV end of its ELF and the provenance of
+  its valence band width are above.
 - The statistical error is small next to these differences: the Poisson
   floor √N_slow/N is at most 4 % of δ (Al Mermin at 3 keV) and under 2 %
   near every maximum, though it understates the true error (cascade
@@ -1699,11 +2083,280 @@ themselves by up to a factor of 3.4 in δ_max (Al; surface condition,
 cutoff definition, incidence not stated), so even a curve inside the bounds
 is checked only coarsely.
 
-**Follow-up.** #173 tracks the Al overestimate of the default model. The
-open gaps are full Penn (cost; table reuse is tracked in #168), Si
-(no valence ELF; #125), the cited barrier
-parameters (#115), and a δ(E) oracle run for Al, Cu and Au, 100 eV to 5 keV
-(the #150 harness exists; none was run in this pass).
+**Follow-up.** #173 found the cause of the Al overestimate and of most of
+the Au single-pole excess (above); whether the default inelastic model
+should change, and whether the Al, Au and Si bound failures are accepted, are
+operator decisions under #149, whose bounds gate the default. None of the
+bounds was loosened and no default or constant was changed for the DHFS rerun
+or the Si runs. The open gaps are the Au and Cu excess that Mermin shares
+(#242 tested its candidates, below, and none explains it; #301 added the
+binding-energy row, and what could still not be tested is split into
+#312 to #315), the
+energy-reference convention of the inelastic table (documented, not changed;
+#241), full Penn (cost; table reuse is tracked in #168; the rows wait on
+#256), the incomplete high-energy `cutoff-band-bottom` points, the
+correlation-polarization correction at the low table energies, the cited
+barrier parameters for Al, Cu and Au (#115 found none that can be opened),
+and a δ(E) oracle run for Al, Cu, Si and Au, 100 eV to 5 keV (the #150
+harness exists; none was run in this pass, and no oracle is installed on the
+dispatch hosts).
+
+**The Au and Cu excess of the Mermin model, one change at a time (#242).**
+With the Mermin model the simulated δ is still above the measured median
+for Au and Cu, and #173 showed that this part is not the single-pole
+approximation. #242 tested the three candidates named there. Every row
+below is the `mermin` configuration at 800 eV with one thing changed, run
+by `validation/experiments/se_yield_candidates.py` (ten seeds of 2000
+primaries per row; the error is the batch-means standard error over the
+seeds, which includes the cascade correlation). Seed 1 of the baseline
+reproduces the 800 eV entries of the `mermin` rows above exactly (Au
+2.0375, Cu 1.6295). The `binding-azzolini` row is item 5 of #301; for it the
+whole table was run again on one build, and every #242 row reproduced its
+committed δ and η seed by seed, so only the build label and the new row
+changed. The `au-elf-table6` row is item 3 of #301 (#314): it was run on
+the build named in the table; on that build the `baseline` row was run
+again first (all ten seeds, Au and Cu) and reproduced every committed δ and
+η exactly, and the other rows were not rerun. For item 4 of #301 (#315:
+the correlation-polarization and muffin-tin rows, both recorded as gaps,
+below) the `baseline` row was run again (2026-10-10, build 80faeb9, fresh
+table cache, x86-64 Linux, rustc 1.97.1, glibc 2.39) into a scratch
+results file: 19 of the 20 runs reproduced their committed δ and η exactly,
+and Cu seed 2 gave δ 1.6125 (3225 slow electrons) against the committed
+1.614 (3228), η unchanged. The #242 build 8a47748, rebuilt on the same host,
+gives 1.6125 as well, so the difference is not a code change since #242; it
+comes with the host or toolchain (the cross-platform caveat of
+[`architecture.md`](architecture.md), "Reproducibility"), and its cause is
+not located. No row was added, so the committed results were not replaced.
+The runs predate the band-bottom inelastic tables of #241 (#289,
+not merged) and the Mermin fit changes of #306 and #311; #287 reruns the
+yield tables with the former.
+`se_yield_candidates.py --check` checks that the block below is the
+script's output for the committed results.
+
+<!-- validation:level3-se-yield-candidates:begin -->
+**One change at a time, 800 eV** (`lindhard 0.0.1 (efad84e)`; baseline: the `mermin` configuration; 10 seeds (1 to 10) of 2000 primaries per row; δ ± the standard error of the mean over the seeds; the change is the mean of the per-seed differences from the baseline ± its standard error, and in per cent of the baseline):
+
+| Row | Candidate | What is changed | Au δ | Au change | Au η | Cu δ | Cu change | Cu η |
+|---|---|---|---|---|---|---|---|---|
+| `baseline` | - | nothing: the `mermin` configuration of the δ(E) tables | 2.088 ± 0.020 | - | 0.539 ± 0.005 | 1.674 ± 0.019 | - | 0.534 ± 0.005 |
+| `elastic-stand-in` | (a) elastic scattering | Thomas-Fermi Yukawa stand-in potential instead of DHFS (exchange on in both) | 2.496 ± 0.023 | +0.408 ± 0.024 (+20 %) | 0.362 ± 0.004 | 2.202 ± 0.020 | +0.528 ± 0.019 (+32 %) | 0.527 ± 0.005 |
+| `elastic-no-exchange` | (a) elastic scattering | Furness-McCarthy exchange correction off (DHFS potential in both) | 2.103 ± 0.019 | +0.016 ± 0.013 (+1 %) | 0.539 ± 0.007 | 2.061 ± 0.022 | +0.387 ± 0.014 (+23 %) | 0.525 ± 0.005 |
+| `acoustic-phonon` | (b) quasi-elastic scattering | below 100 eV the Mott rows are replaced by the acoustic-phonon mean free path and angle of Verduin (2017), Table 3.2, mixed linearly up to 200 eV; no energy loss | 2.742 ± 0.020 | +0.654 ± 0.016 (+31 %) | 0.526 ± 0.005 | not testable | - | - |
+| `phi-low` | (c) band | work function at the low end of its cited range | 2.183 ± 0.019 | +0.095 ± 0.011 (+5 %) | 0.540 ± 0.005 | 1.806 ± 0.019 | +0.132 ± 0.012 (+8 %) | 0.541 ± 0.003 |
+| `phi-high` | (c) band | work function at the high end of its cited range | 2.007 ± 0.020 | -0.080 ± 0.019 (-4 %) | 0.537 ± 0.006 | 1.560 ± 0.014 | -0.114 ± 0.013 (-7 %) | 0.533 ± 0.003 |
+| `fermi-tpp2011` | (c) band | Fermi energy of TPP 2011, Table 1, instead of the free-electron value (one valence electron) | 2.007 ± 0.013 | -0.081 ± 0.014 (-4 %) | 0.533 ± 0.005 | 1.679 ± 0.017 | +0.004 ± 0.011 (+0 %) | 0.530 ± 0.003 |
+| `binding-azzolini` | (d) secondary binding (#301) | the electron liberated by a valence loss W is bound B below the Fermi level instead of at it (B: Azzolini et al. 2018, Table I, Au 9.226 eV, Cu 7.726 eV); a loss W <= B frees none | 0.648 ± 0.006 | -1.440 ± 0.018 (-69 %) | 0.486 ± 0.005 | 0.483 ± 0.006 | -1.191 ± 0.017 (-71 %) | 0.501 ± 0.003 |
+| `au-elf-table6` | (e) Au ELF (#301) | Au ELF of the report's Table 6 (from reflectance) from 1.5 to 350 eV, Table 5 outside, instead of Table 5 throughout (no second Cu ELF) | 1.478 ± 0.016 | -0.610 ± 0.022 (-29 %) | 0.535 ± 0.003 | not testable | - | - |
+| `barrier-off` | context | transparent boundary: no barrier at all (not a candidate; the largest effect the barrier can have) | 3.980 ± 0.032 | +1.892 ± 0.021 (+91 %) | 0.663 ± 0.005 | 2.825 ± 0.026 | +1.151 ± 0.026 (+69 %) | 0.638 ± 0.004 |
+| `elastic-pre-149` | context | stand-in potential and exchange off together: the elastic model of the δ(E) runs before the DHFS rerun (two changes, so not a candidate row) | 2.632 ± 0.009 | +0.544 ± 0.021 (+26 %) | 0.354 ± 0.004 | 1.859 ± 0.011 | +0.184 ± 0.019 (+11 %) | 0.522 ± 0.005 |
+
+**Against the measurements** (measured median δ_max of the reference table above; the baseline is the simulated δ at 800 eV, not the maximum of its curve):
+
+| Material | Measured median δ_max [min, max] | Baseline δ (800 eV) | Excess | Largest reduction by a candidate row | Excess with it |
+|---|---|---|---|---|---|
+| Au | 1.468 [1.395, 1.540] | 2.088 | +42 % | `binding-azzolini`: -1.440 | -56 % |
+| Cu | 1.276 [1.034, 1.573] | 1.674 | +31 % | `binding-azzolini`: -1.191 | -62 % |
+
+Control of the `acoustic-phonon` row (Au, seed 1): the example with the input's own tables gives δ 2.0375; `lindhard run` gives 2.0375. Elastic collisions below 100 eV per primary: 1304 with the Mott rows, 203 with the acoustic-phonon rows.
+<!-- validation:level3-se-yield-candidates:end -->
+
+**Result (as of 2026-10-09): no tested candidate is shown to explain the
+excess.** At
+800 eV the Mermin δ is 42 % (Au) and 31 % (Cu) above the measured median
+δ_max. The largest reduction that any #242 row gives is 4 % for Au and
+7 % for Cu. The binding row of #301 lowers δ by 69 % and 71 %, overshooting
+to 56 % and 62 % below the median, so it does not explain the excess
+either; it shows that the binding of the secondary is the largest lever
+tested. The Au ELF row of #301 (`au-elf-table6`: the report's second Au
+version, Table 6, from 1.5 to 350 eV) lowers Au δ by 29 % (-0.610 ± 0.022),
+to 1.478 ± 0.016, within 1 % of the measured median δ_max; that is the
+outcome of one run with one input changed, compared with a maximum taken
+over the measured curves, not a fit, and it is not a statement that the
+committed ELF is the cause (below); Cu has no second ELF and was not run.
+Nothing was adjusted, no default was changed and no bound was loosened;
+Cu's `default` curve passes the #149 bounds as before, since no physics of
+the δ(E) tables changed (the default Au ELF is still Table 5).
+
+- **(a) Elastic scattering: tested, already in the baseline, and not
+  enough.** The DHFS rerun of #149 changed two things at once, because the
+  earlier runs had the exchange correction off (the `[electron.elastic]`
+  default). Separately: going back to the stand-in potential raises δ by
+  20 % (Au) and 32 % (Cu); turning the exchange correction off changes Au
+  by +1 % (1.2 standard errors) and raises Cu by 23 %. The two do not add:
+  both together (`elastic-pre-149`, whose seed 1 reproduces the earlier
+  committed values 2.595 and 1.867 exactly) give +26 % for Au and only
+  +11 % for Cu. So the baseline already contains what the DHFS potential
+  and the exchange correction do, and the excess above is what is left.
+  Not tested: the correlation-polarization correction, which is off (no
+  cited cutoff parameter below 50 eV), and a muffin-tin potential
+  ([`muffin-tin-deferral.md`](muffin-tin-deferral.md)). #315 (item 4 of
+  #301) looked again and recorded both as gaps, with every source tried, in
+  [`data-provenance.md`](data-provenance.md): the Au and Cu polarizabilities
+  are cited, but no opened source gives the cutoff `b_pol²` at or below
+  50 eV, where the δ tables start (5 eV); and no opened source defines the
+  muffin-tin truncation and offset. Neither row was run, so nothing here
+  says how far either would move δ.
+- **(b) Quasi-elastic (acoustic-phonon) scattering: tested for Au, and it
+  raises δ.** Verduin (2017), Section 3.4, replaces the Mott cross section
+  below 100 eV by an acoustic-phonon mean free path and angular
+  distribution, and mixes the two up to 200 eV; its Table 3.2 (p. 96)
+  prints the parameters of that mean free path for Al, Si, Au and SiO2.
+  `lindhard-cli/examples/acoustic_phonon_elastic.rs` builds that elastic
+  table for Au (Eqs. 3.126 and 3.130; the reading of the 100 to 200 eV
+  interpolation is stated in its module docs) and runs the same transport.
+  δ rises by 0.654 ± 0.016 (+31 %), to 87 % above the measured median.
+  With the acoustic-phonon rows (mean free path 10.6 Å at 20 eV) there are
+  203 elastic collisions below 100 eV per primary; with the Mott rows
+  there are 1304. The sign is the one the thesis reports for Si when it
+  scales the phonon cross section (p. 159: doubled, "the corresponding BSY
+  increases, whereas the SEY decreases"; the closing sentence of that
+  paragraph says the opposite, so the thesis is not relied on for it).
+  What this run is not: it has **no energy loss** (the thesis evaluates the
+  loss per event, Eq. 3.116, for Si only, 12.3 meV, and prints no
+  dispersion coefficients for Au), and it is a diagnostic table, not a
+  library model. **Cu is not testable**: Table 3.2 has no Cu row and the
+  thesis prints none of the inputs of its Eq. 3.135 for Cu
+  ([`data-provenance.md`](data-provenance.md)).
+- **(c) Band and ELF: the published ranges move δ by a few per cent.** The
+  work function across its cited range changes δ by +5 / -4 % (Au) and
+  +8 / -7 % (Cu). Replacing the free-electron Fermi energy (Au 5.53 eV,
+  Cu 7.04 eV) by the value TPP 2011 print in their Table 1 (Au 9.0 eV,
+  Cu 8.7 eV; they do not give its source, so it is a second published
+  value and not adopted) changes Au by -4 % and Cu by 0 %. The valence
+  electron count was not varied on its own: no published count other than
+  one was found for the barrier of Cu or Au (TPP's N_v = 11 is the count
+  behind their plasmon energy). No barrier at all (`barrier-off`, context
+  only) raises δ by 91 % and 69 %.
+  - *Au ELF: one second ELF tested (#314).* The committed Au ELF is
+    Table 5 of Hagemann, Gudat and Kunz (1975). The same report gives a
+    second Au version, Table 6, from reflectance, for 1.5 to 350 eV only,
+    which it says "reproduces the energy-loss-spectra more closely", while
+    Table 5 is the one with 79 effective electrons (p. 18). The
+    `au-elf-table6` row swaps only the Au ELF for
+    `au_elf_hagemann1975_t6.toml` (Table 6 from 1.5 to 350 eV, Table 5
+    outside, joined by lindhard without smoothing; data and seams in
+    [`data-provenance.md`](data-provenance.md)). Au δ falls from
+    2.088 ± 0.020 to 1.478 ± 0.016 (paired change -0.610 ± 0.022, -29 %)
+    and η changes by less than its error (0.539 to 0.535). What this does
+    and does not say: the run changes the whole Table 6 span at once, and
+    that ELF is lower than Table 5 over most of it (N_eff with power-law
+    segments 69.5 instead of 82.6, the f-sum check failing by 12 %, pinned
+    in `optical_sumrule.rs`), so it does not identify which energy losses
+    move δ, nor show that Table 6 is the better Au ELF; the two Au tables
+    differ in how the authors joined reflectance and transmission between
+    12 and 40 eV, which they call arbitrary (pp. 17-18). The runs predate
+    #241 (PR #289, not merged), as above. Of the other two candidates,
+    Palik's handbook is excluded under `CONTRIBUTING.md` "Data" (not
+    opened, nothing transcribed) and Werner et al. (2009) could not be
+    opened (verdict rows in [`data-provenance.md`](data-provenance.md)).
+    There is a further published reason to suspect the committed ELF,
+    which is not a run and attributes nothing. TPP 2011 did
+    not use that data set for Au. Their Table 2 (manuscript p. 34) gives
+    the Au optical data as Palik's handbook (their Ref. 23) from 0.1 to
+    9919 eV and Henke et al. (their Ref. 22) above 10 044 eV, and p. 7
+    says: "we have chosen a set of optical data from Palik [23] for gold
+    since this data set gave an ELF in better agreement with transmission
+    electron energy-loss experiments [36] than the data set from Hagemann
+    et al. [21] that we used previously" (references resolved in
+    [`data-provenance.md`](data-provenance.md)). They do not say at which
+    energy losses the two ELFs differ, or by how much. Neither Palik's
+    handbook nor those energy-loss measurements were opened; the second Au
+    ELF that was run is the report's own Table 6, not Palik's.
+
+    The Mermin IMFP of the runs (model Fermi energy 0) against TPP 2011,
+    Table 4 (manuscript pp. 41 and 47; their energies are above the Fermi
+    level), measured with the example's `imfp:` mode. **The Au TPP column
+    was computed from a different optical data set (Palik) than the two
+    Au columns beside it (the committed Hagemann ELF)**, so the Au
+    differences mix the ELF with the model. The Cu TPP column uses the
+    same Hagemann measurement as the committed Cu ELF from 1 to 95 eV
+    (their Table 2, p. 33).
+
+    | E (eV) | Au TPP, Palik ELF (Å) | Au Mermin, Hagemann ELF (Å) | Au single-pole, Hagemann ELF (Å) | Cu TPP (Å) | Cu Mermin (Å) | Cu single-pole (Å) |
+    |---|---|---|---|---|---|---|
+    | 54.6 | 4.95 | 6.00 (+21 %) | 9.61 (+94 %) | 4.94 | 6.97 (+41 %) | 5.19 (+5 %) |
+    | 99.5 | 4.34 | 4.70 (+8 %) | 5.30 (+22 %) | 5.00 | 6.28 (+26 %) | 5.06 (+1 %) |
+    | 200.3 | 5.07 | 4.83 (-5 %) | 4.95 (-2 %) | 6.29 | 7.43 (+18 %) | 6.28 (-0 %) |
+    | 492.7 | 8.29 | 7.78 (-6 %) | 7.93 (-4 %) | 10.3 | 11.81 (+15 %) | 10.02 (-3 %) |
+    | 992.3 | 13.4 | 12.89 (-4 %) | 12.79 (-5 %) | 16.6 | 19.21 (+16 %) | 16.16 (-3 %) |
+
+    The 20 Mermin and single-pole values are hand-entered: they are not
+    in `se_yield_candidates_results.json`, `se_yield_candidates.py --check`
+    does not cover them, and the inputs and the build that produced them
+    were not recorded. They were not re-derived when this note was added
+    (2026-10-09). The mode is `cargo run --release -p lindhard-cli
+    --example acoustic_phonon_elastic -- INPUT imfp:54.6,99.5,200.3,492.7,992.3`
+    on an electron input of the material with the inelastic model named
+    in the column.
+
+    With the model Fermi energy set to TPP's the Mermin values change by
+    at most 2 %. For Au the Mermin IMFP is within 8 % of TPP from 99.5 eV
+    up and 21 % longer at 54.6 eV. Since the two Au ELFs differ, that
+    agreement is not a test of the committed Au ELF at any energy, and
+    TPP tabulate nothing below 54.6 eV, which is where the secondaries
+    are.
+    For Cu the Mermin IMFP is 15 to 41 % longer than TPP's and 18 to 34 %
+    longer than the single-pole model's on the same ELF. #300 traced this to the default
+    3-oscillator fit, which carries 57 % of the f-sum and 67 % of the
+    `P_eff` of the Cu table ("Cu: the Mermin IMFP and the default
+    oscillator fit", under level 1). Whether that moves the Cu yield, and
+    which way, was not tested (#306).
+  - *The binding energy of the secondary*: tested under (d).
+- **(d) The binding energy of the secondary (#301, item 5): tested, and it
+  lowers δ far past the measurements.** By default a valence loss `W` in a
+  metal gives the secondary `E_F + W` (binding 0, the Fermi level;
+  `electron::secondary`). Azzolini et al., arXiv:1809.00859v1 (2018), p. 6,
+  instead emit a secondary of `W - B` only when `W > B`, with `B` "the
+  first ionization energy" of their Table I, p. 7 (Au 9.226 eV,
+  Cu 7.726 eV); their energies inside the solid are counted from the Fermi
+  level (p. 3), so this is binding `B` below the Fermi level. The row turns
+  on that rule through the new metal-band key `valence_binding_ev`
+  (`BandStructure::with_valence_binding_ev`; off by default, and the
+  default runs are bit-identical). δ falls by 69 % (Au) and 71 % (Cu), to
+  56 % and 62 % *below* the measured median; η falls by 10 % (Au) and 6 %
+  (Cu). The change is many times the excess and in the right direction, so
+  δ is very sensitive to where the liberated electron starts; but this `B`
+  does not reproduce the measurements either, and choosing a smaller one
+  to match them would be a fit, which is not done. In the Kieft-Bosch
+  model `B` also enters the direction of the secondary and the deflection
+  of the primary (Verduin Eqs. 3.105-3.111); this row changes both with
+  the energy and does not separate them. Azzolini et al. chose their work
+  functions together with this `B` and their own ELF (p. 10, quoted
+  below), so their agreement with experiment is not a test of `B` alone.
+  Inner-shell channels are #273 and are off in these runs.
+- **What the literature says, and does not.** No source was found that
+  shows this excess to be the published behaviour of these models. Three
+  that were opened bear on it. TPP 2011, p. 7, replaced the Hagemann et
+  al. optical data for Au, the data set of the committed Au ELF, by
+  Palik's because the ELF agreed better with transmission energy-loss
+  measurements (quoted under (c)); they say nothing about secondary
+  yields, and no such statement is made for Cu, whose excess is of
+  similar size. Verduin (2017), p. 155, says the simulator
+  of Kieft and Bosch applies an energy-dependent filter at interfaces that
+  removes slow electrons, that "that filter is necessary for SEYs to match
+  with experiment", and that the thesis's own models no longer need it;
+  the yield curves the thesis shows are for Si and PMMA (its Figs. 4.8,
+  4.9 and 6.1 to 6.3), no metal. Azzolini et al.,
+  arXiv:1809.00859v1 (2018; doi:10.1088/1361-648x/aaf363), a Monte Carlo
+  with Mott elastic and dielectric inelastic scattering for Cu, Ag and Au,
+  report agreement with their measured yields after choosing the work
+  function for the best agreement (p. 10: Cu 5.4 eV against a measured
+  4.6 eV, Au 4.7 eV against 5.3 eV). None of the three is evidence about
+  the cause here.
+
+The excess is therefore **not attributed**. Ruled out as its explanation,
+by the runs above: the stand-in elastic potential and the missing exchange
+correction (both already corrected in the baseline), the absence of the
+acoustic-phonon replacement of Verduin (2017) for Au in the elastic form
+tested (it raises δ), the work function within its cited range, and the
+Fermi energy between the free-electron value and TPP's. Tested and not the
+explanation in the published form: the secondary's binding energy of
+Azzolini et al. (it overshoots; (d)). Left untested, with the reason for
+each, one issue per item from #301: acoustic-phonon scattering for Cu
+(#312), the phonon energy loss (#313), a second Au ELF (#314), and the
+elastic corrections below 50 eV (#315). The measurements themselves are a weak anchor
+(two resolving sets for Au, three for Cu, surface condition and incidence
+not stated; above).
 
 ## Reporting
 

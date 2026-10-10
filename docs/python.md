@@ -12,7 +12,7 @@ are in `lindhard-py/python/lindhard/`.
 |---|---|
 | `Element`, `Material` | Inline material: elements with fractions and optional `e_d_ev` / `e_b_ev` / `e_s_ev`; `density_g_cm3` (required for compounds) |
 | `Layer`, `Target` | Finite layers front to back (a material name, element symbol or `Material`, and `thickness_nm`) and an optional semi-infinite substrate |
-| `Beam` | `ion`, `energy_ev`, `mass_amu`, `tilt_deg`, `azimuth_deg` |
+| `Beam` | `ion`, `energy_ev`, `mass_amu`, `tilt_deg`, `azimuth_deg`, and optionally `divergence_model` (`"gaussian"` or `"uniform-cone"`) with `divergence_deg` (the `[beam.divergence]` table) |
 | `Physics` | The `[physics]` table: models (as the TOML names), cutoffs, energy overrides |
 | `Tally` | The `[tally]` table (CLI defaults) |
 | `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()` |
@@ -29,6 +29,12 @@ and `summary()` are computed with the same expressions as the CSV and
 command's output bit for bit, at any thread count; `tests/test_cli_parity.py`
 checks this against the built binary. `Run.run()` releases the GIL while it
 transports.
+
+A `[[crystal]]` section (`cli.md`) is part of that schema: `Run.from_toml()` keeps it,
+`Run.to_toml()` writes it back, and `Run.run()` attaches the crystal in the
+same driver, so `summary()` carries `physics.crystal` as the command's
+`summary.json` does. The Python classes have no crystal constructor of their
+own yet; a crystal run starts from TOML.
 
 ## Errors
 

@@ -3,7 +3,9 @@
 This page states the conventions of `lindhard::ion::crystal` (step 19a of the
 M2 crystal plan): how a cubic lattice is described, how the beam direction in
 the lab becomes a direction in the crystal, and how beam divergence is
-sampled. It is a data model only; the transport engine does not read it yet.
+sampled. The transport engine reads it through `Bca::with_crystal`, and the shared
+TOML input selects it with `[[crystal]]` (`docs/cli.md`), where the beam's
+`tilt_deg` and `azimuth_deg` are the tilt and twist defined here.
 The code docs (`lattice`, `orientation` and `divergence` modules) carry the
 same statements next to the code.
 
@@ -120,6 +122,15 @@ level checks both models against their CDFs (statistic as in the
 NIST/SEMATECH e-Handbook, section 1.3.5.16; p-value from Kolmogorov's
 limiting distribution, Marsaglia, Tsang and Wang, J. Stat. Softw. 8(18)
 (2003), section 3).
+
+**In transport.** `Bca::with_divergence` (or `[beam.divergence]` in the
+input, `docs/cli.md`) applies the sampler to each primary's initial
+direction, conditioned on pointing into the target (rejection, at most 1000
+draws per primary, then an error). Those draws come from a separate segment of
+the history's stream (word `2^65`), not the transport draws, so the sampler
+itself is unchanged and `Divergence::None` still takes no draws. A Gaussian
+`sigma` is per plane, not a cone width. The finite-spread input is a
+capability, not a validated channeling prediction.
 
 ## Not here yet
 

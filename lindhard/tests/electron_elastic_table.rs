@@ -1,8 +1,8 @@
 //! Energy-grid elastic tables (`electron::elastic::table`, issue #90).
 //!
-//! The potentials are the Thomas-Fermi-length Yukawa **stand-in**
-//! (`ThomasFermiYukawa`): the Salvat et al. (1987) DHFS table is not in the
-//! tree (`docs/data-provenance.md`). To keep debug-mode test time modest the
+//! Most tests use the Thomas-Fermi-length Yukawa **stand-in**
+//! (`ThomasFermiYukawa`); `dhfs_table_builds_and_names_dhfs` builds one table
+//! with the Salvat et al. (1987) DHFS potentials (#130). To keep debug-mode test time modest the
 //! energy grid here is 10 eV to 50 keV at 3 points per decade (13 points, both
 //! ends of the default range included); the default grid is exercised by the
 //! ignored `full_default_grid_recovers_sigma_tr1` test and the benchmark.
@@ -283,14 +283,22 @@ fn potential_errors_name_the_element() {
     // A zero-fraction component is skipped, so its missing potential is no error.
     let mix0 = Material::from_atom_fractions(&[(14, 1.0), (79, 0.0)], Some(2.3e3)).unwrap();
     assert!(build_elastic_table(&mix0, &MissingGold, &opts).is_ok());
-    // The DHFS table is a documented gap.
-    assert!(matches!(
-        build_elastic_table(&pure(14), &SalvatDhfsTable, &opts),
-        Err(ElasticTableError::Potential {
-            z: 14,
-            source: ElasticError::ScreeningCoefficientsUnavailable(14)
-        })
-    ));
+}
+
+/// The Salvat et al. (1987) DHFS table (#130) builds a table, and its
+/// strings name DHFS, not the stand-in.
+#[test]
+fn dhfs_table_builds_and_names_dhfs() {
+    let opts = ElasticTableOptions {
+        energy_ev: vec![100.0, 200.0],
+        ..ElasticTableOptions::default()
+    };
+    let t = build_elastic_table(&pure(14), &SalvatDhfsTable, &opts).unwrap();
+    assert!(t.inverse_mfp_per_m().iter().all(|r| *r > 0.0));
+    for s in [t.model(), t.provenance()] {
+        assert!(s.contains("DHFS"), "{s}");
+        assert!(!s.contains("STAND-IN"), "{s}");
+    }
 }
 
 #[test]

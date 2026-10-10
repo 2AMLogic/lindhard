@@ -26,6 +26,7 @@ use crate::errors;
 /// per unit of `unit` (`NaN` where the CSV leaves it empty). Lengths are in
 /// nm, energies in eV and polar angles in degrees.
 #[pyclass(module = "lindhard", frozen)]
+#[derive(Debug)]
 pub struct Histogram {
     edges: Vec<f64>,
     counts: Vec<u64>,
@@ -144,6 +145,7 @@ impl Histogram {
 ///
 /// The arrays are copies; the result is read-only.
 #[pyclass(module = "lindhard", frozen)]
+#[derive(Debug)]
 pub struct RunResult {
     resolved: Resolved,
     sim: Simulation,
@@ -344,8 +346,15 @@ impl RunResult {
     /// The command's `summary.json` text, exactly as it writes it.
     fn summary_json(&self) -> PyResult<String> {
         let s = &self.sim;
-        output::summary_json(&self.resolved, &s.table, &s.tally, &s.report, s.info)
-            .map_err(|e| errors::run(&e))
+        output::summary_json(
+            &self.resolved,
+            &s.table,
+            &s.tally,
+            &s.report,
+            &s.crystals,
+            s.info,
+        )
+        .map_err(|e| errors::run(&e))
     }
 
     /// Write `summary.json` and the CSV profiles into `out_dir` (created if

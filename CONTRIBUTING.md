@@ -49,6 +49,14 @@ committed as reference data. In particular, **no SRIM stopping table, and
 nothing interpolated or fitted from one, may enter this tree**, and that
 includes tables passed along through other projects.
 
+**Mixed sources.** Some published reports bundle a program listing with the
+paper. The listing is Tier C even though the report is citable. Exclude the
+listing pages before any OCR or text extraction, not after.
+
+- Moller and Eckstein, *TRIDYN*, report IPP 9/64 (1988): read only the report
+  body, PDF pp. 1-47. Never open Appendix 1 (the TRIDYN program listing, PDF
+  pp. 48-86).
+
 ### Oracles
 
 Comparing against third-party programs is encouraged, and the harness under
@@ -79,10 +87,55 @@ new (one not found in the literature), stop and raise it with the operator
 **before** committing it, filing an issue about it, or describing it in a PR.
 Do not describe the operator's downstream applications in this repo either.
 
+## Releasing
+
+Releases are cut by the operator; the workflow in
+[`.github/workflows/release.yml`](.github/workflows/release.yml) does the rest.
+Both crates share one version.
+
+1. Set `version` under `[workspace.package]` in `Cargo.toml` and the `version`
+   of the `lindhard` entry under `[workspace.dependencies]` to the new
+   version, and refresh `Cargo.lock`.
+2. In `CHANGELOG.md`, rename `## [Unreleased]` to `## [X.Y.Z] - YYYY-MM-DD`
+   and start a fresh `## [Unreleased]` above it. The section is the release
+   notes.
+3. Merge that change, then tag the merge commit with an annotated tag and
+   push it: `git tag -a vX.Y.Z -m "lindhard X.Y.Z" && git push origin vX.Y.Z`.
+   The tag must be annotated: `lindhard-cli/build.rs` stamps `git describe`
+   into `--version` and the run report, and `git describe` ignores
+   lightweight tags.
+4. The workflow's preflight fails, before any build, if the tag differs from
+   the workspace version or the changelog section is missing. Otherwise it
+   builds `lindhard-<version>-<target>` archives (`.tar.gz`, `.zip` on
+   Windows) for x86_64 and aarch64 Linux (static musl), x86_64 and aarch64
+   macOS, and x86_64 Windows, then creates the GitHub Release with the
+   archives and `SHA256SUMS`.
+5. The `publish` job waits for approval of the protected `release`
+   environment, then publishes `lindhard` and `lindhard-cli` to crates.io.
+   Approve it only after checking the release assets.
+
+Any pull request that changes `.github/workflows/release.yml` runs the
+workflow as a dry run in PR CI: all five builds, `SHA256SUMS`, and the
+archive-contents check, with the archives uploaded as workflow artifacts.
+The workflow can also be run by hand from the Actions tab
+(`workflow_dispatch`), which is likewise a dry run. Only a pushed `v*` tag
+creates a release or publishes anything; on every other event the `release`
+and `publish` jobs are skipped, and a pull request (including one from a
+fork) gets a read-only token and no environment secrets. Release builds skip
+the Rust build cache, so tag-built binaries come from a clean build.
+
+One-time setup: create the `release` environment with required reviewers and
+give it the secret `CARGO_REGISTRY_TOKEN` (a crates.io API token). The publish
+job fails with a clear message if the secret is missing.
+
 ## Everything else
 
 - Rust stable, `cargo fmt`, `cargo clippy -- -D warnings`, `cargo test` green, and
   `RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps` clean.
+- The `#[ignore]`d statistical and slow tests are not in the PR gate. The weekly
+  [`statistical`](.github/workflows/statistical.yml) workflow runs them with
+  `cargo test -p lindhard --release -- --ignored` (also by hand via
+  `workflow_dispatch`).
 - `#![forbid(unsafe_code)]` in the library stays. SIMD goes through safe
   crates (`wide`), not intrinsics.
 - No C/Fortran dependencies in the default build.

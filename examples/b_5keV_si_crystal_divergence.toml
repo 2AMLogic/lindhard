@@ -1,0 +1,61 @@
+# The crystalline-Si example (b_5keV_si_crystal.toml) with a finite beam
+# angular spread: a Gaussian divergence of 0.1 degrees per plane about the
+# nominal 7 degree tilt.
+#
+# Run:   lindhard run examples/b_5keV_si_crystal_divergence.toml --out out/b_5keV_si_crystal_divergence
+# Check: lindhard check examples/b_5keV_si_crystal_divergence.toml
+#
+# Schema: docs/cli.md ([beam.divergence]); sampling laws:
+# docs/crystal-orientation.md. This shows how to turn the finite-spread input
+# on; it is an input capability, not an experimentally validated channeling
+# prediction (docs/cli.md lists the known deviations).
+
+[beam]
+ion = "B"
+energy_ev = 5000.0
+tilt_deg = 7.0
+azimuth_deg = 22.0
+
+# Each primary's direction is drawn once about the nominal direction on its own
+# random stream, conditioned on pointing into the target. Choose one model:
+#   model = "gaussian"      sigma_deg: standard deviation of the angular
+#                           deviation in EACH of two orthogonal planes (the
+#                           polar deviation is Rayleigh distributed; this is
+#                           not a cone width)
+#   model = "uniform-cone"  half_angle_deg: uniform in solid angle out to the
+#                           cone half-angle
+# Widths are limited to [0, 10] degrees.
+[beam.divergence]
+model = "gaussian"
+sigma_deg = 0.1
+
+[target]
+substrate = "Si"
+
+[[crystal]]
+layers = [0]
+preset = "Si"
+normal = [0, 0, 1]
+reference = [0, 1, 0]
+
+[crystal.thermal]
+temperature_k = 300.0
+
+[physics]
+potential = "zbl"
+stopping = "lindhard-scharff"
+free_path = "constant"
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+
+# Illustrative model parameter, not a recommendation.
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 2000
+seed = 1
+
+[tally]
+depth_bin_nm = 1.0
+depth_bins = 300
