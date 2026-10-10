@@ -452,7 +452,7 @@ fn csv_and_json_export() {
 
     let pcsv = report.parameters_csv();
     assert!(pcsv.starts_with("model,parameter,value,std_error\n"));
-    assert_eq!(pcsv.lines().count(), 1 + (4 + 3) + (6 + 3));
+    assert_eq!(pcsv.lines().count(), 1 + (4 + 5) + (6 + 5));
     let alpha = pcsv
         .lines()
         .find(|l| l.starts_with("double_gaussian,alpha_m,"))
@@ -541,4 +541,62 @@ fn invalid_slab_scalars_and_depth_bounds_are_rejected_as_profile_errors() {
     let fit = fit_psf(&valid, PsfModel::DoubleGaussian, &PsfFitOptions::default()).unwrap();
     assert!(fit.std_errors.iter().all(|e| e.is_finite()));
     assert!(fit.covariance.iter().flatten().all(|c| c.is_finite()));
+}
+
+/// The value of the `model,name,...` row of a parameter CSV, and its error cell.
+fn csv_row<'a>(csv: &'a str, model: &str, name: &str) -> (&'a str, &'a str) {
+    let prefix = format!("{model},{name},");
+    let line = csv.lines().find(|l| l.starts_with(&prefix)).unwrap();
+    let mut it = line[prefix.len()..].split(',');
+    (it.next().unwrap(), it.next().unwrap())
+}
+
+#[test]
+fn parameters_csv_exports_convergence_and_iterations() {
+    let truth = double_sets()[0];
+    let profile = noisy_profile(&truth, bins(), 31);
+
+    // A converged fit.
+    let fit = fit_psf(
+        &profile,
+        PsfModel::DoubleGaussian,
+        &PsfFitOptions::default(),
+    )
+    .unwrap();
+    assert!(fit.converged);
+    let report = PsfReport {
+        profile: profile.clone(),
+        fits: vec![fit.clone()],
+    };
+    let csv = report.parameters_csv();
+    assert_eq!(csv_row(&csv, "double_gaussian", "converged"), ("1", ""));
+    assert_eq!(
+        csv_row(&csv, "double_gaussian", "iterations"),
+        (fit.iterations.to_string().as_str(), "")
+    );
+
+    // A valid explicit start with no iteration budget: the start is
+    // returned unconverged after zero iterations.
+    let opts = PsfFitOptions {
+        start: Some(truth),
+        max_iterations: 0,
+        ..PsfFitOptions::default()
+    };
+    let fit = fit_psf(&profile, PsfModel::DoubleGaussian, &opts).unwrap();
+    assert!(!fit.converged);
+    assert_eq!(fit.iterations, 0);
+    let report = PsfReport {
+        profile,
+        fits: vec![fit],
+    };
+    let csv = report.parameters_csv();
+    assert_eq!(csv_row(&csv, "double_gaussian", "converged"), ("0", ""));
+    assert_eq!(csv_row(&csv, "double_gaussian", "iterations"), ("0", ""));
+    // The existing rows are unchanged in meaning.
+    assert!(csv
+        .lines()
+        .any(|l| l.starts_with("double_gaussian,alpha_m,")));
+    assert!(csv
+        .lines()
+        .any(|l| l.starts_with("double_gaussian,reduced_chi2,")));
 }
