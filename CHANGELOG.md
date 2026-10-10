@@ -28,6 +28,19 @@ one version).
 
 ### Added
 
+- `InelasticTableOptions::rate_refinement` (`RateRefinement`, #339, part
+  of it): rows added to one band-bottom inelastic table from the Fermi
+  level upward. Every grid cell overlapping `E - E_F` = 2 to 20 eV is
+  bisected at its midpoint while the linear interpolation of the exact rate
+  misses it there by more than 1 %; more than `max_rows` added rows is an
+  error. The grid is the same on any thread count. Off by default, so every
+  existing table is unchanged, and refused on the model's own axis.
+  `RATE_TOLERANCE` and `RATE_WINDOW_EV` (the #291 gate, moved from the
+  example into `electron::inelastic::table`) are its defaults. The `rate`
+  mode of `lindhard-cli/examples/inelastic_low_energy.rs` also evaluates
+  each coarse table refined (`docs/validation.md`, "Table grid above the
+  Fermi level"). `lindhard run` does not use it yet: the Al single pole at
+  the `se_yield.py` grid misses the 1 % gate by 0.0008 points.
 - `[electron.materials.<name>.mermin_fit]` (#306): per-material options of
   the `mermin-melf` oscillator fit, `oscillators` (1 to 16, default 3),
   `weighting` (`"relative"`, the default, or `"uniform"`) and
