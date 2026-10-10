@@ -53,10 +53,12 @@
 //! 57 % of the table's f-sum and 67 % of its `P_eff`, and the Mermin IMFP is
 //! 18 to 34 % longer than the single-pole one on the table (#300;
 //! `docs/validation.md`, "Cu: the Mermin IMFP and the default oscillator
-//! fit"; the default is #306). With 10 or more oscillators the fit can place
-//! an oscillator far narrower than the knot spacing between two knots, which
-//! the residuals do not see and the sum rules do (#307): read
-//! [`MerminFit::f_sum_ev2`] against [`MerminFit::data_f_sum_ev2`].
+//! fit"; the default is #306). The widths are bounded below by the local knot
+//! spacing (see [`fit_mermin_oscillators`]); without that bound, fits of the
+//! Cu ELF with 10 or 16 oscillators placed an oscillator far narrower than
+//! the knot spacing between two knots, which the residuals do not see and the
+//! sum rules do (#307). Read [`MerminFit::f_sum_ev2`] against
+//! [`MerminFit::data_f_sum_ev2`] in any case.
 //!
 //! # Closed-form sum rules of the fit
 //!
@@ -396,6 +398,32 @@ fn solve(mut m: Vec<Vec<f64>>, mut r: Vec<f64>) -> Option<Vec<f64>> {
 
 // ---- the fit ----
 
+/// The local knot spacing of the sorted grid `w` at the energy `e`, eV: the
+/// larger of the two gaps next to the knot nearest to `e` (the single gap of
+/// an end knot; ties go to the lower knot). The lower bound of the fitted
+/// widths (see [`fit_mermin_oscillators`]); a pure function of the knots.
+fn local_knot_spacing(w: &[f64], e: f64) -> f64 {
+    let n = w.len();
+    if n < 2 {
+        return 0.0;
+    }
+    let k = match w.binary_search_by(|x| x.total_cmp(&e)) {
+        Ok(k) => k,
+        Err(0) => 0,
+        Err(i) if i >= n => n - 1,
+        Err(i) => {
+            if e - w[i - 1] <= w[i] - e {
+                i - 1
+            } else {
+                i
+            }
+        }
+    };
+    let left = if k > 0 { w[k] - w[k - 1] } else { 0.0 };
+    let right = if k + 1 < n { w[k + 1] - w[k] } else { 0.0 };
+    left.max(right)
+}
+
 struct Problem<'a> {
     w: &'a [f64],
     y: Vec<f64>,
@@ -403,6 +431,15 @@ struct Problem<'a> {
 }
 
 impl Problem<'_> {
+    /// The energy and width (eV) of the parameters `(ln E, ln γ)`, with the
+    /// width raised to the local knot spacing at `E` if it is below it (the
+    /// width floor of [`fit_mermin_oscillators`]). Above the floor the width
+    /// is `exp(ln γ)` unchanged, bit for bit.
+    fn energy_width(&self, ln_e: f64, ln_g: f64) -> (f64, f64) {
+        let e = ln_e.exp();
+        (e, ln_g.exp().max(local_knot_spacing(self.w, e)))
+    }
+
     /// The amplitudes `A` (eV², `>= 0`) and the weighted residual vector for
     /// the nonlinear parameters `theta = (ln E_j, ln γ_j)`.
     fn project(&self, theta: &[f64]) -> (Vec<f64>, Vec<f64>) {
@@ -416,7 +453,7 @@ impl Problem<'_> {
         let mut cols = Vec::with_capacity(n);
         let mut norms = Vec::with_capacity(n);
         for j in 0..n {
-            let (e, g) = (theta[2 * j].exp(), theta[2 * j + 1].exp());
+            let (e, g) = self.energy_width(theta[2 * j], theta[2 * j + 1]);
             let mut c: Vec<f64> = self
                 .w
                 .iter()
@@ -485,6 +522,24 @@ fn default_start(elf: &OpticalElf, n: usize) -> Vec<DrudeLorentzOscillator> {
 }
 
 /// Fit a sum of Mermin oscillators to `elf` (see the module docs).
+///
+/// # Width floor
+///
+/// Each width `ħγ_j` is bounded below by the local knot spacing of the table
+/// at `ħω_j`: the larger of the two gaps next to the tabulated energy nearest
+/// to `ħω_j` (the single gap of an end knot). The floor is applied to the
+/// trial parameters inside every residual evaluation and to the reported
+/// oscillators, so both agree; above the floor the width is unchanged bit for
+/// bit. The reason: the residuals are evaluated at the knots only, and a
+/// Lorentzian narrower than the gap it sits in can fall between two knots,
+/// where no residual constrains it while its amplitude, and with it the
+/// f-sum `(π/2) A_j`, is free (#307: the 10- and 16-oscillator fits of the
+/// committed Cu ELF reached 6771 and 16467 times the table's f-sum this way).
+/// Such a width is not determined by the tabulated values. **This bound is
+/// our own choice**: de Vera et al. (2022), section 2.1.1, give no fitting
+/// algorithm, only the Kramers-Kronig and f-sum consistency check, which
+/// [`MerminFit`] reports. The floor is a pure function of the knots and adds
+/// no dependence on the thread count.
 pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> Result<MerminFit> {
     let w = elf.energy_ev();
     let y = elf.elf_values();
@@ -648,10 +703,13 @@ pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> R
     }
 
     let mut oscillators: Vec<DrudeLorentzOscillator> = (0..n)
-        .map(|j| DrudeLorentzOscillator {
-            strength_ev2: amps[j],
-            energy_ev: theta[2 * j].exp(),
-            width_ev: theta[2 * j + 1].exp(),
+        .map(|j| {
+            let (energy_ev, width_ev) = problem.energy_width(theta[2 * j], theta[2 * j + 1]);
+            DrudeLorentzOscillator {
+                strength_ev2: amps[j],
+                energy_ev,
+                width_ev,
+            }
         })
         .collect();
     oscillators.sort_by(|a, b| {
@@ -858,6 +916,46 @@ mod tests {
             }
         )
         .is_err());
+    }
+
+    #[test]
+    fn local_knot_spacing_is_the_larger_gap_next_to_the_nearest_knot() {
+        // non-uniform grid: gaps 1, 2, 4, 8
+        let w = [1.0, 2.0, 4.0, 8.0, 16.0];
+        // interior knot and points nearest to it: max(2, 4)
+        assert_eq!(local_knot_spacing(&w, 4.0), 4.0);
+        assert_eq!(local_knot_spacing(&w, 3.5), 4.0);
+        assert_eq!(local_knot_spacing(&w, 5.9), 4.0);
+        // nearer to 8: max(4, 8)
+        assert_eq!(local_knot_spacing(&w, 6.1), 8.0);
+        // a tie goes to the lower knot (2: max(1, 2))
+        assert_eq!(local_knot_spacing(&w, 3.0), 2.0);
+        // end knots use their single gap, also outside the table
+        assert_eq!(local_knot_spacing(&w, 1.0), 1.0);
+        assert_eq!(local_knot_spacing(&w, 0.1), 1.0);
+        assert_eq!(local_knot_spacing(&w, 16.0), 8.0);
+        assert_eq!(local_knot_spacing(&w, 1e6), 8.0);
+    }
+
+    #[test]
+    fn widths_are_not_fitted_below_the_knot_spacing() {
+        // a start far narrower than the grid: the reported widths are at
+        // least the local knot spacing
+        let (_, elf) = synthetic();
+        let w = elf.energy_ev();
+        let start = vec![osc(1.0, 9.0, 1e-4), osc(1.0, 55.0, 1e-4)];
+        let fit = fit_mermin_oscillators(
+            &elf,
+            &MerminFitOptions {
+                start: Some(start),
+                max_iterations: 5,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        for o in &fit.oscillators {
+            assert!(o.width_ev >= local_knot_spacing(w, o.energy_ev), "{fit}");
+        }
     }
 
     #[test]

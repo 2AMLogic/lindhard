@@ -348,14 +348,19 @@ not a choice; the count is not picked by matching TPP):
 |---|---|---|---|---|
 | 3 (default) | 0.567 | 0.670 | 6.967 / 6.282 / 7.430 / 11.807 / 19.213 | +41 / +26 / +18 / +15 / +16 % |
 | 6 | 0.807 | 0.752 | 6.002 / 5.731 / 6.974 / 11.274 / 18.466 | +22 / +15 / +11 / +9 / +11 % |
-| 10 | 6771 | 22.7 | 3.696 / 2.644 / 1.839 / 1.123 / 0.782 | fit defect, #307 |
-| 16 | 16467 | 46.4 | 2.766 / 1.780 / 1.093 / 0.606 / 0.408 | fit defect, #307 |
+| 10 | 0.652 | 0.782 | 5.981 / 5.681 / 6.846 / 10.917 / 17.790 | +21 / +14 / +9 / +6 / +7 % |
+| 16 | 0.650 | 0.795 | 5.992 / 5.700 / 6.853 / 10.897 / 17.742 | +21 / +14 / +9 / +6 / +7 % |
 
 From 3 to 6 oscillators the fit gains loss strength and the gap halves at
-every energy. At 10 and 16 the fit is broken: unconverged after 500
-iterations, it places an oscillator of width 1e-4 eV and amplitude
+every energy; 10 and 16 oscillators change the IMFP by at most 4 % more.
+The 10 and 16 rows are with the width floor of #307 (each width at least
+the local knot spacing of the table; our choice, documented on
+`fit_mermin_oscillators`), which does not bind in the 3- and 6-oscillator
+fits. Without it those two fits were broken: unconverged after 500
+iterations, they placed an oscillator of width 1e-4 eV and amplitude
 2e7 to 6e7 eV² between two knots near 1.1 keV, where the residuals at the
-knots cannot see it, and its f-sum is thousands of times the table's (#307).
+knots cannot see it, with f-sum 6771 and 16467 times the table's, `P_eff`
+22.7 and 46.4, and IMFPs of 3.70 to 0.41 Å.
 
 Not changed here: `MerminFitOptions::default()`, and so every `mermin`
 table and δ(E) row. Whether to change the default, expose the fit options

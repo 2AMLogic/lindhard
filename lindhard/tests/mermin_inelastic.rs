@@ -311,3 +311,92 @@ fn cu_mermin_imfp_excess_is_the_fit_not_the_momentum_extension() {
         assert!(sf > m && m > s, "{e}: {sf} > {m} > {s}");
     }
 }
+
+// ---- Cu: fits with more oscillators and the width floor (#307) ----
+//
+// Without a lower bound on the widths, the 10- and 16-oscillator fits of the
+// committed Cu ELF placed an oscillator of width 3e-4 eV (1e-4 eV) between
+// the knots at 999.9 and 1100.1 eV (1100.1 and 1200.2 eV), which the
+// residuals at the knots do not see and the sum rules do: f-sum 6771 (16467)
+// times the table's, `P_eff` 22.7 (46.4), Mermin IMFP 1.6 to 45 times shorter
+// than with 6 oscillators. The fit now bounds every width below by the local
+// knot spacing at the oscillator's energy (our choice, documented on
+// `fit_mermin_oscillators`). Values below measured 2026-10-09 (release and
+// debug builds agree); the bounds are stated next to each assertion.
+
+/// Mermin IMFP of Cu with the 6-oscillator fit, Å, at the energies of
+/// [`CU_TPP2011`] (measured 2026-10-09; the width floor does not bind in that
+/// fit, which is bitwise the same as before #307).
+const CU_MERMIN_6: [f64; 5] = [6.002, 5.731, 6.974, 11.274, 18.466];
+
+/// The local knot spacing at `e` as `fit_mermin_oscillators` documents it:
+/// the larger of the two gaps next to the knot nearest to `e` (the single
+/// gap of an end knot; ties to the lower knot). Written again here, so the
+/// test does not read the floor from the code under test.
+fn knot_spacing(w: &[f64], e: f64) -> f64 {
+    let n = w.len();
+    let k = match w.iter().position(|&x| x >= e) {
+        None => n - 1,
+        Some(0) => 0,
+        Some(i) => {
+            if e - w[i - 1] <= w[i] - e {
+                i - 1
+            } else {
+                i
+            }
+        }
+    };
+    let left = if k > 0 { w[k] - w[k - 1] } else { 0.0 };
+    let right = if k + 1 < n { w[k + 1] - w[k] } else { 0.0 };
+    left.max(right)
+}
+
+#[test]
+fn cu_fits_keep_widths_above_the_knot_spacing_and_the_sum_rules_bounded() {
+    let Some(elf) = cu_elf() else { return };
+    let w = elf.energy_ev().to_vec();
+    for n in [3, 6, 10, 16] {
+        let fit = fit_mermin_oscillators(
+            &elf,
+            &MerminFitOptions {
+                n_oscillators: n,
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        for o in &fit.oscillators {
+            let floor = knot_spacing(&w, o.energy_ev);
+            assert!(
+                o.width_ev >= floor,
+                "n = {n}: width {} eV below the knot spacing {floor} eV at {} eV\n{fit}",
+                o.width_ev,
+                o.energy_ev
+            );
+        }
+        if n < 10 {
+            continue;
+        }
+        // f-sum: measured 0.652 (n = 10) and 0.650 (n = 16) of the table's,
+        // against 0.807 with 6 oscillators and 6771 / 16467 without the
+        // floor. Bound: between half the table's f-sum and the table's.
+        let ratio = fit.f_sum_ev2 / fit.data_f_sum_ev2;
+        assert!(
+            ratio > 0.5 && ratio <= 1.0,
+            "n = {n}: f-sum ratio {ratio}\n{fit}"
+        );
+        // P_eff: measured 0.782 and 0.795 against the table's 1.0017 (22.7 and
+        // 46.4 without the floor). Bound: within a factor 2 of the table's.
+        let r = fit.p_eff / fit.data_p_eff;
+        assert!(r > 0.5 && r < 2.0, "n = {n}: P_eff {}\n{fit}", fit.p_eff);
+        // Mermin IMFP: measured within 4 % of the 6-oscillator values
+        // (0.62 to 0.022 of them without the floor). Bound: within 10 %.
+        let m = MerminPenn::new(elf.clone(), fit).unwrap();
+        for (&(e, _), &six) in CU_TPP2011.iter().zip(&CU_MERMIN_6) {
+            let l = m.imfp_m(e).unwrap() * 1e10;
+            assert!(
+                (l / six - 1.0).abs() < 0.10,
+                "n = {n}, {e} eV: Mermin IMFP {l} vs {six} with 6 oscillators"
+            );
+        }
+    }
+}
