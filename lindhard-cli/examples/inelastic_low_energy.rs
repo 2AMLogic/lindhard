@@ -74,15 +74,26 @@ const BINS: [f64; 9] = [0.0, 5.0, 10.0, 15.0, 20.0, 30.0, 50.0, 100.0, f64::INFI
 /// The tolerance of the `rate` mode, fixed before any value was measured
 /// (#291): the largest relative error of the interpolated `1/λ` over
 /// `E - E_F` = 2 to 20 eV must not exceed 1 %. It is the statistical error of
-/// the most precise committed δ entry, rounded up: the Poisson floor of Al
-/// `default` at 400 eV in `validation/experiments/se_yield_results.json` is
-/// 0.0571 on δ = 6.52 (0.88 %; the other entries at 400 eV are 1.4 to 3.9 %).
-/// A grid error below it cannot be told from the noise of those tables if δ
-/// responds at most in proportion to the rate in that window; that response
-/// is not measured here. The window starts at 2 eV, below the transport
-/// cutoff of every `default` row (1 eV above the vacuum level, at least
-/// 5 eV above `E_F`). Below 2 eV the error is printed, not gated: there
-/// the rate starts from zero within about one coarse cell.
+/// the most precise committed `default` δ entries, rounded up: in
+/// `validation/experiments/se_yield_results.json` the Poisson floor of Al
+/// `default` is 0.0585 on δ = 6.85 at 600 eV (0.85 %) and 0.0571 on δ = 6.52
+/// at 400 eV (0.88 %). Other configurations are more precise: Al
+/// `barrier-off` reaches 0.60 % (600 eV), and at 400 eV the Al `barrier-off`,
+/// `cutoff-band-bottom`, `phi-low` and `phi-high` entries are 0.63 to 0.90 %;
+/// the Au, Cu and Si `default` entries at 400 eV are 1.4, 1.7 and 2.8 %.
+/// Every grid measured at 20 or 40 points per decade has a largest error of
+/// at least 2.0 %, so a stricter tolerance of 0.6 % would change no
+/// conclusion. A grid error below the tolerance cannot be told from the noise
+/// of those tables if δ responds at most in proportion to the rate in that
+/// window; that response is not measured here. The window starts at 2 eV,
+/// below the transport cutoff of every `default` row (1 eV above the vacuum
+/// level, at least 5 eV above `E_F`), so a `default` run never reads the rate
+/// at 2 to 5 eV and the gate is stricter than those runs need there (the
+/// `cutoff-band-bottom` rows do read it, down to 1 eV above `E_F`). The
+/// verdict that 20 and 40 points per decade fail does not rest on that part
+/// of the window: the Al single pole's largest errors fall at 15 to 17 eV.
+/// Below 2 eV the error is printed, not gated: there the rate starts from
+/// zero within about one coarse cell.
 const RATE_TOLERANCE: f64 = 0.01;
 /// `E - E_F` at which the `rate` mode prints the error, eV.
 const RATE_POINTS_EV: [f64; 7] = [0.5, 1.0, 2.0, 3.0, 5.0, 10.0, 20.0];

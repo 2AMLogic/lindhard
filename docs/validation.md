@@ -1956,10 +1956,19 @@ result worse, not better; no Cu, Si or Au set changes status.
   exact row at each energy. The tolerance was fixed before measuring:
   the largest relative error of `1/λ` over `E - E_F` = 2 to 20 eV (0.1 eV
   steps) at most 1 %. That is the Poisson floor of the most precise
-  committed δ entry, Al `default` at 400 eV (0.88 %), rounded up. The 2 eV
-  start lies below the cutoff of every `default` row (1 eV above the
-  vacuum level, at least 5 eV above `E_F`). Largest error (and
-  where it falls, `E - E_F` in eV), grid from 5 eV as these runs:
+  committed `default` δ entries, Al at 400 and 600 eV (0.88 and 0.85 %),
+  rounded up. Other configurations are more precise (Al `barrier-off`
+  0.60 % at 600 eV; at 400 eV the Al `barrier-off`, `cutoff-band-bottom`,
+  `phi-low` and `phi-high` entries are 0.63 to 0.90 %), but every grid
+  at 20 or 40 points per decade has a largest error of at least 2.0 %, so
+  the stricter bound would change no conclusion. The 2 eV start lies below the cutoff of every
+  `default` row (1 eV above the vacuum level, at least 5 eV above `E_F`),
+  so for those rows the gate is stricter than needed between 2 and 5 eV
+  (the `cutoff-band-bottom` rows follow electrons to 1 eV above `E_F`).
+  The verdict that 20 and 40 points per decade fail does not rest on 2 to
+  5 eV: the Al single pole's largest errors at those grids (75 and 27 %)
+  fall at 15 to 17 eV. #339 should choose its window with this in mind.
+  Largest error (and where it falls, `E - E_F` in eV), grid from 5 eV as these runs:
 
   | Table | 10 / decade | 20 / decade | 40 / decade | 80 / decade |
   |---|---|---|---|---|
@@ -1980,8 +1989,10 @@ result worse, not better; no Cu, Si or Au set changes status.
   the tolerance for any table, so the grid of these runs is **not
   changed**. Resolving the rate needs rows from `E_F` upward, not a
   denser uniform grid (#339). At 20 points per decade the Si Mermin runs
-  would be refused (#340). The δ tables were not re-run for #291; #287's
-  re-run uses the grid #339 settles, or this one if #287 lands first.
+  would be refused (#340). #291 therefore stays open: the grid default
+  that meets the tolerance is still to be settled, by #339 (rows from
+  `E_F` upward) and #340 (the refused Si Mermin rows). The δ tables were
+  not re-run for #291; #287's re-run uses the grid #339 settles, or this one if #287 lands first.
   The committed results are unchanged.
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
