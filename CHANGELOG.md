@@ -250,6 +250,18 @@ one version).
   rejected with an error naming an edge). Ray queries use a binned-SAH BVH and
   a watertight ray-triangle test; the target implements `Geometry` with
   documented overlap, surface-ownership and tolerance rules (#27).
+- `ion::crystal` hexagonal lattices (#179): `Lattice::wurtzite` (a, c and the
+  internal parameter u) and `Lattice::polytype` (ideal tetrahedral stacking
+  from an A/B/C sequence such as `"ABCB"`, at most 64 letters so that
+  `Candidate::basis` stays a unique `u8` site index), with presets
+  `Lattice::gallium_nitride()` (cited a, c; u is a documented geometric
+  placeholder), `silicon_carbide_4h()` and `silicon_carbide_6h()` (measured
+  sites). Four-index Miller-Bravais input: `plane_normal_hkil`,
+  `direction_uvtw` and `Orientation::new_miller_bravais`, with the
+  convention in the `lattice` module docs and `docs/crystal-orientation.md`.
+  `LatticeSearch` now walks `Lattice::orthogonal_cell()` (the cube, or the
+  orthohexagonal cell), so it works for hexagonal lattices; cubic results are
+  unchanged.
 - `ion::crystal::search`: `LatticeSearch`, the lattice sites within `p_max` of
   a path segment found by walking unit cells (no global atom list), each with
   its impact parameter, path distance, species and cell/basis index, ordered
@@ -447,6 +459,15 @@ one version).
   the electron deposition CSVs without their grid), so they cannot be mistaken
   for current output; unrelated files are left alone, a failed removal is an
   error naming the path, and the summary is written last (#185).
+- `ion::crystal::Lattice::temperature_k()` returns `Option<f64>` (#179): the
+  4H- and 6H-SiC presets carry no temperature because the record their cell
+  was read from does not state one. The cubic presets return `Some` of the
+  same values as before. `ion::bca::CrystalMetadata::lattice_constant_temperature_k`
+  follows it as `Option<f64>` (the JSON value of a cubic run is unchanged).
+  `Bca::with_crystal` takes the per-history lattice translation, the
+  nearest-neighbour distance behind the default `p_max`/`q_max` and the
+  thermal amplitudes from `Lattice::orthogonal_cell()`, so a hexagonal
+  crystal runs in the engine; cubic runs are bit-identical.
 - Collision hot path (about 2.2 to 2.7 times the ions/s, see
   `docs/benchmarks.md`): the scattering angle is carried as `tan(theta/2)` and
   sines and cosines instead of angles, the Lindhard-Scharff coefficient is

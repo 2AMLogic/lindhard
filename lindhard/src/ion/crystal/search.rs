@@ -14,12 +14,15 @@
 //! # Geometry and units
 //!
 //! Everything is in the **crystal frame, metres** (see the `crystal` module
-//! docs, "Frames"). The lattice is the infinite periodic crystal: cell
-//! `(i, j, k)` of the conventional cubic cell (edge `a`) holds the atoms
-//! `a (cell + f)` for each fractional position `f` in
-//! [`Lattice::conventional_cell_sites`]. There is no global atom list: the
-//! per-cell site list is built once in [`LatticeSearch::new`], and memory use
-//! does not depend on how far from the origin the path lies.
+//! docs, "Frames"). The lattice is the infinite periodic crystal, tiled by
+//! the rectangular cell of [`Lattice::orthogonal_cell`] with edges
+//! `(e_x, e_y, e_z)`: the conventional cube (`e = (a, a, a)`) for a cubic
+//! lattice, the orthohexagonal cell (`e = (a, sqrt(3) a, c)`) for a
+//! hexagonal one. Cell `(i, j, k)` holds the atoms
+//! `(e_x (i + f_x), e_y (j + f_y), e_z (k + f_z))` for each fractional
+//! position `f` of that cell ([`site_position_in`]). There is no global atom
+//! list: the per-cell site list is built once in [`LatticeSearch::new`], and
+//! memory use does not depend on how far from the origin the path lies.
 //!
 //! For a unit direction `d`, a path start `r0` and a site at `r`:
 //!
@@ -59,8 +62,8 @@
 //! which bounds the other two cell indices. Each cell in that box is skipped
 //! if its centre cannot be within `p_max` of the segment (the metrics are
 //! 1-Lipschitz in position, so a half-diagonal margin is conservative). All
-//! bounds are padded by a relative `1e-6 a` so that rounding never drops a
-//! site that the exact comparison would keep.
+//! bounds are padded by `1e-6` times the longest cell edge so that rounding
+//! never drops a site that the exact comparison would keep.
 
 use super::{CrystalError, Lattice};
 
@@ -72,10 +75,13 @@ const PAD_REL: f64 = 1e-6;
 pub struct Candidate {
     /// Atomic number of the atom on the site.
     pub z: u8,
-    /// Integer index `(i, j, k)` of the conventional cell holding the site.
+    /// Integer index `(i, j, k)` of the cell holding the site (the
+    /// conventional cube for a cubic lattice, the orthohexagonal cell for a
+    /// hexagonal one; see [`Lattice::orthogonal_cell`]).
     pub cell: [i64; 3],
-    /// Index of the site within the cell, into
-    /// [`Lattice::conventional_cell_sites`].
+    /// Index of the site within the cell, into the site list of
+    /// [`Lattice::orthogonal_cell`] (for a cubic lattice,
+    /// [`Lattice::conventional_cell_sites`]).
     pub basis: u8,
     /// Site position, crystal frame, metres.
     pub position: [f64; 3],
@@ -111,20 +117,27 @@ pub fn unit_direction(direction: [f64; 3]) -> [f64; 3] {
     [direction[0] / n, direction[1] / n, direction[2] / n]
 }
 
-/// Position of basis site `f` (fractions of the cell edge) in cell `cell`.
-/// Shared by the search and by reference scans.
+/// Position of basis site `f` (fractions of the cell edge) in cell `cell` of
+/// a cubic cell with edge `a`; [`site_position_in`] with three equal edges.
 pub fn site_position(a: f64, cell: [i64; 3], f: [f64; 3]) -> [f64; 3] {
+    site_position_in([a; 3], cell, f)
+}
+
+/// Position of site `f` (fractions of the cell edges) in cell `cell` of the
+/// rectangular cell with edges `e`: `e_k (cell_k + f_k)` per axis. Shared by
+/// the search and by reference scans.
+pub fn site_position_in(e: [f64; 3], cell: [i64; 3], f: [f64; 3]) -> [f64; 3] {
     [
-        a * (cell[0] as f64 + f[0]),
-        a * (cell[1] as f64 + f[1]),
-        a * (cell[2] as f64 + f[2]),
+        e[0] * (cell[0] as f64 + f[0]),
+        e[1] * (cell[1] as f64 + f[1]),
+        e[2] * (cell[2] as f64 + f[2]),
     ]
 }
 
 /// Candidate-site search through an infinite periodic [`Lattice`].
 #[derive(Debug, Clone)]
 pub struct LatticeSearch {
-    a: f64,
+    edges: [f64; 3],
     sites: Vec<(u8, [f64; 3])>,
 }
 
@@ -133,17 +146,21 @@ fn bad(name: &'static str, why: &'static str) -> CrystalError {
 }
 
 impl LatticeSearch {
-    /// Prepare the per-cell site list of `lattice`.
+    /// Prepare the per-cell site list of `lattice`
+    /// ([`Lattice::orthogonal_cell`]).
     pub fn new(lattice: &Lattice) -> Self {
-        Self {
-            a: lattice.lattice_constant(),
-            sites: lattice.conventional_cell_sites(),
-        }
+        let (edges, sites) = lattice.orthogonal_cell();
+        Self { edges, sites }
     }
 
-    /// Cubic lattice constant, metres.
+    /// Lattice constant `a`, metres (the first cell edge).
     pub fn lattice_constant(&self) -> f64 {
-        self.a
+        self.edges[0]
+    }
+
+    /// Edges of the rectangular search cell along `x`, `y`, `z`, metres.
+    pub fn cell_edges(&self) -> [f64; 3] {
+        self.edges
     }
 
     /// Candidate sites within `p_max` of the segment of length `length`
@@ -192,11 +209,12 @@ impl LatticeSearch {
         }
         out.clear();
         let d = unit_direction(direction);
-        let a = self.a;
-        let pad = p_max + PAD_REL * a;
-        let spad = PAD_REL * a;
+        let e = self.edges;
+        let e_max = e[0].max(e[1]).max(e[2]);
+        let pad = p_max + PAD_REL * e_max;
+        let spad = PAD_REL * e_max;
         // Half-diagonal of a cell, padded: bound on |site - cell centre|.
-        let h = a * 0.75_f64.sqrt() * (1.0 + PAD_REL) + spad;
+        let h = 0.5 * (e[0] * e[0] + e[1] * e[1] + e[2] * e[2]).sqrt() * (1.0 + PAD_REL) + spad;
 
         // Sweep along the axis most parallel to the path.
         let ax = (0..3)
@@ -210,14 +228,15 @@ impl LatticeSearch {
         let x0 = origin[ax];
         let x1 = x0 + length * d[ax];
         let (xlo, xhi) = (x0.min(x1) - pad, x0.max(x1) + pad);
-        let i_lo = (xlo / a).floor() as i64;
-        let i_hi = (xhi / a).floor() as i64;
+        let ea = e[ax];
+        let i_lo = (xlo / ea).floor() as i64;
+        let i_hi = (xhi / ea).floor() as i64;
 
         for ia in i_lo..=i_hi {
             // Path parameters that can reach this slab (|offset| <= p_max in
             // every coordinate), clipped to the segment.
-            let ta = ((ia as f64) * a - pad - x0) / d[ax];
-            let tb = (((ia + 1) as f64) * a + pad - x0) / d[ax];
+            let ta = ((ia as f64) * ea - pad - x0) / d[ax];
+            let tb = (((ia + 1) as f64) * ea + pad - x0) / d[ax];
             let (t_lo, t_hi) = if ta <= tb { (ta, tb) } else { (tb, ta) };
             let t_lo = t_lo.max(-spad);
             let t_hi = t_hi.min(length + spad);
@@ -228,8 +247,8 @@ impl LatticeSearch {
                 let u = origin[k] + t_lo * d[k];
                 let v = origin[k] + t_hi * d[k];
                 (
-                    ((u.min(v) - pad) / a).floor() as i64,
-                    ((u.max(v) + pad) / a).floor() as i64,
+                    ((u.min(v) - pad) / e[k]).floor() as i64,
+                    ((u.max(v) + pad) / e[k]).floor() as i64,
                 )
             };
             let (jb_lo, jb_hi) = range(b);
@@ -240,7 +259,7 @@ impl LatticeSearch {
                     cell[ax] = ia;
                     cell[b] = ib;
                     cell[c] = ic;
-                    let centre = site_position(a, cell, [0.5; 3]);
+                    let centre = site_position_in(e, cell, [0.5; 3]);
                     let (sc, p2c) = path_metrics(origin, d, centre);
                     if sc < -h || sc > length + h {
                         continue;
@@ -250,7 +269,7 @@ impl LatticeSearch {
                         continue;
                     }
                     for (bi, &(z, f)) in self.sites.iter().enumerate() {
-                        let pos = site_position(a, cell, f);
+                        let pos = site_position_in(e, cell, f);
                         let (s, p2) = path_metrics(origin, d, pos);
                         if s >= 0.0 && s <= length && p2 <= p_max * p_max {
                             out.push(Candidate {

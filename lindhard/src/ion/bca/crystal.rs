@@ -28,8 +28,10 @@
 //! # Lattice frame of a history
 //!
 //! The crystal position of a lab point `r` is `R r + u`, with `R` the
-//! orientation's rotation and `u` a translation drawn uniformly from the cube
-//! `[0, a)^3` once per primary history (three uniform numbers per crystal,
+//! orientation's rotation and `u` a translation drawn uniformly from the
+//! rectangular cell that tiles the crystal, `[0, e_x) x [0, e_y) x [0, e_z)`
+//! with the edges of [`Lattice::orthogonal_cell`] (the cube `[0, a)^3` for a
+//! cubic lattice), once per primary history (three uniform numbers per crystal,
 //! drawn from a copy of the history's stream positioned at word 2^67, so the
 //! transport draws are the same with or without crystals), shared by the
 //! primary and all its recoils. A beam of finite
@@ -593,7 +595,7 @@ use super::{
 };
 pub(super) use crate::ion::crystal::Candidate;
 
-/// A lattice site: its conventional cell and index in the cell.
+/// A lattice site: its search cell and index in the cell ([`Lattice::orthogonal_cell`]).
 pub(super) type SiteId = ([i64; 3], u8);
 
 /// Search margin of the thermal model, in units of the largest
@@ -646,11 +648,13 @@ impl Thermal {
 pub struct CrystalMetadata {
     /// Regions filled by this crystal.
     pub regions: Vec<usize>,
-    /// Cubic lattice constant, m.
+    /// Lattice constant `a`, m (the cube edge of a cubic lattice, the basal
+    /// constant of a hexagonal one).
     pub lattice_constant_m: f64,
     /// Temperature of the cited lattice constant, K (not the target
-    /// temperature; see [`Thermal::temperature_k`]).
-    pub lattice_constant_temperature_k: f64,
+    /// temperature; see [`Thermal::temperature_k`]). `None` when the source
+    /// states none ([`Lattice::temperature_k`]).
+    pub lattice_constant_temperature_k: Option<f64>,
     /// Miller indices of the surface normal and the in-plane reference.
     pub normal_hkl: [i32; 3],
     /// Indices of the in-plane reference direction.
@@ -719,7 +723,7 @@ const DENSITY_TOLERANCE: f64 = 0.05;
 /// target in the lab frame and the three search parameters.
 #[derive(Debug, Clone)]
 pub struct CrystalTarget {
-    /// The lattice (cubic; diamond or zincblende).
+    /// The lattice (cubic or hexagonal).
     pub lattice: Lattice,
     /// Wafer cut and angles. Only its lab-to-crystal rotation is used.
     pub orientation: Orientation,
@@ -791,7 +795,10 @@ pub(super) struct CrystalData {
     search: LatticeSearch,
     orientation: Orientation,
     a: f64,
-    a_temperature_k: f64,
+    /// Edges of the rectangular cell that tiles the crystal, m
+    /// ([`Lattice::orthogonal_cell`]); `[a; 3]` for a cubic lattice.
+    edges: [f64; 3],
+    a_temperature_k: Option<f64>,
     p_max: f64,
     q_max: f64,
     search_len: f64,
@@ -799,8 +806,10 @@ pub(super) struct CrystalData {
 }
 
 impl CrystalData {
-    pub(super) fn lattice_constant(&self) -> f64 {
-        self.a
+    /// Edges of the rectangular cell that tiles the crystal, m: the domain
+    /// of the per-history random translation of the lattice.
+    pub(super) fn cell_edges(&self) -> [f64; 3] {
+        self.edges
     }
 
     /// Whether this crystal's sites vibrate (a thermal stream is needed).
@@ -843,19 +852,22 @@ pub(super) struct Partner {
     q: f64,
 }
 
-/// Nearest-neighbour distance of `lattice`, m.
+/// Nearest-neighbour distance of `lattice`, m, over the sites of its
+/// rectangular cell ([`Lattice::orthogonal_cell`]) and the 26 cells around
+/// it. Every cell edge is at least `a`, longer than any nearest-neighbour
+/// distance, so the neighbouring cells suffice.
 fn nearest_neighbour(lattice: &Lattice) -> f64 {
     let a = lattice.lattice_constant();
-    let sites = lattice.conventional_cell_sites();
+    let (e, sites) = lattice.orthogonal_cell();
     let mut best = f64::INFINITY;
     for (_, f) in &sites {
         for (_, g) in &sites {
             for i in -1..=1 {
                 for j in -1..=1 {
                     for k in -1..=1 {
-                        let dx = a * (g[0] + f64::from(i) - f[0]);
-                        let dy = a * (g[1] + f64::from(j) - f[1]);
-                        let dz = a * (g[2] + f64::from(k) - f[2]);
+                        let dx = e[0] * (g[0] + f64::from(i) - f[0]);
+                        let dy = e[1] * (g[1] + f64::from(j) - f[1]);
+                        let dz = e[2] * (g[2] + f64::from(k) - f[2]);
                         let d = (dx * dx + dy * dy + dz * dz).sqrt();
                         if d > 1e-6 * a {
                             best = best.min(d);
@@ -975,8 +987,12 @@ impl<'a> Bca<'a> {
                     };
                     rms.push((z, mass, u1_sq.sqrt()));
                 }
+                // Indexed by `Candidate::basis`, i.e. by the sites of the
+                // search cell (`Lattice::orthogonal_cell`), which for a
+                // hexagonal lattice holds each basis site twice.
                 let sigma: Vec<f64> = lat
-                    .conventional_cell_sites()
+                    .orthogonal_cell()
+                    .1
                     .iter()
                     .map(|(z, _)| rms.iter().find(|r| r.0 == *z).map_or(0.0, |r| r.2))
                     .collect();
@@ -997,10 +1013,13 @@ impl<'a> Bca<'a> {
         for &r in regions {
             self.region_crystal[r] = Some(ci);
         }
+        let search = LatticeSearch::new(lat);
+        let edges = search.cell_edges();
         self.crystals.push(CrystalData {
-            search: LatticeSearch::new(lat),
+            search,
             orientation: target.orientation,
             a,
+            edges,
             a_temperature_k: lat.temperature_k(),
             p_max,
             q_max,
