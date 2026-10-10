@@ -207,6 +207,26 @@
 //! rounding (about 50 levels) before any useful row bound: that second
 //! error, not the row bound, is what stops it.
 //!
+//! **Rate onset** (#357). The single-pole and full Penn rates are
+//! identically zero for `E - E_F <= elf_min` ("Rows below the ELF table",
+//! `W_min = elf_min`) and positive above it: a step at the onset
+//! `E_F + elf_min`, which the transport's linear interpolation from the
+//! zero row below it cannot follow at any row density. Where the onset lies
+//! at or above the window start (an ELF tabulated from 2 eV or more, at the
+//! default window), a cell is tested only if it overlaps the window and its
+//! lower end is at or above the onset: the cell straddling the onset and
+//! the cells below it are left as given, the interpolation across the
+//! straddling cell being the model's own step. Testing them would bisect
+//! towards the step until its cell is exhausted to rounding, the error
+//! above, and so refuse an ELF that builds without the option. Where the
+//! onset lies below the window start nothing changes: the bisection's
+//! children that leave the window are not tested, so it never reaches the
+//! step, as it never reaches the zero at `E_F`. Every committed ELF starts
+//! at or below 0.5 eV (`validation/data/optical/`), so for none of them
+//! does the onset change the refined grid. The Mermin rate is positive for
+//! every `T > 0` (it counts losses down to `1e-8 T`), so that model has no
+//! onset and keeps the full window.
+//!
 //! The test is a criterion, not a bound. A test of the midpoint alone
 //! (#351) left cells whose error peaked off the midpoint above the
 //! tolerance, and so did one of the quartiles and midpoint (the Al single
@@ -688,6 +708,15 @@ trait LossModel: Sync {
     fn loss_min_ev(&self, _energy_ev: f64) -> f64 {
         self.elf_min_ev()
     }
+    /// The kinetic energy `T` (eV, above the model's Fermi level) at and
+    /// below which the model's rate is identically zero and above which it
+    /// is positive, if it has one: the step of the rate refinement (module
+    /// docs, "Rate refinement"; #357). By default the lowest tabulated ELF
+    /// energy, the default [`LossModel::loss_min_ev`], below which the DIIMFP
+    /// is zero. A model whose rate counts losses below it has no onset.
+    fn rate_onset_ev(&self) -> Option<f64> {
+        Some(self.elf_min_ev())
+    }
     fn fermi_energy_ev(&self) -> f64;
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError>;
     fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError>;
@@ -725,6 +754,16 @@ impl LossModel for PennInelastic {
             PennInelastic::Mermin(_) => LOWEST_LOSS_FRACTION * energy_ev,
             // the single-pole and full Penn DIIMFPs are zero below it
             PennInelastic::SinglePole(_) | PennInelastic::Full(_) => self.elf_min_ev(),
+        }
+    }
+    fn rate_onset_ev(&self) -> Option<f64> {
+        match self {
+            // a positive rate at every T > 0, from losses in (1e-8 T, T]
+            // (#342): no onset
+            PennInelastic::Mermin(_) => None,
+            // the rate counts losses above elf_min only (`loss_min_ev`), so
+            // it is zero for T <= elf_min
+            PennInelastic::SinglePole(_) | PennInelastic::Full(_) => Some(self.elf_min_ev()),
         }
     }
     fn fermi_energy_ev(&self) -> f64 {
@@ -1117,6 +1156,11 @@ fn refined_energy_grid<M: LossModel>(
     let (lo, hi) = (ef + r.window_ev.0, ef + r.window_ev.1);
     let grid = &options.energy_ev;
     let overlaps = |a: f64, b: f64| b > lo && a < hi;
+    // The rate's onset, where it is at or above the window start (#357):
+    // a cell below it, or straddling it, is not tested (module docs). An
+    // onset below the window start changes nothing.
+    let onset = penn.rate_onset_ev().map(|w| ef + w).filter(|&o| o >= lo);
+    let tested = |a: f64, b: f64| overlaps(a, b) && onset.is_none_or(|o| a >= o);
     // The cells that overlap the window are contiguous: [first, last].
     let Some(first) = grid.windows(2).position(|w| overlaps(w[0], w[1])) else {
         return Ok(Some(grid.clone()));
@@ -1130,8 +1174,9 @@ fn refined_energy_grid<M: LossModel>(
     // collected in grid order; the lowest failing energy is the error.
     let mut x: Vec<f64> = grid[first..=last + 1].to_vec();
     let mut y: Vec<f64> = x.par_iter().map(|&e| rate(e)).collect::<Result<_, _>>()?;
-    // Cells still to test: those that overlap the window.
-    let mut todo: Vec<bool> = vec![true; x.len() - 1];
+    // Cells still to test: those that overlap the window, at or above the
+    // onset.
+    let mut todo: Vec<bool> = x.windows(2).map(|w| tested(w[0], w[1])).collect();
     let mut added = 0usize;
     loop {
         let cells: Vec<usize> = (0..todo.len()).filter(|&i| todo[i]).collect();
@@ -1274,8 +1319,8 @@ fn refined_energy_grid<M: LossModel>(
                     let m = points[k][1];
                     nx.push(m);
                     ny.push(exact[3 * k + 1]);
-                    ntodo.push(overlaps(x[i], m));
-                    ntodo.push(overlaps(m, x[i + 1]));
+                    ntodo.push(tested(x[i], m));
+                    ntodo.push(tested(m, x[i + 1]));
                 } else {
                     ntodo.push(false);
                 }
@@ -2010,6 +2055,10 @@ mod tests {
         fn loss_min_ev(&self, energy_ev: f64) -> f64 {
             0.01 * energy_ev
         }
+        fn rate_onset_ev(&self) -> Option<f64> {
+            // a positive rate below elf_min
+            None
+        }
         fn fermi_energy_ev(&self) -> f64 {
             0.0
         }
@@ -2248,5 +2297,229 @@ mod tests {
         let grid = vec![1.0, 5.0, 11.0];
         let o = band_options(grid.clone());
         assert_eq!(refined_energy_grid(&model, &o).unwrap(), Some(grid));
+    }
+
+    /// A loss model with Fermi energy 10 eV, lowest tabulated ELF energy
+    /// `elf_min`, rate `rate(T)` and a flat DIIMFP, whose rate counts losses
+    /// down to `loss_min_fraction · T` where given (Mermin-style, a positive
+    /// rate below `elf_min`) and otherwise from `elf_min` (Penn-style), and
+    /// whose reported rate onset is `onset`: synthetic.
+    struct OnsetRate {
+        elf_min: f64,
+        loss_min_fraction: Option<f64>,
+        onset: Option<f64>,
+        rate: fn(f64) -> f64,
+    }
+
+    impl OnsetRate {
+        /// Penn-style: zero rate at and below `elf_min`, reported as the
+        /// onset.
+        fn penn(elf_min: f64, rate: fn(f64) -> f64) -> Self {
+            Self {
+                elf_min,
+                loss_min_fraction: None,
+                onset: Some(elf_min),
+                rate,
+            }
+        }
+    }
+
+    impl LossModel for OnsetRate {
+        fn elf_min_ev(&self) -> f64 {
+            self.elf_min
+        }
+        fn loss_min_ev(&self, energy_ev: f64) -> f64 {
+            self.loss_min_fraction
+                .map_or(self.elf_min, |f| f * energy_ev)
+        }
+        fn rate_onset_ev(&self) -> Option<f64> {
+            self.onset
+        }
+        fn fermi_energy_ev(&self) -> f64 {
+            10.0
+        }
+        fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError> {
+            Ok(if loss_ev > 0.0 && loss_ev <= energy_ev {
+                1.0
+            } else {
+                0.0
+            })
+        }
+        fn inverse_imfp(&self, energy_ev: f64) -> Result<f64, ElectronDataError> {
+            Ok((self.rate)(energy_ev))
+        }
+    }
+
+    /// A rate that is zero up to `T = 6` eV and climbs steeply above it,
+    /// linearly at the onset (synthetic).
+    fn onset_steep(t: f64) -> f64 {
+        let s = (t - 6.0).max(0.0);
+        1e6 * s * (1.0 + s * s) / (1.0 + (s / 15.0).powi(4))
+    }
+
+    /// Every final cell of `refined` that overlaps the window and starts at
+    /// or above `from` passes the test at its quartiles and midpoint.
+    fn assert_cells_pass<M: LossModel>(model: &M, refined: &[f64], from: f64) {
+        let ef = model.fermi_energy_ev();
+        let (lo, hi) = (ef + RATE_WINDOW_EV.0, ef + RATE_WINDOW_EV.1);
+        let rate = |e: f64| row_rate(model, EnergyAxis::BandBottom, e - ef).unwrap();
+        for w in refined.windows(2) {
+            if w[1] > lo && w[0] < hi && w[0] >= from {
+                for e in rate_test_points(w[0], w[1]) {
+                    let m = rate(e);
+                    let lin = rate(w[0]) + (e - w[0]) / (w[1] - w[0]) * (rate(w[1]) - rate(w[0]));
+                    assert!((lin - m).abs() <= RATE_TOLERANCE * m, "{w:?} at {e}");
+                }
+            }
+        }
+    }
+
+    /// The given grid is a subsequence of the refined one.
+    fn assert_subsequence(grid: &[f64], refined: &[f64]) {
+        assert!(refined.windows(2).all(|w| w[1] > w[0]));
+        let mut it = refined.iter();
+        assert!(grid.iter().all(|g| it.any(|r| r == g)));
+    }
+
+    #[test]
+    fn rate_refinement_starts_at_an_onset_above_the_window() {
+        // Issue #357: an ELF tabulated from 6 eV, so the Penn-style rate is
+        // zero up to E = E_F + 6 = 16 eV, inside the window 12..30 eV. The
+        // cell 14..17 straddles the onset and is left as given; the cells
+        // from 17 eV are refined to the tolerance.
+        let model = OnsetRate::penn(6.0, onset_steep);
+        let onset = 16.0;
+        for grid in [
+            vec![5.0, 9.0, 14.0, 17.0, 22.0, 35.0, 60.0, 100.0],
+            // a node on the onset: the cell from it is tested
+            vec![5.0, 9.0, 14.0, 16.0, 22.0, 35.0, 60.0, 100.0],
+        ] {
+            let o = band_options(grid.clone());
+            let refined = refined_energy_grid(&model, &o).unwrap().unwrap();
+            assert!(refined.len() > grid.len(), "{grid:?}");
+            assert_subsequence(&grid, &refined);
+            // Rows are added only in cells of the grid at or above the onset.
+            for e in refined.iter().filter(|e| !grid.contains(e)) {
+                let k = grid.partition_point(|g| g < e);
+                assert!(
+                    grid[k - 1] >= onset,
+                    "{e} in the cell {}..{}",
+                    grid[k - 1],
+                    grid[k]
+                );
+            }
+            assert_cells_pass(&model, &refined, onset);
+        }
+        // Without the onset the straddling cell is bisected towards the step
+        // until it is exhausted to rounding (the error before #357).
+        let unhooked = OnsetRate {
+            onset: None,
+            ..OnsetRate::penn(6.0, onset_steep)
+        };
+        let o = band_options(vec![5.0, 9.0, 14.0, 17.0, 22.0, 35.0, 60.0, 100.0]);
+        let err = refined_energy_grid(&unhooked, &o).unwrap_err().to_string();
+        assert!(err.contains("exhausted to rounding"), "{err}");
+        assert!(err.contains("cell 15.") || err.contains("cell 16"), "{err}");
+    }
+
+    #[test]
+    fn an_onset_below_the_window_leaves_the_refinement_unchanged() {
+        // elf_min = 0.5 eV (the Si ELF; every committed ELF starts at or
+        // below it), so the onset E_F + 0.5 lies below the window start
+        // E_F + 2: the grid is the one refined without an onset, including
+        // rows in the cell 10.3..14 that straddles both.
+        let grid = vec![5.0, 9.0, 10.3, 14.0, 22.0, 35.0, 60.0, 100.0];
+        let o = band_options(grid.clone());
+        let with = OnsetRate::penn(0.5, steep);
+        let without = OnsetRate {
+            onset: None,
+            ..OnsetRate::penn(0.5, steep)
+        };
+        let refined = refined_energy_grid(&with, &o).unwrap().unwrap();
+        assert_eq!(refined, refined_energy_grid(&without, &o).unwrap().unwrap());
+        assert!(refined.iter().any(|&e| e > 10.3 && e < 14.0), "{refined:?}");
+        // An onset exactly at the window start is the lowest that applies.
+        let at_start = OnsetRate::penn(RATE_WINDOW_EV.0, onset_steep);
+        let refined = refined_energy_grid(&at_start, &o).unwrap().unwrap();
+        assert!(
+            !refined.iter().any(|&e| e > 10.3 && e < 14.0),
+            "{refined:?}"
+        );
+        assert_subsequence(&grid, &refined);
+    }
+
+    #[test]
+    fn a_rate_without_an_onset_keeps_the_full_window() {
+        // Mermin-style: elf_min = 6 eV, but the rate counts losses down to
+        // 1e-8 T and is positive below elf_min, so it has no onset and the
+        // cells below E_F + 6 are refined as before.
+        let model = OnsetRate {
+            elf_min: 6.0,
+            loss_min_fraction: Some(LOWEST_LOSS_FRACTION),
+            onset: None,
+            rate: steep,
+        };
+        let grid = vec![5.0, 9.0, 14.0, 17.0, 22.0, 35.0, 60.0, 100.0];
+        let refined = refined_energy_grid(&model, &band_options(grid.clone()))
+            .unwrap()
+            .unwrap();
+        assert_subsequence(&grid, &refined);
+        assert!(refined.iter().any(|&e| e > 12.0 && e < 16.0), "{refined:?}");
+        assert_cells_pass(&model, &refined, f64::NEG_INFINITY);
+    }
+
+    #[test]
+    fn rate_refinement_from_an_onset_is_the_same_on_any_thread_count() {
+        let model = OnsetRate::penn(6.0, onset_steep);
+        let o = band_options(vec![5.0, 9.0, 14.0, 17.0, 22.0, 35.0, 60.0, 100.0]);
+        let on = |threads: usize| {
+            rayon::ThreadPoolBuilder::new()
+                .num_threads(threads)
+                .build()
+                .unwrap()
+                .install(|| refined_energy_grid(&model, &o).unwrap())
+        };
+        let one = on(1);
+        assert_eq!(on(3), one);
+        assert_eq!(on(8), one);
+    }
+
+    #[test]
+    fn the_penn_models_have_a_rate_onset_and_the_mermin_model_none() {
+        // A synthetic ELF (one Drude-Lorentz plasmon) tabulated from 6 eV.
+        let elf = super::super::drude::DrudeLorentz::new(vec![
+            super::super::drude::DrudeLorentzOscillator::plasmon(15.0, 4.0),
+        ])
+        .unwrap()
+        .to_optical_elf("synthetic", 6.0, 2000.0, 200)
+        .unwrap();
+        use super::super::model::PennAlgorithm;
+        for (algorithm, onset) in [
+            (PennAlgorithm::SinglePole, Some(6.0)),
+            (PennAlgorithm::Full, Some(6.0)),
+            (PennAlgorithm::Mermin, None),
+        ] {
+            let model = PennInelastic::try_new(algorithm, elf.clone()).unwrap();
+            assert_eq!(model.rate_onset_ev(), onset, "{algorithm:?}");
+            // Penn: the rate is zero at the onset, as the hook says; Mermin:
+            // positive below elf_min.
+            let below = row_rate(&model, EnergyAxis::ModelFermiLevel, 5.0).unwrap();
+            assert_eq!(below > 0.0, onset.is_none(), "{algorithm:?}: {below}");
+        }
+        // The single-pole Penn model on the band-bottom axis builds a refined
+        // grid with the default refinement, rows only from the onset.
+        let model = PennInelastic::new(PennAlgorithm::SinglePole, elf)
+            .with_fermi_energy_ev(10.0)
+            .unwrap();
+        let grid = vec![5.0, 9.0, 14.0, 17.0, 22.0, 35.0, 60.0, 100.0];
+        let refined = refined_energy_grid(&model, &band_options(grid.clone()))
+            .unwrap()
+            .unwrap();
+        assert!(refined.len() > grid.len(), "{refined:?}");
+        assert_subsequence(&grid, &refined);
+        for e in refined.iter().filter(|e| !grid.contains(e)) {
+            assert!(*e > 17.0, "{e}");
+        }
+        assert_cells_pass(&model, &refined, 16.0);
     }
 }
