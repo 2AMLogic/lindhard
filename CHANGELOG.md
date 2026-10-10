@@ -391,6 +391,11 @@ one version).
 
 ### Changed
 
+- `Lattice::gallium_nitride()` now uses the measured bulk-crystal cell
+  `a = 3.1890 Å`, `c = 5.18500 Å` at 300 K (Melnik et al. 1997) instead of
+  `3.189 Å`, `5.178 Å`; its placeholder `u` follows from the new `a`, `c`.
+  `GAN_DENSITY_G_CM3` is now the measured 6.1 g/cm³ (Juza and Hahn 1938),
+  replacing 6.15 (#179).
 - **Electron results change for every run that uses the `mermin-melf`
   inelastic model** (#342). A Mermin table row at energy `T` now draws its
   losses from `(1e-8 T, T]`, the window its rate integral already used,

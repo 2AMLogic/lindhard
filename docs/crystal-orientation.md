@@ -164,7 +164,7 @@ accepted: the orthohexagonal search cell has `4n` sites and
 
 | Preset | `a` | `c` | Internal parameters | Temperature | Source |
 |---|---|---|---|---|---|
-| `Lattice::gallium_nitride()` | 3.189 Å | 5.178 Å | `u = 1/4 + a²/(3c²)` (**placeholder**, equal bond lengths) | 300 K | Ioffe NSM archive, citing Qian et al. (1996); primary not opened |
+| `Lattice::gallium_nitride()` | 3.1890 Å | 5.18500 Å | `u = 1/4 + a²/(3c²)` (**placeholder**, equal bond lengths) | 300 K | Melnik et al., MRS Internet J. Nitride Semicond. Res. 2, 39 (1997), Table 1 (annealed bulk crystal) |
 | `Lattice::silicon_carbide_4h()` | 3.08051 Å | 10.0848 Å | `z = 0, 0.18784, 0.24982, 0.43671` | not stated | Bauer et al., Acta Cryst. A 57, 60 (2001), via Mehl et al. (2017), pp. 423, 733 |
 | `Lattice::silicon_carbide_6h()` | 3.08129 Å | 15.11976 Å | `z = 0, 0.1254, 0.16675, 0.29215, 0.8335, −0.0415` | not stated | Bauer et al. (2001), via Mehl et al. (2017), pp. 427, 734 |
 

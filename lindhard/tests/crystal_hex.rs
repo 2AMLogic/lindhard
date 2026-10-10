@@ -170,7 +170,7 @@ struct DensityCase {
     rho_g_cm3: f64,
     /// Elements of the compound.
     z: [u8; 2],
-    /// Printed density and its temperature, as read from the archive.
+    /// Printed density and its temperature, as read from the source.
     density_source: &'static str,
     /// Cell source and its temperature (or that none is stated).
     cell_source: &'static str,
@@ -204,9 +204,11 @@ fn density_cases() -> [DensityCase; 3] {
             lattice: Lattice::gallium_nitride(),
             rho_g_cm3: GAN_DENSITY_G_CM3,
             z: [31, 7],
-            density_source: "Ioffe NSM 6.15 g/cm3, 300 K, no reference printed",
-            cell_source: "Ioffe NSM (Qian 1996): a=3.189, c=5.178 A, 300 K",
-            printed_precision: 0.005 / 6.15,
+            density_source: "Juza & Hahn 1938 via COD 1010168: measured 6.1 g/cm3, \
+                             temperature not stated",
+            cell_source: "Melnik 1997 Table 1, annealed bulk: a=3.1890 A (+-0.00005), \
+                          c=5.18500 A (+-0.00002), 300 K",
+            printed_precision: 0.05 / 6.1,
         },
     ]
 }
@@ -279,12 +281,20 @@ fn number_density_report_states_the_sources() {
 ///   cell parameters (`a = 3.08129 Å`, `c = 15.11976 Å`) add under 2e-6 and
 ///   the Si and C standard-weight intervals about 5e-5. Tolerance 1.7e-3.
 ///   Found: +1.05e-3.
+/// * GaN: the measured density 6.1 g/cm³ of Juza and Hahn (1938, via COD
+///   1010168; temperature not stated) is printed to two figures, half a unit
+///   in the last place is 8.20e-3 relative. The cell of Melnik et al. (1997)
+///   at 300 K adds 3.5e-5 (its stated accuracy, 0.00005 Å on `a` twice and
+///   0.00002 Å on `c`) and the Ga and N standard-weight intervals under 1e-4.
+///   Tolerance 8.3e-3. Found: −1.74e-3. The density is the only open
+///   measured GaN bulk density found, and its two figures make this a coarse
+///   check; see `docs/data-provenance.md`.
 ///
-/// Issue #179 asks for agreement within the cited precision. Only 6H meets
-/// it with the sources that could be opened; 4H and GaN are in
+/// Issue #179 asks for agreement within the cited precision. 6H and GaN meet
+/// it with the sources that could be opened; 4H is in
 /// [`number_density_discrepancies_are_recorded_gaps`], which does not claim it.
 #[test]
-fn number_density_agrees_with_the_material_module_6h() {
+fn number_density_agrees_with_the_material_module() {
     for rel in density_differences(
         &Lattice::silicon_carbide_6h(),
         SIC_6H_DENSITY_G_CM3,
@@ -292,23 +302,23 @@ fn number_density_agrees_with_the_material_module_6h() {
     ) {
         assert!(rel.abs() < 1.7e-3, "6H relative difference {rel:e}");
     }
+    for rel in density_differences(&Lattice::gallium_nitride(), GAN_DENSITY_G_CM3, [31, 7]) {
+        assert!(rel.abs() < 8.3e-3, "GaN relative difference {rel:e}");
+    }
 }
 
-/// **Not an agreement test.** Regression pins on two known, unresolved
-/// disagreements between sources, so that a change to a cell or a density is
-/// noticed. The acceptance criterion of #179 (density within the cited
-/// precision) is **not met** for these presets, and the test must not be read
-/// as meeting it. Neither constant was adjusted to hide the offset; both are
+/// **Not an agreement test.** Regression pin on a known, unresolved
+/// disagreement between sources, so that a change to the cell or the density
+/// is noticed. The acceptance criterion of #179 (density within the cited
+/// precision) is **not met** for 4H-SiC, and the test must not be read as
+/// meeting it. Neither constant was adjusted to hide the offset; the gap is
 /// listed under Open questions in `docs/data-provenance.md`.
 ///
 /// * 4H-SiC: against the archive's 3.211 g/cm³ (half a unit: 1.6e-4) the
 ///   lattice is +7.52e-4 denser, outside the printed precision. The two
 ///   numbers are different measurements (Bauer et al. 2001 cell, Gomes de
 ///   Mesquita 1967 density, per the archive) and the cell's temperature is
-///   not stated.
-/// * GaN: the archive's 6.15 g/cm³ is 0.85 % above the X-ray density of the
-///   archive's own `a` and `c` (lattice/material - 1 = -8.52e-3), far outside
-///   its printed precision (8e-4).
+///   not stated. No measured 4H bulk density could be opened.
 #[test]
 fn number_density_discrepancies_are_recorded_gaps() {
     for rel in density_differences(
@@ -317,12 +327,6 @@ fn number_density_discrepancies_are_recorded_gaps() {
         [14, 6],
     ) {
         assert!((rel - 7.52e-4).abs() < 5e-6, "4H pinned difference {rel:e}");
-    }
-    for rel in density_differences(&Lattice::gallium_nitride(), GAN_DENSITY_G_CM3, [31, 7]) {
-        assert!(
-            (rel + 8.52e-3).abs() < 5e-6,
-            "GaN pinned difference {rel:e}"
-        );
     }
 }
 
