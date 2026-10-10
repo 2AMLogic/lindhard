@@ -111,6 +111,16 @@ type Result<T> = std::result::Result<T, ElectronDataError>;
 /// Default relative tolerance of the integrals of the Mermin model.
 pub const DEFAULT_MERMIN_TOLERANCE: f64 = 1.0e-5;
 
+/// The lower limit of the loss integrals of the inverse IMFP and the
+/// stopping power, as a fraction of the kinetic energy `T`: they integrate
+/// `ω` over `[LOWEST_LOSS_FRACTION · T, T]` (module docs, "The model"). A
+/// numerical lower limit of the integration in `ln ω`, not a physical
+/// threshold (the fitted Drude-Lorentz ELF has none, module docs). The
+/// inelastic table opens the sampled loss window of a Mermin
+/// row at the same limit ([`super::table`], "Rows below the ELF table"), so
+/// the stored rate and the sampled losses cover one window (#342).
+pub(crate) const LOWEST_LOSS_FRACTION: f64 = 1.0e-8;
+
 const GL_ORDER: usize = 5;
 
 // ---- a minimal complex number (no dependency) ----
@@ -482,7 +492,7 @@ impl MerminPenn {
         if t.is_nan() || t <= 0.0 {
             return (0.0, 0.0);
         }
-        let (lo, hi) = ((1e-8 * t).ln(), t.ln());
+        let (lo, hi) = ((LOWEST_LOSS_FRACTION * t).ln(), t.ln());
         let n = 24;
         let mut breaks: Vec<f64> = (0..=n)
             .map(|i| lo + (hi - lo) * i as f64 / n as f64)

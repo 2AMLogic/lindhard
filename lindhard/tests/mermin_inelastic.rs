@@ -463,3 +463,104 @@ fn cu_input_with_six_oscillators_resolves_and_fits_six() {
     assert_eq!(default.model_identity(), try_new.model_identity());
     assert!(default.model_identity().contains("(3 oscillators "));
 }
+
+// ---------------------------------------------------------------------------
+// The loss window of a Mermin table row (#342)
+// ---------------------------------------------------------------------------
+
+fn si_elf() -> Option<OpticalElf> {
+    let p = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../validation/data/optical/si_elf_yang2019.toml");
+    if !p.is_file() {
+        // A packaged crate does not ship validation/data.
+        eprintln!("{} not found; Si Mermin table checks skipped", p.display());
+        return None;
+    }
+    Some(OpticalElf::from_toml_file(p).unwrap())
+}
+
+/// The fraction of the model's inverse IMFP at `t` from losses in
+/// `(w_lo, t]`: an independent trapezoid in `ln ω` of the public DIIMFP.
+fn rate_fraction_above(m: &PennInelastic, t: f64, w_lo: f64) -> f64 {
+    let (lo, hi, n) = (w_lo.ln(), t.ln(), 400usize);
+    let h = (hi - lo) / n as f64;
+    let mut sum = 0.0;
+    for i in 0..=n {
+        let w = (lo + h * i as f64).exp();
+        let wt = if i == 0 || i == n { 0.5 } else { 1.0 };
+        sum += wt * m.diimfp_per_m_ev(t, w).unwrap() * w;
+    }
+    sum * h / m.imfp_and_stopping(t).unwrap().inverse_imfp_per_m
+}
+
+/// Issue #342. The Mermin rate integrates the DIIMFP of its fitted ELF from
+/// `ω = 1e-8 T`, below the lowest tabulated ELF energy `elf_min` (0.5 eV for
+/// the committed Si ELF). The table's sampled loss distribution must cover
+/// the same window: the fraction of draws below `elf_min` is the fraction of
+/// the rate there, the stopping power of the stored rows is the model's, and
+/// rows with `T <= elf_min` carry the model's rate. Before #342 the window
+/// opened at `elf_min`: no draw fell below it, the row at `T = 0.6 eV` gave
+/// 1.42 times the model's stopping power, and the row at 0.3 eV was empty.
+#[test]
+fn si_mermin_rows_sample_the_window_of_their_rate() {
+    use lindhard::electron::inelastic::table::{
+        build_inelastic_table_for_model, stopping_power_ev_per_m, InelasticTableOptions,
+    };
+    use lindhard::material::Material;
+    use lindhard::rng::stream;
+    use rand_core::Rng;
+
+    let Some(elf) = si_elf() else { return };
+    let elf_min = elf.energy_ev()[0];
+    assert_eq!(elf_min, 0.5);
+    // the band of validation/experiments/se_yield.py (E_F = W_v + E_g)
+    let m = PennInelastic::try_new(PennAlgorithm::Mermin, elf)
+        .unwrap()
+        .with_fermi_energy_ev(13.46)
+        .unwrap();
+    let ts = vec![0.3, 0.6, 1.0, 2.0, 5.0];
+    let mat = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
+    let table =
+        build_inelastic_table_for_model(&m, &mat, &InelasticTableOptions::new(ts.clone())).unwrap();
+    let n = 100_000u64;
+    for (i, &t) in ts.iter().enumerate() {
+        let model = m.imfp_and_stopping(t).unwrap();
+        assert_eq!(
+            table.inverse_mfp_per_m()[i],
+            model.inverse_imfp_per_m,
+            "T = {t}"
+        );
+        let q = table.quantiles(i).expect("non-empty row");
+        // the window is (1e-8 T, T]
+        assert!((q[0] / (1e-8 * t) - 1.0).abs() < 1e-12, "T = {t}: {}", q[0]);
+        assert!(q.iter().all(|&w| w > 0.0 && w <= t), "T = {t}");
+        // the stopping power of the row is the model's (density tolerance
+        // 1e-5 and probability refinement 1e-4 of the mean loss)
+        let s = stopping_power_ev_per_m(&table, i).unwrap();
+        assert!(
+            (s / model.stopping_ev_per_m - 1.0).abs() < 1e-3,
+            "T = {t}: stopping {s} vs model {}",
+            model.stopping_ev_per_m
+        );
+        // the fraction of draws below elf_min is the fraction of the rate
+        // there (5 binomial standard deviations plus 1e-3 for the trapezoid)
+        let below_rate = if t > elf_min {
+            1.0 - rate_fraction_above(&m, t, elf_min)
+        } else {
+            1.0
+        };
+        let below = (0..n)
+            .filter(|&k| {
+                let u = (stream(342, k).next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64);
+                table.inverse_cdf(i, u).unwrap() < elf_min
+            })
+            .count() as f64
+            / n as f64;
+        let sigma = (below_rate * (1.0 - below_rate) / n as f64).sqrt();
+        eprintln!("T = {t}: draws below elf_min {below:.4}, rate below {below_rate:.4}");
+        assert!(
+            (below - below_rate).abs() <= 5.0 * sigma + 1e-3,
+            "T = {t}: draws below elf_min {below} vs rate fraction {below_rate}"
+        );
+    }
+}
