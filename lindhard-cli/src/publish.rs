@@ -10,6 +10,7 @@
 //! Only the files the caller names are touched. Concurrent writers to one
 //! directory are not supported.
 
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
@@ -65,19 +66,57 @@ impl OutputSet {
     }
 
     /// Publishes the summary: written to a temporary sibling, then renamed
-    /// into place. The temporary file is removed on failure.
+    /// into place.
+    ///
+    /// The temporary file is created exclusively (`create_new`, i.e.
+    /// `O_EXCL`), so an existing file, directory or symlink (even a dangling
+    /// one) at a candidate name is never opened, truncated or followed; that
+    /// candidate is skipped and the next one tried. Only a file this call
+    /// created is ever removed on failure.
     pub fn publish(self) -> Result<()> {
-        let tmp = self.out.join(format!(".{}.tmp", self.summary_name));
         let dst = self.out.join(&self.summary_name);
-        let result = std::fs::write(&tmp, &self.summary)
+        let (tmp, mut file) = self.create_temp()?;
+        let result = file
+            .write_all(self.summary.as_bytes())
+            .and_then(|()| file.sync_all())
             .with_context(|| format!("writing {}", tmp.display()))
             .and_then(|()| {
+                drop(file);
                 std::fs::rename(&tmp, &dst).with_context(|| format!("writing {}", dst.display()))
             });
         if result.is_err() {
             let _ = std::fs::remove_file(&tmp);
         }
         result
+    }
+
+    /// Exclusively creates a fresh temporary sibling of the summary.
+    fn create_temp(&self) -> Result<(PathBuf, std::fs::File)> {
+        const ATTEMPTS: u32 = 100;
+        for n in 0..ATTEMPTS {
+            let name = if n == 0 {
+                format!(".{}.tmp", self.summary_name)
+            } else {
+                format!(".{}.{}.{n}.tmp", self.summary_name, std::process::id())
+            };
+            let path = self.out.join(name);
+            match std::fs::OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .open(&path)
+            {
+                Ok(f) => return Ok((path, f)),
+                Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+                Err(e) => {
+                    return Err(e).with_context(|| format!("creating {}", path.display()));
+                }
+            }
+        }
+        anyhow::bail!(
+            "could not create a temporary file for {} in {}: all candidate names exist",
+            self.summary_name,
+            self.out.display()
+        )
     }
 }
 
@@ -124,5 +163,61 @@ mod tests {
         assert!(o.publish().is_err());
         assert!(!d.join(".s.json.tmp").exists());
         assert!(d.join("s.json").is_dir());
+    }
+
+    #[test]
+    fn publish_preserves_preexisting_temp_name_file() {
+        let d = dir("tmp-collision");
+        let o = OutputSet::begin(&d, "s.json", "new".into()).unwrap();
+        std::fs::write(d.join(".s.json.tmp"), "user data").unwrap();
+        o.publish().unwrap();
+        assert_eq!(std::fs::read_to_string(d.join("s.json")).unwrap(), "new");
+        assert_eq!(
+            std::fs::read_to_string(d.join(".s.json.tmp")).unwrap(),
+            "user data"
+        );
+    }
+
+    #[test]
+    fn failed_publish_does_not_delete_preexisting_temp_name_file() {
+        let d = dir("tmp-collision-fail");
+        let o = OutputSet::begin(&d, "s.json", "new".into()).unwrap();
+        std::fs::write(d.join(".s.json.tmp"), "user data").unwrap();
+        std::fs::create_dir_all(d.join("s.json/inner")).unwrap();
+        assert!(o.publish().is_err());
+        assert_eq!(
+            std::fs::read_to_string(d.join(".s.json.tmp")).unwrap(),
+            "user data"
+        );
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn publish_does_not_follow_symlink_at_temp_name() {
+        let d = dir("tmp-symlink");
+        let target = d.join("victim.txt");
+        std::fs::write(&target, "precious").unwrap();
+        std::os::unix::fs::symlink(&target, d.join(".s.json.tmp")).unwrap();
+        let o = OutputSet::begin(&d, "s.json", "new".into()).unwrap();
+        o.publish().unwrap();
+        assert_eq!(std::fs::read_to_string(&target).unwrap(), "precious");
+        assert_eq!(std::fs::read_to_string(d.join("s.json")).unwrap(), "new");
+        assert!(d
+            .join(".s.json.tmp")
+            .symlink_metadata()
+            .unwrap()
+            .is_symlink());
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn publish_does_not_follow_dangling_symlink_at_temp_name() {
+        let d = dir("tmp-dangling");
+        let target = d.join("not-created.txt");
+        std::os::unix::fs::symlink(&target, d.join(".s.json.tmp")).unwrap();
+        let o = OutputSet::begin(&d, "s.json", "new".into()).unwrap();
+        o.publish().unwrap();
+        assert!(!target.exists());
+        assert_eq!(std::fs::read_to_string(d.join("s.json")).unwrap(), "new");
     }
 }

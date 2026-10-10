@@ -792,7 +792,9 @@ CSV write leaves no new summary) and lists only files that exist.
 
 Once output starts, the run first removes the previous summary of its own mode
 (`summary.json`, `electron_summary.json` or `dynamic_summary.json`) and only
-then replaces CSVs. The new summary is written to a temporary sibling and
+then replaces CSVs. The new summary is written to a freshly created temporary
+sibling (created exclusively, so an existing file or symlink of the same name is
+never touched; another name is used) and
 renamed into place after every other write succeeds. So, after a failed run,
 the absence of the mode's summary means the output set is incomplete (it may
 hold a mix of old and new CSVs); a summary that is present describes a
