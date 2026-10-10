@@ -4,6 +4,21 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-10
 
+- **Issue #300** (closed): Cu Mermin inelastic mean free path is 15 to 41 % longer than TPP 2011 and than the single-pole model on the same ELF
+- **Issue #307** (closed): Mermin fit with 10 or 16 oscillators puts a sub-meV oscillator between ELF knots (f-sum x7000 for Cu)
+- **Issue #312** (closed): SE yield candidates (#301 item 1): acoustic-phonon scattering for Cu, or the gap
+- **Issue #314** (closed): SE yield candidates (#301 item 3): a second Au ELF, licence verdict first, or the gap
+- **Issue #315** (closed): SE yield candidates (#301 item 4): low-energy elastic corrections (correlation-polarization, muffin-tin), or the gap
+- **PR #308**: validation: Cu Mermin IMFP excess is the default 3-oscillator fit (#300)
+- **PR #310**: fix: bound Mermin fit widths below by the local knot spacing (#307)
+- **PR #316**: feat(electron): secondary binding switch; run #301 item 5 (Azzolini B), split items 1-4
+- **PR #317**: docs(provenance): Cu acoustic-phonon inputs from Arat 2019 and the gap (#312)
+- **PR #318**: Au ELF from Hagemann Table 6 as a second ELF; licence verdicts; au-elf-table6 run (#314)
+- **PR #320**: docs(provenance): record the #301 item 4 elastic rows as gaps (#315)
+
+
+### 2026-10-10
+
 - **PR #304**: feat(electron): sample inner-shell ionisation channels in the transport (#273)
 - **PR #284**: Screen-oxide substrate channeling tail characterization (#280)
 - **Issue #280** (closed): Crystal validation: characterize screen-oxide effects on substrate channeling tails

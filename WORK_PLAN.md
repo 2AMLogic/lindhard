@@ -49,19 +49,20 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 - **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
+- **#305**: Electron table cache: coordinate concurrent builders per entry
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#300**: Cu Mermin inelastic mean free path is 15 to 41 % longer than TPP 2011 and than the single-pole model on the same ELF
-- **#305**: Electron table cache: coordinate concurrent builders per entry
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
+- **#321**: CLI: invalidate prior summaries when a rerun starts replacing outputs
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#308**: validation: Cu Mermin IMFP excess is the default 3-oscillator fit (#300)
+- **#322**: CLI: invalidate prior summaries when a rerun starts replacing outputs
 
 ## Approved (Awaiting Merge)
 
@@ -93,8 +94,8 @@ Issues carrying `loom:curated`.
 - **#241**: Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp *(curated)*
 - **#256**: Full Penn: make one inelastic table build finish in usable time (split from #169) *(curated)*
 - **#279**: Plot simulation and validation output with rizzma *(curated)*
-- **#300**: Cu Mermin inelastic mean free path is 15 to 41 % longer than TPP 2011 and than the single-pole model on the same ELF *(curated)*
 - **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
+- **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -119,7 +120,7 @@ Issues carrying `loom:curated`.
 |------|-------|
 | Operator merge-risk holds | 4 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 2 |
+| Ready (`loom:issue`) | 3 |
 | In Progress (`loom:building`) | 2 |
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 4 |
