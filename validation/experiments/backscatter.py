@@ -45,8 +45,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import os
 import math
+import os
 import re
 import statistics
 import subprocess
@@ -243,7 +243,7 @@ def elf_fingerprints(text: str) -> dict[str, str] | None:
     """{path: sha256 of the file bytes} for every `optical_elf = "..."` the input
     text names, or None if there is none or a file cannot be read."""
     paths = [json.loads(f'"{m.group(1)}"') if "\\" in m.group(1) else m.group(1)
-             for m in re.finditer(r'^optical_elf = "(.*)"', text, flags=re.M)]
+             for m in re.finditer(r'^optical_elf = "(.*)"$', text, flags=re.M)]
     if not paths:
         return None
     out = {}
