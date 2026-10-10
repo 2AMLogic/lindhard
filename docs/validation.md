@@ -433,8 +433,8 @@ digit for digit. What the table shows:
   0.69 to 0.72 and `P_eff` to 0.97 to 1.03, without a wide oscillator.
 - **Every wide oscillator found has γ above the table's top knot**, and no
   oscillator with weight in any other row does (the widest is 414 eV). An
-  upper bound on γ from the knots would exclude all of them; whether the fit
-  then bounds the f-sum is not measured here (#337).
+  upper bound on γ from the knots would exclude all of them; the fit then
+  moves the excess elsewhere and the f-sum stays unbounded (#337, below).
 
 The table is not pinned in a test: ten of the fifteen fits stop at the
 iteration cap or converge to parameters far outside the table, where the
@@ -447,6 +447,66 @@ row, fit the committed table with `fit_mermin_oscillators` and
 fields above and the `MerminPenn::new(elf, fit)` IMFPs, or run `lindhard`
 with `model = "mermin-melf"` and a `mermin_fit` table such as
 `{ oscillators = 10, weighting = "relative", relative_floor = 0.1 }`.
+
+**An upper bound on the width (#337): measured, not adopted.** The
+candidate, fixed before measuring, was a bound that is a pure function of
+the knots: `ħγ_j <= E_max`, the table's top knot (Cu: 4.9994e4 eV),
+enforced like the #307 floor (stored `ln γ_j` lowered to `ln E_max` at the
+start and after every accepted step, and the width capped in every
+residual evaluation; where cap and floor cross, the floor wins). The
+decision rule, also fixed before measuring, was to adopt it only if (1)
+each of the seven pathological fits of the #311 table becomes sane, with
+f-sum fit / table in 0.56 to 0.87 and `P_eff` in 0.48 to 1.05 (the ranges of
+its eight sound rows) and no oscillator with weight wider than the bound,
+and (2) the default 3-oscillator fit of every committed ELF in
+`validation/data/optical/` is bitwise unchanged. The fifteen fits again,
+with the cap and otherwise as above (measured 2026-10-10, release build,
+aarch64 macOS, one fit at a time, each under 3 s; the cap was a temporary
+code change, not committed):
+
+| n | weighting | converged (iterations) | widest: A (eV²), E (eV), γ (eV) | f-sum fit / table | `P_eff` fit | Mermin IMFP at 54.6 / 99.5 / 200.3 / 492.7 / 992.3 eV (Å) |
+|---|---|---|---|---|---|---|
+| 3 | relative 1e-3 | no (500) | 1.85e3, 94.6, 109 | 0.564 | 0.480 | 11.094 / 9.137 / 9.907 / 14.592 / 23.189 |
+| 3 | relative 1e-2 (default) | yes (99) | 1.79e3, 86.6, 115 | 0.567 | 0.670 | 6.967 / 6.282 / 7.430 / 11.807 / 19.213 |
+| 3 | relative 1e-1 | yes (198) | 2.23e3, 89.4, 161 | 0.716 | 0.967 | 4.182 / 4.363 / 5.590 / 9.325 / 15.340 |
+| 3 | relative 1 | yes (31) | 1.92e3, 101.6, 147 | 0.688 | 1.032 | 3.777 / 4.119 / 5.397 / 9.056 / 14.940 |
+| 3 | uniform | no (500) | 2.20e3, 100.5, 165 | 0.747 | 1.046 | 3.780 / 4.090 / 5.333 / 8.927 / 14.686 |
+| 10 | relative 1e-3 | no (500) | 695, 1192, 422 | 0.738 | 0.617 | 8.204 / 7.239 / 8.246 / 12.572 / 20.201 |
+| 10 | relative 1e-2 (default) | no (500) | 820, 199.9, 434 | 0.759 | 0.756 | 5.990 / 5.723 / 6.969 / 11.219 / 18.245 |
+| 10 | relative 1e-1 | no (500) | 2.13e3, 86.7, 148 | 0.778 | 0.981 | 4.292 / 4.412 / 5.622 / 9.371 / 15.430 |
+| 10 | relative 1 | yes (45) | 312, 1123, 187 | 0.869 | 1.029 | 3.912 / 4.065 / 5.254 / 8.872 / 14.632 |
+| 10 | uniform | yes (46) | 1.64e15, 1.83e7, 2.00e4 | 4.5e11 | 5.96 | 3.798 / 3.973 / 5.181 / 8.829 / 14.624 |
+| 16 | relative 1e-3 | no (500) | 452, 1132, 248 | 0.741 | 0.638 | 8.020 / 7.203 / 8.297 / 12.693 / 20.148 |
+| 16 | relative 1e-2 (default) | no (500) | 2.50e4, 1987, 2.90e4 | 7.40 | 0.792 | 6.026 / 5.725 / 6.878 / 10.941 / 17.768 |
+| 16 | relative 1e-1 | no (500) | 1.81e4, 1637, 1.64e4 | 5.53 | 0.988 | 4.554 / 4.681 / 5.947 / 9.678 / 15.759 |
+| 16 | relative 1 | no (500) | 1.08e4, 1187, 1.08e4 | 3.56 | 1.026 | 4.218 / 4.381 / 5.609 / 9.284 / 15.216 |
+| 16 | uniform | yes (84) | 3.18e26, 8.10e9, 2.00e4 | 8.7e22 | 4.9e6 | 4.188 / 4.362 / 5.598 / 9.249 / 14.882 |
+
+- **Condition (2) holds**: the default 3-oscillator fits of Al, Au (both
+  tables), C, Cu and Si are bitwise identical with and without the cap
+  (amplitudes, energies, widths, weighted rms, iterations); their widest
+  oscillator is 115 eV (Cu) against a top knot of 199 eV (Si) to 1.5e5 eV
+  (Au). The five n = 3 rows above are the uncapped fits, bit for bit.
+- **Condition (1) fails**: of the seven pathological rows only two become
+  sane, n = 10 at 1e-2 (f-sum 0.759, `P_eff` 0.756) and n = 16 at 1e-3
+  (0.741, 0.638). The other five still exceed the table's f-sum by 3.6 to
+  8.7e22 times. At n = 16 with `relative` 1e-2, 1e-1 and 1 the excess sits
+  in an oscillator of width 1e4 to 3e4 eV, below the cap, near 1.2 to
+  2 keV. With `uniform` (n = 10 and 16) it moves into the energy: an
+  oscillator at E = 1.8e7 and 8.1e9 eV, far above the table, with its width
+  on the #307 floor of the top knot (2.0e4 eV), and `converged = true`.
+- **The cap also changes sound fits**: n = 10 at 1e-1 no longer converges
+  (500 iterations instead of 57; f-sum 0.778 instead of 0.794), and n = 10
+  at 1e-3 moves (f-sum 0.738, `P_eff` 0.617, instead of 0.713 and 0.529).
+  n = 10 at 1 matches its #311 row to the digits shown; its zero-amplitude
+  oscillator, of width 1.1e5 eV without the cap, sits on the cap.
+
+So a width cap alone does not bound the f-sum of these fits, and it was not
+added; `fit_mermin_oscillators` and `MerminFitOptions::default()` are
+unchanged. Other bounds (on the energy `ħω_j`, or a sum-rule term in the
+cost) were not measured here. The f-sum and `P_eff` of the report against
+the table's remain the check of a fit. (The n = 3 `uniform` f-sum ratio is
+0.74746; the #311 table above shows it as 0.748.)
 
 ## 2. Code-to-code oracles (local harness, summaries committed)
 
