@@ -2342,6 +2342,8 @@ Not defined for Si: `phi-low`, `phi-high` (work-function ranges of the metals; t
 
 Not run for Au: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The reason is given in the text below the tables.
 
+**Truncation unknown** for 227 of 227 runs (written before the diagnostics were kept; this does not show they were uncapped).
+
 **Initial bounds** (default configuration; gated by `validation/experiments/se_yield.py --check`):
 
 | Material | Simulated E_max (eV) | Measured median E_max (eV) | Ratio | Within factor 2 | Simulated δ_max | Measured median δ_max | Deviation | Within 50 % |
