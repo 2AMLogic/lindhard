@@ -953,8 +953,10 @@ only the work was unbounded.
 
 *Fix.* (1) A cell of a knot interval's bisection is also accepted when its
 halves agree with it to the tolerance relative to its own integral. The
-error of the total stays within twice the tolerance of the integral of
-`|g Im[-1/ε_L]|` (`quadrature::integrate_weighted`). (2) Each knot interval
+estimated error of the total stays within three times the tolerance of the
+integral of `|g Im[-1/ε_L]|` (`quadrature::integrate_weighted`: the
+absolute tolerances of the segments sum to twice that, and the cells
+accepted by the relative test add one more). (2) Each knot interval
 has a budget of 4096 rule applications (some 50 times the most any interval
 used in the scans below). Cells left without meeting their tolerance
 (budget spent, maximum depth, or a midpoint that is not representable) are
@@ -988,7 +990,10 @@ tolerance of about 1e-7 the cells on the resonance cannot meet their
 tolerance (the noise floor), the budget runs out and the evaluation says so.
 At 1e-8 and 160 eV this costs 21285 evaluations (1.3 ms), with an error
 estimate of 1.6e-2 that covers the actual difference of 5e-6 from the
-reference. The IMFP pass (`imfp` mode, one thread) changed by at most
+reference. (That estimate is not tight: the error estimate of the cell
+bisected last is charged to every cell skipped after the budget ran out,
+so at 1e-8 it is about 66 % of the value, 2.4e-2. Read `unconverged_error`
+as a safe bound, not as a measure of the error.) The IMFP pass (`imfp` mode, one thread) changed by at most
 2.5e-10 in `λ⁻¹` and 2.3e-9 in `S` at the 57 Al energies (54 of them
 identical to the printed digits), and by 9.2e-8 and 1.1e-7 at the 55 Si
 energies. On scans of 2000 momenta from 0.005 to 40 a.u. at 11 losses each
@@ -996,7 +1001,18 @@ energies. On scans of 2000 momenta from 0.005 to 40 a.u. at 11 losses each
 any knot interval used there was 62 rule applications (78 at the two
 points of the issue), and no evaluation used more than 1750 Lindhard
 evaluations. These checks are in `tests/penn_full.rs` as work counts, not
-wall times.
+wall times. Exhaustion is reported by `FullPenn::loss_function_evaluation`,
+by `FullPenn::imfp_unconverged` (the outer `ω_p` integral of the IMFP
+and stopping power; its inner integrals over `q` and `ω` are not bounded and
+report nothing), and by `DiimfpGrid::unconverged_profile_panels` and
+`unconverged_profile_loss_evaluations` (the `q` cells of the profiles, and
+the loss evaluations inside them). `FullPenn::diimfp_per_m_ev` does not
+report the exhaustion of the loss evaluations it integrates. At the model tolerance,
+on the Si and Al ELFs at 10 eV to 5 keV (5 energies each), every outer
+`ω_p` integral of the IMFP converged but one: Al at 10 eV has one cell
+stopped at floating-point resolution (346 of 4096 rule applications used),
+with an error estimate of 5e-18 of `λ⁻¹`. In the Si grid (`grid` mode, 10 eV
+to 5 keV), no loss evaluation inside any profile was unconverged.
 
 One full-Penn inelastic table, alone, two threads (`RAYON_NUM_THREADS=2`,
 `timeout 2400`):
@@ -1005,6 +1021,7 @@ One full-Penn inelastic table, alone, two threads (`RAYON_NUM_THREADS=2`,
 |---|---|---|---|
 | Si, #168 (55 energies) | before (`09bc1dd`) | not finished: stopped by the 40 min cap (exit 124; 2433 s CPU, 101 %, one core busy) | > 2400 s |
 | Si, #168 (55 energies) | after (`cc11bf9`) | 55 rows, 1153 probability points | 224 s (287 s with the per-row model check; 368 s CPU) |
+| Si, #168 (55 energies) | after, rebased onto main with #345 (`0ecc82d`) | 55 rows, 1153 probability points, no row refused (no `DensityNodeLimit`); `S` of every row within 4.5e-3 of the model (#361) | 139 s, `nice -n 19`, at a load average of 7 to 8 |
 | Al, #169 (57 energies) | after (`cc11bf9`) | 57 rows, 1521 probability points; `S` of every row within 4.6e-5 of the model (as at #256) | 279 s, at a load average of 7 to 8 (#256: 203 s, and 254 s at 14 to 16) |
 
 The Si grid alone (`grid` mode) took 113 s and has 2161 loss nodes. 22
@@ -1015,11 +1032,11 @@ its profile. Against the direct DIIMFP at 1e-7, at 7 losses in each of the
 55 rows (385 points), the largest relative difference is 2.9e-4. 37 points
 exceed 1e-4, most at losses of 0.6 to 2.5 eV, the pattern of the Al grid
 above. The stopping power of the Si table rows (`λ⁻¹ ⟨W⟩`) exceeds the
-model's by 4.5e-3 at 10 eV, 1.0e-3 at 22 eV and less than 2.5e-4 above
+model's by 4.45e-3 at 10 eV, 1.0e-3 at 22 eV and less than 2.5e-4 above
 50 eV. That is not a quadrature error. The table's loss window opens at the
 lowest ELF energy (0.5 eV for Si), but the full-Penn DIIMFP is not zero
 below it (the Lindhard continuum). The share of `λ⁻¹` from losses below
-0.5 eV (4.7e-3 at 10 eV) reproduces the difference row by row. This
+0.5 eV (4.46e-3 at 10 eV) reproduces the difference row by row. This
 predates #298 and is #361.
 
 **Inputs that differ** (each summary lists them in full under `mismatches`):
