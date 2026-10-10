@@ -38,7 +38,7 @@ one version).
   panel whose midpoint rounds onto an end is now not split. The padding
   carried no integral, so **stored tables are unchanged, bit for bit**: the
   Mermin tables of the Al, Cu, Si and Au δ(E) runs to 3 keV are identical,
-  and build in about half the time (12, 33, 8 and 3 of their rows had
+  and build in about half the time (33, 8, 12 and 3 of their rows had
   reached that resolution). A row that still has a failing panel at
   `MAX_NODES` is now refused with the new
   `InelasticTableError::DensityNodeLimit` instead of being stored silently;
