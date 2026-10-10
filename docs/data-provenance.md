@@ -568,7 +568,20 @@ energies. Level 3 keeps the untuned comparison as the primary result.
     (open), primary closed; the measurement temperature is therefore
     unknown and the presets carry none. The 4H cell is 7.5e-4 denser than
     the archive's 3.211 g/cm³ (Gomes de Mesquita 1967, not opened), more
-    than that figure's printed precision; pinned in the test.
+    than that figure's printed precision; pinned in the test. Checked
+    2026-10-10 (Crossref, doi:10.1107/S0365110X67003275): Acta Cryst. 23,
+    610-617 (1967) is titled "Refinement of the crystal structure of SiC
+    type 6H", so the archive's attribution of a **4H** density to it is
+    doubtful; the paper is closed access (OpenAlex, no repository copy; the
+    publisher page is behind a bot wall) and was not opened. No open
+    measurement of the 4H or GaN bulk density together with lattice
+    parameters and a temperature was found on 2026-10-10 (OpenAlex and
+    Europe PMC searches; the Moram and Vickers review, the bulk-GaN HVPE
+    paper, the ammonothermal GaN paper and the IntechOpen SiC chapter all
+    returned a bot wall or contained no values; COD was unreachable). The
+    density criterion of #179 therefore stays **met for 6H-SiC only**;
+    the 4H-SiC and GaN presets remain provisional with respect to density,
+    and the approved criterion has not been reinterpreted.
 - Electron band parameters (work function, Fermi energy, electron affinity,
   band gap, valence band width) for built-in material defaults: no open
   source citable to a table was found on 2026-10-07 (row above). Narrowed on

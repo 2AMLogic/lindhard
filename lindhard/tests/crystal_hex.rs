@@ -162,6 +162,116 @@ fn density_differences(l: &Lattice, rho_g_cm3: f64, z: [u8; 2]) -> [f64; 3] {
     ]
 }
 
+/// One row of the density comparison: what each source printed, so that a
+/// failure message (or `--nocapture`) states the evidence.
+struct DensityCase {
+    name: &'static str,
+    lattice: Lattice,
+    rho_g_cm3: f64,
+    /// Elements of the compound.
+    z: [u8; 2],
+    /// Printed density and its temperature, as read from the archive.
+    density_source: &'static str,
+    /// Cell source and its temperature (or that none is stated).
+    cell_source: &'static str,
+    /// Half a unit in the last printed place of the density, relative.
+    printed_precision: f64,
+}
+
+fn density_cases() -> [DensityCase; 3] {
+    [
+        DensityCase {
+            name: "4H-SiC",
+            lattice: Lattice::silicon_carbide_4h(),
+            rho_g_cm3: SIC_4H_DENSITY_G_CM3,
+            z: [14, 6],
+            density_source: "Ioffe NSM 3.211 g/cm3, 300 K, credited to Gomes de Mesquita 1967",
+            cell_source: "Bauer 2001 via Mehl 2017: a=3.08051, c=10.0848 A, temperature not stated",
+            printed_precision: 0.0005 / 3.211,
+        },
+        DensityCase {
+            name: "6H-SiC",
+            lattice: Lattice::silicon_carbide_6h(),
+            rho_g_cm3: SIC_6H_DENSITY_G_CM3,
+            z: [14, 6],
+            density_source: "Ioffe NSM 3.21 g/cm3, 300 K, credited to Harris 1995b",
+            cell_source:
+                "Bauer 2001 via Mehl 2017: a=3.08129, c=15.11976 A, temperature not stated",
+            printed_precision: 0.005 / 3.21,
+        },
+        DensityCase {
+            name: "GaN",
+            lattice: Lattice::gallium_nitride(),
+            rho_g_cm3: GAN_DENSITY_G_CM3,
+            z: [31, 7],
+            density_source: "Ioffe NSM 6.15 g/cm3, 300 K, no reference printed",
+            cell_source: "Ioffe NSM (Qian 1996): a=3.189, c=5.178 A, 300 K",
+            printed_precision: 0.005 / 6.15,
+        },
+    ]
+}
+
+/// Prints, for each material, the source values, temperatures, printed
+/// precision, the computed densities with units, and the relative difference
+/// of the lattice against the `material` module (whole crystal and per
+/// species). The computed densities are the lattice and `material` atom number
+/// densities in atoms/m³ (whole crystal, then per species), and the cited mass
+/// density next to the mass density the lattice implies, ρ_cited (1 + Δ), in
+/// g/cm³; both sides share one mean atomic weight, so the ratio of number
+/// densities is the ratio of mass densities. Returns the whole-crystal
+/// difference.
+fn report(c: &DensityCase) -> f64 {
+    let d = density_differences(&c.lattice, c.rho_g_cm3, c.z);
+    let m = Material::from_atom_fractions(
+        &[(c.z[0], 1.0), (c.z[1], 1.0)],
+        Some(g_cm3_to_kg_m3(c.rho_g_cm3)),
+    )
+    .unwrap();
+    println!(
+        "{}: density [{}]; cell [{}]; printed precision (half last digit) {:.2e}; \
+         atom density lattice {:.6e} /m3 (Z={} {:.6e}, Z={} {:.6e}), \
+         material {:.6e} /m3 (Z={} {:.6e}, Z={} {:.6e}); \
+         mass density cited {:.5} g/cm3, implied by lattice {:.5} g/cm3; \
+         lattice/material - 1 = {:+.3e} (species {:+.3e}, {:+.3e})",
+        c.name,
+        c.density_source,
+        c.cell_source,
+        c.printed_precision,
+        c.lattice.atom_number_density(),
+        c.z[0],
+        c.lattice.number_density_of(c.z[0]),
+        c.z[1],
+        c.lattice.number_density_of(c.z[1]),
+        m.atom_number_density(),
+        c.z[0],
+        m.number_density_of(c.z[0]).unwrap(),
+        c.z[1],
+        m.number_density_of(c.z[1]).unwrap(),
+        c.rho_g_cm3,
+        c.rho_g_cm3 * (1.0 + d[0]),
+        d[0],
+        d[1],
+        d[2]
+    );
+    d[0]
+}
+
+/// Every material states its evidence; the species differences equal the
+/// whole-crystal one because both sides share the stoichiometry.
+#[test]
+fn number_density_report_states_the_sources() {
+    for c in density_cases() {
+        let d = density_differences(&c.lattice, c.rho_g_cm3, c.z);
+        // Same stoichiometry on both sides, so species and total agree.
+        assert!(
+            (d[0] - d[1]).abs() < 1e-12 && (d[0] - d[2]).abs() < 1e-12,
+            "{}",
+            c.name
+        );
+        report(&c);
+    }
+}
+
 /// Atom number density against the `material` module: the cases that agree.
 ///
 /// * 6H-SiC: the Ioffe archive density 3.21 g/cm³ (300 K) is printed to
