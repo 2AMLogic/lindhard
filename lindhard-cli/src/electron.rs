@@ -21,7 +21,7 @@ use lindhard::electron::elastic::table::{
 };
 use lindhard::electron::elastic::{SalvatDhfs, SolverOptions};
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, mean_loss_ev, InelasticTableOptions,
+    build_inelastic_table_for_model, mean_loss_ev, EnergyAxis, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::PennInelastic;
 use lindhard::electron::transport::{LayerTables, RunMetadata, Transport};
@@ -221,18 +221,41 @@ fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossSectionTable
     )?)
 }
 
-/// The inelastic table of one material.
+/// The inelastic table of one material, on the axis and with the Fermi
+/// energy of [`inelastic_axis`].
 fn inelastic_table(
     r: &ResolvedElectron,
     m: &ResolvedElectronMaterial,
 ) -> Result<CrossSectionTable> {
+    let (fermi_ev, axis) = inelastic_axis(r, m);
     let model = PennInelastic::try_new(r.inelastic, m.optical_elf.clone())?
-        .with_fermi_energy_ev(r.inelastic_fermi_ev)?;
+        .with_fermi_energy_ev(fermi_ev)?;
     Ok(build_inelastic_table_for_model(
         &model,
         &m.material,
-        &InelasticTableOptions::new(r.table_energy_ev.clone()),
+        &InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis),
     )?)
+}
+
+/// The model's Fermi energy and the table axis of the inelastic table of `m`.
+///
+/// For a material with a band, the table is built on the band-bottom axis
+/// the transport reads it on, with the model's Fermi energy set to the
+/// band's minimum excitation energy
+/// ([`lindhard::electron::boundary::BandStructure::min_excitation_ev`]: the
+/// Fermi energy of a metal, the conduction-band bottom of an insulator):
+/// the row at `E` is the model's at `T = E - E_F`, kinematics on `E`, losses
+/// below `E - E_F`. This is the convention of cstool's
+/// `compile_full_imfp_icdf` (Nebula-simulator/cstool commit `0c739eb`,
+/// `cstool/dielectric_function/compile.py`; module docs of
+/// `lindhard::electron::inelastic::table`, "Energy axis"). Without a band
+/// the table is on the model's own axis with
+/// `[electron.inelastic] fermi_energy_ev`, as before (#241).
+pub fn inelastic_axis(r: &ResolvedElectron, m: &ResolvedElectronMaterial) -> (f64, EnergyAxis) {
+    match &m.band {
+        Some(b) => (b.min_excitation_ev(), EnergyAxis::BandBottom),
+        None => (r.inelastic_fermi_ev, EnergyAxis::ModelFermiLevel),
+    }
 }
 
 /// Build the tables (or read them from `cache`), run every history on

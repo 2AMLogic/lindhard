@@ -129,6 +129,15 @@ impl PennInelastic {
         })
     }
 
+    /// The Fermi energy, eV (see the two models).
+    pub fn fermi_energy_ev(&self) -> f64 {
+        match self {
+            Self::SinglePole(m) => m.fermi_energy_ev(),
+            Self::Full(m) => m.fermi_energy_ev(),
+            Self::Mermin(m) => m.fermi_energy_ev(),
+        }
+    }
+
     /// The identity string to record as the `model` of derived tables:
     /// the algorithm label, the nonrelativistic kinematics, the Fermi energy
     /// and the integration tolerance, e.g.

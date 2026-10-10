@@ -487,7 +487,29 @@ Eq. (12) (`AtomicElastic::compute_corrected`); the elastic table's `model` and
 | Key | Default | Choices |
 |---|---|---|
 | `model` | `"penn-single-pole"` | `penn-single-pole`, `penn-full`, `mermin-melf` (`electron::inelastic::PennAlgorithm`). The full Penn and Mermin models integrate numerically and build tables far more slowly. The single-pole model's mean free path is much longer than the other two below about 30 eV (Al: up to 23 times), which inflates the secondary yield; see `electron::inelastic::penn`, "Low energies" (#173) |
-| `fermi_energy_ev` | 0 | Fermi energy of the model, eV. It is not the band's: the transport reads table rows at the electron's energy above the band bottom, so setting it to the band's Fermi energy counts that energy twice; see `electron::transport`, "Energy reference of the inelastic table" (#173) |
+| `fermi_energy_ev` | 0 | Fermi energy of the model, eV, for the inelastic tables of materials **without** a `band`: the table is on the model's own axis (energy above the model's Fermi level, losses up to that energy). Must be 0 if any material has a `band` (a nonzero value is refused): see below |
+
+**Energy axis of the inelastic table.** The transport reads a table at the
+electron's kinetic energy `E` above the band bottom of its layer. For every
+material with a `band` the inelastic table is built on that axis, with the
+model's Fermi energy taken from the band: the row at `E` is the model's at
+`E - E_F`, so the kinematics use `E` and no loss exceeds `E - E_F`. `E_F` is
+the band's minimum excitation energy: the Fermi energy of a metal
+(`fermi_ev`, or the free-electron value), the conduction-band bottom
+`valence_band_width_ev + band_gap_ev` of an insulator. Table energies at or
+below it have no losses. This is the convention of the table compiler of
+Nebula (`compile_full_imfp_icdf`, cstool commit `0c739eb`; see
+`electron::inelastic::table`, "Energy axis", and `electron::transport`,
+"Energy reference of the inelastic table"). `fermi_energy_ev` plays no part
+for such a material, which is why it must be 0: adding it would count the
+Fermi energy twice. A material without a `band` gets the table of the
+model's own axis with `fermi_energy_ev`, read at `E` as it is.
+
+*Migration.* Before this rule, `fermi_energy_ev` applied to every material
+and tables ignored the band; losses beyond `E - E_F` were clamped by the
+secondary model. An input with a `band` and a nonzero `fermi_energy_ev` now
+fails, naming the key: remove the key. Results of runs with a `band` change
+(see `CHANGELOG.md`).
 
 **`[electron.tables]`**: one log-spaced energy grid shared by the elastic and
 inelastic tables of every material.
@@ -750,7 +772,8 @@ the table depends on:
   refinement tolerance;
 - inelastic: the model (`electron.inelastic.model`), its Fermi energy, the
   SHA-256 and provenance of the optical ELF file, and the material's band
-  parameters.
+  parameters (they set the table's axis and Fermi energy for a material with
+  a band).
 
 Every `f64` is written in shortest round-trip form, so a change in the last
 bit of any number is a different key. A lookup must find the stored key

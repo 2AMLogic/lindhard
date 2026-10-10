@@ -111,61 +111,86 @@
 //!
 //! The transport looks up both tables of a layer at the electron's kinetic
 //! energy `E` as it measures it: from the band bottom of the layer (with the
-//! step barrier, the vacuum energy plus the inner potential `U`). An
-//! inelastic table built by [`crate::electron::inelastic::table`] has the
-//! model's own axis instead: `T`, the energy above the *model's* Fermi
-//! energy, with kinematics on `T' = T + E_F(model)` and losses up to `T`
-//! (Shinotsuka et al. 2017, eqs. (2)-(3), as in
-//! [`crate::electron::inelastic::penn`]). A table does not know the band.
+//! step barrier, the vacuum energy plus the inner potential `U`). The models
+//! of [`crate::electron::inelastic`] have their own axis instead: `T`, the
+//! energy above the *model's* Fermi energy, with kinematics on
+//! `T' = T + E_F(model)` and losses up to `T` (Shinotsuka et al. 2017, eqs.
+//! (2)-(3), as in [`crate::electron::inelastic::penn`]). The table has to
+//! bridge the two, and it does so when it is built
+//! ([`crate::electron::inelastic::table`], "Energy axis"):
 //!
-//! - With the model's Fermi energy at its default, 0, a row read at the
-//!   band-bottom energy `E` has the right kinematics (`T' = E`) but losses
-//!   up to `E` instead of `E - E_F`. Under [`SecondaryModel::KieftBosch`] the
-//!   clamp above takes every loss beyond `E - E_F` to `E - E_F`: the primary
-//!   is left at the Fermi level and the secondary takes its whole energy.
-//!   This is how `lindhard run` uses the tables
-//!   (`[electron.inelastic] fermi_energy_ev = 0`), and the tests
-//!   `inelastic_table_is_read_at_the_band_bottom_energy` and
-//!   `losses_beyond_the_fermi_level_are_clamped_to_it`
-//!   (`tests/electron_secondaries.rs`) pin it.
-//! - Setting the model's Fermi energy to the band's while still reading rows
-//!   at `E` counts `E_F` twice (`T' = E + E_F`).
-//! - The consistent convention, that of the cstool table compiler which builds
-//!   Nebula's tables (rows on the band-bottom axis `K`, kinematics on `K`,
-//!   losses below `K - E_F`, the "Fermi correction" of
+//! - **Band-bottom axis** ([`EnergyAxis::BandBottom`], with the model's Fermi
+//!   energy set to the band's): the row at `E` is the model's at
+//!   `T = E - E_F`, so its kinematics are on `T' = E` and its losses stop at
+//!   `E - E_F`. This is the convention of the cstool table compiler which
+//!   builds Nebula's tables (rows at the kinetic energy `K`, kinematics on
+//!   `K`, losses below `K - F`, the "Fermi correction" of
 //!   `compile_full_imfp_icdf` in `cstool/dielectric_function/compile.py`,
-//!   Nebula-simulator/cstool commit `0c739eb`), would be rows at
-//!   `T = E - E_F` with the model's Fermi energy set to the band's. It is not
-//!   what `lindhard run` builds (tracked in #241).
+//!   Nebula-simulator/cstool commit `0c739eb`), and `F` is what cstool
+//!   passes there, [`BandStructure::min_excitation_ev`]: the Fermi energy of
+//!   a metal, the conduction-band bottom of an insulator. It is how
+//!   `lindhard run` builds the table of every material with a band. The
+//!   losses of such a table are below the clamp of
+//!   [`SecondaryModel::KieftBosch`] above, which therefore does not act
+//!   (test `band_bottom_table_never_reaches_the_fermi_clamp`,
+//!   `tests/electron_secondaries.rs`). One exception remains, for either
+//!   axis: between the last empty row of a table and its first row with
+//!   losses the rate is interpolated from zero and the loss is drawn from
+//!   that first row, so it can exceed what an electron below that row may
+//!   lose; there the clamps (`W <= E`, and `W <= E - E_F` under Kieft-Bosch)
+//!   are still the bound.
+//! - **Model axis** ([`EnergyAxis::ModelFermiLevel`], the builder's default,
+//!   and what `lindhard run` builds for a material without a band, with
+//!   `[electron.inelastic] fermi_energy_ev`): the row read at `E` is the
+//!   model's at `T = E`. With the model's Fermi energy 0 the kinematics are
+//!   right (`T' = E`) but the losses reach `E`; in a layer with a band and
+//!   the Kieft-Bosch model the clamp takes every loss beyond `E - E_F` to
+//!   `E - E_F`, leaving the primary at the Fermi level and giving the
+//!   secondary its whole energy. Setting the model's Fermi energy to the
+//!   band's on this axis counts `E_F` twice (`T' = E + E_F`). The tests
+//!   `inelastic_table_is_read_at_the_band_bottom_energy` and
+//!   `losses_beyond_the_fermi_level_are_clamped_to_it` pin how the transport
+//!   reads and clamps such a table.
 //!
 //! Inner-shell channel tables
-//! ([`crate::electron::inelastic::table::build_shell_channel_tables`]) have
-//! the same model axis as the valence table and are read the same way, at
-//! the band-bottom energy `E`; the correction of #241 (open when the shell
-//! channels were added) has not been applied to them either. On top of the
-//! table, the transport applies the shell's own limits on the band-bottom
-//! axis: the channel is closed unless the largest allowed loss (`E`, or
-//! `E - E_F` under the secondary model) exceeds `B_j`, and `ω` is clamped
-//! into `[B_j`, that loss`]`. Near an edge this clamp moves losses that the
-//! table row (built for losses up to `E` above the model's Fermi energy)
-//! puts above `E - E_F` down to `E - E_F`, as for valence losses.
+//! ([`crate::electron::inelastic::table::build_shell_channel_tables`]) are
+//! built on the axis of the options they are given, like the valence table,
+//! and are read the same way, at the band-bottom energy `E`. `lindhard run`
+//! does not build them yet (no input, #156); a library caller picks the axis.
+//! On top of the table, the transport applies the shell's own limits on the
+//! band-bottom axis: the channel is closed unless the largest allowed loss
+//! (`E`, or `E - E_F` under the secondary model) exceeds `B_j`, and `ω` is
+//! clamped into `[B_j`, that loss`]`. Near an edge, a table on the model
+//! axis (losses up to `E` above the model's Fermi energy) has losses above
+//! `E - E_F` that this clamp moves down to `E - E_F`, as for valence losses;
+//! a band-bottom table's losses are already below `E - E_F`, apart from the
+//! interpolation exception above.
 //!
-//! **Measured effect (#173).** With the single-pole Penn default, the Al
-//! input of `validation/experiments/se_yield.py` (`E_F` = 11.66 eV) sends
-//! 78 to 82 % of the inelastic events of electrons 5 to 20 eV above the Fermi
-//! level into the clamp (Al 400 eV, 200 histories). Rebuilding the table in
-//! the cstool convention removes every clamped event and changes δ by a few
-//! per cent, upward, against a factor of about 5 to explain (1000
-//! histories, seed 1): single pole Al 7.61 to 8.17 and Au 3.23 to 3.37
-//! (800 eV); Mermin Al 1.34 to 1.26 (400 eV). With 200 histories: single
-//! pole Cu 1.67 to 1.80, Mermin Au 2.62 to 2.58 and Cu 2.02 (800 eV). The
-//! gap between the single pole and Mermin is the same in both conventions.
-//! Setting `fermi_energy_ev` to the band value raises Al δ (6.89 to 7.63 at
-//! 400 eV, 7.44 to 9.01 at 800 eV, 200 histories). The reference mismatch is
-//! therefore real but is not the cause of the δ overestimate of #173; that is
-//! the single-pole model's inelastic mean free path at low energy
-//! ([`crate::electron::inelastic::penn`], "Low energies"). The commands are
-//! in `lindhard-cli/examples/inelastic_low_energy.rs`.
+//! **Measured effect (#173).** Until #241 `lindhard run` built every table
+//! on the model axis with Fermi energy 0. With the single-pole Penn default,
+//! the Al input of `validation/experiments/se_yield.py` (`E_F` = 11.66 eV)
+//! then sent 78 to 82 % of the inelastic events of electrons 5 to 20 eV above
+//! the Fermi level into the clamp (Al 400 eV, 200 histories). A diagnostic
+//! table in the cstool convention (the model's rows at `T = E - E_F`,
+//! relabelled `E`, so on a grid shifted by `E_F`) removed every clamped
+//! event and changed δ by a few per cent, against a factor of about 5 to
+//! explain (1000 histories, seed 1): single pole Al 7.61 to 8.17 and Au 3.23
+//! to 3.37 (800 eV); Mermin Al 1.34 to 1.26 (400 eV). With 200 histories:
+//! single pole Cu 1.67 to 1.80, Mermin Au 2.62 to 2.58 and Cu 2.02 (800 eV).
+//! The gap between the single pole and Mermin was the same in both. The axis
+//! was therefore a real mismatch but not the cause of the δ overestimate of
+//! #173; that is the single-pole model's inelastic mean free path at low
+//! energy ([`crate::electron::inelastic::penn`], "Low energies").
+//!
+//! With the band-bottom table `lindhard run` builds since #241 (on the
+//! input's own grid), the same Al input at 400 eV (200 histories, seed 1, so
+//! about ±0.1 to 0.2 in δ) has no clamped event in any energy bin, and δ is
+//! 6.44 against 6.89 with the table built as before. The commands are in
+//! `lindhard-cli/examples/inelastic_low_energy.rs` (modes `clamp` and
+//! `legacy`).
+//!
+//! [`EnergyAxis::BandBottom`]: crate::electron::inelastic::table::EnergyAxis::BandBottom
+//! [`EnergyAxis::ModelFermiLevel`]: crate::electron::inelastic::table::EnergyAxis::ModelFermiLevel
 //!
 //! # Random draw order
 //!

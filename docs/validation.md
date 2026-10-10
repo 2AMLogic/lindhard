@@ -818,7 +818,11 @@ the full-Penn build itself faster is #256.
 - *Surface:* Nebula and lindhard apply the same step barrier (quantum
   transmission and refraction); the Geant4 setup has none.
 
-**Status:** run locally on 2026-10-07 (lindhard `6ffd486`) against Nebula
+**Status:** the lindhard side predates #241: its inelastic tables were on
+the model's own axis with Fermi energy 0, not on the band-bottom axis with
+the band's Fermi energy that `lindhard run` builds since (cstool's "Fermi
+correction", so one of the inelastic differences above is gone); the
+comparison has not been re-run (#287). Run locally on 2026-10-07 (lindhard `6ffd486`) against Nebula
 v1.0.2-1-ga50a8e8 (commit `a50a8e8`, cstool commit `0c739eb`) and Geant4
 v11.4.3 (commit `2ee379e`, G4EMLOW 8.8; the models it reports for the
 region are `G4MicroElecElasticModel` and `G4MicroElecInelasticModel`).
@@ -1782,12 +1786,17 @@ result worse, not better; no Cu, Si or Au set changes status.
   SE-yield validation runs (Si ...)"). The barrier is the affinity, one
   cited value, so the work-function configurations `phi-low` and `phi-high`
   are not defined for Si.
-- Inelastic scattering: the model of each row. The model's own Fermi energy
-  (`[electron.inelastic] fermi_energy_ev`) is left at the library default,
-  0 eV, in every configuration (the run metadata print `E_F = 0 eV` in the
-  inelastic table's model string); it is not the band's Fermi energy, which
-  only the secondary model and the barrier use. It was not varied in these
-  tables; #173 measured what it does (below).
+- Inelastic scattering: the model of each row. **The tables below predate
+  #241.** They were run with every inelastic table on the model's own axis
+  with the model's Fermi energy (`[electron.inelastic] fermi_energy_ev`) at
+  0 eV (the run metadata print `E_F = 0 eV` in the inelastic table's model
+  string), read at the band-bottom energy, so losses beyond `E - E_F` were
+  clamped. Since #241 `lindhard run` builds the table of a material with a
+  band on the band-bottom axis with the band's minimum excitation energy
+  (the Fermi energy of a metal; `W_v + E_g` for Si) in place of the
+  model's ([`cli.md`](cli.md), "Energy axis of the inelastic table"), which changes
+  δ by a few per cent (#173's measurement, below). The tables have **not
+  been re-run** with it; the re-run is tracked in #287.
 - Secondary generation: Kieft and Bosch (2008) as implemented
   (`secondaries = "kieft-bosch"`); transport cutoff 1 eV above the vacuum
   level (`cutoff_reference = "vacuum-level"`) unless a row says otherwise.
@@ -2020,21 +2029,23 @@ nothing was adjusted to these data):
     below): none explains it.
   - *Cu* is consistent with this: its single-pole IMFP stays within a factor of about
     2 of full Penn at those energies and close to Mermin's.
-  - *Not the cause: the energy reference.* The tables are built with the
-    model's Fermi energy 0 and read at the band-bottom energy, so their
-    losses reach `E` while the transport clamps them at `E - E_F`; 78 to
-    82 % of the Al events 5 to 20 eV above the Fermi level hit the clamp.
-    Rebuilding the table in the consistent convention (cstool's: rows at
-    `E - E_F` with the band's Fermi energy) removes every clamped event and
-    changes δ by a few per cent. With 1000 histories, the single pole goes
+  - *Not the cause: the energy reference.* The tables of these runs were
+    built with the model's Fermi energy 0 and read at the band-bottom
+    energy, so their losses reach `E` while the transport clamps them at
+    `E - E_F`; 78 to 82 % of the Al events 5 to 20 eV above the Fermi level
+    hit the clamp. Rebuilding the table in the consistent convention
+    (cstool's: rows at `E - E_F` with the band's Fermi energy) removes every
+    clamped event and changes δ by a few per cent. With 1000 histories, the single pole goes
     from 7.61 to 8.17 for Al and from 3.23 to 3.37 for Au at 800 eV, and
     Mermin from 1.34 to 1.26 for Al at 400 eV. The single-pole excess over
     Mermin is the same in both conventions. Setting `fermi_energy_ev` to the
     band value raises Al δ (to 7.63 and 9.01 at 400 and 800 eV), because it
     counts `E_F` twice. The convention is documented, with these numbers, in
     the module docs of `electron::transport`, "Energy reference of the
-    inelastic table", and pinned by tests. Building the tables in the
-    consistent convention is #241.
+    inelastic table", and pinned by tests. `lindhard run` builds the tables
+    in the consistent convention since #241 (and refuses a nonzero
+    `fermi_energy_ev` for a material with a band); the tables above are
+    from before it.
 
   No model, default or bound was changed for #173: the single-pole default
   still fails the Al and Au bounds, and the tables above are re-runs of the
@@ -2092,8 +2103,8 @@ or the Si runs. The open gaps are the Au and Cu excess that Mermin shares
 (#242 tested its candidates, below, and none explains it; #301 added the
 binding-energy row, and what could still not be tested is split into
 #312 to #315), the
-energy-reference convention of the inelastic table (documented, not changed;
-#241), full Penn (cost; table reuse is tracked in #168; the rows wait on
+re-run of these tables with the inelastic table on the band-bottom axis
+(the convention changed in #241; #287), full Penn (cost; table reuse is tracked in #168; the rows wait on
 #256), the incomplete high-energy `cutoff-band-bottom` points, the
 correlation-polarization correction at the low table energies, the cited
 barrier parameters for Al, Cu and Au (#115 found none that can be opened),
@@ -2127,9 +2138,11 @@ gives 1.6125 as well, so the difference is not a code change since #242; it
 comes with the host or toolchain (the cross-platform caveat of
 [`architecture.md`](architecture.md), "Reproducibility"), and its cause is
 not located. No row was added, so the committed results were not replaced.
-The runs predate the band-bottom inelastic tables of #241 (#289,
-not merged) and the Mermin fit changes of #306 and #311; #287 reruns the
-yield tables with the former.
+The runs predate the band-bottom inelastic tables of #241 (they were run
+with the model's Fermi energy 0 on the model's axis, as the rows above) and
+the Mermin fit changes of #306 and #311; #287 reruns the yield tables with
+the former. A rerun of this script after #241 would build band-bottom tables
+and so would not reproduce the committed seeds.
 `se_yield_candidates.py --check` checks that the block below is the
 script's output for the committed results.
 
@@ -2245,7 +2258,7 @@ the δ(E) tables changed (the default Au ELF is still Table 5).
     move δ, nor show that Table 6 is the better Au ELF; the two Au tables
     differ in how the authors joined reflectance and transmission between
     12 and 40 eV, which they call arbitrary (pp. 17-18). The runs predate
-    #241 (PR #289, not merged), as above. Of the other two candidates,
+    #241, as above. Of the other two candidates,
     Palik's handbook is excluded under `CONTRIBUTING.md` "Data" (not
     opened, nothing transcribed) and Werner et al. (2009) could not be
     opened (verdict rows in [`data-provenance.md`](data-provenance.md)).

@@ -10,7 +10,7 @@ use lindhard::electron::data::{CrossSectionTable, ElectronDataError, SamplingAxi
 use lindhard::electron::elastic::table::log_energy_grid;
 use lindhard::electron::inelastic::table::{
     build_inelastic_table, build_inelastic_table_for_model, mean_loss_ev, stopping_power_ev_per_m,
-    InelasticTableOptions, MomentumTransferSampler,
+    EnergyAxis, InelasticTableOptions, MomentumTransferSampler,
 };
 use lindhard::electron::inelastic::{
     DrudeLorentz, DrudeLorentzOscillator, ExchangeCorrection, PennAlgorithm, PennInelastic,
@@ -366,13 +366,12 @@ fn model_generic_builder_runs_the_mermin_model() {
     }
 }
 
-/// The energy axis of a table is the model's `T`, the kinetic energy above the
-/// model's Fermi level, and a row's losses run up to `T` (S2017 eq. (3),
-/// `ω_max = T' - E_F`). With the default Fermi energy 0 the losses of the row
-/// at `E` therefore reach `E`; a table does not know a band's Fermi energy.
-/// The transport reads rows at the band-bottom energy and clamps at
-/// `E - E_F` (#173; `electron::transport` module docs and
-/// `tests/electron_secondaries.rs`).
+/// The default energy axis of a table is the model's `T`, the kinetic energy
+/// above the model's Fermi level, and a row's losses run up to `T` (S2017 eq.
+/// (3), `ω_max = T' - E_F`). With the default Fermi energy 0 the losses of the
+/// row at `E` therefore reach `E`. The transport reads rows at the band-bottom
+/// energy, so a table for a material with a band is built on
+/// `EnergyAxis::BandBottom` instead (the tests below; #173, #241).
 #[test]
 fn row_losses_run_to_the_row_energy_above_the_model_fermi_level() {
     let grid = vec![25.0, 40.0, 80.0];
@@ -387,4 +386,78 @@ fn row_losses_run_to_the_row_energy_above_the_model_fermi_level() {
             assert!(q.iter().all(|&w| w <= e));
         }
     }
+}
+
+/// On the band-bottom axis the row at `E` is the model's row at
+/// `T = E - E_F`, bit for bit: the same inverse mean free path and the same
+/// quantiles as a table of the same model on the grid `E - E_F` of its own
+/// axis. Rows at or below the Fermi level (`T <= 0`) are empty, and no loss
+/// of a row exceeds `E - E_F` (cstool's "Fermi correction", module docs of
+/// `electron::inelastic::table`, "Energy axis"; #241).
+#[test]
+fn band_bottom_rows_are_the_model_rows_at_the_energy_above_the_fermi_level() {
+    let fermi = 11.5;
+    // Two rows at or below the Fermi level, then rows above it.
+    let grid = vec![5.0, 11.5, 14.0, 25.0, 40.0, 80.0, 300.0];
+    let m = penn().clone().with_fermi_energy_ev(fermi).unwrap();
+    let ef = m.fermi_energy_ev();
+    let band = InelasticTableOptions::new(grid.clone()).with_axis(EnergyAxis::BandBottom);
+    let above: Vec<f64> = grid.iter().map(|e| e - ef).filter(|&t| t > 0.0).collect();
+    let skipped = grid.len() - above.len();
+    assert_eq!(skipped, 2);
+    let own = InelasticTableOptions::new(above.clone());
+    assert_eq!(own.axis, EnergyAxis::ModelFermiLevel);
+
+    let general = |m: &SinglePolePenn, o: &InelasticTableOptions| {
+        build_inelastic_table_for_model(&PennInelastic::SinglePole(m.clone()), &material(), o)
+            .unwrap()
+    };
+    let single = |m: &SinglePolePenn, o: &InelasticTableOptions| {
+        build_inelastic_table(m, &material(), o).unwrap()
+    };
+    for build in [&general as &dyn Fn(_, _) -> CrossSectionTable, &single] {
+        let t = build(&m, &band);
+        let r = build(&m, &own);
+        assert_eq!(t.energy_ev(), grid.as_slice());
+        assert_eq!(t.probability(), r.probability());
+        assert!(t.provenance().contains("energy axis: band bottom"));
+        assert!(!r.provenance().contains("energy axis"));
+        for i in 0..skipped {
+            assert_eq!(t.inverse_mfp_per_m()[i], 0.0);
+            assert!(t.quantiles(i).is_none());
+        }
+        for (j, &tj) in above.iter().enumerate() {
+            let i = j + skipped;
+            assert_eq!(t.inverse_mfp_per_m()[i], r.inverse_mfp_per_m()[j]);
+            assert!(t.inverse_mfp_per_m()[i] > 0.0);
+            let q = t.quantiles(i).unwrap();
+            assert_eq!(q, r.quantiles(j).unwrap());
+            assert!(q.iter().all(|&w| w <= grid[i] - ef), "row {}", grid[i]);
+            let top = *q.last().unwrap();
+            assert!((top - tj).abs() <= 1e-12 * tj, "row {}: {top}", grid[i]);
+        }
+    }
+}
+
+/// The axis changes nothing by default: a table built with the default
+/// options is the table built before the axis existed (its provenance says
+/// nothing about an axis), and with Fermi energy 0 the two axes coincide.
+#[test]
+fn band_bottom_axis_with_zero_fermi_energy_is_the_model_axis() {
+    let grid = vec![25.0, 40.0, 80.0];
+    let o = InelasticTableOptions::new(grid);
+    let a = build_inelastic_table(penn(), &material(), &o).unwrap();
+    let b = build_inelastic_table(
+        penn(),
+        &material(),
+        &o.clone().with_axis(EnergyAxis::BandBottom),
+    )
+    .unwrap();
+    assert_eq!(a.energy_ev(), b.energy_ev());
+    assert_eq!(a.inverse_mfp_per_m(), b.inverse_mfp_per_m());
+    assert_eq!(a.probability(), b.probability());
+    for i in 0..a.energy_ev().len() {
+        assert_eq!(a.quantiles(i), b.quantiles(i));
+    }
+    assert!(!a.provenance().contains("energy axis"));
 }
