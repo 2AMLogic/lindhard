@@ -56,6 +56,20 @@ jobs:
           python3 validation/experiments/test_backscatter.py
           python3 validation/oracles/test_run_electron.py
 
+  figures:
+    name: Validation figures match the committed results
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: docs/img figures are what lindhard-plots renders
+        # Reads committed results only, runs no simulation. Rendered on macOS
+        # aarch64 and checked here on Linux x86_64, so this is also the
+        # cross-machine byte-stability check.
+        run: cargo run -p lindhard-plots --locked -- --check
+
   dependency-policy:
     name: Dependency licenses & sources (cargo-deny)
     runs-on: ubuntu-latest
