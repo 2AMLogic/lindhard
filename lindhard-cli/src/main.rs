@@ -7,7 +7,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
-use lindhard_cli::publish::OutputSet;
+use lindhard_cli::publish::{self, OutputSet};
 use lindhard_cli::table_cache::TableCache;
 use lindhard_cli::{dynamic, electron, output, sim};
 
@@ -328,17 +328,7 @@ fn run(
 
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
-    let set = OutputSet::begin(out, output::SUMMARY_FILE, summary)?;
-    set.write(output::DEPTH_FILE, output::depth_csv(&tally))?;
-    set.write(output::LATERAL_FILE, output::lateral_csv(&report))?;
-    set.write(output::DAMAGE_FILE, output::damage_csv(&report))?;
-    set.write(output::ESCAPES_FILE, output::escapes_csv(&report))?;
-    set.reconcile_optional(
-        output::IONS_FILE,
-        tally.per_ion.then(|| output::ions_csv(&tally)),
-    )?;
-    // Last, so the summary describes the completed output set.
-    set.publish()?;
+    publish::publish_static_ion(out, summary, &tally, &report)?;
     let s = &tally.summary;
     eprintln!(
         "{} ions: {} stopped, {} backscattered, {} transmitted, {} sputtered atoms; wrote {}",

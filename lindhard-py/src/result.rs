@@ -359,25 +359,21 @@ impl RunResult {
 
     /// Write `summary.json` and the CSV profiles into `out_dir` (created if
     /// missing), the same files and bytes the `lindhard run` command writes
-    /// (apart from the timing block of `summary.json`).
+    /// (apart from the timing block of `summary.json`). Like the command, it
+    /// removes the previous `summary.json` before replacing any CSV, removes a
+    /// stale `ions.csv` when per-ion output is off, and writes the new
+    /// `summary.json` last. Raises `OSError` naming the path on failure.
     fn write(&self, out_dir: PathBuf) -> PyResult<()> {
         let s = &self.sim;
         std::fs::create_dir_all(&out_dir).map_err(|e| {
             pyo3::exceptions::PyOSError::new_err(format!("{}: {e}", out_dir.display()))
         })?;
-        let put = |name: &str, text: String| {
-            let p = out_dir.join(name);
-            std::fs::write(&p, text)
-                .map_err(|e| pyo3::exceptions::PyOSError::new_err(format!("{}: {e}", p.display())))
-        };
-        put(output::SUMMARY_FILE, self.summary_json()?)?;
-        put(output::DEPTH_FILE, output::depth_csv(&s.tally))?;
-        put(output::LATERAL_FILE, output::lateral_csv(&s.report))?;
-        put(output::DAMAGE_FILE, output::damage_csv(&s.report))?;
-        put(output::ESCAPES_FILE, output::escapes_csv(&s.report))?;
-        if s.tally.per_ion {
-            put(output::IONS_FILE, output::ions_csv(&s.tally))?;
-        }
+        // Serialize first, then follow the CLI's lifecycle: the previous
+        // summary is removed before any CSV changes, `ions.csv` is reconciled
+        // with `per_ion`, and the new summary is published last.
+        let summary = self.summary_json()?;
+        lindhard_cli::publish::publish_static_ion(&out_dir, summary, &s.tally, &s.report)
+            .map_err(|e| pyo3::exceptions::PyOSError::new_err(format!("{e:#}")))?;
         Ok(())
     }
 
