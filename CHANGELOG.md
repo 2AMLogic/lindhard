@@ -14,6 +14,15 @@ one version).
   integral and whether it converged; `OMEGA_P_INTERVAL_BUDGET`;
   `DiimfpGrid::unconverged_profile_panels` and
   `DiimfpGrid::largest_unconverged_profile_error` (#298).
+- `FullPenn::diimfp_evaluation` (`DiimfpEvaluation`) and
+  `FullPenn::imfp_and_stopping_evaluation` (`ImfpEvaluation`): the direct
+  full Penn DIIMFP with the number of its loss evaluations whose `ω_p`
+  integral did not converge, and the IMFP and stopping power with the
+  unconverged cells of their outer `ω_p` integral, from one evaluation.
+  `diimfp_per_m_ev`, `imfp_and_stopping` and `imfp_unconverged` delegate to
+  them; every value they return is unchanged, bit for bit. The
+  `penn_full_build_time` example prints the counts in its `grid` and `imfp`
+  modes (#368).
 - `electron_psf_parameters.csv` gains `converged` (1/0) and `iterations` rows per
   fit, so the standalone CSV shows whether a fit hit its iteration budget (#347).
 

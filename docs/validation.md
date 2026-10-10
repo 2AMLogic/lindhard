@@ -1062,12 +1062,16 @@ any knot interval used there was 62 rule applications (78 at the two
 points of the issue), and no evaluation used more than 1750 Lindhard
 evaluations. These checks are in `tests/penn_full.rs` as work counts, not
 wall times. Exhaustion is reported by `FullPenn::loss_function_evaluation`,
-by `FullPenn::imfp_unconverged` (the outer `ω_p` integral of the IMFP
-and stopping power; its inner integrals over `q` and `ω` are not bounded and
-report nothing), and by `DiimfpGrid::unconverged_profile_panels` and
+by `FullPenn::imfp_and_stopping_evaluation` and `FullPenn::imfp_unconverged`
+(the outer `ω_p` integral of the IMFP and stopping power; its inner
+integrals over `q` and `ω` are not bounded and report nothing), by
+`DiimfpGrid::unconverged_profile_panels` and
 `unconverged_profile_loss_evaluations` (the `q` cells of the profiles, and
-the loss evaluations inside them). `FullPenn::diimfp_per_m_ev` does not
-report the exhaustion of the loss evaluations it integrates. At the model tolerance,
+the loss evaluations inside them), and by `FullPenn::diimfp_evaluation`
+(the loss evaluations inside the `q` integral of the direct DIIMFP, the
+table's fallback where the grid does not answer; #368). The values these
+return are those of `imfp_and_stopping` and `diimfp_per_m_ev`, bit for bit.
+The `grid` and `imfp` modes print the counts. At the model tolerance,
 on the Si and Al ELFs at 10 eV to 5 keV (5 energies each), every outer
 `ω_p` integral of the IMFP converged but one: Al at 10 eV has one cell
 stopped at floating-point resolution (346 of 4096 rule applications used),
