@@ -366,9 +366,9 @@ bounded:** each carries a very wide oscillator (A = 6.8e5 and 3.8e5 eV², E =
 the table. Under the default relative weighting `1/(ELF + 0.01 max ELF)`
 it changes the weighted residual by only about 1e-3, and it makes the
 f-sum 188 and 106 times the table's. Both fits stop unconverged after 500
-iterations (#311; probably settled by the weighting decision of #306). The
-IMFPs above barely depend on that tail, but they are not results of a
-fit that passes the sum-rule check. Of the default 3-oscillator fits of the
+iterations. The IMFPs above barely depend on that tail, but they are not
+results of a fit that passes the sum-rule check; the weighting options
+below were measured for it (#311). Of the default 3-oscillator fits of the
 committed ELFs, only C is touched by the floor: its start width (0.05 eV
 at 0.2 eV) is raised to the 0.1 eV knot spacing, and the fit ends within
 about 1e-7 of the fit without the floor. Al, Au, Cu and Si, and Cu with
@@ -377,6 +377,76 @@ about 1e-7 of the fit without the floor. Al, Au, Cu and Si, and Cu with
 Not changed here: `MerminFitOptions::default()`, and so every `mermin`
 table and δ(E) row. Whether to change the default, expose the fit options
 in the input, or reject a fit that misses the sum rules is #306.
+
+**Weighting options and the wide oscillator (#311).** Since #306 the fit
+options are set per material in the input
+(`[electron.materials.<name>.mermin_fit]`, [`cli.md`](cli.md)); the default
+stays 3 oscillators, `relative` with `relative_floor = 0.01`. The same Cu
+ELF, default start, 500-iteration cap, width floor of #307, with
+`relative_floor` in the set {1e-3, 1e-2, 1e-1, 1} (fixed before measuring;
+1e-2 is the default) and with `uniform`. "Widest" is the widest oscillator
+with a nonzero amplitude (zero-amplitude oscillators carry nothing); f-sum
+table 5721 eV², `P_eff` table 1.0017. Model Fermi energy 0, as above.
+Outputs of this code, measured 2026-10-10 in a release build (aarch64
+macOS), one fit at a time; each fit takes under 4 s. Nothing was tuned
+and no option was chosen by matching TPP.
+
+| n | weighting | converged (iterations) | widest: A (eV²), E (eV), γ (eV) | f-sum fit / table | `P_eff` fit | Mermin IMFP at 54.6 / 99.5 / 200.3 / 492.7 / 992.3 eV (Å) |
+|---|---|---|---|---|---|---|
+| 3 | relative 1e-3 | no (500) | 1.85e3, 94.6, 109 | 0.564 | 0.480 | 11.094 / 9.137 / 9.907 / 14.592 / 23.189 |
+| 3 | relative 1e-2 (default) | yes (99) | 1.79e3, 86.6, 115 | 0.567 | 0.670 | 6.967 / 6.282 / 7.430 / 11.807 / 19.213 |
+| 3 | relative 1e-1 | yes (198) | 2.23e3, 89.4, 161 | 0.716 | 0.967 | 4.182 / 4.363 / 5.590 / 9.325 / 15.340 |
+| 3 | relative 1 | yes (31) | 1.92e3, 101.6, 147 | 0.688 | 1.032 | 3.777 / 4.119 / 5.397 / 9.056 / 14.940 |
+| 3 | uniform | no (500) | 2.20e3, 100.5, 165 | 0.748 | 1.046 | 3.780 / 4.090 / 5.333 / 8.927 / 14.686 |
+| 10 | relative 1e-3 | no (500) | 682, 1190, 414 | 0.713 | 0.529 | 9.821 / 8.639 / 9.489 / 14.151 / 22.612 |
+| 10 | relative 1e-2 (default) | no (500) | 6.83e5, 9696, 8.26e5 | 187.9 | 0.754 | 5.973 / 5.700 / 6.926 / 11.172 / 18.200 |
+| 10 | relative 1e-1 | yes (57) | 426, 1107, 245 | 0.794 | 0.981 | 4.292 / 4.412 / 5.622 / 9.371 / 15.430 |
+| 10 | relative 1 | yes (45) | 312, 1123, 187 | 0.869 | 1.029 | 3.912 / 4.065 / 5.254 / 8.872 / 14.632 |
+| 10 | uniform | yes (252) | 1.47e8, 1.95e4, 8.93e6 | 4.03e4 | 1.088 | 3.232 / 3.173 / 3.819 / 5.767 / 8.608 |
+| 16 | relative 1e-3 | no (500) | 1.12e5, 6346, 2.91e5 | 31.3 | 0.639 | 7.913 / 7.033 / 8.052 / 12.357 / 19.890 |
+| 16 | relative 1e-2 (default) | no (500) | 3.83e5, 7756, 4.41e5 | 105.8 | 0.792 | 6.022 / 5.719 / 6.861 / 10.893 / 17.663 |
+| 16 | relative 1e-1 | no (500) | 6.34e5, 9724, 5.63e5 | 174.8 | 0.988 | 4.553 / 4.677 / 5.933 / 9.625 / 15.634 |
+| 16 | relative 1 | yes (494) | 9.76e36, 4.83e13, 8.81e8 | 2.7e33 | 4.2e9 | 4.231 / 4.406 / 5.666 / 9.381 / 15.379 |
+| 16 | uniform | yes (93) | 1.43e6, 1.70e4, 1.95e6 | 392 | 1.032 | 4.181 / 4.349 / 5.566 / 9.200 / 15.065 |
+
+The default rows (n = 3, 10 and 16 at 1e-2) equal the values above,
+digit for digit. What the table shows:
+
+- **At n = 10, `relative_floor` 1e-1 and 1 avoid the wide oscillator**:
+  both converge, the widest oscillator with weight is a few hundred eV wide
+  near the 1.1 keV edge, and the f-sum is 0.79 and 0.87 of the table's with
+  `P_eff` 0.98 and 1.03. 1e-3 also avoids it but does not converge and
+  keeps only 0.53 of `P_eff`. `uniform` is far worse than the default
+  (4e4 times the table's f-sum).
+- **At n = 16, no option measured avoids it**: every row carries an
+  oscillator of width 3e5 to 9e8 eV, far above the table's top knot
+  (5.0e4 eV), with 31 to 2.7e33 times the table's f-sum. `relative_floor = 1`
+  puts one at E = 4.8e13 eV and reports `converged = true`.
+- **`converged` does not mean the sum rules hold**: two of the converged
+  rows (n = 10 uniform, n = 16 at 1) are the worst. Only the f-sum and
+  `P_eff` of the report against the table's tell a sound fit from these.
+- **The IMFP is no check of the fit**: the n = 16, `relative_floor = 1`
+  row, whose wide oscillator sits at 4.8e13 eV, has IMFPs within 3 % of
+  the n = 16 `uniform` row. The IMFP columns move mostly with the
+  weighting (by up to a factor 3 at 54.6 eV across one n), not with whether
+  a wide oscillator is present. At n = 3 a larger floor brings the f-sum to
+  0.69 to 0.72 and `P_eff` to 0.97 to 1.03, without a wide oscillator.
+- **Every wide oscillator found has γ above the table's top knot**, and no
+  oscillator with weight in any other row does (the widest is 414 eV). An
+  upper bound on γ from the knots would exclude all of them; whether the fit
+  then bounds the f-sum is not measured here (#337).
+
+The table is not pinned in a test: ten of the fifteen fits stop at the
+iteration cap or converge to parameters far outside the table, where the
+Levenberg-Marquardt path depends on the last bits of `exp`/`ln`, which may
+differ between the platforms CI runs (x86-64 and aarch64 Linux, macOS).
+The default 3-oscillator fit is pinned (`cu_*` tests above). To reproduce a
+row, fit the committed table with `fit_mermin_oscillators` and
+`MerminFitOptions { n_oscillators, weighting, ..Default::default() }`
+(e.g. `FitWeighting::Relative { floor: 0.1 }`), print the `MerminFit`
+fields above and the `MerminPenn::new(elf, fit)` IMFPs, or run `lindhard`
+with `model = "mermin-melf"` and a `mermin_fit` table such as
+`{ oscillators = 10, weighting = "relative", relative_floor = 0.1 }`.
 
 ## 2. Code-to-code oracles (local harness, summaries committed)
 
