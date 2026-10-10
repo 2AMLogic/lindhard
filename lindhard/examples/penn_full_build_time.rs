@@ -20,6 +20,21 @@
 //!   compares it with the direct DIIMFP (`FullPenn::diimfp_per_m_ev` at a
 //!   tolerance of 1e-7) at seven losses spread in `ln W` in every row.
 //! * `imfp` times `imfp_and_stopping` at every grid energy (one thread).
+//!
+//! Two more modes look at single evaluations of the expanded loss function
+//! `Im[-1/ε(q, ω)]` (#298), with the work of its `ω_p` integral
+//! (`FullPenn::loss_function_evaluation`):
+//!
+//! ```text
+//! ... penn_full_build_time -- <elf.toml> point <q a.u.> <loss eV> [tolerance]
+//! ... penn_full_build_time -- <elf.toml> scan <n_q> <tolerance> <loss eV>...
+//! ```
+//!
+//! `point` times one evaluation (for example
+//! `validation/data/optical/si_elf_yang2019.toml point 1.480290203 160`);
+//! `scan` evaluates at `n_q` log-spaced momenta from 0.005 to 40 a.u. at
+//! each loss and prints the largest work and the number of evaluations that
+//! did not converge.
 
 use lindhard::electron::data::OpticalElf;
 use lindhard::electron::elastic::table::log_energy_grid;
@@ -34,7 +49,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let a: Vec<String> = std::env::args().collect();
     if a.len() < 5 {
         return Err(
-            "usage: <elf.toml> <E_min> <E_max> <points per decade> [build|grid|imfp] [stride]"
+            "usage: <elf.toml> <E_min> <E_max> <points per decade> [build|grid|imfp] [stride], \
+             <elf.toml> point <q a.u.> <loss eV> [tolerance], \
+             or <elf.toml> scan <n_q> <tolerance> <loss eV>..."
                 .into(),
         );
     }
@@ -81,9 +98,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let fp = FullPenn::new(elf.clone());
             let g = fp.diimfp_grid(&grid)?;
             eprintln!(
-                "grid: {} loss nodes, {} momentum panels, {} unresolved cells, {:.2} s",
+                "grid: {} loss nodes, {} momentum panels ({} unconverged, largest \
+                 relative error {:.1e}), {} unresolved cells, {:.2} s",
                 g.len(),
                 g.panel_count(),
+                g.unconverged_profile_panels(),
+                g.largest_unconverged_profile_error(),
                 g.unresolved_cells(),
                 t0.elapsed().as_secs_f64()
             );

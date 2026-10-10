@@ -91,6 +91,40 @@
 //! cut the time of one DIIMFP evaluation by about 6 and of one IMFP point
 //! by about 4.5 (`docs/validation.md`, cost of a full-Penn build).
 //!
+//! **The edge resonance and the bound on the `ω_p` bisection (#298).** At
+//! fixed `(q, ω)` the continuum term starts at the plasma frequency `x_a`
+//! whose gas has its continuum edge `q k_F + q²/2` at `ω`. Where that gas's
+//! plasmon is about to enter the continuum there (`Re ε_L ≈ 0` at the edge;
+//! the plasmon cutoff), `Re ε_L` crosses zero just above `x_a`, where
+//! `Im ε_L` is still small, so `Im ε_L/|ε_L|²` has a narrow, tall resonance
+//! (on the Si ELF at `q = 1.48 a.u.`, `ω = 160 eV`: `Re ε_L = 1e-6` at `x_a`,
+//! the zero 1.5e-7 Hartree above it, a peak of height above 1e6 and width
+//! about 3e-8 Hartree). It is integrable and holds a finite share of the first
+//! knot interval, but the bisection that halves its absolute tolerance at
+//! every level then asks the cells on the peak for a relative accuracy
+//! below the floating-point noise of `Re ε_L` (a cancellation of terms of
+//! order 1 down to 1e-7) and fills the peak with cells down to the maximum
+//! depth: seconds for one evaluation. The bisection of each knot interval
+//! therefore also accepts a cell that agrees with its halves to the
+//! tolerance relative to its own integral, which keeps the error contract
+//! (see `quadrature::integrate_weighted`), and has a budget of
+//! [`OMEGA_P_INTERVAL_BUDGET`] rule applications; anything accepted without
+//! meeting its tolerance is counted and reported by
+//! [`FullPenn::loss_function_evaluation`] ([`LossFunctionEvaluation`]).
+//! The values elsewhere are unchanged (measured differences in
+//! `docs/validation.md`, "Electron oracles").
+//!
+//! The momentum profiles of a [`DiimfpGrid`] had the same failure one level
+//! up. Above the end of a table whose last ELF value is not zero (Si:
+//! 199 eV), the plasmon term jumps where the plasmon of the last tabulated
+//! gas reaches `ω`, and its value carries a relative noise of a few 1e-8
+//! (the finite-difference slope); the bisection of a profile located the
+//! jump and then filled its neighbourhood with cells chasing the noise (Si,
+//! `ω` = 208.07 eV: over 10⁵ loss evaluations for one profile). The
+//! profiles' bisection (`quadrature::integrate_panels`) has the same
+//! relative acceptance and budget, and counts what did not converge
+//! ([`DiimfpGrid::unconverged_profile_panels`]).
+//!
 //! **Tables.** An inelastic table needs the DIIMFP at some 10⁴ losses per
 //! row, which at about 15 ms per evaluation (and with the quadrature noise
 //! of a 1e-4 tolerance driving the table's 1e-5 density refinement to its
@@ -145,8 +179,7 @@
 use super::lindhard_gas::{kf_coefficient, LindhardGas};
 use super::penn::InelasticPoint;
 use super::quadrature::{
-    integrate_panels, integrate_segments, integrate_weighted, GaussLegendre, Panels,
-    WEIGHTED_SEGMENT_BUDGET,
+    integrate_panels, integrate_segments, integrate_weighted, GaussLegendre, Panels, SEGMENT_BUDGET,
 };
 use crate::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, HARTREE_ENERGY};
 use crate::electron::data::{ElectronDataError, OpticalElf};
@@ -162,7 +195,7 @@ pub const DEFAULT_FULL_TOLERANCE: f64 = 1.0e-4;
 /// Budget of Gauss-Legendre rule applications (5 evaluations each) for the
 /// bisection of one knot interval of the `ω_p` integral of the loss
 /// function (#298); see [`LossFunctionEvaluation`].
-pub const OMEGA_P_INTERVAL_BUDGET: u64 = WEIGHTED_SEGMENT_BUDGET;
+pub const OMEGA_P_INTERVAL_BUDGET: u64 = SEGMENT_BUDGET;
 
 const GL_ORDER: usize = 5;
 
@@ -1005,6 +1038,25 @@ impl DiimfpGrid {
         self.profiles.iter().map(Panels::len).sum()
     }
 
+    /// Number of cells of the momentum integrations of the profiles that
+    /// were accepted without meeting their tolerance (budget of the
+    /// bisection spent, maximum depth, or a midpoint that is not
+    /// representable; #298). Zero when every profile converged.
+    pub fn unconverged_profile_panels(&self) -> u64 {
+        self.profiles.iter().map(Panels::unconverged_panels).sum()
+    }
+
+    /// The largest error estimate of the cells counted in
+    /// [`Self::unconverged_profile_panels`] within one profile, relative to
+    /// that profile's integral over its whole momentum range (zero when
+    /// every profile converged).
+    pub fn largest_unconverged_profile_error(&self) -> f64 {
+        self.profiles
+            .iter()
+            .map(Panels::unconverged_relative_error)
+            .fold(0.0, f64::max)
+    }
+
     /// Number of cells that failed the interpolation check but were not
     /// halved, at the narrowest cell width or the node cap (zero when the
     /// refinement converged).
@@ -1093,5 +1145,43 @@ impl DiimfpGrid {
         let tp = t + self.fermi;
         let p_au = blend(lo, hi, f) / (PI * tp);
         Some(p_au / (BOHR_RADIUS * h))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn profile_across_the_plasmon_jump_above_the_elf_end_is_bounded() {
+        // Si ELF (ends at 199 eV with a non-zero value), loss 208.068 eV,
+        // grid tolerance 1e-5, momenta up to the 5 keV of the #168 grid: the
+        // profile crosses the momentum where the plasmon of the 199 eV gas
+        // reaches the loss and the plasmon term jumps (#298). Before the
+        // relative acceptance this profile took over 10⁵ loss evaluations
+        // (10164 panels when stopped there); measured after: 320 panels.
+        // The cells holding the jump itself never meet their tolerance and
+        // stop at the maximum depth, where they are counted; their error
+        // is that of a cell 2^-40 of a segment wide.
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../validation/data/optical/si_elf_yang2019.toml");
+        let fp = FullPenn::new(OpticalElf::from_toml_file(path).unwrap())
+            .with_relative_tolerance(1e-5)
+            .unwrap();
+        let h = hartree_ev();
+        let p = fp.loss_profile(208.068_173_188_694_63 / h, 5000.0 / h);
+        assert!(p.unconverged_panels() <= 8, "{}", p.unconverged_panels());
+        assert!(
+            p.unconverged_relative_error() < 1e-9,
+            "{}",
+            p.unconverged_relative_error()
+        );
+        assert!(p.len() < 1000, "{} panels", p.len());
+        eprintln!(
+            "{} panels, {} unconverged, relative error {:.2e}",
+            p.len(),
+            p.unconverged_panels(),
+            p.unconverged_relative_error()
+        );
     }
 }
