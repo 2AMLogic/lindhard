@@ -3,6 +3,25 @@
 Python bindings for [lindhard](https://github.com/2AMLogic/lindhard), built
 with [maturin](https://www.maturin.rs) and [pyo3](https://pyo3.rs).
 
+## Install
+
+Once a release has been published to PyPI:
+
+```sh
+pip install lindhard
+```
+
+Each release ships one `abi3` wheel per platform (`cp39-abi3-*`), which works
+on every CPython from 3.9 on, for these platforms: Linux x86-64 and aarch64
+(manylinux), macOS x86-64 and arm64, and Windows x86-64. A source
+distribution is also published; it needs a Rust toolchain to build.
+
+Not yet covered, and tracked as follow-ups: musllinux (for example Alpine) and
+Windows arm64. On those, build from the source distribution or from a checkout
+(see below).
+
+## Use
+
 ```python
 import lindhard as lh
 
@@ -39,3 +58,27 @@ pip install maturin numpy pytest
 maturin develop
 pytest
 ```
+
+## Releases (maintainers)
+
+`.github/workflows/wheels.yml` builds the wheels. A pull request touching the
+bindings or the library builds and tests one Linux wheel, and builds the sdist,
+compiles it in a clean virtual environment and runs the same tests against it.
+Both builds and the `lindhard` command get one `LINDHARD_GIT_DESCRIBE` value
+(see `lindhard-cli/build.rs`), so `summary.json` matches byte for byte even when
+a build has no git. Pushing a `v*` tag
+builds every wheel and the sdist, installs each wheel into a clean virtual
+environment, runs this test suite against it on Python 3.9 and 3.13 (using the
+`lindhard` command built on the same runner, via `$LINDHARD_BIN`), and then
+publishes to PyPI. The tag must equal the workspace version in `Cargo.toml`
+(tag `v0.0.1` for version `0.0.1`), or the run stops before publishing. Running
+the workflow by hand builds and tests but does not publish.
+
+Publishing uses PyPI trusted publishing (OpenID Connect); no API token is
+stored. One-time setup by a project owner, which the workflow cannot do:
+
+1. Create the `lindhard` project on PyPI (or add a pending publisher for it).
+2. Add a trusted publisher to it: owner `2AMLogic`, repository `lindhard`,
+   workflow `wheels.yml`, environment `pypi`.
+3. In the GitHub repository settings, create an environment named `pypi` and
+   protect it with required reviewers, so that each upload needs an approval.
