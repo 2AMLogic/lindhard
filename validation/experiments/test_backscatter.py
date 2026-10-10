@@ -9,7 +9,9 @@ no simulation is run:
 from __future__ import annotations
 
 import json
+import stat
 import sys
+import tempfile
 import tomllib
 import unittest
 from pathlib import Path
@@ -74,6 +76,98 @@ class SecondaryInputs(unittest.TestCase):
             self.assertEqual(sec, plain)
             self.assertEqual(sec["electron"]["beam"]["energy_ev"], 5000.0)
             self.assertEqual(sec["run"]["histories"], 1000)
+
+
+class ReuseManifest(unittest.TestCase):
+    VERSION = "lindhard 0.0.0 (v1)"
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.root = Path(self._tmp.name)
+        self.elf = self.root / "a.elf"
+        self.elf.write_bytes(b"data-1")
+        self.text = f'[x]\noptical_elf = {json.dumps(str(self.elf))}\n'
+        self.work = self.root / "run"
+        self.binary = self.root / "fake"
+
+    def fake(self, code: int = 0, write_summary: bool = True, pre: str = ""):
+        summary = '{"software":{"git_describe":"v1"},"results":{"histories":100,' \
+                  '"yields":{"backscatter_eta":0.5,"secondary_delta":0.0},"front":{"fast":{"count":1}},' \
+                  '"budget":{"relative_imbalance":0.0}},"physics":{"transport":{"layers":[{"elastic_model":"m"}]}},' \
+                  '"run":{"table_build_s":0.0}}'
+        body = f'mkdir -p "$4"\n' + (f"echo '{summary}' > \"$4/electron_summary.json\"\n" if write_summary else "")
+        self.binary.write_text(f"#!/bin/sh\n{pre}{body}exit {code}\n")
+        self.binary.chmod(self.binary.stat().st_mode | stat.S_IXUSR)
+
+    def run_it(self, reuse=VERSION):
+        return bs.run_one(self.binary, self.text, self.work, None, reuse)
+
+    def test_unchanged_reused(self):
+        self.fake()
+        self.run_it()
+        self.assertTrue(bs.reusable(self.work, self.text, self.VERSION))
+        self.binary.unlink()  # a rerun would fail now
+        self.assertEqual(self.run_it()["histories"], 100)
+
+    def test_edited_elf_not_reusable(self):
+        self.fake()
+        self.run_it()
+        self.elf.write_bytes(b"data-2")
+        self.assertFalse(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_missing_elf_not_reusable(self):
+        self.fake()
+        self.run_it()
+        self.elf.unlink()
+        self.assertFalse(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_missing_malformed_stale_manifest(self):
+        self.fake()
+        self.run_it()
+        m = self.work / bs.MANIFEST
+        good = m.read_text()
+        for bad in ("{not json", "[]", '{"version": 99, "optical_elf": {}}', '{"version": 1}',
+                    json.dumps({"version": 1, "optical_elf": {str(self.elf): "0" * 64}})):
+            m.write_text(bad)
+            self.assertFalse(bs.reusable(self.work, self.text, self.VERSION), bad)
+        m.unlink()
+        self.assertFalse(bs.reusable(self.work, self.text, self.VERSION))
+        m.write_text(good)
+        self.assertTrue(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_failed_rerun_leaves_no_manifest(self):
+        self.fake()
+        self.run_it()
+        self.elf.write_bytes(b"data-2")
+        self.fake(code=1)
+        with self.assertRaises(SystemExit):
+            self.run_it()
+        self.assertFalse((self.work / bs.MANIFEST).exists())
+        self.assertFalse(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_rerun_after_edit_rewrites_manifest(self):
+        self.fake()
+        self.run_it()
+        self.elf.write_bytes(b"data-2")
+        self.run_it()
+        self.assertTrue(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_elf_edited_during_run_writes_no_manifest(self):
+        # The CLI "reads" data-1, the file becomes data-2 mid-run, the CLI
+        # exits 0: the result must not be recorded as a run of data-2.
+        self.fake(pre=f"printf data-2 > {json.dumps(str(self.elf))}\n")
+        with self.assertRaises(SystemExit):
+            self.run_it()
+        self.assertEqual(self.elf.read_bytes(), b"data-2")
+        self.assertFalse((self.work / bs.MANIFEST).exists())
+        self.assertFalse(bs.reusable(self.work, self.text, self.VERSION))
+
+    def test_manifest_holds_pre_run_prints(self):
+        self.fake()
+        self.run_it()
+        m = json.loads((self.work / bs.MANIFEST).read_text())
+        self.assertEqual(m["optical_elf"], bs.elf_fingerprints(self.text))
 
 
 if __name__ == "__main__":
