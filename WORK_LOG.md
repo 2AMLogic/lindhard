@@ -4,6 +4,14 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-11
 
+- **PR #407**: validation: fingerprint executable, input and tables for ion-run reuse (#406)
+- **PR #404**: fix: bound the adaptive sputter rerun loop and report precision status
+- **Issue #406** (closed): Ion validation: fingerprint executable and referenced data before resuming runs
+- **Issue #403** (closed): Validation: bound adaptive sputter retries and handle zero-yield observations
+- **Issue #287** (closed): Re-run the secondary-yield tables and the electron oracle summaries with the band-bottom inelastic tables of #241
+
+### 2026-10-11
+
 - **PR #401**: docs(crystal): record opened 4H-SiC density measurements; 4H gap stands
 - **PR #400**: Python: expose electron transport through a TOML-first ElectronRun API
 - **PR #399**: Python: expose fluence-dependent ion runs through run_dynamic (#397)
