@@ -680,6 +680,8 @@ per-history errors, and double- and triple-Gaussian fits to it.
 | `files` | Names of the other files written (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `ions_per_s` |
 
+**`software.git_describe` freshness.** The CLI's build script stamps `git describe --always --dirty`, and reruns it when a build input that the description reads changes: tracked sources and manifests of `lindhard` and `lindhard-cli` (plus the workspace `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml`), the index, `HEAD`, the branch ref, `packed-refs` and `refs/heads`/`refs/tags` of the common git directory (so linked worktrees follow shared tags and branches). A non-empty `LINDHARD_GIT_DESCRIBE` in the build environment is used verbatim (trimmed) and git is not consulted; outside a git checkout the value is `unknown`. Limitations: `-dirty` is a flag, not a fingerprint, so two different dirty builds report the same string; untracked files, and tracked files outside the watched set (docs, tests, other crates), do not mark or refresh the stamp; and it describes the checkout at build time, not the commit of a binary built elsewhere.
+
 ### `depth_profile.csv`
 
 `depth_lo_nm,depth_hi_nm,stopped_primaries,fraction_per_nm`: stopped primaries

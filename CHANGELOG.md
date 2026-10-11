@@ -7,6 +7,12 @@ one version).
 
 ## [Unreleased]
 
+### Fixed
+
+- `lindhard-cli/build.rs` now reruns when tracked sources, manifests, the active
+  ref, `packed-refs` or tags change, so `git_describe` no longer keeps a stale
+  clean stamp across incremental builds (including linked worktrees).
+
 ### Added
 
 - Validation: `validation/oracles/run_electron.py` and
