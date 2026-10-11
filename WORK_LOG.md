@@ -4,6 +4,35 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-11
 
+- **PR #400**: Python: expose electron transport through a TOML-first ElectronRun API
+- **PR #399**: Python: expose fluence-dependent ion runs through run_dynamic (#397)
+- **PR #396**: perf(rng): bound live partial tallies in the particle driver
+- **PR #395**: docs(cli): distinguish Git dirty scope from provenance watch scope
+- **PR #394**: Backscatter (#148 part 2): full-Penn rerun of the eta comparison
+- **PR #392**: validation: run the cutoff-band-bottom δ(E) row to 1 keV for Al and Si (#380)
+- **PR #390**: fix(cli): refresh git_describe after incremental source and ref changes
+- **PR #389**: docs(oracles): update Nebula inelastic-model mismatch text for #241/#339 (#386)
+- **PR #387**: refactor(electron): split inelastic/table.rs into density, refine, build and sampler modules
+- **PR #384**: docs(benchmarks): mark electron bench digests stale after band-bottom changes (#366)
+- **PR #383**: validation: re-run the lindhard side of the electron oracles (#365)
+- **PR #382**: docs(validation): attribute the Si δ(E) rise of #364 by bisect (#379)
+- **PR #325**: fix(table-cache): lock each entry across lookup, build and publication
+- **PR #87**: feat: [physics] stopping = "none" for nuclear-only runs and like-for-like oracle checks
+- **Issue #398** (closed): Python: expose electron transport through a TOML-first ElectronRun API
+- **Issue #397** (closed): Python: expose fluence-dependent ion runs through run_dynamic
+- **Issue #393** (closed): Bound temporary tally storage in the deterministic particle driver
+- **Issue #391** (closed): docs(cli): distinguish Git dirty scope from provenance invalidation scope
+- **Issue #388** (closed): Build provenance: refresh git_describe after incremental source and ref changes
+- **Issue #386** (closed): run_electron.py: Nebula mismatches text still describes pre-#241 single-pole Penn ("model Fermi energy 0")
+- **Issue #380** (closed): Complete the cutoff-band-bottom δ(E) row at the regenerated build (Al above 400 eV, Cu/Au above 1000 eV, Si above 400 eV)
+- **Issue #379** (closed): Si secondary-electron yield rose 77–187 % after #241/#339/#342 (found regenerating #364)
+- **Issue #375** (closed): Refactor: split lindhard/src/electron/inelastic/table.rs into density, refine, build and sampler modules (no behaviour change)
+- **Issue #366** (closed): Refresh the six electron benchmark digests after the band-bottom changes
+- **Issue #365** (closed): Regenerate the six lindhard electron-oracle summaries after the band-bottom changes
+- **Issue #326** (closed): CI: clippy chunks_exact_to_as_chunks in lindhard/src/geometry/mesh.rs fails on current stable
+- **Issue #305** (closed): Electron table cache: coordinate concurrent builders per entry
+- **Issue #89** (closed): Validation: regenerate OpenTRIM and RustBCA summaries for the *_nuclear level-2 problems (follow-up to #58)
+- **Issue #58** (closed): CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
 - **PR #381**: docs(provenance): final 4H-SiC density source search; 6H precision density (Part of #179)
 - **PR #378**: validation: regenerate the δ(E) tables on band-bottom inelastic tables (#364)
 - **PR #377**: refactor(input): split input/electron.rs into schema, resolve, resolved and tests modules

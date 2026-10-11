@@ -32,7 +32,7 @@ The rest run as capacity allows.
 
 Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
 
-- **#325**: fix(table-cache): lock each entry across lookup, build and publication
+_None._
 
 ## Operator Priority
 
@@ -44,32 +44,25 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-- **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
+_None._
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
-- **#365**: Regenerate the six lindhard electron-oracle summaries after the band-bottom changes
-- **#366**: Refresh the six electron benchmark digests after the band-bottom changes
-- **#375**: Refactor: split lindhard/src/electron/inelastic/table.rs into density, refine, build and sampler modules (no behaviour change)
-- **#379**: Si secondary-electron yield rose 77–187 % after #241/#339/#342 (found regenerating #364)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#382**: docs(validation): attribute the Si δ(E) rise of #364 by bisect (#379)
-- **#383**: validation: re-run the lindhard side of the electron oracles (#365)
+- **#401**: docs(crystal): record opened 4H-SiC density measurements; 4H gap stands
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#325**: fix(table-cache): lock each entry across lookup, build and publication
-- **#384**: docs(benchmarks): mark electron bench digests stale after band-bottom changes (#366)
+_None._
 
 ## Proposed
 
@@ -78,7 +71,6 @@ Issues carrying `loom:curated`.
 - **#15**: [Epic #10] Verify element and constant data against primary sources *(curated)*
 - **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
 - **#51**: Validation level 3: first published range datasets (B, P, As in amorphous Si) and stopping-input attribution (follow-up to #8) *(curated)*
-- **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50) *(curated)*
 - **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
 - **#93**: [Epic #11] Elastic validation: total and transport cross sections vs published partial-wave values (C, Si, Cu, Au) *(curated)*
 - **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
@@ -88,14 +80,8 @@ Issues carrying `loom:curated`.
 - **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
 - **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
-- **#305**: Electron table cache: coordinate concurrent builders per entry *(curated)*
 - **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
-- **#326**: CI: clippy chunks_exact_to_as_chunks in lindhard/src/geometry/mesh.rs fails on current stable *(curated)*
 - **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary *(curated)*
-- **#365**: Regenerate the six lindhard electron-oracle summaries after the band-bottom changes *(curated)*
-- **#366**: Refresh the six electron benchmark digests after the band-bottom changes *(curated)*
-- **#375**: Refactor: split lindhard/src/electron/inelastic/table.rs into density, refine, build and sampler modules (no behaviour change) *(curated)*
-- **#379**: Si secondary-electron yield rose 77–187 % after #241/#339/#342 (found regenerating #364) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -118,13 +104,13 @@ Issues carrying `loom:curated`.
 
 | Tier | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 0 |
 | Operator priority | 0 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 6 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 21 |
+| Ready (`loom:issue`) | 0 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 0 |
+| Curated | 14 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
