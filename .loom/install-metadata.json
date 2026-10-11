@@ -1,6 +1,6 @@
 {
-  "loom_version": "0.19.1027",
-  "loom_commit": "59bb53f01eb99187ce25f22be1a64da5c877d115",
+  "loom_version": "0.19.1039",
+  "loom_commit": "e83d19dc0a9b217339ea2f14040c50ad6f46700d",
   "install_date": "2026-10-04",
   "loom_source_remote": "https://github.com/rjwalters/loom.git",
   "installed_files": [
@@ -705,6 +705,6 @@
     ".loom/docs/telemetry-kind-pick-decision.md",
     ".loom/scripts/tests/test-sweep-lease-renew-lifecycle.sh"
   ],
-  "last_resync": "2026-10-10",
+  "last_resync": "2026-10-11",
   "requires_daemon": "0.19.772"
 }
