@@ -318,7 +318,12 @@ fn number_density_agrees_with_the_material_module() {
 ///   lattice is +7.52e-4 denser, outside the printed precision. The two
 ///   numbers are different measurements (Bauer et al. 2001 cell, Gomes de
 ///   Mesquita 1967 density, per the archive) and the cell's temperature is
-///   not stated. No measured 4H bulk density could be opened.
+///   not stated.
+///
+/// The open, primary measured 4H densities found on 2026-10-11 (third pass,
+/// see Open questions in `docs/data-provenance.md`) do not close the gap
+/// either; they are pinned in
+/// [`opened_measured_sic_densities_are_recorded_gaps`].
 #[test]
 fn number_density_discrepancies_are_recorded_gaps() {
     for rel in density_differences(
@@ -327,6 +332,53 @@ fn number_density_discrepancies_are_recorded_gaps() {
         [14, 6],
     ) {
         assert!((rel - 7.52e-4).abs() < 5e-6, "4H pinned difference {rel:e}");
+    }
+}
+
+/// **Not an agreement test.** The Bauer et al. (2001) cells against measured
+/// SiC bulk densities from sources that were opened, pinned so that the
+/// evidence behind the 4H gap is reproducible. None of these values is used by
+/// a preset, and no tolerance or constant was changed because of them.
+///
+/// * D. Lundqvist, Acta Chem. Scand. 2, 177 (1948),
+///   doi:10.3891/acta.chem.scand.02-0177, p. 182: type III (4H) on "very
+///   impure" material (Al 0.30 %, Fe 0.07 %) "which contained only type III
+///   and a little of type I", `σ_obs. = 3.201 + 0.005` (printed with `+`),
+///   temperature not stated. The 4H cell is +3.88e-3 denser, 2.5 times the
+///   stated 0.005 (1.56e-3 relative); the paper itself says the specific
+///   weights of the black type-III-rich carbides "show slightly greater
+///   deviations owing to their content of foreign matter". Same page, type II
+///   (6H) on "very pure" material (Al and Fe below 0.01 %): `σ_obs. = 3.209 +
+///   0.001`; the 6H cell is +1.36e-3 denser, 4.4 times 0.001 (3.1e-4).
+/// * P. L. Mulligan et al., ORNL/TM-2023/3059 (2023), doi:10.2172/2001384,
+///   section 4.1 and Table 4, p. 7: densities "measured via direct measurement
+///   of the parallelepiped specimen dimensions and massing", no temperature
+///   and no uncertainty stated, for two 4H wafers: material A (N-type) 3.17
+///   g/cm³ and material B (semi-insulating) 3.21 g/cm³. The 4H cell is
+///   +1.37e-2 from A and +1.06e-3 from B. B alone would sit within half a unit
+///   of its last digit (1.56e-3), but the two 4H wafers of the same method
+///   differ by 1.3e-2, about eight times that, so the printed digit does not
+///   measure the method's precision and B is not adopted (choosing it over A
+///   would be a selection).
+#[test]
+fn opened_measured_sic_densities_are_recorded_gaps() {
+    let h4: fn() -> Lattice = Lattice::silicon_carbide_4h;
+    let h6: fn() -> Lattice = Lattice::silicon_carbide_6h;
+    let cases = [
+        ("4H Lundqvist 1948", h4, 3.201, 3.879e-3),
+        ("4H ORNL 2023 A", h4, 3.17, 1.3696e-2),
+        ("4H ORNL 2023 B", h4, 3.21, 1.064e-3),
+        ("6H Lundqvist 1948", h6, 3.209, 1.362e-3),
+        // The archive value of the test above, for scale.
+        ("4H Ioffe 3.211", h4, 3.211, 7.52e-4),
+    ];
+    for (name, lattice, rho, pinned) in cases {
+        for rel in density_differences(&lattice(), rho, [14, 6]) {
+            assert!(
+                (rel - pinned).abs() < 5e-6,
+                "{name}: pinned difference {pinned:e}, found {rel:e}"
+            );
+        }
     }
 }
 
