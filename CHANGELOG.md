@@ -14,6 +14,13 @@ one version).
   (primary caps, capped secondary tracks, affected histories, cap energy) in
   their summaries, pool them across batches, annotate truncated results and
   read missing values as unknown, never zero (#369). No transport change.
+- `docs/validation.md`, "Why Si δ doubled after #241": a bisect of the Si
+  δ(E) rise of #364. The rise is the band-bottom inelastic axis of #241,
+  ×2.0 to ×2.4, plus +4.7 to +10.3 % from the rate refinement of #339. It is
+  explained as the removal of loss events that the transport clamped at
+  the Fermi level, events that cost a Si electron the band gap each time.
+  The new values are the consequence of cstool's minimum-excitation
+  convention, not a defect (#379). There are no code or results changes.
 - `FullPenn::loss_function_evaluation` (`LossFunctionEvaluation`): one
   evaluation of the full Penn loss function with the work of its `ω_p`
   integral and whether it converged; `OMEGA_P_INTERVAL_BUDGET`;

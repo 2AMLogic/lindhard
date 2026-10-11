@@ -2480,8 +2480,8 @@ the DHFS elastic potential; nothing was adjusted to these data):
   move up by one grid step.
   The changes were not split among #241 (axis and `E_F`), #339 (rate
   refinement) and #342 (Mermin window); the regeneration ran the three
-  together, and which of them moves Si, and why by so much more than the
-  metals, was not isolated (tracked in #379). The backscatter coefficient η of the `default`
+  together. A later bisect (#379, "Why Si δ doubled after #241") attributes
+  the Si rise to #241 alone (×2.0 to ×2.4), with +4.7 to +10.3 % more from #355. The backscatter coefficient η of the `default`
   row at 800 eV moves by less than 3 % (Al 0.253 to 0.246, Cu 0.481 to
   0.484, Au 0.578 to 0.573).
 - **What DHFS changed** (historical: the #149 DHFS rerun, build `abd6a5e`,
@@ -2631,7 +2631,7 @@ or the Si runs, or for their #364 regeneration. The open gaps are the Au
 and Cu excess that Mermin shares (#242 tested its candidates, below, and
 none explains it; #301 added the binding-energy row, and what could still
 not be tested is split into #312 to #315), the Si excess that the
-regeneration introduced (its cause was not isolated; #379), full Penn (the Al table builds since #256, the Si table since #298; table
+regeneration introduced (bisected to #241 and #355 in #379, "Why Si δ doubled after #241"), full Penn (the Al table builds since #256, the Si table since #298; table
 reuse is tracked in #168), the incomplete `cutoff-band-bottom` points (Al above 400 eV, Cu and Au above 1000 eV, Si above 400 eV; #380), the
 correlation-polarization correction at the low table energies, the cited
 barrier parameters for Al, Cu and Au (#115 found none that can be opened),
@@ -3019,6 +3019,111 @@ are statistically the same.
 
 The committed results and `docs/data-provenance.md` were not changed by
 #319.
+
+**Why Si δ doubled after #241 (#379).** The regeneration of #364 raised
+every Si δ by 77 to 187 %, against a few per cent for Cu and Au and about
+10 % for Al. #379 bisected it. Each merge commit named below was built
+(release CLI, its own target directory) and run on the `default` input of
+`se_yield.py` (Si at 200, 400 and 1000 eV, Al at 400 eV; 2,000 histories,
+seed 1, two threads). The runs used no table cache: `se_yield.py` passes
+no `--table-cache`, so a stale cache (hypothesis 4 of #379) cannot enter.
+δ per primary:
+
+| Build (first-parent merge) | Si 200 eV | Si 400 eV | Si 1000 eV | Al 400 eV |
+|---|---|---|---|---|
+| `abd6a5e` (committed tables before #364) | 0.7965 | 0.6335 | 0.363 | 6.522 |
+| `f64e9df` (before PR #289, #241) | 0.7965 | 0.6335 | 0.363 | 6.522 |
+| `f5e2be8` (PR #289, #241: band-bottom axis) | 1.567 | 1.508 | 0.885 | 6.509 |
+| `f0786fa` / `882fbc4` (before / after PR #343, #340) | 1.567 | 1.508 | | |
+| `f7895dc` / `377b5da` (before / after PR #344, #342) | 1.567 | 1.508 | | |
+| `a26cdad` / `eb24e8e` (before / after PR #351, #339 first part) | 1.567 | 1.508 | | |
+| `a0359ff` (before PR #355, #339) | 1.567 | 1.508 | 0.885 | 6.509 |
+| `09bc1dd` (PR #355, #339: rate refinement in `lindhard run`) | 1.664 | 1.5795 | 0.976 | 7.182 |
+| `74a5ce3` (#364's build) and `2c1e28e` | 1.664 | 1.5795 | 0.976 | 7.182 |
+
+`abd6a5e` reproduces the committed Si and Al `default` values exactly.
+The Si jump is #241 alone: ×2.0 at 200 eV and ×2.4 at 400 and 1000 eV,
+with Al unchanged (−0.2 %). #340, #342 and the first part of #339 (#351,
+library and example only) change nothing here. #355 then adds +6.2, +4.7 and +10.3 % to Si (200, 400, 1000 eV) and
++10 % to Al. That is the rate refinement of the band-bottom table (above),
+which resolves the rate just above `E_F` that the coarse grid
+under-interpolated (#291). The `legacy` mode of
+`lindhard-cli/examples/inelastic_low_energy.rs` builds the inelastic table
+as before #241 inside the current build. It gives Si 0.796, 0.633 and
+0.363 and Al 6.522, the `abd6a5e` values. So the axis is the whole #241
+change, and the transport did not change in between.
+
+*Mechanism.* Before #241 the table was on the model axis with `E_F = 0`,
+so a row read at the band-bottom energy `E` allowed losses up to `E`. The
+transport clamps a Kieft-Bosch loss at `E - E_F`, and most low-energy
+events hit that clamp. At 400 eV (`legacy` mode, electrons 5 to 10, 10 to
+15 and 15 to 20 eV above `E_F`) the clamp took 83, 71 and 61 % of the Si
+events and 79, 82 and 78 % of the Al events. The secondary of a clamped
+event is `E_F + (E - E_F) - B` (`electron::secondary`, Verduin
+Eq. 3.86):
+
+- **Metal** (`B = 0`): the secondary takes exactly `E`. The event swaps
+  one electron for another of the same energy, so Al δ did not move when
+  #241 removed these events.
+- **Si** (`B = E_g`): the primary drops to the mid-gap `E_F`, below the
+  threshold, and the secondary leaves with `E - E_g`. Each clamped event
+  costs 1.1 eV, and there were about twice as many events (5 to 10 eV
+  above `E_F`: 54.7 per primary before, 28.0 after). Electrons only a few
+  eV above the vacuum level (`U - E_F` = 4.6 eV for this band) were worn
+  down below it.
+
+The band-bottom table of #241 draws no loss above `E - (W_v + E_g)`, so
+none of them happen.
+
+*Verdict: the new Si δ is the correct consequence of the adopted
+convention, not a defect.* The sources:
+
+- **Loss limit.** S2017 eq. (3) (`electron::inelastic::penn`) limits the
+  loss to `ω_max = T' - E_F`: the primary cannot end below the lowest free
+  state. cstool's `band_structure.get_min_excitation`
+  (`cstool/input_data/band_structure.py`, commit `0c739eb`) is that state
+  for an insulator, `W_v + E_g`. Its docstring says "both the primary and
+  secondary electron must be in the conduction band after the event".
+- **cstool's dielectric table.** `apps/cstool.py` passes the same value
+  as `F` to `compile_full_imfp_icdf` for its dielectric-function table
+  (the "Fermi correction" that drops `ω > K - F`). Its rows start at
+  `get_min_excitation() + 0.1` eV. #241 adopted this.
+- **Losses before #241.** The losses that #241 removed would have left
+  the primary in the gap or the valence band. Pauli exclusion forbids
+  that, and the clamp did not repair it.
+- **Secondary energy.** The emission energy `E_F + W - E_g` with the
+  mid-gap `E_F` is Verduin Eq. 3.86 with the binding set to the band gap
+  for a loss above it (Verduin p. 78, Nebula's handling; module docs of
+  `electron::secondary`). #241 did not change it, so it is not the cause.
+  The table axis (`W_v + E_g`) and the clamp and emission reference
+  (mid-gap `E_F`) differ, but the clamp is above every tabulated loss, so
+  the two references do not double-count.
+
+*Sensitivity to the reference (diagnostic builds, not options).* cstool
+uses the mid-gap `get_fermi()` in one place: its Kieft/Ashley table
+(`dielectric_function/kieft.py`, `L_Kieft(K, w, get_fermi())`, rows from
+`get_fermi() + 0.1` eV). Building the Si single-pole table with the
+mid-gap `E_F` in place of `W_v + E_g` (at `2c1e28e`) gives δ 1.526, 1.476
+and 0.864 at 200, 400 and 1000 eV. That is 7 to 12 % below (−8.3, −6.6, −11.5 %) the adopted
+convention, so the reference accounts for a small part of the jump, not
+the doubling. Emitting the secondary from the valence-band top instead
+(`W_v + W`, `E_g/2` above Eq. 3.86's value) raises δ to 1.869, 1.852 and
+1.140.
+
+*Effect on #149.* The Si `default` δ_max of #364 (1.664 at 200 eV)
+exceeds the measured median, 1.074 at 425 eV, by 55 % and fails the δ_max
+bound. The mid-gap diagnostic at 200 eV would be +42 %, inside it. The
+δ_max verdict therefore lies near the bound and depends on a convention.
+Si also fails the factor-2 E_max bound (peak at 200 eV against 425 eV,
+ratio 0.47); that failed before #364 too (peak at 150 eV) and does not
+depend on the convention, so the overall Si verdict is a fail under either
+reference and the reference choice decides only the δ_max line. The
+convention adopted (cstool's dielectric-table convention) has the
+source support above. The #149 bounds are unchanged; whether to record
+the Si fail as a known single-pole low-energy overestimate (as for Al,
+`electron::inelastic::penn`, "Low energies") is for operator sign-off. No
+δ table was regenerated for #379. The tables of #364 (PR #378) already
+use this convention, so no rerun is needed.
 
 ## Reporting
 
