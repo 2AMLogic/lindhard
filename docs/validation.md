@@ -533,14 +533,21 @@ with `E_d = E_s` (`ar_1keV_cu_ed_es`), which isolates the displacement
 criterion, and once more with three weak collisions per step on both sides
 (`ar_1keV_cu_ed_es_weak3`: lindhard's `weak_collisions`, RustBCA's documented
 `weak_collision_order`; OpenTRIM has no matched option, recorded as a
-mismatch). Install the oracles yourself, **outside this tree**, and point the
-runner at them:
+mismatch). B, As and the first Ar problem also have nuclear-only variants
+(`b_5keV_si_nuclear`, `as_50keV_si_nuclear`, `ar_1keV_cu_nuclear`, #58):
+electronic stopping off on every side (lindhard `stopping = "none"`,
+OpenTRIM `electronic_stopping` `Off`, RustBCA's documented
+`electronic_stopping_correction_factor = 0.0`). They are the like-for-like
+problems for OpenTRIM, which cannot run a stopping we may use, and a
+transport-only check for RustBCA; they are not physical settings. Install
+the oracles yourself, **outside this tree**, and point the runner at them:
 
 ```sh
 RUSTBCA_BIN=/path/to/RustBCA RUSTBCA_SRC=/path/to/rustbca-clone \
 OPENTRIM_BIN=/path/to/opentrim OPENTRIM_SRC=/path/to/opentrim-clone \
   validation/oracles/run.py
 validation/oracles/run.py --lindhard-only     # the lindhard side alone
+validation/oracles/run.py --threads 2         # cap every code's worker threads
 ```
 
 `*_SRC` (optional) is the git clone each binary was built from; the runner
@@ -549,7 +556,11 @@ build (compiler, profile) for the summary. OpenTRIM's HDF5 output is read
 with `h5dump` from the HDF5 tools (`H5DUMP_BIN`, default on `PATH`), so the
 harness stays standard-library Python. Each code is also timed at five times
 the ion count (`--timing-factor`), which gives a throughput with fixed setup
-costs removed.
+costs removed. Every code runs on all logical CPUs unless `--threads N` caps
+them (lindhard's `run.threads`, RustBCA's documented `num_threads`,
+OpenTRIM's documented `Run/threads`); each summary records the thread count,
+and the speed ratios of a capped run are not comparable with an uncapped
+one.
 
 An oracle that is not configured is skipped and the script still succeeds;
 CI never needs one. Raw oracle output and the input files written for the
@@ -571,13 +582,21 @@ How each adapter was written, under the licence tiers of
   GUI off). Its electronic stopping choices are `SRIM96`, `SRIM13` (SRIM
   tables, Tier C) and `DPASS` (Tier C), or `Off`. None is a published formula
   we can match and none of the tables may be used, so OpenTRIM runs with
-  electronic stopping **off**. lindhard's CLI cannot switch electronic loss
-  off, so OpenTRIM's range comparisons are **not like-for-like**. They are
-  kept as a check of the setup, and for speed.
+  electronic stopping **off**. Its comparisons are like-for-like only on the
+  `*_nuclear` problems, where lindhard runs `stopping = "none"`. On the
+  Lindhard-Scharff problems they are **not like-for-like** (recorded as a
+  mismatch in each summary) and are kept as a check of the setup, and for
+  speed. The adapters choose their electronic-stopping settings, and the
+  `matched`/`mismatches` text, from the problem's `physics.stopping`.
 
-**Status:** both adapters are in place, and the first summaries were run
-locally on 2026-10-05 against RustBCA v3.0.0-17-ga356280 (commit `a356280`)
-and OpenTRIM 1.2.0 (commit `6b12392`).
+**Status:** both adapters are in place. The Lindhard-Scharff summaries were
+run locally on 2026-10-05 against RustBCA v3.0.0-17-ga356280 (commit
+`a356280`) and OpenTRIM 1.2.0 (commit `6b12392`). The six `*_nuclear`
+summaries (#58, #89) were run locally on 2026-10-10 with the same two oracle
+builds, lindhard `089f82b`, 20 000 ions, seed 1, and every code capped at
+two threads (`--threads 2`). The OpenTRIM binary reports its own build tag
+as `v1.1.6-83-g0738530`, one commit behind the clean clone it was built
+from (`6b12392`, "Ver. 1.2.0"); the summaries record the clone's commit.
 
 ### Reading the level-2 table
 
@@ -628,28 +647,69 @@ explained here, or recorded as unexplained:
   gap (factor 5.8 with weak collisions, 2.2 without) remains
   **unexplained**. Backscatter: lindhard 8.8 % to 8.4 %, RustBCA 10.8 % to
   10.5 %.
-- **OpenTRIM, ranges: stopping mismatch.** With no electronic loss,
-  OpenTRIM's ranges are longer, as they must be: lindhard's Rp is 21 % (B)
-  and 10 % (As) shorter. This says nothing about either code's transport.
-  A like-for-like run needs an electronic-loss-off option in lindhard's CLI
-  (#58).
+- **OpenTRIM, ranges: stopping mismatch.** On the Lindhard-Scharff
+  problems OpenTRIM runs with no electronic loss, so its ranges are longer,
+  as they must be: lindhard's Rp is 21 % (B) and 10 % (As) shorter. This
+  says nothing about either code's transport.
+- **OpenTRIM, nuclear only (like-for-like, #58).** With electronic stopping
+  off on both sides (`*_nuclear` summaries, 2026-10-10) the range gap
+  closes. B 5 keV: Rp 30.49 vs 31.06 nm, -1.8 % (3.1σ); ΔRp 18.07 vs
+  18.06 nm, +0.1 % (0.1σ); backscatter 7.6 % vs 6.4 % (+1.3 points, 5.0σ).
+  As 50 keV: Rp 42.57 vs 42.74 nm, -0.4 % (1.1σ); ΔRp 16.59 vs 16.68 nm,
+  -0.5 % (0.7σ); no backscatter on either side. Ar 1 keV → Cu: backscatter
+  10.2 % vs 5.9 % (+4.3 points, 15.7σ). So ΔRp agrees within statistics for
+  both ions and the As Rp within 1.1σ, against 21 % and 10 % with the
+  stopping mismatch. The B Rp difference (3.1σ) and both backscatter
+  differences are beyond statistics and **unexplained**; lindhard is not
+  tuned to close them. OpenTRIM's input for a `_nuclear` problem is the one
+  it gets for the Lindhard-Scharff problem (it runs `Off` either way; only
+  the output title and, here, the thread count differ), and its two sets of
+  values agree within 1.1σ on every metric (B Rp 31.06 vs 30.98 nm, Ar
+  backscatter 5.9 % vs 6.1 %).
+- **RustBCA, nuclear only (#58).** RustBCA ran with its documented
+  `electronic_stopping_correction_factor = 0.0`; its B Rp rises from
+  24.37 nm (Lindhard-Scharff problem) to 30.30 nm, so the factor does
+  switch its electronic loss off. Ranges agree with lindhard within
+  statistics, as they do with Lindhard-Scharff: B 5 keV Rp 30.49 vs
+  30.30 nm, +0.6 % (1.0σ), ΔRp +0.2 % (0.2σ), backscatter 7.6 % vs 7.9 %
+  (-0.3 points, 1.1σ); As 50 keV Rp 42.57 vs 42.27 nm, +0.7 % (1.8σ), ΔRp
+  +0.2 % (0.2σ), no backscatter. Ar 1 keV → Cu: backscatter 10.2 % vs
+  12.0 % (-1.9 points, 6.0σ), the same gap as with Lindhard-Scharff
+  (-2.0 points, 6.6σ), so that gap is not an electronic-stopping effect; it
+  stays **unexplained**. The sputter yield is 0.746 vs 5.21 (-85.7 %); this
+  problem keeps `E_d` = 30 eV, so it is not comparable as configured, for
+  the reason given for `ar_1keV_cu` above.
+- **The two oracles against each other, nuclear only.** The same summaries
+  give RustBCA relative to OpenTRIM: B Rp 30.30 vs 31.06 nm (-2.4 %, 4.1σ),
+  B backscatter 7.9 % vs 6.4 % (+1.6 points, 6.1σ), As Rp 42.27 vs 42.74 nm
+  (-1.1 %, 2.8σ), Ar → Cu backscatter 12.0 % vs 5.9 % (+6.1 points, 21.7σ);
+  ΔRp agrees within 1.1σ for both ions. lindhard lies between the two on
+  every one of these. OpenTRIM gives the longest ranges and the least
+  reflection of the three codes.
 - **OpenTRIM, Ar → Cu backscatter.** OpenTRIM reflects 6.1 % against
-  lindhard's 8.8 %. This is not the stopping mismatch: in a one-off local
-  check with electronic loss off in both oracles (RustBCA through its
-  documented `electronic_stopping_correction_factor = 0`), RustBCA reflected
-  12.0 % and OpenTRIM 6.1 %. OpenTRIM's low-energy reflection differs from
-  both other codes for a reason we have not identified. OpenTRIM 1.2 stores
-  `Es` but applies no surface barrier (its `TODO.md`: "Handle surface
-  effects"), so its sputter yield is not compared.
-- **Speed.** Every code runs on all logical CPUs. *End-to-end* includes
-  setup: lindhard builds its scattering table (about 0.2 s) and RustBCA
-  writes its particle lists. At 20 000 ions this dominates lindhard's time.
-  *Marginal* (`(N2 - N1)/(t2 - t1)` between 20 000 and 100 000 ions) is the
-  throughput #9 needs. Two caveats. On the cascade problems the codes do
-  different amounts of work, since RustBCA follows far more recoils (see
-  above). And the host's load average at the start of the run is recorded
-  in each summary: these first numbers were taken while other builds shared
-  the machine, so treat them as indicative.
+  lindhard's 8.8 % on the Lindhard-Scharff problem. This is not the
+  stopping mismatch: with electronic loss off in all three codes
+  (`ar_1keV_cu_nuclear`, above) lindhard reflects 10.2 %, RustBCA 12.0 %
+  and OpenTRIM 5.9 %. OpenTRIM's low-energy reflection differs from both
+  other codes for a reason we have not identified. OpenTRIM 1.2 stores `Es`
+  but applies no surface barrier (its `TODO.md`: "Handle surface effects"),
+  so its sputter yield is not compared.
+- **Speed.** In the 2026-10-05 rows every code runs on all logical CPUs.
+  *End-to-end* includes setup: lindhard builds its scattering table (about
+  0.2 s) and RustBCA writes its particle lists. At 20 000 ions this
+  dominates lindhard's time. *Marginal* (`(N2 - N1)/(t2 - t1)` between
+  20 000 and 100 000 ions) is the throughput #9 needs. Two caveats. On the
+  cascade problems the codes do different amounts of work, since RustBCA
+  follows far more recoils (see above). And the host's load average at the
+  start of the run is recorded in each summary: these first numbers were
+  taken while other builds shared the machine, so treat them as indicative.
+  The `*_nuclear` rows (2026-10-10) were run with every code capped at
+  **two threads** on a host with a load average of about 19, so their speed
+  ratios are not comparable with the other rows. As measured there,
+  lindhard's marginal throughput is 4.3 to 5.2 times RustBCA's on the range
+  problems and 0.66 to 0.84 of OpenTRIM's on all three; why lindhard is
+  ahead of OpenTRIM on all CPUs and behind it on two threads was not
+  investigated.
 
 <!-- validation:level2:begin -->
 | Problem | Oracle (version, commit) | Rp | ΔRp | Backscatter (abs.) | Sputter yield | Speed ratio (end-to-end) | Speed ratio (marginal) | Date |
@@ -657,13 +717,19 @@ explained here, or recorded as unexplained:
 | `ar_1keV_cu` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0267 (10.2σ) | - | 0.64x | 2.12x | 2026-10-05 |
 | `ar_1keV_cu_ed_es` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0278 (10.6σ) | - | 0.90x | 1.06x | 2026-10-05 |
 | `ar_1keV_cu_ed_es_weak3` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0233 (9.0σ) | - | 0.95x | 0.62x | 2026-10-05 |
+| `ar_1keV_cu_nuclear` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | - | - | +0.0427 (15.7σ) | - | 0.53x | 0.66x | 2026-10-10 |
 | `as_50keV_si` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | -10.0 % (29.6σ) | -16.3 % (27.5σ) | +0.0000 | - | 1.04x | 3.47x | 2026-10-05 |
+| `as_50keV_si_nuclear` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | -0.4 % (1.1σ) | -0.5 % (0.7σ) | +0.0000 | - | 0.55x | 0.84x | 2026-10-10 |
 | `b_5keV_si` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | -21.2 % (46.9σ) | -29.4 % (59.1σ) | -0.0070 (3.0σ) | - | 1.51x | 4.24x | 2026-10-05 |
+| `b_5keV_si_nuclear` | OpenTRIM (1.2.0 (v1.1.6-84-g6b12392), 6b12392) | -1.8 % (3.1σ) | +0.1 % (0.1σ) | +0.0126 (5.0σ) | - | 0.85x | 0.80x | 2026-10-10 |
 | `ar_1keV_cu` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0197 (6.6σ) | -88.8 % (727.0σ) | 17.81x | 135.86x | 2026-10-05 |
 | `ar_1keV_cu_ed_es` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0197 (6.6σ) | -53.6 % (187.9σ) | 14.40x | 33.96x | 2026-10-05 |
 | `ar_1keV_cu_ed_es_weak3` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0216 (7.4σ) | -82.9 % (594.1σ) | 32.50x | 81.69x | 2026-10-05 |
+| `ar_1keV_cu_nuclear` | RustBCA (v3.0.0-17-ga356280, a356280) | - | - | -0.0188 (6.0σ) | -85.7 % (683.5σ) | 66.00x | 156.14x | 2026-10-10 |
 | `as_50keV_si` | RustBCA (v3.0.0-17-ga356280, a356280) | +0.6 % (1.7σ) | -0.4 % (0.5σ) | +0.0000 | - | 0.76x | 3.38x | 2026-10-05 |
+| `as_50keV_si_nuclear` | RustBCA (v3.0.0-17-ga356280, a356280) | +0.7 % (1.8σ) | +0.2 % (0.2σ) | +0.0000 | - | 2.35x | 4.25x | 2026-10-10 |
 | `b_5keV_si` | RustBCA (v3.0.0-17-ga356280, a356280) | +0.2 % (0.4σ) | -0.4 % (0.5σ) | -0.0015 (0.7σ) | - | 0.79x | 5.68x | 2026-10-05 |
+| `b_5keV_si_nuclear` | RustBCA (v3.0.0-17-ga356280, a356280) | +0.6 % (1.0σ) | +0.2 % (0.2σ) | -0.0031 (1.1σ) | - | 2.78x | 5.17x | 2026-10-10 |
 
 Differences are lindhard relative to the oracle, with the difference in units of its combined standard error in brackets (both runs' statistics; the sputter-yield error assumes Poisson counts). A speed ratio > 1 means lindhard is faster: end-to-end is process wall clock at the run's ion count, marginal removes fixed setup costs (see each summary's `timing`). Every row's settings, both sides' values and the full list of mismatches are in its file under `validation/oracles/summaries/`.
 <!-- validation:level2:end -->

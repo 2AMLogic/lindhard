@@ -15,6 +15,8 @@ use std::path::PathBuf;
 use super::Resolved;
 #[cfg(doc)]
 use crate::ion::bca::{ElectronicLoss, MeanFreePath};
+#[cfg(doc)]
+use crate::ion::stopping::none::NoStopping;
 
 /// `[beam]`: species, energy and direction.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -247,6 +249,11 @@ pub enum StoppingChoice {
     /// Equipartition of Lindhard-Scharff: half nonlocal, half local at each
     /// collision by Oen-Robinson ([`ElectronicLoss::EquipartitionLsOr`]).
     EquipartitionLsOr,
+    /// No electronic stopping ([`NoStopping`]): nuclear loss only. For
+    /// like-for-like transport comparisons against codes run with electronic
+    /// stopping off, and for nuclear-only studies; not a realistic setting.
+    /// `[stopping]` tables still serve the pairs they declare.
+    None,
 }
 
 /// Free-path convention.

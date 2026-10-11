@@ -36,6 +36,14 @@ Usage:
     validation/oracles/run.py --problem b_5keV_si
     validation/oracles/run.py --lindhard-only # exercise the lindhard side only
     validation/oracles/run.py --ions 2000     # override the history count
+    validation/oracles/run.py --threads 2     # cap every code's worker threads
+
+By default every code runs on all logical CPUs of the host. `--threads N`
+caps lindhard (`run.threads`), RustBCA (its documented `num_threads` option)
+and OpenTRIM (its documented `Run/threads` option) at N, for a shared or
+memory-limited host. The cap is recorded in each summary's `threads` and
+`timing`; lindhard's results do not depend on it, and the speed ratios of a
+capped run are not comparable with those of an uncapped one.
 """
 
 from __future__ import annotations
@@ -79,6 +87,14 @@ AVOGADRO = 6.02214076e23  # exact (SI 2019)
 
 class NotConfigured(Exception):
     pass
+
+
+# Worker threads for every code: None = all logical CPUs (`--threads`).
+THREADS: int | None = None
+
+
+def worker_threads() -> int:
+    return THREADS or os.cpu_count() or 1
 
 
 def _git(src: str | None, *args: str) -> str | None:
@@ -239,6 +255,16 @@ def _toml(v) -> str:
     raise TypeError(v)
 
 
+def _electronic_off(matched: dict) -> bool:
+    """True for a nuclear-only problem (`physics.stopping = "none"`, issue
+    #58); False for Lindhard-Scharff. The adapters match no other choice."""
+    stopping = matched["stopping"]
+    if stopping not in ("lindhard-scharff", "none"):
+        lindhard_cli.die(f"physics.stopping = {stopping!r}: the oracle adapters match only "
+                         "'lindhard-scharff' and 'none'")
+    return stopping == "none"
+
+
 class RustBca(Oracle):
     name = "RustBCA"
     env = "RUSTBCA_BIN"
@@ -260,8 +286,13 @@ class RustBca(Oracle):
         # second paragraph). Every key below is one documented there.
         b = matched["beam"]
         els = matched["elements"]
-        threads = os.cpu_count() or 1
+        threads = worker_threads()
         name = "rb_"
+        # "Geometry Input / Mesh0D", electronic_stopping_correction_factor:
+        # a multiplier on the electronic stopping; 0.0 switches electronic
+        # loss off, matching lindhard's `stopping = "none"`.
+        es_off = _electronic_off(matched)
+        es_factor = 0.0 if es_off else 1.0
         tilt = math.radians(b["tilt_deg"])
         # "Particle Parameters", dir: x is the depth axis and the x component
         # may not be exactly 1.0, so normal incidence is a 1e-5 rad tilt.
@@ -328,7 +359,7 @@ class RustBca(Oracle):
             "",
             "[geometry_input]",
             'length_unit = "NM"',
-            "electronic_stopping_correction_factor = 1.0",
+            f"electronic_stopping_correction_factor = {_toml(es_factor)}",
             f"densities = {_toml([matched['atom_density_per_nm3'] * e['atom_fraction'] for e in els])}",
             "",
         ]
@@ -371,6 +402,7 @@ class RustBca(Oracle):
                 "geometry": "0D (Mesh0D: semi-infinite homogeneous target from x = 0)",
                 "options": options,
                 "interaction_potential": "ZBL",
+                "electronic_stopping_correction_factor": es_factor,
                 "scattering_integral": "GAUSS_MEHLER, n_points = 10",
                 "root_finder": "NEWTON, max_iterations = 100, tolerance = 1e-6",
                 "material": {
@@ -394,6 +426,8 @@ class RustBca(Oracle):
             },
             "matched": [
                 "potential ZBL (universal screening length)",
+                "electronic stopping off on both sides (lindhard stopping = none; RustBCA "
+                "electronic_stopping_correction_factor = 0.0)" if es_off else
                 "electronic stopping Lindhard-Scharff, all nonlocal (LOW_ENERGY_NONLOCAL)",
                 "constant free path n^(-1/3) (LIQUID)",
                 f"weak collisions per step: {matched['weak_collisions']} (weak_collision_order)",
@@ -411,11 +445,16 @@ class RustBca(Oracle):
                 "choice is not documented",
                 "scattering angle: RustBCA Gauss-Mehler quadrature (10 points) per collision; lindhard a "
                 "Gauss-Mehler table interpolated in (eps, beta), max error 3.8 mrad",
-                "Lindhard-Scharff: the RustBCA documentation cites Lindhard and Scharff (1961) without stating "
-                "the formula; constants (e.g. Firsov vs Lindhard screening length in k_L) may differ",
                 "normal incidence is 1e-5 rad off-normal in RustBCA (it rejects an exact x direction)",
             ],
         }
+        if not es_off:
+            # Same position as before #58, so Lindhard-Scharff summaries are unchanged.
+            out["mismatches"].insert(
+                4,
+                "Lindhard-Scharff: the RustBCA documentation cites Lindhard and Scharff (1961) without stating "
+                "the formula; constants (e.g. Firsov vs Lindhard screening length in k_L) may differ",
+            )
         if matched["weak_collisions"]:
             out["mismatches"].append(
                 "weak collisions: the RustBCA input page places the partners in the same annuli but does not say "
@@ -489,7 +528,7 @@ class OpenTrim(Oracle):
         # (doc/h5file.md, `/run_info/total_ion_count`).
         b = matched["beam"]
         els = matched["elements"]
-        threads = os.cpu_count() or 1
+        threads = worker_threads()
         dx = 0.05  # nm, stop-depth bin of the user tally
         depth = 400.0 if not matched["follow_recoils"] else 50.0
         width = 100.0
@@ -520,6 +559,8 @@ class OpenTrim(Oracle):
                 # Values: Off | SRIM96 | SRIM13 | DPASS. SRIM96/SRIM13 are SRIM
                 # tables and DPASS is Tier C (CONTRIBUTING.md); none is a
                 # published formula we can match, so electronic loss is off.
+                # Like-for-like only for problems with lindhard's
+                # `stopping = "none"` (the `*_nuclear` problems, #58).
                 "electronic_stopping": "Off",
                 "electronic_straggling": "Off",
                 "defect_recombination": False,
@@ -583,11 +624,14 @@ class OpenTrim(Oracle):
             drp = math.sqrt(max(sum((c - rp) ** 2 * p for c, p in zip(centres, stop)) / w - dx * dx / 12, 0.0))
         ns = w * n
         bs = exit_[0]
-        mism = [
+        es_off = _electronic_off(matched)
+        mism = [] if es_off else [
             "electronic stopping: OpenTRIM offers Off, SRIM96, SRIM13 or DPASS. SRIM tables and DPASS (Tier C) "
-            "are excluded, so it runs with electronic loss Off, while lindhard runs Lindhard-Scharff (its CLI has "
-            "no electronic-loss-off choice). Ranges and backscatter are NOT like-for-like; the differences are "
-            "dominated by the missing electronic loss",
+            "are excluded, so it runs with electronic loss Off, while lindhard runs Lindhard-Scharff in this "
+            "problem. Ranges and backscatter are NOT like-for-like; the differences are dominated by the "
+            "missing electronic loss (the '_nuclear' variant of the problem is the like-for-like one)",
+        ]
+        mism += [
             "random-number streams differ (different generators); agreement is statistical only",
             "one energy cutoff (Transport/min_energy) for the beam ion and recoils, set to lindhard's primary "
             "cutoff",
@@ -630,7 +674,10 @@ class OpenTrim(Oracle):
                 "threads": threads,
                 "timing": "end-to-end process wall clock, including setup and writing the HDF5 file",
             },
-            "matched": [
+            "matched": ([
+                "electronic stopping off on both sides (lindhard stopping = none; OpenTRIM "
+                "electronic_stopping = Off)",
+            ] if es_off else []) + [
                 "potential ZBL",
                 "constant free path N^(-1/3) (flight_path_const = (4 pi/3)^(1/3) R_at) and its p_max disc",
                 "E_d of each target element",
@@ -719,7 +766,16 @@ def main() -> int:
         help="also time every code at this many times run.ions, for the marginal (startup-free) ions/s; "
              "0 or 1 disables (default 5)",
     )
+    ap.add_argument(
+        "--threads", type=int,
+        help="worker threads of every code (lindhard, RustBCA, OpenTRIM); default: all logical CPUs",
+    )
     args = ap.parse_args()
+    if args.threads is not None:
+        if args.threads < 1:
+            ap.error("--threads must be at least 1")
+        global THREADS
+        THREADS = args.threads
 
     spec = json.loads((HERE / "problems.json").read_text())
     problems = [p for p in spec["problems"] if not args.problem or p["id"] in args.problem]
@@ -728,6 +784,9 @@ def main() -> int:
     if args.ions:
         for p in problems:
             p["run"]["ions"] = args.ions
+    if THREADS:
+        for p in problems:
+            p["run"]["threads"] = THREADS
 
     # Which oracles can run at all? Report before doing any work.
     ready = []
@@ -819,7 +878,9 @@ def main() -> int:
                     "ions_per_s_marginal": None if not big else (
                         f"(N2 - N1) / (t2 - t1) between runs of N1 = {p['run']['ions']} and "
                         f"N2 = {big['run']['ions']} ions: throughput with fixed setup costs removed"),
-                    "threads": "every code runs on all logical CPUs of the host",
+                    "threads": f"every code capped at {THREADS} worker threads (--threads); speed ratios are "
+                               "not comparable with summaries run on all logical CPUs"
+                               if THREADS else "every code runs on all logical CPUs of the host",
                 },
                 "lindhard_settings": {
                     k: matched[k]

@@ -16,6 +16,7 @@ advisory; the models do not refuse energies outside them (Bethe-Bloch returns
 | Oen-Robinson (local) | `oen_robinson` | same as LS; impact-averaged value equals LS | Oen & Robinson, NIM 132, 647 (1976) |
 | Equipartition LS/OR | `mix` | same as LS | as above |
 | Bethe-Bloch | `bethe` | `v >= 3 v0 Z1^(2/3)` up to 1 GeV/u (no density effect) | Bethe 1930/32; Bloch 1933; Fano 1963 |
+| None (zero) | `none` | unbounded: no electronic loss at any energy; for comparisons and nuclear-only studies, not a physical model | the `k = 0` limit of Lindhard, Scharff & Schiott, Mat. Fys. Medd. 33 (14) (1963) |
 | User table | `table` | exactly the table's energy range | the table's own `provenance` |
 | Bragg additivity | `bragg` | where the element models apply; ignores chemical state unless a correction is supplied | Bragg & Kleeman 1905 |
 | Single-oscillator density effect (opt-in) | `bethe::density_effect_single_oscillator` | `βγ > I/ħω_p` (about 5.6 for Si, beyond the Bethe-Bloch 1 GeV/u range); zero below, so no effect in range; underestimates `δ` through the transition | Fermi 1940; Sternheimer 1952; Fano 1963 (specialisation ours) |

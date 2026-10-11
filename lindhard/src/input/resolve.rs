@@ -561,7 +561,11 @@ impl Input {
         config.weak_collisions = p.weak_collisions;
         config.electronic = match p.stopping {
             StoppingChoice::EquipartitionLsOr => ElectronicLoss::EquipartitionLsOr,
-            _ => ElectronicLoss::NonLocal,
+            // `None` is nonlocal loss with a zero model: no energy is taken
+            // along the flight, and no local loss is added at collisions.
+            StoppingChoice::LindhardScharff | StoppingChoice::BetheBloch | StoppingChoice::None => {
+                ElectronicLoss::NonLocal
+            }
         };
         config.follow_recoils = p.follow_recoils;
         config.primary_surface_binding_ev = p.primary_surface_binding_ev;
