@@ -2,8 +2,22 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-11
+
+- **PR #381**: docs(provenance): final 4H-SiC density source search; 6H precision density (Part of #179)
+- **PR #378**: validation: regenerate the δ(E) tables on band-bottom inelastic tables (#364)
+- **PR #377**: refactor(input): split input/electron.rs into schema, resolve, resolved and tests modules
+- **PR #376**: fix(inelastic): open the full-Penn row window below elf_min (#361)
+- **Issue #374** (closed): Refactor: split lindhard/src/input/electron.rs into schema, resolve and resolved modules (no behaviour change)
+- **Issue #364** (closed): Regenerate Al, Cu, and Au secondary-electron yield tables after the band-bottom changes
+- **Issue #361** (closed): Full Penn tables: the loss window opens at the lowest ELF energy, but the full-Penn DIIMFP is not zero below it
+
 ### 2026-10-10
 
+- **PR #373**: refactor(electron): split data.rs into optical, binding, endf6 and table modules (#349)
+- **PR #370**: validation: preserve and surface event-cap truncation diagnostics
+- **Issue #369** (closed): Electron validation: preserve and surface event-cap truncation diagnostics
+- **Issue #349** (closed): Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change)
 - **PR #371**: feat(full_penn): report ω_p exhaustion on the direct DIIMFP and IMFP paths (#368)
 - **PR #367**: docs(validation): knot-derived width cap does not bound the Mermin f-sum (#337, negative result)
 - **PR #363**: fix(inelastic): start the rate refinement at the model's rate onset (#357)

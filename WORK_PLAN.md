@@ -52,20 +52,24 @@ Issues currently being built (`loom:building`).
 
 - **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
 - **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
-- **#349**: Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change)
-- **#361**: Full Penn tables: the loss window opens at the lowest ELF energy, but the full-Penn DIIMFP is not zero below it (Si: S_table +4.5e-3 at 10 eV)
+- **#365**: Regenerate the six lindhard electron-oracle summaries after the band-bottom changes
+- **#366**: Refresh the six electron benchmark digests after the band-bottom changes
+- **#375**: Refactor: split lindhard/src/electron/inelastic/table.rs into density, refine, build and sampler modules (no behaviour change)
+- **#379**: Si secondary-electron yield rose 77–187 % after #241/#339/#342 (found regenerating #364)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#370**: validation: preserve and surface event-cap truncation diagnostics
+- **#382**: docs(validation): attribute the Si δ(E) rise of #364 by bisect (#379)
+- **#383**: validation: re-run the lindhard side of the electron oracles (#365)
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#325**: fix(table-cache): lock each entry across lookup, build and publication
+- **#384**: docs(benchmarks): mark electron bench digests stale after band-bottom changes (#366)
 
 ## Proposed
 
@@ -88,8 +92,10 @@ Issues carrying `loom:curated`.
 - **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
 - **#326**: CI: clippy chunks_exact_to_as_chunks in lindhard/src/geometry/mesh.rs fails on current stable *(curated)*
 - **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary *(curated)*
-- **#349**: Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change) *(curated)*
-- **#361**: Full Penn tables: the loss window opens at the lowest ELF energy, but the full-Penn DIIMFP is not zero below it (Si: S_table +4.5e-3 at 10 eV) *(curated)*
+- **#365**: Regenerate the six lindhard electron-oracle summaries after the band-bottom changes *(curated)*
+- **#366**: Refresh the six electron benchmark digests after the band-bottom changes *(curated)*
+- **#375**: Refactor: split lindhard/src/electron/inelastic/table.rs into density, refine, build and sampler modules (no behaviour change) *(curated)*
+- **#379**: Si secondary-electron yield rose 77–187 % after #241/#339/#342 (found regenerating #364) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -115,10 +121,10 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 1 |
 | Operator priority | 0 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 4 |
-| PRs awaiting review | 1 |
-| Approved PRs awaiting merge | 1 |
-| Curated | 19 |
+| In Progress (`loom:building`) | 6 |
+| PRs awaiting review | 2 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 21 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
