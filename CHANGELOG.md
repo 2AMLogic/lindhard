@@ -33,6 +33,14 @@ one version).
 
 ### Changed
 
+- Validation: the secondary-electron yield δ(E) tables
+  (`validation/experiments/se_yield_results.json`, the
+  `validation:level3-se-yield` block of `docs/validation.md`) are
+  regenerated at `74a5ce3`, with the band-bottom inelastic tables (#241),
+  the Mermin loss window (#342) and the rate refinement (#339), and now
+  carry the collision-cap diagnostics (#369) (#364). Al, Cu and Au keep
+  their #149 bound verdicts; Si δ roughly doubles and its default curve now
+  fails the yield bound as well as the energy bound. No bound was changed.
 - `lindhard run` builds the inelastic table of every material with a `band`
   with the rate refinement (`RateRefinement::default()`, #339): rows are
   added between 2 and 20 eV above the Fermi level until the interpolated
