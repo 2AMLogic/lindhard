@@ -250,7 +250,7 @@ impl TriMesh {
         };
         let mut soup: Vec<[V3; 3]> = Vec::new();
         if is_binary {
-            for rec in bytes[84..].chunks_exact(50) {
+            for rec in bytes[84..].as_chunks::<50>().0 {
                 let f = |o: usize| {
                     f64::from(f32::from_le_bytes([
                         rec[o],
