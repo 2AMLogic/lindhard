@@ -58,6 +58,13 @@ one version).
   `validation/update_docs.py` now recomputes their Δ and tolerance verdicts
   against the newer lindhard summary and marks those rows. All eight
   tolerance checks still pass; no tolerance was changed.
+- Validation: the `cutoff-band-bottom` row of the δ(E) tables now runs from
+  100 eV to 1 keV for all four materials: Al and Si at 600, 800 and 1000 eV
+  were added at the build already in the results file (`74a5ce3`). Every
+  row has an interior maximum, at the same grid energy as the `default`
+  row; δ_max is 2 to 10 % higher. The points above 1 keV are not run, by
+  decision (`docs/validation.md`, "Rows that are incomplete") (#380). No
+  bound was changed.
 - Validation: the secondary-electron yield δ(E) tables
   (`validation/experiments/se_yield_results.json`, the
   `validation:level3-se-yield` block of `docs/validation.md`) are
