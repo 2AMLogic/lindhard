@@ -7,6 +7,12 @@ one version).
 
 ## [Unreleased]
 
+### Fixed
+
+- `lindhard-cli/build.rs` now reruns when tracked sources, manifests, the active
+  ref, `packed-refs` or tags change, so `git_describe` no longer keeps a stale
+  clean stamp across incremental builds (including linked worktrees).
+
 ### Added
 
 - Validation: `validation/oracles/run_electron.py` and
@@ -14,6 +20,13 @@ one version).
   (primary caps, capped secondary tracks, affected histories, cap energy) in
   their summaries, pool them across batches, annotate truncated results and
   read missing values as unknown, never zero (#369). No transport change.
+- `docs/validation.md`, "Why Si δ doubled after #241": a bisect of the Si
+  δ(E) rise of #364. The rise is the band-bottom inelastic axis of #241,
+  ×2.0 to ×2.4, plus +4.7 to +10.3 % from the rate refinement of #339. It is
+  explained as the removal of loss events that the transport clamped at
+  the Fermi level, events that cost a Si electron the band gap each time.
+  The new values are the consequence of cstool's minimum-excitation
+  convention, not a defect (#379). There are no code or results changes.
 - `FullPenn::loss_function_evaluation` (`LossFunctionEvaluation`): one
   evaluation of the full Penn loss function with the work of its `ω_p`
   integral and whether it converged; `OMEGA_P_INTERVAL_BUDGET`;
@@ -33,6 +46,18 @@ one version).
 
 ### Changed
 
+- Validation: the lindhard side of the electron oracle comparison
+  (`validation/oracles/summaries/lindhard-electron-*.json`, the
+  `validation:electron-oracles` block of `docs/validation.md`) is re-run at
+  `bd91a73`, with the band-bottom inelastic tables (#241), the rate
+  refinement (#339) and the loss window (#342), and carries the
+  collision-cap diagnostics (all six `uncapped`) (#365). Si δ roughly
+  doubles (4.13 at 1 keV, against Nebula's 0.35); every other value moves by
+  less than 4 %, except Si at 1 keV (primary depth +6 %, r50 +26 %). The
+  Nebula and Geant4 MicroElec summaries were not re-run;
+  `validation/update_docs.py` now recomputes their Δ and tolerance verdicts
+  against the newer lindhard summary and marks those rows. All eight
+  tolerance checks still pass; no tolerance was changed.
 - Validation: the secondary-electron yield δ(E) tables
   (`validation/experiments/se_yield_results.json`, the
   `validation:level3-se-yield` block of `docs/validation.md`) are
