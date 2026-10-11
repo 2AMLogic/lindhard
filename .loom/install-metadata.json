@@ -1,6 +1,6 @@
 {
-  "loom_version": "0.19.1050",
-  "loom_commit": "abf3f7109328fd66ec77827f5fd849f5279fee82",
+  "loom_version": "0.19.1054",
+  "loom_commit": "f6a73bc7fc942d7b297514b2e3f57a0ca2076010",
   "install_date": "2026-10-04",
   "loom_source_remote": "https://github.com/rjwalters/loom.git",
   "installed_files": [
