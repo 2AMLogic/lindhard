@@ -884,7 +884,8 @@ reported zeros, and `unknown` otherwise. A field absent from a summary (an
 older binary or artifact, including one batch of several) is `null` and never
 zero; the oracles' own diagnostics are `null` (their outputs carry none). The
 committed summaries predate the fields and so read as unknown, not uncapped;
-the next rerun (#364, #365) keeps them. In
+the #364 rerun of the δ(E) file recorded them (all 218 runs `uncapped`), and
+the next rerun (#365) keeps them. In
 `validation/experiments/se_yield_results.json` each run has the same fields
 under `event_caps` (with `affected_fraction` and `status`), and
 `se_yield.py --markdown` lists truncated runs and the count of unknown ones. A
@@ -2397,7 +2398,7 @@ the DHFS elastic potential; nothing was adjusted to these data):
     two resolving sets (1.540). Au has only two resolving sets, which lie
     within 10 % of each other.
   - *Si*: the default curve rises from 1.371 at 100 eV to δ_max 1.664 at
-    200 eV (1.662 at 300 eV), then falls to 0.213 at 5 keV. δ_max is 55 %
+    200 eV (1.661 at 300 eV), then falls to 0.212 at 5 keV. δ_max is 55 %
     above the measured median (1.074), outside the bound; E_max is 0.47
     times the measured median (425 eV), outside the factor-2 bound (it would
     need to lie at 213 eV or above; the 300 eV entry is 0.2 % below the
@@ -2417,8 +2418,8 @@ the DHFS elastic potential; nothing was adjusted to these data):
   and a factor of 6.0 below the default; the Cu maximum is 1.805 (400 eV),
   8 % above the default's; the Au maximum drops to 2.155 (400 eV), 21 % below
   the default and still 47 % above the measured median; and the Si value at
-  the lowest energy (100 eV) is 0.686, 50 % below the default's 1.371
-  there, and falling monotonically (0.686, 0.670, 0.549, ... 0.122 at
+  the lowest energy (100 eV) is 0.685, 50 % below the default's 1.371
+  there, and falling monotonically (0.685, 0.669, 0.549, ... 0.121 at
   3 keV), so the Si Mermin curve does not resolve a maximum above 100 eV.
   Mermin agreeing better for Al is not evidence that it is right: Al has
   only two resolving sets, 3.4 times apart. The Si Mermin fit accepted the
@@ -2455,7 +2456,7 @@ the DHFS elastic potential; nothing was adjusted to these data):
   The changes were not split among #241 (axis and `E_F`), #339 (rate
   refinement) and #342 (Mermin window); the regeneration ran the three
   together, and which of them moves Si, and why by so much more than the
-  metals, was not isolated. The backscatter coefficient η of the `default`
+  metals, was not isolated (tracked in #379). The backscatter coefficient η of the `default`
   row at 800 eV moves by less than 3 % (Al 0.253 to 0.246, Cu 0.481 to
   0.484, Au 0.578 to 0.573).
 - **What DHFS changed** (historical: the #149 DHFS rerun, build `abd6a5e`,
@@ -2604,8 +2605,8 @@ or the Si runs, or for their #364 regeneration. The open gaps are the Au
 and Cu excess that Mermin shares (#242 tested its candidates, below, and
 none explains it; #301 added the binding-energy row, and what could still
 not be tested is split into #312 to #315), the Si excess that the
-regeneration introduced (its cause was not isolated), full Penn (the Al table builds since #256, the Si table since #298; table
-reuse is tracked in #168), the incomplete `cutoff-band-bottom` points (Al above 400 eV, Cu and Au above 1000 eV, Si above 400 eV), the
+regeneration introduced (its cause was not isolated; #379), full Penn (the Al table builds since #256, the Si table since #298; table
+reuse is tracked in #168), the incomplete `cutoff-band-bottom` points (Al above 400 eV, Cu and Au above 1000 eV, Si above 400 eV; #380), the
 correlation-polarization correction at the low table energies, the cited
 barrier parameters for Al, Cu and Au (#115 found none that can be opened),
 and a δ(E) oracle run for Al, Cu, Si and Au, 100 eV to 5 keV (the #150
