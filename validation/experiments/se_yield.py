@@ -325,8 +325,9 @@ def make_input(material: str, cfg_id: str, energy_ev: float, histories: int, see
         "[electron.inelastic]",
         f'model = "{model}"',
         # The grid of the committed runs. #291 found that neither 20 nor 40 points per decade resolves the
-        # band-bottom rate above E_F to its 1 % tolerance and that 20 makes the Si Mermin table fail (#340), so it
-        # stays at 10 until the grid gains rows from E_F upward (#339); #287's re-run takes it from there.
+        # band-bottom rate above E_F to its 1 % tolerance and that 20 makes the Si Mermin table fail (#340).
+        # Since #339 `lindhard run` adds rows from E_F upward to every band-bottom table (rate refinement), which
+        # meets the tolerance on this grid; the #364 regeneration ran on it unchanged.
         "[electron.tables]",
         "min_energy_ev = 5.0",
         "points_per_decade = 10.0",
