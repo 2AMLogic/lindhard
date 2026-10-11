@@ -16,7 +16,7 @@ one version).
   read missing values as unknown, never zero (#369). No transport change.
 - `docs/validation.md`, "Why Si δ doubled after #241": a bisect of the Si
   δ(E) rise of #364. The rise is the band-bottom inelastic axis of #241,
-  about ×2, plus about +6 to +10 % from the rate refinement of #339. It is
+  ×2.0 to ×2.4, plus +4.7 to +10.3 % from the rate refinement of #339. It is
   explained as the removal of loss events that the transport clamped at
   the Fermi level, events that cost a Si electron the band gap each time.
   The new values are the consequence of cstool's minimum-excitation

@@ -2457,8 +2457,8 @@ the DHFS elastic potential; nothing was adjusted to these data):
   move up by one grid step.
   The changes were not split among #241 (axis and `E_F`), #339 (rate
   refinement) and #342 (Mermin window); the regeneration ran the three
-  together, and which of them moves Si, and why by so much more than the
-  metals, was not isolated (tracked in #379). The backscatter coefficient η of the `default`
+  together. A later bisect (#379, "Why Si δ doubled after #241") attributes
+  the Si rise to #241 alone (×2.0 to ×2.4), with +4.7 to +10.3 % more from #355. The backscatter coefficient η of the `default`
   row at 800 eV moves by less than 3 % (Al 0.253 to 0.246, Cu 0.481 to
   0.484, Au 0.578 to 0.573).
 - **What DHFS changed** (historical: the #149 DHFS rerun, build `abd6a5e`,
@@ -2607,7 +2607,7 @@ or the Si runs, or for their #364 regeneration. The open gaps are the Au
 and Cu excess that Mermin shares (#242 tested its candidates, below, and
 none explains it; #301 added the binding-energy row, and what could still
 not be tested is split into #312 to #315), the Si excess that the
-regeneration introduced (its cause was not isolated; #379), full Penn (the Al table builds since #256, the Si table since #298; table
+regeneration introduced (bisected to #241 and #355 in #379, "Why Si δ doubled after #241"), full Penn (the Al table builds since #256, the Si table since #298; table
 reuse is tracked in #168), the incomplete `cutoff-band-bottom` points (Al above 400 eV, Cu and Au above 1000 eV, Si above 400 eV; #380), the
 correlation-polarization correction at the low table energies, the cited
 barrier parameters for Al, Cu and Au (#115 found none that can be opened),
@@ -3018,9 +3018,9 @@ no `--table-cache`, so a stale cache (hypothesis 4 of #379) cannot enter.
 | `74a5ce3` (#364's build) and `2c1e28e` | 1.664 | 1.5795 | 0.976 | 7.182 |
 
 `abd6a5e` reproduces the committed Si and Al `default` values exactly.
-The Si jump is #241 alone: about ×2 at 200 and 400 eV, ×2.4 at 1000 eV,
+The Si jump is #241 alone: ×2.0 at 200 eV and ×2.4 at 400 and 1000 eV,
 with Al unchanged (−0.2 %). #340, #342 and the first part of #339 (#351,
-library and example only) change nothing here. #355 then adds +6 to +10 % to Si and
+library and example only) change nothing here. #355 then adds +6.2, +4.7 and +10.3 % to Si (200, 400, 1000 eV) and
 +10 % to Al. That is the rate refinement of the band-bottom table (above),
 which resolves the rate just above `E_F` that the coarse grid
 under-interpolated (#291). The `legacy` mode of
@@ -3080,7 +3080,7 @@ uses the mid-gap `get_fermi()` in one place: its Kieft/Ashley table
 (`dielectric_function/kieft.py`, `L_Kieft(K, w, get_fermi())`, rows from
 `get_fermi() + 0.1` eV). Building the Si single-pole table with the
 mid-gap `E_F` in place of `W_v + E_g` (at `2c1e28e`) gives δ 1.526, 1.476
-and 0.864 at 200, 400 and 1000 eV. That is 6 to 11 % below the adopted
+and 0.864 at 200, 400 and 1000 eV. That is 7 to 12 % below (−8.3, −6.6, −11.5 %) the adopted
 convention, so the reference accounts for a small part of the jump, not
 the doubling. Emitting the secondary from the valence-band top instead
 (`W_v + W`, `E_g/2` above Eq. 3.86's value) raises δ to 1.869, 1.852 and
@@ -3089,8 +3089,12 @@ the doubling. Emitting the secondary from the valence-band top instead
 *Effect on #149.* The Si `default` δ_max of #364 (1.664 at 200 eV)
 exceeds the measured median, 1.074 at 425 eV, by 55 % and fails the δ_max
 bound. The mid-gap diagnostic at 200 eV would be +42 %, inside it. The
-verdict therefore lies near the bound and depends on a convention, and
-the convention adopted (cstool's dielectric-table convention) has the
+δ_max verdict therefore lies near the bound and depends on a convention.
+Si also fails the factor-2 E_max bound (peak at 200 eV against 425 eV,
+ratio 0.47); that failed before #364 too (peak at 150 eV) and does not
+depend on the convention, so the overall Si verdict is a fail under either
+reference and the reference choice decides only the δ_max line. The
+convention adopted (cstool's dielectric-table convention) has the
 source support above. The #149 bounds are unchanged; whether to record
 the Si fail as a known single-pole low-energy overestimate (as for Al,
 `electron::inelastic::penn`, "Low energies") is for operator sign-off. No
