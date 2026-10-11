@@ -5,12 +5,15 @@ Configuration classes (:class:`Material`, :class:`Layer`, :class:`Target`,
 :class:`Run`, which reads and writes the same TOML schema as the ``lindhard``
 command (:meth:`Run.from_toml`, :meth:`Run.to_toml`). :meth:`Run.run` releases
 the GIL while it transports the ions and returns a :class:`RunResult` whose
-histograms are NumPy arrays and whose summary is a dict.
+histograms are NumPy arrays and whose summary is a dict. A run with a
+``[dynamic]`` section goes through :meth:`Run.run_dynamic`, which returns a
+:class:`DynamicRunResult` (fluence-step series and slab composition).
 """
 
 from ._lindhard import (
     FATE_NAMES,
     Beam,
+    DynamicRunResult,
     Element,
     Histogram,
     InputError,
@@ -29,6 +32,7 @@ from ._lindhard import (
 __all__ = [
     "FATE_NAMES",
     "Beam",
+    "DynamicRunResult",
     "Element",
     "Histogram",
     "InputError",

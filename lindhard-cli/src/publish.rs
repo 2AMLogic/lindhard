@@ -16,6 +16,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use lindhard::tally::IonReport;
 
+use crate::dynamic::DynamicSimulation;
 use crate::output;
 use crate::tally::CliTally;
 
@@ -144,6 +145,22 @@ pub fn publish_static_ion(
     set.reconcile_optional(
         output::IONS_FILE,
         tally.per_ion.then(|| output::ions_csv(tally)),
+    )?;
+    // Last, so the summary describes the completed output set.
+    set.publish()
+}
+
+/// Publishes a dynamic run's outputs into the existing directory `out`:
+/// invalidates the previous `dynamic_summary.json`, replaces the steps and
+/// composition CSVs and publishes `summary` last. `summary` is serialized by
+/// the caller before any output is touched. Shared by the `lindhard run`
+/// command and the Python bindings so both follow one directory-reuse policy.
+pub fn publish_dynamic(out: &Path, summary: String, d: &DynamicSimulation) -> Result<()> {
+    let set = OutputSet::begin(out, output::DYNAMIC_SUMMARY_FILE, summary)?;
+    set.write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(d))?;
+    set.write(
+        output::DYNAMIC_COMPOSITION_FILE,
+        output::dynamic_composition_csv(d),
     )?;
     // Last, so the summary describes the completed output set.
     set.publish()
@@ -343,5 +360,40 @@ seed = 1
         for n in CSVS {
             assert_eq!(std::fs::read_to_string(d.join(n)).unwrap(), "old", "{n}");
         }
+    }
+
+    /// A tiny dynamic run and its serialized summary.
+    fn dyn_sim() -> (String, crate::dynamic::DynamicSimulation) {
+        let text = format!("{INPUT}\n[dynamic]\nfluence_cm2 = 1.0e14\nions_per_step = 5\n");
+        let input = lindhard::input::Input::from_toml_str(&text).unwrap();
+        let r = input.resolve().unwrap();
+        let d = crate::dynamic::simulate_dynamic(&r, Some(1)).unwrap();
+        (output::dynamic_summary_json(&r, &d).unwrap(), d)
+    }
+
+    #[test]
+    fn dynamic_writes_all_files_and_summary_last() {
+        let d = dir("dyn-ok");
+        let (summary, sim) = dyn_sim();
+        publish_dynamic(&d, summary.clone(), &sim).unwrap();
+        for n in [output::DYNAMIC_STEPS_FILE, output::DYNAMIC_COMPOSITION_FILE] {
+            assert!(d.join(n).is_file(), "{n}");
+        }
+        assert_eq!(
+            std::fs::read_to_string(d.join(output::DYNAMIC_SUMMARY_FILE)).unwrap(),
+            summary
+        );
+    }
+
+    #[test]
+    fn dynamic_failed_csv_leaves_no_summary_on_reused_dir() {
+        let d = dir("dyn-fail");
+        let (summary, sim) = dyn_sim();
+        publish_dynamic(&d, summary.clone(), &sim).unwrap();
+        std::fs::remove_file(d.join(output::DYNAMIC_COMPOSITION_FILE)).unwrap();
+        std::fs::create_dir(d.join(output::DYNAMIC_COMPOSITION_FILE)).unwrap();
+        let e = publish_dynamic(&d, summary, &sim).unwrap_err();
+        assert!(format!("{e:#}").contains(output::DYNAMIC_COMPOSITION_FILE));
+        assert!(!d.join(output::DYNAMIC_SUMMARY_FILE).exists());
     }
 }

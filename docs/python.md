@@ -15,8 +15,9 @@ are in `lindhard-py/python/lindhard/`.
 | `Beam` | `ion`, `energy_ev`, `mass_amu`, `tilt_deg`, `azimuth_deg`, and optionally `divergence_model` (`"gaussian"` or `"uniform-cone"`) with `divergence_deg` (the `[beam.divergence]` table) |
 | `Physics` | The `[physics]` table: models (as the TOML names), cutoffs, energy overrides |
 | `Tally` | The `[tally]` table (CLI defaults) |
-| `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()` |
+| `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`, `run_dynamic()` |
 | `RunResult` | `depth`, `lateral_y`, `lateral_z`, `radial`, `vacancies`, `interstitials`, `replacements` (each a `Histogram` with `edges`, `counts`, `density`, `underflow`, `overflow`), `escapes`, `ions` (final state of each primary), `summary()` (dict), `write(dir)` |
+| `DynamicRunResult` | Result of `Run.run_dynamic()`: `species`, `steps` (per-step arrays), `composition` (per-step slab profiles), `summary()` (dict), `write(dir)` |
 
 ## One schema, one engine
 
@@ -35,6 +36,38 @@ A `[[crystal]]` section (`cli.md`) is part of that schema: `Run.from_toml()` kee
 same driver, so `summary()` carries `physics.crystal` as the command's
 `summary.json` does. The Python classes have no crystal constructor of their
 own yet; a crystal run starts from TOML.
+
+## Fluence-dependent runs
+
+An input with a `[dynamic]` section (`cli.md`) is a fluence-stepped run. Read
+it with `Run.from_toml()` and call `Run.run_dynamic(ions=, seed=, threads=)`,
+which applies the same per-call overrides and warnings as `run()`, calls the
+CLI's driver (`lindhard_cli::dynamic::simulate_dynamic`) with the GIL
+released and returns an immutable `DynamicRunResult`. `Run.run()` is
+unchanged and still rejects a `[dynamic]` input. `run_dynamic()` raises
+`InputError` for an input without `[dynamic]`.
+
+- `res.species` / `res.species_z`: the elements the run can contain (beam
+  species and target elements, sorted by atomic number).
+- `res.steps`: a dict of arrays, one entry per step with index 0 the initial
+  target: `step`, `first_index`, `ions`, `ions_done`, `fluence_cm2`
+  (ions/cm^2), `attempts`, `max_change`, `clamped`, `removed_slabs`,
+  `n_slabs`, `surface_nm` (cumulative recession), `thickness_nm`, the
+  cumulative `cum_*` event counts, `sputter_yield` and
+  `cum_sputtered_by_species` (`(n_steps, len(species))`). These are the
+  columns of `dynamic_steps.csv`.
+- `res.composition`: a list parallel to `steps`; each entry has `front_nm`,
+  `back_nm`, `thickness_nm` (`(n_slabs,)`) and `atoms_per_cm2`, `fraction`
+  (`(n_slabs, len(species))`), the columns of `dynamic_composition.csv`.
+  Erosion can change the slab count between steps, so the snapshots are
+  separate arrays rather than one rectangular tensor.
+- `res.summary()` is `dynamic_summary.json` as a dict; `res.write(dir)`
+  writes it and the two CSVs with the CLI's policy (the previous summary is
+  removed before any CSV changes, the new one is published last).
+
+Arrays equal the CSV values bit for bit for the same input and seed, at any
+thread count (`tests/test_dynamic.py`). A walk-through is in
+[`../examples/python/dynamic_composition.py`](../examples/python/dynamic_composition.py).
 
 ## Errors
 
