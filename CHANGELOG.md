@@ -145,7 +145,11 @@ one version).
   when its holder exits or is killed) across its lookup, build and storage;
   a waiting run reads the entry the first one stored, and different entries
   never wait for each other. Temporary files have unique names and are
-  removed on error. See `docs/cli.md`, "Concurrent runs".
+  removed on error. See `docs/cli.md`, "Concurrent runs". A cache the run
+  can read but not write is still read: its entries are looked up without
+  the lock and verified as before, and a table that is not there is an error
+  naming the directory, given before anything is built (`docs/cli.md`,
+  "Read-only caches").
 - Dynamic runs write `dynamic_summary.json` last, after
   `dynamic_steps.csv` and the composition CSV, like ion and electron runs
   (#292). A failed CSV write no longer leaves a new summary.

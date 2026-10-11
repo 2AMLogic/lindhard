@@ -255,7 +255,7 @@ fn refined_energy_grid<M: LossModel>(
         let mut peaks: Vec<(usize, f64)> = Vec::new();
         for (k, (&i, (p, ex))) in cells
             .iter()
-            .zip(points.iter().zip(exact.chunks_exact(3)))
+            .zip(points.iter().zip(exact.as_chunks::<3>().0))
             .enumerate()
         {
             let m: Vec<RateMiss> = p.iter().zip(ex).map(|(&e, &v)| miss(i, e, v)).collect();

@@ -244,7 +244,8 @@ fn child_process_entry() {
             let t = cache
                 .get_or_build(&r, m, TableKind::Elastic, || {
                     // Record the build, then hold the lock until every child
-                    // is at its door, and a little longer for each to block.
+                    // is at its door, and a little longer so that most of
+                    // them block on it (the test does not rely on that).
                     use std::io::Write;
                     let mut log = std::fs::OpenOptions::new()
                         .create(true)
@@ -282,9 +283,9 @@ fn child_process_entry() {
     }
 }
 
-/// Separate processes sharing one cold entry all succeed, and the build log
-/// shows exactly one of them built the table; the rest waited for it (and
-/// said so) and read it.
+/// Separate processes sharing one cold entry all succeed, the build log
+/// shows exactly one of them built the table, and the rest read that table
+/// (after waiting for it, if they reached the lock while it was held).
 #[test]
 fn separate_processes_build_once() {
     const N: usize = 4;
@@ -320,11 +321,15 @@ fn separate_processes_build_once() {
             "every process got the same table: {results:?}"
         );
     }
+    // How many of the others had to wait is a matter of scheduling (a
+    // process that reaches the lock after the builder released it reads the
+    // entry without waiting), so it is not asserted; only that the builder,
+    // which found the lock free, is not among those that said they waited.
     let waited = outputs
         .iter()
         .filter(|o| String::from_utf8_lossy(&o.stderr).contains("waiting for another process"))
         .count();
-    assert_eq!(waited, N - 1, "every other process waited for the builder");
+    assert!(waited < N, "the builder did not wait: {waited} of {N} did");
     let cache = dir.join("cache");
     assert!(!files_in(&cache).iter().any(|f| f.contains(".tmp.")));
 }
@@ -422,4 +427,124 @@ fn corrupted_entry_is_refused_under_the_lock() {
             .unwrap_err();
         assert!(format!("{e:#}").contains("SHA-256"), "{e:#}");
     }
+}
+
+/// A populated cache the process can read but not write (#305 review): an
+/// entry that is there is served, verified as ever, without the lock file
+/// being created or opened for writing; one that is not is an error naming
+/// the directory, and its builder is not called.
+#[cfg(unix)]
+#[test]
+fn read_only_cache_serves_hits_and_refuses_misses() {
+    use std::os::unix::fs::PermissionsExt;
+
+    /// Restores the modes on drop, so a failed assertion leaves a directory
+    /// the next run's `scratch` can remove.
+    struct Restore(Vec<(PathBuf, u32)>);
+    impl Restore {
+        fn set(&mut self, path: &Path, mode: u32) {
+            let old = std::fs::metadata(path).unwrap().permissions().mode();
+            std::fs::set_permissions(path, std::fs::Permissions::from_mode(mode)).unwrap();
+            self.0.push((path.to_path_buf(), old));
+        }
+    }
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            for (path, mode) in self.0.iter().rev() {
+                let _ = std::fs::set_permissions(path, std::fs::Permissions::from_mode(*mode));
+            }
+        }
+    }
+
+    let dir = scratch("read-only");
+    let cache = cache_in(&dir);
+    let r = example();
+    let m = &r.materials[0];
+    let built = cache
+        .get_or_build(&r, m, TableKind::Inelastic, || {
+            synthetic_table(&r, TableKind::Inelastic)
+        })
+        .unwrap();
+    assert_eq!(built.source, TableSource::Built);
+    let key = key_text(cache.build(), &r, m, TableKind::Inelastic);
+    let paths = cache.paths(TableKind::Inelastic, &sha256_hex(key.as_bytes()));
+    assert!(paths.lock.exists());
+
+    let hit = |what: &str| {
+        let t = cache
+            .get_or_build(&r, m, TableKind::Inelastic, || {
+                panic!("a cached entry is not rebuilt")
+            })
+            .unwrap_or_else(|e| panic!("{what}: {e:#}"));
+        assert_eq!(t.source, TableSource::Cache, "{what}");
+        assert_eq!(t.table, built.table, "{what}");
+        assert_eq!(t.cache, built.cache, "{what}");
+    };
+
+    let mut restore = Restore(Vec::new());
+    // A lock file this process may not write, as in a cache another user
+    // populated. The directory is still writable here.
+    restore.set(&paths.lock, 0o444);
+    if std::fs::OpenOptions::new()
+        .write(true)
+        .open(&paths.lock)
+        .is_ok()
+    {
+        eprintln!("skipped: file permissions are not enforced for this user (root?)");
+        return;
+    }
+    hit("unwritable lock file");
+
+    // A read-only directory with no lock file for the entry, as in a cache
+    // populated by a build without the lock, or copied without its locks.
+    restore.set(&paths.lock, 0o644);
+    std::fs::remove_file(&paths.lock).unwrap();
+    let before = files_in(cache.dir());
+    restore.set(cache.dir(), 0o555);
+    assert!(
+        std::fs::write(cache.dir().join("probe"), "").is_err(),
+        "the directory is read-only"
+    );
+    hit("read-only directory");
+
+    // This run's elastic table is not there, and a miss is an error, not a
+    // build: first with no lock file for it, then with a writable lock file
+    // an earlier run left before the directory became read-only.
+    let miss = |what: &str| {
+        let e = cache
+            .get_or_build(&r, m, TableKind::Elastic, || {
+                panic!("nothing is built into a read-only cache")
+            })
+            .unwrap_err();
+        let text = format!("{e:#}");
+        assert!(text.contains("is not writable"), "{what}: {text}");
+        assert!(
+            text.contains(&cache.dir().display().to_string()),
+            "{what}: the error names the directory: {text}"
+        );
+    };
+    miss("no lock file");
+    assert_eq!(files_in(cache.dir()), before, "nothing was created");
+    let key = key_text(cache.build(), &r, m, TableKind::Elastic);
+    let elastic = cache.paths(TableKind::Elastic, &sha256_hex(key.as_bytes()));
+    std::fs::set_permissions(cache.dir(), std::fs::Permissions::from_mode(0o755)).unwrap();
+    std::fs::write(&elastic.lock, "").unwrap();
+    std::fs::set_permissions(cache.dir(), std::fs::Permissions::from_mode(0o555)).unwrap();
+    let before = files_in(cache.dir());
+    miss("writable lock file");
+    assert_eq!(files_in(cache.dir()), before, "nothing was created");
+
+    // A corrupted table is refused there too. Its file is still writable
+    // (only the directory is read-only), so it can be edited in place.
+    let path = built.cache.as_ref().unwrap().path.clone();
+    let text = std::fs::read_to_string(&path).unwrap();
+    let edited = text.replacen("1000000000", "2000000000", 1);
+    assert_ne!(edited, text);
+    std::fs::write(&path, edited).unwrap();
+    let e = cache
+        .get_or_build(&r, m, TableKind::Inelastic, || {
+            panic!("a corrupted entry is not rebuilt")
+        })
+        .unwrap_err();
+    assert!(format!("{e:#}").contains("SHA-256"), "{e:#}");
 }

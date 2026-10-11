@@ -911,6 +911,22 @@ Temporary files are created under names unique to the process and the write,
 and removed if the write fails. The lock files are empty and stay in the
 directory; removing them while no run uses the cache is harmless.
 
+**Read-only caches.** A cache the run can read but not write (a read-only
+directory or file system, or one whose lock files belong to another user) is
+still used for what it holds. When an entry's lock file cannot be created or
+opened for writing because permission is denied or the file system is
+read-only, the run looks the entry up without the lock. An entry that is
+there is read after every check above, the SHA-256 of the table's bytes
+included; the key is the commit marker, so a key that can be read always has
+its complete table beside it. An entry that is not there is an error naming
+the directory (`... has no entry for this run's <kind> table of <material>
+and is not writable ...`): the run does not build a table it could not store.
+Make the directory writable, use another directory, or run without
+`--table-cache`. If only the directory is read-only and the entry's lock file
+exists and is writable by the run, the lock is taken as usual; the outcome
+is the same (the run checks that it can create a file in the directory before
+it builds).
+
 The lock is an operating-system advisory lock on the lock file (`flock` on
 Unix, `LockFileEx` on Windows, through Rust's `std::fs::File::lock`), and
 inside one process the run also excludes its own threads without relying on
@@ -930,7 +946,7 @@ checks a building run, a storing run and reading runs on 1 and 8 threads
 against each other; `lindhard-cli/tests/table_cache_concurrency.rs` checks
 the concurrency contract above (threads and processes on one cold entry
 build once, different entries build at the same time, a killed holder does
-not block). Remove the directory to reclaim space; nothing else prunes it.
+not block, a read-only cache serves its entries and refuses a miss). Remove the directory to reclaim space; nothing else prunes it.
 
 ## Reusing an output directory
 

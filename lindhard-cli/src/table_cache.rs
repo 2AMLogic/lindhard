@@ -81,6 +81,18 @@
 //! The lock files stay in the directory, empty; removing them while no run is
 //! using the cache is harmless.
 //!
+//! A cache this process cannot write (a read-only directory or file system, or
+//! lock files owned by another user) is still read: when the lock file cannot
+//! be opened for writing for that reason, the lookup is made without the lock.
+//! That is safe because the key is the commit marker (renamed into place last,
+//! after its table and hash), so a key that can be read always has its
+//! complete table beside it, and every check of a locked lookup, the SHA-256
+//! of the table's bytes included, is made all the same. Only the build needs
+//! the lock, so a miss is then an error naming the directory, not a build.
+//! The same error is given, before the build, by a holder of the lock that
+//! finds it cannot create a file in the directory (the lock file of an
+//! earlier run can outlive the directory's write permission).
+//!
 //! Temporary files are created exclusively under names unique to the process
 //! and the call, and removed if the write or rename fails. A holder killed
 //! mid-publication can leave its temporary files and a table (and hash)
@@ -90,7 +102,7 @@
 
 use std::collections::BTreeSet;
 use std::fs::{File, OpenOptions, TryLockError};
-use std::io::Write;
+use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Condvar, Mutex, PoisonError};
@@ -410,16 +422,33 @@ struct EntryLock {
     _thread: ThreadHold,
 }
 
+/// What [`EntryLock::acquire`] got.
+enum EntryAccess {
+    /// The entry's lock: look up, and build on a miss.
+    Locked(EntryLock),
+    /// The lock file cannot be opened for writing because this process may
+    /// not write the cache (the error says why): look up without the lock,
+    /// and do not build (module docs, "Concurrency").
+    ReadOnly(std::io::Error),
+}
+
 impl EntryLock {
-    fn acquire(path: &Path) -> Result<Self> {
+    fn acquire(path: &Path) -> Result<EntryAccess> {
         let thread = ThreadHold::acquire(path);
-        let file = OpenOptions::new()
+        let file = match OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .truncate(false)
             .open(path)
-            .with_context(|| format!("opening the table cache lock {}", path.display()))?;
+        {
+            Ok(f) => f,
+            Err(e) if is_not_writable(&e) => return Ok(EntryAccess::ReadOnly(e)),
+            Err(e) => {
+                return Err(e)
+                    .with_context(|| format!("opening the table cache lock {}", path.display()));
+            }
+        };
         let locked = |e: std::io::Error| {
             anyhow::Error::new(e).context(format!(
                 "locking the table cache entry {} (the table cache needs a file system \
@@ -438,10 +467,10 @@ impl EntryLock {
             }
             Err(TryLockError::Error(e)) => return Err(locked(e)),
         }
-        Ok(Self {
+        Ok(EntryAccess::Locked(Self {
             _file: file,
             _thread: thread,
-        })
+        }))
     }
 }
 
@@ -469,7 +498,7 @@ fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
         match OpenOptions::new().write(true).create_new(true).open(&tmp) {
             Ok(f) => break (tmp, f),
             // Left by a dead process that had the same ID: take the next.
-            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => continue,
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => continue,
             Err(e) => return Err(e).with_context(|| format!("creating {}", tmp.display())),
         }
     };
@@ -486,6 +515,30 @@ fn write_atomically(path: &Path, bytes: &[u8]) -> Result<()> {
         let _ = std::fs::remove_file(&tmp);
     }
     result
+}
+
+/// Whether `e` says this process may not write there (as opposed to any
+/// other failure, which is reported as it is).
+fn is_not_writable(e: &std::io::Error) -> bool {
+    matches!(
+        e.kind(),
+        ErrorKind::PermissionDenied | ErrorKind::ReadOnlyFilesystem
+    )
+}
+
+/// Creates and removes a temporary file of `path`, to learn before a build
+/// whether its result can be stored. Called with the entry lock held.
+fn probe_writable(path: &Path) -> std::io::Result<()> {
+    let prefix = tmp_prefix(path);
+    loop {
+        let n = TMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);
+        let tmp = path.with_file_name(format!("{prefix}{}.{n}", std::process::id()));
+        match OpenOptions::new().write(true).create_new(true).open(&tmp) {
+            Ok(_) => return std::fs::remove_file(&tmp),
+            Err(e) if e.kind() == ErrorKind::AlreadyExists => continue,
+            Err(e) => return Err(e),
+        }
+    }
 }
 
 /// Removes the temporary files of `paths` left by a holder that died
@@ -549,8 +602,12 @@ impl TableCache {
     /// The entry's lock is held throughout (module docs, "Concurrency"), so
     /// concurrent callers with the same key build the table once between
     /// them and the others read what that build stored (a `build` that fails
-    /// stores nothing, and the next waiter tries in turn). `build` must not call `get_or_build` for the same entry
-    /// (it would wait for itself).
+    /// stores nothing, and the next waiter tries in turn). `build` must not
+    /// call `get_or_build` for the same entry (it would wait for itself).
+    ///
+    /// In a cache this process cannot write, an entry that is there is read
+    /// without the lock and one that is not is an error; `build` is not
+    /// called.
     pub fn get_or_build(
         &self,
         r: &ResolvedElectron,
@@ -561,11 +618,44 @@ impl TableCache {
         let key = key_text(&self.build, r, m, kind);
         let key_sha256 = sha256_hex(key.as_bytes());
         let paths = self.paths(kind, &key_sha256);
-        let _lock = EntryLock::acquire(&paths.lock)?;
+        let access = EntryLock::acquire(&paths.lock)?;
         // The authoritative lookup: with the lock held, an entry another
-        // caller published while this one waited is found here.
+        // caller published while this one waited is found here. Without the
+        // lock (a cache this process cannot write) it is as valid: a key on
+        // disk is a committed entry, and every check is made either way.
         if let Some(hit) = self.lookup(r, kind, &key, &key_sha256, &paths)? {
             return Ok(hit);
+        }
+        // Nothing is built that could not be stored.
+        let not_writable = |what: &str, at: &Path, e: std::io::Error| {
+            anyhow::anyhow!(
+                "the table cache {} has no entry for this run's {} table of {} and is not \
+                 writable, so the table cannot be built into it ({what} {}: {e}). Make the \
+                 directory writable, use another --table-cache directory, or run without \
+                 --table-cache",
+                self.dir.display(),
+                kind.label(),
+                m.name,
+                at.display()
+            )
+        };
+        let _lock = match access {
+            EntryAccess::Locked(lock) => lock,
+            EntryAccess::ReadOnly(e) => {
+                return Err(not_writable(
+                    "opening the entry's lock file",
+                    &paths.lock,
+                    e,
+                ));
+            }
+        };
+        // The lock file can be writable in a directory that is not (it was
+        // made read-only after an earlier run created the lock).
+        if let Err(e) = probe_writable(&paths.key) {
+            if is_not_writable(&e) {
+                return Err(not_writable("creating a file beside", &paths.key, e));
+            }
+            return Err(e).with_context(|| format!("writing to {}", self.dir.display()));
         }
         remove_stale_temporaries(&self.dir, &paths);
         let table = build()?;
@@ -599,7 +689,7 @@ impl TableCache {
         let (table_path, key_path) = (paths.table.as_path(), paths.key.as_path());
         let stored = match std::fs::read_to_string(key_path) {
             Ok(s) => s,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(e).with_context(|| format!("reading {}", key_path.display())),
         };
         if stored != key {
@@ -622,12 +712,12 @@ impl TableCache {
         let bytes = match std::fs::read(table_path) {
             Ok(b) => b,
             // A key without its table (removed by hand): rebuild.
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+            Err(e) if e.kind() == ErrorKind::NotFound => return Ok(None),
             Err(e) => return Err(e).with_context(|| format!("reading {}", table_path.display())),
         };
         let stored_sha256 = match std::fs::read_to_string(&paths.hash) {
             Ok(s) => s,
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => bail!(
+            Err(e) if e.kind() == ErrorKind::NotFound => bail!(
                 "table cache {}: the table's SHA-256 file {} is missing, so its bytes \
                  cannot be verified. Remove the entry to rebuild",
                 table_path.display(),
