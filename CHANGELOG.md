@@ -33,6 +33,18 @@ one version).
 
 ### Changed
 
+- Validation: the lindhard side of the electron oracle comparison
+  (`validation/oracles/summaries/lindhard-electron-*.json`, the
+  `validation:electron-oracles` block of `docs/validation.md`) is re-run at
+  `bd91a73`, with the band-bottom inelastic tables (#241), the rate
+  refinement (#339) and the loss window (#342), and carries the
+  collision-cap diagnostics (all six `uncapped`) (#365). Si δ roughly
+  doubles (4.13 at 1 keV, against Nebula's 0.35); every other value moves by
+  less than 4 %, except Si at 1 keV (primary depth +6 %, r50 +26 %). The
+  Nebula and Geant4 MicroElec summaries were not re-run;
+  `validation/update_docs.py` now recomputes their Δ and tolerance verdicts
+  against the newer lindhard summary and marks those rows. All eight
+  tolerance checks still pass; no tolerance was changed.
 - Validation: the secondary-electron yield δ(E) tables
   (`validation/experiments/se_yield_results.json`, the
   `validation:level3-se-yield` block of `docs/validation.md`) are

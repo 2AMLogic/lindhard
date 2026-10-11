@@ -51,6 +51,9 @@ sys.path.insert(0, str(ROOT / "validation" / "experiments"))
 import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
 import se_yield  # noqa: E402  (secondary-electron yield tables, #149)
 
+sys.path.append(str(ROOT / "validation" / "oracles"))
+import run_electron  # noqa: E402  (compare and tolerance: the one comparison rule of the electron oracles, #150)
+
 
 def splice(text: str, name: str, body: str) -> str:
     begin, end = f"<!-- validation:{name}:begin -->", f"<!-- validation:{name}:end -->"
@@ -150,6 +153,7 @@ def electron_oracles() -> str:
         return f"<br>Δ {s}" + (f" ({abs(z):.1f}σ)" if z is not None else "")
 
     any_row = False
+    stale: set[str] = set()
     for p in spec["problems"]:
         pid = p["id"]
         ours_path = SUMMARIES / f"lindhard-electron-{pid}.json"
@@ -172,11 +176,22 @@ def electron_oracles() -> str:
                 lines.append(f"| `{pid}` | {name} | - | {why} | | | | - |")
                 continue
             s = json.loads(path.read_text())
-            if s.get("format") != "lindhard-oracle-electron-summary/1" or s.get("lindhard_version") != o["lindhard_version"]:
-                sys.exit(f"error: {path.name} is not a lindhard-oracle-electron-summary/1 of the same lindhard run "
-                         f"as {ours_path.name}; rerun validation/oracles/run_electron.py for {pid}")
+            if s.get("format") != "lindhard-oracle-electron-summary/1":
+                sys.exit(f"error: {path.name} is not a lindhard-oracle-electron-summary/1; "
+                         f"rerun validation/oracles/run_electron.py for {pid}")
             ov, ose, c = s["oracle_values"], s["oracle_values"]["std_err"], s["comparison"]
             t = s["tolerance"]
+            earlier = s.get("lindhard_version") != o["lindhard_version"]
+            if earlier:
+                # The oracle was run beside an earlier lindhard (a later
+                # `run_electron.py --lindhard-only` refreshed our side alone,
+                # #365). Its committed values stand; the difference and the
+                # verdict are recomputed against the lindhard row above by the
+                # harness's own rule, never read from the stale comparison.
+                c = run_electron.compare({**v, "std_err": se}, ov)
+                t = run_electron.tolerance(spec, p, name, c)
+                m = re.search(r"\(([^()]*)\)\s*$", s.get("lindhard_version") or "")
+                stale.add(m.group(1) if m else str(s.get("lindhard_version")))
             if t.get("applies"):
                 verdict = []
                 for m, label in (("eta", "η"), ("r50_nm", "r50")):
@@ -187,7 +202,8 @@ def electron_oracles() -> str:
                 tol = "reported only"
             commit = s.get("oracle_commit", "")[:7]
             lines.append(
-                f"| `{pid}` | {name} ({s['oracle_version']}{', ' + commit if commit else ''}) | {s['histories']['oracle']} "
+                f"| `{pid}` | {name} ({s['oracle_version']}{', ' + commit if commit else ''}){'†' if earlier else ''} "
+                f"| {s['histories']['oracle']} "
                 f"| {val(ov['eta'], ose['eta'], 3)}{diff(c, 'eta')} "
                 f"| {val(ov['delta'], ose['delta'], 3)}{diff(c, 'delta')} "
                 f"| {val(ov['primary_depth_nm'], ose['primary_depth_nm'], 1)}{diff(c, 'primary_depth_nm')} "
@@ -205,6 +221,13 @@ def electron_oracles() -> str:
         f"only): |Δη| ≤ {spec['tolerances']['eta_abs']} and |Δr50| ≤ {100 * spec['tolerances']['r50_rel']:.0f} %. "
         "Every summary's settings and its list of differing inputs are in its file under "
         "`validation/oracles/summaries/`."
+        + (
+            " † The oracle was run beside an earlier lindhard build ("
+            + ", ".join(f"`{x}`" for x in sorted(stale))
+            + "): its values are from that run's committed summary, and Δ and the tolerance verdict are "
+            "recomputed against the lindhard row of the problem by the rule of `run_electron.py`."
+            if stale else ""
+        )
     )
     return "\n".join(lines)
 
