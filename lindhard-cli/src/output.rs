@@ -9,8 +9,9 @@
 
 use std::fmt::Write as _;
 
+use lindhard::input::TuningReport;
 use lindhard::input::{ModelInfo, Resolved};
-use lindhard::ion::bca::{EnergyBudget, MeanFreePath};
+use lindhard::ion::bca::{CrystalMetadata, EnergyBudget, MeanFreePath};
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::material::MaterialSpec;
 use lindhard::tally::{
@@ -18,10 +19,13 @@ use lindhard::tally::{
 };
 use serde::Serialize;
 
+use crate::dynamic::DynamicSimulation;
 use crate::tally::CliTally;
 
 /// Name and version of the summary format.
 pub const FORMAT_NAME: &str = "lindhard-summary";
+/// Name of the `dynamic_summary.json` format (same version counter rules).
+pub const DYNAMIC_FORMAT_NAME: &str = "lindhard-dynamic-summary";
 /// Bumped only on a breaking change (a key removed or changed in meaning).
 pub const FORMAT_VERSION: u32 = 1;
 
@@ -32,15 +36,19 @@ pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
 
-const NM: f64 = 1e-9;
+pub const DYNAMIC_SUMMARY_FILE: &str = "dynamic_summary.json";
+pub const DYNAMIC_STEPS_FILE: &str = "dynamic_steps.csv";
+pub const DYNAMIC_COMPOSITION_FILE: &str = "dynamic_composition.csv";
 
-#[derive(Serialize)]
+pub const NM: f64 = 1e-9;
+
+#[derive(Debug, Serialize)]
 pub struct Format {
     pub name: &'static str,
     pub version: u32,
 }
 
-#[derive(Serialize)]
+#[derive(Debug, Serialize)]
 pub struct Software {
     pub name: &'static str,
     pub version: &'static str,
@@ -109,6 +117,22 @@ struct Physics {
     engine: Engine,
     scattering_table: Table,
     target: Vec<LayerOut>,
+    /// Present only when `[physics] tuning` names a set: the phenomenological
+    /// calibration applied, with original and effective energies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tuning: Option<TuningReport>,
+    /// Present only for a run with `[[crystal]]`: what the engine reports for
+    /// each crystal (lattice, orientation, search and thermal parameters,
+    /// `electronic_constants_unverified` where it applies). Added without a
+    /// `format.version` bump (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    crystal: Vec<CrystalMetadata>,
+    /// Present only for a run with `[beam.divergence]`: the resolved
+    /// distribution, width (radians and degrees), incidence policy and
+    /// random-stream segment. Added without a `format.version` bump
+    /// (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    beam_divergence: Option<lindhard::ion::bca::DivergenceMetadata>,
 }
 
 #[derive(Serialize)]
@@ -351,7 +375,7 @@ struct Escapes {
     species: Vec<SpeciesOut>,
 }
 
-fn symbol(z: u8) -> &'static str {
+pub fn symbol(z: u8) -> &'static str {
     lindhard::elements::element(z).map_or("?", |e| e.symbol)
 }
 
@@ -463,7 +487,7 @@ struct Files {
 }
 
 /// The only nondeterministic part of the summary.
-#[derive(Serialize)]
+#[derive(Debug, Serialize, Clone, Copy)]
 pub struct RunInfo {
     pub threads: usize,
     pub table_build_s: f64,
@@ -511,6 +535,7 @@ pub fn summary_json(
     table: &ScatteringTable,
     t: &CliTally,
     report: &IonReport,
+    crystals: &[CrystalMetadata],
     run: RunInfo,
 ) -> serde_json::Result<String> {
     let c = &r.config;
@@ -597,6 +622,9 @@ pub fn summary_json(
                     material: MaterialSpec::from(g.material().clone()),
                 })
                 .collect(),
+            tuning: r.tuning.clone(),
+            crystal: crystals.to_vec(),
+            beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
         },
         results: Results {
             histories: s.histories,
@@ -683,7 +711,7 @@ pub fn ions_csv(t: &CliTally) -> String {
 }
 
 /// Per-ion, per-nm density of a histogram bin.
-fn density(count: u64, histories: u64, width_nm: f64) -> f64 {
+pub fn density(count: u64, histories: u64, width_nm: f64) -> f64 {
     count as f64 / (histories.max(1) as f64 * width_nm)
 }
 
@@ -798,4 +826,186 @@ pub fn escapes_csv(r: &IonReport) -> String {
         }
     }
     out
+}
+
+/// `dynamic_steps.csv`: one row per accepted fluence step (step 0 is the
+/// initial target), with cumulative yields. Layout in `docs/cli.md`.
+pub fn dynamic_steps_csv(d: &DynamicSimulation) -> String {
+    let mut out = String::from(
+        "step,first_index,ions,ions_done,fluence_cm2,attempts,max_change,clamped,\
+         removed_slabs,n_slabs,surface_nm,thickness_nm,cum_backscattered,cum_transmitted,\
+         cum_stopped_in_target,cum_stopped_in_substrate,cum_sputtered,sputter_yield,\
+         cum_recoils_transmitted",
+    );
+    for &z in &d.species {
+        write!(out, ",cum_sputtered_{}", symbol(z)).unwrap();
+    }
+    out.push('\n');
+    for s in &d.steps {
+        let y = &s.cumulative;
+        let thickness: f64 = s.slabs.iter().map(|b| b.back_m - b.front_m).sum();
+        let sputtered = y.sputtered_total();
+        let per_ion = if y.histories > 0 {
+            format!("{:?}", sputtered as f64 / y.histories as f64)
+        } else {
+            String::new()
+        };
+        write!(
+            out,
+            "{},{},{},{},{:?},{},{:?},{},{},{},{:?},{:?},{},{},{},{},{},{},{}",
+            s.step,
+            s.first_index,
+            s.ions,
+            s.ions_done,
+            s.fluence_m2 * 1e-4,
+            s.attempts,
+            s.max_change,
+            s.clamped,
+            s.removed_slabs,
+            s.slabs.len(),
+            s.recession_m / NM,
+            thickness / NM,
+            y.backscattered,
+            y.transmitted,
+            y.primaries_in_slabs,
+            y.primaries_in_substrate,
+            sputtered,
+            per_ion,
+            y.recoils_transmitted,
+        )
+        .unwrap();
+        for &z in &d.species {
+            write!(out, ",{}", y.sputtered.get(&z).copied().unwrap_or(0)).unwrap();
+        }
+        out.push('\n');
+    }
+    out
+}
+
+/// `dynamic_composition.csv`: the slab profile after every step (step 0 is the
+/// initial target), one row per step and slab.
+pub fn dynamic_composition_csv(d: &DynamicSimulation) -> String {
+    let mut out = String::from("step,slab,front_nm,back_nm,thickness_nm");
+    for &z in &d.species {
+        write!(out, ",atoms_per_cm2_{}", symbol(z)).unwrap();
+    }
+    for &z in &d.species {
+        write!(out, ",fraction_{}", symbol(z)).unwrap();
+    }
+    out.push('\n');
+    for s in &d.steps {
+        for (i, b) in s.slabs.iter().enumerate() {
+            write!(
+                out,
+                "{},{},{:?},{:?},{:?}",
+                s.step,
+                i,
+                b.front_m / NM,
+                b.back_m / NM,
+                (b.back_m - b.front_m) / NM
+            )
+            .unwrap();
+            let get = |z: u8| {
+                b.inventory
+                    .iter()
+                    .find(|&&(zz, _)| zz == z)
+                    .map_or(0.0, |&(_, a)| a)
+            };
+            let total: f64 = b.inventory.iter().map(|&(_, a)| a).sum();
+            for &z in &d.species {
+                write!(out, ",{:?}", get(z) * 1e-4).unwrap();
+            }
+            for &z in &d.species {
+                write!(out, ",{:?}", get(z) / total).unwrap();
+            }
+            out.push('\n');
+        }
+    }
+    out
+}
+
+#[derive(Serialize)]
+struct DynamicFiles {
+    steps: &'static str,
+    composition: &'static str,
+}
+
+#[derive(Serialize)]
+struct DynamicTotals {
+    ions: u64,
+    steps: u64,
+    rejected_attempts: u64,
+    fluence_cm2: f64,
+    n_slabs_initial: usize,
+    n_slabs_final: usize,
+    thickness_initial_nm: f64,
+    thickness_final_nm: f64,
+    backscattered_per_ion: f64,
+    transmitted_per_ion: f64,
+    sputtered_per_ion: f64,
+    /// Present only with erosion on, so the summary of a run without it is
+    /// byte-identical to what it was before erosion existed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    recession_nm: Option<f64>,
+}
+
+#[derive(Serialize)]
+struct DynamicSummary<'a> {
+    format: Format,
+    software: Software,
+    input: &'a lindhard::input::Input,
+    models: Vec<ModelInfo>,
+    species: Vec<&'static str>,
+    totals: DynamicTotals,
+    files: DynamicFiles,
+    run: RunInfo,
+}
+
+/// `dynamic_summary.json`: the echoed input, the models, run totals and the
+/// file list. Everything except the `run` object is a pure function of the
+/// input, so it is byte-identical at any thread count.
+pub fn dynamic_summary_json(r: &Resolved, d: &DynamicSimulation) -> serde_json::Result<String> {
+    let first = d.steps.first().expect("step 0");
+    let last = d.steps.last().expect("step 0");
+    let thickness = |s: &crate::dynamic::StepRow| -> f64 {
+        s.slabs.iter().map(|b| b.back_m - b.front_m).sum::<f64>() / NM
+    };
+    let n = last.cumulative.histories.max(1) as f64;
+    let summary = DynamicSummary {
+        format: Format {
+            name: DYNAMIC_FORMAT_NAME,
+            version: FORMAT_VERSION,
+        },
+        software: software(),
+        input: &r.input,
+        models: r.models(),
+        species: d.species.iter().map(|&z| symbol(z)).collect(),
+        totals: DynamicTotals {
+            ions: last.ions_done,
+            steps: last.step,
+            rejected_attempts: d.rejected_attempts,
+            fluence_cm2: last.fluence_m2 * 1e-4,
+            n_slabs_initial: first.slabs.len(),
+            n_slabs_final: last.slabs.len(),
+            thickness_initial_nm: thickness(first),
+            thickness_final_nm: thickness(last),
+            backscattered_per_ion: last.cumulative.backscattered as f64 / n,
+            transmitted_per_ion: last.cumulative.transmitted as f64 / n,
+            sputtered_per_ion: last.cumulative.sputtered_total() as f64 / n,
+            recession_nm: r
+                .input
+                .dynamic
+                .as_ref()
+                .is_some_and(|d| d.erosion)
+                .then(|| last.recession_m / NM),
+        },
+        files: DynamicFiles {
+            steps: DYNAMIC_STEPS_FILE,
+            composition: DYNAMIC_COMPOSITION_FILE,
+        },
+        run: d.info,
+    };
+    let mut s = serde_json::to_string_pretty(&summary)?;
+    s.push('\n');
+    Ok(s)
 }

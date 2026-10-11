@@ -1,10 +1,13 @@
 //! Dynamic composition: a finite-slab target whose per-slab composition can
 //! change, with volume relaxation.
 //!
-//! This is the stateful target model for fluence-dependent runs. It is only
-//! the bookkeeping: callers supply explicit per-slab, per-element inventory
-//! deltas. Turning transport tallies into deltas, and the fluence loop itself,
-//! are a separate layer and are not part of this module.
+//! This is the stateful target model for fluence-dependent runs. The
+//! [`CompositionGrid`] itself is only the bookkeeping: callers supply explicit
+//! per-slab, per-element inventory deltas. Two submodule layers sit on top of
+//! it: [`InventoryTally`] turns the transport events of a block of primaries
+//! into those deltas (it is a [`BcaTally`](crate::ion::bca::BcaTally)), and
+//! [`DynamicRun`] is the fluence stepping loop (fixed or adaptive steps,
+//! deterministic at any thread count; see its module docs).
 //!
 //! # Inventory and units
 //!
@@ -19,11 +22,14 @@
 //! As in [`crate::geometry`]: depth `x = 0` is the front surface and grows into
 //! the target. After every relaxation the cumulative boundaries are rebuilt
 //! from the front surface by [`Stack::new`], so layers are contiguous. The
-//! front surface is fixed at `x = 0`: erosion or swelling moves the interior
-//! interfaces and the back face, never the front surface. (Following the
-//! surface as it recedes is a choice for the caller that maps depth between
-//! steps.) Only finite slabs are mutable. An optional semi-infinite substrate
-//! is an immutable backing material and is never part of the inventory.
+//! front surface is fixed at `x = 0`: swelling moves the interior interfaces
+//! and the back face, never the front surface. With sputter erosion on
+//! ([`DynamicConfig::erosion`]) the lost material is removed from the front
+//! and the grid is re-anchored, so the new surface is again `x = 0`; the
+//! cumulative recession `R` (m, reported per step) maps a depth back to the
+//! original frame as `x + R`. With erosion off the surface never moves. Only
+//! finite slabs are mutable. An optional semi-infinite substrate is an
+//! immutable backing material and is never part of the inventory.
 //!
 //! # Volume relaxation
 //!
@@ -74,7 +80,13 @@
 //!   inventory; the roles differ only in how the deltas are produced.
 //! * Aggregate front/back escape counts cannot say which slab an escaped atom
 //!   came from; loss deltas need the origin slab from the transport events,
-//!   not the exit position.
+//!   not the exit position. The default tally gets it by subtracting at the
+//!   recoil event; [`InventoryTally`] also counts sputtered atoms per origin
+//!   slab (`Particle::origin_layer`).
+//! * With erosion on, the loss of a sputtered atom is not taken at its origin
+//!   slab but from the front of the target, element by element, the origin
+//!   loss being cancelled so nothing is removed twice (see
+//!   [`DynamicRun`], "Erosion").
 //!
 //! # Transactions
 //!
@@ -95,6 +107,12 @@
 //! initial materials are remembered per slab and per element, including
 //! explicitly overridden values, and re-applied when materials are rebuilt.
 //! An element new to a slab gets the defaults of [`crate::elements`].
+
+mod adapter;
+mod driver;
+
+pub use adapter::{InventoryTally, Yields};
+pub use driver::{DynamicConfig, DynamicRun, DynamicRunError, StepPolicy, StepRecord};
 
 use std::collections::BTreeMap;
 
@@ -398,6 +416,41 @@ impl CompositionGrid {
         self.slabs
             .get(slab)
             .map(|s| s.inventory.iter().map(|(&z, &a)| (z, a)).collect())
+    }
+
+    /// Record energies for element `z` in every slab, for the case that `z` is
+    /// (or later becomes) present: only the values that are still unset are
+    /// filled, so explicit values and defaults already in place are kept.
+    /// This is how an element that only enters through implantation or
+    /// recoil mixing (the beam species, a substrate element) gets the
+    /// displacement, lattice-binding and surface-binding energies the engine
+    /// requires of every element in a layer.
+    pub fn seed_energies(
+        &mut self,
+        z: u8,
+        e_d_ev: Option<f64>,
+        e_b_ev: Option<f64>,
+        e_s_ev: Option<f64>,
+    ) {
+        let defaults = Material::from_atom_fractions(&[(z, 1.0)], None).ok();
+        for s in &mut self.slabs {
+            let e = s.energies.entry(z).or_default();
+            e.e_d = e.e_d.or(e_d_ev).or_else(|| {
+                defaults
+                    .as_ref()
+                    .and_then(|m| m.displacement_energy_ev(z).ok())
+            });
+            e.e_b = e.e_b.or(e_b_ev).or_else(|| {
+                defaults
+                    .as_ref()
+                    .and_then(|m| m.lattice_binding_energy_ev(z).ok())
+            });
+            e.e_s = e.e_s.or(e_s_ev).or_else(|| {
+                defaults
+                    .as_ref()
+                    .and_then(|m| m.surface_binding_energy_ev(z).ok())
+            });
+        }
     }
 
     /// Total areal inventory of element `z` over all finite slabs, atoms/m².

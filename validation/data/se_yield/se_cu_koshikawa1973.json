@@ -1,0 +1,85 @@
+{
+  "kind": "se_yield",
+  "id": "se_cu_koshikawa1973",
+  "target": "Cu",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 500.0,
+      "energy_kev_printed": "0.5",
+      "yield": 1.41,
+      "yield_printed": "1.41"
+    },
+    {
+      "energy_ev": 1000.0,
+      "energy_kev_printed": "1.0",
+      "yield": 1.328,
+      "yield_printed": "1.328"
+    },
+    {
+      "energy_ev": 2000.0,
+      "energy_kev_printed": "2.0",
+      "yield": 0.992,
+      "yield_printed": "0.992"
+    },
+    {
+      "energy_ev": 3000.0,
+      "energy_kev_printed": "3.0",
+      "yield": 0.813,
+      "yield_printed": "0.813"
+    },
+    {
+      "energy_ev": 4000.0,
+      "energy_kev_printed": "4.0",
+      "yield": 0.724,
+      "yield_printed": "0.724"
+    },
+    {
+      "energy_ev": 5000.0,
+      "energy_kev_printed": "5.0",
+      "yield": 0.649,
+      "yield_printed": "0.649"
+    },
+    {
+      "energy_ev": 6000.0,
+      "energy_kev_printed": "6.0",
+      "yield": 0.604,
+      "yield_printed": "0.604"
+    },
+    {
+      "energy_ev": 7000.0,
+      "energy_kev_printed": "7.0",
+      "yield": 0.567,
+      "yield_printed": "0.567"
+    },
+    {
+      "energy_ev": 8000.0,
+      "energy_kev_printed": "8.0",
+      "yield": 0.537,
+      "yield_printed": "0.537"
+    },
+    {
+      "energy_ev": 9000.0,
+      "energy_kev_printed": "9.0",
+      "yield": 0.522,
+      "yield_printed": "0.522"
+    },
+    {
+      "energy_ev": 10000.0,
+      "energy_kev_printed": "10.0",
+      "yield": 0.5,
+      "yield_printed": "0.5"
+    }
+  ],
+  "original_reference": "Koshikawa T and Shimizu R, (1973), J. Phy. D. Appl. Phys. 6, 1369",
+  "compilation_reference_number": 23,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Cu' heading, data set #6 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

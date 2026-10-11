@@ -1,0 +1,258 @@
+name: Release
+
+# Tag-triggered release: pushing a tag `vX.Y.Z` builds the `lindhard` command
+# for five targets, attaches the archives and SHA256SUMS to a GitHub Release,
+# and (after manual approval) publishes the crates to crates.io.
+#
+# Every other event is a dry run: it runs the preflight and the builds and
+# uploads the archives and SHA256SUMS as workflow artifacts, but creates no
+# release and publishes nothing. Dry runs come from:
+#   * `pull_request` touching this file, so every change to the release path
+#     builds all five targets in PR CI before it can merge;
+#   * `workflow_dispatch`, run by hand from the Actions tab.
+# On `pull_request` (including from forks) the token is read-only, no
+# environment secrets are exposed, and the `release` and `publish` jobs are
+# skipped twice over: preflight sets dry_run=true for anything but a tag push,
+# and both jobs also require `github.event_name == 'push'`.
+#
+# One-time repository setup (operator):
+#   * Settings -> Environments -> create `release`, with required reviewers.
+#   * Secret `CARGO_REGISTRY_TOKEN` (crates.io API token) on that environment.
+# See "Releasing" in CONTRIBUTING.md.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths: [".github/workflows/release.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  preflight:
+    name: Preflight (tag, version, changelog)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+      dry_run: ${{ steps.check.outputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Tag equals the workspace version and CHANGELOG.md has its section
+        id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="$(awk -F'"' '/^\[/ { in_pkg = ($0 == "[workspace.package]") }
+                                in_pkg && /^version *=/ { print $2; exit }' Cargo.toml)"
+          if [ -z "$version" ]; then
+            echo '::error::no version under [workspace.package] in Cargo.toml'
+            exit 1
+          fi
+          echo "workspace version: $version"
+          has_section=no
+          if grep -Eq "^## \[$(printf '%s' "$version" | sed 's/\./\\./g')\]" CHANGELOG.md; then
+            has_section=yes
+          fi
+          # Only a tag push is a real release; every other event is a dry run.
+          if [ "$EVENT" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
+            dry_run=false
+            if [ "$REF_NAME" != "v$version" ]; then
+              echo "::error::tag $REF_NAME does not match workspace version v$version"
+              exit 1
+            fi
+            if [ "$has_section" != yes ]; then
+              echo "::error::CHANGELOG.md has no '## [$version]' section"
+              exit 1
+            fi
+          else
+            dry_run=true
+            if [ "$has_section" != yes ]; then
+              echo "::warning::CHANGELOG.md has no '## [$version]' section; a real tag would fail preflight"
+            fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "dry_run=$dry_run" >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: preflight
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          # Linux binaries are static musl builds (no glibc floor). The
+          # dependency tree is pure Rust, so no C toolchain is needed.
+          - { target: x86_64-unknown-linux-musl, os: ubuntu-latest, ext: tar.gz }
+          - { target: aarch64-unknown-linux-musl, os: ubuntu-24.04-arm, ext: tar.gz }
+          # Intel macOS is cross-compiled on the arm64 runner.
+          - { target: x86_64-apple-darwin, os: macos-latest, ext: tar.gz }
+          - { target: aarch64-apple-darwin, os: macos-latest, ext: tar.gz }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest, ext: zip }
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      TARGET: ${{ matrix.target }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      # Release binaries (tag pushes) are always built from a clean target
+      # directory; the cache only speeds up dry runs.
+      - uses: Swatinem/rust-cache@v2
+        if: github.event_name != 'push'
+        with:
+          key: release-${{ matrix.target }}
+      - name: cargo build --release --locked
+        run: cargo build --release --locked -p lindhard-cli --target ${{ matrix.target }}
+      - name: Package the archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="lindhard-$VERSION-$TARGET"
+          bin=lindhard
+          if [ "${{ matrix.ext }}" = zip ]; then bin=lindhard.exe; fi
+          mkdir -p "dist/$name"
+          cp "target/$TARGET/release/$bin" LICENSE README.md CHANGELOG.md "dist/$name/"
+          cd dist
+          if [ "${{ matrix.ext }}" = zip ]; then
+            7z a -tzip "$name.zip" "$name" > /dev/null
+          else
+            tar -czf "$name.tar.gz" "$name"
+          fi
+          rm -rf "$name"
+          ls -l
+      - uses: actions/upload-artifact@v4
+        with:
+          name: archive-${{ matrix.target }}
+          path: dist/lindhard-*
+          if-no-files-found: error
+
+  checksums:
+    name: SHA256SUMS
+    needs: [preflight, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: archive-*
+          path: dist
+          merge-multiple: true
+      - name: Check all five archives are present and write SHA256SUMS
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd dist
+          for t in x86_64-unknown-linux-musl aarch64-unknown-linux-musl \
+                   x86_64-apple-darwin aarch64-apple-darwin; do
+            test -f "lindhard-$VERSION-$t.tar.gz" || { echo "::error::missing archive for $t"; exit 1; }
+          done
+          test -f "lindhard-$VERSION-x86_64-pc-windows-msvc.zip" || { echo "::error::missing archive for windows"; exit 1; }
+          sha256sum lindhard-* > SHA256SUMS
+          cat SHA256SUMS
+          sha256sum -c SHA256SUMS
+      - name: Check archive contents
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          set -euo pipefail
+          cd dist
+          # Each archive holds one top-level directory named after it.
+          check() {  # $1 = target, $2 = archive listing, $3 = binary name
+            local d="lindhard-$VERSION-$1"
+            for f in "$3" LICENSE README.md CHANGELOG.md; do
+              grep -qx "$d/$f" <<<"$2" || { echo "::error::$1 archive lacks $d/$f"; exit 1; }
+            done
+            echo "$1: ok"
+          }
+          for t in x86_64-unknown-linux-musl aarch64-unknown-linux-musl \
+                   x86_64-apple-darwin aarch64-apple-darwin; do
+            check "$t" "$(tar -tzf "lindhard-$VERSION-$t.tar.gz")" lindhard
+          done
+          t=x86_64-pc-windows-msvc
+          check "$t" "$(unzip -Z1 "lindhard-$VERSION-$t.zip")" lindhard.exe
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-files
+          path: dist/*
+          if-no-files-found: error
+
+  release:
+    name: GitHub Release
+    needs: [preflight, checksums]
+    if: github.event_name == 'push' && needs.preflight.outputs.dry_run == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-files
+          path: dist
+      - name: Create the release (notes are the CHANGELOG section)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.preflight.outputs.version }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          awk -v v="$VERSION" '
+            /^## \[/ { if (on) exit; on = (index($0, "## [" v "]") == 1); next }
+            on { print }' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::empty CHANGELOG section for $VERSION"
+            exit 1
+          fi
+          gh release create "$TAG" dist/* --title "lindhard $VERSION" \
+            --notes-file notes.md --verify-tag
+
+  publish:
+    name: Publish to crates.io
+    needs: [preflight, release]
+    if: github.event_name == 'push' && needs.preflight.outputs.dry_run == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Protected environment: requires the configured reviewers' approval.
+    environment: release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Publish lindhard, then lindhard-cli
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
+            echo '::error::secret CARGO_REGISTRY_TOKEN is not set on the `release` environment'
+            exit 1
+          fi
+          cargo publish --locked -p lindhard
+          # lindhard-cli depends on the just-published library; cargo waits
+          # for the index to show it before returning, so publish directly.
+          cargo publish --locked -p lindhard-cli

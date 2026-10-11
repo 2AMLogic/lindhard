@@ -46,6 +46,22 @@ pub fn normalize(v: [f64; 3]) -> [f64; 3] {
 /// uniformly the choice of frame does not matter, it only has to be fixed so
 /// results are reproducible.
 pub fn rotate(u: [f64; 3], polar: f64, azimuth: f64) -> [f64; 3] {
+    rotate_sc(u, polar.sin_cos(), azimuth.sin_cos())
+}
+
+/// [`rotate`] with the polar and azimuthal angles given as `(sin, cos)`
+/// pairs, so a caller that already has them (the collision code gets the
+/// lab deflection from the half-angle tangent, without an inverse
+/// trigonometric call) pays for no `sin_cos`.
+///
+/// `u` must be a unit vector to rounding and `polar` must have
+/// `sin^2 + cos^2 = 1` to rounding. The result is renormalised to first
+/// order, `v (3 - |v|^2) / 2`, which is exact to second order in
+/// `|v|^2 - 1` (about 1e-16 here) and so costs a multiply instead of a square
+/// root and a division; the rounding drift of a long chain of rotations
+/// therefore does not accumulate.
+#[inline]
+pub fn rotate_sc(u: [f64; 3], polar: (f64, f64), azimuth: (f64, f64)) -> [f64; 3] {
     let k = if u[0].abs() < 0.5 {
         [1.0, 0.0, 0.0]
     } else if u[1].abs() < 0.5 {
@@ -55,13 +71,33 @@ pub fn rotate(u: [f64; 3], polar: f64, azimuth: f64) -> [f64; 3] {
     };
     let e1 = normalize(cross(u, k));
     let e2 = cross(u, e1);
-    let (sp, cp) = polar.sin_cos();
-    let (sa, ca) = azimuth.sin_cos();
-    normalize([
+    let (sp, cp) = polar;
+    let (sa, ca) = azimuth;
+    let v = [
         cp * u[0] + sp * (ca * e1[0] + sa * e2[0]),
         cp * u[1] + sp * (ca * e1[1] + sa * e2[1]),
         cp * u[2] + sp * (ca * e1[2] + sa * e2[2]),
-    ])
+    ];
+    let f = 0.5 * (3.0 - (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]));
+    [v[0] * f, v[1] * f, v[2] * f]
+}
+
+/// Lab deflection of the projectile, as `(sin psi, cos psi)`, from the
+/// half-angle sine and cosine of the centre-of-mass angle (`s = sin(theta/2)`,
+/// `c = cos(theta/2)`, `s^2 + c^2 = 1`) and `mu = M1 / M2`.
+///
+/// The same relation as in [`lab_angles`], `tan(psi) = sin(theta) /
+/// (cos(theta) + mu)` (Goldstein, Sec. 3.11), written without the angle:
+/// `sin theta = 2 s c`, `cos theta = 1 - 2 s^2`, and the vector
+/// `(sin theta, cos theta + mu)` has length `sqrt(1 + 2 mu cos theta + mu^2)`.
+/// The recoil deflection `phi = (pi - theta) / 2` has `(sin, cos) = (c, s)`.
+#[inline]
+pub fn lab_projectile_sc(s: f64, c: f64, mu: f64) -> (f64, f64) {
+    let sin_t = 2.0 * s * c;
+    let cos_t = 1.0 - 2.0 * s * s;
+    let x = cos_t + mu;
+    let inv = 1.0 / (sin_t * sin_t + x * x).sqrt();
+    (sin_t * inv, x * inv)
 }
 
 /// Planar surface barrier at a face with outward normal along `x` (sign of
@@ -79,7 +115,21 @@ pub fn rotate(u: [f64; 3], polar: f64, azimuth: f64) -> [f64; 3] {
 /// Returns `Some((energy outside, direction outside))`, or `None` if the
 /// particle cannot escape (the caller reflects it specularly).
 pub fn refract_out(e: f64, dir: [f64; 3], e_s: f64) -> Option<(f64, [f64; 3])> {
-    let c = dir[0].abs();
+    refract_out_normal(e, dir, [1.0f64.copysign(dir[0]), 0.0, 0.0], e_s)
+}
+
+/// [`refract_out`] through a face with outward unit normal `normal` (any
+/// orientation, not only the planar `x` faces): the normal component of the
+/// momentum is reduced, the tangential components are unchanged. The
+/// particle must be moving outward (`dir . normal > 0`) to escape.
+pub fn refract_out_normal(
+    e: f64,
+    dir: [f64; 3],
+    normal: [f64; 3],
+    e_s: f64,
+) -> Option<(f64, [f64; 3])> {
+    let dn = dir[0] * normal[0] + dir[1] * normal[1] + dir[2] * normal[2];
+    let c = dn.abs();
     let e_normal = e * c * c;
     if e_normal <= e_s {
         return None;
@@ -88,11 +138,15 @@ pub fn refract_out(e: f64, dir: [f64; 3], e_s: f64) -> Option<(f64, [f64; 3])> {
         return Some((e, dir));
     }
     let e_out = e - e_s;
-    // Momentum components scale with sqrt(energy): parallel unchanged,
+    // Momentum components scale with sqrt(energy): tangential unchanged,
     // normal from the reduced normal energy.
     let f_par = (e / e_out).sqrt();
-    let c_out = ((e_normal - e_s) / e_out).sqrt().copysign(dir[0]);
-    Some((e_out, normalize([c_out, dir[1] * f_par, dir[2] * f_par])))
+    let c_out = ((e_normal - e_s) / e_out).sqrt().copysign(dn);
+    let mut out = [0.0; 3];
+    for k in 0..3 {
+        out[k] = (dir[k] - dn * normal[k]) * f_par + c_out * normal[k];
+    }
+    Some((e_out, normalize(out)))
 }
 
 #[cfg(test)]
@@ -147,6 +201,37 @@ mod tests {
         let b = rotate(u, 0.3, 0.7 + PI);
         let s = normalize([a[0] + b[0], a[1] + b[1], a[2] + b[2]]);
         assert!((dot(s, u) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn sin_cos_forms_agree_with_the_angle_forms() {
+        for &mu in &[0.05, 0.4, 1.0, 2.5, 6.0] {
+            for &theta in &[1e-6f64, 0.01, 0.5, 1.5, 2.5, 3.1, PI - 1e-5] {
+                let (psi, phi) = lab_angles(theta, mu);
+                let (s, c) = (0.5 * theta).sin_cos();
+                let (sp, cp) = lab_projectile_sc(s, c, mu);
+                assert!((sp - psi.sin()).abs() < 1e-12, "{mu} {theta}");
+                assert!((cp - psi.cos()).abs() < 1e-12, "{mu} {theta}");
+                // Recoil: (sin phi, cos phi) = (c, s).
+                assert!((c - phi.sin()).abs() < 1e-14);
+                assert!((s - phi.cos()).abs() < 1e-14);
+            }
+        }
+        let u = normalize([0.3, -0.4, 0.86]);
+        let a = rotate(u, 1.1, 2.2);
+        let b = rotate_sc(u, 1.1f64.sin_cos(), 2.2f64.sin_cos());
+        assert_eq!(a, b);
+    }
+
+    #[test]
+    fn long_rotation_chain_stays_unit() {
+        let mut u = normalize([0.3, -0.4, 0.86]);
+        for i in 0..200_000 {
+            let x = i as f64;
+            u = rotate(u, 0.1 + (x * 0.37).sin().abs(), x * 1.3);
+        }
+        let n = (u[0] * u[0] + u[1] * u[1] + u[2] * u[2]).sqrt();
+        assert!((n - 1.0).abs() < 1e-14, "{n}");
     }
 
     #[test]

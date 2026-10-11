@@ -1,22 +1,15 @@
 //! The `lindhard` command: one TOML input in, `summary.json` and CSV profiles
 //! out. Input schema and output layout: `docs/cli.md`.
 
-mod output;
-mod tally;
-
 use std::path::{Path, PathBuf};
-use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
+use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
-use lindhard::ion::bca::Bca;
-use lindhard::ion::potential::Potential;
-use lindhard::ion::scattering::ScatteringTable;
-
-use lindhard::tally::IonTally;
-
-use crate::tally::{ion_tally_config, CliTally};
+use lindhard_cli::publish::{self, OutputSet};
+use lindhard_cli::table_cache::TableCache;
+use lindhard_cli::{dynamic, electron, output, sim};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -40,15 +33,17 @@ enum Command {
         /// Input TOML file.
         input: PathBuf,
     },
-    /// Run an input file and write summary.json and CSV profiles.
+    /// Run an input file and write summary.json and CSV profiles
+    /// (electron_summary.json and electron_*.csv for an `[electron]` input).
     Run {
         /// Input TOML file.
         input: PathBuf,
         /// Output directory (created if missing; files in it are overwritten).
         #[arg(long, short)]
         out: PathBuf,
-        /// Override `run.ions` (echoed in the output).
-        #[arg(long)]
+        /// Override `run.ions`, or `run.histories` of an electron run
+        /// (echoed in the output).
+        #[arg(long, visible_alias = "histories")]
         ions: Option<u64>,
         /// Override `run.seed` (echoed in the output).
         #[arg(long)]
@@ -56,20 +51,155 @@ enum Command {
         /// Override `run.threads`. Never changes the results.
         #[arg(long)]
         threads: Option<usize>,
+        /// Electron runs only: read the cross-section tables from this
+        /// directory when it holds them for exactly this physics, grid and
+        /// build, and store the tables built otherwise. Never changes the
+        /// results (docs/cli.md, "Cross-section table cache").
+        #[arg(long, value_name = "DIR")]
+        table_cache: Option<PathBuf>,
     },
 }
 
-fn load(path: &Path) -> Result<Input> {
-    let text =
-        std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
-    Input::from_toml_str(&text).with_context(|| format!("{}: invalid input", path.display()))
+fn read(path: &Path) -> Result<String> {
+    std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))
+}
+
+fn load(path: &Path, text: &str) -> Result<Input> {
+    Input::from_toml_str(text).with_context(|| format!("{}: invalid input", path.display()))
+}
+
+/// The input file's directory: relative data paths resolve against it.
+fn base_dir(path: &Path) -> &Path {
+    path.parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."))
+}
+
+fn load_electron(path: &Path, text: &str) -> Result<ElectronInput> {
+    ElectronInput::from_toml_str(text).with_context(|| format!("{}: invalid input", path.display()))
+}
+
+fn resolve_electron(path: &Path, input: &ElectronInput) -> Result<ResolvedElectron> {
+    let r = input
+        .resolve_in(base_dir(path))
+        .with_context(|| format!("{}: invalid input", path.display()))?;
+    for w in &r.warnings {
+        eprintln!("warning: {w}");
+    }
+    Ok(r)
+}
+
+fn check_electron(path: &Path, text: &str) -> Result<()> {
+    let input = load_electron(path, text)?;
+    let r = resolve_electron(path, &input)?;
+    let b = &r.input.electron.beam;
+    println!("{}: OK (electron run)", path.display());
+    println!(
+        "  beam: electrons at {} eV, tilt {} deg, azimuth {} deg; {} histories, seed {}",
+        b.energy_ev, b.tilt_deg, b.azimuth_deg, r.input.run.histories, r.input.run.seed
+    );
+    for (i, (g, &m)) in r.stack.layers().iter().zip(&r.layer_material).enumerate() {
+        let extent = if g.back_m().is_finite() {
+            format!("{} nm", g.thickness_m() * 1e9)
+        } else {
+            "semi-infinite".to_string()
+        };
+        println!("  layer {i}: {}, {extent}", r.materials[m].name);
+    }
+    for m in &r.materials {
+        println!(
+            "  {}: optical ELF {} ({})",
+            m.name,
+            m.optical_elf_file.path,
+            m.optical_elf.provenance()
+        );
+    }
+    let g = &r.table_energy_ev;
+    println!(
+        "  tables: {} energies, {} to {} eV",
+        g.len(),
+        g[0],
+        g[g.len() - 1]
+    );
+    for m in r.models() {
+        println!("  {}: {}", m.role, m.name);
+    }
+    Ok(())
+}
+
+fn run_electron(
+    path: &Path,
+    text: &str,
+    out: &Path,
+    histories: Option<u64>,
+    seed: Option<u64>,
+    threads: Option<usize>,
+    table_cache: Option<&Path>,
+) -> Result<()> {
+    let mut input = load_electron(path, text)?;
+    if let Some(n) = histories {
+        input.run.histories = n;
+    }
+    if let Some(s) = seed {
+        input.run.seed = s;
+    }
+    if threads.is_some() {
+        input.run.threads = threads;
+    }
+    let r = resolve_electron(path, &input)?;
+    let cache = table_cache.map(TableCache::open).transpose()?;
+    let sim = electron::simulate_electron(&r, input.run.threads, cache.as_ref())?;
+    if let Some(c) = &cache {
+        let read = sim
+            .tables
+            .iter()
+            .flat_map(|t| [&t.elastic_origin, &t.inelastic_origin])
+            .filter(|o| o.source == lindhard_cli::table_cache::TableSource::Cache)
+            .count();
+        eprintln!(
+            "tables: {read} read from the cache, {} built ({:.1} s), cache {}",
+            2 * sim.tables.len() - read,
+            sim.info.table_build_s,
+            c.dir().display()
+        );
+    }
+    std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
+    let summary = electron::summary_json(&r, &sim)?;
+    // Invalidate the old summary right before the first output changes.
+    let set = OutputSet::begin(out, electron::SUMMARY_FILE, summary)?;
+    set.write(electron::SPECTRA_FILE, electron::spectra_csv(&sim.report))?;
+    set.write(electron::TABLES_FILE, electron::tables_csv(&r, &sim))?;
+    set.reconcile_optional(
+        electron::CARTESIAN_FILE,
+        electron::cartesian_csv(&sim.report),
+    )?;
+    set.reconcile_optional(
+        electron::CYLINDRICAL_FILE,
+        electron::cylindrical_csv(&sim.report),
+    )?;
+    set.reconcile_optional(electron::PSF_PROFILE_FILE, electron::psf_profile_csv(&sim))?;
+    set.reconcile_optional(
+        electron::PSF_PARAMETERS_FILE,
+        electron::psf_parameters_csv(&sim),
+    )?;
+    // Last, so the summary describes the completed output set.
+    set.publish()?;
+    let y = &sim.report.yields;
+    eprintln!(
+        "{} electrons: eta {:.4}, delta {:.4}, energy balance residual {:.2e}; wrote {}",
+        sim.report.histories,
+        y.backscatter_eta,
+        y.secondary_delta,
+        sim.report.budget.relative_imbalance,
+        out.display()
+    );
+    Ok(())
 }
 
 fn resolve(path: &Path, input: &Input) -> Result<Resolved> {
     // Relative [stopping] table paths are relative to the input file.
-    let base = path.parent().filter(|p| !p.as_os_str().is_empty());
     let r = input
-        .resolve_in(base.unwrap_or(Path::new(".")))
+        .resolve_in(base_dir(path))
         .with_context(|| format!("{}: invalid input", path.display()))?;
     for w in &r.warnings {
         eprintln!("warning: {w}");
@@ -78,7 +208,11 @@ fn resolve(path: &Path, input: &Input) -> Result<Resolved> {
 }
 
 fn check(path: &Path) -> Result<()> {
-    let input = load(path)?;
+    let text = read(path)?;
+    if ElectronInput::is_electron_toml(&text) {
+        return check_electron(path, &text);
+    }
+    let input = load(path, &text)?;
     let r = resolve(path, &input)?;
     let b = &r.input.beam;
     println!("{}: OK", path.display());
@@ -108,6 +242,37 @@ fn check(path: &Path) -> Result<()> {
             g.material().atom_number_density() * 1e-6
         );
     }
+    if let Some(d) = &r.input.dynamic {
+        println!(
+            "  dynamic: {} ions/cm^2 in steps of {}{}",
+            d.fluence_cm2,
+            d.ions_per_step,
+            d.max_change
+                .map_or(String::new(), |c| format!(" (adaptive, max change {c})"))
+        );
+    }
+    if let Some(d) = lindhard::ion::bca::DivergenceMetadata::new(&r.divergence) {
+        println!(
+            "  beam divergence: {} {} = {} deg, {}",
+            d.model, d.width_kind, d.width_deg, d.incidence
+        );
+    }
+    for (i, c) in r.input.crystal.iter().enumerate() {
+        println!(
+            "  crystal[{i}]: {} on layers {:?}, normal {:?}, reference {:?}, wafer rotation {} deg{}",
+            c.preset.name(),
+            c.layers,
+            c.normal,
+            c.reference,
+            c.wafer_rotation_deg,
+            c.thermal
+                .as_ref()
+                .map_or(", static lattice".to_string(), |t| format!(
+                    ", thermal {} K",
+                    t.temperature_k
+                ))
+        );
+    }
     for m in r.models() {
         if m.name == "user-table" {
             // A user table is identified by its file: "path: provenance".
@@ -125,8 +290,16 @@ fn run(
     ions: Option<u64>,
     seed: Option<u64>,
     threads: Option<usize>,
+    table_cache: Option<&Path>,
 ) -> Result<()> {
-    let mut input = load(path)?;
+    let text = read(path)?;
+    if ElectronInput::is_electron_toml(&text) {
+        return run_electron(path, &text, out, ions, seed, threads, table_cache);
+    }
+    if table_cache.is_some() {
+        bail!("--table-cache applies to electron runs only (an input with an [electron] table)");
+    }
+    let mut input = load(path, &text)?;
     if let Some(n) = ions {
         input.run.ions = n;
     }
@@ -141,64 +314,21 @@ fn run(
         bail!("--threads must be at least 1");
     }
 
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(input.run.threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
+    if r.input.dynamic.is_some() {
+        return run_dynamic(&r, input.run.threads, out);
+    }
 
-    // The angle table depends on the screening function and length only (the
-    // engine works in reduced variables), so the Z pair here is immaterial.
-    let t0 = Instant::now();
-    let z2 = r.layers[0].material.components()[0].z();
-    let pot = Potential::new(r.screening, f64::from(r.beam.ion.z()), f64::from(z2))
-        .with_length(r.screening_length);
-    let table = ScatteringTable::build(&pot, &r.table_spec);
-    let table_build_s = t0.elapsed().as_secs_f64();
-
-    let stopping = r.stopping_model();
-    let bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
-        .context("setting up the transport engine")?;
-    let tally_spec = &r.input.tally;
-    let ion_proto = IonTally::new(&r.stack, &bca.species_z(), ion_tally_config(&r)?)
-        .context("setting up the ion tally")?;
-    let t1 = Instant::now();
-    let tally = pool
-        .install(|| {
-            bca.run(|| {
-                CliTally::new(
-                    tally_spec.depth_bin_nm * 1e-9,
-                    tally_spec.depth_bins,
-                    tally_spec.per_ion,
-                    ion_proto.clone(),
-                )
-            })
-        })
-        .context("transport failed")?;
-    let transport_s = t1.elapsed().as_secs_f64();
+    let sim::Simulation {
+        tally,
+        table,
+        report,
+        crystals,
+        info,
+    } = sim::simulate(&r, input.run.threads)?;
 
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
-    let write = |name: &str, text: String| -> Result<()> {
-        let p = out.join(name);
-        std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
-    };
-    let info = output::RunInfo {
-        threads: pool.current_num_threads(),
-        table_build_s,
-        transport_s,
-        ions_per_s: tally.summary.histories as f64 / transport_s.max(f64::MIN_POSITIVE),
-    };
-    let report = tally.ion.report(r.input.tally.dual_pearson);
-    write(
-        output::SUMMARY_FILE,
-        output::summary_json(&r, &table, &tally, &report, info)?,
-    )?;
-    write(output::DEPTH_FILE, output::depth_csv(&tally))?;
-    write(output::LATERAL_FILE, output::lateral_csv(&report))?;
-    write(output::DAMAGE_FILE, output::damage_csv(&report))?;
-    write(output::ESCAPES_FILE, output::escapes_csv(&report))?;
-    if tally.per_ion {
-        write(output::IONS_FILE, output::ions_csv(&tally))?;
-    }
+    let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
+    publish::publish_static_ion(out, summary, &tally, &report)?;
     let s = &tally.summary;
     eprintln!(
         "{} ions: {} stopped, {} backscattered, {} transmitted, {} sputtered atoms; wrote {}",
@@ -207,6 +337,33 @@ fn run(
         s.backscattered,
         s.transmitted,
         s.sputtered,
+        out.display()
+    );
+    Ok(())
+}
+
+/// A run with a `[dynamic]` section: the fluence-step time series and
+/// composition profiles instead of the static profiles.
+fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
+    let d = dynamic::simulate_dynamic(r, threads)?;
+    std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
+    let summary = output::dynamic_summary_json(r, &d)?;
+    let set = OutputSet::begin(out, output::DYNAMIC_SUMMARY_FILE, summary)?;
+    set.write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(&d))?;
+    set.write(
+        output::DYNAMIC_COMPOSITION_FILE,
+        output::dynamic_composition_csv(&d),
+    )?;
+    // Last, so the summary describes the completed output set.
+    set.publish()?;
+    let last = d.steps.last().expect("step 0");
+    eprintln!(
+        "{} ions in {} steps ({} attempts rejected): {} sputtered atoms, {} slabs left; wrote {}",
+        last.ions_done,
+        last.step,
+        d.rejected_attempts,
+        last.cumulative.sputtered_total(),
+        last.slabs.len(),
         out.display()
     );
     Ok(())
@@ -221,6 +378,7 @@ fn main() -> Result<()> {
             ions,
             seed,
             threads,
-        } => run(&input, &out, ions, seed, threads),
+            table_cache,
+        } => run(&input, &out, ions, seed, threads, table_cache.as_deref()),
     }
 }

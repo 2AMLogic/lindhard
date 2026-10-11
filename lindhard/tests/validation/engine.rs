@@ -44,7 +44,7 @@ fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
         .install(f)
 }
 
-pub fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
+pub(crate) fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let ls = LindhardScharff::new();
     let mut out = Vec::new();
 

@@ -630,3 +630,1379 @@ fn stopping_none_runs_deterministically_with_zero_electronic_loss() {
             > 0.0
     );
 }
+
+// ---- [dynamic] ---------------------------------------------------------------
+
+fn dynamic_example() -> PathBuf {
+    examples_dir().join("dynamic/as_1keV_si_film.toml")
+}
+
+#[test]
+fn dynamic_csv_write_failure_publishes_no_summary() {
+    for (name, file) in [
+        ("dynamic-fail-steps", "dynamic_steps.csv"),
+        ("dynamic-fail-composition", "dynamic_composition.csv"),
+    ] {
+        let out = scratch(name);
+        std::fs::create_dir(out.join(file)).unwrap();
+        let ex = dynamic_example();
+        let o = lindhard(&[
+            "run",
+            ex.to_str().unwrap(),
+            "--out",
+            out.to_str().unwrap(),
+            "--ions",
+            "50",
+        ]);
+        assert!(!o.status.success(), "{file}: expected failure");
+        let e = String::from_utf8_lossy(&o.stderr);
+        assert!(e.contains(&out.join(file).display().to_string()), "{e}");
+        assert!(!out.join("dynamic_summary.json").exists(), "{file}");
+    }
+}
+
+#[test]
+fn dynamic_example_checks_runs_and_writes_a_time_series() {
+    let ex = dynamic_example();
+    ok(&lindhard(&["check", ex.to_str().unwrap()]));
+    let out = scratch("dynamic-example");
+    run(&ex, &out, &["--ions", "600"]);
+
+    let s = json(&out.join("dynamic_summary.json"));
+    assert_eq!(s["format"]["name"], "lindhard-dynamic-summary");
+    assert_eq!(s["input"]["run"]["ions"], 600);
+    assert!(s["input"]["dynamic"]["fluence_cm2"].as_f64().unwrap() > 0.0);
+    let echo: lindhard::input::Input = serde_json::from_value(s["input"].clone()).unwrap();
+    echo.resolve().unwrap();
+    assert!(!out.join("summary.json").exists(), "no static outputs");
+
+    let steps = std::fs::read_to_string(out.join("dynamic_steps.csv")).unwrap();
+    let header: Vec<_> = steps.lines().next().unwrap().split(',').collect();
+    let col = |n: &str| header.iter().position(|h| *h == n).unwrap();
+    let rows: Vec<Vec<&str>> = steps
+        .lines()
+        .skip(1)
+        .map(|l| l.split(',').collect())
+        .collect();
+    assert_eq!(rows[0][col("step")], "0");
+    assert_eq!(
+        rows.len() as u64 - 1,
+        s["totals"]["steps"].as_u64().unwrap()
+    );
+    // Accepted steps tile the global primary indices 0..ions.
+    let mut next = 0u64;
+    for r in &rows[1..] {
+        assert_eq!(r[col("first_index")].parse::<u64>().unwrap(), next);
+        next += r[col("ions")].parse::<u64>().unwrap();
+        assert_eq!(r[col("ions_done")].parse::<u64>().unwrap(), next);
+        assert_eq!(r[col("surface_nm")], "0.0");
+    }
+    assert_eq!(next, 600);
+    // Cumulative sputtering by element adds up to the total.
+    let last = rows.last().unwrap();
+    let by_el: u64 = header
+        .iter()
+        .enumerate()
+        .filter(|(_, h)| h.starts_with("cum_sputtered_"))
+        .map(|(i, _)| last[i].parse::<u64>().unwrap())
+        .sum();
+    assert_eq!(by_el, last[col("cum_sputtered")].parse::<u64>().unwrap());
+
+    let comp = std::fs::read_to_string(out.join("dynamic_composition.csv")).unwrap();
+    let n_steps = rows.len();
+    assert!(comp.lines().count() > n_steps, "at least one slab per step");
+    let h: Vec<_> = comp.lines().next().unwrap().split(',').collect();
+    assert!(h.contains(&"fraction_As") && h.contains(&"atoms_per_cm2_Si"));
+}
+
+#[test]
+fn dynamic_output_is_byte_identical_across_thread_counts() {
+    let ex = dynamic_example();
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    let mut outs = Vec::new();
+    for threads in ["1", "2", "8"] {
+        let out = scratch(&format!("dynamic-det-{threads}"));
+        run(&ex, &out, &["--ions", "500", "--threads", threads]);
+        outs.push(out);
+    }
+    for o in &outs[1..] {
+        for f in ["dynamic_steps.csv", "dynamic_composition.csv"] {
+            assert_eq!(read(&outs[0], f), read(o, f), "{f}");
+        }
+        assert_eq!(
+            deterministic_part(&read(&outs[0], "dynamic_summary.json")),
+            deterministic_part(&read(o, "dynamic_summary.json"))
+        );
+    }
+}
+
+#[test]
+fn static_runs_are_unchanged_without_a_dynamic_section() {
+    let out = scratch("static-no-dynamic");
+    run(
+        &examples_dir().join("b_5keV_si.toml"),
+        &out,
+        &["--ions", "100"],
+    );
+    let s = json(&out.join("summary.json"));
+    assert!(s["input"].get("dynamic").is_none());
+    assert!(!out.join("dynamic_steps.csv").exists());
+}
+
+#[test]
+fn invalid_dynamic_settings_fail_naming_the_field() {
+    let base = format!("{GOOD}\n[dynamic]\nfluence_cm2 = 1.0e15\nions_per_step = 5\n");
+    let e = fails("dyn-fluence", &base.replace("1.0e15", "-1.0"));
+    assert!(e.contains("dynamic.fluence_cm2"), "{e}");
+    let e = fails("dyn-key", &base.replace("ions_per_step", "ions_each"));
+    assert!(e.contains("ions_each"), "{e}");
+    let e = fails("dyn-min", &format!("{base}min_ions_per_step = 2\n"));
+    assert!(e.contains("dynamic.min_ions_per_step"), "{e}");
+    let e = fails(
+        "dyn-density",
+        &format!("{base}relaxation = \"fixed-number-density\"\n"),
+    );
+    assert!(e.contains("dynamic.number_density_cm3"), "{e}");
+    let e = fails("dyn-erosion", &format!("{base}erosion = 1\n"));
+    assert!(e.contains("erosion"), "{e}");
+}
+
+// ---- electron runs -------------------------------------------------------------
+
+/// The committed inputs of the level-3 backscatter comparison (#148,
+/// `validation/experiments/backscatter/`) stay valid: `check` resolves them,
+/// including the measured optical ELFs they name (no run: their tables take
+/// minutes to build).
+#[test]
+fn backscatter_validation_inputs_check() {
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../validation/experiments/backscatter");
+    let mut inputs: Vec<_> = std::fs::read_dir(&dir)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "toml"))
+        .collect();
+    inputs.sort();
+    assert_eq!(
+        inputs.len(),
+        5,
+        "expected eta_{{al,au,c,cu,si}}.toml, found {inputs:?}"
+    );
+    for input in &inputs {
+        let o = lindhard(&["check", input.to_str().unwrap()]);
+        ok(&o);
+        let stdout = String::from_utf8_lossy(&o.stdout);
+        assert!(stdout.contains("electron run"), "{input:?}: {stdout}");
+        assert!(stdout.contains("salvat-2003"), "{input:?}: corrections on");
+        assert!(
+            stdout.contains("elastic potential: salvat-dhfs"),
+            "{input:?}: DHFS potential (#169)"
+        );
+        // Al, Au, C, Cu: Hagemann et al. (1975); Si: Yang et al. (2019).
+        let si = input.file_name().is_some_and(|n| n == "eta_si.toml");
+        let elf = if si { "Yang" } else { "Hagemann" };
+        assert!(stdout.contains(elf), "{input:?}: measured ELF");
+    }
+}
+
+fn electron_example() -> PathBuf {
+    examples_dir().join("electron/e_10keV_si.toml")
+}
+
+/// Sum of column `col` of a CSV text's data rows whose first columns start
+/// with `prefix`.
+fn csv_sum(text: &str, prefix: &str, col: usize) -> f64 {
+    text.lines()
+        .skip(1)
+        .filter(|l| l.starts_with(prefix))
+        .map(|l| l.split(',').nth(col).unwrap().parse::<f64>().unwrap())
+        .sum()
+}
+
+#[test]
+fn electron_example_checks_runs_and_reports() {
+    let ex = electron_example();
+    let o = lindhard(&["check", ex.to_str().unwrap()]);
+    ok(&o);
+    assert!(String::from_utf8_lossy(&o.stdout).contains("electron run"));
+    let out = scratch("electron-example");
+    run(&ex, &out, &["--histories", "40"]);
+    assert!(!out.join("summary.json").exists(), "no ion outputs");
+
+    let s = json(&out.join("electron_summary.json"));
+    assert_eq!(s["format"]["name"], "lindhard-electron-summary");
+    assert_eq!(s["software"]["version"], lindhard::VERSION);
+    assert_eq!(s["input"]["run"]["histories"], 40, "override echoed");
+    assert!(s["input"]["run"].get("threads").is_none());
+    // The echoed input is complete: it deserializes and resolves (data paths
+    // against the example's directory).
+    let echo: lindhard::input::electron::ElectronInput =
+        serde_json::from_value(s["input"].clone()).unwrap();
+    assert_eq!(echo.run.histories, 40);
+    echo.resolve_in(&examples_dir().join("electron")).unwrap();
+    assert!(
+        echo.electron.tables.max_energy_ev.is_some(),
+        "defaults filled"
+    );
+
+    // Every model choice and every data provenance is in the header.
+    let p = &s["physics"];
+    let models = p["models"].as_array().unwrap();
+    for name in [
+        "thomas-fermi-yukawa",
+        "penn-single-pole",
+        "kieft-bosch",
+        "step-barrier",
+    ] {
+        assert!(models.iter().any(|m| m["name"] == name), "{name}");
+    }
+    let mat = &p["materials"][0];
+    assert!(mat["optical_elf"]["provenance"]
+        .as_str()
+        .unwrap()
+        .contains("synthetic"));
+    assert_eq!(mat["optical_elf"]["sha256"].as_str().unwrap().len(), 64);
+    assert!(mat["band"]["provenance"]
+        .as_str()
+        .unwrap()
+        .contains("SYNTHETIC"));
+    assert!(mat["elastic_table"]["model"]
+        .as_str()
+        .unwrap()
+        .contains("STAND-IN"));
+    assert_eq!(p["transport"]["n_histories"], 40);
+    assert_eq!(p["transport"]["chunk_size"], 16);
+
+    // Results: fates add up, the energy balance closes, yields agree.
+    let r = &s["results"];
+    assert_eq!(r["histories"], 40);
+    let fates: u64 = r["fates"]
+        .as_object()
+        .unwrap()
+        .values()
+        .map(|v| v.as_u64().unwrap())
+        .sum();
+    assert_eq!(fates, 40);
+    // Event-cap diagnostics: counts of tracks and histories, present even
+    // when nothing was capped, and consistent with the primaries' caps.
+    let caps = &r["event_caps"];
+    let tracks = caps["secondary_tracks"].as_u64().unwrap();
+    let affected = caps["affected_histories"].as_u64().unwrap();
+    let capped = r["fates"]["event_capped"].as_u64().unwrap();
+    assert!(affected >= capped && affected <= 40);
+    assert!(affected <= capped + tracks);
+    assert!(r["budget"]["relative_imbalance"].as_f64().unwrap() < 1e-9);
+    let front = &r["front"];
+    let eta = r["yields"]["backscatter_eta"].as_f64().unwrap();
+    assert!((eta - front["fast"]["count"].as_f64().unwrap() / 40.0).abs() < 1e-12);
+
+    // Table coverage: one entry per layer, the bounds of the tables the
+    // layer used, and as many elastic as inelastic rate evaluations.
+    let cov = r["table_coverage"].as_array().unwrap();
+    assert_eq!(cov.len(), p["target"].as_array().unwrap().len());
+    for (i, l) in cov.iter().enumerate() {
+        assert_eq!(l["layer"], i);
+        let total = |ch: &str| {
+            ["below", "within", "above"]
+                .iter()
+                .map(|k| l[ch][k].as_u64().unwrap())
+                .sum::<u64>()
+        };
+        assert!(total("elastic") > 0);
+        assert_eq!(total("elastic"), total("inelastic"));
+        for ch in ["elastic", "inelastic"] {
+            let t = &mat[format!("{ch}_table")];
+            assert_eq!(l[ch]["energy_min_ev"], t["energy_min_ev"], "{ch}");
+            assert_eq!(l[ch]["energy_max_ev"], t["energy_max_ev"], "{ch}");
+        }
+    }
+
+    // CSV files against the summary.
+    let csv = |key: &str| {
+        let name = s["files"][key].as_str().unwrap();
+        std::fs::read_to_string(out.join(name)).unwrap()
+    };
+    let spectra = csv("escape_spectra");
+    for face in ["front", "back"] {
+        let n = r[face]["count"].as_f64().unwrap();
+        assert_eq!(csv_sum(&spectra, &format!("{face},energy_ev,all,"), 5), n);
+        for class in ["slow", "fast"] {
+            assert_eq!(
+                csv_sum(&spectra, &format!("{face},polar_deg,{class},"), 5),
+                r[face][class]["count"].as_f64().unwrap(),
+                "{face} {class}"
+            );
+        }
+    }
+    let cyl = csv("deposition_cylindrical");
+    let inside = r["deposition"]["cylindrical"]["inside_ev"]
+        .as_f64()
+        .unwrap();
+    assert!((csv_sum(&cyl, "", 6) / inside - 1.0).abs() < 1e-9);
+    assert!(s["files"]["deposition_cartesian"].is_null());
+    let tables = csv("tables");
+    let n_grid = mat["inelastic_table"]["energies"].as_u64().unwrap() as usize;
+    assert_eq!(tables.lines().count(), 1 + n_grid);
+}
+
+#[test]
+fn electron_output_is_byte_identical_across_thread_counts() {
+    // 80 histories are five chunks of 16, so the threads really interleave.
+    let ex = electron_example();
+    let mut outs = Vec::new();
+    for threads in ["1", "4"] {
+        let out = scratch(&format!("electron-det-{threads}"));
+        run(&ex, &out, &["--histories", "80", "--threads", threads]);
+        outs.push(out);
+    }
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    let (a, b) = (
+        read(&outs[0], "electron_summary.json"),
+        read(&outs[1], "electron_summary.json"),
+    );
+    assert_eq!(deterministic_part(&a), deterministic_part(&b));
+    assert_eq!(
+        json(&outs[0].join("electron_summary.json"))["run"]["threads"],
+        1
+    );
+    assert_eq!(
+        json(&outs[1].join("electron_summary.json"))["run"]["threads"],
+        4
+    );
+    for f in [
+        "electron_escape_spectra.csv",
+        "electron_deposition_cylindrical.csv",
+        "electron_tables.csv",
+    ] {
+        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
+    }
+}
+
+#[test]
+fn electron_data_without_provenance_is_refused() {
+    let dir = scratch("electron-noprov");
+    let elf = std::fs::read_to_string(examples_dir().join("electron/synthetic_plasmon_elf.toml"))
+        .unwrap();
+    let stripped: String = elf
+        .lines()
+        .filter(|l| !l.starts_with("provenance"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(dir.join("synthetic_plasmon_elf.toml"), stripped).unwrap();
+    let input = dir.join("input.toml");
+    std::fs::copy(electron_example(), &input).unwrap();
+    for cmd in ["check", "run"] {
+        let mut args = vec![cmd, input.to_str().unwrap()];
+        if cmd == "run" {
+            args.extend(["--out", dir.to_str().unwrap()]);
+        }
+        let o = lindhard(&args);
+        assert!(!o.status.success(), "{cmd} must refuse the ELF");
+        let e = String::from_utf8_lossy(&o.stderr);
+        assert!(
+            e.contains("electron.materials.Si.optical_elf") && e.contains("provenance"),
+            "{e}"
+        );
+    }
+    assert!(!dir.join("electron_summary.json").exists());
+
+    // Band parameters without a source are refused the same way.
+    std::fs::write(dir.join("synthetic_plasmon_elf.toml"), elf).unwrap();
+    let text = std::fs::read_to_string(electron_example()).unwrap();
+    let start = text.find("provenance = \"SYNTHETIC").unwrap();
+    let end = start + text[start..].find(" }").unwrap();
+    std::fs::write(
+        &input,
+        format!("{}provenance = \"\"{}", &text[..start], &text[end..]),
+    )
+    .unwrap();
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains("electron.materials.Si.band"), "{e}");
+}
+
+#[test]
+fn tuning_none_is_bit_identical_and_unknown_sets_are_rejected() {
+    // `tuning = "none"` is the default: same physical output, same echo, and
+    // no `physics.tuning` block.
+    let text = std::fs::read_to_string(examples_dir().join("ar_1keV_cu.toml")).unwrap();
+    let tuned = text.replace("[physics]", "[physics]\ntuning = \"none\"");
+    assert_ne!(text, tuned, "example has a [physics] table");
+    let mut summaries = Vec::new();
+    for (name, body) in [("plain", &text), ("none", &tuned)] {
+        let dir = scratch(&format!("tuning-{name}"));
+        let input = dir.join("input.toml");
+        std::fs::write(&input, body).unwrap();
+        run(&input, &dir, &["--ions", "100", "--threads", "2"]);
+        summaries.push(std::fs::read_to_string(dir.join("summary.json")).unwrap());
+        assert!(json(&dir.join("summary.json"))["physics"]
+            .get("tuning")
+            .is_none());
+    }
+    assert_eq!(
+        deterministic_part(&summaries[0]),
+        deterministic_part(&summaries[1])
+    );
+
+    // A name the registry does not know is rejected.
+    let e = fails(
+        "unknown-tuning",
+        &GOOD.replace("[physics]", "[physics]\ntuning = \"made-up\""),
+    );
+    assert!(e.contains("physics.tuning") && e.contains("made-up"), "{e}");
+}
+
+#[test]
+fn shipped_tuning_set_is_deterministic_and_equals_an_explicit_override() {
+    // The shipped pilot set on the Ar -> Cu example: identical physical output
+    // on 1, 2 and 8 threads; the same results as an untuned run with the
+    // effective E_s given explicitly (the set multiplies the resolved E_s once
+    // and changes nothing else); and the metadata in summary.json.
+    let set = lindhard::input::ES_SPUTTER_AR_V1;
+    let text = std::fs::read_to_string(examples_dir().join("ar_1keV_cu.toml")).unwrap();
+    let tuned = replaced(
+        &text,
+        "[physics]",
+        &format!("[physics]\ntuning = \"{}\"", set.name),
+    );
+    let mut outs = Vec::new();
+    for threads in ["1", "2", "8"] {
+        let dir = scratch(&format!("tuning-set-{threads}"));
+        let input = dir.join("input.toml");
+        std::fs::write(&input, &tuned).unwrap();
+        run(&input, &dir, &["--ions", "300", "--threads", threads]);
+        outs.push(dir);
+    }
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    for o in &outs[1..] {
+        assert_eq!(
+            deterministic_part(&read(&outs[0], "summary.json")),
+            deterministic_part(&read(o, "summary.json"))
+        );
+        for f in ["depth_profile.csv", "ions.csv", "escape_spectra.csv"] {
+            assert_eq!(read(&outs[0], f), read(o, f), "{f}");
+        }
+    }
+    let s = json(&outs[0].join("summary.json"));
+    let t = &s["physics"]["tuning"];
+    assert_eq!(t["set"], set.name);
+    assert_eq!(t["version"], set.version);
+    assert_eq!(t["quantity"], "surface-binding-energy");
+    let c = &t["components"][0];
+    let k = set.e_s_factors.iter().find(|p| p.0 == "Cu").unwrap().1;
+    assert_eq!(c["element"], "Cu");
+    assert_eq!(c["factor"].as_f64().unwrap(), k);
+    let original = c["e_s_original_ev"].as_f64().unwrap();
+    // summary.json rounds floats when written, so compare within that; the
+    // explicit run below uses the unrounded product the engine applies.
+    let effective = original * k;
+    let reported = c["e_s_effective_ev"].as_f64().unwrap();
+    assert!(
+        (reported - effective).abs() < 1e-9 * effective,
+        "{reported} vs {effective}"
+    );
+    assert_eq!(s["input"]["physics"]["tuning"], set.name);
+
+    // The same run untuned, with E_s = the effective value set explicitly.
+    let explicit = format!("{text}\n[physics.energies.Cu]\ne_s_ev = {effective:?}\n");
+    let dir = scratch("tuning-set-explicit");
+    let input = dir.join("input.toml");
+    std::fs::write(&input, explicit).unwrap();
+    run(&input, &dir, &["--ions", "300", "--threads", "2"]);
+    let e = json(&dir.join("summary.json"));
+    assert!(e["physics"].get("tuning").is_none());
+    assert_eq!(s["results"], e["results"]);
+    for f in ["depth_profile.csv", "ions.csv", "escape_spectra.csv"] {
+        assert_eq!(read(&outs[0], f), read(&dir, f), "{f}");
+    }
+
+    // Other beams and unlisted elements are rejected.
+    let e = fails(
+        "tuning-other-ion",
+        &replaced(&tuned, "ion = \"Ar\"", "ion = \"Xe\""),
+    );
+    assert!(
+        e.contains("physics.tuning") && e.contains("beam ion"),
+        "{e}"
+    );
+    let e = fails(
+        "tuning-other-target",
+        &replaced(&tuned, "substrate = \"Cu\"", "substrate = \"Ni\""),
+    );
+    assert!(
+        e.contains("physics.tuning") && e.contains("no factor for Ni"),
+        "{e}"
+    );
+}
+
+/// Rewrites `text` with `from` replaced by `to`, asserting it was present.
+fn replaced(text: &str, from: &str, to: &str) -> String {
+    assert!(text.contains(from), "{from:?} not in input");
+    text.replacen(from, to, 1)
+}
+
+fn sentinel(out: &Path) -> PathBuf {
+    let p = out.join("user_notes.txt");
+    std::fs::write(&p, "keep").unwrap();
+    p
+}
+
+#[test]
+fn rerun_removes_stale_per_ion_csv_and_keeps_unrelated_files() {
+    let dir = scratch("reuse-ions");
+    let out = dir.join("out");
+    let mk = |per_ion: bool| {
+        let input = dir.join(format!("in-{per_ion}.toml"));
+        std::fs::write(&input, format!("{GOOD}\n[tally]\nper_ion = {per_ion}\n")).unwrap();
+        input
+    };
+    run(&mk(true), &out, &["--ions", "50"]);
+    let note = sentinel(&out);
+    let ions = out.join("ions.csv");
+    assert!(ions.exists());
+    run(&mk(false), &out, &["--ions", "50"]);
+    assert!(!ions.exists(), "stale ions.csv survived");
+    assert!(json(&out.join("summary.json"))["files"]["ions"].is_null());
+    assert!(note.exists());
+    // A missing optional file is harmless on a further disabled rerun.
+    run(&mk(false), &out, &["--ions", "50"]);
+    assert!(note.exists());
+    run(&mk(true), &out, &["--ions", "50"]);
+    let text = std::fs::read_to_string(&ions).unwrap();
+    assert_eq!(text.lines().count(), 51);
+    assert!(!json(&out.join("summary.json"))["files"]["ions"].is_null());
+    assert!(note.exists());
+}
+
+#[test]
+fn rerun_removes_stale_electron_deposition_csvs() {
+    let dir = scratch("reuse-electron");
+    let out = dir.join("out");
+    let ex_dir = electron_example().parent().unwrap().to_path_buf();
+    let src = std::fs::read_to_string(electron_example()).unwrap();
+    let src = replaced(
+        &src,
+        "\"synthetic_plasmon_elf.toml\"",
+        &format!("{:?}", ex_dir.join("synthetic_plasmon_elf.toml")),
+    );
+    let cyl = "[electron.tally.cylindrical]\nr = { lo_nm = 0.0, hi_nm = 1000.0, bins = 20 }\n\
+               depth = { lo_nm = 0.0, hi_nm = 2000.0, bins = 40 }\n";
+    let cart = "[electron.tally.cartesian]\nx = { lo_nm = 0.0, hi_nm = 2000.0, bins = 4 }\n\
+                y = { lo_nm = -500.0, hi_nm = 500.0, bins = 2 }\n\
+                z = { lo_nm = -500.0, hi_nm = 500.0, bins = 2 }\n";
+    let without = replaced(&src, cyl, "");
+    let input = |name: &str, with_cyl: bool, with_cart: bool| {
+        let mut t = without.clone();
+        if with_cyl {
+            t = replaced(&t, "[target]", &format!("{cyl}\n[target]"));
+        }
+        if with_cart {
+            t = replaced(&t, "[target]", &format!("{cart}\n[target]"));
+        }
+        let p = dir.join(format!("{name}.toml"));
+        std::fs::write(&p, t).unwrap();
+        p
+    };
+    let both = input("both", true, true);
+    let only_cyl = input("cyl", true, false);
+    let only_cart = input("cart", false, true);
+    let none = input("none", false, false);
+    let cy = out.join("electron_deposition_cylindrical.csv");
+    let ca = out.join("electron_deposition_cartesian.csv");
+    let summary = out.join("electron_summary.json");
+    let args = ["--histories", "32"];
+    let steps: [(&Path, bool, bool); 6] = [
+        (&both, true, true),
+        (&only_cyl, true, false),
+        (&only_cart, false, true),
+        (&none, false, false),
+        (&none, false, false),
+        (&both, true, true),
+    ];
+    let mut note = None;
+    for (inp, want_cyl, want_cart) in steps {
+        run(inp, &out, &args);
+        let note = note.get_or_insert_with(|| sentinel(&out));
+        assert_eq!(cy.exists(), want_cyl, "cylindrical for {inp:?}");
+        assert_eq!(ca.exists(), want_cart, "cartesian for {inp:?}");
+        let s = json(&summary);
+        assert_eq!(!s["files"]["deposition_cylindrical"].is_null(), want_cyl);
+        assert_eq!(!s["files"]["deposition_cartesian"].is_null(), want_cart);
+        assert!(note.exists());
+    }
+}
+
+#[test]
+fn stale_file_that_cannot_be_removed_is_a_contextual_error() {
+    let dir = scratch("reuse-undeletable");
+    let out = dir.join("out");
+    let input = dir.join("in.toml");
+    std::fs::write(&input, format!("{GOOD}\n[tally]\nper_ion = false\n")).unwrap();
+    // A directory under the reserved name cannot be removed as a file.
+    std::fs::create_dir_all(out.join("ions.csv")).unwrap();
+    let o = lindhard(&[
+        "run",
+        input.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+        "--ions",
+        "20",
+    ]);
+    assert!(!o.status.success());
+    let err = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        err.contains("removing stale") && err.contains("ions.csv"),
+        "{err}"
+    );
+}
+
+/// Minimal RFC 4180 parser: records of fields, quoted fields may contain
+/// commas, CR, LF and doubled quotes.
+fn parse_csv(text: &str) -> Vec<Vec<String>> {
+    let (mut rows, mut row, mut f) = (Vec::new(), Vec::new(), String::new());
+    let (mut quoted, mut chars) = (false, text.chars().peekable());
+    while let Some(c) = chars.next() {
+        match (quoted, c) {
+            (true, '"') if chars.peek() == Some(&'"') => {
+                chars.next();
+                f.push('"');
+            }
+            (true, '"') => quoted = false,
+            (true, _) => f.push(c),
+            (false, '"') => quoted = true,
+            (false, ',') => row.push(std::mem::take(&mut f)),
+            (false, '\n') => {
+                row.push(std::mem::take(&mut f));
+                rows.push(std::mem::take(&mut row));
+            }
+            (false, _) => f.push(c),
+        }
+    }
+    assert!(!quoted, "unterminated quoted field");
+    assert!(f.is_empty() && row.is_empty(), "missing final newline");
+    rows
+}
+
+#[test]
+fn electron_tables_csv_encodes_material_names() {
+    let dir = scratch("electron-csv-names");
+    let src = std::fs::read_to_string(electron_example()).unwrap();
+    std::fs::copy(
+        examples_dir().join("electron/synthetic_plasmon_elf.toml"),
+        dir.join("synthetic_plasmon_elf.toml"),
+    )
+    .unwrap();
+    // Two quoted TOML keys: a comma, and commas with embedded quotes. (Line
+    // breaks are rejected by the material-identity check, so they cannot
+    // reach the table; the encoder's unit test covers them.)
+    let film = "Si,film";
+    let sub = "Si \"q\", \"\"r\"\"";
+    let mat = |name: &str| {
+        let m = "[electron.materials.Si]";
+        let body = src.split(m).nth(1).unwrap();
+        let body = body.split("\n\n").next().unwrap();
+        let key = name.replace('\\', "\\\\").replace('"', "\\\"");
+        let key = key.replace('\r', "\\r").replace('\n', "\\n");
+        format!("[electron.materials.\"{key}\"]{body}\n\n")
+    };
+    let key = |name: &str| {
+        let k = name.replace('"', "\\\"").replace('\r', "\\r");
+        k.replace('\n', "\\n")
+    };
+    let head = src.split("[electron.materials.Si]").next().unwrap();
+    let tail = src.split("[electron.tally]").nth(1).unwrap();
+    let tail = tail.split("[target]").next().unwrap();
+    let text = format!(
+        "{head}{}{}[electron.tally]{tail}\n\
+         [materials.\"{}\"]\ndensity_g_cm3 = 2.33\nelements = [{{ symbol = \"Si\", atom_fraction = 1.0 }}]\n\n\
+         [materials.\"{}\"]\ndensity_g_cm3 = 2.33\nelements = [{{ symbol = \"Si\", atom_fraction = 1.0 }}]\n\n\
+         [target]\nsubstrate = \"{}\"\n\n[[target.layers]]\nmaterial = \"{}\"\nthickness_nm = 20.0\n\n\
+         [run]\nhistories = 10\nseed = 1\n",
+        mat(film),
+        mat(sub),
+        key(film),
+        key(sub),
+        key(sub),
+        key(film),
+    );
+    let input = dir.join("in.toml");
+    std::fs::write(&input, text).unwrap();
+    let out = dir.join("out");
+    run(&input, &out, &[]);
+    let csv = std::fs::read_to_string(out.join("electron_tables.csv")).unwrap();
+    let rows = parse_csv(&csv);
+    assert_eq!(rows[0].len(), 6);
+    assert_eq!(rows[0][0], "material");
+    let mut seen = std::collections::BTreeSet::new();
+    for r in &rows[1..] {
+        assert_eq!(r.len(), 6, "{r:?}");
+        seen.insert(r[0].clone());
+        assert!(r[1].parse::<f64>().unwrap() > 0.0);
+        for c in [3, 4, 5] {
+            assert!(r[c].parse::<f64>().unwrap().is_finite(), "{r:?}");
+        }
+        assert!(r[2].is_empty() || r[2].parse::<f64>().unwrap().is_finite());
+    }
+    let want: std::collections::BTreeSet<String> =
+        [film, sub].iter().map(|s| s.to_string()).collect();
+    assert_eq!(seen, want);
+    // Both materials share the Si data, so their numeric columns agree.
+    let n = (rows.len() - 1) / 2;
+    for i in 1..=n {
+        assert_eq!(rows[i][1..], rows[i + n][1..]);
+    }
+}
+
+// ---- cross-section table cache (`--table-cache`) ---------------------------
+
+const ELECTRON_FILES: [&str; 3] = [
+    "electron_escape_spectra.csv",
+    "electron_deposition_cylindrical.csv",
+    "electron_tables.csv",
+];
+
+/// The summary without the parts a table cache is allowed to change: the
+/// `run` block (timings, threads) and each table's `source` and `cache`.
+fn summary_without_cache_echo(dir: &Path) -> serde_json::Value {
+    let mut s = json(&dir.join("electron_summary.json"));
+    s.as_object_mut().unwrap().remove("run");
+    for m in s["physics"]["materials"].as_array_mut().unwrap() {
+        for t in ["elastic_table", "inelastic_table"] {
+            let o = m[t].as_object_mut().unwrap();
+            assert!(o.remove("source").is_some(), "{t}.source echoed");
+            assert!(o.remove("cache").is_some(), "{t}.cache echoed");
+        }
+    }
+    s
+}
+
+fn table_sources(dir: &Path) -> (String, String) {
+    let s = json(&dir.join("electron_summary.json"));
+    let m = &s["physics"]["materials"][0];
+    (
+        m["elastic_table"]["source"].as_str().unwrap().to_string(),
+        m["inelastic_table"]["source"].as_str().unwrap().to_string(),
+    )
+}
+
+fn cache_files(cache: &Path) -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(cache)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().into_string().unwrap())
+        .collect();
+    v.sort();
+    v
+}
+
+/// A run that reads its tables from the cache gives the same results, bit
+/// for bit, as one that builds them, at any thread count.
+#[test]
+fn electron_table_cache_reuse_is_bit_identical() {
+    let ex = electron_example();
+    let dir = scratch("electron-cache-reuse");
+    let cache = dir.join("cache");
+    let c = cache.to_str().unwrap();
+    let out = |name: &str| dir.join(name);
+
+    run(&ex, &out("plain"), &["--histories", "80", "--threads", "4"]);
+    run(
+        &ex,
+        &out("miss"),
+        &["--histories", "80", "--threads", "4", "--table-cache", c],
+    );
+    let files = cache_files(&cache);
+    assert_eq!(
+        files.len(),
+        6,
+        "two tables, two hashes and two keys: {files:?}"
+    );
+    assert!(files
+        .iter()
+        .any(|f| f.starts_with("elastic-") && f.ends_with(".toml")));
+    assert!(files
+        .iter()
+        .any(|f| f.starts_with("inelastic-") && f.ends_with(".key.json")));
+    assert!(files
+        .iter()
+        .any(|f| f.starts_with("elastic-") && f.ends_with(".sha256")));
+    for threads in ["1", "8"] {
+        let o = lindhard(&[
+            "run",
+            ex.to_str().unwrap(),
+            "--out",
+            out(&format!("hit-{threads}")).to_str().unwrap(),
+            "--histories",
+            "80",
+            "--threads",
+            threads,
+            "--table-cache",
+            c,
+        ]);
+        ok(&o);
+        assert!(
+            String::from_utf8_lossy(&o.stderr).contains("tables: 2 read from the cache, 0 built"),
+            "{}",
+            String::from_utf8_lossy(&o.stderr)
+        );
+    }
+    assert_eq!(cache_files(&cache), files, "a hit writes nothing");
+
+    assert_eq!(
+        table_sources(&out("plain")),
+        ("built".into(), "built".into())
+    );
+    assert_eq!(
+        table_sources(&out("miss")),
+        ("built".into(), "built".into())
+    );
+    assert_eq!(
+        table_sources(&out("hit-1")),
+        ("cache".into(), "cache".into())
+    );
+    let plain = json(&out("plain").join("electron_summary.json"));
+    assert!(plain["physics"]["materials"][0]["inelastic_table"]["cache"].is_null());
+    // The example's material has a band, so its inelastic table holds the
+    // rows of the rate refinement (#339) as well: a refined table read back
+    // from the cache gives the same results, bit for bit (below).
+    let energies = |t: &str| {
+        plain["physics"]["materials"][0][t]["energies"]
+            .as_u64()
+            .unwrap()
+    };
+    assert!(
+        energies("inelastic_table") > energies("elastic_table"),
+        "{} vs {}",
+        energies("inelastic_table"),
+        energies("elastic_table")
+    );
+    let miss = json(&out("miss").join("electron_summary.json"));
+    let hit = json(&out("hit-1").join("electron_summary.json"));
+    for t in ["elastic_table", "inelastic_table"] {
+        let (a, b) = (
+            &miss["physics"]["materials"][0][t]["cache"],
+            &hit["physics"]["materials"][0][t]["cache"],
+        );
+        assert_eq!(a, b, "{t}: same file, same SHA-256");
+        assert_eq!(a["sha256"].as_str().unwrap().len(), 64);
+        let path = PathBuf::from(a["path"].as_str().unwrap());
+        assert!(path.starts_with(std::fs::canonicalize(&cache).unwrap()));
+        let key = a["key_sha256"].as_str().unwrap();
+        assert!(path.file_name().unwrap().to_str().unwrap().contains(key));
+    }
+
+    let want = summary_without_cache_echo(&out("plain"));
+    for name in ["miss", "hit-1", "hit-8"] {
+        assert_eq!(summary_without_cache_echo(&out(name)), want, "{name}");
+        for f in ELECTRON_FILES {
+            assert_eq!(
+                std::fs::read(out("plain").join(f)).unwrap(),
+                std::fs::read(out(name).join(f)).unwrap(),
+                "{name}: {f}"
+            );
+        }
+    }
+    // Two cached runs differ only in the run block.
+    let read = |d: &str| std::fs::read_to_string(out(d).join("electron_summary.json")).unwrap();
+    assert_eq!(
+        deterministic_part(&read("hit-1")),
+        deterministic_part(&read("hit-8"))
+    );
+}
+
+/// Writes `text` as the cached table at `path` and records its SHA-256 in the
+/// entry's hash file, as a store would: an edit the hash check cannot see,
+/// to reach the checks behind it.
+fn write_table_and_hash(path: &Path, text: &str) {
+    std::fs::write(path, text).unwrap();
+    std::fs::write(
+        path.with_extension("sha256"),
+        format!(
+            "{}\n",
+            lindhard_cli::table_cache::sha256_hex(text.as_bytes())
+        ),
+    )
+    .unwrap();
+}
+
+/// A run whose physics differs is not served another run's table, and a
+/// cache file that does not match its key or its recorded SHA-256 is refused
+/// with the field or file named.
+#[test]
+fn electron_table_cache_misses_on_changed_physics_and_refuses_bad_files() {
+    let dir = scratch("electron-cache-keys");
+    let ex_dir = electron_example().parent().unwrap().to_path_buf();
+    let src = std::fs::read_to_string(electron_example())
+        .unwrap()
+        .replace(
+            "optical_elf = \"synthetic_plasmon_elf.toml\"",
+            &format!(
+                "optical_elf = {:?}",
+                ex_dir.join("synthetic_plasmon_elf.toml").to_str().unwrap()
+            ),
+        );
+    let input = dir.join("in.toml");
+    let cache = dir.join("cache");
+    let c = cache.to_str().unwrap();
+    let go = |text: &str, name: &str| -> Output {
+        std::fs::write(&input, text).unwrap();
+        lindhard(&[
+            "run",
+            input.to_str().unwrap(),
+            "--out",
+            dir.join(name).to_str().unwrap(),
+            "--histories",
+            "16",
+            "--table-cache",
+            c,
+        ])
+    };
+    ok(&go(&src, "a"));
+    assert_eq!(cache_files(&cache).len(), 6);
+
+    // The inelastic table of the example's band material holds the rows of
+    // its rate refinement (#339) besides the run's grid. One whose grid no
+    // longer contains the run's grid (an energy of the grid edited, the
+    // hash with it) is refused; restored, it is read.
+    let ikey = cache_files(&cache)
+        .into_iter()
+        .find(|f| f.starts_with("inelastic-") && f.ends_with(".key.json"))
+        .unwrap();
+    let itable_path = cache.join(ikey.replace(".key.json", ".toml"));
+    let itable = std::fs::read_to_string(&itable_path).unwrap();
+    let first = itable.find("energy_ev = [").unwrap() + "energy_ev = [".len();
+    let end = first + itable[first..].find(',').unwrap();
+    write_table_and_hash(
+        &itable_path,
+        &format!("{}10.5{}", &itable[..first], &itable[end..]),
+    );
+    let o = go(&src, "i");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        e.contains("field `energy_ev` does not contain this run's grid"),
+        "{e}"
+    );
+    write_table_and_hash(&itable_path, &itable);
+    ok(&go(&src, "j"));
+    assert_eq!(
+        table_sources(&dir.join("j")),
+        ("cache".into(), "cache".into())
+    );
+
+    // Another band with the same inner potential (so the same table grid):
+    // the inelastic table, built on the band-bottom axis with the band's
+    // minimum excitation energy (#241), is built and stored beside the
+    // first; the elastic table is reused.
+    let fermi = src.replace(
+        "valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0",
+        "valence_band_width_ev = 10.5, band_gap_ev = 2.0, affinity_ev = 2.5",
+    );
+    assert_ne!(fermi, src);
+    ok(&go(&fermi, "b"));
+    assert_eq!(
+        table_sources(&dir.join("b")),
+        ("cache".into(), "built".into())
+    );
+    assert_eq!(cache_files(&cache).len(), 9);
+
+    // A key file edited under its hash name is refused, naming the field.
+    let key = cache_files(&cache)
+        .into_iter()
+        .find(|f| f.starts_with("elastic-") && f.ends_with(".key.json"))
+        .unwrap();
+    let key_path = cache.join(&key);
+    let good = std::fs::read_to_string(&key_path).unwrap();
+    let bad = good.replace("\"kind\":\"elastic\"", "\"kind\":\"inelastic\"");
+    assert_ne!(bad, good);
+    std::fs::write(&key_path, bad).unwrap();
+    let o = go(&src, "c");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains("field `kind` differs"), "{e}");
+    std::fs::write(&key_path, &good).unwrap();
+
+    let table_path = cache.join(key.replace(".key.json", ".toml"));
+    let hash_path = cache.join(key.replace(".key.json", ".sha256"));
+    let table = std::fs::read_to_string(&table_path).unwrap();
+    let hash = std::fs::read_to_string(&hash_path).unwrap();
+
+    // One cross-section value edited so the table still parses and
+    // validates: refused by its SHA-256, naming the file.
+    let first = table.find("inverse_mfp_per_m = [").unwrap() + "inverse_mfp_per_m = [".len();
+    let end = first + table[first..].find(',').unwrap();
+    let value: f64 = table[first..end].trim().parse().unwrap();
+    assert!(value > 0.0);
+    let edited = format!("{}{:?}{}", &table[..first], value * 1.5, &table[end..]);
+    lindhard::electron::data::CrossSectionTable::from_toml_str(&edited)
+        .expect("the edited table is still a valid table");
+    std::fs::write(&table_path, &edited).unwrap();
+    let o = go(&src, "g");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains("SHA-256"), "{e}");
+    assert!(
+        e.contains(table_path.file_name().unwrap().to_str().unwrap()),
+        "{e}"
+    );
+    std::fs::write(&table_path, &table).unwrap();
+
+    // A missing hash file is an error naming it, not a silent reuse.
+    std::fs::remove_file(&hash_path).unwrap();
+    let o = go(&src, "h");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(
+        e.contains(hash_path.file_name().unwrap().to_str().unwrap()),
+        "{e}"
+    );
+    assert!(e.contains("missing"), "{e}");
+    std::fs::write(&hash_path, &hash).unwrap();
+
+    // A table of another cache format version under the key is an error,
+    // not a silent rebuild (its hash rewritten to reach the loader).
+    let line = format!(
+        "format_version = {}",
+        lindhard::electron::data::CACHE_FORMAT_VERSION
+    );
+    assert!(table.contains(&line));
+    write_table_and_hash(&table_path, &table.replace(&line, "format_version = 0"));
+    let o = go(&src, "d");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains("version"), "{e}");
+
+    // A table whose grid was edited (and its hash with it) is refused.
+    let first = table.find("energy_ev = [").unwrap() + "energy_ev = [".len();
+    let end = first + table[first..].find(',').unwrap();
+    let edited = format!("{}10.5{}", &table[..first], &table[end..]);
+    write_table_and_hash(&table_path, &edited);
+    let o = go(&src, "e");
+    assert!(!o.status.success());
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains("field `energy_ev`"), "{e}");
+
+    // Restored, it is read again.
+    write_table_and_hash(&table_path, &table);
+    assert_eq!(std::fs::read_to_string(&hash_path).unwrap(), hash);
+    ok(&go(&src, "f"));
+    assert_eq!(
+        table_sources(&dir.join("f")),
+        ("cache".into(), "cache".into())
+    );
+}
+
+#[test]
+fn table_cache_is_refused_for_ion_runs() {
+    let dir = scratch("ion-table-cache");
+    let o = lindhard(&[
+        "run",
+        examples_dir().join("ar_1keV_cu.toml").to_str().unwrap(),
+        "--out",
+        dir.to_str().unwrap(),
+        "--table-cache",
+        dir.join("cache").to_str().unwrap(),
+    ]);
+    assert!(!o.status.success());
+    assert!(String::from_utf8_lossy(&o.stderr).contains("electron runs only"));
+}
+
+/// The electron example with a `[electron.tally.psf]` table appended and its
+/// data files copied beside the input.
+fn electron_psf_input(name: &str, psf: &str) -> (PathBuf, PathBuf) {
+    let dir = scratch(name);
+    let src = examples_dir().join("electron");
+    for f in std::fs::read_dir(&src).unwrap() {
+        let f = f.unwrap().path();
+        if f.is_file() && f.extension().is_some_and(|e| e == "toml") {
+            std::fs::copy(&f, dir.join(f.file_name().unwrap())).unwrap();
+        }
+    }
+    let text = std::fs::read_to_string(electron_example()).unwrap();
+    let input = dir.join("input.toml");
+    std::fs::write(&input, format!("{text}\n[electron.tally.psf]\n{psf}\n")).unwrap();
+    (dir, input)
+}
+
+const PSF_SLAB: &str =
+    "depth_lo_nm = 0.0\ndepth_hi_nm = 300.0\nr_min_nm = 5.0\nr_max_nm = 2000.0\nbins = 12";
+
+#[test]
+fn electron_psf_writes_profile_parameters_and_summary() {
+    let (dir, input) = electron_psf_input("electron-psf", PSF_SLAB);
+    let out = dir.join("out");
+    run(&input, &out, &["--histories", "160"]);
+    let profile = std::fs::read_to_string(out.join("electron_psf_profile.csv")).unwrap();
+    let params = std::fs::read_to_string(out.join("electron_psf_parameters.csv")).unwrap();
+    assert!(params.starts_with("model,parameter,value,std_error\n"));
+    // Central disc plus 12 log bins, and a header.
+    assert_eq!(profile.lines().count(), 1 + 13);
+    let s = json(&out.join("electron_summary.json"));
+    assert_eq!(s["files"]["psf_profile"], "electron_psf_profile.csv");
+    assert_eq!(s["files"]["psf_parameters"], "electron_psf_parameters.csv");
+    let p = &s["results"]["psf"];
+    assert_eq!(p["histories"], 160);
+    assert_eq!(p["bins"], 13);
+    assert!(s["results"]["deposition"].get("psf").is_none());
+    // Totals: the profile energies plus what lies beyond r_max.
+    let inside = csv_sum(&profile, "", 4);
+    let total = p["total_ev"].as_f64().unwrap();
+    let beyond = p["beyond_ev"].as_f64().unwrap();
+    assert!(total > 0.0);
+    assert!(
+        ((inside + beyond) - total).abs() <= 1e-9 * total,
+        "{inside} + {beyond} vs {total}"
+    );
+    // Echoed with defaults, and the echo resolves.
+    assert_eq!(s["input"]["electron"]["tally"]["psf"]["fits"][0], "double");
+    assert_eq!(
+        s["input"]["electron"]["tally"]["psf"]["normalization"],
+        "slab-total"
+    );
+    let echo: lindhard::input::electron::ElectronInput =
+        serde_json::from_value(s["input"].clone()).unwrap();
+    echo.resolve_in(&dir).unwrap();
+    // Every requested fit is either reported or recorded as an error.
+    let fits = p["fits"].as_array().unwrap().len() + p["fit_errors"].as_array().unwrap().len();
+    assert_eq!(fits, 2);
+    for f in p["fits"].as_array().unwrap() {
+        assert!(f["converged"].is_boolean() && f["dof"].is_u64());
+    }
+}
+
+#[test]
+fn electron_psf_output_is_byte_identical_across_thread_counts() {
+    let (dir, input) = electron_psf_input("electron-psf-det", PSF_SLAB);
+    let mut outs = Vec::new();
+    for threads in ["1", "4"] {
+        let out = dir.join(format!("out-{threads}"));
+        run(&input, &out, &["--histories", "80", "--threads", threads]);
+        outs.push(out);
+    }
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    for f in ["electron_psf_profile.csv", "electron_psf_parameters.csv"] {
+        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
+    }
+    let (a, b) = (
+        read(&outs[0], "electron_summary.json"),
+        read(&outs[1], "electron_summary.json"),
+    );
+    assert_eq!(deterministic_part(&a), deterministic_part(&b));
+}
+
+#[test]
+fn electron_psf_fit_error_is_reported_and_does_not_abort() {
+    // A slab far below anything the electrons reach: an empty profile.
+    let (dir, input) = electron_psf_input(
+        "electron-psf-empty",
+        "depth_lo_nm = 100000.0\ndepth_hi_nm = 200000.0\nr_min_nm = 5.0\nr_max_nm = 2000.0\nbins = 12",
+    );
+    let out = dir.join("out");
+    run(&input, &out, &["--histories", "32"]);
+    let s = json(&out.join("electron_summary.json"));
+    let p = &s["results"]["psf"];
+    assert_eq!(p["total_ev"], 0.0);
+    assert!(p["fits"].as_array().unwrap().is_empty());
+    let errs = p["fit_errors"].as_array().unwrap();
+    assert_eq!(errs.len(), 2);
+    assert!(errs
+        .iter()
+        .all(|e| !e["error"].as_str().unwrap().is_empty()));
+    let profile = std::fs::read_to_string(out.join("electron_psf_profile.csv")).unwrap();
+    assert_eq!(profile.lines().count(), 1 + 13);
+}
+
+#[test]
+fn electron_psf_input_errors_name_the_field() {
+    for (name, psf, field) in [
+        (
+            "slab",
+            "depth_lo_nm = 5.0\ndepth_hi_nm = 5.0\nr_min_nm = 5.0\nr_max_nm = 50.0\nbins = 4",
+            "electron.tally.psf.depth_hi_nm",
+        ),
+        (
+            "radii",
+            "depth_lo_nm = 0.0\ndepth_hi_nm = 5.0\nr_min_nm = 50.0\nr_max_nm = 5.0\nbins = 4",
+            "electron.tally.psf.r_max_nm",
+        ),
+        (
+            "bins",
+            "depth_lo_nm = 0.0\ndepth_hi_nm = 5.0\nr_min_nm = 5.0\nr_max_nm = 50.0\nbins = 0",
+            "electron.tally.psf.bins",
+        ),
+    ] {
+        let (_, input) = electron_psf_input(&format!("electron-psf-bad-{name}"), psf);
+        let o = lindhard(&["check", input.to_str().unwrap()]);
+        assert!(!o.status.success(), "{name}");
+        let e = String::from_utf8_lossy(&o.stderr);
+        assert!(e.contains(field), "{name}: {e}");
+    }
+    let (_, input) = electron_psf_input(
+        "electron-psf-bad-fit",
+        &format!("{PSF_SLAB}\nfits = [\"quadruple\"]"),
+    );
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    assert!(!o.status.success());
+    assert!(String::from_utf8_lossy(&o.stderr).contains("quadruple"));
+}
+
+#[test]
+fn rerun_removes_stale_electron_psf_csvs() {
+    let (dir, with) = electron_psf_input("reuse-electron-psf", PSF_SLAB);
+    let without = dir.join("without.toml");
+    std::fs::write(
+        &without,
+        std::fs::read_to_string(electron_example()).unwrap(),
+    )
+    .unwrap();
+    let out = dir.join("out");
+    let files = ["electron_psf_profile.csv", "electron_psf_parameters.csv"];
+    run(&with, &out, &["--histories", "32"]);
+    let note = sentinel(&out);
+    assert!(files.iter().all(|f| out.join(f).exists()));
+    run(&without, &out, &["--histories", "32"]);
+    assert!(files.iter().all(|f| !out.join(f).exists()));
+    let s = json(&out.join("electron_summary.json"));
+    assert!(s["files"]["psf_profile"].is_null() && s["files"]["psf_parameters"].is_null());
+    assert!(s["results"].get("psf").is_none());
+    // The existing key stays, as null, so the format version is unchanged.
+    assert!(s["results"]["deposition"].get("psf").is_some());
+    assert!(s["results"]["deposition"]["psf"].is_null());
+    assert!(note.exists());
+    run(&without, &out, &["--histories", "32"]);
+    run(&with, &out, &["--histories", "32"]);
+    assert!(files.iter().all(|f| out.join(f).exists()));
+}
+
+// ---- summary invalidation on rerun (#321) ------------------------------------
+
+/// Runs `input` into `out` with the given extra args; returns the output.
+fn run_raw(input: &Path, out: &Path, extra: &[&str]) -> Output {
+    let mut args = vec![
+        "run",
+        input.to_str().unwrap(),
+        "--out",
+        out.to_str().unwrap(),
+    ];
+    args.extend_from_slice(extra);
+    lindhard(&args)
+}
+
+/// Replaces `out/name` (a file) with a non-empty directory.
+fn obstruct(out: &Path, name: &str) {
+    let p = out.join(name);
+    let _ = std::fs::remove_file(&p);
+    std::fs::create_dir_all(p.join("inner")).unwrap();
+}
+
+fn assert_fails_naming(o: &Output, path: &Path) {
+    assert!(!o.status.success(), "expected failure");
+    let e = String::from_utf8_lossy(&o.stderr);
+    assert!(e.contains(&path.display().to_string()), "{e}");
+}
+
+#[test]
+fn dynamic_rerun_failure_leaves_no_old_summary() {
+    let out = scratch("rerun-dynamic-composition");
+    let ex = dynamic_example();
+    run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+    let steps_before = std::fs::read_to_string(out.join("dynamic_steps.csv")).unwrap();
+    assert!(out.join("dynamic_summary.json").exists());
+    std::fs::write(out.join("unrelated.txt"), "keep").unwrap();
+    obstruct(&out, "dynamic_composition.csv");
+    let o = run_raw(&ex, &out, &["--ions", "50", "--seed", "2"]);
+    assert_fails_naming(&o, &out.join("dynamic_composition.csv"));
+    assert!(!out.join("dynamic_summary.json").exists());
+    let steps_after = std::fs::read_to_string(out.join("dynamic_steps.csv")).unwrap();
+    assert_ne!(steps_before, steps_after, "first CSV was replaced");
+    assert_eq!(std::fs::read(out.join("unrelated.txt")).unwrap(), b"keep");
+}
+
+#[test]
+fn undeletable_old_summary_aborts_before_any_csv_changes() {
+    let out = scratch("rerun-dynamic-summary-stuck");
+    let ex = dynamic_example();
+    run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+    let steps_before = std::fs::read(out.join("dynamic_steps.csv")).unwrap();
+    let comp_before = std::fs::read(out.join("dynamic_composition.csv")).unwrap();
+    obstruct(&out, "dynamic_summary.json");
+    let o = run_raw(&ex, &out, &["--ions", "50", "--seed", "2"]);
+    assert_fails_naming(&o, &out.join("dynamic_summary.json"));
+    assert_eq!(
+        std::fs::read(out.join("dynamic_steps.csv")).unwrap(),
+        steps_before
+    );
+    assert_eq!(
+        std::fs::read(out.join("dynamic_composition.csv")).unwrap(),
+        comp_before
+    );
+}
+
+#[test]
+fn ion_rerun_failures_leave_no_old_summary_and_spare_other_modes() {
+    let ex = examples_dir().join("b_5keV_si.toml");
+    // A required write fails, then an optional removal fails.
+    for (name, file) in [
+        ("rerun-ion-required", "damage_profile.csv"),
+        ("rerun-ion-optional", "ions.csv"),
+    ] {
+        let out = scratch(name);
+        run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+        std::fs::write(out.join("dynamic_summary.json"), "other mode").unwrap();
+        std::fs::write(out.join("electron_summary.json"), "other mode").unwrap();
+        std::fs::write(out.join("unrelated.txt"), "keep").unwrap();
+        obstruct(&out, file);
+        let o = run_raw(&ex, &out, &["--ions", "50", "--seed", "2"]);
+        assert_fails_naming(&o, &out.join(file));
+        assert!(!out.join("summary.json").exists(), "{file}");
+        for keep in ["dynamic_summary.json", "electron_summary.json"] {
+            assert_eq!(std::fs::read(out.join(keep)).unwrap(), b"other mode");
+        }
+        assert_eq!(std::fs::read(out.join("unrelated.txt")).unwrap(), b"keep");
+    }
+}
+
+#[test]
+fn electron_rerun_failures_leave_no_old_summary_and_spare_other_modes() {
+    let ex = electron_example();
+    for (name, file) in [
+        ("rerun-electron-required", "electron_tables.csv"),
+        ("rerun-electron-optional", "electron_psf_profile.csv"),
+    ] {
+        let out = scratch(name);
+        run(&ex, &out, &["--histories", "32", "--seed", "1"]);
+        assert!(out.join("electron_summary.json").exists());
+        std::fs::write(out.join("summary.json"), "other mode").unwrap();
+        std::fs::write(out.join("unrelated.txt"), "keep").unwrap();
+        obstruct(&out, file);
+        let o = run_raw(&ex, &out, &["--histories", "32", "--seed", "2"]);
+        assert_fails_naming(&o, &out.join(file));
+        assert!(!out.join("electron_summary.json").exists(), "{file}");
+        assert_eq!(
+            std::fs::read(out.join("summary.json")).unwrap(),
+            b"other mode"
+        );
+        assert_eq!(std::fs::read(out.join("unrelated.txt")).unwrap(), b"keep");
+    }
+}
+
+#[test]
+fn successful_rerun_publishes_summary_without_temp_files() {
+    let out = scratch("rerun-success");
+    let ex = dynamic_example();
+    run(&ex, &out, &["--ions", "50", "--seed", "1"]);
+    run(&ex, &out, &["--ions", "50", "--seed", "2"]);
+    json(&out.join("dynamic_summary.json"));
+    let mut names: Vec<String> = std::fs::read_dir(&out)
+        .unwrap()
+        .map(|e| e.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    names.sort();
+    assert_eq!(
+        names,
+        [
+            "dynamic_composition.csv",
+            "dynamic_steps.csv",
+            "dynamic_summary.json"
+        ]
+    );
+}

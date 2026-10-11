@@ -1,0 +1,61 @@
+{
+  "kind": "se_yield",
+  "id": "se_si_czaja1966",
+  "target": "Si",
+  "target_state": "as compiled; crystalline or not, and surface state, not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 10000.0,
+      "energy_kev_printed": "10.0",
+      "yield": 0.215,
+      "yield_printed": "0.215"
+    },
+    {
+      "energy_ev": 15000.0,
+      "energy_kev_printed": "15.0",
+      "yield": 0.136,
+      "yield_printed": "0.136"
+    },
+    {
+      "energy_ev": 20000.0,
+      "energy_kev_printed": "20.0",
+      "yield": 0.104,
+      "yield_printed": "0.104"
+    },
+    {
+      "energy_ev": 25000.0,
+      "energy_kev_printed": "25.0",
+      "yield": 0.081,
+      "yield_printed": "0.081"
+    },
+    {
+      "energy_ev": 30000.0,
+      "energy_kev_printed": "30.0",
+      "yield": 0.075,
+      "yield_printed": "0.075"
+    },
+    {
+      "energy_ev": 35000.0,
+      "energy_kev_printed": "35.0",
+      "yield": 0.072,
+      "yield_printed": "0.072"
+    },
+    {
+      "energy_ev": 40000.0,
+      "energy_kev_printed": "40.0",
+      "yield": 0.0584,
+      "yield_printed": "0.0584"
+    }
+  ],
+  "original_reference": "Czaja W, (1966), J. appl. Phys  37, 4236",
+  "compilation_reference_number": 17,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Si' heading, data set #3 of 9 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

@@ -1,0 +1,86 @@
+{
+  "format": "lindhard-oracle-electron-summary/1",
+  "problem": "e_20keV_si",
+  "oracle": "Geant4 MicroElec",
+  "oracle_version": "v11.4.3",
+  "oracle_commit": "2ee379e6843e55b9c6bbb835d2a2b03cc998fef0",
+  "oracle_source": "https://github.com/Geant4/geant4",
+  "oracle_build": "cmake -DCMAKE_BUILD_TYPE=Release -DGEANT4_BUILD_MULTITHREADED=ON -DGEANT4_INSTALL_DATA=ON (G4EMLOW 8.8), AppleClang 21.0.0; application validation/oracles/geant4_microelec at lindhard 6ffd486",
+  "oracle_license": "Geant4 Software License; MicroElec run unmodified as an oracle (papers and outputs only), through our own application validation/oracles/geant4_microelec/ written from the Geant4 user guides",
+  "lindhard_version": "lindhard 0.0.1 (6ffd486)",
+  "date": "2026-10-07",
+  "host": "Darwin arm64, 18 logical CPUs, load average 12.0 at start",
+  "histories": {
+    "lindhard": 4000,
+    "oracle": 4000
+  },
+  "batches": 10,
+  "lindhard": {
+    "eta": 0.17225,
+    "delta": 0.1615,
+    "primary_depth_nm": 1589.82,
+    "r50_nm": 979.074,
+    "std_err": {
+      "eta": 0.00602599,
+      "delta": 0.010228,
+      "primary_depth_nm": 15.2098,
+      "r50_nm": 7.28056
+    }
+  },
+  "oracle_values": {
+    "eta": 0.59325,
+    "delta": 0.00825,
+    "primary_depth_nm": 802.882,
+    "r50_nm": 588.837,
+    "std_err": {
+      "eta": 0.0060329,
+      "delta": 0.00123884,
+      "primary_depth_nm": 14.391,
+      "r50_nm": 8.14634
+    }
+  },
+  "comparison": {
+    "eta_abs_diff": -0.421,
+    "eta_abs_diff_se": 0.00852692,
+    "eta_z": -49.3731,
+    "delta_abs_diff": 0.15325,
+    "delta_abs_diff_se": 0.0103027,
+    "delta_z": 14.8747,
+    "primary_depth_rel_diff": 0.980144,
+    "primary_depth_rel_diff_se": 0.0402317,
+    "primary_depth_z": 24.3624,
+    "r50_rel_diff": 0.662726,
+    "r50_rel_diff_se": 0.0261156,
+    "r50_z": 25.3766
+  },
+  "tolerance": {
+    "applies": false,
+    "note": "delta, primary_depth_nm, every 1 keV result, and every Geant4 MicroElec result are reported without pass/fail"
+  },
+  "wall_s": {
+    "lindhard": 257.457,
+    "oracle": 8.58065
+  },
+  "materials": null,
+  "oracle_settings": {
+    "application": "validation/oracles/geant4_microelec/lindhard_microelec.cc",
+    "physics": "G4EmStandardPhysics_option4 with G4EmParameters::AddMicroElec(\"Target\") on the slab's region; default cut 1 nm",
+    "material": "G4_Si",
+    "geometry": "slab 0 <= z <= 100 um, half width 100 um, in G4_Galactic; primaries from z = -1 nm along +z",
+    "threads": 18,
+    "seed": 1,
+    "deposit": "G4Step::GetTotalEnergyDeposit at the post-step point, in the slab",
+    "escape": "electrons crossing z = 0 out of the slab, at their kinetic energy there (no surface barrier in this setup)"
+  },
+  "matched": [
+    "SE/BSE split 50 eV, E = 50 eV counted as backscattered",
+    "normal incidence, primaries entering at the beam axis",
+    "same target element and density basis (G4_Si; lindhard's element table)"
+  ],
+  "mismatches": [
+    "every cross section differs: MicroElec uses its own dielectric-formalism inelastic and partial-wave elastic models for Si (Valentin et al. 2012); lindhard the single-pole Penn model on cstool's ELF and its Thomas-Fermi Yukawa Mott stand-in",
+    "low-energy end: MicroElec kills electrons below 16.7 eV and deposits their energy locally (Physics Reference Manual 11.4); lindhard follows electrons to the vacuum level. delta is therefore not comparable in kind",
+    "surface: no surface barrier in the Geant4 setup (electrons escape at their kinetic energy inside); lindhard applies the step barrier from cstool's band parameters",
+    "random-number streams differ; agreement is statistical only"
+  ]
+}

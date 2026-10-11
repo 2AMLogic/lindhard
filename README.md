@@ -6,26 +6,14 @@ sputtering and backscatter for ions, and energy deposition for low-energy
 electrons. SRIM/TRIM covers the same problem class; lindhard uses none of its
 code or data.
 
-> **Status: early, pre-release (0.0.1).** Most of milestone M0, the amorphous
-> ion core, has landed: materials and the element table, deterministic
-> per-ion random streams and a parallel driver, screened potentials and the
-> scattering integral, electronic stopping, the 1D layered BCA engine with
-> full recoil cascades, range, damage and sputter/backscatter tallies, and the
-> CLI. Validation levels 1 (analytic checks, in CI) and 2 (code-to-code
-> oracles) are in place, and level 3 has its first experimental dataset (B in
-> amorphous Si; P and As remain open under #51). Known deviations are
-> reported, not hidden: with the default inputs the computed B ranges run long
-> against that measurement, and the Ar → Cu sputter yield sits about 2x below
-> RustBCA's. The investigation in #61 found that the default engine sends too
-> much energy to electronic loss at low energy, because nuclear loss is cut off
-> at p_max while electronic loss is not. #64 added TRIDYN-style weak collisions
-> as an opt-in (`physics.weak_collisions`), which brings the cascade's
-> electronic share into line with the LNST partition but lowers the sputter
-> yield further, so the gap to RustBCA remains open under #61. See
-> [`docs/validation.md`](docs/validation.md),
-> [`WORK_PLAN.md`](WORK_PLAN.md) for milestones and
-> [`docs/architecture.md`](docs/architecture.md) for the design. The electron
-> engine (M1) and crystalline targets (M2) are not started.
+> **Status: early, pre-release (0.0.1).** The amorphous ion core (milestone
+> M0) is the most mature part, with the electron engine (M1), crystalline
+> targets (M2) and dynamic composition and geometry (M3) under active
+> development. Milestones and their state are tracked in
+> [`WORK_PLAN.md`](WORK_PLAN.md), the design in
+> [`docs/architecture.md`](docs/architecture.md). Known deviations from
+> published data and from other codes are reported, not hidden, in
+> [`docs/validation.md`](docs/validation.md).
 
 ## Quick start
 
@@ -60,7 +48,7 @@ lindhard aims to be **permissive, embeddable, fast, reproducible and
 validated**:
 
 - MIT license, with no copyleft dependency anywhere in the build.
-- A library first; the CLI and later Python/WASM bindings sit on top of it.
+- A library first; the CLI and the Python bindings sit on top of it (WASM later).
 - Every ion runs on its own seeded random stream, so results do not depend on
   the thread count.
 - Every model is checked against analytic limits, independent codes and
@@ -81,7 +69,10 @@ cover both halves of this project.
 |---|---|
 | [`lindhard/`](lindhard/README.md) | The library: materials, potentials, stopping, transport, tallies |
 | [`lindhard-cli/`](lindhard-cli/README.md) | `lindhard` binary: TOML in, JSON/CSV out |
+| [`lindhard-py/`](lindhard-py/README.md) | `lindhard` Python package (pyo3 + maturin): NumPy arrays out, same TOML schema |
 | [`examples/`](examples/README.md) | Example CLI inputs |
+| [`book/`](book/README.md) | Source of the lindhard book (physics manual and user guide), built with mdBook |
+| [`tools/`](tools/README.md) | Developer tools: profiling helpers |
 | [`validation/`](validation/README.md) | Validation harness: oracle runner, experimental datasets, results |
 | [`docs/`](docs/README.md) | Design, physics and project documentation (index below) |
 
@@ -100,6 +91,8 @@ cover both halves of this project.
   first numbers.
 - [`docs/data-provenance.md`](docs/data-provenance.md): where every dataset
   comes from.
+- [`docs/python.md`](docs/python.md): the Python bindings.
+- [`docs/README.md`](docs/README.md): the full documentation index.
 - [`docs/prior-art.md`](docs/prior-art.md) and
   [`docs/history.md`](docs/history.md): the survey and the lineage.
 

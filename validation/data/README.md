@@ -24,6 +24,41 @@ derived from it, or any other code's output, however well known
   decision (#70). Every point has a manual second read
   (`digitize/secondread_ar_*_am32.json`), and the symbols that NIFS-DATA-23
   separates a second compilation read (`digitize/crosscheck_ar_*_nifs23.json`).
+- **Optical ELF, Al, Cu, glassy C and Au:**
+  `optical/{al,cu,c,au}_elf_hagemann1975.toml`, ELF converted by
+  `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz (1975) as
+  transcribed in the CC0 refractiveindex.info database (Al and Cu #98, C and
+  Au #148), with a second read against the scanned tables of DESY report
+  SR-74/7 (`optical/secondread_hagemann1975.json`). Sum-rule test:
+  `lindhard/tests/optical_sumrule.rs` (gated on the linear interpolation `elf()` serves: Al N_eff and P_eff,
+  Cu N_eff, C N_eff and Au N_eff miss 5 % and are pinned with their
+  explanation; power-law segments are kept as a labelled comparison, where C
+  N_eff also misses).
+- **Optical ELF, Au, second version:** `optical/au_elf_hagemann1975_t6.toml`,
+  Table 6 of the same report (from reflectance, 1.5 to 350 eV) with Table 5
+  outside, converted by `ingest_hagemann.py --patch` and second-read against
+  the scan (#314). Used only by the `au-elf-table6` row of
+  `experiments/se_yield_candidates.py`. Power-law N_eff misses by -12 % and
+  is pinned; the seams at 1.5 and 350 eV are not smooth and are pinned too.
+- **Optical ELF, Si:** `optical/si_elf_yang2019.toml`, the bulk ELF of Yang
+  et al., Phys. Rev. B 100, 245209 (2019), from REELS, 0.5 to 199 eV,
+  digitized from their Fig. 7 by `digitize/yang2019_si_elf.py`, with a second
+  read from their Fig. 6(b) (`digitize/secondread_si_yang2019.json`) (#125).
+  Ends at 199 eV (no K shell): P_eff passes against the nonconductor target,
+  N_eff (7.66 of 14) is pinned as the truncation.
+- **Electron backscatter coefficients, C, Al, Si, Cu and Au:**
+  `backscatter/eta_<el>_<author><year>.json`, 57 measured sets (one per
+  original measurement and element, 380 points, 0.1 to 102 keV), transcribed
+  from the tables of D. C. Joy's database (revision 01-01, 2001, read in its
+  Internet Archive copy) by `backscatter/ingest_joy2001.py`, and re-read from
+  the independent Akbari (2022) database
+  (`backscatter/crosscheck_akbari2022.json`) (#148).
+- **Secondary-electron yields, Al, Cu, Si and Au:** `se_yield/se_<el>_<author><year>.json`,
+  44 measured sets (12 Al, 12 Cu, 10 Si including one amorphous, 10 Au),
+  transcribed from the tables of D. C. Joy's database (Revision 01-01, 2001)
+  by `digitize/joy_se_yield_ingest.py` (#149); one file per original
+  measurement, never merged. The compilation states no angle of incidence
+  and no per-set secondary-energy cutoff; see the schema below.
 - **P and As in amorphous Si:** open gaps (#51). What was searched, and why
   the one source found could not be used, is in
   [`docs/data-provenance.md`](../../docs/data-provenance.md).
@@ -42,6 +77,9 @@ seen.
 validation/data/ranges/<id>.json      one dataset: metadata + moments
 validation/data/ranges/<id>.csv       optional depth profile (depth_nm,value)
 validation/data/sputtering/<id>.json  one measured sputter-yield set: metadata + points
+validation/data/backscatter/<id>.json one measured electron backscatter set: metadata + points
+validation/data/optical/<id>.toml     measured optical energy-loss functions (ELF)
+                                      and the scripts that ingested them
 validation/data/digitize/             scripts that digitized a figure (not run
                                       by the harness; may need numpy/Pillow/scipy),
                                       and their cross-check records
@@ -164,6 +202,79 @@ Rules:
   statistics (`energy_groups` in `validation/experiments/run.py`). No stored
   point is flagged at present.
 
+## Backscatter-coefficient schema (`backscatter/<id>.json`)
+
+One file per *original measurement set* and target, holding all its points;
+sets of the same (E, Z) are never merged or averaged in the files.
+`validation/experiments/backscatter.py` takes the median at run time.
+
+```json
+{
+  "kind": "backscatter_coefficient",
+  "id": "eta_<el>_<firstauthor><year>",
+  "target": "Al", "z": 13,
+  "target_state": "as stated by the source, or 'not stated'",
+  "incidence_deg": 0.0,
+  "incidence_note": "what the source says about the geometry",
+  "eta_threshold_note": "the SE/BSE energy split, if the source states it",
+  "points": [ { "energy_ev": 10000.0, "eta": 0.15, "eta_unc_abs": 0.005 } ],
+  "original_reference": "Authors, Journal Volume, Page (Year)",
+  "original_doi": "10.xxxx/... or null",
+  "original_reference_note": "Crossref check, discrepancies, 'not opened'",
+  "compilation": "the secondary source that was read",
+  "compilation_set": "where in it (heading, data set number)",
+  "compilation_reference_number": 2,
+  "url": "where the compilation was read",
+  "crosscheck": { "compilation": "...", "agreement": "...", "record": "..." },
+  "extraction": "how the numbers were taken, and what the uncertainty is",
+  "terms": "Facts, cited; ...",
+  "added": "YYYY-MM-DD"
+}
+```
+
+Rules:
+
+- `eta_unc_abs` is never zero. When the source gives no measurement
+  uncertainty, it is half a unit of the last printed digit and `extraction`
+  says so.
+- `incidence_deg` is required, as for sputter yields; only normal-incidence
+  sets enter the comparison.
+- A set whose original measurement cannot be named is not stored (the
+  Akbari-only sets, `docs/data-provenance.md`).
+
+## Secondary-electron-yield schema (`se_yield/<id>.json`)
+
+One file per original measurement set (one reference, one material), id
+`se_<el>_<firstauthor><year>` (the author and year as the compilation's
+reference list prints them; a repeat gets `_2`).
+
+```json
+{
+  "kind": "se_yield", "id": "se_cu_septier1985", "target": "Cu",
+  "target_state": "as compiled; ...",
+  "incidence_deg": null, "incidence_note": "not stated by the compilation ...",
+  "points": [ { "energy_ev": 20.0, "energy_kev_printed": "0.02", "yield": 1.118, "yield_printed": "1.118" } ],
+  "original_reference": "reference-list entry as printed", "compilation_reference_number": 81,
+  "compilation": "...", "compilation_location": "Section 1(a), 'Copper' heading, data set #10 of 12",
+  "url": "...", "extraction": "...", "se_energy_range": "...", "terms": "...", "added": "YYYY-MM-DD"
+}
+```
+
+Rules:
+
+- Values are the compilation's, as printed (including duplicate energies and
+  the printed precision). Nothing is fitted, interpolated or normalised.
+- `incidence_deg` is a number, or `null` with an `incidence_note` when the
+  source does not say. The compilation says nothing about incidence, so every
+  file is `null`; the simulation uses normal incidence and the comparison
+  states that the measured sets' incidence is unconfirmed.
+- The statistic that is compared (the "measured median" of E_max and δ_max)
+  is defined in the docstring of `validation/experiments/se_yield.py` and in
+  `docs/validation.md`; it uses only data sets that resolve their maximum.
+- `validation/experiments/se_yield.py --check` requires the fields above, a
+  positive energy and yield in every point, and a row in
+  `docs/data-provenance.md` naming the `id`.
+
 ## Enforced
 
 `validation/experiments/run.py` (and `--check`, which `validation/run.sh`
@@ -187,5 +298,54 @@ and, for a sputter-yield dataset, if it:
   `energy_unc_rel` or `yield_unc_rel`;
 - has no row in `docs/data-provenance.md` that names its `id`.
 
+and, for a backscatter dataset (`validation/experiments/backscatter.py
+--check`), if it has a `kind` other than `backscatter_coefficient`, lacks a
+non-empty `id` (equal to the file name), `target`, `target_state`,
+`original_reference`, `compilation`, `compilation_set`, `extraction`, `terms`
+or `added`, or both of `original_doi` and `url`, has no positive integer `z`,
+no numeric `incidence_deg`, no points, a point without a positive
+`energy_ev` or `eta_unc_abs` or with `eta` outside (0, 1), or no row in
+`docs/data-provenance.md` that names its `id`.
+
 `validation/experiments/test_run.py` (run by `validation/run.sh`) checks
 that each of these failures is caught.
+
+What the checker does **not** enforce (not schema rules at present): the
+nominal plotting range of a figure (the stored points span 196.3 to
+10 020 eV, and seven lie just outside 200-10 000 eV), any
+particular wording of free-text fields such as `terms`, `target_state` or
+`original_reference` (only that the required ones are non-empty), the
+presence of `crosscheck` or `reliability_note`, and the absence of
+additional top-level keys. Tightening any of these needs its own schema
+decision, not an incidental check.
+
+## Sensitivity scenarios (sputter yields, #78)
+
+The level-3 sputter summary in `docs/validation.md` compares lindhard with
+the median of **every** stored set; that is the baseline and it does not
+change. Below it, a generated table repeats the comparison with sets whose
+attribution or target state is doubtful left out. The scenarios are the
+named table `SENSITIVITY_SCENARIOS` in `validation/update_docs.py`: each
+row names existing dataset `id`s of one target and the place where the
+caveat is stored (the dataset's `target_state` or `original_reference`, or
+the "Titles that name another system" paragraph of `docs/validation.md`).
+Nothing is inferred from prose, and the datasets carry no exclusion marker.
+`update_docs.py` stops with a message naming the scenario if an `id` is
+unknown, listed twice, or belongs to another target, if a caveat source is
+not one of those three, or if two scenarios are identical.
+
+For each scenario the remaining sets of the target are filtered **first**,
+then regrouped by the unchanged `energy_groups` rule (2 % grouping, normal
+incidence, flagged points left out, median). Leaving a set out can
+therefore change a group's median and its representative energy, or remove
+the group. The code yields are the committed ones (`results.json`, and the
+RustBCA summaries where present): exact at a run energy, otherwise
+interpolated linearly in log E - log Y between the two bracketing run
+energies, for positive yields only. That interpolation approximates the
+committed code curve; it is not a new simulation and not an uncertainty
+estimate. Precomputed ratios are never interpolated and nothing is
+extrapolated: an energy outside the runs is listed as unsupported and the
+row is marked partial; a scenario with no remaining energies, or a code
+that was not run, is reported as unavailable. The no-exclusion row is
+recomputed by the same path and must reproduce the committed baseline to
+its printed precision, or `update_docs.py` stops.

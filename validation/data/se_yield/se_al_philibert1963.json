@@ -1,0 +1,25 @@
+{
+  "kind": "se_yield",
+  "id": "se_al_philibert1963",
+  "target": "Al",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 5000.0,
+      "energy_kev_printed": "5.0",
+      "yield": 0.252,
+      "yield_printed": "0.252"
+    }
+  ],
+  "original_reference": "Philibert J and Weinryb E, (1963), Proc. 3rd Conf on X-ray Optics and Microanalysis p163;  also E.Weinryb and J Philibert, (1964), C.R.Acad.Sci., 256, 4535",
+  "compilation_reference_number": 7,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Al' heading, data set #7 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

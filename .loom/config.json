@@ -11,6 +11,9 @@
   "runtimes": {
     "default": "claude"
   },
+  "cargo": {
+    "perWorktreeTargetDir": true
+  },
   "safehouse": {
     "enabled": false,
     "socket": null,

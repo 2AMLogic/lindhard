@@ -384,6 +384,17 @@ impl ScatteringTable {
     /// Interpolated centre-of-mass angle (radians), or `None` if `eps` is out
     /// of the tabulated range.
     pub fn theta(&self, eps: f64, beta: f64) -> Option<f64> {
+        self.half_angle_tan(eps, beta).map(|t| 2.0 * t.atan())
+    }
+
+    /// Interpolated `tan(theta / 2)` (the stored quantity is its logarithm),
+    /// or `None` if `eps` is out of the tabulated range; `0.0` for
+    /// `beta >= beta_max`. [`ScatteringTable::theta`] is `2 atan` of this.
+    ///
+    /// The collision code needs `sin` and `cos` of `theta / 2` (energy
+    /// transfer, lab angles), which follow from the tangent by algebra, so it
+    /// avoids the `atan` here and the trigonometric calls that would undo it.
+    pub fn half_angle_tan(&self, eps: f64, beta: f64) -> Option<f64> {
         if !(eps >= self.spec.eps_min && eps <= self.spec.eps_max) {
             return None;
         }
@@ -399,7 +410,7 @@ impl ScatteringTable {
         let at = |a: usize, b: usize| self.y[a * self.n_beta + b];
         let y = (1.0 - ti) * ((1.0 - tj) * at(i, j) + tj * at(i, j + 1))
             + ti * ((1.0 - tj) * at(i + 1, j) + tj * at(i + 1, j + 1));
-        Some(2.0 * y.exp().atan())
+        Some(y.exp())
     }
 
     /// Number of grid points in `(eps, beta)`.

@@ -1,0 +1,97 @@
+{
+  "kind": "se_yield",
+  "id": "se_au_rothwell1988",
+  "target": "Au",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 200.0,
+      "energy_kev_printed": "0.2",
+      "yield": 0.95,
+      "yield_printed": "0.95"
+    },
+    {
+      "energy_ev": 300.0,
+      "energy_kev_printed": "0.3",
+      "yield": 1.2,
+      "yield_printed": "1.20"
+    },
+    {
+      "energy_ev": 400.0,
+      "energy_kev_printed": "0.4",
+      "yield": 1.45,
+      "yield_printed": "1.45"
+    },
+    {
+      "energy_ev": 520.0,
+      "energy_kev_printed": "0.52",
+      "yield": 1.42,
+      "yield_printed": "1.42"
+    },
+    {
+      "energy_ev": 700.0,
+      "energy_kev_printed": "0.7",
+      "yield": 1.54,
+      "yield_printed": "1.54"
+    },
+    {
+      "energy_ev": 800.0,
+      "energy_kev_printed": "0.8",
+      "yield": 1.51,
+      "yield_printed": "1.51"
+    },
+    {
+      "energy_ev": 900.0,
+      "energy_kev_printed": "0.9",
+      "yield": 1.46,
+      "yield_printed": "1.46"
+    },
+    {
+      "energy_ev": 1000.0,
+      "energy_kev_printed": "1.0",
+      "yield": 1.46,
+      "yield_printed": "1.46"
+    },
+    {
+      "energy_ev": 1500.0,
+      "energy_kev_printed": "1.5",
+      "yield": 1.1,
+      "yield_printed": "1.10"
+    },
+    {
+      "energy_ev": 2000.0,
+      "energy_kev_printed": "2.0",
+      "yield": 1.05,
+      "yield_printed": "1.05"
+    },
+    {
+      "energy_ev": 2500.0,
+      "energy_kev_printed": "2.5",
+      "yield": 0.94,
+      "yield_printed": "0.94"
+    },
+    {
+      "energy_ev": 3000.0,
+      "energy_kev_printed": "3.0",
+      "yield": 0.9,
+      "yield_printed": "0.90"
+    },
+    {
+      "energy_ev": 3500.0,
+      "energy_kev_printed": "3.5",
+      "yield": 0.8,
+      "yield_printed": "0.8"
+    }
+  ],
+  "original_reference": "Rothwell T.E., and Russell P.E., (1988), in \"Microbeam Analysis -1988\", ed D.E.Newbury,  (San Francisco Press:San Francisco), 149",
+  "compilation_reference_number": 69,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Au' heading, data set #7 of 10 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

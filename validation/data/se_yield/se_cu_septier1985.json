@@ -1,0 +1,91 @@
+{
+  "kind": "se_yield",
+  "id": "se_cu_septier1985",
+  "target": "Cu",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 20.0,
+      "energy_kev_printed": "0.02",
+      "yield": 1.118,
+      "yield_printed": "1.118"
+    },
+    {
+      "energy_ev": 60.0,
+      "energy_kev_printed": "0.06",
+      "yield": 1.265,
+      "yield_printed": "1.265"
+    },
+    {
+      "energy_ev": 100.0,
+      "energy_kev_printed": "0.1",
+      "yield": 1.442,
+      "yield_printed": "1.442"
+    },
+    {
+      "energy_ev": 175.0,
+      "energy_kev_printed": "0.175",
+      "yield": 1.554,
+      "yield_printed": "1.554"
+    },
+    {
+      "energy_ev": 250.0,
+      "energy_kev_printed": "0.25",
+      "yield": 1.573,
+      "yield_printed": "1.573"
+    },
+    {
+      "energy_ev": 300.0,
+      "energy_kev_printed": "0.3",
+      "yield": 1.561,
+      "yield_printed": "1.561"
+    },
+    {
+      "energy_ev": 400.0,
+      "energy_kev_printed": "0.4",
+      "yield": 1.492,
+      "yield_printed": "1.492"
+    },
+    {
+      "energy_ev": 500.0,
+      "energy_kev_printed": "0.5",
+      "yield": 1.404,
+      "yield_printed": "1.404"
+    },
+    {
+      "energy_ev": 700.0,
+      "energy_kev_printed": "0.7",
+      "yield": 1.277,
+      "yield_printed": "1.277"
+    },
+    {
+      "energy_ev": 1000.0,
+      "energy_kev_printed": "1.0",
+      "yield": 1.097,
+      "yield_printed": "1.097"
+    },
+    {
+      "energy_ev": 1500.0,
+      "energy_kev_printed": "1.5",
+      "yield": 0.925,
+      "yield_printed": "0.925"
+    },
+    {
+      "energy_ev": 2000.0,
+      "energy_kev_printed": "2.0",
+      "yield": 0.859,
+      "yield_printed": "0.859"
+    }
+  ],
+  "original_reference": "Septier A and Belgarovi M, (1985), IEEE Trans. on Electrical Insulators, EI-20, 725",
+  "compilation_reference_number": 81,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Cu' heading, data set #10 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

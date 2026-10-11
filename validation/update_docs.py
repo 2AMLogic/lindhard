@@ -4,10 +4,12 @@ comments, so a rerun is idempotent:
 
     <!-- validation:level1:begin --> ... <!-- validation:level1:end -->
     <!-- validation:level2:begin --> ... <!-- validation:level2:end -->
+    <!-- validation:electron-oracles:begin --> ... <!-- validation:electron-oracles:end -->
     <!-- validation:level3:begin --> ... <!-- validation:level3:end -->
     <!-- validation:level3-sputter:begin --> ... <!-- validation:level3-sputter:end -->
     <!-- validation:level3-sputter-crosscheck:begin --> ... <!-- validation:level3-sputter-crosscheck:end -->
     <!-- validation:level3-sputter-summary:begin --> ... <!-- validation:level3-sputter-summary:end -->
+    <!-- validation:level3-backscatter:begin --> ... <!-- validation:level3-backscatter:end -->
 
 Level 1 comes from the Markdown the harness writes (LINDHARD_VALIDATION_OUT),
 level 2 from the committed oracle summaries, level 3 from
@@ -18,7 +20,10 @@ committed digitizing cross-check records (validation/data/digitize/
 crosscheck_ar_*_nifs23.json, secondread_ar_*_am32.json). Every number in the
 sputter-yield interpretation, and every comparative word in it ("consistent
 with one common value", "monotonic", "flat", "between"), is computed here by a
-rule stated in the code next to it (#70). Called by validation/run.sh.
+rule stated in the code next to it (#70). The summary block ends with a
+sensitivity table: the same comparison with the sets named in
+SENSITIVITY_SCENARIOS left out, regrouped from the committed datasets (#78).
+Called by validation/run.sh.
 
 Usage: validation/update_docs.py [--level1 FILE] [--check]
 
@@ -39,6 +44,15 @@ ROOT = Path(__file__).resolve().parents[1]
 DOC = ROOT / "docs" / "validation.md"
 SUMMARIES = ROOT / "validation" / "oracles" / "summaries"
 RESULTS = ROOT / "validation" / "experiments" / "results.json"
+SPUTTER_DATA = ROOT / "validation" / "data" / "sputtering"
+BACKSCATTER_RESULTS = ROOT / "validation" / "experiments" / "backscatter_results.json"
+
+sys.path.insert(0, str(ROOT / "validation" / "experiments"))
+import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
+import se_yield  # noqa: E402  (secondary-electron yield tables, #149)
+
+sys.path.append(str(ROOT / "validation" / "oracles"))
+import run_electron  # noqa: E402  (compare and tolerance: the one comparison rule of the electron oracles, #150)
 
 
 def splice(text: str, name: str, body: str) -> str:
@@ -93,6 +107,127 @@ def level2() -> str:
         "count, marginal removes fixed setup costs (see each summary's `timing`). Every row's settings, "
         "both sides' values and the full list of mismatches are in its file under "
         "`validation/oracles/summaries/`."
+    )
+    return "\n".join(lines)
+
+
+ELECTRON_PROBLEMS = ROOT / "validation" / "oracles" / "electron_problems.json"
+ELECTRON_ORACLES = (("Nebula", "nebula"), ("Geant4 MicroElec", "geant4_microelec"))
+
+
+def electron_oracles() -> str:
+    """The matched-problem table of the electron oracles (#150), from the
+    committed `lindhard-electron-<problem>.json` and `<oracle>-<problem>.json`
+    summaries that validation/oracles/run_electron.py writes. One row per code
+    and problem: each metric with its batch-means standard error, and on an
+    oracle's row the difference lindhard minus oracle (absolute for the
+    yields, relative for the lengths) with its combined standard error and z.
+    The tolerance column applies the rule stored in the summary itself."""
+    if not ELECTRON_PROBLEMS.exists():
+        return "_No electron problems defined._"
+    spec = json.loads(ELECTRON_PROBLEMS.read_text())
+    lines = [
+        "| Problem | Code (version, commit) | Histories | η | δ | Primary depth (nm) | r50 (nm) | Tolerance (vs Nebula) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+
+    def val(x, se, digits: int) -> str:
+        if x is None:
+            return "n/a"
+        if digits == 1 and abs(x) < 100:
+            digits = 2  # lengths below 100 nm: one more decimal, so that the error shows
+        return f"{x:.{digits}f} ± {se:.{digits}f}" if se is not None else f"{x:.{digits}f}"
+
+    def diff(c: dict, metric: str) -> str:
+        if metric in ("eta", "delta"):
+            d, se, z = c.get(f"{metric}_abs_diff"), c.get(f"{metric}_abs_diff_se"), c.get(f"{metric}_z")
+            if d is None:
+                return ""
+            s = f"{d:+.3f}" + (f" ± {se:.3f}" if se is not None else "")
+        else:
+            key = metric.removesuffix("_nm")
+            d, se, z = c.get(f"{key}_rel_diff"), c.get(f"{key}_rel_diff_se"), c.get(f"{key}_z")
+            if d is None:
+                return ""
+            s = f"{100 * d:+.1f} %" + (f" ± {100 * se:.1f} %" if se is not None else "")
+        return f"<br>Δ {s}" + (f" ({abs(z):.1f}σ)" if z is not None else "")
+
+    any_row = False
+    stale: set[str] = set()
+    for p in spec["problems"]:
+        pid = p["id"]
+        ours_path = SUMMARIES / f"lindhard-electron-{pid}.json"
+        if not ours_path.exists():
+            lines.append(f"| `{pid}` | lindhard | - | not run | not run | not run | not run | - |")
+            continue
+        any_row = True
+        o = json.loads(ours_path.read_text())
+        v, se = o["values"], o["std_err"]
+        lines.append(
+            f"| `{pid}` | lindhard ({o['lindhard_version'].removeprefix('lindhard ')}) | {o['histories']} "
+            f"| {val(v['eta'], se['eta'], 3)} | {val(v['delta'], se['delta'], 3)} "
+            f"| {val(v['primary_depth_nm'], se['primary_depth_nm'], 1)} | {val(v['r50_nm'], se['r50_nm'], 1)} | - |"
+        )
+        for name, slug in ELECTRON_ORACLES:
+            path = SUMMARIES / f"{slug}-{pid}.json"
+            if not path.exists():
+                why = ("not applicable (MicroElec: silicon only)"
+                       if slug == "geant4_microelec" and not p.get("geant4_material") else "**not run**")
+                lines.append(f"| `{pid}` | {name} | - | {why} | | | | - |")
+                continue
+            s = json.loads(path.read_text())
+            if s.get("format") != "lindhard-oracle-electron-summary/1":
+                sys.exit(f"error: {path.name} is not a lindhard-oracle-electron-summary/1; "
+                         f"rerun validation/oracles/run_electron.py for {pid}")
+            ov, ose, c = s["oracle_values"], s["oracle_values"]["std_err"], s["comparison"]
+            t = s["tolerance"]
+            earlier = s.get("lindhard_version") != o["lindhard_version"]
+            if earlier:
+                # The oracle was run beside an earlier lindhard (a later
+                # `run_electron.py --lindhard-only` refreshed our side alone,
+                # #365). Its committed values stand; the difference and the
+                # verdict are recomputed against the lindhard row above by the
+                # harness's own rule, never read from the stale comparison.
+                c = run_electron.compare({**v, "std_err": se}, ov)
+                t = run_electron.tolerance(spec, p, name, c)
+                m = re.search(r"\(([^()]*)\)\s*$", s.get("lindhard_version") or "")
+                stale.add(m.group(1) if m else str(s.get("lindhard_version")))
+            if t.get("applies"):
+                verdict = []
+                for m, label in (("eta", "η"), ("r50_nm", "r50")):
+                    ok = t["checks"][m]["pass"]
+                    verdict.append(f"{label} " + ("n/a" if ok is None else "pass" if ok else "**FAIL**"))
+                tol = ", ".join(verdict)
+            else:
+                tol = "reported only"
+            commit = s.get("oracle_commit", "")[:7]
+            lines.append(
+                f"| `{pid}` | {name} ({s['oracle_version']}{', ' + commit if commit else ''}){'†' if earlier else ''} "
+                f"| {s['histories']['oracle']} "
+                f"| {val(ov['eta'], ose['eta'], 3)}{diff(c, 'eta')} "
+                f"| {val(ov['delta'], ose['delta'], 3)}{diff(c, 'delta')} "
+                f"| {val(ov['primary_depth_nm'], ose['primary_depth_nm'], 1)}{diff(c, 'primary_depth_nm')} "
+                f"| {val(ov['r50_nm'], ose['r50_nm'], 1)}{diff(c, 'r50_nm')} | {tol} |"
+            )
+    if not any_row:
+        return "_No electron oracle summaries committed yet; see \"Electron oracles\" above._"
+    lines.append("")
+    lines.append(
+        "Values are pooled over all histories, ± the batch-means standard error "
+        f"({spec['batches']} batches). Δ is lindhard minus the oracle: absolute for η and δ, relative "
+        "for the lengths, ± the combined standard error, with the difference in units of it in brackets. "
+        "η and δ split the front-face escapes at 50 eV (vacuum energy). r50 is the radius of the cylinder "
+        "about the beam axis that holds half the energy deposited. Tolerances (vs Nebula at 5 and 20 keV "
+        f"only): |Δη| ≤ {spec['tolerances']['eta_abs']} and |Δr50| ≤ {100 * spec['tolerances']['r50_rel']:.0f} %. "
+        "Every summary's settings and its list of differing inputs are in its file under "
+        "`validation/oracles/summaries/`."
+        + (
+            " † The oracle was run beside an earlier lindhard build ("
+            + ", ".join(f"`{x}`" for x in sorted(stale))
+            + "): its values are from that run's committed summary, and Δ and the tolerance verdict are "
+            "recomputed against the lindhard row of the problem by the rule of `run_electron.py`."
+            if stale else ""
+        )
     )
     return "\n".join(lines)
 
@@ -358,6 +493,205 @@ def level3_sputter_crosscheck() -> str:
     return "\n".join(lines).strip()
 
 
+# --- sensitivity of the summary to doubtful sets (#78) ---
+#
+# Each scenario leaves out existing datasets (by `id`, the file stem in validation/data/sputtering/)
+# of one target, for a doubt that is already documented: `caveat` names where (the dataset's own
+# `target_state` or `original_reference`, or the "Titles that name another system" paragraph of
+# docs/validation.md, section 3). These are sensitivity scenarios only: every stored set stays in
+# the baseline comparison, nothing is deleted, and whether an original reports the plotted Ar yield
+# is not settled here (the originals were not read). Inclusion is decided by this table only,
+# never by matching words in the datasets' prose.
+CAVEAT_DOC = "docs/validation.md"
+CAVEAT_SOURCES = ("target_state", "original_reference", CAVEAT_DOC)
+SENSITIVITY_SCENARIOS = (
+    {"target": "Si", "exclude": ("ar_si_sputter_poate1976",), "caveat": CAVEAT_DOC,
+     "reason": "cited paper's Crossref title names PtSi and NiSi"},
+    {"target": "Ag", "exclude": ("ar_ag_sputter_wehner1961",), "caveat": "original_reference",
+     "reason": "cited paper's Crossref title is Hg+ at 4-15 keV"},
+    {"target": "Ag", "exclude": ("ar_ag_sputter_okajima1981",), "caveat": CAVEAT_DOC,
+     "reason": "cited paper's Crossref title names O2+"},
+    {"target": "Au", "exclude": ("ar_au_sputter_robinson1967",), "caveat": "target_state",
+     "reason": "monocrystalline target per the original's title; a target-state doubt, not an attribution one"},
+    {"target": "Au", "exclude": ("ar_au_sputter_szymonski1978",), "caveat": "original_reference",
+     "reason": "cited paper's Crossref title is 6 keV Xe+ on an AgAu alloy"},
+    {"target": "Au", "exclude": ("ar_au_sputter_holloway1977",), "caveat": CAVEAT_DOC,
+     "reason": "cited paper's Crossref title names Cr in Au"},
+    {"target": "Au", "exclude": ("ar_au_sputter_robinson1967", "ar_au_sputter_szymonski1978",
+                                 "ar_au_sputter_holloway1977"), "caveat": "target_state, original_reference, " + CAVEAT_DOC,
+     "reason": "the three Au rows above together"},
+)
+
+
+def load_sputter_sets(directory: Path = SPUTTER_DATA) -> list[tuple[Path, dict]]:
+    """The committed sputter-yield datasets, read only (run.py --check validates them)."""
+    files = sorted(directory.glob("*.json")) if directory.is_dir() else []
+    return [(f, json.loads(f.read_text())) for f in files]
+
+
+def check_scenarios(scenarios, datasets) -> list[str]:
+    """Every problem with the scenario table, as actionable messages; empty if it is usable."""
+    by_id = {d.get("id"): d for _, d in datasets}
+    errs, seen = [], {}
+    for i, s in enumerate(scenarios):
+        where = f"SENSITIVITY_SCENARIOS[{i}] (target {s.get('target')!r})"
+        ids = list(s.get("exclude") or ())
+        if not ids:
+            errs.append(f"{where}: `exclude` is empty; the baseline is added automatically, list at least one dataset id")
+        for x in sorted({x for x in ids if ids.count(x) > 1}):
+            errs.append(f"{where}: dataset id {x!r} is listed more than once in `exclude`")
+        for x in ids:
+            d = by_id.get(x)
+            if d is None:
+                errs.append(f"{where}: unknown dataset id {x!r}; ids are the file stems of "
+                            "validation/data/sputtering/*.json")
+            elif d.get("target") != s.get("target"):
+                errs.append(f"{where}: dataset {x!r} is an {d.get('ion')} -> {d.get('target')} set, "
+                            f"not {s.get('target')}; move it to a scenario of its own target")
+        for c in (c.strip() for c in str(s.get("caveat", "")).split(",")):
+            if c not in CAVEAT_SOURCES:
+                errs.append(f"{where}: `caveat` {c!r} is not one of {', '.join(CAVEAT_SOURCES)}")
+            elif c != CAVEAT_DOC and len(ids) == 1 and ids[0] in by_id and not str(by_id[ids[0]].get(c, "")).strip():
+                errs.append(f"{where}: `caveat` names the dataset field {c!r}, which is empty in {ids[0]!r}")
+        if not str(s.get("reason", "")).strip():
+            errs.append(f"{where}: `reason` is empty")
+        key = (s.get("target"), frozenset(ids))
+        if ids and key in seen:
+            errs.append(f"{where}: same target and exclusions as SENSITIVITY_SCENARIOS[{seen[key]}]")
+        seen.setdefault(key, i)
+    return errs
+
+
+def code_yield(curve: dict, e: float):
+    """A code's yield at energy `e` from its committed runs `curve` (energy -> yield):
+    (yield, "exact") at a run energy; (yield, "interpolated") between the two bracketing run
+    energies, linear in log E - log Y (positive yields only); (None, why) otherwise. Never
+    extrapolates. An interpolated yield approximates the committed code curve; it is not a run."""
+    if e in curve:
+        y = curve[e]
+        return (y, "exact") if y > 0 else (None, "nonpositive yield")
+    lo = [x for x in curve if x < e]
+    hi = [x for x in curve if x > e]
+    if not lo or not hi:
+        return None, "outside the committed run energies"
+    e0, e1 = max(lo), min(hi)
+    y0, y1 = curve[e0], curve[e1]
+    if y0 <= 0 or y1 <= 0:
+        return None, "nonpositive yield"
+    f = math.log(e / e0) / math.log(e1 / e0)
+    return math.exp(math.log(y0) + f * math.log(y1 / y0)), "interpolated"
+
+
+def scenario_comparison(datasets, ion: str, target: str, exclude, curves: dict) -> dict:
+    """One scenario: the datasets of `target` minus `exclude`, grouped by the unchanged rule of
+    run.energy_groups (2 % grouping, incidence and flag rules, median), then each code's yield
+    (`curves`: name -> {energy: yield}, or None if that code was not run) over the new median.
+    The inputs are not modified."""
+    kept = [(p, d) for p, d in datasets if d["ion"] == ion and d["target"] == target and d["id"] not in set(exclude)]
+    groups = [g for g in experiments.energy_groups(kept) if (g["ion"], g["target"]) == (ion, target)]
+    out = {
+        "groups": groups,
+        "n_groups": len(groups),
+        "n_sets": len({s for g in groups for s in g["sets"]}),
+        "n_points": sum(g["n_points"] for g in groups),
+        "codes": {},
+    }
+    for name, curve in curves.items():
+        if curve is None:
+            out["codes"][name] = None
+            continue
+        ratios, missing, interpolated = [], [], 0
+        for g in groups:
+            y, how = code_yield(curve, g["energy_ev"])
+            if y is None:
+                missing.append((g["energy_ev"], how))
+            else:
+                ratios.append(y / g["yield_median"])
+                interpolated += how == "interpolated"
+        out["codes"][name] = {"ratios": ratios, "missing": missing, "interpolated": interpolated}
+    return out
+
+
+def ratio_summary(c, n_groups: int) -> str:
+    """Geometric mean (range) of one code's ratios, marked partial if any group is unsupported,
+    'unavailable' if there is nothing to compare; never a fabricated number."""
+    if c is None:
+        return "unavailable (not run)"
+    if not c["ratios"]:
+        return "unavailable (no energies)" if n_groups == 0 else "unavailable (no supported energy)"
+    s = f"{gmean(c['ratios']):.2f} ({min(c['ratios']):.2f}-{max(c['ratios']):.2f})"
+    if c["missing"]:
+        s += f", partial: {len(c['ratios'])} of {n_groups} energies"
+    return s
+
+
+def sputter_sensitivity(sp, targets, rb, datasets, scenarios=SENSITIVITY_SCENARIOS) -> list[str]:
+    """The generated sensitivity table (#78); [] if no scenario applies to a committed target."""
+    errs = check_scenarios(scenarios, datasets)
+    if errs:
+        sys.exit("error: " + "\n       ".join(errs))
+    ion = "Ar"
+    lines = [
+        "**Sensitivity to doubtful sets (scenarios, not a new baseline).** The table above keeps every stored set. "
+        "Below, the sets named in each row are left out *before* the measured points are regrouped by the same rule "
+        "(energies within 2 %, flagged points left out, median), so the median and the representative energy of a "
+        "group can change and a group whose only set is left out disappears. lindhard's and RustBCA's yields are the "
+        "committed runs: exact at a run energy, otherwise interpolated linearly in log E - log Y between the two "
+        "bracketing run energies (an approximation to the committed code curve, not a new run and not an "
+        "uncertainty); nothing is extrapolated, and an energy outside the runs is counted as unsupported. The "
+        "reasons are the caveats stored in each dataset's `target_state` or `original_reference`, or listed under "
+        "\"Titles that name another system\" above; none of the originals was read, so none is settled here.",
+        "",
+        "| Target | Left out | Caveat (where stored) | Energies (sets, points) | Interpolated | Unsupported "
+        "| lindhard K = 0 / median | RustBCA K = 0 / median |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    rows = 0
+    for t in targets:
+        sc = [s for s in scenarios if s["target"] == t]
+        if not sc:
+            continue
+        curves = {"lindhard": {r["energy_ev"]: r["lindhard_k0"] for r in sp["rows"] if r["target"] == t},
+                  "rustbca": {r["energy_ev"]: r["rustbca_k0"] for r in rb[t]["rows"]} if rb.get(t) else None}
+        base = scenario_comparison(datasets, ion, t, (), curves)
+        committed = [r for r in sp["rows"] if r["target"] == t]
+        # The no-exclusion scenario must reproduce the committed baseline: same groups, same
+        # medians, and the same printed geometric means; otherwise results.json is stale.
+        if [(g["energy_ev"], g["yield_median"], g["n_points"]) for g in base["groups"]] != \
+                [(r["energy_ev"], r["yield_median"], r["n_points"]) for r in committed]:
+            sys.exit(f"error: regrouping the committed Ar -> {t} datasets does not reproduce the groups in "
+                     f"{RESULTS.relative_to(ROOT)}; rerun validation/experiments/run.py")
+        printed = f"{gmean([r['lindhard_k0_over_median'] for r in committed]):.2f}"
+        if ratio_summary(base["codes"]["lindhard"], base["n_groups"]).split(" ")[0] != printed:
+            sys.exit(f"error: the Ar -> {t} no-exclusion scenario does not reproduce the printed K = 0 ratio {printed}")
+        for s in ({"exclude": (), "caveat": "-", "reason": "baseline"}, *sc):
+            r = base if not s["exclude"] else scenario_comparison(datasets, ion, t, s["exclude"], curves)
+            interp = r["codes"]["lindhard"]["interpolated"]
+            rb_c = r["codes"]["rustbca"]
+            left = "none (baseline)" if not s["exclude"] else ", ".join(f"`{x}`" for x in s["exclude"])
+            why = "-" if not s["exclude"] else f"{s['reason']} ({s['caveat']})"
+            interp_txt = f"{interp}" + ("" if rb_c is None or rb_c["interpolated"] == interp
+                                        else f" (RustBCA {rb_c['interpolated']})")
+            missing = [f"{name} at {e:g} eV ({how})" for name, c in r["codes"].items() if c for e, how in c["missing"]]
+            lines.append(
+                f"| {t} | {left} | {why} | {r['n_groups']} ({r['n_sets']}, {r['n_points']}) | {interp_txt} "
+                f"| {'; '.join(missing) if missing else 'none'} "
+                f"| {ratio_summary(r['codes']['lindhard'], r['n_groups'])} | {ratio_summary(rb_c, r['n_groups'])} |"
+            )
+            rows += 1
+    if not rows:
+        return []
+    lines += [
+        "",
+        "Geometric mean (range) over the regrouped energies, as in the table above; \"Interpolated\" counts the "
+        "energies whose code yield is interpolated rather than a committed run. The baseline rows are recomputed "
+        "by this regrouping and reproduce the table above to its printed precision (update_docs.py stops "
+        "otherwise). Scenarios: `SENSITIVITY_SCENARIOS` in `validation/update_docs.py`; semantics: "
+        "`validation/data/README.md`.",
+    ]
+    return lines
+
+
 def level3_sputter_summary() -> str:
     """The per-target summary table and the interpretation, every number and
     every comparative word computed here from results.json and the RustBCA
@@ -541,6 +875,157 @@ def level3_sputter_summary() -> str:
             + ("every target" if all(v < 1 for v in lr.values()) else ", ".join(t for t in have_rb if lr[t] < 1))
             + "; it stays **unexplained**."
         )
+    sens = sputter_sensitivity(sp, targets, rb, load_sputter_sets())
+    if sens:
+        lines += [""] + sens
+    return "\n".join(lines)
+
+
+def _backscatter_secondaries(r: dict) -> list[str]:
+    """Fast-secondary sensitivity of eta (#148 part 1): same input with
+    Kieft-Bosch secondaries and the step barrier on. Not part of the graded
+    table; the tolerance verdict above is for the baseline."""
+    meta = r.get("secondary_sensitivity")
+    rows = [t for t in r["targets"] if t.get("secondary_sensitivity")]
+    if not meta or not rows:
+        return []
+    versions = " and ".join(sorted({r["version"] for t in rows for r in t["secondary_sensitivity"].values()}))
+    lines = [
+        "",
+        "**Fast secondaries (sensitivity, not graded).** The baseline input rerun with "
+        f"`secondaries = \"{meta['secondaries']}\"` and a `{meta['boundary']}` (metals: at the mid work "
+        "function; Si: its electron affinity), with the band inputs of the δ(E) runs, `BAND` and `BAND_PROVENANCE` "
+        "in `validation/experiments/se_yield.py` (Al, Cu, Au: free-electron metal; Si: insulator band, gap and "
+        "affinity from `BAND_DEFAULTS` (#115), valence-band width from Chelikowsky and Cohen 1974 (#149)); "
+        "elastic model, optical ELF, tables, 50 eV band-bottom cutoff, "
+        f"seed and primaries as in the baseline (lindhard {versions}"
+        + ("; the baseline runs at these points were redone with it and reproduce the committed η bit for bit"
+           if meta.get("baseline_reproduced") else "")
+        + "). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries "
+        "included. With secondaries on a primary can yield several such electrons, and the run summary does "
+        "not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the "
+        "binomial error if no primary yields more than one, an underestimate only to the extent that some "
+        "yield several. The baseline column is the main table's; the measured median is as above; the "
+        "graded verdict above is for the baseline and is not re-judged here.",
+        "",
+        "| Target | E (keV) | Baseline η ± σ | With secondaries η ± σ | Change | Measured median | With secondaries - median |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for t in rows:
+        groups = {f"{g['energy_kev']:g}": g for g in t["groups"]}
+        for e, run in t["secondary_sensitivity"].items():
+            base = t["runs"][e]
+            d = run["eta"] - base["eta"]
+            med = groups[e]["median"]
+            dm = "-" if med is None else f"{run['eta'] - med:+.3f}"
+            lines.append(
+                f"| {t['target']} | {e} | {base['eta']:.4f} ± {base['eta_se']:.4f} | "
+                f"{run['eta']:.4f} ± {run['eta_se']:.4f} | {d:+.4f} | "
+                f"{'-' if med is None else f'{med:.3f}'} | {dm} |")
+    lines += ["", "Not run, for lack of band inputs: " + "; ".join(
+        f"{k}: {v}" for k, v in meta["gaps"].items()) + "."]
+    return lines
+
+
+def level3_backscatter() -> str:
+    """The electron backscatter coefficient table and the elastic-correction
+    sensitivity (#148), from validation/experiments/backscatter_results.json.
+    Pass/fail is the rule pinned in backscatter.py (|eta - median| <= tolerance
+    at E >= pass_min_kev, every element); nothing else is judged here."""
+    if not BACKSCATTER_RESULTS.is_file():
+        return "No committed results yet: run `validation/experiments/backscatter.py`."
+    r = json.loads(BACKSCATTER_RESULTS.read_text())
+    tol, emin = r["tolerance"], r["pass_min_kev"]
+    lines = [
+        f"{r['lindhard']}, {r['histories']} primaries per run, seed {r['seed']}; "
+        "the model and its gaps are listed above. Measured: per energy, each stored set's "
+        f"point within {100 * r['group_tolerance']:g} % of it (at most one per set), median and "
+        "min-max over the sets.",
+        "",
+        f"| Target | E (keV) | Sets | Measured median | Measured min-max | lindhard eta ± σ | lindhard - median | "
+        f"Pass (E ≥ {emin:g} keV: abs. diff. ≤ {tol:g}) |",
+        "|---|---|---|---|---|---|---|---|",
+    ]
+    verdicts = {}
+    for t in r["targets"]:
+        tv = verdicts.setdefault(t["target"], {"pass": 0, "fail": 0, "ungraded": 0, "worst": None,
+                                               "below": 0, "above": 0, "compared": 0})
+        for g in t["groups"]:
+            e = g["energy_kev"]
+            run = t["runs"].get(f"{e:g}")
+            if g["sets"] == 0 and run is None:
+                continue
+            med = "-" if g["median"] is None else f"{g['median']:.3f}"
+            band = "-" if g["median"] is None else f"{g['min']:.3f}-{g['max']:.3f}"
+            if run is None:
+                sim, diff = "not run (no committed input)", "-"
+                verdict = "not evaluated" if e >= emin else "-"
+                if e >= emin and g["sets"]:
+                    tv["ungraded"] += 1
+            else:
+                sim = f"{run['eta']:.4f} ± {run['eta_se']:.4f}"
+                if g["median"] is None:
+                    diff, verdict = "-", "no measurement"
+                else:
+                    d = run["eta"] - g["median"]
+                    diff = f"{d:+.3f}"
+                    tv["compared"] += 1
+                    tv["below" if d < 0 else "above"] += 1
+                    if e < emin:
+                        verdict = "(reported only)"
+                    else:
+                        ok = abs(d) <= tol
+                        verdict = "pass" if ok else "**FAIL**"
+                        tv["pass" if ok else "fail"] += 1
+                        if tv["worst"] is None or abs(d) > abs(tv["worst"][1]):
+                            tv["worst"] = (e, d)
+            lines.append(f"| {t['target']} | {e:g} | {g['sets']} | {med} | {band} | {sim} | {diff} | {verdict} |")
+    lines += ["", f"**Verdict at E ≥ {emin:g} keV (tolerance {tol:g} absolute, generated):**", ""]
+    for t in r["targets"]:
+        v = verdicts[t["target"]]
+        if v["pass"] + v["fail"] == 0:
+            lines.append(f"- {t['target']}: not evaluated ({v['ungraded']} measured energies; no committed input).")
+        else:
+            worst = f"; largest abs. diff. {v['worst'][1]:+.3f} at {v['worst'][0]:g} keV" if v["worst"] else ""
+            lines.append(f"- {t['target']}: {v['pass']} of {v['pass'] + v['fail']} energies pass"
+                         + (", **the tolerance is not met**" if v["fail"] else "") + worst
+                         + f". Over all {v['compared']} compared energies (1 to 30 keV) lindhard is below the "
+                         f"measured median at {v['below']} and above it at {v['above']}.")
+    sens = [t for t in r["targets"] if t["sensitivity"]]
+    if sens:
+        labels = {v["id"]: v["label"] for v in r["variants"]}
+        order = [v["id"] for v in r["variants"]]
+        lines += [
+            "",
+            "**Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the "
+            "correlation-polarization corrections switched off one at a time and together (same seed and "
+            "primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value "
+            "for independent runs. The variants share the seed, so their noise is correlated and the true "
+            "σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, "
+            "not a conservative test of it.",
+            "",
+            "| Target | E (keV) | " + " | ".join(labels[i] for i in order) + " | baseline - no corrections |",
+            "|---|---|" + "---|" * len(order) + "---|",
+        ]
+        effects = []
+        for t in sens:
+            for e, row in t["sensitivity"].items():
+                cells = [f"{row[i]['eta']:.4f} ± {row[i]['eta_se']:.4f}" for i in order]
+                d = row["both"]["eta"] - row["none"]["eta"]
+                se = math.hypot(row["both"]["eta_se"], row["none"]["eta_se"])
+                lines.append(f"| {t['target']} | {e} | " + " | ".join(cells) + f" | {d:+.4f} ({d / se:+.1f} σ) |")
+                effects.append((abs(d), abs(d / se), t["target"], e))
+        big = max(effects)
+        lines += ["", f"Largest effect of the two corrections together: {big[0]:.4f} ({big[1]:.1f} σ, "
+                  f"{big[2]} at {big[3]} keV); "
+                  + ("every difference is within 2 σ of the independent-run bound. Because the runs are "
+                     "correlated, that does not show the effect is zero; the measured differences (at most "
+                     f"{big[0]:.4f} in η) are small next to the 0.05 tolerance and the measured spread, with "
+                     "the potential the corrections are solved on (each run's `elastic_model`)."
+                     if all(x[1] < 2 for x in effects) else "at least one difference exceeds 2 σ.")]
+    lines += _backscatter_secondaries(r)
+    lines += ["", "Per-run values: `validation/experiments/backscatter_results.json`; datasets: "
+              "`validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md)."]
     return "\n".join(lines)
 
 
@@ -555,10 +1040,13 @@ def main() -> int:
     if args.level1:
         text = splice(text, "level1", args.level1.read_text())
     text = splice(text, "level2", level2())
+    text = splice(text, "electron-oracles", electron_oracles())
     text = splice(text, "level3", level3())
     text = splice(text, "level3-sputter", level3_sputter())
     text = splice(text, "level3-sputter-crosscheck", level3_sputter_crosscheck())
     text = splice(text, "level3-sputter-summary", level3_sputter_summary())
+    text = splice(text, "level3-backscatter", level3_backscatter())
+    text = splice(text, "level3-se-yield", se_yield.markdown(se_yield.load_datasets(), se_yield.load_results()))
     if args.check:
         if text != old:
             print(f"error: {DOC.relative_to(ROOT)} is not what validation/update_docs.py generates from the committed "

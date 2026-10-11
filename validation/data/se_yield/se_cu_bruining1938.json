@@ -1,0 +1,61 @@
+{
+  "kind": "se_yield",
+  "id": "se_cu_bruining1938",
+  "target": "Cu",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 50.0,
+      "energy_kev_printed": "0.05",
+      "yield": 0.368,
+      "yield_printed": "0.368"
+    },
+    {
+      "energy_ev": 100.0,
+      "energy_kev_printed": "0.1",
+      "yield": 0.701,
+      "yield_printed": "0.701"
+    },
+    {
+      "energy_ev": 200.0,
+      "energy_kev_printed": "0.2",
+      "yield": 1.0,
+      "yield_printed": "1.00"
+    },
+    {
+      "energy_ev": 400.0,
+      "energy_kev_printed": "0.4",
+      "yield": 1.23,
+      "yield_printed": "1.23"
+    },
+    {
+      "energy_ev": 600.0,
+      "energy_kev_printed": "0.6",
+      "yield": 1.26,
+      "yield_printed": "1.26"
+    },
+    {
+      "energy_ev": 800.0,
+      "energy_kev_printed": "0.8",
+      "yield": 1.276,
+      "yield_printed": "1.276"
+    },
+    {
+      "energy_ev": 1000.0,
+      "energy_kev_printed": "1.0",
+      "yield": 1.23,
+      "yield_printed": "1.23"
+    }
+  ],
+  "original_reference": "Bruining H, and De Boer J M, (1938), Physica V, 17",
+  "compilation_reference_number": 21,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Cu' heading, data set #5 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

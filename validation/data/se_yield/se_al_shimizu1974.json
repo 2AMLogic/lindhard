@@ -1,0 +1,79 @@
+{
+  "kind": "se_yield",
+  "id": "se_al_shimizu1974",
+  "target": "Al",
+  "target_state": "as compiled; surface state not stated by the compilation",
+  "incidence_deg": null,
+  "incidence_note": "not stated by the compilation for any set; normal incidence is NOT confirmed by the source",
+  "points": [
+    {
+      "energy_ev": 1000.0,
+      "energy_kev_printed": "1.0",
+      "yield": 1.666,
+      "yield_printed": "1.666"
+    },
+    {
+      "energy_ev": 2000.0,
+      "energy_kev_printed": "2.0",
+      "yield": 0.8823,
+      "yield_printed": "0.8823"
+    },
+    {
+      "energy_ev": 3000.0,
+      "energy_kev_printed": "3.0",
+      "yield": 0.6196,
+      "yield_printed": "0.6196"
+    },
+    {
+      "energy_ev": 4000.0,
+      "energy_kev_printed": "4.0",
+      "yield": 0.5059,
+      "yield_printed": "0.5059"
+    },
+    {
+      "energy_ev": 5000.0,
+      "energy_kev_printed": "5.0",
+      "yield": 0.439,
+      "yield_printed": "0.439"
+    },
+    {
+      "energy_ev": 6000.0,
+      "energy_kev_printed": "6.0",
+      "yield": 0.353,
+      "yield_printed": "0.353"
+    },
+    {
+      "energy_ev": 7000.0,
+      "energy_kev_printed": "7.0",
+      "yield": 0.3137,
+      "yield_printed": "0.3137"
+    },
+    {
+      "energy_ev": 8000.0,
+      "energy_kev_printed": "8.0",
+      "yield": 0.2745,
+      "yield_printed": "0.2745"
+    },
+    {
+      "energy_ev": 9000.0,
+      "energy_kev_printed": "9.0",
+      "yield": 0.255,
+      "yield_printed": "0.255"
+    },
+    {
+      "energy_ev": 10000.0,
+      "energy_kev_printed": "10.0",
+      "yield": 0.2316,
+      "yield_printed": "0.2316"
+    }
+  ],
+  "original_reference": "Shimizu R, (1974), J. appl. Phys  45, 2107",
+  "compilation_reference_number": 5,
+  "compilation": "D. C. Joy, A database on electron-solid interactions, Revision 01-01 (2001); cf. Scanning 17, 270 (1995), doi:10.1002/sca.4950170501",
+  "compilation_location": "Section 1(a), 'Al' heading, data set #4 of 12 (document headings as printed)",
+  "url": "https://web.archive.org/web/2010id_/http://web.utk.edu/~srcutk/database.doc",
+  "extraction": "transcribed from the compilation's two-column table (E in keV, SE yield) by validation/data/digitize/joy_se_yield_ingest.py; values as printed, keV converted to eV; no curve fitted, nothing interpolated",
+  "se_energy_range": "not stated per set; compilation: usually 0 to 50 eV, early work 0 to 70 or 100 eV; reference 20 flagged 30 to 100 eV",
+  "terms": "Facts, cited (operator ruling #34). The compilation asks users to acknowledge it with its URL (http://web.utk.edu/~srcutk/); the compilation itself is not stored here.",
+  "added": "2026-10-07"
+}

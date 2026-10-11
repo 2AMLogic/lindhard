@@ -33,14 +33,14 @@ TEMPLATE = "_template.md"
 # not part of the input schema). Add a row when a new model-selecting enum
 # lands; the manual page for it then becomes a CI requirement.
 ENUMS: list[tuple[str, str, str | None]] = [
-    ("lindhard/src/input.rs", "PotentialChoice", "potential"),
+    ("lindhard/src/input/schema.rs", "PotentialChoice", "potential"),
     ("lindhard/src/ion/potential.rs", "Screening", None),
-    ("lindhard/src/input.rs", "LengthChoice", "screening_length"),
+    ("lindhard/src/input/schema.rs", "LengthChoice", "screening_length"),
     ("lindhard/src/ion/potential.rs", "ScreeningLength", None),
-    ("lindhard/src/input.rs", "StoppingChoice", "stopping"),
+    ("lindhard/src/input/schema.rs", "StoppingChoice", "stopping"),
     ("lindhard/src/ion/stopping/bethe.rs", "EffectiveCharge", None),
     ("lindhard/src/ion/stopping/straggling.rs", "StragglingModel", None),
-    ("lindhard/src/input.rs", "FreePathChoice", "free_path"),
+    ("lindhard/src/input/schema.rs", "FreePathChoice", "free_path"),
     ("lindhard/src/ion/bca/mod.rs", "MeanFreePath", None),
     ("lindhard/src/ion/bca/mod.rs", "ElectronicLoss", None),
     ("lindhard/src/ion/dynamic.rs", "Relaxation", None),

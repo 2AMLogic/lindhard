@@ -13,7 +13,7 @@ use lindhard::material::Material;
 
 use crate::report::{pct, sci, Check};
 
-pub fn checks() -> Vec<Check> {
+pub(crate) fn checks() -> Vec<Check> {
     let ls = LindhardScharff::new();
     let mut out = Vec::new();
 

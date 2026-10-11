@@ -21,52 +21,113 @@ Prioritized roadmap of upcoming work, maintained by the Guide role.
 
 Alongside the milestones run release engineering and docs, the permissive
 stopping-data library, and performance work. Order: M0 first. M1 Phase 1
-can start alongside it (it needs only materials and the RNG). M2 follows M0.
+can start alongside it (it needs only materials and the RNG). M2 follows M0's
+engine: M2 Phase 1 may run alongside M0's remaining data verification and
+validation datasets (#15, #51), which do not touch the code it builds on
+(operator ruling, 2026-10-08, on #12).
 The rest run as capacity allows.
 
-## Urgent
+<!-- guide:plan-body:start -->
+## Operator Attention: Merge-Risk-Hold Pileup
 
-*No urgent issues.*
+Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
+
+- **#325**: fix(table-cache): lock each entry across lookup, build and publication
+
+## Operator Priority
+
+Issues the operator starred (`loom:operator-priority`); land these first.
+
+_None._
 
 ## Ready
 
-Human-approved issues ready for implementation (`loom:issue`):
+Human-approved issues ready for implementation (`loom:issue`).
 
-*None at present.* The remaining M0 items below are curated but blocked or
-partly done, or are awaiting triage.
+- **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50)
 
 ## In Progress
 
-*No issues currently being built.*
+Issues currently being built (`loom:building`).
+
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
+- **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
+- **#365**: Regenerate the six lindhard electron-oracle summaries after the band-bottom changes
+- **#366**: Refresh the six electron benchmark digests after the band-bottom changes
+- **#375**: Refactor: split lindhard/src/electron/inelastic/table.rs into density, refine, build and sampler modules (no behaviour change)
+- **#379**: Si secondary-electron yield rose 77–187 % after #241/#339/#342 (found regenerating #364)
+
+## PRs Awaiting Review
+
+PRs waiting on Judge (`loom:review-requested`).
+
+- **#382**: docs(validation): attribute the Si δ(E) rise of #364 by bisect (#379)
+- **#383**: validation: re-run the lindhard side of the electron oracles (#365)
+
+## Approved (Awaiting Merge)
+
+PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
+
+- **#325**: fix(table-cache): lock each entry across lookup, build and publication
+- **#384**: docs(benchmarks): mark electron bench digests stale after band-bottom changes (#366)
 
 ## Proposed
 
-Phase 1 issues awaiting Champion approval (`loom:architect` + `loom:epic-phase`):
-#15–#21, #23–#24, #26–#27, #29, #31–#32, #34–#35, #37. Later phases are
-filed by Champion as each phase completes.
+Issues carrying `loom:curated`.
 
-M0 follow-ups awaiting triage (`loom:triage`):
+- **#15**: [Epic #10] Verify element and constant data against primary sources *(curated)*
+- **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
+- **#51**: Validation level 3: first published range datasets (B, P, As in amorphous Si) and stopping-input attribution (follow-up to #8) *(curated)*
+- **#58**: CLI: an electronic-loss-off stopping choice, for like-for-like OpenTRIM comparisons (follow-up to #50) *(curated)*
+- **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
+- **#93**: [Epic #11] Elastic validation: total and transport cross sections vs published partial-wave values (C, Si, Cu, Au) *(curated)*
+- **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(curated)*
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
+- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
+- **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
+- **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) *(curated)*
+- **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
+- **#305**: Electron table cache: coordinate concurrent builders per entry *(curated)*
+- **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
+- **#326**: CI: clippy chunks_exact_to_as_chunks in lindhard/src/geometry/mesh.rs fails on current stable *(curated)*
+- **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary *(curated)*
+- **#365**: Regenerate the six lindhard electron-oracle summaries after the band-bottom changes *(curated)*
+- **#366**: Refresh the six electron benchmark digests after the band-bottom changes *(curated)*
+- **#375**: Refactor: split lindhard/src/electron/inelastic/table.rs into density, refine, build and sampler modules (no behaviour change) *(curated)*
+- **#379**: Si secondary-electron yield rose 77–187 % after #241/#339/#342 (found regenerating #364) *(curated)*
 
-- #58 CLI: an electronic-loss-off stopping choice, for like-for-like
-  OpenTRIM comparisons (follow-up to #50)
-- #61 Investigate low sputter yields: Ar 1 keV → Cu is 2.2x below RustBCA
-  even with `E_d = E_s` (follow-up to #50). The electronic-loss excess found
-  there was addressed by #64 (opt-in weak collisions), which lowers the yield
-  further; the gap to RustBCA is unexplained again. A measured Ar sputter
-  yield is needed to settle it, and whether weak collisions become the default
-  is an open operator decision
+## Proposed (Architect / Hermit)
 
-Open M0 work (`loom:curated`), partly done:
+- **#192**: Test: malformed and hostile input values must error, never panic or hang *(architect)*
+- **#199**: CI: add a RustSec advisories gate to cargo-deny *(architect)*
 
-- #8 Validation harness: level 1 in CI (PR #52) and level-2 oracles (#50,
-  PR #59) are done; level 3 continues under #51.
-- #9 Benchmarks: hot-path benches and thread scaling are done (PR #53), and
-  oracle ions/s are recorded by #50; a quiet-machine re-measure and a
-  profile of the hot spots remain.
-- #45 Verify Lenz-Jensen, Moliere magic and screening-length coefficients
-  against primary sources. PR #57 verified what open-access sources allow;
-  the rest needs closed-access primary papers, so it is not in the ready
-  queue.
+## Epics
+
+- **#10**: Epic: M0, amorphous ion core, validated
+- **#11**: Epic: M1, low-energy electron engine
+- **#12**: Epic: M2, crystalline implant (channeling, damage accumulation, amorphization)
+- **#22**: Epic: M3, dynamic composition (fluence-dependent targets)
+- **#25**: Epic: 2D/3D target geometry and layout cross-sections
+- **#28**: Epic: Python and WASM bindings
+- **#30**: Epic: Release engineering and documentation
+- **#33**: Epic: Permissive stopping-power data library
+- **#36**: Epic: Performance (profile-guided, SIMD, GPU feasibility)
+
+## Backlog Balance
+
+| Tier | Count |
+|------|-------|
+| Operator merge-risk holds | 1 |
+| Operator priority | 0 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 6 |
+| PRs awaiting review | 2 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 21 |
+| Architect / Hermit proposals | 2 |
+| Active epics | 9 |
+<!-- guide:plan-body:end -->
 
 ## Done
 
@@ -80,16 +141,4 @@ level-2 oracle adapters and summaries (PR #59), #55 user-supplied stopping
 tables (PR #56), #64 opt-in TRIDYN weak collisions and a cascade
 electronic-share check against the LNST partition (PR #67).
 
-## Epics
-
-| Epic | Scope | Phase 1 |
-|---|---|---|
-| #10 | M0: amorphous ion core, validated | Done: #1–#7, #41, #44, #50, #55, #64. Partial: #8, #9. Open: #15, #45, #51, #58, #61 |
-| #11 | M1: low-energy electron engine | #16–#18 |
-| #12 | M2: crystalline implant | #19–#21 |
-| #22 | M3: dynamic composition | #23–#24 |
-| #25 | 2D/3D geometry and layout cross-sections | #26–#27 |
-| #28 | Python and WASM bindings | #29 |
-| #30 | Release engineering and documentation | #31–#32 |
-| #33 | Permissive stopping-data library (terms review needs an operator ruling) | #34–#35 |
-| #36 | Performance (profile-guided, SIMD, GPU feasibility) | #37 |
+Subsequent merges and closed issues are recorded in [WORK_LOG.md](WORK_LOG.md).

@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 540" width="720" height="540" font-family="sans-serif" font-size="14">
+<title>Lab frame, wafer cut and beam angles: tilt, twist and wafer rotation</title>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="context-stroke"/></marker></defs>
+<rect width="720" height="540" fill="white"/>
+<polygon points="82.5,292.3 412.5,292.3 577.5,87.7 247.5,87.7" fill="#dde8f5" stroke="#5a7fa8"/>
+<text x="82.5" y="312.3" fill="#3b5f85">wafer surface (hkl), x = 0</text>
+<line x1="330.0" y1="190.0" x2="330.0" y2="415.0" stroke="black" stroke-width="2" marker-end="url(#a)"/>
+<text x="338.0" y="419.0" fill="black" text-anchor="start">+x (depth): n, normal of (hkl)</text>
+<line x1="330.0" y1="190.0" x2="555.0" y2="190.0" stroke="black" stroke-width="2" marker-end="url(#a)"/>
+<text x="561.0" y="195.0" fill="black" text-anchor="start">+y</text>
+<line x1="330.0" y1="190.0" x2="442.5" y2="50.5" stroke="black" stroke-width="2" marker-end="url(#a)"/>
+<text x="448.5" y="50.5" fill="black" text-anchor="start">+z</text>
+<line x1="330.0" y1="190.0" x2="539.6" y2="135.4" stroke="#2a8a3a" stroke-width="2" marker-end="url(#a)"/>
+<text x="545.6" y="149.4" fill="#2a8a3a" text-anchor="start">r = [uvw] (reference)</text>
+<polyline points="420.0,190.0 420.9,188.9 421.8,187.7 422.6,186.6 423.4,185.5 424.1,184.3 424.8,183.2 425.5,182.1 426.1,181.0 426.7,179.8 427.2,178.7 427.7,177.6 428.2,176.5 428.6,175.4 429.0,174.3 429.4,173.2 429.7,172.1 429.9,171.1 430.1,170.0 430.3,168.9 430.5,167.9 430.6,166.9 430.6,165.8 430.6,164.8 430.6,163.8" fill="none" stroke="#2a8a3a" stroke-width="1.5"/>
+<text x="453.9" y="181.8" fill="#2a8a3a" text-anchor="start">ω</text>
+<line x1="252.0" y1="89.6" x2="330.0" y2="190.0" stroke="#c0392b" stroke-width="3" marker-end="url(#a)"/>
+<text x="244.0" y="85.6" fill="#c0392b" text-anchor="end">ion beam</text>
+<line x1="330.0" y1="190.0" x2="404.8" y2="286.4" stroke="#c0392b" stroke-width="2" stroke-dasharray="3,4"/>
+<text x="410.8" y="296.4" fill="#c0392b" text-anchor="start">beam direction d</text>
+<line x1="330.0" y1="190.0" x2="465.3" y2="88.3" stroke="#8e44ad" stroke-width="1.5" stroke-dasharray="6,4"/>
+<text x="469.3" y="84.3" fill="#8e44ad" text-anchor="start">in-plane part of d</text>
+<polyline points="465.0,190.0 468.3,185.6 471.3,181.3 473.9,176.9 476.1,172.6 477.9,168.3 479.3,164.1 480.2,160.0 480.8,156.0 480.9,152.0 480.7,148.2 480.0,144.4 478.9,140.8 477.4,137.3 475.5,134.0 473.2,130.8 470.5,127.8 467.4,125.0 464.0,122.3 460.1,119.8 456.0,117.5 451.4,115.4 446.6,113.5 441.4,111.9 435.9,110.4" fill="none" stroke="#8e44ad" stroke-width="1.5"/>
+<text x="502.7" y="132.2" fill="#8e44ad" text-anchor="start">φ (twist)</text>
+<polyline points="330.0,295.0 331.9,293.5 333.8,292.0 335.7,290.4 337.7,288.8 339.6,287.1 341.5,285.4 343.4,283.6 345.2,281.7 347.1,279.8 349.0,277.9 350.9,275.9 352.7,273.9 354.5,271.8 356.4,269.7 358.2,267.5 360.0,265.3 361.7,263.0 363.5,260.7 365.2,258.4 367.0,256.0 368.7,253.6 370.4,251.2 372.0,248.7 373.7,246.2" fill="none" stroke="#c0392b" stroke-width="1.5"/>
+<text x="359.3" y="291.5" fill="#c0392b" text-anchor="start">θ (tilt)</text>
+<text x="20" y="462" font-size="13">Lab frame: +x into the target, (y, z) lateral. The wafer is cut on (hkl); its inward normal n is +x.</text>
+<text x="20" y="481" font-size="13">Reference r = [uvw] lies in the surface; at wafer rotation ω = 0 it is +y, and ω turns it towards +z.</text>
+<text x="20" y="500" font-size="13">Beam: d = (cos θ, sin θ cos φ, sin θ sin φ) in the lab; in the crystal</text>
+<text x="20" y="519" font-size="13">d = cos θ n + sin θ cos(φ − ω) r + sin θ sin(φ − ω) (n × r).</text>
+</svg>

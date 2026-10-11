@@ -1,0 +1,55 @@
+# 50 keV arsenic through a 10 nm amorphous SiO2 layer into crystalline Si.
+# Only the substrate (layer index 1) is a crystal; the oxide stays amorphous.
+#
+# Run: lindhard run examples/as_50keV_sio2_on_si_crystal.toml --out out/as_sio2_on_si_crystal
+#
+# Schema: docs/cli.md ([[crystal]]). This demonstrates attaching a crystal to
+# some layers of a stack; it makes no claim about interface physics or a
+# validated screen-oxide prediction, and the known channeling deviations in
+# docs/cli.md apply.
+
+[beam]
+ion = "As"
+energy_ev = 50000.0
+tilt_deg = 7.0
+azimuth_deg = 22.0
+
+# Illustrative model parameters, as in as_50keV_si_sio2.toml.
+[materials.SiO2]
+density_g_cm3 = 2.2
+elements = [
+  { symbol = "Si", atom_fraction = 1.0 },
+  { symbol = "O", atom_fraction = 2.0, e_d_ev = 20.0, e_s_ev = 2.0 },
+]
+
+[target]
+substrate = "Si"
+
+# Layer 0: the oxide. Layer 1: the substrate.
+[[target.layers]]
+material = "SiO2"
+thickness_nm = 10.0
+
+[[crystal]]
+layers = [1]
+preset = "Si"
+normal = [0, 0, 1]
+reference = [0, 1, 0]
+
+[physics]
+potential = "zbl"
+stopping = "lindhard-scharff"
+free_path = "constant"
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 2000
+seed = 1
+
+[tally]
+depth_bin_nm = 1.0
+depth_bins = 150

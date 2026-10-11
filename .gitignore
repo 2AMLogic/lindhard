@@ -17,6 +17,10 @@ validation/oracle-runs/
 # Local tool database (machine-local state, never committed)
 .squad/
 
+# Default output directory of the quick-start commands in README.md and
+# examples/README.md (`--out out/...`).
+/out/
+
 # Environment
 .env
 .env.local
@@ -61,9 +65,11 @@ validation/oracle-runs/
 .loom/exit-codes/
 .loom/sweep-checkpoint/
 .loom/sweep-run/
+.loom/targets/
+.loom/target*/
+.cargo-target*/
 .loom/state/*
 !.loom/state/detect-unlabeled-epics-dismissed
-.loom/concierge/
 .loom/stats/
 .loom/diagnostics/
 .loom/guide-docs-state.json
@@ -106,3 +112,8 @@ validation/oracle-runs/
 
 # Repo Skills machine-local install metadata (absolute source path + timestamp)
 .claude/skills/repo/.install-local.json
+
+# Python bindings: local maturin build output
+lindhard-py/python/**/*.so
+lindhard-py/python/**/*.pyd
+lindhard-py/python/**/*.dylib

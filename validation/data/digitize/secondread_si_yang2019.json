@@ -1,0 +1,371 @@
+{
+  "format": "lindhard-digitize-secondread/1",
+  "figure": "Yang et al., Phys. Rev. B 100, 245209 (2019), Fig. 7 (PDF p. 10), red 'Present' curve (yang2019_si_elf.py)",
+  "automatic": "Fig. 7: weighted centre of the red stroke per pixel column, main panel below 25 eV, log inset from 25 eV; the committed knots (si_elf_yang2019.toml), linearly interpolated",
+  "second_read": "Fig. 6(b) of the same paper (PDF p. 10), the red 5 keV curve (drawn on top of the 3 and 4 keV curves), read by the same per-column method on its own, independently calibrated log axes (3.73 px/eV, 107 px/decade). Fig. 7 is the average over 3, 4 and 5 keV, which the paper calls 'almost the same in the whole energy loss region' (p. 11), so the two reads differ by the digitizing and by that spread",
+  "uncertainty": "unc_rel_*: half a pixel in each axis of that figure, through the local slope; the criterion is |ln(ratio)| against sqrt(unc7^2 + unc6^2)",
+  "panel_overlap": {
+    "what": "Fig. 7 main (linear) panel against its log inset, every main-panel column from 20 to 49.5 eV (the join is at 25 eV)",
+    "ratio_median": 1.039,
+    "ratio_min": 0.988,
+    "ratio_max": 1.166,
+    "points": [
+      {
+        "energy_ev": 20.0,
+        "elf_main_panel": 0.8292,
+        "elf_inset": 0.7911,
+        "ratio_main_over_inset": 1.048
+      },
+      {
+        "energy_ev": 22.0,
+        "elf_main_panel": 0.2612,
+        "elf_inset": 0.262,
+        "ratio_main_over_inset": 0.997
+      },
+      {
+        "energy_ev": 24.0,
+        "elf_main_panel": 0.1307,
+        "elf_inset": 0.1284,
+        "ratio_main_over_inset": 1.018
+      },
+      {
+        "energy_ev": 25.0,
+        "elf_main_panel": 0.1045,
+        "elf_inset": 0.101,
+        "ratio_main_over_inset": 1.035
+      },
+      {
+        "energy_ev": 26.0,
+        "elf_main_panel": 0.0866,
+        "elf_inset": 0.0849,
+        "ratio_main_over_inset": 1.019
+      },
+      {
+        "energy_ev": 28.0,
+        "elf_main_panel": 0.0664,
+        "elf_inset": 0.0635,
+        "ratio_main_over_inset": 1.045
+      },
+      {
+        "energy_ev": 30.0,
+        "elf_main_panel": 0.0512,
+        "elf_inset": 0.0498,
+        "ratio_main_over_inset": 1.028
+      },
+      {
+        "energy_ev": 35.0,
+        "elf_main_panel": 0.0319,
+        "elf_inset": 0.0312,
+        "ratio_main_over_inset": 1.023
+      },
+      {
+        "energy_ev": 40.0,
+        "elf_main_panel": 0.025,
+        "elf_inset": 0.0238,
+        "ratio_main_over_inset": 1.051
+      },
+      {
+        "energy_ev": 45.0,
+        "elf_main_panel": 0.0198,
+        "elf_inset": 0.0193,
+        "ratio_main_over_inset": 1.023
+      },
+      {
+        "energy_ev": 49.0,
+        "elf_main_panel": 0.0174,
+        "elf_inset": 0.0154,
+        "ratio_main_over_inset": 1.136
+      }
+    ]
+  },
+  "points": [
+    {
+      "energy_ev": 3.0,
+      "elf_fig7_committed": 0.01951,
+      "elf_fig6b_5kev": 0.02223,
+      "ratio_fig6b_over_fig7": 1.14,
+      "unc_rel_fig7": 0.165,
+      "unc_rel_fig6b": 0.145,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 5.0,
+      "elf_fig7_committed": 0.08231,
+      "elf_fig6b_5kev": 0.07134,
+      "ratio_fig6b_over_fig7": 0.867,
+      "unc_rel_fig7": 0.041,
+      "unc_rel_fig6b": 0.066,
+      "verdict": "within twice the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 8.0,
+      "elf_fig7_committed": 0.23313,
+      "elf_fig6b_5kev": 0.22101,
+      "ratio_fig6b_over_fig7": 0.948,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.041,
+      "verdict": "within twice the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 10.0,
+      "elf_fig7_committed": 0.41608,
+      "elf_fig6b_5kev": 0.38891,
+      "ratio_fig6b_over_fig7": 0.935,
+      "unc_rel_fig7": 0.011,
+      "unc_rel_fig6b": 0.037,
+      "verdict": "within twice the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 12.0,
+      "elf_fig7_committed": 0.6852,
+      "elf_fig6b_5kev": 0.68145,
+      "ratio_fig6b_over_fig7": 0.995,
+      "unc_rel_fig7": 0.009,
+      "unc_rel_fig6b": 0.044,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 14.0,
+      "elf_fig7_committed": 1.4716,
+      "elf_fig6b_5kev": 1.4595,
+      "ratio_fig6b_over_fig7": 0.992,
+      "unc_rel_fig7": 0.013,
+      "unc_rel_fig6b": 0.061,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 15.0,
+      "elf_fig7_committed": 2.33681,
+      "elf_fig6b_5kev": 2.35004,
+      "ratio_fig6b_over_fig7": 1.006,
+      "unc_rel_fig7": 0.013,
+      "unc_rel_fig6b": 0.063,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 16.0,
+      "elf_fig7_committed": 3.45284,
+      "elf_fig6b_5kev": 3.38429,
+      "ratio_fig6b_over_fig7": 0.98,
+      "unc_rel_fig7": 0.007,
+      "unc_rel_fig6b": 0.033,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 16.5,
+      "elf_fig7_committed": 3.73031,
+      "elf_fig6b_5kev": 3.67166,
+      "ratio_fig6b_over_fig7": 0.984,
+      "unc_rel_fig7": 0.002,
+      "unc_rel_fig6b": 0.013,
+      "verdict": "within twice the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 17.0,
+      "elf_fig7_committed": 3.6876,
+      "elf_fig6b_5kev": 3.59259,
+      "ratio_fig6b_over_fig7": 0.974,
+      "unc_rel_fig7": 0.003,
+      "unc_rel_fig6b": 0.021,
+      "verdict": "within twice the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 18.0,
+      "elf_fig7_committed": 2.70851,
+      "elf_fig6b_5kev": 2.64884,
+      "ratio_fig6b_over_fig7": 0.978,
+      "unc_rel_fig7": 0.013,
+      "unc_rel_fig6b": 0.06,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 19.0,
+      "elf_fig7_committed": 1.53034,
+      "elf_fig6b_5kev": 1.52405,
+      "ratio_fig6b_over_fig7": 0.996,
+      "unc_rel_fig7": 0.017,
+      "unc_rel_fig6b": 0.082,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 20.0,
+      "elf_fig7_committed": 0.82917,
+      "elf_fig6b_5kev": 0.83967,
+      "ratio_fig6b_over_fig7": 1.013,
+      "unc_rel_fig7": 0.018,
+      "unc_rel_fig6b": 0.081,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 22.0,
+      "elf_fig7_committed": 0.26115,
+      "elf_fig6b_5kev": 0.26222,
+      "ratio_fig6b_over_fig7": 1.004,
+      "unc_rel_fig7": 0.018,
+      "unc_rel_fig6b": 0.063,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 25.0,
+      "elf_fig7_committed": 0.10098,
+      "elf_fig6b_5kev": 0.1032,
+      "ratio_fig6b_over_fig7": 1.022,
+      "unc_rel_fig7": 0.054,
+      "unc_rel_fig6b": 0.029,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 30.0,
+      "elf_fig7_committed": 0.04982,
+      "elf_fig6b_5kev": 0.04995,
+      "ratio_fig6b_over_fig7": 1.003,
+      "unc_rel_fig7": 0.03,
+      "unc_rel_fig6b": 0.018,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 40.0,
+      "elf_fig7_committed": 0.02375,
+      "elf_fig6b_5kev": 0.0239,
+      "ratio_fig6b_over_fig7": 1.006,
+      "unc_rel_fig7": 0.018,
+      "unc_rel_fig6b": 0.012,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 50.0,
+      "elf_fig7_committed": 0.01445,
+      "elf_fig6b_5kev": 0.01459,
+      "ratio_fig6b_over_fig7": 1.01,
+      "unc_rel_fig7": 0.021,
+      "unc_rel_fig6b": 0.013,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 60.0,
+      "elf_fig7_committed": 0.00875,
+      "elf_fig6b_5kev": 0.00878,
+      "ratio_fig6b_over_fig7": 1.004,
+      "unc_rel_fig7": 0.019,
+      "unc_rel_fig6b": 0.012,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 70.0,
+      "elf_fig7_committed": 0.00616,
+      "elf_fig6b_5kev": 0.00617,
+      "ratio_fig6b_over_fig7": 1.001,
+      "unc_rel_fig7": 0.018,
+      "unc_rel_fig6b": 0.012,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 80.0,
+      "elf_fig7_committed": 0.00418,
+      "elf_fig6b_5kev": 0.00416,
+      "ratio_fig6b_over_fig7": 0.997,
+      "unc_rel_fig7": 0.019,
+      "unc_rel_fig6b": 0.013,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 90.0,
+      "elf_fig7_committed": 0.0026,
+      "elf_fig6b_5kev": 0.00258,
+      "ratio_fig6b_over_fig7": 0.993,
+      "unc_rel_fig7": 0.018,
+      "unc_rel_fig6b": 0.012,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 95.0,
+      "elf_fig7_committed": 0.00211,
+      "elf_fig6b_5kev": 0.00212,
+      "ratio_fig6b_over_fig7": 1.004,
+      "unc_rel_fig7": 0.017,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 97.0,
+      "elf_fig7_committed": 0.00209,
+      "elf_fig6b_5kev": 0.00208,
+      "ratio_fig6b_over_fig7": 0.997,
+      "unc_rel_fig7": 0.017,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 102.0,
+      "elf_fig7_committed": 0.02462,
+      "elf_fig6b_5kev": 0.03014,
+      "ratio_fig6b_over_fig7": 1.224,
+      "unc_rel_fig7": 0.164,
+      "unc_rel_fig6b": 0.106,
+      "verdict": "within twice the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 105.0,
+      "elf_fig7_committed": 0.04778,
+      "elf_fig6b_5kev": 0.0483,
+      "ratio_fig6b_over_fig7": 1.011,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 110.0,
+      "elf_fig7_committed": 0.04725,
+      "elf_fig6b_5kev": 0.04727,
+      "ratio_fig6b_over_fig7": 1.0,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 120.0,
+      "elf_fig7_committed": 0.04215,
+      "elf_fig6b_5kev": 0.04269,
+      "ratio_fig6b_over_fig7": 1.013,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 140.0,
+      "elf_fig7_committed": 0.03584,
+      "elf_fig6b_5kev": 0.03609,
+      "ratio_fig6b_over_fig7": 1.007,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 160.0,
+      "elf_fig7_committed": 0.02955,
+      "elf_fig6b_5kev": 0.02971,
+      "ratio_fig6b_over_fig7": 1.006,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 180.0,
+      "elf_fig7_committed": 0.02256,
+      "elf_fig6b_5kev": 0.02262,
+      "ratio_fig6b_over_fig7": 1.003,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    },
+    {
+      "energy_ev": 198.0,
+      "elf_fig7_committed": 0.01765,
+      "elf_fig6b_5kev": 0.01771,
+      "ratio_fig6b_over_fig7": 1.004,
+      "unc_rel_fig7": 0.016,
+      "unc_rel_fig6b": 0.011,
+      "verdict": "within the combined digitizing uncertainty"
+    }
+  ]
+}

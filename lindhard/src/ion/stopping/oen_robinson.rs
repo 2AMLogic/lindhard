@@ -14,12 +14,24 @@
 //!
 //! The constants `c = 0.3` and the choice of length were entered from the
 //! literature as remembered by the contributor and have **not** been verified
-//! against the 1976 paper; see `docs/data-provenance.md`.
+//! against the 1976 paper; see `docs/data-provenance.md` and
+//! [`OR_CONSTANTS_UNVERIFIED`].
 
 use super::lindhard_scharff::LindhardScharff;
 use super::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::constants::BOHR_RADIUS;
 use std::f64::consts::PI;
+
+/// Whether the constants of the local model ([`OR_EXPONENT_COEFFICIENT`] and
+/// the length of [`local_length`]) are still **not verified** against Oen and
+/// Robinson, Nucl. Instrum. Methods 132, 647 (1976). `true` while the
+/// Oen-Robinson row of `docs/data-provenance.md` says "not verified".
+///
+/// This is the one place to change when the constants are checked against the
+/// paper: run metadata that reports the flag
+/// ([`crate::ion::bca::CrystalMetadata::electronic_constants_unverified`])
+/// follows it.
+pub const OR_CONSTANTS_UNVERIFIED: bool = true;
 
 /// Exponent coefficient `c` in `exp(-c r_min / a)`.
 pub const OR_EXPONENT_COEFFICIENT: f64 = 0.3;

@@ -93,21 +93,32 @@ def to_toml(problem: dict) -> str:
     return "\n".join(lines)
 
 
-def run(problem: dict, workdir: Path, binary: Path | None = None) -> dict:
-    """Run `lindhard` on a problem; return its summary metrics."""
+def run(problem: dict, workdir: Path, binary: Path | None = None, reuse_describe: str | None = None) -> dict:
+    """Run `lindhard` on a problem; return its summary metrics.
+
+    `reuse_describe`: if given, an earlier run in `workdir` is reused instead
+    of rerun when its input file is identical and its summary's
+    `software.git_describe` equals this string (resuming a long sweep)."""
     binary = binary or lindhard_binary()
     workdir.mkdir(parents=True, exist_ok=True)
     inp = workdir / "input.toml"
-    inp.write_text(to_toml(problem))
+    text = to_toml(problem)
     out = workdir / "out"
-    proc = subprocess.run(
-        [str(binary), "run", str(inp), "--out", str(out)],
-        capture_output=True,
-        text=True,
-    )
-    if proc.returncode != 0:
-        die(f"lindhard failed on {problem['id']}:\n{proc.stderr}")
-    s = json.loads((out / "summary.json").read_text())
+    s = None
+    if reuse_describe is not None and inp.exists() and inp.read_text() == text and (out / "summary.json").exists():
+        old = json.loads((out / "summary.json").read_text())
+        if old.get("software", {}).get("git_describe") == reuse_describe:
+            s = old
+    if s is None:
+        inp.write_text(text)
+        proc = subprocess.run(
+            [str(binary), "run", str(inp), "--out", str(out)],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode != 0:
+            die(f"lindhard failed on {problem['id']}:\n{proc.stderr}")
+        s = json.loads((out / "summary.json").read_text())
     r = s["results"]
     sputtered = r["recoils"]["sputtered"]
     return {

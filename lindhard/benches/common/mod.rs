@@ -18,7 +18,7 @@ const NM: f64 = 1e-9;
 
 /// One ZBL table for every benchmark (the angle depends on the screening
 /// function only). Same grid as `tests/bca.rs`.
-pub fn table() -> &'static ScatteringTable {
+pub(crate) fn table() -> &'static ScatteringTable {
     static T: OnceLock<ScatteringTable> = OnceLock::new();
     T.get_or_init(|| {
         ScatteringTable::build(
@@ -37,7 +37,7 @@ pub fn table() -> &'static ScatteringTable {
 /// Elemental target with illustrative model parameters: `E_d` = 15 eV, and
 /// `E_s` = 2 eV where the element table has no default. Benchmark inputs,
 /// not recommended values.
-pub fn elemental(z: u8) -> Material {
+pub(crate) fn elemental(z: u8) -> Material {
     let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();
     m.set_displacement_energy_ev(z, 15.0).unwrap();
     if m.surface_binding_energy_ev(z).is_err() {
@@ -47,14 +47,14 @@ pub fn elemental(z: u8) -> Material {
 }
 
 /// A representative problem: ion, energy (eV), substrate Z and a label.
-pub struct Problem {
+pub(crate) struct Problem {
     pub label: &'static str,
     pub z_ion: u8,
     pub energy_ev: f64,
     pub z_target: u8,
 }
 
-pub const PROBLEMS: [Problem; 3] = [
+pub(crate) const PROBLEMS: [Problem; 3] = [
     Problem {
         label: "B_5keV_Si",
         z_ion: 5,
@@ -75,11 +75,11 @@ pub const PROBLEMS: [Problem; 3] = [
     },
 ];
 
-pub fn stack(p: &Problem) -> Stack {
+pub(crate) fn stack(p: &Problem) -> Stack {
     Stack::semi_infinite(elemental(p.z_target))
 }
 
-pub fn beam(p: &Problem, count: u64) -> Beam {
+pub(crate) fn beam(p: &Problem, count: u64) -> Beam {
     Beam {
         ion: Ion::new(p.z_ion).unwrap(),
         energy_ev: p.energy_ev,
@@ -89,13 +89,13 @@ pub fn beam(p: &Problem, count: u64) -> Beam {
     }
 }
 
-pub fn config(seed: u64) -> BcaConfig {
+pub(crate) fn config(seed: u64) -> BcaConfig {
     let mut c = BcaConfig::new(5.0, 2.0);
     c.seed = seed;
     c
 }
 
-pub fn tally_config() -> IonTallyConfig {
+pub(crate) fn tally_config() -> IonTallyConfig {
     IonTallyConfig {
         depth: Binning::new(0.0, 200.0 * NM, 200).unwrap(),
         lateral: Binning::new(-100.0 * NM, 100.0 * NM, 100).unwrap(),

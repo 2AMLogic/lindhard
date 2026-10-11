@@ -1,0 +1,67 @@
+# Backscatter coefficient eta of bulk Au at normal incidence (#148): the
+# committed input of the level-3 eta comparison (docs/validation.md,
+# "Backscatter coefficient"). validation/experiments/backscatter.py runs it at
+# each comparison energy (it changes only electron.beam.energy_ev and
+# run.histories, and for the sensitivity runs the two elastic corrections);
+# as written it is the 10 keV run and can be run by hand:
+#
+#   lindhard run validation/experiments/backscatter/eta_au.toml --out out/eta_au
+#
+# eta is results.yields.backscatter_eta of electron_summary.json: electrons
+# leaving the front face with at least 50 eV, per primary.
+#
+# Model, and what it is not (docs/validation.md lists the gaps):
+# - Elastic: Mott cross sections from radial-Dirac partial waves on the
+#   Salvat et al. (1987) DHFS potential, with the Furness-McCarthy exchange
+#   and the correlation-polarization corrections on (both solved on the DHFS
+#   Poisson density).
+# - Inelastic: the full Penn algorithm on the measured optical ELF of
+#   Hagemann, Gudat and Kunz (1975).
+#   No separate inner-shell channel (the transport loop has none yet;
+#   the optical ELF includes the shells).
+# - No secondaries and a transparent surface: no band parameters of Au are
+#   committed. With a 50 eV cutoff no electron that could count towards eta
+#   is dropped, but fast secondaries (above 50 eV) are not generated.
+
+[electron.beam]
+energy_ev = 10000.0
+tilt_deg = 0.0
+
+[electron.transport]
+cutoff_ev = 50.0
+cutoff_reference = "band-bottom"
+escape_rule = "both-faces"
+secondaries = "off"
+boundary = "transparent"
+
+[electron.elastic]
+model = "mott"
+potential = "salvat-dhfs"
+exchange = true
+
+[electron.elastic.correlation_polarization]
+# Seltzer's cutoff rule needs every table energy above 50 eV, hence the
+# 51 eV grid start below.
+polarizability.Au = { bohr3 = 36.0, source = "P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 79 Au, recommended 36 +- 3 a.u." }
+
+[electron.inelastic]
+model = "penn-full"
+
+[electron.tables]
+min_energy_ev = 51.0
+points_per_decade = 20.0
+# One grid for every comparison energy, so that the full-Penn tables are
+# built once per material (lindhard run --table-cache). The largest energy
+# is 30 keV; the extra 1 keV leaves room for the inner potential of the
+# secondary-sensitivity runs.
+max_energy_ev = 31000.0
+
+[electron.materials.Au]
+optical_elf = "../../data/optical/au_elf_hagemann1975.toml"
+
+[target]
+substrate = "Au"
+
+[run]
+histories = 100000
+seed = 1

@@ -1,22 +1,26 @@
-//! Amorphous binary-collision-approximation (BCA) transport in a 1D layered
-//! target, with full recoil cascades.
+//! Amorphous binary-collision-approximation (BCA) transport in a layered or
+//! voxelised target, with full recoil cascades.
 //!
 //! # Model
 //!
-//! The target is a [`Stack`] of homogeneous, structureless (amorphous)
-//! layers. A particle alternates straight free flights and binary elastic
-//! collisions with target atoms, losing energy continuously to electrons along
-//! each flight. This is the amorphous-target BCA of J. P. Biersack and L. G.
-//! Haggmark, Nucl. Instrum. Methods 174 (1980) 257 (TRIM), within the general
-//! BCA framework of M. T. Robinson and I. M. Torrens, Phys. Rev. B 9 (1974)
-//! 5008 and the treatment in W. Eckstein, *Computer Simulation of Ion-Solid
-//! Interactions* (Springer, 1991). Everything here is implemented from those
+//! The target is any [`Geometry`]: a [`Stack`](crate::geometry::Stack) of
+//! layers or a [`VoxelGrid`](crate::geometry::VoxelGrid), whose regions are
+//! homogeneous, structureless (amorphous). A particle alternates straight
+//! free flights and binary elastic collisions with target atoms, losing
+//! energy continuously to electrons along each flight. This is the
+//! amorphous-target BCA of J. P. Biersack and L. G. Haggmark, Nucl. Instrum.
+//! Methods 174 (1980) 257 (TRIM), within the general BCA framework of M. T.
+//! Robinson and I. M. Torrens, Phys. Rev. B 9 (1974) 5008 and the treatment
+//! in W. Eckstein, *Computer Simulation of Ion-Solid Interactions*
+//! (Springer, 1991). Everything here is implemented from those
 //! publications; no code from the Tier B/C programs named in
 //! `CONTRIBUTING.md` was consulted.
 //!
 //! One history:
 //!
-//! 1. The primary enters at the origin of the front face with the beam's
+//! 1. The primary enters at the geometry's entry point (the origin of the
+//!    front face of a stack; the centre of the front face of a voxel grid
+//!    unless [`Bca::with_entry_point`] chooses another) with the beam's
 //!    direction.
 //! 2. **Free flight** of length `tau * lambda` ([`MeanFreePath`]), with the
 //!    electronic loss `N S_e(E) s` taken at the energy at the start of the
@@ -44,15 +48,31 @@
 //!
 //! # Free-path convention and layer boundaries
 //!
+//! [`Particle::layer`] is the particle's *region* in the geometry: the layer
+//! index in a stack, the flat voxel index in a voxel grid. Material data
+//! (scattering, stopping, energies) is cached per material, shared by all
+//! voxels of that material. The surface barrier of an escaping atom uses the
+//! `E_s` of the material it leaves from and the actual outward normal of the
+//! face (see [`kinematics::refract_out_normal`]); a particle that cannot
+//! escape is reflected specularly about that normal. Escapes through the
+//! lateral faces of a voxel grid are reported as [`Face::Side`] and counted
+//! in [`EnergyBudget::lateral`]. [`crate::tally::ion::IonTally`] and the CLI
+//! tallies describe stacks only; use [`SummaryTally`] or a custom
+//! [`BcaTally`] for voxel runs.
+//!
 //! A flight is drawn as a dimensionless number of mean free paths `tau` and
-//! converted to a length with the local `lambda`. When a flight reaches an
-//! interface it is truncated exactly there, the electronic loss for the
-//! truncated length is applied, the material is switched, and the flight
-//! continues in the new layer with the **unused** part `tau - s/lambda` (the
-//! flight is not redrawn). The collision then happens in the layer where the
-//! flight ends, with a partner and `p_max` from that layer. For exponential
-//! paths this is exact by memorylessness; for the constant path it means a
-//! layer split of one material changes nothing but floating-point rounding,
+//! converted to a length with the local `lambda`. When a flight reaches a
+//! change of material (or a periodic wrap of a voxel grid) it is truncated
+//! exactly there, the electronic loss for the truncated length is applied,
+//! the material is switched, and the flight continues in the new region
+//! with the **unused** part `tau - s/lambda` (the flight is not redrawn). A
+//! voxel face between voxels of one material is not an event; the region a
+//! flight ends in is still tracked ([`Geometry::flight`]), so the collision,
+//! its tallies and its recoils carry the region of the collision site. The
+//! collision happens in the material where the flight ends, with a partner
+//! and `p_max` from that material. For exponential paths this is exact by
+//! memorylessness; for the constant path it means a layer split of one
+//! material changes nothing but floating-point rounding,
 //! which the `split_layer_is_equivalent` test checks.
 //!
 //! # Weak collisions (optional)
@@ -71,7 +91,10 @@
 //! collisions and dynamic composition changes in solids*, report IPP 9/64,
 //! Max-Planck-Institut fur Plasmaphysik, Garching (1988) (the long write-up
 //! of Comput. Phys. Commun. 51 (1988) 355), read at
-//! <https://pure.mpg.de/rest/items/item_2131703/component/file_2131702/content>:
+//! <https://pure.mpg.de/rest/items/item_2131703/component/file_2131702/content>.
+//! Read only the report body, PDF pp. 1-47: never Appendix 1 (the TRIDYN
+//! program listing, PDF pp. 48-86), which is Tier C (see `CONTRIBUTING.md`).
+//! Quoted:
 //!
 //! * p. 14: "'weak' collisions might occur with more distant atoms which
 //!   might contribute to energy loss and angular deflection. The present
@@ -176,28 +199,42 @@
 //! are kept by the tally [`crate::tally::IonTally`] from the events reported
 //! here ([`crate::ion::damage`] has the models).
 //!
+//! # Crystal regions
+//!
+//! Everything above is the amorphous partner model. [`Bca::with_crystal`]
+//! switches chosen regions to the crystal flight model (partners from an
+//! explicit lattice, in [`crystal`]); the other regions, and engines that do
+//! not call it, are untouched and bit-identical to the amorphous engine.
+//!
 //! # Not modelled here (see the issue tracker)
 //!
-//! Crystal structure, target composition changes with fluence, and refraction
+//! Damage accumulation in crystal regions (the lattice there is perfect,
+//! static or thermally vibrating; the local Oen-Robinson loss of
+//! [`ElectronicLoss::EquipartitionLsOr`] is taken at every lattice partner,
+//! see [`crystal`]), target composition changes with fluence, and refraction
 //! of the incident beam at the entrance surface (negligible at keV energies).
 
+pub mod crystal;
 pub mod kinematics;
 pub mod tally;
 
+pub use crystal::{CrystalMetadata, CrystalTarget, Thermal, ThermalMetadata};
 pub use tally::{BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, SummaryTally};
 
+use std::collections::HashMap;
 use std::f64::consts::PI;
 
 use rand_core::Rng;
 
-use crate::geometry::Stack;
+use crate::geometry::{ExitOutcome, Flight, Geometry};
+use crate::ion::crystal::Divergence;
 use crate::ion::potential::{Potential, Screening};
 use crate::ion::scattering::{closest_approach, theta_quadrature, ScatteringTable};
 use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
 use crate::ion::stopping::mix::EquipartitionMix;
 use crate::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::material::EnergyKind;
-use crate::rng::{run_particles, ParticleRng};
+use crate::rng::{run_particles_range, ParticleRng};
 use crate::units::J_PER_EV;
 
 /// Largest [`BcaConfig::weak_collisions`]: "up to three additional weak
@@ -237,6 +274,103 @@ impl Beam {
         let (sa, ca) = self.azimuth_rad.sin_cos();
         [c, s * ca, s * sa]
     }
+}
+
+/// Word position (in the 32-bit words of the ChaCha stream) of the segment
+/// of a history's random stream that beam-divergence draws come from:
+/// `2^65`. The transport draws start at word 0 and never reach it, and it is
+/// disjoint from the thermal-displacement segment (`2^66`) and the
+/// crystal-shift segment (`2^67`) (each is far shorter than the gap to the
+/// next), so enabling divergence leaves every other draw of the history
+/// unchanged.
+pub const DIVERGENCE_STREAM_WORD: u128 = 1u128 << 65;
+
+/// Most deflected directions drawn for one primary before
+/// [`Bca::with_divergence`]'s inward conditioning gives up with
+/// [`BcaError::BeamDivergence`]. For the small-angle spreads the input
+/// front end accepts, one draw is inward with probability about one half or
+/// more, so exhausting 1000 attempts has probability below `2^-1000`; the
+/// bound only guarantees that a pathological setting cannot hang a run.
+pub const MAX_DIVERGENCE_ATTEMPTS: u32 = 1000;
+
+/// Run metadata of a beam divergence ([`Bca::divergence_metadata`]): the
+/// distribution, its width and the incidence policy, so a result states the
+/// spread it was run with.
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct DivergenceMetadata {
+    /// `"gaussian"` or `"uniform-cone"`.
+    pub model: &'static str,
+    /// Which angle `width_rad` is: `"sigma_per_plane"` (Gaussian standard
+    /// deviation of each of two orthogonal plane angles) or
+    /// `"cone_half_angle"` (uniform in solid angle).
+    pub width_kind: &'static str,
+    /// The width, radians.
+    pub width_rad: f64,
+    /// The width, degrees (the unit the input uses).
+    pub width_deg: f64,
+    /// Incidence policy: `"inward-conditioned"`, i.e. the distribution
+    /// conditioned on directions into the target by rejection sampling.
+    pub incidence: &'static str,
+    /// Rejection-sampling attempt bound per primary.
+    pub max_attempts: u32,
+    /// Word position of the random-stream segment the draws come from.
+    pub stream_word: &'static str,
+}
+
+impl DivergenceMetadata {
+    /// Metadata of `divergence`; `None` for [`Divergence::None`].
+    pub fn new(divergence: &Divergence) -> Option<Self> {
+        let (model, width_kind, width_rad) = match *divergence {
+            Divergence::None => return None,
+            Divergence::Gaussian { sigma_rad } => ("gaussian", "sigma_per_plane", sigma_rad),
+            Divergence::UniformCone { half_angle_rad } => {
+                ("uniform-cone", "cone_half_angle", half_angle_rad)
+            }
+        };
+        Some(Self {
+            model,
+            width_kind,
+            width_rad,
+            width_deg: width_rad.to_degrees(),
+            incidence: "inward-conditioned",
+            max_attempts: MAX_DIVERGENCE_ATTEMPTS,
+            stream_word: "2^65",
+        })
+    }
+}
+
+/// Why a single history failed.
+#[derive(Debug, Clone, PartialEq, thiserror::Error)]
+pub enum HistoryError {
+    /// The stopping model failed.
+    #[error(transparent)]
+    Stopping(#[from] StoppingError),
+    /// No inward direction was drawn from the beam divergence within
+    /// [`MAX_DIVERGENCE_ATTEMPTS`] attempts.
+    #[error("no inward beam direction in {attempts} divergence draws")]
+    BeamDivergence {
+        /// Attempts made.
+        attempts: u32,
+    },
+}
+
+/// Draw `divergence` about `central` until the direction points into the
+/// target (`dir[0] > 0`), at most [`MAX_DIVERGENCE_ATTEMPTS`] times. The
+/// result is the divergence law conditioned on inward incidence.
+fn sample_inward<R: Rng + ?Sized>(
+    divergence: &Divergence,
+    central: [f64; 3],
+    rng: &mut R,
+) -> Result<[f64; 3], HistoryError> {
+    for _ in 0..MAX_DIVERGENCE_ATTEMPTS {
+        let d = divergence.sample_direction(central, rng);
+        if d[0] > 0.0 {
+            return Ok(d);
+        }
+    }
+    Err(HistoryError::BeamDivergence {
+        attempts: MAX_DIVERGENCE_ATTEMPTS,
+    })
 }
 
 /// How free-flight lengths and the impact-parameter limit are chosen.
@@ -325,7 +459,7 @@ pub struct BcaConfig {
     pub primary_surface_binding_ev: f64,
     /// Run seed for [`crate::rng::stream`].
     pub seed: u64,
-    /// Histories per work chunk for [`run_particles`]; fixes the summation
+    /// Histories per work chunk for [`crate::rng::run_particles`]; fixes the summation
     /// order, so keep it independent of the thread count. Default 64.
     pub chunk_size: u64,
 }
@@ -357,10 +491,10 @@ pub enum BcaError {
     /// A configuration parameter is out of range.
     #[error("invalid configuration: {0}")]
     InvalidConfig(String),
-    /// A layer material has an energy with no value; set it before running.
+    /// A material has an energy with no value; set it before running.
     #[error("layer {layer}: {kind} for element Z={z} is not set")]
     EnergyNotSet {
-        /// Layer index.
+        /// Material index (the layer index for a stack).
         layer: usize,
         /// Atomic number.
         z: u8,
@@ -375,6 +509,16 @@ pub enum BcaError {
         index: u64,
         /// The model error.
         source: StoppingError,
+    },
+    /// Beam divergence produced no inward direction within the attempt
+    /// bound ([`MAX_DIVERGENCE_ATTEMPTS`]). `index` is the lowest failing
+    /// history.
+    #[error("history {index}: no inward beam direction in {attempts} divergence draws")]
+    BeamDivergence {
+        /// Primary index.
+        index: u64,
+        /// Attempts made.
+        attempts: u32,
     },
 }
 
@@ -394,8 +538,14 @@ pub struct Particle {
     pub pos: [f64; 3],
     /// Unit direction.
     pub dir: [f64; 3],
-    /// Index of the layer the particle is in.
+    /// Index of the region the particle is in: the layer of a stack, the flat
+    /// voxel index of a voxel grid (see [`Geometry`]).
     pub layer: usize,
+    /// Region the particle started in: the entry region of a primary, the
+    /// region of the displacing collision for a recoil. Unlike `layer` it does
+    /// not change as the particle moves, so a tally that sees the particle
+    /// leave can tell where the atom came from.
+    pub origin_layer: usize,
     /// 0 for the primary, parent's generation + 1 for recoils.
     pub generation: u32,
 }
@@ -411,8 +561,10 @@ impl Particle {
 struct SpeciesData {
     ion: Ion,
     cutoff_ev: f64,
-    barrier_front_ev: f64,
-    barrier_back_ev: f64,
+    /// `E_s` used when the exit material does not contain the element: that
+    /// of the first material that does (the primary's own binding for the
+    /// beam).
+    barrier_default_ev: f64,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -444,6 +596,13 @@ struct LayerData {
     /// Constant-convention p_max, m.
     p_const: f64,
     elems: Vec<ElemData>,
+    /// Per projectile species: `c` with `Σ_j x_j S_j(E) = c sqrt(E)` over the
+    /// layer's elements for the configured nonlocal model, if every element's
+    /// stopping has that form (see
+    /// [`ElectronicStopping::sqrt_energy_coefficient`]). The fractional
+    /// powers in the coefficient depend only on the ion and target, so they
+    /// are evaluated here once instead of at every flight.
+    loss_coef: Vec<Option<f64>>,
 }
 
 /// `ln beta_max` on a grid uniform in `ln eps`, for the energy-dependent
@@ -502,11 +661,74 @@ impl BetaMaxGrid {
     }
 }
 
-/// Per-history scratch space for the energy-dependent free path.
+/// What [`Bca::binary`] reports: the energy transfer `T`, the direction of
+/// the projectile before the collision, and the recoil's lab deflection as
+/// `(sin, cos)`.
+type BinaryOutcome = (f64, [f64; 3], (f64, f64));
+
+/// Per-flight scratch space for the per-element `p_max` and partner weights.
 #[derive(Default)]
 struct Scratch {
     p_max: Vec<f64>,
     cum: Vec<f64>,
+    /// Crystal flight model: the lattice sites found by the last search, the
+    /// sites hit by the previous collision, and the partners of the current
+    /// collision step.
+    cands: Vec<crystal::Candidate>,
+    last: Vec<crystal::SiteId>,
+    targets: Vec<crystal::Partner>,
+    /// Thermal crystals: the static site of each entry of `cands` (whose
+    /// positions are displaced), a sort buffer, and the displacements of the
+    /// sites met on the current flight line (`displaced_line`: crystal and
+    /// direction bits), with the buffer that replaces them after a search.
+    homes: Vec<[f64; 3]>,
+    encounter: Vec<(crystal::Candidate, [f64; 3])>,
+    displaced: HashMap<crystal::SiteId, [f64; 3]>,
+    displaced_next: HashMap<crystal::SiteId, [f64; 3]>,
+    displaced_line: Option<(usize, [u64; 3])>,
+}
+
+impl Scratch {
+    /// Forget the displaced sites: the next crystal search starts a new
+    /// encounter.
+    fn new_line(&mut self) {
+        self.displaced.clear();
+        self.displaced_line = None;
+    }
+}
+
+/// Reusable working memory for [`Bca::history_in`]: the stack of particles
+/// still to be followed and the per-flight scratch. A history that runs in
+/// buffers which have already seen a cascade as large allocates nothing, so a
+/// worker thread allocates only while its buffers grow to the largest cascade
+/// it meets, not per history and not per collision.
+#[derive(Default)]
+pub struct HistoryBuffers {
+    pending: Vec<Particle>,
+    scratch: Scratch,
+    /// Crystal regions: this history's random lattice translation per
+    /// crystal (empty when there are none).
+    shifts: Vec<[f64; 3]>,
+    /// Thermal crystals: this history's stream of site displacements
+    /// (`None` when no crystal vibrates).
+    thermal_rng: Option<ParticleRng>,
+}
+
+// Manual: the per-history scratch space is internal and has no `Debug`.
+impl std::fmt::Debug for HistoryBuffers {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("HistoryBuffers")
+            .field("pending", &self.pending.len())
+            .field("shifts", &self.shifts.len())
+            .finish_non_exhaustive()
+    }
+}
+
+impl HistoryBuffers {
+    /// Empty buffers.
+    pub fn new() -> Self {
+        Self::default()
+    }
 }
 
 /// The nonlocal half of [`EquipartitionMix`] as an [`ElectronicStopping`]
@@ -523,6 +745,9 @@ impl ElectronicStopping for MixNonLocal {
     fn validity(&self, ion: &Ion) -> ValidityRange {
         self.0.validity(ion)
     }
+    fn sqrt_energy_coefficient(&self, ion: &Ion, target_z: u8) -> Option<f64> {
+        self.0.nonlocal_sqrt_energy_coefficient(ion, target_z)
+    }
 }
 
 /// The BCA engine for one beam, target and configuration.
@@ -531,21 +756,49 @@ impl ElectronicStopping for MixNonLocal {
 /// data, so it is `Sync` and shared by all worker threads.
 pub struct Bca<'a> {
     beam: Beam,
-    stack: &'a Stack,
+    geometry: &'a dyn Geometry,
+    entry_pos: [f64; 3],
+    entry_region: usize,
     config: BcaConfig,
     stopping: &'a (dyn ElectronicStopping + Sync),
     mix: MixNonLocal,
     table: &'a ScatteringTable,
     screening: Screening,
     species: Vec<SpeciesData>,
+    /// Per-material data (indexed by material index, not region).
     layers: Vec<LayerData>,
+    /// Surface barrier `E_s` by `material * n_species + species`.
+    barriers: Vec<f64>,
     /// `pairs[projectile species * n_species + target species]`.
     pairs: Vec<PairData>,
     beta_max: Option<BetaMaxGrid>,
+    /// Crystal partner models ([`Bca::with_crystal`]); empty for an
+    /// amorphous target.
+    crystals: Vec<crystal::CrystalData>,
+    /// Index into `crystals` by region; empty when there are no crystals.
+    region_crystal: Vec<Option<usize>>,
+    /// Beam divergence about the nominal direction ([`Bca::with_divergence`]);
+    /// [`Divergence::None`] (the default) draws nothing.
+    divergence: Divergence,
 }
 
 fn finite_nonneg(v: f64) -> bool {
     v.is_finite() && v >= 0.0
+}
+
+// Manual: the geometry and stopping model are trait objects without `Debug`,
+// and the precomputed tables are large.
+impl std::fmt::Debug for Bca<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Bca")
+            .field("beam", &self.beam)
+            .field("entry_pos", &self.entry_pos)
+            .field("entry_region", &self.entry_region)
+            .field("config", &self.config)
+            .field("screening", &self.screening)
+            .field("crystals", &self.crystals.len())
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'a> Bca<'a> {
@@ -558,11 +811,15 @@ impl<'a> Bca<'a> {
     ///   convention; the same table serves every projectile/target pair,
     ///   since the angle depends on the reduced variables only.
     /// * Target atoms use, at each face, the `E_s` of their element in the
-    ///   material at that face; an element absent from that material uses its
-    ///   `E_s` in the first layer that contains it.
+    ///   material they leave from; an element absent from that material uses
+    ///   its `E_s` in the first material that contains it.
+    /// * `geometry` is a [`Stack`](crate::geometry::Stack) or a
+    ///   [`VoxelGrid`](crate::geometry::VoxelGrid) (or any other
+    ///   [`Geometry`]); its default entry point must lie in the target
+    ///   ([`Bca::with_entry_point`] changes it).
     pub fn new(
         beam: Beam,
-        stack: &'a Stack,
+        geometry: &'a dyn Geometry,
         config: BcaConfig,
         stopping: &'a (dyn ElectronicStopping + Sync),
         table: &'a ScatteringTable,
@@ -616,23 +873,27 @@ impl<'a> Bca<'a> {
                 config.weak_collisions
             )));
         }
-        for (layer, l) in stack.layers().iter().enumerate() {
-            if let Some(&(z, kind)) = l.material().unset_energies().first() {
+        let n_materials = geometry.n_materials();
+        for layer in 0..n_materials {
+            if let Some(&(z, kind)) = geometry.material(layer).unset_energies().first() {
                 return Err(BcaError::EnergyNotSet { layer, z, kind });
             }
         }
+        let entry_pos = geometry.entry_point();
+        let entry_region = geometry.locate(entry_pos).ok_or_else(|| {
+            BcaError::InvalidBeam(format!("entry point {entry_pos:?} is outside the target"))
+        })?;
 
         // Species: the beam, then target elements in order of appearance.
         let mut species = vec![SpeciesData {
             ion: beam.ion,
             cutoff_ev: config.primary_cutoff_ev,
-            barrier_front_ev: config.primary_surface_binding_ev,
-            barrier_back_ev: config.primary_surface_binding_ev,
+            barrier_default_ev: config.primary_surface_binding_ev,
         }];
         let mut species_z: Vec<u8> = vec![0];
-        let mut layers = Vec::with_capacity(stack.layers().len());
-        for l in stack.layers() {
-            let m = l.material();
+        let mut layers = Vec::with_capacity(n_materials);
+        for mi in 0..n_materials {
+            let m = geometry.material(mi);
             let n = m.atom_number_density();
             let mut elems = Vec::with_capacity(m.components().len());
             for c in m.components() {
@@ -644,8 +905,7 @@ impl<'a> Bca<'a> {
                         species.push(SpeciesData {
                             ion: Ion::new(z).expect("element in table"),
                             cutoff_ev: config.recoil_cutoff_ev,
-                            barrier_front_ev: e_s,
-                            barrier_back_ev: e_s,
+                            barrier_default_ev: e_s,
                         });
                         species_z.push(z);
                         species.len() - 1
@@ -664,17 +924,40 @@ impl<'a> Bca<'a> {
                 ell: n.powf(-1.0 / 3.0),
                 p_const: 1.0 / (PI * n.powf(2.0 / 3.0)).sqrt(),
                 elems,
+                loss_coef: Vec::new(),
             });
         }
-        // Face barriers from the materials at the faces.
-        let front = stack.layers().first().expect("non-empty").material();
-        let back = stack.layers().last().expect("non-empty").material();
-        for (s, &z) in species.iter_mut().zip(&species_z).skip(1) {
-            if let Ok(e) = front.surface_binding_energy_ev(z) {
-                s.barrier_front_ev = e;
+        let mix = MixNonLocal(EquipartitionMix::new());
+        {
+            let model: &dyn ElectronicStopping = match config.electronic {
+                ElectronicLoss::NonLocal => stopping,
+                ElectronicLoss::EquipartitionLsOr => &mix,
+            };
+            for lay in &mut layers {
+                lay.loss_coef = species
+                    .iter()
+                    .map(|sp| {
+                        // Same order as the Bragg sum.
+                        let mut sum = 0.0;
+                        for e in &lay.elems {
+                            sum += e.fraction * model.sqrt_energy_coefficient(&sp.ion, e.z)?;
+                        }
+                        Some(sum)
+                    })
+                    .collect();
             }
-            if let Ok(e) = back.surface_binding_energy_ev(z) {
-                s.barrier_back_ev = e;
+        }
+        // Surface barriers by exit material; the beam always uses its own.
+        let mut barriers = Vec::with_capacity(n_materials * species.len());
+        for mi in 0..n_materials {
+            let m = geometry.material(mi);
+            for (si, &z) in species_z.iter().enumerate() {
+                barriers.push(if si == 0 {
+                    species[0].barrier_default_ev
+                } else {
+                    m.surface_binding_energy_ev(z)
+                        .unwrap_or(species[si].barrier_default_ev)
+                });
             }
         }
 
@@ -702,17 +985,101 @@ impl<'a> Bca<'a> {
         };
         Ok(Self {
             beam,
-            stack,
+            geometry,
+            entry_pos,
+            entry_region,
             config,
             stopping,
-            mix: MixNonLocal(EquipartitionMix::new()),
+            mix,
             table,
             screening: tp.screening,
             species,
             layers,
+            barriers,
             pairs,
             beta_max,
+            crystals: Vec::new(),
+            region_crystal: Vec::new(),
+            divergence: Divergence::None,
         })
+    }
+
+    /// Give the beam an angular spread about its nominal direction (opt-in;
+    /// the default is [`Divergence::None`], which changes nothing).
+    ///
+    /// Each primary's initial direction is the nominal
+    /// [`Beam::direction`] deflected by [`Divergence::sample_direction`] and
+    /// *conditioned on pointing into the target* (positive depth component):
+    /// a deflected direction with `dir[0] <= 0` is rejected and redrawn, up
+    /// to [`MAX_DIVERGENCE_ATTEMPTS`] attempts, after which the history
+    /// fails with [`BcaError::BeamDivergence`]. The draws come from a copy of
+    /// the history's stream positioned at word `2^65`
+    /// ([`DIVERGENCE_STREAM_WORD`]), a segment disjoint from the transport
+    /// draws, the thermal segment (`2^66`) and the crystal-shift segment
+    /// (`2^67`), so the spread changes no other draw of the history. The
+    /// spread is a property of the beam: it applies to the primary from the
+    /// entry point, including while it crosses an amorphous layer; recoils
+    /// keep their collision-generated directions. The nominal orientation
+    /// convention (and the crystal orientation built from it) is unchanged.
+    ///
+    /// Errors with [`BcaError::InvalidBeam`] when the parameters fail
+    /// [`Divergence::validate`].
+    pub fn with_divergence(mut self, divergence: Divergence) -> Result<Self, BcaError> {
+        divergence
+            .validate()
+            .map_err(|e| BcaError::InvalidBeam(format!("divergence: {e}")))?;
+        self.divergence = divergence;
+        Ok(self)
+    }
+
+    /// Metadata of the beam divergence; `None` without one.
+    pub fn divergence_metadata(&self) -> Option<DivergenceMetadata> {
+        DivergenceMetadata::new(&self.divergence)
+    }
+
+    /// The beam divergence ([`Divergence::None`] unless set by
+    /// [`Bca::with_divergence`]).
+    pub fn divergence(&self) -> Divergence {
+        self.divergence
+    }
+
+    /// The initial direction of primary `index` of this engine's run: what
+    /// [`Bca::run`] gives that history (the stream is
+    /// [`crate::rng::stream`]`(seed, index)`). The nominal direction without
+    /// divergence; otherwise the inward-conditioned divergent sample.
+    pub fn primary_direction(&self, index: u64) -> Result<[f64; 3], BcaError> {
+        self.initial_direction(&crate::rng::stream(self.config.seed, index))
+            .map_err(|e| match e {
+                HistoryError::BeamDivergence { attempts } => {
+                    BcaError::BeamDivergence { index, attempts }
+                }
+                HistoryError::Stopping(source) => BcaError::Stopping { index, source },
+            })
+    }
+
+    /// The direction of primary history `rng` starts with: the nominal beam
+    /// direction, or the inward-conditioned divergent sample (see
+    /// [`Bca::with_divergence`]).
+    fn initial_direction(&self, rng: &ParticleRng) -> Result<[f64; 3], HistoryError> {
+        let central = self.beam.direction();
+        if matches!(self.divergence, Divergence::None) {
+            return Ok(central);
+        }
+        let mut brng = rng.clone();
+        brng.set_word_pos(DIVERGENCE_STREAM_WORD);
+        sample_inward(&self.divergence, central, &mut brng)
+    }
+
+    /// Start primaries at `pos` instead of the geometry's default entry point.
+    /// `pos` must lie in the target (for a voxel grid this selects the
+    /// incident voxel explicitly; on a shared face the voxel with the higher
+    /// index owns the point).
+    pub fn with_entry_point(mut self, pos: [f64; 3]) -> Result<Self, BcaError> {
+        self.entry_region = self.geometry.locate(pos).ok_or_else(|| {
+            BcaError::InvalidBeam(format!("entry point {pos:?} is outside the target"))
+        })?;
+        self.entry_pos = pos;
+        Ok(self)
     }
 
     /// The beam.
@@ -741,23 +1108,41 @@ impl<'a> Bca<'a> {
         T: BcaTally,
         N: Fn() -> T + Sync,
     {
+        self.run_range(0, self.beam.count, new_tally)
+    }
+
+    /// [`Bca::run`] for the global primary indices
+    /// `first_index..first_index + count` (instead of `0..beam.count`):
+    /// primary `first_index + k` uses the stream
+    /// `stream(seed, first_index + k)` and reports that index to the tally
+    /// hooks. A run cut into consecutive ranges draws exactly the histories of
+    /// one longer run; this is what lets the fluence steps of a dynamic run
+    /// continue the global stream. `run` is `run_range(0, beam.count, ..)`.
+    pub fn run_range<T, N>(&self, first_index: u64, count: u64, new_tally: N) -> Result<T, BcaError>
+    where
+        T: BcaTally,
+        N: Fn() -> T + Sync,
+    {
         struct Acc<T> {
             tally: T,
-            err: Option<(u64, StoppingError)>,
+            err: Option<(u64, HistoryError)>,
+            buffers: HistoryBuffers,
         }
-        let acc = run_particles(
+        let acc = run_particles_range(
             self.config.seed,
-            self.beam.count,
+            first_index,
+            count,
             self.config.chunk_size,
             || Acc {
                 tally: new_tally(),
                 err: None,
+                buffers: HistoryBuffers::new(),
             },
             |acc: &mut Acc<T>, rng, i| {
                 if acc.err.is_some() {
                     return;
                 }
-                if let Err(e) = self.history(&mut acc.tally, rng, i) {
+                if let Err(e) = self.history_in(&mut acc.buffers, &mut acc.tally, rng, i) {
                     acc.err = Some((i, e));
                 }
             },
@@ -769,7 +1154,12 @@ impl<'a> Bca<'a> {
             },
         );
         match acc.err {
-            Some((index, source)) => Err(BcaError::Stopping { index, source }),
+            Some((index, HistoryError::Stopping(source))) => {
+                Err(BcaError::Stopping { index, source })
+            }
+            Some((index, HistoryError::BeamDivergence { attempts })) => {
+                Err(BcaError::BeamDivergence { index, attempts })
+            }
             None => Ok(acc.tally),
         }
     }
@@ -782,28 +1172,96 @@ impl<'a> Bca<'a> {
         tally: &mut T,
         rng: &mut ParticleRng,
         index: u64,
-    ) -> Result<EnergyBudget, StoppingError> {
+    ) -> Result<EnergyBudget, HistoryError> {
+        self.history_in(&mut HistoryBuffers::new(), tally, rng, index)
+    }
+
+    /// [`Bca::history`] in caller-owned working memory. Identical results;
+    /// reusing `buffers` across histories removes the per-history
+    /// allocations ([`Bca::run`] does this per worker chunk).
+    pub fn history_in<T: BcaTally>(
+        &self,
+        buffers: &mut HistoryBuffers,
+        tally: &mut T,
+        rng: &mut ParticleRng,
+        index: u64,
+    ) -> Result<EnergyBudget, HistoryError> {
         tally.begin_history(index);
         let mut budget = EnergyBudget {
             incident: self.beam.energy_ev,
             ..EnergyBudget::default()
         };
-        let mut pending = vec![Particle {
+        let HistoryBuffers {
+            pending,
+            scratch,
+            shifts,
+            thermal_rng,
+        } = buffers;
+        // Each crystal's lattice is translated by a random vector for every
+        // history, uniformly over the rectangular cell that tiles it
+        // (`Lattice::orthogonal_cell`), so the beam samples all positions of
+        // the unit cell. The shifts come from a copy of this history's stream
+        // positioned at word 2^67, half the ChaCha period: a segment the
+        // transport draws below can never reach. So the transport stream is the same with or
+        // without crystals, and a particle that never enters a crystal
+        // region sees exactly the draws of the amorphous engine
+        // (`tests/crystal_amorphous_identity.rs`).
+        shifts.clear();
+        if !self.crystals.is_empty() {
+            let mut srng = rng.clone();
+            srng.set_word_pos(1u128 << 67);
+            for cr in &self.crystals {
+                let e = cr.cell_edges();
+                shifts.push([
+                    e[0] * Self::uniform(&mut srng),
+                    e[1] * Self::uniform(&mut srng),
+                    e[2] * Self::uniform(&mut srng),
+                ]);
+            }
+        }
+        // Thermal displacements of lattice sites come from a third copy of
+        // the stream, at word 2^66: like the shifts, a segment neither the
+        // transport draws nor the shifts reach, so turning vibration on
+        // changes no other draw of the history.
+        *thermal_rng = if self.crystals.iter().any(|c| c.is_thermal()) {
+            let mut trng = rng.clone();
+            trng.set_word_pos(1u128 << 66);
+            Some(trng)
+        } else {
+            None
+        };
+        pending.clear();
+        let dir = self.initial_direction(rng)?;
+        pending.push(Particle {
             species: 0,
             z: self.beam.ion.z(),
             mass_amu: self.beam.ion.mass_amu(),
             energy_ev: self.beam.energy_ev,
-            pos: [0.0; 3],
-            dir: self.beam.direction(),
-            layer: 0,
+            pos: self.entry_pos,
+            dir,
+            layer: self.entry_region,
+            origin_layer: self.entry_region,
             generation: 0,
-        }];
-        let mut scratch = Scratch::default();
+        });
         while let Some(p) = pending.pop() {
-            self.transport(p, rng, &mut pending, &mut budget, tally, &mut scratch)?;
+            self.transport(
+                p,
+                rng,
+                pending,
+                &mut budget,
+                tally,
+                scratch,
+                shifts,
+                thermal_rng,
+            )?;
         }
         tally.end_history(index, &budget);
         Ok(budget)
+    }
+
+    /// Per-material data of the material filling `region`.
+    fn lay(&self, region: usize) -> &LayerData {
+        &self.layers[self.geometry.material_index(region)]
     }
 
     fn uniform(rng: &mut ParticleRng) -> f64 {
@@ -859,14 +1317,23 @@ impl<'a> Bca<'a> {
         if len <= 0.0 {
             return Ok(());
         }
-        let model: &dyn ElectronicStopping = match self.config.electronic {
-            ElectronicLoss::NonLocal => self.stopping,
-            ElectronicLoss::EquipartitionLsOr => &self.mix,
+        let mi = self.geometry.material_index(p.layer);
+        let lay = &self.layers[mi];
+        let s = match lay.loss_coef[p.species] {
+            // `c sqrt(E)`; the `E > 0` test keeps a non-physical energy on the
+            // general path, which reports it.
+            Some(c) if p.energy_ev > 0.0 && p.energy_ev.is_finite() => c * p.energy_ev.sqrt(),
+            _ => {
+                let model: &dyn ElectronicStopping = match self.config.electronic {
+                    ElectronicLoss::NonLocal => self.stopping,
+                    ElectronicLoss::EquipartitionLsOr => &self.mix,
+                };
+                let material = self.geometry.material(mi);
+                let ion = &self.species[p.species].ion;
+                bragg_cross_section_per_atom(model, &NoCorrection, ion, material, p.energy_ev)?
+            }
         };
-        let material = self.stack.layers()[p.layer].material();
-        let ion = &self.species[p.species].ion;
-        let s = bragg_cross_section_per_atom(model, &NoCorrection, ion, material, p.energy_ev)?;
-        let de = (self.layers[p.layer].n * s * len / J_PER_EV).min(p.energy_ev);
+        let de = (lay.n * s * len / J_PER_EV).min(p.energy_ev);
         if de > 0.0 {
             p.energy_ev -= de;
             budget.electronic_nonlocal += de;
@@ -882,6 +1349,7 @@ impl<'a> Bca<'a> {
     }
 
     /// Follow one particle until it stops or escapes; push its recoils.
+    #[allow(clippy::too_many_arguments)]
     fn transport<T: BcaTally>(
         &self,
         mut p: Particle,
@@ -890,89 +1358,131 @@ impl<'a> Bca<'a> {
         budget: &mut EnergyBudget,
         tally: &mut T,
         scratch: &mut Scratch,
+        shifts: &[[f64; 3]],
+        thermal_rng: &mut Option<ParticleRng>,
     ) -> Result<(), StoppingError> {
         let cutoff = self.species[p.species].cutoff_ev;
         let mut tau = self.draw_tau(rng, p.is_primary());
+        scratch.last.clear();
+        scratch.new_line();
         loop {
             if p.energy_ev < cutoff {
                 budget.rest += p.energy_ev;
                 tally.stopped(&p);
                 return Ok(());
             }
-            let lay = &self.layers[p.layer];
-            let lambda = self.flight(&p, lay, scratch);
-            let s = tau * lambda;
-            let geo = &self.stack.layers()[p.layer];
-            let (d_b, boundary) = if p.dir[0] > 0.0 {
-                ((geo.back_m() - p.pos[0]) / p.dir[0], geo.back_m())
-            } else if p.dir[0] < 0.0 {
-                ((geo.front_m() - p.pos[0]) / p.dir[0], geo.front_m())
-            } else {
-                (f64::INFINITY, f64::NAN)
-            };
-
-            if d_b <= s {
-                // Truncate at the interface; keep the unused part of the flight.
-                let from = p.pos;
-                Self::advance(&mut p, d_b);
-                p.pos[0] = boundary;
-                self.electronic_nonlocal(&mut p, from, d_b, budget, tally)?;
-                tau = (tau - d_b / lambda).max(0.0);
-                if p.energy_ev < cutoff {
-                    continue;
+            if let Some(ci) = self.crystal_at(p.layer) {
+                if self.crystal_step(
+                    ci,
+                    shifts[ci],
+                    &mut p,
+                    pending,
+                    budget,
+                    tally,
+                    scratch,
+                    thermal_rng,
+                )? {
+                    return Ok(());
                 }
-                let outward = p.dir[0] > 0.0;
-                let n_layers = self.layers.len();
-                let face = match (outward, p.layer) {
-                    (false, 0) => Some(Face::Front),
-                    (true, l) if l + 1 == n_layers => Some(Face::Back),
-                    _ => None,
-                };
-                match face {
-                    None if outward => p.layer += 1,
-                    None => p.layer -= 1,
-                    Some(face) => {
-                        let sp = &self.species[p.species];
-                        let e_s = match face {
-                            Face::Front => sp.barrier_front_ev,
-                            Face::Back => sp.barrier_back_ev,
-                        };
-                        match kinematics::refract_out(p.energy_ev, p.dir, e_s) {
-                            Some((e_out, dir_out)) => {
-                                budget.surface_barrier += p.energy_ev - e_out;
-                                p.energy_ev = e_out;
-                                p.dir = dir_out;
-                                match (face, p.is_primary()) {
-                                    (Face::Front, true) => budget.backscattered += e_out,
-                                    (Face::Front, false) => budget.sputtered += e_out,
-                                    (Face::Back, _) => budget.transmitted += e_out,
-                                }
-                                tally.escaped(&p, face);
-                                return Ok(());
-                            }
-                            None => p.dir[0] = -p.dir[0],
-                        }
-                    }
+                if self.crystal_at(p.layer).is_none() {
+                    // Left the crystal for an amorphous region: a fresh flight.
+                    tau = self.draw_tau(rng, false);
+                    scratch.last.clear();
+                    scratch.new_line();
                 }
                 continue;
             }
+            let lay = self.lay(p.layer);
+            let lambda = self.flight(&p, lay, scratch);
+            let s = tau * lambda;
 
+            let ex = match self.geometry.flight(p.layer, p.pos, p.dir, s) {
+                Flight::Event(ex) => ex,
+                Flight::Clear { region } => {
+                    // The whole flight is in one material, but it may have
+                    // crossed same-material faces (voxels of one block):
+                    // take the region it ends in before colliding, so the
+                    // next flight, the tallies and any recoil start from the
+                    // right one.
+                    let from = p.pos;
+                    Self::advance(&mut p, s);
+                    p.layer = region;
+                    self.electronic_nonlocal(&mut p, from, s, budget, tally)?;
+                    if p.energy_ev >= cutoff {
+                        self.collide(&mut p, rng, scratch, pending, budget, tally)?;
+                        tau = self.draw_tau(rng, false);
+                    }
+                    continue;
+                }
+            };
+            // Truncate at the event; keep the unused part of the flight.
+            let d_b = ex.distance;
             let from = p.pos;
-            Self::advance(&mut p, s);
-            self.electronic_nonlocal(&mut p, from, s, budget, tally)?;
-            if p.energy_ev >= cutoff {
-                self.collide(&mut p, rng, scratch, pending, budget, tally)?;
-                tau = self.draw_tau(rng, false);
+            p.pos = ex.at;
+            self.electronic_nonlocal(&mut p, from, d_b, budget, tally)?;
+            tau = (tau - d_b / lambda).max(0.0);
+            if p.energy_ev < cutoff {
+                continue;
+            }
+            if self.apply_event(&mut p, ex.outcome, budget, tally) {
+                return Ok(());
             }
         }
     }
 
-    fn theta(&self, eps: f64, beta: f64) -> f64 {
+    /// Apply the outcome of a geometry event to `p`, which is already at the
+    /// event point with the electronic loss of the segment taken: enter the
+    /// next region, or reach a surface and escape (returns `true`, the
+    /// particle is finished) or reflect specularly (returns `false`).
+    fn apply_event<T: BcaTally>(
+        &self,
+        p: &mut Particle,
+        outcome: ExitOutcome,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) -> bool {
+        match outcome {
+            ExitOutcome::Enter { region, pos } => {
+                p.layer = region;
+                p.pos = pos;
+            }
+            ExitOutcome::Escape { face, normal } => {
+                let mi = self.geometry.material_index(p.layer);
+                let e_s = self.barriers[mi * self.species.len() + p.species];
+                match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {
+                    Some((e_out, dir_out)) => {
+                        budget.surface_barrier += p.energy_ev - e_out;
+                        p.energy_ev = e_out;
+                        p.dir = dir_out;
+                        match (face, p.is_primary()) {
+                            (Face::Front, true) => budget.backscattered += e_out,
+                            (Face::Front, false) => budget.sputtered += e_out,
+                            (Face::Back, _) => budget.transmitted += e_out,
+                            (Face::Side, _) => budget.lateral += e_out,
+                        }
+                        tally.escaped(p, face);
+                        return true;
+                    }
+                    None => {
+                        // Specular reflection about the face normal.
+                        let dn = p.dir[0] * normal[0] + p.dir[1] * normal[1] + p.dir[2] * normal[2];
+                        for (d, n) in p.dir.iter_mut().zip(normal) {
+                            *d -= 2.0 * dn * n;
+                        }
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// `tan(theta / 2)` for the centre-of-mass angle at `(eps, beta)`.
+    fn half_angle_tan(&self, eps: f64, beta: f64) -> f64 {
         // Outside the tabulated energy range fall back to direct quadrature
         // (deterministic, just slower).
         self.table
-            .theta(eps, beta)
-            .unwrap_or_else(|| theta_quadrature(self.screening, eps, beta))
+            .half_angle_tan(eps, beta)
+            .unwrap_or_else(|| (0.5 * theta_quadrature(self.screening, eps, beta)).tan())
     }
 
     /// Partner element index, by stoichiometry (weighted by `p_max^2` for
@@ -989,31 +1499,40 @@ impl<'a> Bca<'a> {
 
     /// One binary collision of `p`, at its current energy and direction,
     /// with element `j` of its layer at impact parameter `b` and azimuth
-    /// `azimuth`. Deflects `p`, removes the transfer `T` and, under
-    /// [`ElectronicLoss::EquipartitionLsOr`], the local electronic loss (clamped
-    /// to the energy left), and returns `(T, incoming direction, recoil lab
-    /// angle)`.
+    /// azimuth `(sin, cos)` = `azimuth`. Deflects `p`, removes the transfer `T`
+    /// and, under [`ElectronicLoss::EquipartitionLsOr`], the local electronic
+    /// loss (clamped to the energy left), and returns `(T, incoming
+    /// direction, recoil lab angle as (sin, cos))`.
+    ///
+    /// The angles are carried as sines and cosines: with `t = tan(theta/2)`
+    /// from the table, `sin(theta/2) = t / sqrt(1 + t^2)` and `cos(theta/2) =
+    /// 1 / sqrt(1 + t^2)` give the energy transfer, the projectile deflection
+    /// ([`kinematics::lab_projectile_sc`]) and the recoil deflection
+    /// `phi = (pi - theta) / 2`, `(sin, cos) = (cos(theta/2), sin(theta/2))`
+    /// with one square root and no `atan`, `atan2`, `sin` or `cos`.
     #[allow(clippy::too_many_arguments)]
     fn binary<T: BcaTally>(
         &self,
         p: &mut Particle,
         j: usize,
         b: f64,
-        azimuth: f64,
+        azimuth: (f64, f64),
         budget: &mut EnergyBudget,
         tally: &mut T,
-    ) -> Result<(f64, [f64; 3], f64), StoppingError> {
-        let elem = &self.layers[p.layer].elems[j];
+    ) -> Result<BinaryOutcome, StoppingError> {
+        tally.partner(p, b, 1);
+        let elem = &self.lay(p.layer).elems[j];
         let pair = self.pairs[p.species * self.species.len() + elem.species];
         let e0 = p.energy_ev;
         let eps = e0 * pair.eps_per_ev;
         let beta = b / pair.a;
-        let theta = self.theta(eps, beta);
-        let half = (0.5 * theta).sin();
-        let t = (pair.gamma * e0 * half * half).min(e0);
-        let (psi, phi) = kinematics::lab_angles(theta, pair.mu);
+        let tan_half = self.half_angle_tan(eps, beta);
+        let c = 1.0 / (1.0 + tan_half * tan_half).sqrt();
+        let s = tan_half * c;
+        let t = (pair.gamma * e0 * s * s).min(e0);
+        let psi = kinematics::lab_projectile_sc(s, c, pair.mu);
         let incoming = p.dir;
-        p.dir = kinematics::rotate(incoming, psi, azimuth);
+        p.dir = kinematics::rotate_sc(incoming, psi, azimuth);
         p.energy_ev -= t;
 
         if self.config.electronic == ElectronicLoss::EquipartitionLsOr {
@@ -1026,7 +1545,7 @@ impl<'a> Bca<'a> {
                 tally.electronic(p, p.pos, ElectronicChannel::Local, q);
             }
         }
-        Ok((t, incoming, phi))
+        Ok((t, incoming, (c, s)))
     }
 
     /// Whether the partner of a weak collision of `p` at impact parameter
@@ -1034,9 +1553,14 @@ impl<'a> Bca<'a> {
     /// in vacuum. The partner sits at distance `b` from the path on the side
     /// opposite to the deflection, where a hard collision sends its recoil:
     /// at `b rotate(dir, pi/2, azimuth + pi)` from the collision site.
-    fn partner_beyond_surface(&self, p: &Particle, b: f64, azimuth: f64) -> bool {
-        let offset = kinematics::rotate(p.dir, 0.5 * PI, azimuth + PI);
-        p.pos[0] + b * offset[0] < self.stack.layers()[0].front_m()
+    fn partner_beyond_surface(&self, p: &Particle, b: f64, azimuth: (f64, f64)) -> bool {
+        // sin and cos of `azimuth + pi` are the negatives.
+        let offset = kinematics::rotate_sc(p.dir, (1.0, 0.0), (-azimuth.0, -azimuth.1));
+        self.geometry.in_vacuum([
+            p.pos[0] + b * offset[0],
+            p.pos[1] + b * offset[1],
+            p.pos[2] + b * offset[2],
+        ])
     }
 
     /// One collision step: the `weak_collisions` simultaneous weak
@@ -1064,7 +1588,7 @@ impl<'a> Bca<'a> {
         for k in 1..=self.config.weak_collisions {
             let j = Self::draw_partner(rng, scratch);
             let b = scratch.p_max[j] * (f64::from(k) + Self::uniform(rng)).sqrt();
-            let azimuth = 2.0 * PI * Self::uniform(rng);
+            let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
             if self.partner_beyond_surface(p, b, azimuth) {
                 continue;
             }
@@ -1081,15 +1605,47 @@ impl<'a> Bca<'a> {
         // without weak collisions (module docs).
         let j = Self::draw_partner(rng, scratch);
         let b = scratch.p_max[j] * Self::uniform(rng).sqrt();
-        let azimuth = 2.0 * PI * Self::uniform(rng);
+        let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
         let (t, incoming, phi) = self.binary(p, j, b, azimuth, budget, tally)?;
 
-        let elem = &self.layers[p.layer].elems[j];
+        self.emit_recoil(
+            p.generation,
+            p.pos,
+            p.layer,
+            j,
+            t,
+            || kinematics::rotate_sc(incoming, phi, (-azimuth.0, -azimuth.1)),
+            pending,
+            budget,
+            tally,
+        );
+        Ok(())
+    }
+
+    /// Dispose of the energy `t` transferred to element `j` of the material
+    /// of `layer` at `pos`: a displaced atom (if `t` exceeds both `E_d` and
+    /// `E_b`; it starts with `t - E_b` along `recoil_dir()` and is followed
+    /// or stopped as configured), otherwise heat in the lattice. The same
+    /// criterion for the amorphous and the crystal flight model.
+    #[allow(clippy::too_many_arguments)]
+    fn emit_recoil<T: BcaTally>(
+        &self,
+        parent_generation: u32,
+        pos: [f64; 3],
+        layer: usize,
+        j: usize,
+        t: f64,
+        recoil_dir: impl FnOnce() -> [f64; 3],
+        pending: &mut Vec<Particle>,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) {
+        let elem = &self.lay(layer).elems[j];
         if t > elem.e_d_ev && t > elem.e_b_ev {
             let e_r = t - elem.e_b_ev;
             if elem.e_b_ev > 0.0 {
                 budget.lattice += elem.e_b_ev;
-                tally.lattice(p.pos, p.layer, LatticeDeposit::Binding, elem.e_b_ev);
+                tally.lattice(pos, layer, LatticeDeposit::Binding, elem.e_b_ev);
             }
             let sp = &self.species[elem.species];
             let r = Particle {
@@ -1097,10 +1653,11 @@ impl<'a> Bca<'a> {
                 z: elem.z,
                 mass_amu: sp.ion.mass_amu(),
                 energy_ev: e_r,
-                pos: p.pos,
-                dir: kinematics::rotate(incoming, phi, azimuth + PI),
-                layer: p.layer,
-                generation: p.generation + 1,
+                pos,
+                dir: recoil_dir(),
+                layer,
+                origin_layer: layer,
+                generation: parent_generation + 1,
             };
             tally.recoil(&r);
             if self.config.follow_recoils && e_r >= sp.cutoff_ev {
@@ -1111,15 +1668,34 @@ impl<'a> Bca<'a> {
             }
         } else if t > 0.0 {
             budget.lattice += t;
-            tally.lattice(p.pos, p.layer, LatticeDeposit::Subthreshold, t);
+            tally.lattice(pos, layer, LatticeDeposit::Subthreshold, t);
         }
-        Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn inward_sampling_is_bounded_and_cannot_hang() {
+        use crate::ion::crystal::Divergence;
+        // A zero-width spread about an outward direction never yields an
+        // inward sample: the bound turns the loop into an error.
+        let mut rng = crate::rng::stream(1, 0);
+        let r = sample_inward(
+            &Divergence::Gaussian { sigma_rad: 0.0 },
+            [-1.0, 0.0, 0.0],
+            &mut rng,
+        );
+        assert_eq!(
+            r,
+            Err(HistoryError::BeamDivergence {
+                attempts: MAX_DIVERGENCE_ATTEMPTS
+            })
+        );
+    }
+
     use super::*;
+    use crate::geometry::Stack;
     use crate::ion::scattering::TableSpec;
     use crate::material::Material;
 
@@ -1208,6 +1784,7 @@ mod tests {
             pos: [x, 0.0, 0.0],
             dir,
             layer: 0,
+            origin_layer: 0,
             generation: 0,
         };
         let n = 3600;
@@ -1215,7 +1792,7 @@ mod tests {
         let beyond = |p: &Particle| {
             azimuths
                 .clone()
-                .filter(|&az| bca.partner_beyond_surface(p, b, az))
+                .filter(|&az| bca.partner_beyond_surface(p, b, az.sin_cos()))
                 .count() as f64
                 / n as f64
         };
@@ -1232,7 +1809,10 @@ mod tests {
         for az in azimuths {
             let deflected = kinematics::rotate(p.dir, 0.3, az);
             if deflected[0].abs() > 1e-6 {
-                assert_eq!(bca.partner_beyond_surface(&p, b, az), deflected[0] > 0.0);
+                assert_eq!(
+                    bca.partner_beyond_surface(&p, b, az.sin_cos()),
+                    deflected[0] > 0.0
+                );
             }
         }
     }
