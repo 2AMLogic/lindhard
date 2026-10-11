@@ -4,6 +4,7 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-11
 
+- **PR #401**: docs(crystal): record opened 4H-SiC density measurements; 4H gap stands
 - **PR #400**: Python: expose electron transport through a TOML-first ElectronRun API
 - **PR #399**: Python: expose fluence-dependent ion runs through run_dynamic (#397)
 - **PR #396**: perf(rng): bound live partial tallies in the particle driver
