@@ -32,7 +32,7 @@ pub struct Run {
     base_dir: Option<PathBuf>,
 }
 
-fn io_err(path: &std::path::Path, e: std::io::Error) -> PyErr {
+pub(crate) fn io_err(path: &std::path::Path, e: std::io::Error) -> PyErr {
     let msg = format!("{}: {e}", path.display());
     if e.kind() == std::io::ErrorKind::NotFound {
         pyo3::exceptions::PyFileNotFoundError::new_err(msg)

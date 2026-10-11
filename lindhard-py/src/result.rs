@@ -113,7 +113,7 @@ impl Histogram {
 impl Histogram {
     /// A library histogram, edges and densities as the CSV writers do:
     /// edges `edge(i) / unit * scale`, widths `width / unit * scale`.
-    fn from_lib(
+    pub(crate) fn from_lib(
         h: &LibHistogram,
         histories: u64,
         unit: f64,

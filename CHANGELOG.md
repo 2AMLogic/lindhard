@@ -21,6 +21,11 @@ one version).
 
 ### Added
 
+- Python: `ElectronRun` and `ElectronRunResult` run an input with an
+  `[electron]` table in-process (TOML-first: `from_toml`, `from_toml_file`,
+  `to_toml`, `validate`, `run`), returning the shared electron summary as a
+  dict, escape spectra and Cartesian/cylindrical deposition grids as NumPy
+  arrays (#398).
 - Python: `Run.run_dynamic()` runs an input with a `[dynamic]` section and
   returns an immutable `DynamicRunResult` (step series, per-step slab
   composition, `summary()`, `write(dir)`), equal to the CLI's dynamic output

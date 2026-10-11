@@ -8,6 +8,7 @@
 //! and back, and a result matches the command's for the same input and seed.
 
 mod dynamic_result;
+mod electron;
 mod errors;
 mod result;
 mod run;
@@ -30,6 +31,8 @@ fn _lindhard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<spec::Physics>()?;
     m.add_class::<spec::Tally>()?;
     m.add_class::<run::Run>()?;
+    m.add_class::<electron::ElectronRun>()?;
+    m.add_class::<electron::ElectronRunResult>()?;
     m.add_class::<result::Histogram>()?;
     m.add_class::<result::RunResult>()?;
     m.add_class::<dynamic_result::DynamicRunResult>()?;
