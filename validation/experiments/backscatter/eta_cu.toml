@@ -50,9 +50,10 @@ model = "penn-full"
 [electron.tables]
 min_energy_ev = 51.0
 points_per_decade = 20.0
-# One grid for every comparison energy (the largest is 30 keV; the rest
-# is the room for the inner potential of the secondary-sensitivity runs), so that the full-Penn
-# tables are built once per material (lindhard run --table-cache).
+# One grid for every comparison energy, so that the full-Penn tables are
+# built once per material (lindhard run --table-cache). The largest energy
+# is 30 keV; the extra 1 keV leaves room for the inner potential of the
+# secondary-sensitivity runs.
 max_energy_ev = 31000.0
 
 [electron.materials.Cu]
