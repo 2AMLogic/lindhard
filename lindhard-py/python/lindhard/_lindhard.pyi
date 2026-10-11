@@ -13,6 +13,8 @@ __all__ = [
     "FATE_NAMES",
     "Beam",
     "DynamicRunResult",
+    "ElectronRun",
+    "ElectronRunResult",
     "Element",
     "Histogram",
     "InputError",
@@ -315,3 +317,55 @@ class Run:
         seed: int | None = None,
         threads: int | None = None,
     ) -> DynamicRunResult: ...
+
+@final
+class ElectronRun:
+    """An electron run: the whole input document of an electron ``lindhard run``.
+
+    Read from the CLI's TOML schema (an ``[electron]`` table). Relative data
+    paths resolve against ``base_dir`` (set by ``from_toml_file`` to the file's
+    directory; the working directory if ``None``).
+    """
+
+    base_dir: str | os.PathLike[str] | None
+    histories: int
+    seed: int
+    threads: int | None
+    @staticmethod
+    def from_toml(
+        text: str, base_dir: str | os.PathLike[str] | None = None
+    ) -> ElectronRun: ...
+    @staticmethod
+    def from_toml_file(path: str | os.PathLike[str]) -> ElectronRun: ...
+    def to_toml(self) -> str: ...
+    def validate(self) -> list[str]: ...
+    def run(
+        self,
+        *,
+        histories: int | None = None,
+        seed: int | None = None,
+        threads: int | None = None,
+    ) -> ElectronRunResult: ...
+
+@final
+class ElectronRunResult:
+    """The tallies of a finished electron run."""
+
+    @property
+    def histories(self) -> int: ...
+    @property
+    def escape_spectra(self) -> dict[str, dict[str, Histogram]]:
+        """``{"front": {...}, "back": {...}}``, each with ``energy`` (eV),
+        ``polar_slow`` and ``polar_fast`` (degrees from the outward normal)."""
+    @property
+    def cartesian(self) -> dict[str, Any] | None:
+        """``x_edges_nm``, ``y_edges_nm``, ``z_edges_nm``; ``energy_ev`` and
+        ``ev_per_primary_per_nm3`` of shape ``(nx, ny, nz)``; ``outside_ev``.
+        ``None`` if the grid is not configured."""
+    @property
+    def cylindrical(self) -> dict[str, Any] | None:
+        """``r_edges_nm``, ``depth_edges_nm``; ``energy_ev`` and
+        ``ev_per_primary_per_nm3`` of shape ``(nr, ndepth)``; ``outside_ev``.
+        ``None`` if the grid is not configured."""
+    def summary(self) -> dict[str, Any]: ...
+    def summary_json(self) -> str: ...

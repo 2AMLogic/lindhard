@@ -17,6 +17,8 @@ are in `lindhard-py/python/lindhard/`.
 | `Tally` | The `[tally]` table (CLI defaults) |
 | `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`, `run_dynamic()` |
 | `RunResult` | `depth`, `lateral_y`, `lateral_z`, `radial`, `vacancies`, `interstitials`, `replacements` (each a `Histogram` with `edges`, `counts`, `density`, `underflow`, `overflow`), `escapes`, `ions` (final state of each primary), `summary()` (dict), `write(dir)` |
+| `ElectronRun` | An electron input (an `[electron]` table): `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`; settable `histories`, `seed`, `threads`, `base_dir` |
+| `ElectronRunResult` | Result of `ElectronRun.run()`: `escape_spectra`, `cartesian`, `cylindrical`, `summary()` (dict), `summary_json()` |
 | `DynamicRunResult` | Result of `Run.run_dynamic()`: `species`, `steps` (per-step arrays), `composition` (per-step slab profiles), `summary()` (dict), `write(dir)` |
 
 ## One schema, one engine
@@ -68,6 +70,50 @@ unchanged and still rejects a `[dynamic]` input. `run_dynamic()` raises
 Arrays equal the CSV values bit for bit for the same input and seed, at any
 thread count (`tests/test_dynamic.py`). A walk-through is in
 [`../examples/python/dynamic_composition.py`](../examples/python/dynamic_composition.py).
+
+## Electron runs
+
+An input with an `[electron]` table (`cli.md`, "Electron runs") is read with
+`ElectronRun.from_toml()` / `ElectronRun.from_toml_file()`. This first
+increment is TOML-first: there are no electron configuration classes, because
+the TOML already defines the choices. `ElectronRun.run(histories=, seed=,
+threads=)` applies call-local overrides, resolves the input with the same
+validation as `lindhard check`, and calls the CLI's driver
+(`lindhard_cli::electron::simulate_electron`, no table cache) with the GIL
+released during both table construction and transport. Resolution warnings are
+issued as `UserWarning` (`validate()` returns them); a bad configuration raises
+`InputError`, a failed build or transport `RunError`. Relative paths to optical
+and other data files resolve against the file's directory
+(`from_toml_file`) or the `base_dir` argument/attribute, the working directory
+otherwise. Disk-cache controls, result-file writers and PSF array accessors are
+not exposed yet; use the CLI for those.
+
+`ElectronRunResult`:
+
+- `res.summary()`: `electron_summary.json` as a dict, including input echo,
+  models, table diagnostics, transport metadata, yields, energy budget,
+  per-layer deposition and the PSF totals and fits. Its `run` block (threads,
+  timings) and each table's `source`/`cache` are the only parts that vary
+  between otherwise identical runs.
+- `res.escape_spectra`: `{"front": ..., "back": ...}`, each a dict of
+  `Histogram`s: `energy` (eV, all escaping electrons), `polar_slow` and
+  `polar_fast` (degrees from the outward normal). `density` is per primary per
+  eV or degree, as in `electron_escape_spectra.csv`; the back face of a
+  substrate has zero counts.
+- `res.cartesian`: `None` unless `[electron.tally.cartesian]` is configured;
+  else `x_edges_nm` (depth), `y_edges_nm`, `z_edges_nm`, `energy_ev` of shape
+  `(nx, ny, nz)` (energy deposited per voxel summed over all histories, eV,
+  index order `(ix, iy, iz)`), `ev_per_primary_per_nm3` (the same divided by
+  histories and voxel volume) and `outside_ev`.
+- `res.cylindrical`: `None` unless `[electron.tally.cylindrical]` is
+  configured; else `r_edges_nm`, `depth_edges_nm`, `energy_ev` and
+  `ev_per_primary_per_nm3` of shape `(nr, ndepth)` (cell volume is the annulus
+  times the depth bin) and `outside_ev`.
+
+As for ions, the arrays equal the CSV values bit for bit for the same input and
+seed at any thread count (`tests/test_electron.py` compares against the
+built binary). A walk-through is in
+[`../examples/python/electron_run.py`](../examples/python/electron_run.py).
 
 ## Errors
 
