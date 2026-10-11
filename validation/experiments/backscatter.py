@@ -35,6 +35,7 @@ Writes `validation/experiments/backscatter_results.json`, which
 
 Usage:
     validation/experiments/backscatter.py [--histories N] [--threads N] [--reuse]
+    validation/experiments/backscatter.py --skip-secondaries [--threads N] [--reuse]
     validation/experiments/backscatter.py --secondaries-only [--targets Si,Au] [--threads N] [--reuse]
     validation/experiments/backscatter.py --verify-baseline-only [--targets Al,Cu] [--threads N] [--reuse]
     validation/experiments/backscatter.py --check
@@ -61,6 +62,7 @@ import se_yield  # noqa: E402  (BAND, METAL_BAND_PROVENANCE: the delta(E) band i
 DATA = HERE.parent / "data" / "backscatter"
 INPUTS = HERE / "backscatter"
 RESULTS = HERE / "backscatter_results.json"
+TABLE_CACHE = lindhard_cli.RUNS / "backscatter" / "table-cache"
 PROVENANCE = lindhard_cli.REPO / "docs" / "data-provenance.md"
 
 TARGETS = ["C", "Al", "Si", "Cu", "Au"]
@@ -311,6 +313,11 @@ def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
         cmd = [str(binary), "run", str(inp), "--out", str(out)]
         if threads:
             cmd += ["--threads", str(threads)]
+        # The full-Penn tables take minutes to build and the inputs share one
+        # energy grid (electron.tables.max_energy_ev), so every run of a
+        # material reads the tables the first one stored.
+        TABLE_CACHE.mkdir(parents=True, exist_ok=True)
+        cmd += ["--table-cache", str(TABLE_CACHE)]
         proc = subprocess.run(cmd, capture_output=True, text=True)
         if proc.returncode != 0:
             lindhard_cli.die(f"lindhard failed on {inp}:\n{proc.stderr}")
@@ -404,6 +411,10 @@ def main() -> int:
     ap.add_argument("--secondaries-only", action="store_true",
                     help="run only the fast-secondary sensitivity and merge it into the committed "
                          "backscatter_results.json (baseline entries stay as committed)")
+    ap.add_argument("--skip-secondaries", action="store_true",
+                    help="regenerate the main table and the elastic sensitivity without the "
+                         "fast-secondary sensitivity (run it afterwards, target by target, with "
+                         "--secondaries-only --targets T)")
     ap.add_argument("--targets", default=None,
                     help="with --secondaries-only / --verify-baseline-only: comma-separated targets to "
                          "run (default: all of SECONDARY_TARGETS); the others keep their committed entries")
@@ -464,10 +475,10 @@ def main() -> int:
                     row[vid] = run_one(
                         binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_{vid}", args.threads, reuse)
                 entry["sensitivity"][f"{e:g}"] = row
-        if t in SECONDARY_TARGETS and inp.is_file():
+        if t in SECONDARY_TARGETS and inp.is_file() and not args.skip_secondaries:
             run_secondaries(binary, entry, args.histories, args.threads, reuse, False)
         targets.append(entry)
-    RESULTS.write_text(json.dumps({
+    out = {
         "format": "lindhard-backscatter-results/1",
         "lindhard": lindhard_cli.version(binary),
         "histories": args.histories,
@@ -477,9 +488,11 @@ def main() -> int:
         "pass_min_kev": PASS_MIN_KEV,
         "tolerance": TOLERANCE,
         "variants": [{"id": v[0], "label": v[1], "exchange": v[2], "polarization": v[3]} for v in VARIANTS],
-        "secondary_sensitivity": secondary_meta(binary),
         "targets": targets,
-    }, indent=1) + "\n")
+    }
+    if not args.skip_secondaries:
+        out["secondary_sensitivity"] = secondary_meta(binary)
+    RESULTS.write_text(json.dumps(out, indent=1) + "\n")
     print(f"wrote {RESULTS.relative_to(lindhard_cli.REPO)}")
     return 0
 

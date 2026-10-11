@@ -1795,15 +1795,20 @@ the issue's "full model":
   DHFS Poisson density. Before #169 the CLI built DHFS tables without the
   two corrections even when the input asked for them; it now applies them,
   and this is the first comparison run on DHFS.
-- **Inelastic:** the **single-pole** Penn algorithm, not full Penn. Full
-  Penn is the issue's model, but its tables do not build in a usable time:
-  #168 measured Si at 5 keV with `penn-full` on 4 threads, killed unfinished
-  at 60 min, against 108 s for the single-pole tables (see "Electron
-  oracles" above). Since #256 the Al table on this grid (51 eV to 30 keV,
-  20 points per decade) builds in 203 s on two threads, and since #298 the
-  Si table on the #168 grid in 224 s (cost tables under "Electron
-  oracles"). The other three ELFs were not timed. The full-Penn rerun is a change of `electron.inelastic.model` in
-  the five inputs plus a regenerate; it has not been done. The ELFs: the measured optical ELF of Hagemann,
+- **Inelastic:** the **full** Penn algorithm (`electron.inelastic.model =
+  "penn-full"` in the five inputs since #148 part 2; before, the single-pole
+  algorithm, because the full-Penn tables did not build in a usable time,
+  #168, #256, #298). The five inputs share one table grid (51 eV to 31 keV,
+  20 points per decade, `electron.tables.max_energy_ev`), so the tables of a
+  material are built once and read from `lindhard run --table-cache` by
+  every run of the sweep. Building the elastic and the inelastic table of
+  one material together took, on two threads, 295 s (C), 440 s (Al), 414 s
+  (Si), 908 s (Au) and 1081 s (Cu) (wall times of single `lindhard run`s of
+  the 10 keV inputs; the 51 eV to 31 keV grid is wider than the 30 keV one of
+  the #256 cost table). The input grid
+  differs from the single-pole one of the earlier sweep only in its upper end
+  (the single-pole runs used the beam energy).
+  The ELFs: the measured optical ELF of Hagemann,
   Gudat and Kunz (1975) for Al, Cu, Au (their Table 5, the version fitted to
   transmission) and **glassy carbon**, whose constants the authors give on a
   1.5 g/cm³ basis, so the C target is glassy carbon at 1.5 g/cm³ (not
@@ -1820,11 +1825,11 @@ the issue's "full model":
   the δ(E) runs (see their provenance rows: caller-supplied for the metals;
   for Si the cited insulator band of #115 and #149). C has no band data, so it
   cannot be rerun with secondaries; that is a stated gap, not a result.
-  With secondaries on, η rises at every point, by 0.03 to 0.07 for Al, 0.05
-  to 0.18 for Cu, 0.07 to 0.24 for Au and 0.03 to 0.06 for Si, most at
-  1 keV, and lies above the measured median everywhere (Si: by 0.051 to
-  0.087, up from -0.010 to +0.059 without secondaries, so the Si excess is not
-  a missing-secondaries effect; Si's secondaries use the insulator band with
+  With secondaries on (on the full-Penn baseline), η rises at every point, by
+  0.034 to 0.072 for Al, 0.049 to 0.173 for Cu, 0.064 to 0.231 for Au and
+  0.028 to 0.059 for Si, most at 1 keV, and lies above the measured median
+  everywhere (Si: by 0.054 to 0.087, up from -0.005 to +0.059 without
+  secondaries, so the Si excess is not a missing-secondaries effect; Si's secondaries use the insulator band with
   its cited affinity barrier and carry the same `B = 0` caveat below). Read it as the size of the effect under the
   present model, not as a corrected η: in a metal the library's Kieft-Bosch
   model takes the binding energy `B = 0` for every inelastic event until a
@@ -1835,24 +1840,38 @@ the issue's "full model":
   the secondaries, so the two are not separated, and the run summary does
   not tell an escaping primary from an escaping secondary. In the front-face
   spectra of the runs (`electron_escape_spectra.csv`, not committed) the
-  added electrons at 1 keV are mostly below 100 eV (Cu, Au), while at 10 keV
-  a large part of them are above 500 eV (Al: about 2900 of 4200 per 100000
-  primaries; Au: about 4600 of 14200).
+  added electrons (the bin-by-bin difference of the two spectra) at 1 keV
+  are mostly below 100 eV (Au: 24300 of 32700 per 100000 primaries; Cu: 12800
+  of 22000), while at 10 keV a large part of them are above 500 eV (Al: 3000
+  of 4350; Au: 4500 of 12700).
 
 The committed sweep is 75 runs (9 energies for each of 5 targets, plus 3
-sensitivity variants at 2 energies each), 100000 primaries each, 8 threads
-per run (release build of the results' revision; aarch64 macOS, 28 cores,
-shared with other jobs, load average about 77 at the start): 2491 s wall and
-3.9 CPU-hours in total. The table builds took 7 to 134 s per run, 2096 s
-together (`table_build_s` in the results); the rest, about 5 s per run, is
-transport and I/O.
+sensitivity variants at 2 energies each), 100000 primaries each, two threads
+per run (the `penn-full` regeneration of #148 part 2; release build of
+`bd91a73`, main at the start of this change; x86-64 Linux, Intel Xeon
+Platinum 8488C, a shared 16-vCPU host at a load average of 3 to 6). The first
+run of each material built its tables (the times above; 3137 s for the five),
+the later ones read them from the cache, and `backscatter.py
+--skip-secondaries` took 27 min wall in all, including the elastic tables of
+the three correction variants (they differ in their elastic table; the
+inelastic table is shared). In `backscatter_results.json` the `table_build_s`
+of a run is therefore the time of building or of reading the cached table,
+not the cost of one build.
 
-The fast-secondary sensitivity (`backscatter.py --secondaries-only`) is 24
-runs: the 12 baseline points redone as a reproduction check, and the 12 runs
-with secondaries, 100000 primaries each, 2 threads per run (release build of
-the revision named in its table; a shared x86_64 Linux host). The table
-builds of the runs with secondaries took 46 to 1142 s, 4838 s together, and
-their transport 1 to 39 s.
+The fast-secondary sensitivity (`backscatter.py --secondaries-only`, one
+target per invocation) is 16 runs with secondaries (100000 primaries, two
+threads) after the baseline run at each of their four energies is redone as a
+reproduction check (the committed η and δ bit for bit, which stopped the
+script when it failed; for Al, Si and Cu the check reused the baseline runs of
+the sweep, for Au it was rerun on a rebuilt binary, `9ef9ba1`: the library is
+that of `bd91a73` (the change touches only the validation script, the five
+inputs and the docs), and the
+version recorded for each run is the one of the binary that made it). The
+table built by the first run with secondaries of a target took 255 s (Al),
+208 s (Si), 103 s (Cu) and 115 s (Au); the other three runs read it from the
+cache. These are shorter than the builds of the baseline tables above because
+a material with a band has the band-bottom axis, and are only what was
+measured (not explained here).
 
 The pass/fail rule is the issue's initial tolerance: at E ≥ 5 keV,
 |η − measured median| ≤ 0.05 absolute; below 5 keV values are reported only.
@@ -1868,130 +1887,136 @@ primaries). It is rendered from `backscatter_results.json` alone by
 the committed SVG differs by a byte.
 
 <!-- validation:level3-backscatter:begin -->
-lindhard 0.0.1 (aa04511), 100000 primaries per run, seed 1; the model and its gaps are listed above. Measured: per energy, each stored set's point within 2 % of it (at most one per set), median and min-max over the sets.
+lindhard 0.0.1 (bd91a73), 100000 primaries per run, seed 1; the model and its gaps are listed above. Measured: per energy, each stored set's point within 2 % of it (at most one per set), median and min-max over the sets.
 
 | Target | E (keV) | Sets | Measured median | Measured min-max | lindhard eta ± σ | lindhard - median | Pass (E ≥ 5 keV: abs. diff. ≤ 0.05) |
 |---|---|---|---|---|---|---|---|
-| C | 1 | 2 | 0.105 | 0.076-0.133 | 0.0925 ± 0.0009 | -0.012 | (reported only) |
-| C | 2 | 3 | 0.077 | 0.071-0.107 | 0.0737 ± 0.0008 | -0.003 | (reported only) |
-| C | 3 | 3 | 0.086 | 0.063-0.088 | 0.0649 ± 0.0008 | -0.021 | (reported only) |
-| C | 4 | 2 | 0.073 | 0.058-0.089 | 0.0599 ± 0.0008 | -0.013 | (reported only) |
-| C | 5 | 5 | 0.082 | 0.058-0.086 | 0.0558 ± 0.0007 | -0.026 | pass |
-| C | 10 | 4 | 0.071 | 0.066-0.074 | 0.0475 ± 0.0007 | -0.023 | pass |
-| C | 15 | 2 | 0.062 | 0.057-0.068 | 0.0446 ± 0.0007 | -0.018 | pass |
-| C | 20 | 4 | 0.060 | 0.049-0.064 | 0.0422 ± 0.0006 | -0.018 | pass |
-| C | 30 | 4 | 0.056 | 0.050-0.060 | 0.0394 ± 0.0006 | -0.017 | pass |
-| Al | 1 | 6 | 0.204 | 0.134-0.235 | 0.1791 ± 0.0012 | -0.024 | (reported only) |
-| Al | 2 | 5 | 0.170 | 0.140-0.203 | 0.1573 ± 0.0012 | -0.013 | (reported only) |
-| Al | 3 | 7 | 0.161 | 0.132-0.213 | 0.1488 ± 0.0011 | -0.012 | (reported only) |
-| Al | 4 | 4 | 0.168 | 0.131-0.191 | 0.1447 ± 0.0011 | -0.023 | (reported only) |
-| Al | 5 | 8 | 0.163 | 0.135-0.200 | 0.1422 ± 0.0011 | -0.021 | pass |
-| Al | 10 | 5 | 0.150 | 0.140-0.188 | 0.1322 ± 0.0011 | -0.018 | pass |
-| Al | 15 | 4 | 0.149 | 0.137-0.171 | 0.1269 ± 0.0011 | -0.023 | pass |
-| Al | 20 | 4 | 0.144 | 0.139-0.164 | 0.1245 ± 0.0010 | -0.019 | pass |
-| Al | 30 | 5 | 0.149 | 0.135-0.155 | 0.1219 ± 0.0010 | -0.027 | pass |
-| Si | 1 | 3 | 0.228 | 0.210-0.235 | 0.2182 ± 0.0013 | -0.010 | (reported only) |
-| Si | 2 | 2 | 0.207 | 0.204-0.210 | 0.2121 ± 0.0013 | +0.005 | (reported only) |
-| Si | 3 | 3 | 0.200 | 0.192-0.212 | 0.2133 ± 0.0013 | +0.013 | (reported only) |
-| Si | 4 | 3 | 0.200 | 0.189-0.204 | 0.2137 ± 0.0013 | +0.014 | (reported only) |
-| Si | 5 | 5 | 0.197 | 0.184-0.206 | 0.2144 ± 0.0013 | +0.017 | pass |
-| Si | 10 | 5 | 0.186 | 0.174-0.200 | 0.2168 ± 0.0013 | +0.031 | pass |
-| Si | 15 | 2 | 0.180 | 0.163-0.197 | 0.2166 ± 0.0013 | +0.037 | pass |
-| Si | 20 | 4 | 0.167 | 0.159-0.194 | 0.2180 ± 0.0013 | +0.052 | **FAIL** |
-| Si | 30 | 4 | 0.161 | 0.145-0.190 | 0.2194 ± 0.0013 | +0.059 | **FAIL** |
-| Cu | 1 | 5 | 0.381 | 0.265-0.438 | 0.3261 ± 0.0015 | -0.055 | (reported only) |
-| Cu | 2 | 5 | 0.379 | 0.301-0.419 | 0.3052 ± 0.0015 | -0.074 | (reported only) |
-| Cu | 3 | 6 | 0.341 | 0.309-0.406 | 0.2989 ± 0.0014 | -0.042 | (reported only) |
-| Cu | 4 | 4 | 0.325 | 0.306-0.340 | 0.2982 ± 0.0014 | -0.027 | (reported only) |
-| Cu | 5 | 8 | 0.324 | 0.298-0.398 | 0.2975 ± 0.0014 | -0.026 | pass |
-| Cu | 10 | 7 | 0.318 | 0.290-0.357 | 0.2938 ± 0.0014 | -0.024 | pass |
-| Cu | 15 | 3 | 0.311 | 0.310-0.335 | 0.2936 ± 0.0014 | -0.017 | pass |
-| Cu | 20 | 6 | 0.310 | 0.290-0.339 | 0.2928 ± 0.0014 | -0.017 | pass |
-| Cu | 30 | 5 | 0.311 | 0.291-0.319 | 0.2924 ± 0.0014 | -0.019 | pass |
-| Au | 1 | 3 | 0.395 | 0.289-0.419 | 0.3712 ± 0.0015 | -0.024 | (reported only) |
-| Au | 2 | 3 | 0.428 | 0.373-0.450 | 0.3994 ± 0.0015 | -0.029 | (reported only) |
-| Au | 3 | 4 | 0.433 | 0.414-0.464 | 0.4093 ± 0.0016 | -0.024 | (reported only) |
-| Au | 4 | 4 | 0.455 | 0.443-0.461 | 0.4108 ± 0.0016 | -0.044 | (reported only) |
-| Au | 5 | 7 | 0.459 | 0.430-0.489 | 0.4155 ± 0.0016 | -0.043 | pass |
-| Au | 10 | 5 | 0.476 | 0.470-0.501 | 0.4334 ± 0.0016 | -0.043 | pass |
-| Au | 15 | 3 | 0.484 | 0.482-0.514 | 0.4416 ± 0.0016 | -0.042 | pass |
-| Au | 20 | 5 | 0.485 | 0.480-0.516 | 0.4489 ± 0.0016 | -0.036 | pass |
-| Au | 30 | 5 | 0.512 | 0.481-0.521 | 0.4603 ± 0.0016 | -0.052 | **FAIL** |
+| C | 1 | 2 | 0.105 | 0.076-0.133 | 0.0935 ± 0.0009 | -0.011 | (reported only) |
+| C | 2 | 3 | 0.077 | 0.071-0.107 | 0.0760 ± 0.0008 | -0.001 | (reported only) |
+| C | 3 | 3 | 0.086 | 0.063-0.088 | 0.0665 ± 0.0008 | -0.019 | (reported only) |
+| C | 4 | 2 | 0.073 | 0.058-0.089 | 0.0616 ± 0.0008 | -0.012 | (reported only) |
+| C | 5 | 5 | 0.082 | 0.058-0.086 | 0.0576 ± 0.0007 | -0.024 | pass |
+| C | 10 | 4 | 0.071 | 0.066-0.074 | 0.0480 ± 0.0007 | -0.023 | pass |
+| C | 15 | 2 | 0.062 | 0.057-0.068 | 0.0452 ± 0.0007 | -0.017 | pass |
+| C | 20 | 4 | 0.060 | 0.049-0.064 | 0.0427 ± 0.0006 | -0.018 | pass |
+| C | 30 | 4 | 0.056 | 0.050-0.060 | 0.0398 ± 0.0006 | -0.016 | pass |
+| Al | 1 | 6 | 0.204 | 0.134-0.235 | 0.1853 ± 0.0012 | -0.018 | (reported only) |
+| Al | 2 | 5 | 0.170 | 0.140-0.203 | 0.1616 ± 0.0012 | -0.008 | (reported only) |
+| Al | 3 | 7 | 0.161 | 0.132-0.213 | 0.1523 ± 0.0011 | -0.009 | (reported only) |
+| Al | 4 | 4 | 0.168 | 0.131-0.191 | 0.1477 ± 0.0011 | -0.020 | (reported only) |
+| Al | 5 | 8 | 0.163 | 0.135-0.200 | 0.1439 ± 0.0011 | -0.019 | pass |
+| Al | 10 | 5 | 0.150 | 0.140-0.188 | 0.1333 ± 0.0011 | -0.017 | pass |
+| Al | 15 | 4 | 0.149 | 0.137-0.171 | 0.1285 ± 0.0011 | -0.021 | pass |
+| Al | 20 | 4 | 0.144 | 0.139-0.164 | 0.1260 ± 0.0010 | -0.018 | pass |
+| Al | 30 | 5 | 0.149 | 0.135-0.155 | 0.1229 ± 0.0010 | -0.026 | pass |
+| Si | 1 | 3 | 0.228 | 0.210-0.235 | 0.2232 ± 0.0013 | -0.005 | (reported only) |
+| Si | 2 | 2 | 0.207 | 0.204-0.210 | 0.2144 ± 0.0013 | +0.007 | (reported only) |
+| Si | 3 | 3 | 0.200 | 0.192-0.212 | 0.2152 ± 0.0013 | +0.015 | (reported only) |
+| Si | 4 | 3 | 0.200 | 0.189-0.204 | 0.2146 ± 0.0013 | +0.015 | (reported only) |
+| Si | 5 | 5 | 0.197 | 0.184-0.206 | 0.2154 ± 0.0013 | +0.018 | pass |
+| Si | 10 | 5 | 0.186 | 0.174-0.200 | 0.2163 ± 0.0013 | +0.030 | pass |
+| Si | 15 | 2 | 0.180 | 0.163-0.197 | 0.2170 ± 0.0013 | +0.037 | pass |
+| Si | 20 | 4 | 0.167 | 0.159-0.194 | 0.2184 ± 0.0013 | +0.052 | **FAIL** |
+| Si | 30 | 4 | 0.161 | 0.145-0.190 | 0.2197 ± 0.0013 | +0.059 | **FAIL** |
+| Cu | 1 | 5 | 0.381 | 0.265-0.438 | 0.3350 ± 0.0015 | -0.046 | (reported only) |
+| Cu | 2 | 5 | 0.379 | 0.301-0.419 | 0.3117 ± 0.0015 | -0.067 | (reported only) |
+| Cu | 3 | 6 | 0.341 | 0.309-0.406 | 0.3036 ± 0.0015 | -0.037 | (reported only) |
+| Cu | 4 | 4 | 0.325 | 0.306-0.340 | 0.3013 ± 0.0015 | -0.024 | (reported only) |
+| Cu | 5 | 8 | 0.324 | 0.298-0.398 | 0.3018 ± 0.0015 | -0.022 | pass |
+| Cu | 10 | 7 | 0.318 | 0.290-0.357 | 0.2984 ± 0.0014 | -0.020 | pass |
+| Cu | 15 | 3 | 0.311 | 0.310-0.335 | 0.2976 ± 0.0014 | -0.013 | pass |
+| Cu | 20 | 6 | 0.310 | 0.290-0.339 | 0.2969 ± 0.0014 | -0.013 | pass |
+| Cu | 30 | 5 | 0.311 | 0.291-0.319 | 0.2958 ± 0.0014 | -0.015 | pass |
+| Au | 1 | 3 | 0.395 | 0.289-0.419 | 0.3762 ± 0.0015 | -0.019 | (reported only) |
+| Au | 2 | 3 | 0.428 | 0.373-0.450 | 0.4050 ± 0.0016 | -0.023 | (reported only) |
+| Au | 3 | 4 | 0.433 | 0.414-0.464 | 0.4153 ± 0.0016 | -0.018 | (reported only) |
+| Au | 4 | 4 | 0.455 | 0.443-0.461 | 0.4172 ± 0.0016 | -0.037 | (reported only) |
+| Au | 5 | 7 | 0.459 | 0.430-0.489 | 0.4217 ± 0.0016 | -0.037 | pass |
+| Au | 10 | 5 | 0.476 | 0.470-0.501 | 0.4384 ± 0.0016 | -0.038 | pass |
+| Au | 15 | 3 | 0.484 | 0.482-0.514 | 0.4462 ± 0.0016 | -0.038 | pass |
+| Au | 20 | 5 | 0.485 | 0.480-0.516 | 0.4540 ± 0.0016 | -0.031 | pass |
+| Au | 30 | 5 | 0.512 | 0.481-0.521 | 0.4651 ± 0.0016 | -0.047 | pass |
 
 **Verdict at E ≥ 5 keV (tolerance 0.05 absolute, generated):**
 
-- C: 5 of 5 energies pass; largest abs. diff. -0.026 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
-- Al: 5 of 5 energies pass; largest abs. diff. -0.027 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- C: 5 of 5 energies pass; largest abs. diff. -0.024 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Al: 5 of 5 energies pass; largest abs. diff. -0.026 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
 - Si: 3 of 5 energies pass, **the tolerance is not met**; largest abs. diff. +0.059 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 1 and above it at 8.
-- Cu: 5 of 5 energies pass; largest abs. diff. -0.026 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
-- Au: 4 of 5 energies pass, **the tolerance is not met**; largest abs. diff. -0.052 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Cu: 5 of 5 energies pass; largest abs. diff. -0.022 at 5 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
+- Au: 5 of 5 energies pass; largest abs. diff. -0.047 at 30 keV. Over all 9 compared energies (1 to 30 keV) lindhard is below the measured median at 9 and above it at 0.
 
 **Elastic corrections (sensitivity).** The same input with the Furness-McCarthy exchange and the correlation-polarization corrections switched off one at a time and together (same seed and primaries; σ of each eta as above). The σ of each difference is hypot(σ_a, σ_b), the value for independent runs. The variants share the seed, so their noise is correlated and the true σ of a difference is likely smaller: the σ multiples below are lower bounds on significance, not a conservative test of it.
 
 | Target | E (keV) | exchange + polarization (baseline) | exchange only | polarization only | no corrections | baseline - no corrections |
 |---|---|---|---|---|---|---|
-| C | 1 | 0.0925 ± 0.0009 | 0.0934 ± 0.0009 | 0.0892 ± 0.0009 | 0.0897 ± 0.0009 | +0.0028 (+2.1 σ) |
-| C | 10 | 0.0475 ± 0.0007 | 0.0475 ± 0.0007 | 0.0471 ± 0.0007 | 0.0471 ± 0.0007 | +0.0005 (+0.5 σ) |
-| Al | 1 | 0.1791 ± 0.0012 | 0.1798 ± 0.0012 | 0.1744 ± 0.0012 | 0.1749 ± 0.0012 | +0.0042 (+2.4 σ) |
-| Al | 10 | 0.1322 ± 0.0011 | 0.1330 ± 0.0011 | 0.1313 ± 0.0011 | 0.1319 ± 0.0011 | +0.0003 (+0.2 σ) |
-| Si | 1 | 0.2182 ± 0.0013 | 0.2184 ± 0.0013 | 0.2120 ± 0.0013 | 0.2132 ± 0.0013 | +0.0050 (+2.7 σ) |
-| Si | 10 | 0.2168 ± 0.0013 | 0.2162 ± 0.0013 | 0.2152 ± 0.0013 | 0.2134 ± 0.0013 | +0.0034 (+1.9 σ) |
-| Cu | 1 | 0.3261 ± 0.0015 | 0.3252 ± 0.0015 | 0.3206 ± 0.0015 | 0.3203 ± 0.0015 | +0.0058 (+2.8 σ) |
-| Cu | 10 | 0.2938 ± 0.0014 | 0.2942 ± 0.0014 | 0.2920 ± 0.0014 | 0.2919 ± 0.0014 | +0.0019 (+0.9 σ) |
-| Au | 1 | 0.3712 ± 0.0015 | 0.3707 ± 0.0015 | 0.3693 ± 0.0015 | 0.3687 ± 0.0015 | +0.0025 (+1.1 σ) |
-| Au | 10 | 0.4334 ± 0.0016 | 0.4329 ± 0.0016 | 0.4308 ± 0.0016 | 0.4306 ± 0.0016 | +0.0028 (+1.3 σ) |
+| C | 1 | 0.0935 ± 0.0009 | 0.0945 ± 0.0009 | 0.0904 ± 0.0009 | 0.0909 ± 0.0009 | +0.0025 (+1.9 σ) |
+| C | 10 | 0.0480 ± 0.0007 | 0.0482 ± 0.0007 | 0.0476 ± 0.0007 | 0.0475 ± 0.0007 | +0.0005 (+0.6 σ) |
+| Al | 1 | 0.1853 ± 0.0012 | 0.1854 ± 0.0012 | 0.1808 ± 0.0012 | 0.1812 ± 0.0012 | +0.0041 (+2.4 σ) |
+| Al | 10 | 0.1333 ± 0.0011 | 0.1343 ± 0.0011 | 0.1321 ± 0.0011 | 0.1331 ± 0.0011 | +0.0001 (+0.1 σ) |
+| Si | 1 | 0.2232 ± 0.0013 | 0.2236 ± 0.0013 | 0.2165 ± 0.0013 | 0.2176 ± 0.0013 | +0.0056 (+3.0 σ) |
+| Si | 10 | 0.2163 ± 0.0013 | 0.2162 ± 0.0013 | 0.2155 ± 0.0013 | 0.2144 ± 0.0013 | +0.0019 (+1.0 σ) |
+| Cu | 1 | 0.3350 ± 0.0015 | 0.3340 ± 0.0015 | 0.3298 ± 0.0015 | 0.3282 ± 0.0015 | +0.0068 (+3.2 σ) |
+| Cu | 10 | 0.2984 ± 0.0014 | 0.2989 ± 0.0014 | 0.2965 ± 0.0014 | 0.2969 ± 0.0014 | +0.0015 (+0.7 σ) |
+| Au | 1 | 0.3762 ± 0.0015 | 0.3763 ± 0.0015 | 0.3747 ± 0.0015 | 0.3747 ± 0.0015 | +0.0015 (+0.7 σ) |
+| Au | 10 | 0.4384 ± 0.0016 | 0.4389 ± 0.0016 | 0.4358 ± 0.0016 | 0.4362 ± 0.0016 | +0.0023 (+1.0 σ) |
 
-Largest effect of the two corrections together: 0.0058 (2.8 σ, Cu at 1 keV); at least one difference exceeds 2 σ.
+Largest effect of the two corrections together: 0.0068 (3.2 σ, Cu at 1 keV); at least one difference exceeds 2 σ.
 
-**Fast secondaries (sensitivity, not graded).** The baseline input rerun with `secondaries = "kieft-bosch"` and a `step-barrier` (metals: at the mid work function; Si: its electron affinity), with the band inputs of the δ(E) runs, `BAND` and `BAND_PROVENANCE` in `validation/experiments/se_yield.py` (Al, Cu, Au: free-electron metal; Si: insulator band, gap and affinity from `BAND_DEFAULTS` (#115), valence-band width from Chelikowsky and Cohen 1974 (#149)); elastic model, optical ELF, tables, 50 eV band-bottom cutoff, seed and primaries as in the baseline (lindhard 343ddc7 and a8a9973; the baseline runs at these points were redone with it and reproduce the committed η bit for bit). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries included. With secondaries on a primary can yield several such electrons, and the run summary does not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the binomial error if no primary yields more than one, an underestimate only to the extent that some yield several. The baseline column is the main table's; the measured median is as above; the graded verdict above is for the baseline and is not re-judged here.
+**Fast secondaries (sensitivity, not graded).** The baseline input rerun with `secondaries = "kieft-bosch"` and a `step-barrier` (metals: at the mid work function; Si: its electron affinity), with the band inputs of the δ(E) runs, `BAND` and `BAND_PROVENANCE` in `validation/experiments/se_yield.py` (Al, Cu, Au: free-electron metal; Si: insulator band, gap and affinity from `BAND_DEFAULTS` (#115), valence-band width from Chelikowsky and Cohen 1974 (#149)); elastic model, optical ELF, tables, 50 eV band-bottom cutoff, seed and primaries as in the baseline (lindhard 9ef9ba1 and bd91a73; the baseline runs at these points were redone with it and reproduce the committed η bit for bit). η counts every electron leaving the front face with at least 50 eV in vacuum, secondaries included. With secondaries on a primary can yield several such electrons, and the run summary does not record how many per primary, so the quoted ± is the Poisson estimate √n/N: larger than the binomial error if no primary yields more than one, an underestimate only to the extent that some yield several. The baseline column is the main table's; the measured median is as above; the graded verdict above is for the baseline and is not re-judged here.
 
 | Target | E (keV) | Baseline η ± σ | With secondaries η ± σ | Change | Measured median | With secondaries - median |
 |---|---|---|---|---|---|---|
-| Al | 1 | 0.1791 ± 0.0012 | 0.2536 ± 0.0016 | +0.0745 | 0.204 | +0.050 |
-| Al | 5 | 0.1422 ± 0.0011 | 0.1932 ± 0.0014 | +0.0509 | 0.163 | +0.030 |
-| Al | 10 | 0.1322 ± 0.0011 | 0.1734 ± 0.0013 | +0.0412 | 0.150 | +0.023 |
-| Al | 30 | 0.1219 ± 0.0010 | 0.1559 ± 0.0012 | +0.0340 | 0.149 | +0.007 |
-| Si | 1 | 0.2182 ± 0.0013 | 0.2789 ± 0.0017 | +0.0607 | 0.228 | +0.051 |
-| Si | 5 | 0.2144 ± 0.0013 | 0.2556 ± 0.0016 | +0.0412 | 0.197 | +0.059 |
-| Si | 10 | 0.2168 ± 0.0013 | 0.2491 ± 0.0016 | +0.0323 | 0.186 | +0.063 |
-| Si | 30 | 0.2194 ± 0.0013 | 0.2475 ± 0.0016 | +0.0281 | 0.161 | +0.087 |
-| Cu | 1 | 0.3261 ± 0.0015 | 0.5032 ± 0.0022 | +0.1771 | 0.381 | +0.122 |
-| Cu | 5 | 0.2975 ± 0.0014 | 0.4004 ± 0.0020 | +0.1028 | 0.324 | +0.076 |
-| Cu | 10 | 0.2938 ± 0.0014 | 0.3703 ± 0.0019 | +0.0765 | 0.318 | +0.052 |
-| Cu | 30 | 0.2924 ± 0.0014 | 0.3416 ± 0.0018 | +0.0492 | 0.311 | +0.031 |
-| Au | 1 | 0.3712 ± 0.0015 | 0.6129 ± 0.0025 | +0.2417 | 0.395 | +0.218 |
-| Au | 5 | 0.4155 ± 0.0016 | 0.5723 ± 0.0024 | +0.1567 | 0.459 | +0.113 |
-| Au | 10 | 0.4334 ± 0.0016 | 0.5433 ± 0.0023 | +0.1099 | 0.476 | +0.067 |
-| Au | 30 | 0.4603 ± 0.0016 | 0.5267 ± 0.0023 | +0.0664 | 0.512 | +0.015 |
+| Al | 1 | 0.1853 ± 0.0012 | 0.2573 ± 0.0016 | +0.0720 | 0.204 | +0.054 |
+| Al | 5 | 0.1439 ± 0.0011 | 0.1967 ± 0.0014 | +0.0527 | 0.163 | +0.034 |
+| Al | 10 | 0.1333 ± 0.0011 | 0.1758 ± 0.0013 | +0.0426 | 0.150 | +0.026 |
+| Al | 30 | 0.1229 ± 0.0010 | 0.1571 ± 0.0013 | +0.0342 | 0.149 | +0.008 |
+| Si | 1 | 0.2232 ± 0.0013 | 0.2820 ± 0.0017 | +0.0588 | 0.228 | +0.054 |
+| Si | 5 | 0.2154 ± 0.0013 | 0.2559 ± 0.0016 | +0.0405 | 0.197 | +0.059 |
+| Si | 10 | 0.2163 ± 0.0013 | 0.2504 ± 0.0016 | +0.0341 | 0.186 | +0.064 |
+| Si | 30 | 0.2197 ± 0.0013 | 0.2478 ± 0.0016 | +0.0281 | 0.161 | +0.087 |
+| Cu | 1 | 0.3350 ± 0.0015 | 0.5077 ± 0.0023 | +0.1727 | 0.381 | +0.127 |
+| Cu | 5 | 0.3018 ± 0.0015 | 0.4039 ± 0.0020 | +0.1021 | 0.324 | +0.080 |
+| Cu | 10 | 0.2984 ± 0.0014 | 0.3730 ± 0.0019 | +0.0746 | 0.318 | +0.055 |
+| Cu | 30 | 0.2958 ± 0.0014 | 0.3447 ± 0.0019 | +0.0489 | 0.311 | +0.034 |
+| Au | 1 | 0.3762 ± 0.0015 | 0.6072 ± 0.0025 | +0.2310 | 0.395 | +0.212 |
+| Au | 5 | 0.4217 ± 0.0016 | 0.5708 ± 0.0024 | +0.1491 | 0.459 | +0.112 |
+| Au | 10 | 0.4384 ± 0.0016 | 0.5437 ± 0.0023 | +0.1053 | 0.476 | +0.068 |
+| Au | 30 | 0.4651 ± 0.0016 | 0.5294 ± 0.0023 | +0.0643 | 0.512 | +0.017 |
 
 Not run, for lack of band inputs: C: no band data committed.
 
 Per-run values: `validation/experiments/backscatter_results.json`; datasets: `validation/data/backscatter/`; provenance: [`data-provenance.md`](data-provenance.md).
 <!-- validation:level3-backscatter:end -->
 
-**Limits.** The tolerance is **not met** at three of the 25 graded points:
-Si at 20 and 30 keV (+0.052 and +0.059 above the median) and Au at 30 keV
-(-0.052 below it). They are reported as measured. The tolerance stays at the
-issue's 0.05 absolute: it was not loosened to cover them, and no model
-parameter was adjusted to these data. C, Al and Cu meet it at every energy
-from 5 to 30 keV.
+**Limits.** The tolerance is **not met** at two of the 25 graded points: Si
+at 20 and 30 keV (+0.052 and +0.059 above the median). It was met at every
+graded point for C, Al, Cu and Au (Au at 30 keV, -0.047, is now inside it;
+with the single-pole model it was -0.052). The tolerance stays at the
+issue's 0.05 absolute: it was not loosened to cover the Si points, and no
+model parameter was adjusted to these data. Closing #148 with these two
+points missed needs operator sign-off on the issue.
+
+The full-Penn rerun changed η by -0.0005 to +0.0089 (the largest is Cu at 1 keV;
+Si at 10 keV is the only decrease) at the 1, 5, 10 and 30 keV points, against
+the single-pole results it replaces; it did not change the picture,
+and the Si excess is in particular not the single-pole approximation.
 
 The signs differ by element. For C, Al, Cu and Au lindhard is below the
 measured median at every compared energy. At 5 keV and above the offset is
-0.017 to 0.026 for C (29 to 33 % of η), 0.018 to 0.027 for Al (12 to 18 %),
-0.017 to 0.026 for Cu (6 to 8 %) and 0.036 to 0.052 for Au (7 to 10 %).
-lindhard is below the lowest measured set at all five C and Au energies, at
-four of the five Al energies and at two Cu energies, so the offset is not
+0.016 to 0.024 for C (28 to 32 % of the median), 0.017 to 0.026 for Al (11
+to 18 %), 0.013 to 0.022 for Cu (4 to 7 %) and 0.031 to 0.047 for Au (6 to
+9 %). lindhard is below the lowest measured set at the five C energies from
+5 keV, at four Al energies (10 to 30 keV), at three Cu energies (3, 4 and
+15 keV) and at six Au energies (4 to 30 keV), so the offset is not
 inside the measured spread. Si is the other way round: lindhard is above
 the median at 8 of the 9 energies and above the highest measured set at
-every energy from 2 keV up. The excess grows with energy, from +0.017 at
-5 keV to +0.059 at 30 keV, because the simulated η stays flat (0.214 to
-0.219) while the measured median falls from 0.197 to 0.161.
+every energy from 2 keV up. The excess grows with energy, from +0.018 at
+5 keV to +0.059 at 30 keV, because the simulated η stays flat (0.215 to
+0.220) while the measured median falls from 0.197 to 0.161.
 
 The offsets are not attributed here. Known parts of the reduced model act on
-them. The inelastic model is single-pole Penn, not full Penn (since #256
-the Al table builds in minutes, and since #298 the Si table too; the
-rerun is open). Fast
+them. The inelastic model is full Penn on the committed ELFs,
+with no inner-shell channels (#273). Fast
 secondaries above 50 eV, which a measured η counts, are not generated. For
 Si the ELF ends at 199 eV, so the K shell and the L-shell tail are missing
 from the stopping power. A Si excess that grows with energy is consistent
@@ -2017,12 +2042,12 @@ independent runs; the variants share a seed, so the 2 to 3 σ differences at
 1 keV are lower bounds on their significance. With the stand-in the
 corrections raised Au at 1 keV by 0.015; on DHFS the effect there is 0.003.
 
-Still open: the full-Penn rerun (#256 makes the Al table buildable, 203 s
-on two threads; #298 the Si table, 224 s; the inputs then
-change their `electron.inelastic.model`), the Si K and L shells beyond
-the ELF's 199 eV end (an inner-shell channel, #273), and fast secondaries
-for C (no band data; Al, Cu, Au and Si are in the sensitivity table).
-Until then this is a comparison of the reduced model, not of the issue's
+Still open: the Si K and L shells beyond the ELF's 199 eV end (an
+inner-shell channel in the transport loop, #273; the Si excess above is not
+shown to be that effect), the two missed Si points (operator sign-off to
+close #148 with them), and fast secondaries for C (no band data; Al, Cu, Au
+and Si are in the sensitivity table). The full-Penn rerun is done. This is
+still a comparison of a model without inner shells, not of the issue's
 full model.
 
 ### Resist PSF vs a published measurement (#151): gap, no comparison
