@@ -27,8 +27,9 @@
 //! **Density model.** `W` spans decades, so the integrand is handled in
 //! `s = ln W`, where `p dW = p W ds`. `g(s) = p W` is sampled on adaptively
 //! chosen nodes between the lowest loss of the model's rate (the lowest
-//! tabulated ELF energy, below which `p = 0`, for the Penn models; see "Rows
-//! below the ELF table" for the Mermin model) and `E`, and taken to be
+//! tabulated ELF energy, below which `p = 0`, for the single-pole model; see
+//! "Rows below the ELF table" for the Mermin and full Penn models) and `E`,
+//! and taken to be
 //! *linear between nodes*. Starting from
 //! [`INITIAL_LOSS_PANELS`] equal panels, a panel is split at its midpoint
 //! while the Simpson-minus-trapezoid estimate of its error in either
@@ -150,9 +151,28 @@
 //! `(W_min, T]`, `W_min` the lowest loss the model's rate `λ⁻¹(T)` counts,
 //! so that the stored rate and the sampled losses cover the same window:
 //!
-//! * single-pole and full Penn: `W_min = elf_min`, the lowest tabulated ELF
-//!   energy. Their DIIMFP is zero below it ([`super::penn`],
-//!   [`super::full_penn`]), so their rate counts no loss there;
+//! * single-pole Penn: `W_min = elf_min`, the lowest tabulated ELF energy.
+//!   Its DIIMFP is zero below it ([`super::penn`]), so its rate counts no
+//!   loss there;
+//! * full Penn: `W_min = 1e-6 T` ([`super::full_penn`], its
+//!   `LOWEST_LOSS_FRACTION`). The DIIMFP of the full model is *not* zero
+//!   below `elf_min`: each Lindhard gas of the expansion has an
+//!   electron-hole continuum down to `ω -> 0` at `q > 0` (S2017 eq. (4)),
+//!   and the model's rate and stopping power integrate every loss from 0. A
+//!   window opened at `elf_min` (until #361) left the losses below it out of
+//!   the sampled distribution while the stored rate counted them: on the Si
+//!   ELF tabulated from 0.5 eV the share of `λ⁻¹` below 0.5 eV is 4.7e-3 at
+//!   `T` = 10 eV, and the table's `S = λ⁻¹ ⟨W⟩` was biased high by the
+//!   same amount. The lower limit is a numerical floor, not a model cutoff
+//!   (a literal zero cannot bound the `ln W` axis): `p ∝ ω` at small `ω`,
+//!   so the rate below `W` falls as `W²` and the stopping power as `W³`,
+//!   and the omitted share of both is below the model tolerance by orders
+//!   of magnitude (`tests/penn_full.rs` bounds it against the direct
+//!   DIIMFP). The row's rate is the model's own; the sampled distribution
+//!   and `⟨W⟩` cover `(1e-6 T, T]`, which the model's `0 < ω <= T` equals up
+//!   to that omitted share. The DIIMFP grid reaches down to the floor of the
+//!   lowest row energy, so these losses are read from it, not computed
+//!   directly;
 //! * Mermin-ELF: `W_min = 1e-8 T`, the lower limit of the `ω` integral of
 //!   its rate and stopping power ([`super::mermin`], the same constant). Its
 //!   fitted Drude-Lorentz ELF has no cutoff at `elf_min` (the omission of the
@@ -170,10 +190,11 @@
 //! as a row with `T <= 0` is, on either axis (#340): without this the `ln W`
 //! window `[ln W_min, ln T]` is reversed (or of zero width at `T = W_min`)
 //! and the density integrates to a negative value (or 0). For the Penn
-//! models these are the rows with `0 < T <= elf_min`. A Mermin row has
-//! `W_min < T` at every `T > 0`, so it is never empty for this reason: its
-//! rows with `0 < T <= elf_min`, stored empty from #340 to #342, carry the
-//! model's rate and losses in `(1e-8 T, T]`.
+//! single-pole model these are the rows with `0 < T <= elf_min`. A Mermin
+//! or full Penn row has `W_min < T` at every `T > 0`, so it is never empty
+//! for this reason: its rows with `0 < T <= elf_min`, stored empty from #340
+//! to #342 (Mermin) or #361 (full Penn), carry the model's rate and losses
+//! in `(W_min, T]`.
 //!
 //! # Rate refinement
 //!
@@ -207,7 +228,7 @@
 //! rounding (about 50 levels) before any useful row bound: that second
 //! error, not the row bound, is what stops it.
 //!
-//! **Rate onset** (#357). The single-pole and full Penn rates are
+//! **Rate onset** (#357). The single-pole rate is
 //! identically zero for `E - E_F <= elf_min` ("Rows below the ELF table",
 //! `W_min = elf_min`) and positive above it: a step at the onset
 //! `E_F + elf_min`, which the transport's linear interpolation from the
@@ -224,8 +245,9 @@
 //! step, as it never reaches the zero at `E_F`. Every committed ELF starts
 //! at or below 0.5 eV (`validation/data/optical/`), so for none of them
 //! does the onset change the refined grid. The Mermin rate is positive for
-//! every `T > 0` (it counts losses down to `1e-8 T`), so that model has no
-//! onset and keeps the full window.
+//! every `T > 0` (it counts losses down to `1e-8 T`), and so is the full
+//! Penn rate (down to `1e-6 T`, #361: it was grouped with the single-pole
+//! onset before), so those models have no onset and keep the full window.
 //!
 //! The test is a criterion, not a bound. A test of the midpoint alone
 //! (#351) left cells whose error peaked off the midpoint above the
@@ -275,9 +297,9 @@
 //! Samplers consume uniforms `u` supplied by the caller (for example from
 //! [`crate::rng::stream`]) and keep no state of their own.
 
-use super::full_penn::DiimfpGrid;
 #[cfg(doc)]
 use super::full_penn::FullPenn;
+use super::full_penn::{DiimfpGrid, FULL_LOWEST_LOSS_FRACTION};
 use super::inner_shell::ShellResolvedChannels;
 use super::mermin::LOWEST_LOSS_FRACTION;
 use super::model::PennInelastic;
@@ -713,9 +735,18 @@ trait LossModel: Sync {
     /// is positive, if it has one: the step of the rate refinement (module
     /// docs, "Rate refinement"; #357). By default the lowest tabulated ELF
     /// energy, the default [`LossModel::loss_min_ev`], below which the DIIMFP
-    /// is zero. A model whose rate counts losses below it has no onset.
+    /// is zero. A model whose rate counts losses below it (Mermin, full
+    /// Penn) has no onset.
     fn rate_onset_ev(&self) -> Option<f64> {
         Some(self.elf_min_ev())
+    }
+    /// A loss strictly inside the window `(loss_min, energy_ev)` at which
+    /// the row's initial panels are split into two ranges, so that the
+    /// part above it keeps its resolution however far below it the window
+    /// opens: the lowest ELF energy for the full Penn model (#361). None by
+    /// default.
+    fn window_break_ev(&self, _energy_ev: f64) -> Option<f64> {
+        None
     }
     fn fermi_energy_ev(&self) -> f64;
     fn diimfp(&self, energy_ev: f64, loss_ev: f64) -> Result<f64, ElectronDataError>;
@@ -752,8 +783,19 @@ impl LossModel for PennInelastic {
             // the lower limit of the Mermin rate integral (#342); the fitted
             // ELF has no cutoff at the lowest tabulated energy
             PennInelastic::Mermin(_) => LOWEST_LOSS_FRACTION * energy_ev,
-            // the single-pole and full Penn DIIMFPs are zero below it
-            PennInelastic::SinglePole(_) | PennInelastic::Full(_) => self.elf_min_ev(),
+            // the full Penn DIIMFP is not zero below the lowest ELF energy
+            // (the electron-hole continuum of each Lindhard gas reaches
+            // omega -> 0): the floor of its model-integrated rate (#361)
+            PennInelastic::Full(_) => FULL_LOWEST_LOSS_FRACTION * energy_ev,
+            // the single-pole DIIMFP is zero below it
+            PennInelastic::SinglePole(_) => self.elf_min_ev(),
+        }
+    }
+    fn window_break_ev(&self, energy_ev: f64) -> Option<f64> {
+        let b = self.elf_min_ev();
+        match self {
+            PennInelastic::Full(_) if b > self.loss_min_ev(energy_ev) && b < energy_ev => Some(b),
+            _ => None,
         }
     }
     fn rate_onset_ev(&self) -> Option<f64> {
@@ -761,9 +803,12 @@ impl LossModel for PennInelastic {
             // a positive rate at every T > 0, from losses in (1e-8 T, T]
             // (#342): no onset
             PennInelastic::Mermin(_) => None,
+            // a positive rate at every T > 0, from losses in (1e-6 T, T]
+            // (#361): no onset
+            PennInelastic::Full(_) => None,
             // the rate counts losses above elf_min only (`loss_min_ev`), so
             // it is zero for T <= elf_min
-            PennInelastic::SinglePole(_) | PennInelastic::Full(_) => Some(self.elf_min_ev()),
+            PennInelastic::SinglePole(_) => Some(self.elf_min_ev()),
         }
     }
     fn fermi_energy_ev(&self) -> f64 {
@@ -815,9 +860,13 @@ fn row_density<M: LossModel>(
         Some(g) => (g.unresolved_ln_loss_ev(), g.min_cell_width()),
         None => (Vec::new(), 0.0),
     };
+    let mut breaks = vec![w_lo.ln(), energy_ev.ln()];
+    if let Some(b) = penn.window_break_ev(energy_ev) {
+        breaks.insert(1, b.ln());
+    }
     adaptive_density(
         &f,
-        &[w_lo.ln(), energy_ev.ln()],
+        &breaks,
         INITIAL_LOSS_PANELS,
         tol,
         true,
@@ -2485,7 +2534,7 @@ mod tests {
     }
 
     #[test]
-    fn the_penn_models_have_a_rate_onset_and_the_mermin_model_none() {
+    fn the_single_pole_model_has_a_rate_onset_and_the_full_and_mermin_models_none() {
         // A synthetic ELF (one Drude-Lorentz plasmon) tabulated from 6 eV.
         let elf = super::super::drude::DrudeLorentz::new(vec![
             super::super::drude::DrudeLorentzOscillator::plasmon(15.0, 4.0),
@@ -2496,13 +2545,15 @@ mod tests {
         use super::super::model::PennAlgorithm;
         for (algorithm, onset) in [
             (PennAlgorithm::SinglePole, Some(6.0)),
-            (PennAlgorithm::Full, Some(6.0)),
+            // #361: the full Penn DIIMFP is positive below elf_min, so is
+            // its rate
+            (PennAlgorithm::Full, None),
             (PennAlgorithm::Mermin, None),
         ] {
             let model = PennInelastic::try_new(algorithm, elf.clone()).unwrap();
             assert_eq!(model.rate_onset_ev(), onset, "{algorithm:?}");
-            // Penn: the rate is zero at the onset, as the hook says; Mermin:
-            // positive below elf_min.
+            // single pole: the rate is zero at the onset, as the hook says;
+            // full Penn and Mermin: positive below elf_min.
             let below = row_rate(&model, EnergyAxis::ModelFermiLevel, 5.0).unwrap();
             assert_eq!(below > 0.0, onset.is_none(), "{algorithm:?}: {below}");
         }
@@ -2521,5 +2572,44 @@ mod tests {
             assert!(*e > 17.0, "{e}");
         }
         assert_cells_pass(&model, &refined, 16.0);
+    }
+
+    #[test]
+    fn full_penn_loss_window_opens_at_a_fraction_of_the_energy_and_has_no_onset() {
+        // #361: the window of a full Penn row is (1e-6 T, T] at every T > 0,
+        // below elf_min too; the single pole window opens at elf_min. The
+        // initial panels are split at elf_min (the part above it keeps its
+        // resolution) when elf_min lies inside the window.
+        let elf = super::super::drude::DrudeLorentz::new(vec![
+            super::super::drude::DrudeLorentzOscillator::plasmon(15.0, 4.0),
+        ])
+        .unwrap()
+        .to_optical_elf("synthetic", 6.0, 2000.0, 100)
+        .unwrap();
+        use super::super::model::PennAlgorithm;
+        let full = PennInelastic::try_new(PennAlgorithm::Full, elf.clone()).unwrap();
+        let single = PennInelastic::try_new(PennAlgorithm::SinglePole, elf).unwrap();
+        for t in [0.5, 6.0, 40.0] {
+            assert_eq!(full.loss_min_ev(t), FULL_LOWEST_LOSS_FRACTION * t);
+            assert_eq!(single.loss_min_ev(t), 6.0);
+        }
+        assert_eq!(full.window_break_ev(5.0), None);
+        assert_eq!(full.window_break_ev(6.0), None);
+        assert_eq!(full.window_break_ev(40.0), Some(6.0));
+        assert_eq!(single.window_break_ev(40.0), None);
+        // a full Penn row at T <= elf_min is not empty, and a single-pole
+        // one is
+        assert!(row_rate(&full, EnergyAxis::ModelFermiLevel, 5.0).unwrap() > 0.0);
+        assert_eq!(
+            row_rate(&single, EnergyAxis::ModelFermiLevel, 5.0).unwrap(),
+            0.0
+        );
+        assert_eq!(full.rate_onset_ev(), None);
+        // With no onset the refinement tests every cell that overlaps its
+        // window, the cell straddling the old onset E_F + elf_min included
+        // (pinned for a rate of this kind by
+        // `a_rate_without_an_onset_keeps_the_full_window`; a refinement of
+        // the real model is not repeated here, its rate costs seconds per
+        // point in an unoptimised build).
     }
 }
