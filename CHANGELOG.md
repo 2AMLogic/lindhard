@@ -46,6 +46,13 @@ one version).
 
 ### Changed
 
+- `rng::run_particles` / `run_particles_range` evaluate chunks in consecutive
+  batches of 4 chunks per rayon worker and merge each batch, in chunk order,
+  before the next, so partial tallies held at once are bounded by the pool
+  size instead of growing with the history count (#393). Chunk boundaries,
+  streams and merge order are unchanged; results are bit-identical. 200 000
+  ions of `examples/b_5keV_si.toml` on 2 threads: peak RSS 119 MB to 51 MB,
+  wall time unchanged within run-to-run noise.
 - Validation: the lindhard side of the electron oracle comparison
   (`validation/oracles/summaries/lindhard-electron-*.json`, the
   `validation:electron-oracles` block of `docs/validation.md`) is re-run at

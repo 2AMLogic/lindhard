@@ -41,8 +41,9 @@ electron MC). The engines share the core and nothing else.
 ## Performance plan
 
 - Ions and electrons are independent histories, so the work is embarrassingly
-  parallel. Use `rayon` over chunks of particles, give each worker its own
-  tallies, and merge them deterministically at the end.
+  parallel. Use `rayon` over chunks of particles, give each chunk its own
+  tally, and merge them deterministically in chunk order, one bounded batch
+  of chunks at a time so partial tallies do not grow with the history count.
 - Hot paths use lookup tables: the scattering angle from (reduced energy,
   impact parameter) and stopping from (ion, element, energy), both built once
   per run and shared read-only.
