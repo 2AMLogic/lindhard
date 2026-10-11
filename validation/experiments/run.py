@@ -26,13 +26,18 @@ For every `validation/data/sputtering/*.json` (measured sputter yields):
    over every stored point in the group) next to both yields. Each run uses
    at least `--ions` ions, and more where the yield is low: a run whose
    Poisson error exceeds 3 % is repeated with the ion count scaled to bring
-   it to 2.5 % (rounded up to 1000; deterministic, seed 1). Nothing is
+   it to 2.5 % (rounded up to 1000; deterministic, seed 1), up to a hard
+   budget of `--max-ions` ions per run (100 × `--ions` by default): a zero
+   yield is repeated at a fixed multiple instead of dividing by it, and a
+   run that stops at the budget without the target error records that
+   status (`lindhard_k*_status`) instead of retrying forever. Nothing is
    fitted to the measurements and no default changes.
 
 Writes `validation/experiments/results.json`.
 
 Usage:
-    validation/experiments/run.py [--ions N]   check, run, write results
+    validation/experiments/run.py [--ions N] [--max-ions N]
+                                               check, run, write results
     validation/experiments/run.py --check      check the datasets only
     validation/experiments/run.py --rustbca [--rustbca-target T ...]
                                                also run RustBCA (RUSTBCA_BIN, level-2
@@ -334,6 +339,8 @@ SPUTTER_WEAK = (0, 3)  # weak collisions per step: lindhard's default, and TRIDY
 MERGE_REL = 0.02  # measured energies within 2 % share one lindhard run
 MAX_POISSON_REL = 0.03  # rerun with more ions above this relative Poisson error (#70)
 TARGET_POISSON_REL = 0.025  # ... aiming at this one
+MAX_IONS_FACTOR = 100  # default rerun budget: --ions times this (#403)
+ZERO_YIELD_GROWTH = 4  # a zero-yield run is repeated at this multiple of the ions, within the budget (#403)
 AVOGADRO = 6.02214076e23  # exact (SI 2019)
 PROBE_E_D_EV = 1.0  # E_d of the E_s read-back probe only (sputter_problem); never in a recorded run
 
@@ -490,7 +497,47 @@ def ion_mass_amu(symbol: str) -> float:
     return orc.ELEMENTS[symbol][1]
 
 
-def run_sputter(ions: int, binary: Path, groups: list[dict]) -> dict:
+def check_ion_budget(ions: int, max_ions: int) -> str | None:
+    """An error message for an unusable ion budget, or None (#403)."""
+    if ions <= 0:
+        return f"--ions must be positive, got {ions}"
+    if max_ions < ions:
+        return f"--max-ions ({max_ions}) must be at least --ions ({ions})"
+    return None
+
+
+def adaptive_sputter_run(run_once, ions: int, max_ions: int) -> tuple[dict, int, str]:
+    """The level-3 sputter rerun rule (#70), bounded (#403). Runs once at
+    `ions`, then repeats with more ions while the Poisson relative error
+    exceeds MAX_POISSON_REL, as long as the count stays within `max_ions`:
+    a positive yield is resized with the existing formula (to
+    TARGET_POISSON_REL, rounded up to 1000) and clamped to the budget; a
+    zero yield — whose Poisson plug-in error would be 0 and proves nothing —
+    is repeated at ZERO_YIELD_GROWTH times the ions instead of dividing by
+    it (math.ceil of the infinity would raise OverflowError and abort the
+    sweep). Returns `(last result, ions used, status)`, stopping with a
+    truthful status instead of raising: "reached" when the target error is
+    met, "budget_exhausted" for a positive yield that never met it within
+    the budget, and "zero_yield" for a yield that stayed 0 up to the budget
+    — an observed zero, not a precise one. Every retry strictly increases
+    the count, so the loop is finite by construction."""
+    n = ions
+    while True:
+        r = run_once(n)
+        if r["sputter_yield"] <= 0:
+            if n >= max_ions:
+                return r, n, "zero_yield"
+            n = min(ZERO_YIELD_GROWTH * n, max_ions)
+        else:
+            rel = r["sputter_yield_se"] / r["sputter_yield"]
+            if rel <= MAX_POISSON_REL:
+                return r, n, "reached"
+            if n >= max_ions:
+                return r, n, "budget_exhausted"
+            n = min(1000 * math.ceil(n * (rel / TARGET_POISSON_REL) ** 2 / 1000), max_ions)
+
+
+def run_sputter(ions: int, max_ions: int, binary: Path, groups: list[dict]) -> dict:
     runs = lindhard_cli.RUNS / "experiments"
     e_s, mass = {}, {}
     rows = []
@@ -500,15 +547,14 @@ def run_sputter(ions: int, binary: Path, groups: list[dict]) -> dict:
             e_s[key], mass[g["target"]] = probe_target(*key, binary)
         row = dict(g)
         for k in SPUTTER_WEAK:
-            n = ions
-            while True:
+
+            def once(n: int, g=g, k=k, key=key) -> dict:
                 p = sputter_problem(g["ion"], g["target"], g["energy_ev"], k, n, e_s[key])
-                r = lindhard_cli.run(p, runs / p["id"], binary)
-                rel = r["sputter_yield_se"] / r["sputter_yield"] if r["sputter_yield"] > 0 else math.inf
-                if rel <= MAX_POISSON_REL:
-                    break
-                n = 1000 * math.ceil(n * (rel / TARGET_POISSON_REL) ** 2 / 1000)
+                return lindhard_cli.run(p, runs / p["id"], binary)
+
+            r, n, status = adaptive_sputter_run(once, ions, max_ions)
             row[f"lindhard_k{k}_ions"] = n
+            row[f"lindhard_k{k}_status"] = status
             row[f"lindhard_k{k}"] = r["sputter_yield"]
             row[f"lindhard_k{k}_se"] = float(f"{r['sputter_yield_se']:.4g}")
             row[f"lindhard_k{k}_in_band"] = g["yield_min"] <= r["sputter_yield"] <= g["yield_max"]
@@ -541,8 +587,10 @@ def run_sputter(ions: int, binary: Path, groups: list[dict]) -> dict:
         "e_b_ev": 0.0,
         "energy_merge_rel": MERGE_REL,
         "ions_per_run": ions,
-        "ions_rule": f"at least {ions}; rerun with more where the Poisson error exceeds {100 * MAX_POISSON_REL:g} % "
-                     "(per-row `lindhard_k*_ions`)",
+        "max_ions": max_ions,
+        "ions_rule": f"at least {ions}; rerun with more where the Poisson error exceeds {100 * MAX_POISSON_REL:g} %, "
+                     f"up to {max_ions} per run (per-row `lindhard_k*_ions` and `lindhard_k*_status`: \"reached\", "
+                     "\"budget_exhausted\" or \"zero_yield\"; a row without a status in older records met the target)",
         "seed": 1,
         "std_err": "Poisson, sqrt(sputtered) / ions; underestimates the true error (correlated bursts)",
         "control": control,
@@ -833,6 +881,9 @@ def run_tuning_fit(binary: Path) -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--ions", type=int, default=20000)
+    ap.add_argument("--max-ions", type=int, default=None, metavar="N",
+                    help=f"hard cap on the ions of one sputter run "
+                         f"(default: {MAX_IONS_FACTOR} × --ions)")
     ap.add_argument("--check", action="store_true", help="check the datasets' provenance fields only")
     ap.add_argument("--rustbca", action="store_true", help="also run RustBCA at the sputtering energies (context)")
     ap.add_argument("--rustbca-target", action="append", metavar="T",
@@ -841,6 +892,12 @@ def main() -> int:
                     help="run the opt-in E_s tuning pilot fit and held-out evaluation only (#80); "
                          "writes validation/experiments/tuning_results.json, leaves results.json alone")
     args = ap.parse_args()
+
+    if args.max_ions is None:
+        args.max_ions = MAX_IONS_FACTOR * args.ions
+    budget_err = check_ion_budget(args.ions, args.max_ions)
+    if budget_err:
+        ap.error(budget_err)
 
     if args.fit_tuning:
         run_tuning_fit(lindhard_cli.lindhard_binary())
@@ -930,7 +987,7 @@ def main() -> int:
             + ", ".join(f"{f} {kn[f]['k']:.2f}" for f in K_FAMILIES)
         )
 
-    sputtering = run_sputter(args.ions, binary, groups) if groups else None
+    sputtering = run_sputter(args.ions, args.max_ions, binary, groups) if groups else None
     worst = max(control)
     if worst > 2e-3:
         lindhard_cli.die(

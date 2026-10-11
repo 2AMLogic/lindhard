@@ -351,19 +351,34 @@ def rb_ratios(sp, t, rb, k):
     return [at[r["energy_ev"]][f"rustbca_k{k}"] / r["yield_median"] for r in rows]
 
 
-def level3_sputter() -> str:
-    sp, targets, rb = sputter_data()
+def sputter_status(row, k):
+    """The recorded precision status of a level-3 sputter row for weak
+    collisions `k` (#403): "reached", "budget_exhausted" or "zero_yield".
+    Records written before #403 have no field; every one of them met the
+    target (the old loop only stopped on success), so absence means
+    "reached"."""
+    return row.get(f"lindhard_k{k}_status", "reached")
+
+
+def level3_sputter(data=None) -> str:
+    sp, targets, rb = data if data is not None else sputter_data()
     if not sp:
         return "_No sputter-yield datasets yet; see validation/data/README.md._"
 
     def y(row, k) -> str:
         v = row[f"lindhard_k{k}"]
-        return f"{v:.2f} ({row[f'lindhard_k{k}_over_median']:.2f}){'' if not row[f'lindhard_k{k}_in_band'] else ' in'}"
+        status = sputter_status(row, k)
+        return (f"{v:.2f} ({row[f'lindhard_k{k}_over_median']:.2f})"
+                f"{'' if not row[f'lindhard_k{k}_in_band'] else ' in'}"
+                f"{'' if status == 'reached' else f' [{status}]'}")
 
+    unmet = any(sputter_status(row, k) != "reached" for row in sp["rows"] for k in (0, 3))
     ions = sorted({row[f"lindhard_k{k}_ions"] for row in sp["rows"] for k in (0, 3) if f"lindhard_k{k}_ions" in row})
     lines = [
         f"lindhard, at least {sp['ions_per_run']} ions per run"
         + (f" (up to {ions[-1]} where the Poisson error would exceed 3 %)" if ions and ions[-1] > sp["ions_per_run"] else "")
+        + ("; rows marked [budget_exhausted] or [zero_yield] stopped at the per-run ion budget without reaching "
+           "the 2.5 % target" if unmet else "")
         + f", seed {sp['seed']}; matched settings of `ar_1keV_cu_ed_es` "
         f"(ZBL, Lindhard-Scharff nonlocal, constant free path, cutoffs {sp['physics']['primary_cutoff_ev']:g} / "
         f"{sp['physics']['recoil_cutoff_ev']:g} eV, recoils followed, E_b = 0, E_d = E_s, with E_s lindhard's tabulated "
@@ -400,11 +415,18 @@ def level3_sputter() -> str:
                f"summary `{f}`, context only)." if rb.get(t) else
                "RustBCA: not run (set RUSTBCA_BIN and run `validation/experiments/run.py --rustbca`)."),
         ]
-    se_max = max(row[f"lindhard_k{k}_se"] / row[f"lindhard_k{k}"] for row in sp["rows"] for k in (0, 3))
+    se_max = max((row[f"lindhard_k{k}_se"] / row[f"lindhard_k{k}"] for row in sp["rows"] for k in (0, 3)
+                  if row[f"lindhard_k{k}"] > 0),
+                 default=None)
+    stat = (f"Statistical errors (Poisson) are at most {100 * se_max:.2f} % of the yield." if se_max is not None
+            else "No run reached the 2.5 % Poisson target, so no error share is claimed.")
+    if unmet:
+        stat += (" A [zero_yield] row is an observed zero at that budget, not a precise zero; its Poisson "
+                 "plug-in error would be 0 and is not evidence.")
     lines += [
         "",
-        f"(/median): lindhard over the measured median; \"in\": inside the measured min..max. Statistical errors "
-        f"(Poisson) are at most {100 * se_max:.2f} % of the yield. Measured points: `validation/data/sputtering/`; "
+        f"(/median): lindhard over the measured median; \"in\": inside the measured min..max. {stat} "
+        "Measured points: `validation/data/sputtering/`; "
         "provenance: [`data-provenance.md`](data-provenance.md).",
     ]
     c = sp.get("control")
