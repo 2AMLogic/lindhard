@@ -418,6 +418,18 @@ Not measured yet: no `bench-electron-*.json` summary has a Nebula timing (see th
 
 **Caveats, as measured.**
 
+* **Stale: the six summaries predate the band-bottom changes (status of
+  2026-10-11, #366).** All six `bench-electron-*.json` digests were made on
+  2026-10-08 at `0942eb2`, before the band-bottom inelastic tables (#241), the
+  above-Fermi-level rate refinement (#339) and the loss-window correction
+  (#342) reached `main`. Those changes alter the inelastic tables, so the
+  table-build times and the work per history, and hence the electrons/s, of
+  the rows above no longer describe the current engine. They were not
+  regenerated because the cstool clone (`CSTOOL_SRC`) that
+  `bench_electron.py` needs for the matched inputs was not available on the
+  host that prepared #366; no result has been invented. The determinism
+  statement is also from that build. The "Still to measure" run below
+  replaces all six together from one current build.
 * **Not a quiet machine.** The lindhard rows were taken on 2026-10-08 at
   `0942eb2` (rustc 1.97.1, release profile with `lto = "fat"`,
   `codegen-units = 1`, matched inputs from cstool `0c739eb`). The host is a shared
