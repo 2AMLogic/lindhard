@@ -15,11 +15,9 @@
 #   Salvat et al. (1987) DHFS potential, with the Furness-McCarthy exchange
 #   and the correlation-polarization corrections on (both solved on the DHFS
 #   Poisson density).
-# - Inelastic: the single-pole Penn algorithm on the measured optical ELF of
-#   Hagemann, Gudat and Kunz (1975). Full Penn is the issue's model, but its
-#   tables do not build in a usable time (#168 measured Si 5 keV unfinished
-#   at 60 min on 4 threads; single pole: 108 s); speeding that build up is
-#   #256. No separate inner-shell channel (the transport loop has none yet;
+# - Inelastic: the full Penn algorithm on the measured optical ELF of
+#   Hagemann, Gudat and Kunz (1975).
+#   No separate inner-shell channel (the transport loop has none yet;
 #   the optical ELF includes the shells).
 # - No secondaries and a transparent surface: no band parameters of Al are
 #   committed. With a 50 eV cutoff no electron that could count towards eta
@@ -47,11 +45,16 @@ exchange = true
 polarizability.Al = { bohr3 = 57.8, source = "P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 13 Al, recommended 57.8 +- 1.0 a.u." }
 
 [electron.inelastic]
-model = "penn-single-pole"
+model = "penn-full"
 
 [electron.tables]
 min_energy_ev = 51.0
 points_per_decade = 20.0
+# One grid for every comparison energy, so that the full-Penn tables are
+# built once per material (lindhard run --table-cache). The largest energy
+# is 30 keV; the extra 1 keV leaves room for the inner potential of the
+# secondary-sensitivity runs.
+max_energy_ev = 31000.0
 
 [electron.materials.Al]
 optical_elf = "../../data/optical/al_elf_hagemann1975.toml"

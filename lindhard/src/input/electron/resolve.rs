@@ -1,0 +1,830 @@
+//! Validation and resolution: turns an [`ElectronInput`] into a
+//! [`ResolvedElectron`].
+
+use std::collections::BTreeMap;
+use std::path::Path;
+
+use sha2::{Digest, Sha256};
+
+use crate::electron::boundary::{BandModel, BandStructure};
+use crate::electron::data::OpticalElf;
+use crate::electron::elastic::corrections::{CorrelationPolarization, PolarizationCutoff};
+use crate::electron::elastic::table::DEFAULT_MAX_ENERGY_EV;
+use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, MAX_OSCILLATORS};
+use crate::electron::phonon::{FrohlichPhonon, InsulatorChannels, PolaronTrapping, Sio2LoMode};
+use crate::electron::secondary::SecondaryModel;
+use crate::electron::transport::{
+    BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
+};
+use crate::elements::element_by_symbol;
+use crate::geometry::Stack;
+use crate::input::{invalid, resolve_material, InputError};
+use crate::material::Material;
+use crate::tally::{
+    Binning, CartesianGrid, CylindricalGrid, ElectronTallyConfig, LogRadialBinning, PsfConfig,
+    PsfModel, PsfNormalization,
+};
+
+use super::resolved::*;
+use super::schema::*;
+
+const NM: f64 = 1e-9;
+
+fn finite_pos(v: f64) -> bool {
+    v.is_finite() && v > 0.0
+}
+
+/// `band` with the optional valence binding of a metal applied.
+fn with_valence_binding(
+    band: BandStructure,
+    binding_ev: Option<f64>,
+) -> Result<BandStructure, crate::electron::boundary::BandError> {
+    match binding_ev {
+        None => Ok(band),
+        Some(b) => band.with_valence_binding_ev(b),
+    }
+}
+
+fn read_data_file(
+    base_dir: &Path,
+    field: &str,
+    path: &str,
+) -> Result<(String, DataFile), InputError> {
+    let joined = base_dir.join(path);
+    let bytes = std::fs::read(&joined)
+        .map_err(|e| invalid(field, format!("cannot read {}: {e}", joined.display())))?;
+    let text = String::from_utf8(bytes.clone()).map_err(|_| {
+        invalid(
+            field,
+            format!("{} is not valid UTF-8 text", joined.display()),
+        )
+    })?;
+    let sha256 = Sha256::digest(&bytes)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    Ok((
+        text,
+        DataFile {
+            path: path.to_string(),
+            resolved_path: std::fs::canonicalize(&joined).unwrap_or(joined),
+            sha256,
+        },
+    ))
+}
+
+fn binning_nm(field: &str, b: &BinsNm) -> Result<Binning, InputError> {
+    Binning::new(b.lo_nm * NM, b.hi_nm * NM, b.bins)
+        .map_err(|e| invalid(field, format!("{e} (edges in nm)")))
+}
+
+/// The smallest stopping threshold over the layers (the transport's rule:
+/// the cutoff, or the inner potential plus the cutoff from the vacuum level).
+fn lowest_threshold(
+    materials: &[ResolvedElectronMaterial],
+    layer_material: &[usize],
+    reference: CutoffReference,
+    cutoff_ev: f64,
+) -> f64 {
+    layer_material
+        .iter()
+        .map(|&i| match reference {
+            CutoffReference::BandBottom => cutoff_ev,
+            CutoffReference::VacuumLevel => {
+                materials[i]
+                    .band
+                    .as_ref()
+                    .map_or(0.0, BandStructure::inner_potential_ev)
+                    + cutoff_ev
+            }
+        })
+        .fold(f64::INFINITY, f64::min)
+}
+
+impl ElectronInput {
+    /// Whether a TOML document is an electron input: it has a top-level
+    /// `electron` table.
+    pub fn is_electron_toml(text: &str) -> bool {
+        text.parse::<toml::Table>()
+            .map(|t| t.contains_key("electron"))
+            .unwrap_or(false)
+    }
+
+    /// Parse a TOML document (schema errors name the key and line).
+    pub fn from_toml_str(text: &str) -> Result<Self, InputError> {
+        if text
+            .parse::<toml::Table>()
+            .is_ok_and(|t| t.contains_key("crystal"))
+        {
+            return Err(invalid(
+                "crystal",
+                "not supported with an [electron] run (crystal transport is for ion runs)",
+            ));
+        }
+        toml::from_str(text).map_err(|e| InputError::Parse(e.to_string()))
+    }
+
+    /// The input as a TOML document in the same schema.
+    pub fn to_toml_string(&self) -> Result<String, InputError> {
+        toml::to_string(self).map_err(|e| InputError::Parse(e.to_string()))
+    }
+
+    /// Validate everything with relative data paths taken from the current
+    /// directory.
+    pub fn resolve(&self) -> Result<ResolvedElectron, InputError> {
+        self.resolve_in(Path::new("."))
+    }
+
+    /// Validate everything, read the data files (paths relative to
+    /// `base_dir`, the input file's directory) and build the engine's
+    /// inputs. Errors name the offending key.
+    pub fn resolve_in(&self, base_dir: &Path) -> Result<ResolvedElectron, InputError> {
+        let mut warnings = Vec::new();
+        let e = &self.electron;
+        let mut echo = self.clone();
+        echo.run.threads = None;
+
+        // Run.
+        if self.run.histories == 0 {
+            return Err(invalid("run.histories", "must be at least 1"));
+        }
+        if self.run.threads == Some(0) {
+            return Err(invalid(
+                "run.threads",
+                "must be at least 1 (omit for all cores)",
+            ));
+        }
+
+        // Beam.
+        let b = &e.beam;
+        if !finite_pos(b.energy_ev) {
+            return Err(invalid(
+                "electron.beam.energy_ev",
+                "must be finite and positive",
+            ));
+        }
+        if !(b.tilt_deg.is_finite() && (0.0..90.0).contains(&b.tilt_deg)) {
+            return Err(invalid(
+                "electron.beam.tilt_deg",
+                "must be in [0, 90) degrees",
+            ));
+        }
+        if !b.azimuth_deg.is_finite() {
+            return Err(invalid("electron.beam.azimuth_deg", "must be finite"));
+        }
+        let (s, c) = b.tilt_deg.to_radians().sin_cos();
+        let (sa, ca) = b.azimuth_deg.to_radians().sin_cos();
+        let primary = Primary {
+            energy_ev: b.energy_ev,
+            direction: [c, s * ca, s * sa],
+        };
+
+        // Transport configuration.
+        let t = &e.transport;
+        if !finite_pos(t.cutoff_ev) {
+            return Err(invalid(
+                "electron.transport.cutoff_ev",
+                "must be finite and positive",
+            ));
+        }
+        if t.max_events == 0 {
+            return Err(invalid(
+                "electron.transport.max_events",
+                "must be at least 1",
+            ));
+        }
+        let secondaries = match t.secondaries {
+            SecondaryChoice::Off => {
+                for (k, v) in [
+                    ("instantaneous_momentum", t.instantaneous_momentum),
+                    ("momentum_conservation", t.momentum_conservation),
+                ] {
+                    if v.is_some() {
+                        return Err(invalid(
+                            format!("electron.transport.{k}"),
+                            "only applies with secondaries = \"kieft-bosch\"",
+                        ));
+                    }
+                }
+                SecondaryModel::Off
+            }
+            SecondaryChoice::KieftBosch => {
+                let im = t.instantaneous_momentum.unwrap_or(true);
+                let mc = t.momentum_conservation.unwrap_or(true);
+                echo.electron.transport.instantaneous_momentum = Some(im);
+                echo.electron.transport.momentum_conservation = Some(mc);
+                SecondaryModel::KieftBosch {
+                    instantaneous_momentum: im,
+                    momentum_conservation: mc,
+                }
+            }
+        };
+        let boundary = match t.boundary {
+            BoundaryChoice::Transparent => {
+                for (k, v) in [
+                    ("quantum_transmission", t.quantum_transmission),
+                    ("refraction", t.refraction),
+                ] {
+                    if v.is_some() {
+                        return Err(invalid(
+                            format!("electron.transport.{k}"),
+                            "only applies with boundary = \"step-barrier\"",
+                        ));
+                    }
+                }
+                BoundaryModel::Transparent
+            }
+            BoundaryChoice::StepBarrier => {
+                let qt = t.quantum_transmission.unwrap_or(true);
+                let rf = t.refraction.unwrap_or(true);
+                echo.electron.transport.quantum_transmission = Some(qt);
+                echo.electron.transport.refraction = Some(rf);
+                BoundaryModel::StepBarrier {
+                    quantum_transmission: qt,
+                    refraction: rf,
+                }
+            }
+        };
+        let cutoff_reference = match t.cutoff_reference {
+            CutoffReferenceChoice::BandBottom => CutoffReference::BandBottom,
+            CutoffReferenceChoice::VacuumLevel => CutoffReference::VacuumLevel,
+        };
+        let config = TransportConfig {
+            cutoff_ev: t.cutoff_ev,
+            escape_rule: match t.escape_rule {
+                EscapeRuleChoice::BothFaces => EscapeRule::BothFaces,
+                EscapeRuleChoice::FrontOnly => EscapeRule::FrontOnly,
+            },
+            max_events: t.max_events,
+            secondaries,
+            boundary,
+            cutoff_reference,
+        };
+        let needs_bands = secondaries != SecondaryModel::Off
+            || boundary != BoundaryModel::Transparent
+            || cutoff_reference == CutoffReference::VacuumLevel;
+
+        // Materials (all of them, so a broken unused entry is still reported).
+        for (name, spec) in &self.materials {
+            Material::try_from(spec.clone())
+                .map_err(|err| invalid(format!("materials.{name}"), err.to_string()))?;
+        }
+
+        // Target.
+        let tg = &self.target;
+        if tg.layers.is_empty() && tg.substrate.is_none() {
+            return Err(invalid(
+                "target",
+                "needs at least one [[target.layers]] entry or a substrate",
+            ));
+        }
+        let mut layers = Vec::new();
+        let mut fields = Vec::new();
+        let mut thick = Vec::new();
+        for (i, l) in tg.layers.iter().enumerate() {
+            let field = format!("target.layers[{i}]");
+            if !finite_pos(l.thickness_nm) {
+                return Err(invalid(
+                    format!("{field}.thickness_nm"),
+                    format!("{} nm must be finite and positive", l.thickness_nm),
+                ));
+            }
+            let f = format!("{field}.material");
+            layers.push(resolve_material(&self.materials, &f, &l.material)?);
+            fields.push(f);
+            thick.push(l.thickness_nm * NM);
+        }
+        if let Some(sub) = &tg.substrate {
+            layers.push(resolve_material(&self.materials, "target.substrate", sub)?);
+            fields.push("target.substrate".to_string());
+        }
+        let substrate = tg.substrate.as_ref().map(|_| {
+            layers
+                .last()
+                .expect("substrate pushed last")
+                .material
+                .clone()
+        });
+        let finite: Vec<(Material, f64)> = layers
+            .iter()
+            .zip(&thick)
+            .map(|(l, &t)| (l.material.clone(), t))
+            .collect();
+        let stack =
+            Stack::new(finite, substrate).map_err(|err| invalid("target", err.to_string()))?;
+
+        // Electron data, one entry per material name the target uses.
+        let mut materials: Vec<ResolvedElectronMaterial> = Vec::new();
+        let mut layer_material = Vec::with_capacity(layers.len());
+        for (l, field) in layers.iter().zip(&fields) {
+            if l.source == "inline" {
+                return Err(invalid(
+                    field,
+                    "an electron run needs a named material (a [materials] key or an \
+                     element symbol), so that [electron.materials.<name>] can give its \
+                     electron data",
+                ));
+            }
+            if let Some(i) = materials.iter().position(|m| m.name == l.source) {
+                layer_material.push(i);
+                continue;
+            }
+            let name = &l.source;
+            let mfield = format!("electron.materials.{name}");
+            let spec = e.materials.get(name).ok_or_else(|| {
+                invalid(
+                    field,
+                    format!(
+                        "material {name:?} has no electron data; add [{mfield}] with at \
+                         least optical_elf"
+                    ),
+                )
+            })?;
+            materials.push(self.resolve_electron_material(
+                base_dir,
+                &mfield,
+                name,
+                &l.material,
+                spec,
+                needs_bands,
+            )?);
+            layer_material.push(materials.len() - 1);
+        }
+        for name in e.materials.keys() {
+            if !materials.iter().any(|m| &m.name == name) {
+                warnings.push(format!(
+                    "electron.materials.{name}: not used by any target layer"
+                ));
+            }
+        }
+
+        // Elastic.
+        let el = &e.elastic;
+        let mut cp = BTreeMap::new();
+        if let Some(c) = &el.correlation_polarization {
+            let f = "electron.elastic.correlation_polarization";
+            let cutoff = match c.b_pol_squared {
+                None => PolarizationCutoff::Seltzer,
+                Some(b) if b.is_finite() && b >= 0.0 => PolarizationCutoff::BPolSquared(b),
+                Some(b) => {
+                    return Err(invalid(
+                        format!("{f}.b_pol_squared"),
+                        format!("{b} must be finite and non-negative"),
+                    ))
+                }
+            };
+            if !finite_pos(c.outer_radius_bohr) {
+                return Err(invalid(
+                    format!("{f}.outer_radius_bohr"),
+                    "must be finite and positive",
+                ));
+            }
+            let mut zs: Vec<u8> = Vec::new();
+            for l in &layers {
+                for comp in l.material.components() {
+                    if comp.atom_fraction() > 0.0 && !zs.contains(&comp.z()) {
+                        zs.push(comp.z());
+                    }
+                }
+            }
+            for (sym, p) in &c.polarizability {
+                let pf = format!("{f}.polarizability.{sym}");
+                let elm = element_by_symbol(sym)
+                    .ok_or_else(|| invalid(&pf, format!("unknown element symbol {sym:?}")))?;
+                if !zs.contains(&elm.z) {
+                    return Err(invalid(&pf, format!("{sym} is not in any target layer")));
+                }
+                if !finite_pos(p.bohr3) {
+                    return Err(invalid(
+                        format!("{pf}.bohr3"),
+                        "must be finite and positive",
+                    ));
+                }
+                if p.source.trim().is_empty() {
+                    return Err(invalid(
+                        format!("{pf}.source"),
+                        "a polarizability needs a source (a citation of the value)",
+                    ));
+                }
+                cp.insert(
+                    elm.z,
+                    CorrelationPolarization {
+                        polarizability: p.bohr3,
+                        polarizability_source: p.source.trim().to_string(),
+                        cutoff,
+                        outer_radius: c.outer_radius_bohr,
+                    },
+                );
+            }
+            for z in zs {
+                if !cp.contains_key(&z) {
+                    let sym = crate::elements::element(z).expect("valid").symbol;
+                    return Err(invalid(
+                        format!("{f}.polarizability"),
+                        format!("no polarizability for {sym}; give every target element one"),
+                    ));
+                }
+            }
+        }
+        let elastic = ElasticChoice {
+            model: el.model,
+            potential: el.potential,
+            exchange: el.exchange,
+            correlation_polarization: cp,
+        };
+
+        // Inelastic.
+        let inelastic: PennAlgorithm = e.inelastic.model.parse().map_err(
+            |err: crate::electron::data::ElectronDataError| {
+                invalid("electron.inelastic.model", err.to_string())
+            },
+        )?;
+        if !(e.inelastic.fermi_energy_ev.is_finite() && e.inelastic.fermi_energy_ev >= 0.0) {
+            return Err(invalid(
+                "electron.inelastic.fermi_energy_ev",
+                "must be finite and non-negative",
+            ));
+        }
+        // The fit options only shape the `mermin-melf` table; anywhere else
+        // they would be silently ignored.
+        for (name, spec) in &e.materials {
+            if spec.mermin_fit.is_some() && inelastic != PennAlgorithm::Mermin {
+                return Err(invalid(
+                    format!("electron.materials.{name}.mermin_fit"),
+                    format!(
+                        "only applies with electron.inelastic.model = \"{}\" (the model is \"{}\")",
+                        PennAlgorithm::Mermin.label(),
+                        inelastic.label()
+                    ),
+                ));
+            }
+        }
+        for m in &materials {
+            if let FitWeighting::Relative { floor } = m.mermin_fit.weighting {
+                if let Some(f) = echo
+                    .electron
+                    .materials
+                    .get_mut(&m.name)
+                    .and_then(|s| s.mermin_fit.as_mut())
+                {
+                    f.relative_floor = Some(floor);
+                }
+            }
+        }
+        // The inelastic table of a material with a band takes its Fermi
+        // energy from the band (#241); a second one would count it twice.
+        if e.inelastic.fermi_energy_ev != 0.0 {
+            if let Some(m) = materials.iter().find(|m| m.band.is_some()) {
+                return Err(invalid(
+                    "electron.inelastic.fermi_energy_ev",
+                    format!(
+                        "must be 0 when a material has a band (material {} does): the \
+                         inelastic table of a material with a band takes its Fermi energy \
+                         from the band",
+                        m.name
+                    ),
+                ));
+            }
+        }
+
+        // Table grid.
+        let g = &e.tables;
+        let max_inner = materials
+            .iter()
+            .filter_map(|m| m.band.as_ref().map(BandStructure::inner_potential_ev))
+            .fold(0.0, f64::max);
+        let top = match boundary {
+            BoundaryModel::StepBarrier { .. } => b.energy_ev + max_inner,
+            BoundaryModel::Transparent => b.energy_ev,
+        };
+        let max_energy = g.max_energy_ev.unwrap_or(top);
+        echo.electron.tables.max_energy_ev = Some(max_energy);
+        if !(finite_pos(g.min_energy_ev) && max_energy.is_finite() && max_energy > g.min_energy_ev)
+        {
+            return Err(invalid(
+                "electron.tables",
+                format!(
+                    "need 0 < min_energy_ev < max_energy_ev, got {} and {max_energy} eV",
+                    g.min_energy_ev
+                ),
+            ));
+        }
+        let table_energy_ev = crate::electron::elastic::table::log_energy_grid(
+            g.min_energy_ev,
+            max_energy,
+            g.points_per_decade,
+        )
+        .map_err(|err| invalid("electron.tables", err.to_string()))?;
+        if max_energy < top {
+            warnings.push(format!(
+                "electron.tables.max_energy_ev: {max_energy} eV is below the largest energy \
+                 an electron can have ({top} eV); rates above it are held at the last row \
+                 (results.table_coverage counts how often)"
+            ));
+        }
+        // The lowest energy an electron is followed at: the cutoff, or
+        // `U + cutoff` from the vacuum level (the transport's thresholds).
+        let lowest = lowest_threshold(&materials, &layer_material, cutoff_reference, t.cutoff_ev);
+        if g.min_energy_ev > lowest {
+            warnings.push(format!(
+                "electron.tables.min_energy_ev: {} eV is above the lowest stopping threshold \
+                 ({lowest} eV); rates below it are held at the first row \
+                 (results.table_coverage counts how often)",
+                g.min_energy_ev
+            ));
+        }
+        if max_energy > DEFAULT_MAX_ENERGY_EV {
+            warnings.push(format!(
+                "electron.tables.max_energy_ev: {max_energy} eV is above the {DEFAULT_MAX_ENERGY_EV} eV \
+                 the elastic tables are tested to; the inelastic models are nonrelativistic"
+            ));
+        }
+
+        // Tally.
+        let ts = &e.tally;
+        let f = "electron.tally";
+        if !(ts.se_bse_split_ev.is_finite() && ts.se_bse_split_ev >= 0.0) {
+            return Err(invalid(
+                format!("{f}.se_bse_split_ev"),
+                "must be finite and non-negative",
+            ));
+        }
+        let emax = ts.escape_energy_max_ev.unwrap_or(b.energy_ev);
+        echo.electron.tally.escape_energy_max_ev = Some(emax);
+        let escape_energy = Binning::new(0.0, emax, ts.escape_energy_bins).map_err(|err| {
+            invalid(
+                format!("{f}.escape_energy_max_ev / escape_energy_bins"),
+                err.to_string(),
+            )
+        })?;
+        if !(finite_pos(ts.escape_polar_max_deg) && ts.escape_polar_max_deg <= 180.0) {
+            return Err(invalid(
+                format!("{f}.escape_polar_max_deg"),
+                "must be in (0, 180] degrees",
+            ));
+        }
+        let escape_polar = Binning::new(
+            0.0,
+            ts.escape_polar_max_deg
+                .to_radians()
+                .min(std::f64::consts::PI),
+            ts.escape_polar_bins,
+        )
+        .map_err(|err| invalid(format!("{f}.escape_polar_bins"), err.to_string()))?;
+        let mut tally = ElectronTallyConfig::new(escape_energy, escape_polar);
+        tally.se_bse_split_ev = ts.se_bse_split_ev;
+        if let Some(c) = &ts.cartesian {
+            tally.cartesian = Some(CartesianGrid {
+                x: binning_nm(&format!("{f}.cartesian.x"), &c.x)?,
+                y: binning_nm(&format!("{f}.cartesian.y"), &c.y)?,
+                z: binning_nm(&format!("{f}.cartesian.z"), &c.z)?,
+            });
+        }
+        if let Some(c) = &ts.cylindrical {
+            if c.r.lo_nm < 0.0 {
+                return Err(invalid(format!("{f}.cylindrical.r.lo_nm"), "must be >= 0"));
+            }
+            tally.cylindrical = Some(CylindricalGrid {
+                r: binning_nm(&format!("{f}.cylindrical.r"), &c.r)?,
+                depth: binning_nm(&format!("{f}.cylindrical.depth"), &c.depth)?,
+            });
+        }
+        let mut psf_fits: Vec<PsfModel> = Vec::new();
+        let mut psf_normalization = PsfNormalization::default();
+        if let Some(p) = &ts.psf {
+            let nm = |key: &str, v: f64| -> Result<f64, InputError> {
+                if v.is_finite() {
+                    Ok(v * NM)
+                } else {
+                    Err(invalid(format!("{f}.psf.{key}"), "must be finite"))
+                }
+            };
+            let depth_lo = nm("depth_lo_nm", p.depth_lo_nm)?;
+            let depth_hi = nm("depth_hi_nm", p.depth_hi_nm)?;
+            if depth_hi <= depth_lo {
+                return Err(invalid(
+                    format!("{f}.psf.depth_hi_nm"),
+                    "must be greater than depth_lo_nm",
+                ));
+            }
+            let r_min = nm("r_min_nm", p.r_min_nm)?;
+            let r_max = nm("r_max_nm", p.r_max_nm)?;
+            if r_min <= 0.0 {
+                return Err(invalid(format!("{f}.psf.r_min_nm"), "must be positive"));
+            }
+            if r_max <= r_min {
+                return Err(invalid(
+                    format!("{f}.psf.r_max_nm"),
+                    "must be greater than r_min_nm",
+                ));
+            }
+            if p.bins == 0 {
+                return Err(invalid(format!("{f}.psf.bins"), "must be at least 1"));
+            }
+            let radial = LogRadialBinning::new(r_min, r_max, p.bins)
+                .map_err(|e| invalid(format!("{f}.psf.bins"), e.to_string()))?;
+            tally.psf = Some(
+                PsfConfig::new(radial, depth_lo, depth_hi)
+                    .map_err(|e| invalid(format!("{f}.psf"), e.to_string()))?,
+            );
+            for m in p.fits.iter().copied().map(PsfModel::from) {
+                if !psf_fits.contains(&m) {
+                    psf_fits.push(m);
+                }
+            }
+            psf_normalization = p.normalization.into();
+        }
+
+        Ok(ResolvedElectron {
+            input: echo,
+            stack,
+            layers,
+            layer_material,
+            materials,
+            config,
+            primary,
+            elastic,
+            inelastic,
+            inelastic_fermi_ev: e.inelastic.fermi_energy_ev,
+            table_energy_ev,
+            tally,
+            psf_fits,
+            psf_normalization,
+            warnings,
+        })
+    }
+
+    fn resolve_electron_material(
+        &self,
+        base_dir: &Path,
+        field: &str,
+        name: &str,
+        material: &Material,
+        spec: &ElectronMaterialSpec,
+        needs_bands: bool,
+    ) -> Result<ResolvedElectronMaterial, InputError> {
+        let ef = format!("{field}.optical_elf");
+        let (text, file) = read_data_file(base_dir, &ef, &spec.optical_elf)?;
+        // The loader refuses a missing or blank provenance.
+        let optical_elf = OpticalElf::from_toml_str(&text)
+            .map_err(|err| invalid(&ef, format!("{}: {err}", spec.optical_elf)))?;
+
+        let band = match &spec.band {
+            None if needs_bands => {
+                return Err(invalid(
+                    format!("{field}.band"),
+                    "required with secondaries, the step barrier or the vacuum-level \
+                     cutoff (they need the material's Fermi energy and inner potential)",
+                ))
+            }
+            None => None,
+            Some(bs) => {
+                let r = match bs {
+                    BandSpec::Metal {
+                        fermi_ev,
+                        work_function_ev,
+                        valence_binding_ev,
+                        provenance,
+                    } => BandStructure::new(
+                        BandModel::Metal {
+                            fermi_ev: *fermi_ev,
+                            work_function_ev: *work_function_ev,
+                        },
+                        provenance.trim(),
+                    )
+                    .and_then(|b| with_valence_binding(b, *valence_binding_ev)),
+                    BandSpec::Insulator {
+                        valence_band_width_ev,
+                        band_gap_ev,
+                        affinity_ev,
+                        provenance,
+                    } => BandStructure::new(
+                        BandModel::Insulator {
+                            valence_band_width_ev: *valence_band_width_ev,
+                            band_gap_ev: *band_gap_ev,
+                            affinity_ev: *affinity_ev,
+                        },
+                        provenance.trim(),
+                    ),
+                    BandSpec::FreeElectronMetal {
+                        valence_electrons_per_atom,
+                        work_function_ev,
+                        valence_binding_ev,
+                        provenance,
+                    } => BandStructure::free_electron_metal(
+                        material,
+                        *valence_electrons_per_atom,
+                        *work_function_ev,
+                        provenance.trim(),
+                    )
+                    .and_then(|b| with_valence_binding(b, *valence_binding_ev)),
+                };
+                Some(r.map_err(|err| invalid(format!("{field}.band"), err.to_string()))?)
+            }
+        };
+
+        let mut channels = InsulatorChannels::none();
+        if let Some(p) = &spec.phonon {
+            let pf = format!("{field}.phonon");
+            let ph = match p.preset.as_deref() {
+                Some(preset) => {
+                    if p.hbar_omega_ev.is_some()
+                        || p.eps_static.is_some()
+                        || p.eps_high_frequency.is_some()
+                        || p.provenance.is_some()
+                    {
+                        return Err(invalid(
+                            &pf,
+                            "a preset fixes the parameters and their source; give only \
+                             preset and temperature_k",
+                        ));
+                    }
+                    let mode = match preset {
+                        "sio2-63mev" => Sio2LoMode::Mev63,
+                        "sio2-153mev" => Sio2LoMode::Mev153,
+                        other => {
+                            return Err(invalid(
+                                format!("{pf}.preset"),
+                                format!(
+                                    "unknown preset {other:?}; expected \"sio2-63mev\" or \
+                                     \"sio2-153mev\""
+                                ),
+                            ))
+                        }
+                    };
+                    FrohlichPhonon::sio2(mode, p.temperature_k)
+                }
+                None => {
+                    let need = |k: &str, v: Option<f64>| {
+                        v.ok_or_else(|| invalid(format!("{pf}.{k}"), "required without a preset"))
+                    };
+                    FrohlichPhonon::new(
+                        need("hbar_omega_ev", p.hbar_omega_ev)?,
+                        need("eps_static", p.eps_static)?,
+                        need("eps_high_frequency", p.eps_high_frequency)?,
+                        p.temperature_k,
+                        p.provenance.as_deref().unwrap_or("").trim(),
+                    )
+                }
+            };
+            channels.phonon = Some(ph.map_err(|err| invalid(&pf, err.to_string()))?);
+        }
+        if let Some(p) = &spec.polaron {
+            channels.polaron = Some(
+                PolaronTrapping::new(p.c_per_nm / NM, p.gamma_per_ev, p.provenance.trim())
+                    .map_err(|err| invalid(format!("{field}.polaron"), err.to_string()))?,
+            );
+        }
+
+        let mermin_fit = match &spec.mermin_fit {
+            None => MerminFitOptions::default(),
+            Some(f) => mermin_fit_options(&format!("{field}.mermin_fit"), f)?,
+        };
+
+        Ok(ResolvedElectronMaterial {
+            name: name.to_string(),
+            material: material.clone(),
+            optical_elf,
+            optical_elf_file: file,
+            band,
+            channels,
+            mermin_fit,
+        })
+    }
+}
+
+/// The fit options of a `mermin_fit` table; errors name `field` and the key.
+fn mermin_fit_options(field: &str, f: &MerminFitSpec) -> Result<MerminFitOptions, InputError> {
+    if !(1..=MAX_OSCILLATORS).contains(&f.oscillators) {
+        return Err(invalid(
+            format!("{field}.oscillators"),
+            format!("must be in 1..={MAX_OSCILLATORS}, got {}", f.oscillators),
+        ));
+    }
+    let weighting = match f.weighting {
+        MerminWeightingChoice::Uniform => {
+            if f.relative_floor.is_some() {
+                return Err(invalid(
+                    format!("{field}.relative_floor"),
+                    "only applies with weighting = \"relative\"",
+                ));
+            }
+            FitWeighting::Uniform
+        }
+        MerminWeightingChoice::Relative => {
+            let floor = f.relative_floor.unwrap_or_else(default_relative_floor);
+            if !(floor.is_finite() && floor > 0.0 && floor <= 1.0) {
+                return Err(invalid(
+                    format!("{field}.relative_floor"),
+                    format!("must be in (0, 1], got {floor}"),
+                ));
+            }
+            FitWeighting::Relative { floor }
+        }
+    };
+    Ok(MerminFitOptions {
+        n_oscillators: f.oscillators,
+        weighting,
+        ..MerminFitOptions::default()
+    })
+}

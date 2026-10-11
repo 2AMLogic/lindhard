@@ -8,7 +8,9 @@
 //! * **Lab frame** (as in [`crate::geometry`]): `+x` is depth, pointing into
 //!   the target along the surface normal; `y`, `z` are lateral.
 //! * **Wafer cut.** The surface is the plane `(hkl)` (Miller indices on the
-//!   conventional cubic cell). Its normal `n = g_hkl / |g_hkl|`
+//!   conventional cell: the cube, or the hexagonal `a1, a2, c`; hexagonal
+//!   cuts may also be given as `(hkil)` and `[uvtw]`, see
+//!   [`Orientation::new_miller_bravais`]). Its normal `n = g_hkl / |g_hkl|`
 //!   ([`super::Lattice::plane_normal`]) is the crystal direction of lab
 //!   `+x`, i.e. `(hkl)` names the **inward** normal: at zero tilt the beam
 //!   travels along `n`. (To name the outward normal `(hkl)`, pass
@@ -57,6 +59,7 @@
 //! does not fix the sense of `ϕ`, which we fix above). A wafer flat or notch
 //! direction can be passed as the reference instead.
 
+use super::lattice::{direction_from_uvtw, plane_from_hkil};
 use super::{add, cross, dot, scale, CrystalError, Lattice};
 
 /// A 3x3 rotation matrix, row-major: `v' = M v` with
@@ -150,6 +153,40 @@ impl Orientation {
             twist_rad,
             wafer_rotation_rad,
         })
+    }
+
+    /// As [`Self::new`] for a hexagonal `lattice`, with the surface plane
+    /// `(hkil)` and the reference direction `[uvtw]` in four-index
+    /// (Miller-Bravais) notation. They are converted to three-index form by
+    /// [`super::lattice::plane_from_hkil`] and
+    /// [`super::lattice::direction_from_uvtw`] (convention in the
+    /// [`super::lattice`] module docs), and those are what
+    /// [`Self::normal_hkl`] and [`Self::reference_uvw`] return. The zone law
+    /// in three-index form is equivalent to `h u + k v + i t + l w = 0`.
+    ///
+    /// # Errors
+    /// [`CrystalError::NotHexagonal`] for a cubic lattice,
+    /// [`CrystalError::InvalidMillerBravais`] for indices that break their
+    /// constraint, and the errors of [`Self::new`].
+    pub fn new_miller_bravais(
+        lattice: &Lattice,
+        normal_hkil: [i32; 4],
+        reference_uvtw: [i32; 4],
+        tilt_rad: f64,
+        twist_rad: f64,
+        wafer_rotation_rad: f64,
+    ) -> Result<Self, CrystalError> {
+        if !lattice.is_hexagonal() {
+            return Err(CrystalError::NotHexagonal);
+        }
+        Self::new(
+            lattice,
+            plane_from_hkil(normal_hkil)?,
+            direction_from_uvtw(reference_uvtw)?,
+            tilt_rad,
+            twist_rad,
+            wafer_rotation_rad,
+        )
     }
 
     /// Miller indices of the surface plane (inward normal).

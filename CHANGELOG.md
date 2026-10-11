@@ -15,6 +15,122 @@ one version).
 
 ### Fixed
 
+- `lindhard-cli/build.rs` now reruns when tracked sources, manifests, the active
+  ref, `packed-refs` or tags change, so `git_describe` no longer keeps a stale
+  clean stamp across incremental builds (including linked worktrees).
+
+### Added
+
+- Validation: `validation/oracles/run_electron.py` and
+  `validation/experiments/se_yield.py` keep the collision-cap diagnostics
+  (primary caps, capped secondary tracks, affected histories, cap energy) in
+  their summaries, pool them across batches, annotate truncated results and
+  read missing values as unknown, never zero (#369). No transport change.
+- `docs/validation.md`, "Why Si δ doubled after #241": a bisect of the Si
+  δ(E) rise of #364. The rise is the band-bottom inelastic axis of #241,
+  ×2.0 to ×2.4, plus +4.7 to +10.3 % from the rate refinement of #339. It is
+  explained as the removal of loss events that the transport clamped at
+  the Fermi level, events that cost a Si electron the band gap each time.
+  The new values are the consequence of cstool's minimum-excitation
+  convention, not a defect (#379). There are no code or results changes.
+- `FullPenn::loss_function_evaluation` (`LossFunctionEvaluation`): one
+  evaluation of the full Penn loss function with the work of its `ω_p`
+  integral and whether it converged; `OMEGA_P_INTERVAL_BUDGET`;
+  `DiimfpGrid::unconverged_profile_panels` and
+  `DiimfpGrid::largest_unconverged_profile_error` (#298).
+- `FullPenn::diimfp_evaluation` (`DiimfpEvaluation`) and
+  `FullPenn::imfp_and_stopping_evaluation` (`ImfpEvaluation`): the direct
+  full Penn DIIMFP with the number of its loss evaluations whose `ω_p`
+  integral did not converge, and the IMFP and stopping power with the
+  unconverged cells of their outer `ω_p` integral, from one evaluation.
+  `diimfp_per_m_ev`, `imfp_and_stopping` and `imfp_unconverged` delegate to
+  them; every value they return is unchanged, bit for bit. The
+  `penn_full_build_time` example prints the counts in its `grid` and `imfp`
+  modes (#368).
+- `electron_psf_parameters.csv` gains `converged` (1/0) and `iterations` rows per
+  fit, so the standalone CSV shows whether a fit hit its iteration budget (#347).
+
+### Changed
+
+- Validation: the lindhard side of the electron oracle comparison
+  (`validation/oracles/summaries/lindhard-electron-*.json`, the
+  `validation:electron-oracles` block of `docs/validation.md`) is re-run at
+  `bd91a73`, with the band-bottom inelastic tables (#241), the rate
+  refinement (#339) and the loss window (#342), and carries the
+  collision-cap diagnostics (all six `uncapped`) (#365). Si δ roughly
+  doubles (4.13 at 1 keV, against Nebula's 0.35); every other value moves by
+  less than 4 %, except Si at 1 keV (primary depth +6 %, r50 +26 %). The
+  Nebula and Geant4 MicroElec summaries were not re-run;
+  `validation/update_docs.py` now recomputes their Δ and tolerance verdicts
+  against the newer lindhard summary and marks those rows. All eight
+  tolerance checks still pass; no tolerance was changed.
+- Validation: the `cutoff-band-bottom` row of the δ(E) tables now runs from
+  100 eV to 1 keV for all four materials: Al and Si at 600, 800 and 1000 eV
+  were added at the build already in the results file (`74a5ce3`). Every
+  row has an interior maximum, at the same grid energy as the `default`
+  row; δ_max is 2 to 10 % higher. The points above 1 keV are not run, by
+  decision (`docs/validation.md`, "Rows that are incomplete") (#380). No
+  bound was changed.
+- Validation: the secondary-electron yield δ(E) tables
+  (`validation/experiments/se_yield_results.json`, the
+  `validation:level3-se-yield` block of `docs/validation.md`) are
+  regenerated at `74a5ce3`, with the band-bottom inelastic tables (#241),
+  the Mermin loss window (#342) and the rate refinement (#339), and now
+  carry the collision-cap diagnostics (#369) (#364). Al, Cu and Au keep
+  their #149 bound verdicts; Si δ roughly doubles and its default curve now
+  fails the yield bound as well as the energy bound. No bound was changed.
+- `lindhard run` builds the inelastic table of every material with a `band`
+  with the rate refinement (`RateRefinement::default()`, #339): rows are
+  added between 2 and 20 eV above the Fermi level until the interpolated
+  inelastic rate is within 1 % of the exact one. **Results of runs with a
+  `band` change**; the elastic table and the tables of materials without a
+  band are unchanged, bit for bit. The committed secondary-yield δ(E) tables
+  (`validation/experiments/se_yield_results.json`) predate it and are stale
+  until their re-run (#287). `electron_tables.csv` has a line per inelastic
+  row, with an empty elastic column at the added rows (the elastic value is
+  now matched by energy). The table-cache key gains `inelastic.rate_refinement`
+  (`KEY_VERSION` 4), so cached tables are rebuilt once, and a cached
+  inelastic table must contain the run's grid in order rather than equal it.
+
+### Fixed
+
+- The inelastic rate refinement (#339) no longer fails on an optical ELF
+  tabulated from 2 eV or more (#357). The single-pole and full Penn rates
+  are zero for `E - E_F <= elf_min` and positive above it, a step the
+  refinement bisected until its cell was exhausted to rounding, an error,
+  when that onset lay inside the 2 to 20 eV window. Where the onset lies at
+  or above the window start, a cell is now tested only if its lower end is
+  at or above it; the cell straddling the onset and those below it are left
+  as given. The Mermin rate is positive below `elf_min` and has no onset, so
+  its window is unchanged. Every committed ELF starts at or below 0.5 eV, so
+  **refined grids and tables are unchanged, bit for bit**.
+- Inelastic table rows no longer bisect a jump in the DIIMFP past
+  floating-point resolution (#345). The Mermin DIIMFP is an adaptive
+  integral at 1e-5, and its quadrature noise has jumps of about that size
+  that the loss-density split test cannot resolve at any width; a panel was
+  bisected to one ulp of `ln W` and then padded with zero-width panels up to
+  `MAX_NODES` (the Si row at `T = 1000 eV`: 20 099 nodes, now 5 792). A
+  panel whose midpoint rounds onto an end is now not split. The padding
+  carried no integral, so **stored tables are unchanged, bit for bit**: the
+  Mermin tables of the Al, Cu, Si and Au δ(E) runs to 3 keV are identical,
+  and build in about half the time (33, 8, 12 and 3 of their rows had
+  reached that resolution). A row that still has a failing panel at
+  `MAX_NODES` is now refused with the new
+  `InelasticTableError::DensityNodeLimit` instead of being stored silently;
+  none of those tables has one.
+- The full Penn Si table on the #168 grid (10 eV to 5 keV) builds: 224 s on
+  two threads, where it did not finish in 40 minutes (#298). At isolated
+  `(q, ω)` one loss-function evaluation took seconds: a narrow resonance at
+  the lower end of the `ω_p` integral drove its bisection to the maximum
+  depth chasing floating-point noise, and the momentum profiles of the
+  DIIMFP grid did the same next to the plasmon term's jump above the end of
+  the ELF. Both bisections now also accept a cell that meets the tolerance
+  relative to its own integral, and have a budget of rule applications per
+  segment; a cell left unconverged is counted with its error estimate, not
+  reported as converged. Full Penn loss functions, IMFPs and stopping powers
+  change by at most a few 1e-7 relative (most are unchanged in their
+  printed digits), and full-Penn tables built before and after differ
+  within the model tolerance. Single-pole and Mermin results are unchanged.
 - Python `RunResult.write()` now follows the command's output lifecycle: it
   removes the previous `summary.json` before replacing any CSV, removes a
   stale `ions.csv` when per-ion output is off, and writes the summary last.
@@ -36,6 +152,30 @@ one version).
 
 ### Added
 
+- `InelasticTableOptions::rate_refinement` (`RateRefinement`, #339, part
+  of it): rows added to one band-bottom inelastic table from the Fermi
+  level upward. Every grid cell overlapping `E - E_F` = 2 to 20 eV is
+  bisected at its midpoint while the linear interpolation of the exact rate
+  misses it by more than 1 % at the cell's quartiles, midpoint or estimated
+  error peak (the vertex of the parabola through the largest sampled error
+  and its neighbours); more than `max_rows` added rows is an
+  error, and so is a failing cell bisected down to rounding (a step in the
+  rate), each naming the cell. The grid is the same on any thread count. Off by default, and
+  refused on the model's own axis.
+  `RATE_TOLERANCE` and `RATE_WINDOW_EV` (the #291 gate, moved from the
+  example into `electron::inelastic::table`) are its defaults. The `rate`
+  mode of `lindhard-cli/examples/inelastic_low_energy.rs` also evaluates
+  each coarse table refined (`docs/validation.md`, "Table grid above the
+  Fermi level"); every refined table there passes the 1 % gate.
+- `[electron.materials.<name>.mermin_fit]` (#306): per-material options of
+  the `mermin-melf` oscillator fit, `oscillators` (1 to 16, default 3),
+  `weighting` (`"relative"`, the default, or `"uniform"`) and
+  `relative_floor` (`(0, 1]`, default 0.01, relative weighting only). The
+  table is an error with any other inelastic model. Without it the fit is
+  `MerminFitOptions::default()` as before, so existing inputs give the same
+  results. `ResolvedElectronMaterial::mermin_fit` holds the resolved options.
+  The table-cache key now includes them (`KEY_VERSION` 3), so tables cached
+  by an earlier build are rebuilt once.
 - Inner-shell ionisation channels in the electron transport (#273), library
   only (no CLI input yet; that is #156). `build_shell_channel_tables` builds
   the valence table and one `ShellChannelTable` per shell of a
@@ -263,6 +403,18 @@ one version).
   rejected with an error naming an edge). Ray queries use a binned-SAH BVH and
   a watertight ray-triangle test; the target implements `Geometry` with
   documented overlap, surface-ownership and tolerance rules (#27).
+- `ion::crystal` hexagonal lattices (#179): `Lattice::wurtzite` (a, c and the
+  internal parameter u) and `Lattice::polytype` (ideal tetrahedral stacking
+  from an A/B/C sequence such as `"ABCB"`, at most 64 letters so that
+  `Candidate::basis` stays a unique `u8` site index), with presets
+  `Lattice::gallium_nitride()` (cited a, c; u is a documented geometric
+  placeholder), `silicon_carbide_4h()` and `silicon_carbide_6h()` (measured
+  sites). Four-index Miller-Bravais input: `plane_normal_hkil`,
+  `direction_uvtw` and `Orientation::new_miller_bravais`, with the
+  convention in the `lattice` module docs and `docs/crystal-orientation.md`.
+  `LatticeSearch` now walks `Lattice::orthogonal_cell()` (the cube, or the
+  orthohexagonal cell), so it works for hexagonal lattices; cubic results are
+  unchanged.
 - `ion::crystal::search`: `LatticeSearch`, the lattice sites within `p_max` of
   a path segment found by walking unit cells (no global atom list), each with
   its impact parameter, path distance, species and cell/basis index, ordered
@@ -364,6 +516,19 @@ one version).
 
 ### Changed
 
+- `Lattice::gallium_nitride()` now uses the measured bulk-crystal cell
+  `a = 3.1890 Å`, `c = 5.18500 Å` at 300 K (Melnik et al. 1997) instead of
+  `3.189 Å`, `5.178 Å`; its placeholder `u` follows from the new `a`, `c`.
+  `GAN_DENSITY_G_CM3` is now the measured 6.1 g/cm³ (Juza and Hahn 1938),
+  replacing 6.15 (#179).
+- **Electron results change for every run that uses the `mermin-melf`
+  inelastic model** (#342). A Mermin table row at energy `T` now draws its
+  losses from `(1e-8 T, T]`, the window its rate integral already used,
+  instead of `(elf_min, T]`; the difference is material for `T` up to a few
+  eV, the secondary-electron regime. Rows with `0 < T <= elf_min` are no
+  longer stored empty (since #340) and now carry the model rate. Single-pole
+  and full Penn tables are unchanged. Cached tables rebuild, because the
+  cache key includes the executable hash.
 - **Electron results change for every `lindhard run` whose materials have a
   `band`** (#241). The inelastic table of a material with a band is now
   built on the band-bottom energy axis the transport reads it on, with the
@@ -460,6 +625,15 @@ one version).
   the electron deposition CSVs without their grid), so they cannot be mistaken
   for current output; unrelated files are left alone, a failed removal is an
   error naming the path, and the summary is written last (#185).
+- `ion::crystal::Lattice::temperature_k()` returns `Option<f64>` (#179): the
+  4H- and 6H-SiC presets carry no temperature because the record their cell
+  was read from does not state one. The cubic presets return `Some` of the
+  same values as before. `ion::bca::CrystalMetadata::lattice_constant_temperature_k`
+  follows it as `Option<f64>` (the JSON value of a cubic run is unchanged).
+  `Bca::with_crystal` takes the per-history lattice translation, the
+  nearest-neighbour distance behind the default `p_max`/`q_max` and the
+  thermal amplitudes from `Lattice::orthogonal_cell()`, so a hexagonal
+  crystal runs in the engine; cubic runs are bit-identical.
 - Collision hot path (about 2.2 to 2.7 times the ions/s, see
   `docs/benchmarks.md`): the scattering angle is carried as `tan(theta/2)` and
   sines and cosines instead of angles, the Lindhard-Scharff coefficient is

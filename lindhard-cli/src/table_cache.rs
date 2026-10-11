@@ -34,14 +34,19 @@
 //! - inelastic: the Penn algorithm, the model's Fermi energy, the SHA-256 and
 //!   provenance of the optical ELF file, and the band parameters of the
 //!   material (the table of a material with a band is built on the
-//!   band-bottom axis with the band's Fermi energy, `electron::inelastic_axis`).
+//!   band-bottom axis with the band's Fermi energy, `electron::inelastic_axis`),
+//!   and, for `mermin-melf`, the options of the material's oscillator fit
+//!   (`[electron.materials.<name>.mermin_fit]`, #306), and the rate
+//!   refinement of a band-bottom table (`electron::rate_refinement`, #339).
 //!
 //! A cache file of another format version can never be found under a
 //! current key (the version is in the key). A file that **is** found under
 //! the run's key is loaded with the library loader, whose errors (an
 //! unsupported version, a failed validation) are returned, not treated as a
 //! miss; after loading, its sampling axis and energy grid are checked
-//! against the run.
+//! against the run: an elastic table must have exactly the run's grid, an
+//! inelastic table must contain it in order (it may hold the rows of its
+//! rate refinement as well).
 //!
 //! Writes go to a temporary file in the same directory and are renamed into
 //! place, the table first, then its hash, then its key, so the key is the
@@ -93,13 +98,18 @@ use std::sync::{Condvar, Mutex, PoisonError};
 use anyhow::{bail, Context, Result};
 use lindhard::electron::data::{CrossSectionTable, SamplingAxis, CACHE_FORMAT_VERSION};
 use lindhard::electron::elastic::table::{default_probability_grid, DEFAULT_REFINE_TOLERANCE};
+use lindhard::electron::inelastic::PennAlgorithm;
 use lindhard::input::electron::{ResolvedElectron, ResolvedElectronMaterial};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
 /// Version of the key document's schema. Bump it when a field is added,
 /// removed or changes meaning.
-pub const KEY_VERSION: u32 = 2;
+///
+/// 3: `inelastic.mermin_fit`, the Mermin fit options (#306).
+/// 4: `inelastic.rate_refinement`, the rate refinement of a band-bottom
+/// table (#339).
+pub const KEY_VERSION: u32 = 4;
 
 /// Lowercase hex SHA-256 of `bytes`.
 pub fn sha256_hex(bytes: &[u8]) -> String {
@@ -189,6 +199,15 @@ struct InelasticKey {
     optical_elf_provenance: String,
     /// `Debug` of the material's band parameters (`None` without a band).
     band: String,
+    /// `Debug` of the material's resolved
+    /// [`lindhard::electron::inelastic::MerminFitOptions`] with
+    /// `mermin-melf`; `null` with the other models, which do not fit.
+    mermin_fit: Option<String>,
+    /// `Debug` of the table's rate refinement
+    /// ([`crate::electron::rate_refinement`]; `null` without one): its
+    /// window, tolerance and row bound. The rows it adds are a deterministic
+    /// function of these, the model and the grid.
+    rate_refinement: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -236,6 +255,9 @@ pub fn key_text(
                 optical_elf_sha256: m.optical_elf_file.sha256.clone(),
                 optical_elf_provenance: m.optical_elf.provenance().to_string(),
                 band: format!("{:?}", m.band),
+                mermin_fit: (r.inelastic == PennAlgorithm::Mermin)
+                    .then(|| format!("{:?}", m.mermin_fit)),
+                rate_refinement: crate::electron::rate_refinement(r, m).map(|x| format!("{x:?}")),
             }),
         ),
     };
@@ -635,11 +657,22 @@ impl TableCache {
                 kind.axis()
             );
         }
-        if table.energy_ev() != r.table_energy_ev.as_slice() {
+        // The elastic table has exactly the run's grid. The inelastic table
+        // has the run's grid and, on the band-bottom axis, the rows of its
+        // rate refinement (#339), so it must contain the grid in order.
+        let grid_ok = match kind {
+            TableKind::Elastic => table.energy_ev() == r.table_energy_ev.as_slice(),
+            TableKind::Inelastic => contains_in_order(table.energy_ev(), &r.table_energy_ev),
+        };
+        if !grid_ok {
             bail!(
-                "table cache {}: field `energy_ev` differs from this run's grid \
+                "table cache {}: field `energy_ev` {} this run's grid \
                  ({} energies cached, {} needed)",
                 table_path.display(),
+                match kind {
+                    TableKind::Elastic => "differs from",
+                    TableKind::Inelastic => "does not contain",
+                },
                 table.energy_ev().len(),
                 r.table_energy_ev.len()
             );
@@ -656,18 +689,43 @@ impl TableCache {
     }
 }
 
+/// Whether `grid` is a subsequence of `cached` (every energy of `grid`, in
+/// order, bit for bit).
+fn contains_in_order(cached: &[f64], grid: &[f64]) -> bool {
+    let mut it = cached.iter();
+    grid.iter().all(|g| it.any(|c| c.to_bits() == g.to_bits()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use lindhard::input::electron::{ElectronInput, PotentialChoice};
 
     fn example() -> ResolvedElectron {
+        example_with(|t| t.to_string())
+    }
+
+    /// The example with its text changed by `edit`.
+    fn example_with(edit: impl Fn(&str) -> String) -> ResolvedElectron {
         let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/electron");
         let text = std::fs::read_to_string(dir.join("e_10keV_si.toml")).unwrap();
-        ElectronInput::from_toml_str(&text)
+        ElectronInput::from_toml_str(&edit(&text))
             .unwrap()
             .resolve_in(&dir)
             .unwrap()
+    }
+
+    /// The example with `model = "mermin-melf"` and, if given, a
+    /// `mermin_fit` table for its material.
+    fn mermin_example(fit: Option<&str>) -> ResolvedElectron {
+        example_with(|t| {
+            let t = t.replace("model = \"penn-single-pole\"", "model = \"mermin-melf\"");
+            assert!(t.contains("mermin-melf"), "the example names its model");
+            match fit {
+                None => t,
+                Some(f) => format!("{t}\n[electron.materials.Si.mermin_fit]\n{f}\n"),
+            }
+        })
     }
 
     fn build() -> BuildId {
@@ -736,6 +794,51 @@ mod tests {
         assert_changes("fermi energy ulp", false, true, |r| {
             r.inelastic_fermi_ev = f64::from_bits(1);
         });
+    }
+
+    /// The Mermin fit options key the `mermin-melf` table (#306): any
+    /// change of the options changes it; an explicit table equal to the
+    /// defaults keys the same table as no table (the key holds the resolved
+    /// options); and the other models, which do not fit, carry no options.
+    #[test]
+    fn key_changes_with_the_mermin_fit_options() {
+        use lindhard::electron::inelastic::{FitWeighting, MerminFitOptions};
+        let base = mermin_example(None);
+        assert_eq!(base.materials[0].mermin_fit, MerminFitOptions::default());
+        let (e0, i0) = keys(&base);
+        assert!(
+            i0.contains(&format!(
+                "\"mermin_fit\":{}",
+                serde_json::to_string(&format!("{:?}", MerminFitOptions::default())).unwrap()
+            )),
+            "{i0}"
+        );
+        let explicit = mermin_example(Some(
+            "oscillators = 3\nweighting = \"relative\"\nrelative_floor = 0.01",
+        ));
+        assert_eq!(keys(&explicit), (e0.clone(), i0.clone()));
+        for (name, fit) in [
+            ("oscillators", "oscillators = 6"),
+            ("weighting", "weighting = \"uniform\""),
+            ("relative_floor", "relative_floor = 0.02"),
+        ] {
+            let (e1, i1) = keys(&mermin_example(Some(fit)));
+            assert_eq!(e1, e0, "{name}: the elastic key changed");
+            assert_ne!(i1, i0, "{name}: the inelastic key did not change");
+        }
+        // Even in the last bit of the floor.
+        let mut r = base.clone();
+        r.materials[0].mermin_fit.weighting = FitWeighting::Relative {
+            floor: f64::from_bits(0.01f64.to_bits() + 1),
+        };
+        assert_ne!(keys(&r).1, i0);
+        // Without the Mermin model there is no fit to key.
+        let single = example();
+        let (_, i) = keys(&single);
+        assert!(i.contains("\"mermin_fit\":null"), "{i}");
+        let mut r = single.clone();
+        r.materials[0].mermin_fit.n_oscillators = 6;
+        assert_eq!(keys(&r).1, i);
     }
 
     #[test]
@@ -809,6 +912,33 @@ mod tests {
         });
     }
 
+    /// A band-bottom table is refined (#339) and keyed so; a table without
+    /// a band is not, and its key says `null`.
+    #[test]
+    fn key_carries_the_rate_refinement() {
+        let r = example();
+        let (_, i) = keys(&r);
+        assert!(i.contains("\"rate_refinement\":\"RateRefinement {"), "{i}");
+        let mut bandless = r.clone();
+        bandless.materials[0].band = None;
+        assert!(crate::electron::rate_refinement(&bandless, &bandless.materials[0]).is_none());
+        let (_, i) = keys(&bandless);
+        assert!(i.contains("\"rate_refinement\":null"), "{i}");
+    }
+
+    #[test]
+    fn grid_containment_is_in_order_and_bit_exact() {
+        let grid = [1.0, 2.0, 4.0];
+        assert!(contains_in_order(&grid, &grid));
+        assert!(contains_in_order(&[1.0, 1.5, 2.0, 3.0, 4.0, 8.0], &grid));
+        assert!(!contains_in_order(&[1.0, 4.0, 2.0], &grid));
+        assert!(!contains_in_order(&[1.0, 2.0], &grid));
+        assert!(!contains_in_order(
+            &[1.0, f64::from_bits(2.0f64.to_bits() + 1), 4.0],
+            &grid
+        ));
+    }
+
     #[test]
     fn key_changes_with_the_build() {
         let r = example();
@@ -846,13 +976,14 @@ mod tests {
     /// Every field of the inputs that shape a table is accounted for by a
     /// field of the key. The destructurings have no `..`, so a field added
     /// to `ElasticSpec`, `CorrelationPolarizationSpec`, `PolarizabilitySpec`,
-    /// `InelasticSpec` or `TableGridSpec` fails to compile here until it is
-    /// classified (and, if it changes a table, added to the key).
+    /// `InelasticSpec`, `TableGridSpec`, `ElectronMaterialSpec` or
+    /// `MerminFitSpec` fails to compile here until it is classified (and, if
+    /// it changes a table, added to the key).
     #[test]
     fn key_covers_every_table_input_field() {
         use lindhard::input::electron::{
-            CorrelationPolarizationSpec, ElasticSpec, InelasticSpec, PolarizabilitySpec,
-            TableGridSpec,
+            CorrelationPolarizationSpec, ElasticSpec, ElectronMaterialSpec, InelasticSpec,
+            MerminFitSpec, PolarizabilitySpec, TableGridSpec,
         };
         let r = example();
         let (e, i) = keys(&r);
@@ -907,6 +1038,57 @@ mod tests {
         let grid = serde_json::to_string(&r.table_energy_ev).unwrap();
         assert!(e.contains(&format!("\"energy_ev\":{grid}")));
         assert!(i.contains(&format!("\"energy_ev\":{grid}")));
+        // The per-material data, with a Mermin fit table so that every
+        // field is present.
+        let r = mermin_example(Some(
+            "oscillators = 5\nweighting = \"relative\"\nrelative_floor = 0.03",
+        ));
+        let (_, i) = keys(&r);
+        let ElectronMaterialSpec {
+            // `inelastic.optical_elf_sha256` and `.optical_elf_provenance`.
+            optical_elf: _,
+            // `inelastic.band`.
+            band,
+            // Not table inputs: the phonon and polaron channels are separate
+            // channels of the transport, not part of either table.
+            phonon: _,
+            polaron: _,
+            // `inelastic.mermin_fit`.
+            mermin_fit,
+        } = &r.input.electron.materials["Si"];
+        assert!(band.is_some());
+        assert!(i.contains(&format!(
+            "\"band\":{}",
+            serde_json::to_string(&format!("{:?}", r.materials[0].band)).unwrap()
+        )));
+        // The band also sets the rate refinement of the inelastic table
+        // (`electron::rate_refinement`, #339), the function the build uses:
+        // `inelastic.rate_refinement`.
+        let refinement = crate::electron::rate_refinement(&r, &r.materials[0]);
+        assert!(refinement.is_some());
+        assert!(
+            i.contains(&format!(
+                "\"rate_refinement\":{}",
+                serde_json::to_string(&format!("{:?}", refinement.unwrap())).unwrap()
+            )),
+            "{i}"
+        );
+        let MerminFitSpec {
+            // `inelastic.mermin_fit` (`n_oscillators`).
+            oscillators,
+            // `inelastic.mermin_fit` (`weighting`).
+            weighting: _,
+            // `inelastic.mermin_fit` (`floor` of `Relative`).
+            relative_floor,
+        } = mermin_fit.as_ref().unwrap();
+        assert!(i.contains(&format!("n_oscillators: {oscillators}")), "{i}");
+        assert!(
+            i.contains(&format!(
+                "Relative {{ floor: {:?} }}",
+                relative_floor.unwrap()
+            )),
+            "{i}"
+        );
     }
 
     #[test]

@@ -15,14 +15,12 @@
 #   Salvat et al. (1987) DHFS potential, with the Furness-McCarthy exchange
 #   and the correlation-polarization corrections on (both solved on the DHFS
 #   Poisson density).
-# - Inelastic: the single-pole Penn algorithm on the energy-loss function of
+# - Inelastic: the full Penn algorithm on the energy-loss function of
 #   Yang et al. (2019), derived from REELS spectra (not a direct optical
 #   measurement). That ELF ENDS AT 199 eV: the Si K shell (about 1.84 keV)
 #   and the L-shell tail above 199 eV are absent, and the transport loop has
 #   no inner-shell channel to supply them (#156), so the stopping power lacks
-#   their share. Full Penn is the issue's model, but its tables do not build
-#   in a usable time (#168 measured this target at 5 keV unfinished at 60 min
-#   on 4 threads; single pole: 108 s); speeding that build up is #256.
+#   their share.
 # - No secondaries and a transparent surface: no band parameters of Si are
 #   committed. With a 50 eV cutoff no electron that could count towards eta
 #   is dropped, but fast secondaries (above 50 eV) are not generated.
@@ -49,11 +47,16 @@ exchange = true
 polarizability.Si = { bohr3 = 37.3, source = "P. Schwerdtfeger and J. K. Nagle, Mol. Phys. 117, 1200 (2019), doi:10.1080/00268976.2018.1535143, 2018 Table of Static Dipole Polarizabilities, Table 1, Z = 14 Si, recommended 37.3 +- 0.7 a.u." }
 
 [electron.inelastic]
-model = "penn-single-pole"
+model = "penn-full"
 
 [electron.tables]
 min_energy_ev = 51.0
 points_per_decade = 20.0
+# One grid for every comparison energy, so that the full-Penn tables are
+# built once per material (lindhard run --table-cache). The largest energy
+# is 30 keV; the extra 1 keV leaves room for the inner potential of the
+# secondary-sensitivity runs.
+max_energy_ev = 31000.0
 
 [electron.materials.Si]
 optical_elf = "../../data/optical/si_elf_yang2019.toml"

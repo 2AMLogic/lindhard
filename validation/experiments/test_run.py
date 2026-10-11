@@ -464,20 +464,26 @@ class BackscatterGroups(unittest.TestCase):
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmp:
+            elf = Path(tmp) / "elf.dat"
+            elf.write_text("1 2\n")
+            text = f"optical_elf = {json.dumps(str(elf))}\nx = 1\n"
+            other = f"optical_elf = {json.dumps(str(elf))}\nx = 2\n"
             w = Path(tmp) / "Al_10keV_both"
             v = "lindhard 0.0.1 (abc1234)"
-            self.assertFalse(self.b.reusable(w, "x = 1\n", v))  # nothing there
+            self.assertFalse(self.b.reusable(w, text, v))  # nothing there
             (w / "out").mkdir(parents=True)
-            (w / "input.toml").write_text("x = 1\n")
-            self.assertFalse(self.b.reusable(w, "x = 1\n", v))  # no summary (interrupted run)
+            (w / "input.toml").write_text(text)
+            self.assertFalse(self.b.reusable(w, text, v))  # no summary (interrupted run)
             (w / "out" / "electron_summary.json").write_text(
                 json.dumps({"software": {"git_describe": "abc1234"}}))
-            self.assertTrue(self.b.reusable(w, "x = 1\n", v))
-            self.assertFalse(self.b.reusable(w, "x = 2\n", v))  # input differs
-            self.assertFalse(self.b.reusable(w, "x = 1\n", "lindhard 0.0.1 (def5678)"))  # other binary
-            self.assertFalse(self.b.reusable(w, "x = 1\n", "lindhard 0.0.1 (xabc1234)"))
+            self.assertFalse(self.b.reusable(w, text, v))  # no manifest (run from before manifests)
+            self.b.write_manifest(w, text)
+            self.assertTrue(self.b.reusable(w, text, v))
+            self.assertFalse(self.b.reusable(w, other, v))  # input differs
+            self.assertFalse(self.b.reusable(w, text, "lindhard 0.0.1 (def5678)"))  # other binary
+            self.assertFalse(self.b.reusable(w, text, "lindhard 0.0.1 (xabc1234)"))
             (w / "out" / "electron_summary.json").write_text("{")
-            self.assertFalse(self.b.reusable(w, "x = 1\n", v))  # truncated summary
+            self.assertFalse(self.b.reusable(w, text, v))  # truncated summary
 
     def test_empty_group(self):
         g = self.b.measured_group([self.ds("a", "Al", [(5000.0, 0.15)])], "Al", 10.0)

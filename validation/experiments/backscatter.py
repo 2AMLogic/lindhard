@@ -35,6 +35,7 @@ Writes `validation/experiments/backscatter_results.json`, which
 
 Usage:
     validation/experiments/backscatter.py [--histories N] [--threads N] [--reuse]
+    validation/experiments/backscatter.py --skip-secondaries [--threads N] [--reuse]
     validation/experiments/backscatter.py --secondaries-only [--targets Si,Au] [--threads N] [--reuse]
     validation/experiments/backscatter.py --verify-baseline-only [--targets Al,Cu] [--threads N] [--reuse]
     validation/experiments/backscatter.py --check
@@ -43,8 +44,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import math
+import os
 import re
 import statistics
 import subprocess
@@ -59,6 +62,7 @@ import se_yield  # noqa: E402  (BAND, METAL_BAND_PROVENANCE: the delta(E) band i
 DATA = HERE.parent / "data" / "backscatter"
 INPUTS = HERE / "backscatter"
 RESULTS = HERE / "backscatter_results.json"
+TABLE_CACHE = lindhard_cli.RUNS / "backscatter" / "table-cache"
 PROVENANCE = lindhard_cli.REPO / "docs" / "data-provenance.md"
 
 TARGETS = ["C", "Al", "Si", "Cu", "Au"]
@@ -233,20 +237,60 @@ def secondary_input(base: str, base_dir: Path, target: str, e_kev: float, histor
     return _replace_once(t, r"^(optical_elf = .*)$", lambda m: m.group(1) + "\n" + line)
 
 
+MANIFEST = "manifest.json"
+MANIFEST_VERSION = 1
+
+
+def elf_fingerprints(text: str) -> dict[str, str] | None:
+    """{path: sha256 of the file bytes} for every `optical_elf = "..."` the input
+    text names, or None if there is none or a file cannot be read."""
+    paths = [json.loads(f'"{m.group(1)}"') if "\\" in m.group(1) else m.group(1)
+             for m in re.finditer(r'^optical_elf = "(.*)"$', text, flags=re.M)]
+    if not paths:
+        return None
+    out = {}
+    for p in paths:
+        try:
+            out[p] = hashlib.sha256(Path(p).read_bytes()).hexdigest()
+        except OSError:
+            return None
+    return out
+
+
+def write_manifest(workdir: Path, text: str, prints: dict[str, str] | None = None) -> None:
+    """Record the content hashes of the data files `text` names (atomically).
+    `prints` are hashes taken earlier (run_one passes the ones taken before the
+    run); without them the files are hashed now."""
+    if prints is None:
+        prints = elf_fingerprints(text)
+    if prints is None:
+        lindhard_cli.die("cannot fingerprint the optical_elf files of the input")
+    tmp = workdir / (MANIFEST + ".tmp")
+    tmp.write_text(json.dumps({"version": MANIFEST_VERSION, "optical_elf": prints}, indent=1, sort_keys=True))
+    os.replace(tmp, workdir / MANIFEST)
+
+
 def reusable(workdir: Path, text: str, version: str) -> bool:
     """True if `workdir` holds a finished run of exactly `text` by the binary
     whose `--version` is `version` ("lindhard X.Y.Z (<git describe>)"): the
     stored input is byte-identical, its summary exists and names the same
-    git describe. Results do not depend on the thread count (a tested
-    invariant), so such a run is the run."""
+    git describe, and the manifest written after that run matches the current
+    bytes of the optical_elf files (a file edited in place at the same path
+    invalidates the run; a missing or malformed manifest, as in runs from
+    before manifests, is not reusable). Results do not depend on the thread
+    count (a tested invariant), so such a run is the run."""
     inp, summary = workdir / "input.toml", workdir / "out" / "electron_summary.json"
     if not (inp.is_file() and summary.is_file() and inp.read_text() == text):
         return False
     try:
         described = json.loads(summary.read_text())["software"]["git_describe"]
-    except (json.JSONDecodeError, KeyError, TypeError):
+        manifest = json.loads((workdir / MANIFEST).read_text())
+        recorded = manifest["optical_elf"] if manifest["version"] == MANIFEST_VERSION else None
+    except (OSError, json.JSONDecodeError, KeyError, TypeError):
         return False
-    return isinstance(described, str) and bool(described) and version.endswith(f"({described})")
+    if not (isinstance(described, str) and described and version.endswith(f"({described})")):
+        return False
+    return recorded is not None and recorded == elf_fingerprints(text)
 
 
 def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
@@ -256,14 +300,35 @@ def run_one(binary: Path, text: str, workdir: Path, threads: int | None,
         print(f"  reusing {workdir.name}", file=sys.stderr)
     else:
         workdir.mkdir(parents=True, exist_ok=True)
+        # Invalidate first: a failed or interrupted rerun must leave no manifest.
+        (workdir / MANIFEST).unlink(missing_ok=True)
         inp = workdir / "input.toml"
         inp.write_text(text)
+        # Hash the data before the run and publish those hashes only if the
+        # files are unchanged afterwards: hashing after the run alone would
+        # pair bytes edited mid-run with a result computed from the old ones.
+        before = elf_fingerprints(text)
+        if before is None:
+            lindhard_cli.die(f"cannot fingerprint the optical_elf files of {inp}")
         cmd = [str(binary), "run", str(inp), "--out", str(out)]
         if threads:
             cmd += ["--threads", str(threads)]
+        # The full-Penn tables take minutes to build and the inputs share one
+        # energy grid (electron.tables.max_energy_ev), so every run of a
+        # material reads the tables the first one stored.
+        TABLE_CACHE.mkdir(parents=True, exist_ok=True)
+        cmd += ["--table-cache", str(TABLE_CACHE)]
         proc = subprocess.run(cmd, capture_output=True, text=True)
         if proc.returncode != 0:
             lindhard_cli.die(f"lindhard failed on {inp}:\n{proc.stderr}")
+        try:
+            json.loads((out / "electron_summary.json").read_text())
+        except (OSError, json.JSONDecodeError):
+            lindhard_cli.die(f"lindhard wrote no readable electron_summary.json for {inp}")
+        if elf_fingerprints(text) != before:
+            lindhard_cli.die(f"the optical_elf files of {inp} changed during the run; "
+                             "no manifest written, rerun it")
+        write_manifest(workdir, text, before)
     s = json.loads((out / "electron_summary.json").read_text())
     r = s["results"]
     n = r["histories"]
@@ -346,6 +411,10 @@ def main() -> int:
     ap.add_argument("--secondaries-only", action="store_true",
                     help="run only the fast-secondary sensitivity and merge it into the committed "
                          "backscatter_results.json (baseline entries stay as committed)")
+    ap.add_argument("--skip-secondaries", action="store_true",
+                    help="regenerate the main table and the elastic sensitivity without the "
+                         "fast-secondary sensitivity (run it afterwards, target by target, with "
+                         "--secondaries-only --targets T)")
     ap.add_argument("--targets", default=None,
                     help="with --secondaries-only / --verify-baseline-only: comma-separated targets to "
                          "run (default: all of SECONDARY_TARGETS); the others keep their committed entries")
@@ -406,10 +475,10 @@ def main() -> int:
                     row[vid] = run_one(
                         binary, text, lindhard_cli.RUNS / "backscatter" / f"{t}_{e:g}keV_{vid}", args.threads, reuse)
                 entry["sensitivity"][f"{e:g}"] = row
-        if t in SECONDARY_TARGETS and inp.is_file():
+        if t in SECONDARY_TARGETS and inp.is_file() and not args.skip_secondaries:
             run_secondaries(binary, entry, args.histories, args.threads, reuse, False)
         targets.append(entry)
-    RESULTS.write_text(json.dumps({
+    out = {
         "format": "lindhard-backscatter-results/1",
         "lindhard": lindhard_cli.version(binary),
         "histories": args.histories,
@@ -419,9 +488,11 @@ def main() -> int:
         "pass_min_kev": PASS_MIN_KEV,
         "tolerance": TOLERANCE,
         "variants": [{"id": v[0], "label": v[1], "exchange": v[2], "polarization": v[3]} for v in VARIANTS],
-        "secondary_sensitivity": secondary_meta(binary),
         "targets": targets,
-    }, indent=1) + "\n")
+    }
+    if not args.skip_secondaries:
+        out["secondary_sensitivity"] = secondary_meta(binary)
+    RESULTS.write_text(json.dumps(out, indent=1) + "\n")
     print(f"wrote {RESULTS.relative_to(lindhard_cli.REPO)}")
     return 0
 

@@ -512,7 +512,9 @@ fails, naming the key: remove the key. Results of runs with a `band` change
 (see `CHANGELOG.md`).
 
 **`[electron.tables]`**: one log-spaced energy grid shared by the elastic and
-inelastic tables of every material.
+inelastic tables of every material. The inelastic table of a material with
+a `band` holds extra rows besides (#339; "Grid for a material with a band",
+below).
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -523,6 +525,31 @@ inelastic tables of every material.
 The transport holds the rates of the first and last rows beyond the grid;
 a grid that starts above the lowest stopping threshold or ends below the
 largest possible energy warns.
+
+*Grid for a material with a band (#291).* On the band-bottom axis the
+inelastic rate is zero at `E_F` and climbs steeply above it (within the
+first few eV, and for the Al single pole again at 15 to 17 eV), and the
+transport interpolates it linearly between grid rows. None of 10, 20 or
+40 points per decade resolves that region to 1 %; at 80 the Mermin tables
+of Al and Si pass and the single poles still miss it. The largest relative
+error of the interpolated `1/λ` over `E - E_F` = 2 to 20 eV (Al and Si,
+400 eV inputs) is 4 to 75 % at the default 20 points per decade and 2 to
+27 % at 40, depending on material and model; the single-pole model is
+worse than Mermin. Full table in [`validation.md`](validation.md), "Table
+grid above the Fermi level"; reproduce with
+`lindhard-cli/examples/inelastic_low_energy.rs`, mode `rate`. The library
+can add rows to the inelastic table from `E_F` upward
+(`InelasticTableOptions::rate_refinement`, #339), which brings every one of
+those tables to about 1 % at both the default grid and the grid of
+`validation/experiments/se_yield.py`. **`lindhard run` uses it for the
+inelastic table of every material with a `band`** (#339): every cell of the
+grid overlapping `E - E_F` = 2 to 20 eV is bisected while the linear
+interpolation of the rate misses the exact rate by more than 1 % at the
+cell's quartiles, midpoint or estimated error peak. The table then has the
+grid's rows and the added ones (a few tens: Al and Si, 5 to 25 rows at
+these grids); `physics.materials.inelastic_table.energies` counts them. The
+elastic table, and the inelastic table of a material without a band, keep
+exactly the grid's rows. A denser grid is not needed for this region.
 
 **`[electron.materials.<name>]`**: the electron data of each material the
 target uses, keyed by the name the target gives it (a `[materials]` key or an
@@ -535,6 +562,56 @@ Every name the target uses needs an entry; an unused entry warns.
 | `band` | none | Band parameters, required with `kieft-bosch`, `step-barrier` or `vacuum-level`: `{ kind = "metal", fermi_ev, work_function_ev, provenance }`, `{ kind = "insulator", valence_band_width_ev, band_gap_ev, affinity_ev, provenance }` or `{ kind = "free-electron-metal", valence_electrons_per_atom, work_function_ev, provenance }` (`lindhard::electron::boundary::BandStructure`; a blank provenance is refused). Either metal kind also takes an optional `valence_binding_ev`: the electron a valence loss liberates is bound that far below the Fermi level instead of at it, and a smaller loss frees none (`BandStructure::with_valence_binding_ev`; absent by default; its source belongs in `provenance`) |
 | `phonon` | none (off) | Fröhlich LO-phonon channel, polar insulators only: `{ hbar_omega_ev, eps_static, eps_high_frequency, temperature_k, provenance }`, or `{ preset = "sio2-63mev" \| "sio2-153mev", temperature_k }` (the library's cited SiO₂ values) |
 | `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
+| `mermin_fit` | none (the default fit) | Options of this material's Mermin oscillator fit, `mermin-melf` only: see below |
+
+**`[electron.materials.<name>.mermin_fit]`** (`lindhard::electron::inelastic::MerminFitOptions`):
+the `mermin-melf` model fits Drude-Lorentz oscillators to each material's
+optical ELF (`fit_mermin_oscillators`) and extends them in momentum with the
+Mermin dielectric function (Mermin, Phys. Rev. B 1, 2362 (1970); de Vera et
+al., Int. J. Mol. Sci. 23, 6121 (2022)). This optional table sets the fit for
+one material; without it the fit uses `MerminFitOptions::default()` and
+results are unchanged. With any other `electron.inelastic.model` the table is
+an error, since nothing would use it.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `oscillators` | 3 | Number of oscillators, 1 to 16 |
+| `weighting` | `"relative"` | `relative`: residuals divided by `ELF + relative_floor · max ELF`, so the tails count; `uniform`: absolute residuals |
+| `relative_floor` | 0.01 | The floor of `relative`, in `(0, 1]`; an error with `uniform` |
+
+The starting point and the iteration cap of the fit are not exposed. The fit
+is recorded, oscillator by oscillator, in the inelastic table's `model`
+string; the fit also reports its f-sum and `P_eff` sum rules against the
+table's (`MerminFit`), which are worth checking when choosing the options.
+Three oscillators do not describe every ELF: the default fit of the Cu ELF
+in `validation/data/optical` recovers 57 % of its f-sum and 67 % of its
+`P_eff` (`docs/validation.md`, "Cu: the Mermin IMFP and the default oscillator fit"), so such a material
+should use more. More oscillators can also give a very wide one, far wider
+than the table's energy range, whose f-sum lies above the table (#311).
+Measured on that Cu ELF (same section, "Weighting options and the wide
+oscillator"): at 10 oscillators the default weighting gives one (f-sum 188
+times the table's, unconverged), `relative_floor = 0.1` and `1` do not
+(f-sum 0.79 and 0.87 of the table's, `P_eff` 0.98 and 1.03, converged), and
+`uniform` is worse (4e4 times). At 16 oscillators none of `relative_floor`
+1e-3, 1e-2, 0.1, 1 or `uniform` avoids it (31 to 3e33 times the table's
+f-sum), including fits that report convergence. So, whatever the options,
+**check the fit's f-sum and `P_eff` against the table's** in the fit report
+(`MerminFit`); convergence alone and a plausible IMFP do not show a sound
+fit. For example:
+
+```toml
+[electron.inelastic]
+model = "mermin-melf"
+
+[electron.materials.Cu]
+optical_elf = "cu_elf.toml"
+
+[electron.materials.Cu.mermin_fit]
+oscillators = 6
+```
+
+The echoed input repeats the table, with its defaults filled in, only when
+it is given.
 
 No optical or band data of any real material is committed
 ([`data-provenance.md`](data-provenance.md)); the data files are the user's,
@@ -602,6 +679,8 @@ per-history errors, and double- and triple-Gaussian fits to it.
 | `results.escapes` | `backscatter_coefficient`, `transmission_coefficient`, `energy_reflection_coefficient` (energy carried out of the front face by the beam particles, as a fraction of the incident energy), and `species`: every species (beam first) through the `front` and `back` face, with `count`, `per_ion` and `mean_energy_ev` |
 | `files` | Names of the other files written (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `ions_per_s` |
+
+**`software.git_describe` freshness.** The CLI's build script stamps `git describe --always --dirty`, and reruns it when a build input that the description reads changes: tracked sources and manifests of `lindhard` and `lindhard-cli` (plus the workspace `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml`), the index, `HEAD`, the branch ref, `packed-refs` and `refs/heads`/`refs/tags` of the common git directory (so linked worktrees follow shared tags and branches). A non-empty `LINDHARD_GIT_DESCRIBE` in the build environment is used verbatim (trimmed) and git is not consulted; outside a git checkout the value is `unknown`. Limitations: `-dirty` is a flag, not a fingerprint, so two different dirty builds report the same string; untracked files never affect the `-dirty` flag, while `git describe --dirty` covers the whole tracked checkout, so an edit to any tracked file (docs, tests, other crates included) marks the stamp `-dirty` whenever the script next reruns, but a tracked file outside the watched set does not by itself trigger a rerun, so the stamp can stay stale until a watched input or the index changes (for example after `git add`); and it describes the checkout at build time, not the commit of a binary built elsewhere.
 
 ### `depth_profile.csv`
 
@@ -682,7 +761,7 @@ An electron run writes these instead of the ion files.
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
 | `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
 | `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`; deposits are measured from the band bottom, so with secondaries in a layer with a Fermi energy `deposited_ev` includes the Fermi-sea energy of liberated conduction electrons and can exceed the energy imparted, which is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev - fermi_sea_ev - phonon_absorbed_ev`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
-| `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. With `tally.psf` the per-bin profile is not repeated in the summary: the `results.deposition.psf` key is omitted. Without `tally.psf` that key is present and `null`. The per-bin profile (bin edges and centre, area, energy and its error, areal density and its error, and the fitted energy of the bin for each fit that succeeded) is in `electron_psf_profile.csv`; the fitted parameters and the `chi2`, `dof` and `reduced_chi2` of each fit are in `electron_psf_parameters.csv`. Residuals are not written; the residual of a bin is `energy_ev - model_<model>_ev` |
+| `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. With `tally.psf` the per-bin profile is not repeated in the summary: the `results.deposition.psf` key is omitted. Without `tally.psf` that key is present and `null`. The per-bin profile (bin edges and centre, area, energy and its error, areal density and its error, and the fitted energy of the bin for each fit that succeeded) is in `electron_psf_profile.csv`; the fitted parameters and the `chi2`, `dof`, `reduced_chi2`, `converged` and `iterations` of each fit are in `electron_psf_parameters.csv`. Residuals are not written; the residual of a bin is `energy_ev - model_<model>_ev` |
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
 
@@ -736,11 +815,19 @@ central disc first), `r_lo_m,r_hi_m,r_center_m,area_m2,energy_ev,std_err_ev,dens
 then a `model_<model>_ev` column (the fitted energy of the bin) for each
 fit that succeeded. `electron_psf_parameters.csv`: `model,parameter,value,std_error`,
 the fitted parameters (lengths in m, energies in eV), then `chi2`, `dof` and
-`reduced_chi2` rows per fit.
+`reduced_chi2` rows per fit, then `converged` (`1` if the iterations
+stopped on a converged step, `0` if the iteration budget ran out) and
+`iterations` (the integer count used). These metadata rows, like the
+`chi2`, `dof` and `reduced_chi2` rows, have an empty `std_error` cell and are
+not fitted parameters, so a consumer that reads every row as a parameter must
+skip them. Parameters from a fit with `converged` 0 need inspection of the fit
+diagnostics before use.
 
 `electron_tables.csv`: `material,energy_ev,elastic_inverse_mfp_per_nm,inelastic_inverse_mfp_per_nm,inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm`,
-the tables the run used, per material and grid energy (the stopping power is
-`λ⁻¹ ⟨W⟩` of the stored loss distribution).
+the tables the run used, per material and inelastic-table energy (the
+stopping power is `λ⁻¹ ⟨W⟩` of the stored loss distribution). The elastic
+column is empty at the rows the rate refinement adds to the inelastic table
+of a material with a band (#339), which the elastic table does not have.
 
 ### Cross-section table cache (`--table-cache`)
 
@@ -771,9 +858,12 @@ the table depends on:
   corrections with all their inputs, the starting probability grid and the
   refinement tolerance;
 - inelastic: the model (`electron.inelastic.model`), its Fermi energy, the
-  SHA-256 and provenance of the optical ELF file, and the material's band
+  SHA-256 and provenance of the optical ELF file, the material's band
   parameters (they set the table's axis and Fermi energy for a material with
-  a band).
+  a band) and, with `mermin-melf`, the material's resolved Mermin fit options
+  (`mermin_fit`; no table and a table of the defaults give the same key),
+  and the rate refinement of a material with a band (`rate_refinement`:
+  its window, tolerance and row bound; `null` without a band).
 
 Every `f64` is written in shortest round-trip form, so a change in the last
 bit of any number is a different key. A lookup must find the stored key
@@ -784,7 +874,8 @@ corrupted anywhere, even in a single cross-section or probability value that
 still parses, is refused with an error naming the file, before it is parsed,
 and a missing `.sha256` file is an error too. The table is then loaded and
 validated by the library, and its axis and energy grid are checked against the
-run. A file found under the run's key that fails any of these checks is an
+run: an elastic table must have exactly the run's grid, an inelastic table
+must contain it in order (it may hold the refinement's rows as well). A file found under the run's key that fails any of these checks is an
 error, never a silent rebuild; remove the entry's files to rebuild it. A table
 of another cache `format_version` can never be found, since the version is
 part of the key. Writes go to a temporary file renamed into place, the table

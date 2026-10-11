@@ -10,14 +10,14 @@
 //! 1e-3 here to keep the (nested, three-dimensional) integrals affordable in
 //! an unoptimised test build; its default is 1e-4.
 
-use lindhard::constants::BOHR_RADIUS;
+use lindhard::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, HARTREE_ENERGY};
 use lindhard::electron::data::OpticalElf;
 use lindhard::electron::inelastic::table::{
     build_inelastic_table_for_model, stopping_power_ev_per_m, EnergyAxis, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{
-    DrudeLorentz, DrudeLorentzOscillator, FullPenn, PennAlgorithm, PennInelastic, SinglePolePenn,
-    SumRuleReport,
+    DrudeLorentz, DrudeLorentzOscillator, FullPenn, InelasticPoint, LindhardGas, PennAlgorithm,
+    PennInelastic, SinglePolePenn, SumRuleReport, OMEGA_P_INTERVAL_BUDGET,
 };
 use lindhard::material::Material;
 use rayon::prelude::*;
@@ -336,6 +336,7 @@ fn diimfp_grid_reproduces_the_direct_diimfp() {
     let fpa = coarse_full();
     let grid = fpa.diimfp_grid(&GRID_ENERGIES).unwrap();
     assert!(!grid.is_empty() && grid.panel_count() > grid.len());
+    assert_eq!(grid.unconverged_profile_loss_evaluations(), 0);
     let reference = FullPenn::new(coarse_fixture())
         .with_relative_tolerance(0.1 * TOL)
         .unwrap();
@@ -356,11 +357,20 @@ fn diimfp_grid_reproduces_the_direct_diimfp() {
     }
     // what the grid does not cover is left to the direct model
     assert_eq!(grid.diimfp_per_m_ev(2000.0, 10.0), None);
-    assert_eq!(grid.diimfp_per_m_ev(500.0, 0.5 * w_lo), None);
+    // The grid reaches below the lowest ELF energy, down to 1e-6 of the
+    // lowest table energy (#361), and no further: the DIIMFP is positive
+    // there, and a row at or below the lowest ELF energy has a grid.
+    let below = 0.5 * w_lo;
+    let direct = reference.diimfp_per_m_ev(40.0, below).unwrap();
+    let from_grid = grid.diimfp_per_m_ev(40.0, below).unwrap();
+    assert!(direct > 0.0 && (from_grid / direct - 1.0).abs() < 3.0 * TOL);
+    assert_eq!(grid.diimfp_per_m_ev(40.0, 0.5e-6 * 40.0), None);
+    assert_eq!(grid.diimfp_per_m_ev(500.0, below), None);
     assert_eq!(grid.diimfp_per_m_ev(500.0, 600.0), Some(0.0));
     assert_eq!(grid.diimfp_per_m_ev(500.0, 0.0), Some(0.0));
     assert!(fpa.diimfp_grid(&[f64::NAN]).is_err());
-    assert!(fpa.diimfp_grid(&[0.5 * w_lo]).unwrap().is_empty());
+    assert!(!fpa.diimfp_grid(&[0.5 * w_lo]).unwrap().is_empty());
+    assert!(fpa.diimfp_grid(&[]).unwrap().is_empty());
 }
 
 #[test]
@@ -413,7 +423,13 @@ fn full_penn_tables_follow_the_model_on_any_thread_count() {
             .install(|| build_inelastic_table_for_model(&m, &material, &options).unwrap())
     };
     let t1 = build(1);
+    let elf_min = coarse_fixture().energy_ev()[0];
     for (i, &e) in t1.energy_ev().iter().enumerate() {
+        // the sampled window opens at 1e-6 T, far below the lowest tabulated
+        // ELF energy: the full Penn DIIMFP is not zero below it (#361)
+        let q0 = t1.quantiles(i).unwrap()[0];
+        assert!((q0 / (1e-6 * e) - 1.0).abs() < 1e-12, "{e} eV: {q0}");
+        assert!(q0 < elf_min);
         let s = stopping_power_ev_per_m(&t1, i).unwrap();
         let want = m.imfp_and_stopping(e).unwrap();
         assert_eq!(t1.inverse_mfp_per_m()[i], want.inverse_imfp_per_m);
@@ -460,6 +476,525 @@ fn full_penn_band_bottom_table_skips_rows_at_or_below_the_fermi_level() {
         assert_eq!(t.inverse_mfp_per_m()[j + 1], r.inverse_mfp_per_m()[j]);
         assert_eq!(t.quantiles(j + 1), r.quantiles(j));
     }
+}
+
+// ---------------------------------------------------------------------------
+// Losses below the lowest ELF energy (#361)
+// ---------------------------------------------------------------------------
+
+/// `(λ⁻¹, S)` of `m` at `t` from the direct DIIMFP, independently of the
+/// model's own `(q, ω)` integrals and of any table: composite Simpson in
+/// `ln ω` over `(lo, t/2]` and in `sqrt(t - ω)` over `(t/2, t]` (the end
+/// of the DIIMFP at `ω = t`), eV and m⁻¹, `lo` the lowest loss counted.
+fn direct_moments(m: &FullPenn, t: f64, lo: f64, n_log: usize) -> (f64, f64) {
+    let p = |w: f64| m.diimfp_per_m_ev(t, w).unwrap();
+    let split = 0.5 * t;
+    // one DIIMFP evaluation per node, for both moments
+    let (a, b) = (lo.ln(), split.ln());
+    let h = (b - a) / n_log as f64;
+    let (mut low, mut low_s) = (0.0, 0.0);
+    for i in 0..=n_log {
+        let w = (a + h * i as f64).exp().clamp(lo, split);
+        let c = if i == 0 || i == n_log {
+            1.0
+        } else if i % 2 == 1 {
+            4.0
+        } else {
+            2.0
+        };
+        let v = c * p(w) * w;
+        low += v;
+        low_s += v * w;
+    }
+    let (low, low_s) = (low * h / 3.0, low_s * h / 3.0);
+    let n = 24;
+    let b = (t - split).sqrt();
+    let h = b / n as f64;
+    let (mut hi, mut hi_s) = (0.0, 0.0);
+    for i in 0..=n {
+        let s = h * i as f64;
+        let w = t - s * s;
+        let c = if i == 0 || i == n {
+            1.0
+        } else if i % 2 == 1 {
+            4.0
+        } else {
+            2.0
+        };
+        let v = c * p(w) * 2.0 * s;
+        hi += v;
+        hi_s += v * w;
+    }
+    (low + hi * h / 3.0, low_s + hi_s * h / 3.0)
+}
+
+/// Rows at and below the lowest ELF energy (0.5 eV), just above it, and
+/// well above it.
+const LOW_ENERGIES: [f64; 4] = [0.3, 0.5, 2.0, 40.0];
+
+fn build_low(
+    threads: usize,
+    grid: &[f64],
+    axis: EnergyAxis,
+) -> lindhard::electron::data::CrossSectionTable {
+    let m = PennInelastic::Full(coarse_full());
+    let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
+    let options = InelasticTableOptions::new(grid.to_vec()).with_axis(axis);
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap()
+        .install(|| build_inelastic_table_for_model(&m, &material, &options).unwrap())
+}
+
+#[test]
+fn full_penn_rows_count_the_losses_below_the_lowest_elf_energy() {
+    // The full Penn DIIMFP is positive below the lowest ELF energy
+    // (0.5 eV here), where the Lindhard continuum of each gas reaches
+    // omega -> 0. The row rate, the sampled losses and S = lambda^-1 <W> must
+    // describe the same window, for T <= 0.5 eV, T just above it and T far
+    // above it (before #361 the window opened at 0.5 eV: a row at 0.3 eV
+    // was empty and S was high by the share of lambda^-1 below 0.5 eV).
+    let model = coarse_full();
+    let elf_min = coarse_fixture().energy_ev()[0];
+    assert!(model.diimfp_per_m_ev(2.0, 0.2).unwrap() > 0.0);
+    assert!(model.diimfp_per_m_ev(0.3, 0.1).unwrap() > 0.0);
+    let table = build_low(1, &LOW_ENERGIES, EnergyAxis::ModelFermiLevel);
+    for (i, &t) in LOW_ENERGIES.iter().enumerate() {
+        // reference on (1e-8 T, T]: a lower limit than the table's 1e-6 T
+        let (ref_inv, ref_s) = direct_moments(&model, t, 1e-8 * t, 160);
+        // The share below the table's lower limit 1e-6 T, which neither
+        // the table nor this reference counts. The direct DIIMFP carries
+        // noise at the model tolerance, so a difference of two integrals
+        // cannot show it; but p is linear in omega there (checked, to 2 %,
+        // from two limits 100 apart), so the share is p(fT) fT / 2 of the
+        // rate and p(fT) (fT)^2 / 3 of the stopping power.
+        let f = 1e-6 * t;
+        let (p1, p2) = (
+            model.diimfp_per_m_ev(t, f).unwrap(),
+            model.diimfp_per_m_ev(t, 0.01 * f).unwrap(),
+        );
+        assert!(
+            (p1 / p2 / 100.0 - 1.0).abs() < 2e-2,
+            "{t} eV: {p1:e} {p2:e}"
+        );
+        let (omit_inv, omit_s) = (p1 * f / 2.0, p1 * f * f / 3.0);
+        println!(
+            "T={t}: omitted share of rate {:e}, of S {:e}",
+            omit_inv / ref_inv,
+            omit_s / ref_s
+        );
+        assert!(omit_inv / ref_inv < 1e-6, "{t} eV");
+        assert!(omit_s / ref_s < 1e-8, "{t} eV");
+        // the old window (elf_min, T]; empty for T <= elf_min
+        let old = if t > elf_min {
+            direct_moments(&model, t, elf_min, 60)
+        } else {
+            (0.0, 0.0)
+        };
+        let inv = table.inverse_mfp_per_m()[i];
+        let s = stopping_power_ev_per_m(&table, i).unwrap();
+        let own = model.imfp_and_stopping(t).unwrap();
+        // the stored rate is the model's own, to its quadrature tolerance
+        assert_eq!(inv, own.inverse_imfp_per_m, "{t} eV");
+        // 1e-2: the Simpson reference and the model's own integral each
+        // carry about 1e-3 here (the model tolerance is 1e-3 in this file)
+        assert!(rel(inv, ref_inv) < 1e-2, "{t} eV: {inv:e} vs {ref_inv:e}");
+        assert!(rel(s, ref_s) < 1e-2, "{t} eV: {s:e} vs {ref_s:e}");
+        assert!(rel(s, own.stopping_ev_per_m) < 3.0 * TOL, "{t} eV");
+        // the old window misses the share below elf_min, many times the
+        // tolerance above
+        let (missed_inv, missed_s) = (1.0 - old.0 / ref_inv, 1.0 - old.1 / ref_s);
+        println!("T={t}: old window misses {missed_inv:e} of rate, {missed_s:e} of S");
+        if t <= elf_min {
+            assert_eq!(old.0, 0.0);
+        } else if t < 3.0 {
+            // well above the 1e-2 tolerance of the comparisons above
+            assert!(missed_inv > 5e-2 && missed_s > 2e-2, "{t} eV");
+        }
+        // quantiles: finite, positive, ordered, bounded by T, from 1e-6 T
+        let q = table.quantiles(i).unwrap();
+        assert!(q
+            .iter()
+            .all(|w| w.is_finite() && *w > 0.0 && *w <= t * (1.0 + 1e-12)));
+        assert!(q.windows(2).all(|w| w[0] <= w[1]));
+        assert!((q[0] / (1e-6 * t) - 1.0).abs() < 1e-12);
+    }
+    // thread-count determinism
+    let t3 = build_low(3, &LOW_ENERGIES, EnergyAxis::ModelFermiLevel);
+    assert_eq!(table.probability(), t3.probability());
+    for i in 0..LOW_ENERGIES.len() {
+        assert_eq!(
+            table.inverse_mfp_per_m()[i].to_bits(),
+            t3.inverse_mfp_per_m()[i].to_bits()
+        );
+        let (a, b) = (table.quantiles(i).unwrap(), t3.quantiles(i).unwrap());
+        assert!(a.iter().zip(b).all(|(x, y)| x.to_bits() == y.to_bits()));
+    }
+}
+
+#[test]
+fn full_penn_band_bottom_low_energy_rows_follow_the_window_and_empty_rows_stay_empty() {
+    // T = E - E_F: rows at and below E_F stay empty, a row with
+    // 0 < T <= elf_min carries the model's rate and losses, and every row
+    // is the own-axis row at its T.
+    let fermi = 10.0;
+    let m = PennInelastic::Full(coarse_full().with_fermi_energy_ev(fermi).unwrap());
+    let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
+    let ts = [0.25, 40.0];
+    let mut grid = vec![fermi - 5.0, fermi];
+    grid.extend(ts.iter().map(|t| fermi + t));
+    let band = InelasticTableOptions::new(grid).with_axis(EnergyAxis::BandBottom);
+    let own = InelasticTableOptions::new(ts.to_vec());
+    let t = build_inelastic_table_for_model(&m, &material, &band).unwrap();
+    let r = build_inelastic_table_for_model(&m, &material, &own).unwrap();
+    for i in 0..2 {
+        assert_eq!(t.inverse_mfp_per_m()[i], 0.0);
+        assert!(t.quantiles(i).is_none());
+    }
+    assert!(r.inverse_mfp_per_m()[0] > 0.0);
+    assert_eq!(t.probability(), r.probability());
+    for j in 0..ts.len() {
+        assert_eq!(t.inverse_mfp_per_m()[j + 2], r.inverse_mfp_per_m()[j]);
+        assert_eq!(t.quantiles(j + 2), r.quantiles(j));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// The bounded ω_p refinement on measured ELFs (#298)
+// ---------------------------------------------------------------------------
+
+/// A committed optical ELF of `validation/data/optical` (provenance in
+/// `docs/data-provenance.md`).
+fn committed_elf(file: &str) -> OpticalElf {
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../validation/data/optical")
+        .join(file);
+    OpticalElf::from_toml_file(path).unwrap()
+}
+
+/// The two `(q in a.u., ω in eV)` of #298 on the Si ELF, where one
+/// evaluation of the loss function took 0.4 to 2 s at the model tolerance
+/// (and 10 to 21 s at 1e-5) before the bound: at each, the gas whose
+/// continuum edge `q k_F + q²/2` is at `ω` has `Re ε ≈ 1e-6` there, so just
+/// above the lower end `x_a` of the `ω_p` integral `Re ε` crosses zero
+/// where `Im ε` is tiny, a resonance about 1e-7 Hartree above `x_a` and
+/// 3e-8 wide that carries a large part of the first knot interval.
+const SI_EDGE_POINTS: [(f64, f64); 2] = [(1.116561281, 79.0), (1.480290203, 160.0)];
+
+/// Default-tolerance and reference (1e-6) evaluations at `(q_au, w)`: both
+/// must converge, agree to the model tolerance and stay within `max_evals`
+/// Lindhard evaluations at the default tolerance. Returns the relative
+/// difference and the work.
+fn check_against_reference(
+    model: &FullPenn,
+    reference: &FullPenn,
+    q_au: f64,
+    w: f64,
+    max_evals: u64,
+) -> (f64, u64) {
+    let q = q_au / BOHR_RADIUS;
+    let e = model.loss_function_evaluation(q, w);
+    let r = reference.loss_function_evaluation(q, w);
+    assert_eq!(e.value, model.loss_function(q, w));
+    assert!(
+        e.converged() && r.converged(),
+        "q {q_au}, {w} eV: {e:?} {r:?}"
+    );
+    assert!(r.value > 0.0, "q {q_au}, {w} eV: {r:?}");
+    let d = rel(e.value, r.value);
+    assert!(
+        d < model.relative_tolerance(),
+        "q {q_au}, {w} eV: {} vs {}",
+        e.value,
+        r.value
+    );
+    assert!(
+        e.lindhard_evaluations <= max_evals,
+        "q {q_au}, {w} eV: {} evaluations",
+        e.lindhard_evaluations
+    );
+    (d, e.lindhard_evaluations)
+}
+
+#[test]
+fn si_continuum_edge_resonance_points_are_bounded_and_accurate() {
+    // Work is counted, not timed. Measured (x86-64 Linux, #298): 1350 and
+    // 995 Lindhard evaluations at the two points, at most 78 rule
+    // applications in any one knot interval; before the bound the first
+    // knot interval alone took 1.2 and 5.8 million rule applications (6.2
+    // and 29 million evaluations), 0.26 and 1.3 million of its cells
+    // ending at the maximum depth. The neighbours (q within 1e-8 to 1e-2
+    // relative) took 585 to 1350. The reference is the same model at 1e-6,
+    // which converges at all of them; measured differences at most 2.3e-6.
+    let si = committed_elf("si_elf_yang2019.toml");
+    let model = FullPenn::new(si.clone());
+    let reference = FullPenn::new(si).with_relative_tolerance(1e-6).unwrap();
+    for (q0, w) in SI_EDGE_POINTS {
+        let e = model.loss_function_evaluation(q0 / BOHR_RADIUS, w);
+        assert!(e.converged(), "{e:?}");
+        assert!(e.lindhard_evaluations <= 3000, "{e:?}");
+        assert!(e.largest_interval_rules <= 300, "{e:?}");
+        let mut worst: f64 = 0.0;
+        for d in [
+            0.0, -1e-2, -1e-4, -1e-6, -1e-8, -1e-10, 1e-10, 1e-8, 1e-6, 1e-4, 1e-2,
+        ] {
+            let (diff, _) = check_against_reference(&model, &reference, q0 * (1.0 + d), w, 3000);
+            worst = worst.max(diff);
+        }
+        eprintln!(
+            "Si {w} eV near q {q0} a.u.: worst difference from the 1e-6 reference {worst:.2e}"
+        );
+    }
+}
+
+#[test]
+fn imfp_outer_integral_converges_at_the_model_tolerance_on_the_committed_elfs() {
+    // The outer ω_p integral of the IMFP and stopping power has the bounded
+    // bisection too (#298); at the model tolerance it must not exhaust it or leave a cell with a noticeable error.
+    for (file, energies) in [
+        ("si_elf_yang2019.toml", [10.0, 60.0, 200.0, 1000.0, 5000.0]),
+        (
+            "al_elf_hagemann1975.toml",
+            [10.0, 60.0, 200.0, 1000.0, 5000.0],
+        ),
+    ] {
+        let model = FullPenn::new(committed_elf(file));
+        for e in energies {
+            // Measured: all converge but Al at 10 eV, one cell stopped at
+            // floating-point resolution with an error of 5e-18 of λ⁻¹.
+            let (cells, err) = model.imfp_unconverged(e).unwrap();
+            assert!(cells <= 1 && err < 1e-12, "{file} {e} eV: {cells}, {err:e}");
+        }
+    }
+    assert!(FullPenn::new(committed_elf("si_elf_yang2019.toml"))
+        .imfp_unconverged(f64::NAN)
+        .is_err());
+}
+
+#[test]
+fn si_edge_point_at_a_tolerance_below_the_noise_floor_is_reported_unconverged() {
+    // At 1e-8 the cells on the resonance would have to resolve the
+    // floating-point noise of Im ε/|ε|² (Re ε is a cancellation down to
+    // 1e-7); the knot interval spends its whole budget and the evaluation
+    // says so. The value is then not claimed to be converged, and its error
+    // estimate covers the actual difference from the converged 1e-6 value.
+    let si = committed_elf("si_elf_yang2019.toml");
+    let strict = FullPenn::new(si.clone())
+        .with_relative_tolerance(1e-8)
+        .unwrap();
+    let reference = FullPenn::new(si).with_relative_tolerance(1e-6).unwrap();
+    let (q0, w) = SI_EDGE_POINTS[1];
+    let q = q0 / BOHR_RADIUS;
+    let e = strict.loss_function_evaluation(q, w);
+    let r = reference.loss_function_evaluation(q, w);
+    assert!(r.converged(), "{r:?}");
+    assert!(!e.converged(), "{e:?}");
+    assert!(
+        e.unconverged_cells > 0 && e.unconverged_error > 0.0,
+        "{e:?}"
+    );
+    assert_eq!(e.largest_interval_rules, OMEGA_P_INTERVAL_BUDGET, "{e:?}");
+    // the work stays bounded: well under one budget per knot interval
+    assert!(
+        e.lindhard_evaluations <= 10 * 5 * OMEGA_P_INTERVAL_BUDGET,
+        "{e:?}"
+    );
+    assert!(
+        (e.value - r.value).abs() <= e.unconverged_error,
+        "{e:?} vs {}",
+        r.value
+    );
+}
+
+#[test]
+fn ordinary_points_on_measured_elfs_match_a_tighter_reference() {
+    // Points away from the edge resonance, on both committed ELFs the
+    // build benchmarks use (Al: 148 knots; Si: 297), so that the bound can
+    // not be passing by suppressing real weight. Measured differences from
+    // the 1e-6 reference: at most 1e-7.
+    for (file, points) in [
+        (
+            "al_elf_hagemann1975.toml",
+            &[
+                (0.3, 5.0),
+                (0.5, 15.0),
+                (1.0, 30.0),
+                (2.0, 60.0),
+                (1.2, 100.0),
+            ][..],
+        ),
+        (
+            "si_elf_yang2019.toml",
+            &[(0.5, 17.0), (1.0, 50.0), (2.0, 100.0), (3.0, 179.0)][..],
+        ),
+    ] {
+        let elf = committed_elf(file);
+        let model = FullPenn::new(elf.clone());
+        let reference = FullPenn::new(elf).with_relative_tolerance(1e-6).unwrap();
+        for &(q_au, w) in points {
+            let (d, n) = check_against_reference(&model, &reference, q_au, w, 3000);
+            eprintln!("{file}: q {q_au} a.u., {w} eV: difference {d:.2e}, {n} evaluations");
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Exhaustion reported by the direct DIIMFP and IMFP paths (#368)
+// ---------------------------------------------------------------------------
+
+fn same_point(a: &InelasticPoint, b: &InelasticPoint) -> bool {
+    a.energy_ev.to_bits() == b.energy_ev.to_bits()
+        && a.inverse_imfp_per_m.to_bits() == b.inverse_imfp_per_m.to_bits()
+        && a.stopping_ev_per_m.to_bits() == b.stopping_ev_per_m.to_bits()
+}
+
+#[test]
+fn evaluation_variants_return_the_same_values_bit_for_bit() {
+    // `diimfp_per_m_ev`, `imfp_and_stopping` and `imfp_unconverged` delegate
+    // to the evaluation variants; the values must not move by one bit.
+    let fpa = full();
+    for (e, w) in [
+        (40.0, 5.0),
+        (40.0, 20.0),
+        (300.0, 0.7),
+        (300.0, 30.0),
+        (300.0, 250.0),
+        (2000.0, 100.0),
+    ] {
+        let d = fpa.diimfp_evaluation(e, w).unwrap();
+        let p = fpa.diimfp_per_m_ev(e, w).unwrap();
+        assert_eq!(d.value.to_bits(), p.to_bits(), "{e} eV, {w} eV");
+        assert!(d.value > 0.0, "{e} eV, {w} eV: {d:?}");
+        // the smooth fixture at the test tolerance: every loss evaluation
+        // converged
+        assert_eq!(d.unconverged_loss_evaluations, 0, "{e} eV, {w} eV: {d:?}");
+        assert_eq!(d.largest_unconverged_error, 0.0, "{e} eV, {w} eV: {d:?}");
+    }
+    // no loss allowed: zero, nothing counted
+    for (e, w) in [(100.0, 0.0), (100.0, -3.0), (100.0, 100.5)] {
+        let d = fpa.diimfp_evaluation(e, w).unwrap();
+        assert_eq!(d.value.to_bits(), 0.0f64.to_bits(), "{e} eV, {w} eV");
+        assert_eq!(d.unconverged_loss_evaluations, 0);
+        assert_eq!(d.largest_unconverged_error, 0.0);
+        assert_eq!(
+            d.value.to_bits(),
+            fpa.diimfp_per_m_ev(e, w).unwrap().to_bits()
+        );
+    }
+    // the same errors as the existing methods
+    for (e, w) in [(-1.0, 1.0), (0.0, 1.0), (f64::NAN, 1.0), (100.0, f64::NAN)] {
+        let a = fpa.diimfp_evaluation(e, w).unwrap_err().to_string();
+        let b = fpa.diimfp_per_m_ev(e, w).unwrap_err().to_string();
+        assert_eq!(a, b);
+    }
+    let coarse = coarse_full();
+    for e in [0.3, 40.0] {
+        let ev = coarse.imfp_and_stopping_evaluation(e).unwrap();
+        assert!(same_point(&ev.point, &coarse.imfp_and_stopping(e).unwrap()));
+        let (cells, err) = coarse.imfp_unconverged(e).unwrap();
+        assert_eq!(
+            (ev.unconverged_cells, ev.unconverged_error.to_bits()),
+            (cells, err.to_bits())
+        );
+        // measured: the outer ω_p integral converges at the test tolerance
+        assert_eq!(ev.unconverged_cells, 0, "{e} eV: {ev:?}");
+        assert_eq!(ev.unconverged_error, 0.0, "{e} eV: {ev:?}");
+    }
+    for e in [0.0, -1.0, f64::NAN] {
+        let a = coarse
+            .imfp_and_stopping_evaluation(e)
+            .unwrap_err()
+            .to_string();
+        let b = coarse.imfp_and_stopping(e).unwrap_err().to_string();
+        assert_eq!(a, b);
+    }
+}
+
+/// The energy (eV) at which the midpoint of the first of the 8 `ln q`
+/// segments of the direct DIIMFP at loss `w_ev` (its rule has a node there)
+/// is `q_au`, found by bisection. The segments are those of
+/// `FullPenn::diimfp_per_m_ev`: `[ln q-, ln q+]` in 8 equal parts.
+fn energy_with_first_midpoint_at(q_au: f64, w_ev: f64) -> f64 {
+    let h = HARTREE_ENERGY / ELEMENTARY_CHARGE;
+    let w = w_ev / h;
+    let mid = |e: f64| {
+        let t = e / h;
+        let k = (2.0 * t).sqrt();
+        let s = (2.0 * (t - w)).max(0.0).sqrt();
+        let (lo, hi) = ((2.0 * w / (k + s)).ln(), (k + s).ln());
+        lo + (hi - lo) / 16.0
+    };
+    let target = q_au.ln();
+    let (mut a, mut b) = (1.0001 * w_ev, 1e5);
+    assert!(mid(a) > target && mid(b) < target);
+    for _ in 0..200 {
+        let m = (a * b).sqrt();
+        if mid(m) > target {
+            a = m;
+        } else {
+            b = m;
+        }
+    }
+    a
+}
+
+#[test]
+fn direct_diimfp_reports_an_exhausted_loss_evaluation() {
+    // At the plasmon cutoff q_c of a gas, the loss at its continuum edge
+    // ω = q_c k_F + q_c²/2 has the edge resonance of #298 at the lower end
+    // of the ω_p integral (Re ε_L = 0 at the edge). At a tolerance of 1e-8
+    // (below the noise floor there) that ω_p integral spends its budget.
+    // The DIIMFP at this loss is taken at the energy that puts a node of its
+    // momentum integral on q_c, so one of its loss evaluations is that one;
+    // it must be counted. Measured on the coarse fixture (gas of 20 eV,
+    // within its plasmon peak; energy 51.83 eV): the loss evaluation at the
+    // node leaves about 1040 cells unconverged, and the DIIMFP counts 1
+    // unconverged loss evaluation (error estimate 0.38 of that evaluation's
+    // value; read it as a bound). Its other loss evaluations converge.
+    let strict = FullPenn::new(coarse_fixture())
+        .with_relative_tolerance(1e-8)
+        .unwrap();
+    let h = HARTREE_ENERGY / ELEMENTARY_CHARGE;
+    let gas = LindhardGas::from_plasma_frequency(20.0 / h);
+    let qc = gas.plasmon_cutoff();
+    let w = gas.continuum_upper_edge(qc) * h;
+    // the loss evaluation itself does not converge
+    let l = strict.loss_function_evaluation(qc / BOHR_RADIUS, w);
+    assert!(!l.converged(), "{l:?}");
+    let e = energy_with_first_midpoint_at(qc, w);
+    let d = strict.diimfp_evaluation(e, w).unwrap();
+    eprintln!("q_c {qc} a.u., loss {w} eV, energy {e} eV: {d:?}");
+    assert!(d.unconverged_loss_evaluations > 0, "{d:?}");
+    assert!(d.largest_unconverged_error > 0.0, "{d:?}");
+    assert_eq!(
+        d.value.to_bits(),
+        strict.diimfp_per_m_ev(e, w).unwrap().to_bits()
+    );
+    // at the test tolerance the same evaluation converges
+    let d = coarse_full().diimfp_evaluation(e, w).unwrap();
+    assert_eq!(d.unconverged_loss_evaluations, 0, "{d:?}");
+}
+
+#[test]
+fn imfp_evaluation_reports_unconverged_outer_cells() {
+    // The outer ω_p integral of the IMFP on the coarse fixture at the
+    // model's default tolerance (1e-4) leaves cells stopped at
+    // floating-point resolution (measured: 1 to 5 cells at most energies
+    // from 0.9 to 23 eV, errors below 5e-17 of λ⁻¹; at 2 eV, 5 cells and
+    // 4.0e-17). The evaluation reports them from the same integral that
+    // gives the point (bitwise equality with `imfp_and_stopping` is checked
+    // above; one evaluation here, about a minute in a debug build).
+    let ev = FullPenn::new(coarse_fixture())
+        .imfp_and_stopping_evaluation(2.0)
+        .unwrap();
+    eprintln!("{ev:?}");
+    assert!(ev.point.inverse_imfp_per_m > 0.0, "{ev:?}");
+    assert!(ev.unconverged_cells > 0, "{ev:?}");
+    assert!(
+        ev.unconverged_error > 0.0 && ev.unconverged_error < 1e-12,
+        "{ev:?}"
+    );
 }
 
 // ---------------------------------------------------------------------------

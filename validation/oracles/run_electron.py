@@ -248,6 +248,74 @@ def merge_table_coverage(total: list[dict] | None, part: list[dict] | None) -> l
     return total
 
 
+# ---------------------------------------------------------------------------
+# Numerical-truncation (event-cap) diagnostics (#369)
+
+CAP_FIELDS = ("primary_event_capped", "secondary_tracks", "affected_histories", "event_cap_ev")
+
+
+def extract_cap_diagnostics(results: dict) -> dict:
+    """The collision-cap diagnostics of one lindhard `results` object: the
+    primaries' own caps (`fates.event_capped`), the capped secondary tracks and
+    the affected primary histories (`event_caps`), and the energy the capped
+    electrons still carried (`budget.event_cap_ev`). A key a summary does not
+    have (an older binary) gives None for that field: unknown, never zero."""
+    caps = results.get("event_caps")
+    caps = caps if isinstance(caps, dict) else {}
+    fates = results.get("fates") if isinstance(results.get("fates"), dict) else {}
+    budget = results.get("budget") if isinstance(results.get("budget"), dict) else {}
+    return {
+        "primary_event_capped": fates.get("event_capped"),
+        "secondary_tracks": caps.get("secondary_tracks"),
+        "affected_histories": caps.get("affected_histories"),
+        "event_cap_ev": budget.get("event_cap_ev"),
+    }
+
+
+def pool_cap_diagnostics(parts: list[dict | None], histories: int) -> dict:
+    """Pool per-batch diagnostics: counts and energy are summed, and the
+    affected-history fraction is pooled affected / pooled histories (never a
+    mean of batch fractions). A field missing (None) in any batch, or a batch
+    with no diagnostics at all, is unknown in the pool; it is never taken as
+    zero. `status` is `truncated` if any batch shows a positive count or
+    energy, `uncapped` only if every field of every batch is a known zero, and
+    otherwise `unknown`. Counts stay distinct from energy; `affected_histories`
+    is not inferred from primary caps or track counts."""
+    pooled = {}
+    for f in CAP_FIELDS:
+        vals = [None if p is None else p.get(f) for p in parts]
+        pooled[f] = None if not vals or any(v is None for v in vals) else sum(vals)
+    aff = pooled["affected_histories"]
+    pooled["affected_fraction"] = aff / histories if aff is not None and histories else None
+    known = [v for p in parts if p is not None for v in (p.get(f) for f in CAP_FIELDS) if v is not None]
+    if any(v > 0 for v in known):
+        status = "truncated"
+    elif parts and all(pooled[f] == 0 for f in CAP_FIELDS):
+        status = "uncapped"
+    else:
+        status = "unknown"
+    pooled["status"] = status
+    return pooled
+
+
+def truncation_note(d: dict | None) -> str:
+    """One-line annotation of a pooled diagnostic for printed and stored comparisons."""
+    if d is None or d["status"] == "unknown":
+        return ("truncation unknown: no complete event-cap diagnostics (older binary or artifact); "
+                "this is not evidence that no track was capped")
+    if d["status"] == "uncapped":
+        return "uncapped: no primary or secondary track hit the collision cap (all diagnostics reported zero)"
+    frac = d["affected_fraction"]
+    aff = d["affected_histories"]
+    return ("TRUNCATED by the collision cap: "
+            f"affected_histories {'unknown' if aff is None else aff}"
+            + (f" ({100 * frac:.3g} % of histories)" if frac is not None else "")
+            + f", secondary_tracks {d['secondary_tracks'] if d['secondary_tracks'] is not None else 'unknown'}"
+            f", primary_event_capped {d['primary_event_capped'] if d['primary_event_capped'] is not None else 'unknown'}"
+            f", event_cap_ev {d['event_cap_ev'] if d['event_cap_ev'] is not None else 'unknown'}; "
+            "metrics are kept for diagnosis but are of truncated tracks")
+
+
 class Accumulator:
     """Pooled and per-batch tallies of one code on one problem."""
 
@@ -260,10 +328,15 @@ class Accumulator:
         self.depth_sum = [0.0] * batches
         self.hist = [[0.0] * (rbins + 1) for _ in range(batches)]  # last: beyond rmax
         self.has_depth = True
+        # lindhard only: per-batch cap diagnostics (None: not recorded).
+        self.caps: list[dict | None] = [None] * batches
         # lindhard only: summed results.table_coverage (None if a batch had
         # none, or for an oracle).
         self.table_coverage: list[dict] | None = None
         self._coverage_seen = False
+
+    def add_event_caps(self, batch: int, results: dict) -> None:
+        self.caps[batch] = extract_cap_diagnostics(results)
 
     def add_table_coverage(self, part: list[dict] | None) -> None:
         if not self._coverage_seen:
@@ -298,6 +371,9 @@ class Accumulator:
             "std_err": {m: (batch_se([p[m] for p in per]) if pooled[m] is not None else None) for m in METRICS},
             "batch_values": {m: [p[m] for p in per] for m in METRICS},
             "table_coverage": self.table_coverage,
+            # None for an oracle: its truncation diagnostics are unknown.
+            "event_cap_diagnostics": (pool_cap_diagnostics(self.caps, sum(self.n))
+                                      if any(c is not None for c in self.caps) else None),
         }
 
 
@@ -428,6 +504,7 @@ def run_lindhard(problem: dict, spec: dict, mat: dict, binary: Path, histories: 
             lindhard_cli.die("this lindhard has no results.stopping_points.primaries; rebuild it")
         acc.stops[i] = prim["stopped"]
         acc.add_table_coverage(r.get("table_coverage"))
+        acc.add_event_caps(i, r)
         if prim["depth"]:
             acc.depth_sum[i] = prim["depth"]["mean"] * 1e9 * prim["stopped"]
         rows = (out / "electron_deposition_cylindrical.csv").read_text().splitlines()
@@ -715,9 +792,11 @@ def mismatches(oracle: str, problem: dict) -> tuple[list[str], list[str]]:
             "inelastic model: Nebula runs the full Penn algorithm (Nebula physics_config.h, full_penn; tables "
             "by cstool) with inner-shell ionization energies from the ENDF/B photo-atomic data cstool downloads "
             "(cstool/endf/) and cstool's Fermi correction (energy loss below K - E_F, "
-            "cstool/dielectric_function/compile.py); lindhard runs the single-pole Penn approximation with its "
-            "model Fermi energy 0 and no inner-shell channels, the loss clamp W <= E - E_F being applied by its "
-            "transport. lindhard's own full Penn model was not used: one Si table build at 5 keV did not finish "
+            "cstool/dielectric_function/compile.py); lindhard runs the single-pole Penn approximation with no "
+            "inner-shell channels, its table built on the band-bottom axis with the band's minimum excitation "
+            "energy as Fermi energy (W_v + E_g for an insulator, E_F for a metal), so the table rate is zero at "
+            "and below it and no loss exceeds E - E_F, as in cstool's Fermi correction (#241), with the table's "
+            "rate refined above that energy (#339). lindhard's own full Penn model was not used: one Si table build at 5 keV did not finish "
             "within 60 min on this host, against about 20 s for the single-pole tables (docs/validation.md)",
             "elastic model: Nebula uses Mott cross sections from ELSEPA as cstool calls it (cstool/mott/mott.py "
             "and elsepa_input.py: Dirac-Fock electron density, Fermi nuclear charge distribution, Furness-McCarthy "
@@ -867,6 +946,9 @@ def main() -> int:
             # Rate evaluations inside and beyond each table's energy grid,
             # summed over the batches (evaluations, not collisions).
             "table_coverage": ours["table_coverage"],
+            # Numerical truncation by the collision cap, pooled over batches (#369).
+            "event_cap_diagnostics": ours["event_cap_diagnostics"],
+            "truncation_note": truncation_note(ours["event_cap_diagnostics"]),
             "wall_s": ours["wall_s"],
             "materials": materials,
             "lindhard_settings": lsettings,
@@ -874,6 +956,7 @@ def main() -> int:
         path = SUMMARIES / f"lindhard-electron-{p['id']}.json"
         path.write_text(json.dumps(_round(lind), indent=2, ensure_ascii=False) + "\n")
         print(f"  wrote {path.relative_to(lindhard_cli.REPO)}")
+        print(f"  lindhard truncation: {lind['truncation_note']}")
         for o, b, v in ready:
             why = o.applies(p)
             if why:
@@ -901,6 +984,11 @@ def main() -> int:
                 "batches": spec["batches"],
                 "lindhard": {**{m: ours[m] for m in METRICS}, "std_err": ours["std_err"]},
                 "oracle_values": {**{m: theirs[m] for m in METRICS}, "std_err": theirs["std_err"]},
+                # lindhard's collision-cap diagnostics beside the comparison; the oracles' own are
+                # unknown (their outputs carry none).
+                "lindhard_event_cap_diagnostics": ours["event_cap_diagnostics"],
+                "oracle_event_cap_diagnostics": None,
+                "truncation_note": truncation_note(ours["event_cap_diagnostics"]),
                 "comparison": comparison,
                 "tolerance": tolerance(spec, p, o.name, comparison),
                 "wall_s": {"lindhard": ours["wall_s"], "oracle": theirs["wall_s"]},

@@ -1320,8 +1320,10 @@ impl PsfReport {
     }
 
     /// The fitted parameters as CSV: `model,parameter,value,std_error`, then
-    /// one `chi2`, `dof` and `reduced_chi2` row per fit (with an empty
-    /// error).
+    /// one `chi2`, `dof`, `reduced_chi2`, `converged` (1 or 0) and
+    /// `iterations` row per fit (with an empty error). The last two are the
+    /// fit's own diagnostics: a `converged` of 0 means the iteration budget
+    /// ran out and the parameters are the last iterate.
     pub fn parameters_csv(&self) -> String {
         let mut s = String::from("model,parameter,value,std_error\n");
         for f in &self.fits {
@@ -1332,6 +1334,8 @@ impl PsfReport {
             s.push_str(&format!("{tag},chi2,{},\n", f.chi2));
             s.push_str(&format!("{tag},dof,{},\n", f.dof));
             s.push_str(&format!("{tag},reduced_chi2,{},\n", f.reduced_chi2));
+            s.push_str(&format!("{tag},converged,{},\n", u8::from(f.converged)));
+            s.push_str(&format!("{tag},iterations,{},\n", f.iterations));
         }
         s
     }

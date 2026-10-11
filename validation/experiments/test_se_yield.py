@@ -194,5 +194,55 @@ class DatasetChecks(unittest.TestCase):
             seen.add(key)
 
 
+def caps_results(prim=None, tracks=None, aff=None, ev=None, n=1000, imbalance=0.0):
+    r = {"histories": n, "fates": {}, "budget": {"relative_imbalance": imbalance}}
+    if prim is not None:
+        r["fates"]["event_capped"] = prim
+    if tracks is not None:
+        r["event_caps"] = {"secondary_tracks": tracks, "affected_histories": aff}
+    if ev is not None:
+        r["budget"]["event_cap_ev"] = ev
+    return r
+
+
+class EventCapDiagnostics(unittest.TestCase):
+    def test_capped_secondary_is_kept_even_with_zero_imbalance(self):
+        d = sy.cap_diagnostics(caps_results(0, 1, 1, 2.5, n=200, imbalance=0.0))
+        self.assertEqual((d["primary_event_capped"], d["secondary_tracks"], d["affected_histories"]), (0, 1, 1))
+        self.assertEqual(d["event_cap_ev"], 2.5)
+        self.assertEqual(d["status"], "truncated")
+        self.assertAlmostEqual(d["affected_fraction"], 1 / 200)
+
+    def test_tracks_do_not_inflate_affected_histories(self):
+        d = sy.cap_diagnostics(caps_results(0, 9, 2, 1.0))
+        self.assertEqual((d["secondary_tracks"], d["affected_histories"]), (9, 2))
+
+    def test_explicit_zero_is_uncapped(self):
+        d = sy.cap_diagnostics(caps_results(0, 0, 0, 0.0))
+        self.assertEqual(d["status"], "uncapped")
+        self.assertEqual(d["affected_fraction"], 0.0)
+
+    def test_missing_is_unknown_not_zero(self):
+        d = sy.cap_diagnostics(caps_results())
+        self.assertEqual(d["status"], "unknown")
+        self.assertIsNone(d["affected_histories"])
+        self.assertIsNone(d["affected_fraction"])
+        # partially present zeros are still unknown
+        self.assertEqual(sy.cap_diagnostics(caps_results(0, None, None, 0.0))["status"], "unknown")
+
+    def test_markdown_annotates_truncated_and_unknown_runs(self):
+        runs = [
+            {"material": "Al", "config": "c", "energy_ev": 100.0, "event_caps": sy.cap_diagnostics(caps_results(0, 1, 1, 2.5))},
+            {"material": "Al", "config": "c", "energy_ev": 200.0, "event_caps": sy.cap_diagnostics(caps_results(0, 0, 0, 0.0))},
+            {"material": "Al", "config": "c", "energy_ev": 300.0},
+        ]
+        text = "\n".join(sy.truncation_notes({"runs": runs}))
+        self.assertIn("Truncated by the collision cap", text)
+        self.assertIn("Al `c` 100 eV: affected_histories 1", text)
+        self.assertIn("Truncation unknown** for 1 of 3", text)
+        self.assertNotIn("200 eV", text)
+        self.assertEqual(sy.truncation_notes({"runs": runs[1:2]}), [])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -584,7 +584,15 @@ fn default_start(elf: &OpticalElf, n: usize) -> Vec<DrudeLorentzOscillator> {
 /// 10 or 16 oscillators the committed Cu ELF still gets one of width
 /// 4e5 to 8e5 eV whose weight lies above the table, where the default
 /// relative weighting barely sees it (f-sum 188 and 106 times the table's,
-/// unconverged; #311).
+/// unconverged). The weighting does not reliably prevent it (#311; table in
+/// `docs/validation.md`, "Cu: the Mermin IMFP and the default oscillator
+/// fit"): at 10 oscillators `relative` floors of 0.1 and 1 avoid it
+/// (f-sum 0.79 and 0.87 of the table's), [`FitWeighting::Uniform`] makes it
+/// worse (4e4 times); at 16 oscillators none of the floors 1e-3 to 1 nor
+/// uniform weighting avoids it, and two of those fits report
+/// `converged = true`. Every such oscillator found is wider than the table's
+/// energy range. Check [`MerminFit::f_sum_ev2`] and [`MerminFit::p_eff`]
+/// against the table's whatever the options.
 pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> Result<MerminFit> {
     let w = elf.energy_ev();
     let y = elf.elf_values();

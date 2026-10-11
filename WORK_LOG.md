@@ -2,8 +2,76 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-11
+
+- **PR #381**: docs(provenance): final 4H-SiC density source search; 6H precision density (Part of #179)
+- **PR #378**: validation: regenerate the δ(E) tables on band-bottom inelastic tables (#364)
+- **PR #377**: refactor(input): split input/electron.rs into schema, resolve, resolved and tests modules
+- **PR #376**: fix(inelastic): open the full-Penn row window below elf_min (#361)
+- **Issue #374** (closed): Refactor: split lindhard/src/input/electron.rs into schema, resolve and resolved modules (no behaviour change)
+- **Issue #364** (closed): Regenerate Al, Cu, and Au secondary-electron yield tables after the band-bottom changes
+- **Issue #361** (closed): Full Penn tables: the loss window opens at the lowest ELF energy, but the full-Penn DIIMFP is not zero below it
+
 ### 2026-10-10
 
+- **PR #373**: refactor(electron): split data.rs into optical, binding, endf6 and table modules (#349)
+- **PR #370**: validation: preserve and surface event-cap truncation diagnostics
+- **Issue #369** (closed): Electron validation: preserve and surface event-cap truncation diagnostics
+- **Issue #349** (closed): Refactor: split lindhard/src/electron/data.rs into optical, binding, endf6 and table modules (no behaviour change)
+- **PR #371**: feat(full_penn): report ω_p exhaustion on the direct DIIMFP and IMFP paths (#368)
+- **PR #367**: docs(validation): knot-derived width cap does not bound the Mermin f-sum (#337, negative result)
+- **PR #363**: fix(inelastic): start the rate refinement at the model's rate onset (#357)
+- **PR #362**: Full Penn: bound the ω_p and profile bisections; Si table builds in 224 s (#298)
+- **PR #359**: docs: stable README status, trimmed architecture module table
+- **PR #358**: fix(inelastic): stop loss-density bisection at floating-point resolution (#345)
+- **PR #355**: feat(inelastic): refine band-bottom tables in lindhard run (#339)
+- **PR #354**: renovate: move onto the 2AMLogic org preset
+- **PR #352**: feat(crystal): source GaN cell and measured density; record the 4H-SiC density gap
+- **PR #299**: Full Penn: make one inelastic table build finish in minutes (#256)
+- **PR #236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
+- **PR #198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
+- **Issue #368** (closed): Report ω_p exhaustion on the direct full-Penn DIIMFP and IMFP paths (follow-up to #298)
+- **Issue #357** (closed): Rate refinement fails on an optical ELF whose onset lies inside the 2-20 eV window
+- **Issue #356** (closed): Dependency Dashboard
+- **Issue #350** (closed): Docs: replace the README status narrative and trim architecture.md module-table rows to stable summaries
+- **Issue #345** (closed): Mermin inelastic table: Si row at T = 1000 eV exhausts MAX_NODES in the loss-density refinement
+- **Issue #339** (closed): Resolve the inelastic rate from E_F upward on the band-bottom axis: extra table rows above the Fermi level
+- **Issue #337** (closed): Mermin fit: measure a knot-derived upper bound on the oscillator width against the #311 wide oscillators
+- **Issue #298** (closed): Full Penn: isolated (q, ω) points where one loss-function evaluation takes seconds (Si table build does not finish)
+- **Issue #291** (closed): Electron table grid: the default 10 points per decade under-resolves the inelastic rate just above the Fermi level on the band-bottom axis
+- **Issue #256** (closed): Full Penn: make one inelastic table build finish in usable time (split from #169)
+- **Issue #233** (closed): Python wheels: maturin multi-platform builds and PyPI trusted publishing (Epic #28, Phase 2)
+- **PR #351**: feat(inelastic): rate refinement of band-bottom tables above E_F (part of #339)
+- **PR #348**: PSF parameter CSV: export convergence and iteration diagnostics
+- **PR #346**: ci: pin the clippy gate and add a stable/beta clippy canary (#336)
+- **PR #344**: fix(electron): open a Mermin table row's loss window at the rate's lower limit (#342)
+- **PR #343**: fix(electron): store inelastic table rows with no loss window above the ELF table as empty (#340)
+- **PR #341**: docs(electron): measure the band-bottom table grid above E_F (#291)
+- **PR #338**: docs(electron): measure Mermin fit weighting options against the wide oscillator (#311)
+- **PR #335**: backscatter: fingerprint optical_elf contents before reusing runs
+- **PR #334**: crystal: density evidence per material; 4H-SiC/GaN density source gap (Refs #179)
+- **PR #333**: Expose the Mermin fit options per material in the electron input (#306)
+- **PR #332**: Plot backscatter eta(E) validation figure with rizzma (#279)
+- **PR #330**: validation: Cu seed 2 across hosts — not isolated; record hosts and table hashes (#319)
+- **PR #328**: fix(py): share CLI output publication in RunResult.write (#327)
+- **Issue #347** (closed): PSF parameter CSV: export convergence and iteration diagnostics
+- **Issue #342** (closed): Si Mermin rate table has an artificial zero row at 15.5 eV because the loss interval starts below the ELF table
+- **Issue #340** (closed): Si Mermin inelastic table refused for a band-bottom row within 0.5 eV above E_F (negative loss-density integral)
+- **Issue #331** (closed): Backscatter run reuse ignores optical-ELF content changes
+- **Issue #327** (closed): Python RunResult.write leaves prior output files in place while replacing a run
+- **Issue #319** (closed): Cu secondary-yield baseline differs by 5 sigma across machines with identical committed inputs
+- **Issue #311** (closed): Mermin wide-loss oscillator fit is biased toward the dense low-energy ELF rows
+- **Issue #306** (closed): Expose Mermin fit controls per electron material
+- **Issue #279** (closed): Plot simulation and validation output with rizzma
+
+### 2026-10-10
+
+- **Issue #149** (closed): [Epic #11] Validation: secondary-electron yield δ(E) vs published measurements
+- **Issue #241** (closed): Electron inelastic tables: build rows on the band-bottom axis with the band's Fermi energy (cstool convention) instead of relying on the E - E_F clamp
+- **Issue #321** (closed): CLI: invalidate prior summaries when a rerun starts replacing outputs
+- **PR #289**: Electron inelastic tables: band-bottom axis with the band's Fermi energy (#241)
+- **PR #322**: CLI: invalidate prior summaries when a rerun starts replacing outputs
+- **PR #324**: Backscatter (#148): Si in the fast-secondary sensitivity of eta
 - **Issue #300** (closed): Cu Mermin inelastic mean free path is 15 to 41 % longer than TPP 2011 and than the single-pole model on the same ELF
 - **Issue #307** (closed): Mermin fit with 10 or 16 oscillators puts a sub-meV oscillator between ELF knots (f-sum x7000 for Cu)
 - **Issue #312** (closed): SE yield candidates (#301 item 1): acoustic-phonon scattering for Cu, or the gap

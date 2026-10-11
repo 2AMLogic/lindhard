@@ -1,5 +1,6 @@
-//! Crystalline targets: the cubic lattice model and the geometry that sets
-//! the ion direction in the crystal frame (step 19a of the M2 crystal plan).
+//! Crystalline targets: the cubic and hexagonal lattice models and the
+//! geometry that sets the ion direction in the crystal frame (steps 19a and
+//! 19b of the M2 crystal plan).
 //!
 //! This module is the data model. The binary-collision engine
 //! ([`crate::ion::bca`]) uses it for the regions named in
@@ -8,11 +9,16 @@
 //! unchanged and amorphous runs are bit-identical. It provides three pieces:
 //!
 //! * [`Lattice`] ([`lattice`]): Bravais (primitive) vectors, a basis of sites
-//!   with their species, and a lattice constant stated with its temperature.
-//!   Constructors exist for the **diamond** (Si, Ge) and **zincblende**
-//!   (GaAs, 3C-SiC) structures, and four presets carry cited lattice
-//!   constants ([`LatticeConstant`]). Miller-index plane normals and
-//!   lattice directions are computed from the reciprocal lattice.
+//!   with their species, and lattice parameters stated with their
+//!   temperature. Constructors exist for the cubic **diamond** (Si, Ge) and
+//!   **zincblende** (GaAs, 3C-SiC) structures and the hexagonal **wurtzite**
+//!   and **polytype** (stacking sequence, e.g. 4H, 6H) structures. Presets
+//!   carry cited lattice parameters ([`LatticeConstant`],
+//!   [`HexagonalConstants`]): Si, Ge, GaAs, 3C-SiC, GaN, 4H-SiC and 6H-SiC.
+//!   Miller-index plane normals and lattice directions are computed from the
+//!   reciprocal lattice; hexagonal lattices also take four-index
+//!   (Miller-Bravais) planes `(hkil)` and directions `[uvtw]`, with the
+//!   convention in the [`lattice`] module docs.
 //! * [`Orientation`] ([`orientation`]): the wafer cut (surface normal and an
 //!   in-plane reference direction, both as indices), and the beam tilt, twist
 //!   and wafer rotation. It gives the lab-to-crystal rotation and the beam
@@ -27,8 +33,9 @@
 //! # Frames
 //!
 //! * **Crystal frame**: Cartesian axes along the cube edges of the
-//!   conventional cell, so the direction `[100]` is `(1, 0, 0)`. Lengths are
-//!   metres ([`crate::units`]).
+//!   conventional cell, so the direction `[100]` is `(1, 0, 0)`. For a
+//!   hexagonal lattice, `z` is the `c` axis `[0001]` and `x` is along
+//!   `[11-20]` (`a1 + a2`). Lengths are metres ([`crate::units`]).
 //! * **Lab frame**: the frame of [`crate::geometry`]: `x` is depth (the inward
 //!   surface normal), `y` and `z` are lateral. A beam direction with polar
 //!   angle `θ` from `+x` and azimuth `φ` from `+y` towards `+z` is
@@ -41,11 +48,9 @@
 //! ([`CrystalTarget::thermal`](crate::ion::bca::CrystalTarget::thermal)).
 //!
 //! [`search`] finds the lattice sites within an impact parameter of a path
-//! segment by walking unit cells, ordered along the path (geometry only; the
-//! crystal flight model of the engine calls it for every segment).
-//!
-//! Hexagonal lattices (wurtzite GaN, 4H/6H-SiC) are a later step and are not
-//! here.
+//! segment by walking rectangular cells ([`Lattice::orthogonal_cell`]: the
+//! cube, or the orthohexagonal cell), ordered along the path (geometry only;
+//! the crystal flight model of the engine calls it for every segment).
 
 pub mod debye;
 pub mod divergence;
@@ -54,7 +59,7 @@ pub mod orientation;
 pub mod search;
 
 pub use divergence::Divergence;
-pub use lattice::{Lattice, LatticeConstant, Site, Structure};
+pub use lattice::{HexagonalConstants, Lattice, LatticeConstant, Site, Structure};
 pub use orientation::Orientation;
 pub use search::{Candidate, LatticeSearch};
 
@@ -73,6 +78,29 @@ pub enum CrystalError {
     /// A Miller index or direction index triple was all zero.
     #[error("index triple {0:?} is all zero")]
     ZeroIndex([i32; 3]),
+    /// A four-index (Miller-Bravais) plane or direction broke its constraint.
+    #[error("invalid Miller-Bravais indices {indices:?}: {why}")]
+    InvalidMillerBravais {
+        /// The four indices as given.
+        indices: [i32; 4],
+        /// The rule they broke.
+        why: &'static str,
+    },
+    /// Four-index input was used with a lattice that is not hexagonal.
+    #[error("Miller-Bravais (four-index) input needs a hexagonal lattice")]
+    NotHexagonal,
+    /// A wurtzite or polytype internal parameter `u` was outside `(0, 1/2)`
+    /// or not finite.
+    #[error("invalid internal parameter u = {0}: must be finite and in (0, 1/2)")]
+    InvalidInternalParameter(f64),
+    /// A polytype stacking sequence was not valid.
+    #[error("invalid stacking sequence {stacking:?}: {why}")]
+    InvalidStacking {
+        /// The sequence as given.
+        stacking: String,
+        /// The rule it broke.
+        why: &'static str,
+    },
     /// The in-plane reference direction does not lie in the surface plane
     /// (the zone law `h u + k v + l w = 0` fails).
     #[error(

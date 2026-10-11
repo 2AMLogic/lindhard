@@ -44,6 +44,11 @@ fields of `lindhard-oracle-summary/2` above where they apply (`oracle*`,
 `r50_rel_diff`, each with `*_se` and `*_z`), `tolerance` (the #150 rule and,
 where it applies, pass or fail per metric), `wall_s` and, for Nebula,
 `materials`. A metric a code has no value for is `null`.
+When `run_electron.py --lindhard-only` has refreshed our side after the oracle
+ran (so the two `lindhard_version`s differ), the oracle summary is kept as it
+was run, and `validation/update_docs.py` recomputes Δ and the verdict from its
+`oracle_values` and the newer `lindhard-electron-<problem>.json` with the
+harness's own `compare` and `tolerance`, marking those rows (#365).
 
 ## Electron benchmarks: `bench-electron-<problem>.json`
 
