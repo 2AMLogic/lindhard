@@ -36,6 +36,14 @@ Usage:
     validation/oracles/run.py --problem b_5keV_si
     validation/oracles/run.py --lindhard-only # exercise the lindhard side only
     validation/oracles/run.py --ions 2000     # override the history count
+    validation/oracles/run.py --threads 2     # cap every code's worker threads
+
+By default every code runs on all logical CPUs of the host. `--threads N`
+caps lindhard (`run.threads`), RustBCA (its documented `num_threads` option)
+and OpenTRIM (its documented `Run/threads` option) at N, for a shared or
+memory-limited host. The cap is recorded in each summary's `threads` and
+`timing`; lindhard's results do not depend on it, and the speed ratios of a
+capped run are not comparable with those of an uncapped one.
 """
 
 from __future__ import annotations
@@ -79,6 +87,14 @@ AVOGADRO = 6.02214076e23  # exact (SI 2019)
 
 class NotConfigured(Exception):
     pass
+
+
+# Worker threads for every code: None = all logical CPUs (`--threads`).
+THREADS: int | None = None
+
+
+def worker_threads() -> int:
+    return THREADS or os.cpu_count() or 1
 
 
 def _git(src: str | None, *args: str) -> str | None:
@@ -270,7 +286,7 @@ class RustBca(Oracle):
         # second paragraph). Every key below is one documented there.
         b = matched["beam"]
         els = matched["elements"]
-        threads = os.cpu_count() or 1
+        threads = worker_threads()
         name = "rb_"
         # "Geometry Input / Mesh0D", electronic_stopping_correction_factor:
         # a multiplier on the electronic stopping; 0.0 switches electronic
@@ -512,7 +528,7 @@ class OpenTrim(Oracle):
         # (doc/h5file.md, `/run_info/total_ion_count`).
         b = matched["beam"]
         els = matched["elements"]
-        threads = os.cpu_count() or 1
+        threads = worker_threads()
         dx = 0.05  # nm, stop-depth bin of the user tally
         depth = 400.0 if not matched["follow_recoils"] else 50.0
         width = 100.0
@@ -750,7 +766,16 @@ def main() -> int:
         help="also time every code at this many times run.ions, for the marginal (startup-free) ions/s; "
              "0 or 1 disables (default 5)",
     )
+    ap.add_argument(
+        "--threads", type=int,
+        help="worker threads of every code (lindhard, RustBCA, OpenTRIM); default: all logical CPUs",
+    )
     args = ap.parse_args()
+    if args.threads is not None:
+        if args.threads < 1:
+            ap.error("--threads must be at least 1")
+        global THREADS
+        THREADS = args.threads
 
     spec = json.loads((HERE / "problems.json").read_text())
     problems = [p for p in spec["problems"] if not args.problem or p["id"] in args.problem]
@@ -759,6 +784,9 @@ def main() -> int:
     if args.ions:
         for p in problems:
             p["run"]["ions"] = args.ions
+    if THREADS:
+        for p in problems:
+            p["run"]["threads"] = THREADS
 
     # Which oracles can run at all? Report before doing any work.
     ready = []
@@ -850,7 +878,9 @@ def main() -> int:
                     "ions_per_s_marginal": None if not big else (
                         f"(N2 - N1) / (t2 - t1) between runs of N1 = {p['run']['ions']} and "
                         f"N2 = {big['run']['ions']} ions: throughput with fixed setup costs removed"),
-                    "threads": "every code runs on all logical CPUs of the host",
+                    "threads": f"every code capped at {THREADS} worker threads (--threads); speed ratios are "
+                               "not comparable with summaries run on all logical CPUs"
+                               if THREADS else "every code runs on all logical CPUs of the host",
                 },
                 "lindhard_settings": {
                     k: matched[k]
