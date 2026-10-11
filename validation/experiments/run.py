@@ -803,14 +803,15 @@ def run_tuning_fit(binary: Path) -> None:
     split = tuning_split(datasets)  # step 1: fixed before any run
     runs = lindhard_cli.RUNS / "experiments" / "tuning"
     version = lindhard_cli.version(binary)
-    # Resume: a run already in `runs` from the same build and input is reused.
-    describe = version[version.find("(") + 1:version.rfind(")")] if "(" in version else None
+    # Resume: a run already in `runs` is reused only if its manifest matches this
+    # executable's bytes (hashed once here), input and tables (validation/README.md).
+    binary_id = lindhard_cli.binary_sha256(binary)
 
     def sim(target, energies, ions, e_s, factor):
         out, se = {}, {}
         for e in sorted(set(energies)):
             p = tuned_problem(target, e, ions, e_s, factor)
-            r = lindhard_cli.run(p, runs / p["id"], binary, reuse_describe=describe)
+            r = lindhard_cli.run(p, runs / p["id"], binary, binary_id=binary_id)
             out[e], se[e] = r["sputter_yield"], r["sputter_yield_se"]
         return out, se
 

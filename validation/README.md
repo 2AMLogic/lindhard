@@ -29,9 +29,9 @@ the harness never runs them.
 
 ## Unit tests
 
-Three stdlib `unittest` files guard the harness itself (level-3 provenance
+Four stdlib `unittest` files guard the harness itself (level-3 provenance
 enforcement, secondary-electron yield evaluation, and electron table-coverage
-summing). They need no build, simulation or third-party package and run in
+summing, and the ion-run resume manifest). They need no build, simulation or third-party package and run in
 under a second. CI runs them in the `validation-docs` job, and
 `validation/run.sh` runs them first:
 
@@ -39,7 +39,31 @@ under a second. CI runs them in the `validation-docs` job, and
 python3 validation/experiments/test_run.py
 python3 validation/experiments/test_se_yield.py
 python3 validation/oracles/test_run_electron.py
+python3 validation/lib/test_lindhard_cli.py
 ```
+
+## Resuming a sweep
+
+The sputtering tuning sweep (`experiments/run.py`) can resume: a run already
+under `oracle-runs/experiments/tuning/<id>/` is reused instead of rerun. A git
+description is not a build identity (two dirty builds, or an explicit stamp
+override, share one), so `lindhard_cli.run` reuses a run only if all of these
+agree:
+
+- `manifest.json` in the run directory is a version-1 manifest marked complete;
+- its recorded SHA-256 of the `lindhard` executable equals the current one
+  (hashed once per sweep by `lindhard_cli.binary_sha256` and passed in);
+- its recorded hash of the generated `input.toml` equals the current input;
+- each referenced stopping table (same path) still has the recorded bytes;
+- `out/summary.json` has the recorded hash and is complete enough to read.
+
+A missing, malformed or obsolete manifest is a miss and the run is redone
+(existing unmanifested runs rerun once). A required input that cannot be read
+(executable, stopping table) is an error, never a miss. The manifest is
+deleted before a rerun starts and written only after the run succeeded and its
+summary was read, so an interrupted or failed rerun cannot leave a manifest
+certifying earlier outputs. `software.git_describe` is recorded in the manifest
+as provenance only. Callers that do not pass `binary_id` always rerun.
 
 ## Clean-room rules that apply here
 

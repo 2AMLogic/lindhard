@@ -44,6 +44,7 @@ python3 validation/experiments/test_run.py
 python3 validation/experiments/test_se_yield.py
 python3 validation/experiments/test_se_yield_candidates.py
 python3 validation/oracles/test_run_electron.py
+python3 validation/lib/test_lindhard_cli.py
 
 level1="$(mktemp "${TMPDIR:-/tmp}/lindhard-level1.XXXXXX")"
 trap 'rm -f "$level1"' EXIT

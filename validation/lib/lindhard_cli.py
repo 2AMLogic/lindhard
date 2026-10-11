@@ -8,6 +8,7 @@ summary metrics from `summary.json`.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import subprocess
@@ -93,23 +94,99 @@ def to_toml(problem: dict) -> str:
     return "\n".join(lines)
 
 
-def run(problem: dict, workdir: Path, binary: Path | None = None, reuse_describe: str | None = None) -> dict:
+MANIFEST_NAME = "manifest.json"
+MANIFEST_VERSION = 1
+
+
+def _sha256_file(path: Path) -> str:
+    """SHA-256 of a file's bytes; an unreadable file is an error, never a miss."""
+    h = hashlib.sha256()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1 << 20), b""):
+                h.update(chunk)
+    except OSError as e:
+        die(f"cannot read {path} to fingerprint it: {e}")
+    return h.hexdigest()
+
+
+def binary_sha256(binary: Path) -> str:
+    """The executable's SHA-256. Compute once per sweep and pass it to `run`
+    as `binary_id`; it is the build identity (a git description is not)."""
+    return _sha256_file(Path(binary))
+
+
+def _fingerprints(problem: dict, text: str, binary_id: str) -> dict:
+    """What a reusable result depends on: executable, input, referenced tables."""
+    return {
+        "binary_sha256": binary_id,
+        "input_sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "stopping_tables": [
+            {"path": str(t), "sha256": _sha256_file(Path(t))} for t in problem.get("stopping_tables") or []
+        ],
+    }
+
+
+def _read_summary(path: Path) -> dict | None:
+    """The parsed summary if it is complete enough to report from, else None."""
+    try:
+        s = json.loads(path.read_text())
+        s["software"]["git_describe"]
+        r = s["results"]
+        r["recoils"]["sputtered"], r["histories"], r["primaries"]["stopped_depth_mean_nm"]
+        r["yields"]["sputtered_per_ion"]
+        s["physics"]["target"][0]["material"]["elements"], s["run"]["ions_per_s"]
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        return None
+    return s
+
+
+def _reusable_summary(workdir: Path, inp: Path, out: Path, text: str, want: dict) -> dict | None:
+    """The completed summary if the manifest, the current fingerprints and the
+    summary all agree; any missing, malformed or obsolete piece is a miss."""
+    try:
+        m = json.loads((workdir / MANIFEST_NAME).read_text())
+        if (
+            not isinstance(m, dict)
+            or m.get("manifest_version") != MANIFEST_VERSION
+            or m.get("complete") is not True
+            or any(m.get(k) != v for k, v in want.items())
+            or inp.read_text() != text
+        ):
+            return None
+        raw = (out / "summary.json").read_bytes()
+    except (OSError, ValueError):
+        return None
+    if hashlib.sha256(raw).hexdigest() != m.get("summary_sha256"):
+        return None
+    s = _read_summary(out / "summary.json")
+    if s is None or s["software"]["git_describe"] != m.get("git_describe"):
+        return None
+    return s
+
+
+def run(problem: dict, workdir: Path, binary: Path | None = None, binary_id: str | None = None) -> dict:
     """Run `lindhard` on a problem; return its summary metrics.
 
-    `reuse_describe`: if given, an earlier run in `workdir` is reused instead
-    of rerun when its input file is identical and its summary's
-    `software.git_describe` equals this string (resuming a long sweep)."""
+    `binary_id`: the executable's SHA-256 (`binary_sha256`, computed once per
+    sweep). If given, an earlier run in `workdir` is reused instead of rerun
+    only when `workdir/manifest.json` records this executable, this exact
+    input and the same bytes of every referenced stopping table, and the
+    summary it names is complete and unchanged. The manifest is removed before
+    a rerun and written only after the run succeeded and its summary was read,
+    so a failed or interrupted rerun never leaves a reusable manifest. The
+    summary's `git_describe` is recorded as provenance only. Without
+    `binary_id` the run is always executed and no manifest is kept."""
     binary = binary or lindhard_binary()
     workdir.mkdir(parents=True, exist_ok=True)
     inp = workdir / "input.toml"
     text = to_toml(problem)
     out = workdir / "out"
-    s = None
-    if reuse_describe is not None and inp.exists() and inp.read_text() == text and (out / "summary.json").exists():
-        old = json.loads((out / "summary.json").read_text())
-        if old.get("software", {}).get("git_describe") == reuse_describe:
-            s = old
+    manifest = workdir / MANIFEST_NAME
+    want = _fingerprints(problem, text, binary_id) if binary_id is not None else None
+    s = _reusable_summary(workdir, inp, out, text, want) if want is not None else None
     if s is None:
+        manifest.unlink(missing_ok=True)  # invalidate before touching the outputs
         inp.write_text(text)
         proc = subprocess.run(
             [str(binary), "run", str(inp), "--out", str(out)],
@@ -118,7 +195,20 @@ def run(problem: dict, workdir: Path, binary: Path | None = None, reuse_describe
         )
         if proc.returncode != 0:
             die(f"lindhard failed on {problem['id']}:\n{proc.stderr}")
-        s = json.loads((out / "summary.json").read_text())
+        s = _read_summary(out / "summary.json")
+        if s is None:
+            die(f"lindhard produced no complete summary.json for {problem['id']}")
+        if want is not None:
+            record = {
+                "manifest_version": MANIFEST_VERSION,
+                "complete": True,
+                **want,
+                "summary_sha256": _sha256_file(out / "summary.json"),
+                "git_describe": s["software"]["git_describe"],  # provenance
+            }
+            tmp = workdir / (MANIFEST_NAME + ".tmp")
+            tmp.write_text(json.dumps(record, indent=2) + "\n")
+            os.replace(tmp, manifest)
     r = s["results"]
     sputtered = r["recoils"]["sputtered"]
     return {
