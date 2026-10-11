@@ -329,7 +329,17 @@ pub const SIC_6H_Z: [f64; 6] = [0.0, 0.1254, 0.16675, 0.29215, 0.8335, -0.0415];
 /// pp. 327-328 and Table 25 on p. 342, gives for α-SiC type III (4H)
 /// only a cell (`a = 3.073 Å`, `c = 10.053 Å`) and a **calculated** density
 /// of 3.217; its one measured (pycnometric) density, `d` at 30°/4° C =
-/// 3.218 (p. 341), is of type II (6H). See `docs/data-provenance.md`.
+/// 3.218 (p. 341), is of type II (6H).
+///
+/// Two open measured 4H densities were found on 2026-10-11, and neither
+/// replaces this value: D. Lundqvist, Acta Chem. Scand. 2, 177 (1948), p. 182,
+/// `σ_obs. = 3.201 + 0.005` on impure type III with a little type I (Al
+/// 0.30 %), which the [`Lattice::silicon_carbide_4h`] cell exceeds by 3.88e-3,
+/// 2.5 times the stated 0.005; and ORNL/TM-2023/3059 (2023), Table 4, p. 7,
+/// 3.17 and 3.21 g/cm³ by dimensions and mass for two 4H wafers, a 1.3e-2
+/// spread with no temperature or uncertainty stated. Both are pinned in
+/// `tests/crystal_hex.rs`; the 4H density criterion of #179 stays unmet. See
+/// `docs/data-provenance.md`.
 pub const SIC_4H_DENSITY_G_CM3: f64 = 3.211;
 
 /// 6H-SiC density, "3.21 g cm-3, 300 K", credited to Harris et al. (1995b)

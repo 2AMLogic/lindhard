@@ -616,12 +616,81 @@ energies. Level 3 keeps the untuned comparison as the primary result.
     3.20 to 3.24" and "A precision density performed on the 71.4 gram piece
     of rough gave a value of 3.224" (no temperature, no uncertainty stated).
     The Bauer 6H cell implies 3.21337 g/cm³, −3.30e-3 from 3.224, more than
-    its last printed digit (1.6e-4). So both opened primary 6H measurements
-    (Thibault 3.218, Nassau et al. 3.224) lie above the X-ray density of the
-    Bauer cell by more than their printed precision, and the 6H agreement in
+    its last printed digit (1.6e-4). So the two primary 6H measurements
+    opened on 2026-10-10 (Thibault 3.218, Nassau et al. 3.224) lie above
+    the X-ray density of the Bauer cell by more than their printed precision, and the 6H agreement in
     the test rests on the compilation value 3.21 (Harris et al. 1995b, not
-    opened). Neither 6H value was substituted and no tolerance was changed;
-    that 6H choice, like the 4H gap, needs the operator. The density
+    opened).
+    Third pass 2026-10-11 (#179). Two open, primary **measured 4H**
+    densities were found and opened. Neither makes the Bauer 4H cell agree
+    within a justified precision, so the gap stands; both are pinned, with
+    Lundqvist's 6H value, in `opened_measured_sic_densities_are_recorded_gaps`
+    (`lindhard/tests/crystal_hex.rs`), and none is used by a preset.
+    (1) D. Lundqvist, "On the Crystal Structure of Silicon Carbide and its
+    Content of Impurities", Acta Chem. Scand. 2, 177-191 (1948),
+    doi:10.3891/acta.chem.scand.02-0177 (open,
+    <https://actachemscand.ki.ku.dk/pdf/acta_vol_02_p0177-0191.pdf>, a
+    15-page scan without a text layer, SHA-256
+    `d07a56580cd62749654d845c06eadcfa3fab80acd5d7b48c1ed7523010e7768d`, read
+    from the rendered page images). Printed p. 182: two powder preparations
+    on one film, "a very pure silicon carbide (Al and Fe less than 0.01 %)
+    which contained exclusively type II" and "a very impure silicon carbide
+    (Al 0.30 %, Fe 0.07 %) which contained only type III and a little of type
+    I"; type II `a = 3.0800 ± 0.0002`, `c = 15.098 ± 0.001` Å.U.,
+    `σ_calc. = 3.213`, `σ_obs. = 3.209 + 0.001`; type III `a = 3.0800 ±
+    0.0002`, `c = 10.081 ± 0.001` Å.U., `σ_calc. = 3.208`, `σ_obs. = 3.201 +
+    0.005` (the `+` is as printed; read here as the stated uncertainty); no
+    temperature and no method for `σ_obs.` stated on that page (p. 179
+    mentions "systematic determinations of the specific weight"). Types II
+    and III are 6H and 4H (Thibault 1944, row above). Same page: "The
+    observed specific weight of type II agrees well with the theoretical
+    value, whereas the observed specific weights of the black opaque silicon
+    carbides, rich in type III, show slightly greater deviations owing to
+    their content of foreign matter." The Bauer 4H cell (3.21342 g/cm³) is
+    +3.88e-3 from 3.201, 2.5 times the stated 0.005 (1.56e-3 relative), on
+    material the author calls impure and not single-polytype. Lundqvist's own
+    cell does not help: with the weights and Avogadro constant used here it
+    gives 3.2157 (4H) and 3.2207 (6H), further from his `σ_obs.`, and above
+    his printed `σ_calc.` (3.208, 3.213) by about 2.4e-3 relative; that
+    difference was not reconciled (his constants are not given on the pages
+    read). (2) P. L. Mulligan, A. A. Campbell, C. M. Parish, A. M. Schrell
+    and B. La Riviere, ORNL/TM-2023/3059 (Oak Ridge National Laboratory,
+    August 2023), doi:10.2172/2001384 (open, <https://www.osti.gov/servlets/purl/2001384>,
+    26 pages, SHA-256
+    `c17a5545912881b5578c80052f8e20ae31947397ea3d8a9f3b9ad76f9a773630`):
+    Table 1, p. 3 (PDF p. 10), material A "4H, N-type", wafer 0.35 mm by
+    101 mm, and material B "4H, Semi Insulating (SI)", wafer 0.5 mm by 101
+    mm, both from an unnamed grower; section 4.1 and Table 4, p. 7 (PDF
+    p. 14), "Density of the materials was measured via direct measurement of
+    the parallelepiped specimen dimensions and massing of the samples", A
+    (specimen A22) 3.17 g/cm³, B (B07) 3.21 g/cm³; no temperature, no
+    uncertainty. The Bauer 4H cell is +1.37e-2 from A and +1.06e-3 from B.
+    B alone would agree within half a unit of its last digit (1.56e-3), but
+    A and B, two 4H wafers measured the same way, differ by 1.3e-2, about
+    eight times that, so the printed digit says nothing about the precision
+    of the method; taking B and not A would be a selection, so neither is
+    adopted. Searched without a usable result on 2026-10-11: OpenAlex
+    full-text queries on 4H-SiC with Archimedes, hydrostatic weighing,
+    pycnometer, resonant ultrasound and Brillouin scattering (ceramics,
+    composites and device papers only; Kamitani et al., J. Appl. Phys. 82,
+    3152 (1997), doi:10.1063/1.366100, the Brillouin study of 4H and 6H cited
+    by the ORNL report, and "A Study of the Elastic Constants of 4H Silicon
+    Carbide (4H-SiC)", ITherm 2019, doi:10.1109/ITHERM.2019.8757291, are
+    closed per OpenAlex and were not opened); synthetic-moissanite gemology
+    (only the 1997 6H paper above); the 4H-SiC TCAD review arXiv:2410.06798
+    (opened, 240 pages, SHA-256
+    `4155019ece7d7969a8474d99011492f20e33fb2788d86ffefdf10f50652c08d4`; no
+    mass density in its text); OSTI 1237072 (irradiated 4H and 3C swelling,
+    opened; defect densities only); "Developments in silicon carbide
+    research", Acta Cryst. 5 (1952), doi:10.1107/S0365110X52000617 (IUCr bot
+    wall; not opened). No constant, preset or tolerance was changed.
+    A third opened 6H measurement, Lundqvist's 3.209 (printed `+ 0.001`,
+    third pass above), lies *below* the X-ray density of the Bauer 6H cell,
+    which is +1.36e-3 from it, 4.4 times the stated 0.001. The three primary
+    6H values (3.209, 3.218, 3.224) thus bracket the cell and spread over
+    4.7e-3, wider than any of their stated or printed precisions. No 6H value
+    was substituted and no tolerance was changed; that 6H choice, like the
+    4H gap, needs the operator. The density
     criterion of #179 is therefore **met for 6H-SiC and GaN, not for
     4H-SiC**; the 4H-SiC preset stays provisional with respect to density,
     and the approved criterion has not been reinterpreted.
