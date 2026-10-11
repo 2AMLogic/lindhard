@@ -55,6 +55,7 @@ jobs:
           python3 validation/experiments/test_se_yield_candidates.py
           python3 validation/experiments/test_backscatter.py
           python3 validation/oracles/test_run_electron.py
+          python3 validation/lib/test_lindhard_cli.py
 
   workflow-checks:
     name: Workflow checks (clippy pin, canary reporting)
