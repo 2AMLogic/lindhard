@@ -2281,8 +2281,17 @@ set changes status.
   arm64, Apple M3 Ultra; binary SHA-256
   `35515a703df2c8a0c315b778dc99228e2c5b4cf27729c458a8e319fa9eb0ecfd`),
   one `lindhard run` at a time into the committed results file, on
-  2026-10-10. Every run carries the collision-cap diagnostics of #369: all
-  218 are `uncapped` (no primary or secondary track hit the cap), and the
+  2026-10-10. Six `cutoff-band-bottom` points (Al and Si at 600, 800 and
+  1000 eV) were added for #380 on the same day, with the same settings and
+  a second release build of the same commit, made in a detached worktree at
+  `74a5ce3` (same rustc and host; it prints the same version string,
+  `lindhard 0.0.1 (74a5ce3)`; binary SHA-256
+  `49fb05b72cedbf7661f5c48de0367b775bbef8e31632e78ebf706567c639f3cc`, which
+  differs from the first build's). Before those points were run, that
+  binary reproduced the stored Si `cutoff-band-bottom` run at 100 eV: every
+  field of the record is identical. Every run carries the collision-cap
+  diagnostics of #369: all
+  224 are `uncapped` (no primary or secondary track hit the cap), and the
   largest relative energy imbalance is 4e-13. Before #364 the tables were
   the #149 DHFS rerun at `abd6a5e` (two concurrent workers, merged by key),
   which replaced the Thomas-Fermi Yukawa runs (builds 6629260, 51af302,
@@ -2295,16 +2304,28 @@ set changes status.
   `barrier-off` and `mermin` rows are complete for all four materials
   (`phi-low` and `phi-high` for the metals only; the `mermin` rows at the
   six energies of `SLOW_ENERGIES_EV`). The
-  `cutoff-band-bottom` row is not: a point of it costs several minutes on
-  two threads (Au, 100 to 1000 eV: 61 minutes for the eight points; electrons
-  trapped under the barrier are followed until they drop below the
-  cutoff), and the regeneration was held to about three hours of wall
-  time. It was run for Al from 100 to 400 eV (as before #364), for Cu and
-  Au from 100 to 1000 eV (1500 eV, run before #364, was not re-run) and
-  for Si from 100 to 400 eV (600 eV to 5 keV, run before #364, were not
-  re-run). The table prints "not run" for the other points and an E_max
-  over the points that were run only; for Al that is the end of the row,
-  so no maximum is reported. Nothing was interpolated.
+  `cutoff-band-bottom` row is not, by decision (#380): it is run from 100 eV
+  to 1 keV for all four materials (eight of the twelve grid energies) and
+  not at 1500, 2000, 3000 and 5000 eV. The reason for stopping at 1 keV:
+  the row exists to show how far the cutoff reference moves the maximum
+  of δ(E), and 100 eV to 1 keV contains the maximum of every `default`
+  row (Al 600, Cu 400, Si 200, Au 600 eV) and of every resolving measured
+  set (250 to 800 eV, reference table below), with at least one grid
+  point above each, so every row now has an interior maximum. The four
+  energies left out lie on the falling side of every curve and would not
+  move a maximum. The reason for not running them anyway is cost: a point
+  takes minutes on two threads, because electrons trapped under the
+  barrier are followed until they drop below the cutoff (Au, 100 to 1000
+  eV, in the #364 regeneration: 61 minutes for the eight points). The six
+  points added for #380 took 69 minutes together: Al 743, 590 and 785 s
+  and Si 1299, 315 and 412 s at 600, 800 and 1000 eV (the Si point at 100
+  eV takes 27 s). The time is not monotonic in energy, so the cost of the
+  16 points left out was not extrapolated; it was not measured either.
+  The #364 regeneration had run Al and Si from 100 to 400 eV and Cu and
+  Au from 100 to 1000 eV. The points run before #364 above 1 keV (Cu and
+  Au at 1500 eV, Si from 1500 eV to 5 keV) were not re-run. The table
+  prints "not run" for the four energies and an E_max over the points
+  that were run. Nothing was interpolated.
 - **`penn-full` was not run for any material.** Its table build took 45
   minutes on two threads of a shared host and was stopped (#173); making it
   affordable is #256, and the `penn-full` rows
@@ -2343,7 +2364,7 @@ committed results.
 | `phi-low`: as default, work function at the low end of the cited range (metals only) | 3.474 | 4.595 | 5.553 | 6.697 | 7.384 | 7.673 | 7.276 | 6.782 | 5.107 | 4.072 | 2.627 | 1.786 | 600 | 7.673 |
 | `phi-high`: as default, work function at the high end of the cited range (metals only) | 3.280 | 4.398 | 5.264 | 6.428 | 6.986 | 7.257 | 6.856 | 6.340 | 4.636 | 3.837 | 2.438 | 1.628 | 600 | 7.257 |
 | `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 4.457 | 6.587 | 8.306 | 10.983 | 12.873 | 14.449 | 14.310 | 12.967 | 9.880 | 8.055 | 5.609 | 3.467 | 600 | 14.449 |
-| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 3.461 | 4.640 | 5.602 | 6.899 | 7.531 |  |  |  |  |  |  |  | incomplete: not run at 600, 800, 1000, 1500, 2000, 3000, 5000 eV | - |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 3.461 | 4.640 | 5.602 | 6.899 | 7.531 | 8.030 | 7.686 | 7.074 |  |  |  |  | 600; not run at 1500, 2000, 3000, 5000 eV | 8.030 |
 | `mermin`: Mermin (MELF), barrier on, vacuum-level cutoff | 1.118 |  | 1.263 |  | 1.108 |  | 0.795 |  | 0.469 |  | 0.253 |  | 200 | 1.263 |
 
 Not run for Al: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The reason is given in the text below the tables.
@@ -2367,7 +2388,7 @@ Not run for Cu: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The re
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `default`: single-pole Penn, barrier on (metals: mid work function; Si: electron affinity), vacuum-level cutoff | 1.371 | 1.550 | 1.664 | 1.661 | 1.579 | 1.341 | 1.143 | 0.976 | 0.671 | 0.566 | 0.347 | 0.212 | 200 | 1.664 |
 | `barrier-off`: as default, transparent boundary (no barrier), vacuum-level cutoff | 3.170 | 4.218 | 4.806 | 5.130 | 5.055 | 4.662 | 3.987 | 3.373 | 2.384 | 1.889 | 1.162 | 0.843 | 300 | 5.130 |
-| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 1.446 | 1.641 | 1.823 | 1.795 | 1.717 |  |  |  |  |  |  |  | 200; not run at 600, 800, 1000, 1500, 2000, 3000, 5000 eV | 1.823 |
+| `cutoff-band-bottom`: as default, cutoff measured from the band bottom, 1 eV above the Fermi level (below the vacuum level) | 1.446 | 1.641 | 1.823 | 1.795 | 1.717 | 1.502 | 1.270 | 1.068 |  |  |  |  | 200; not run at 1500, 2000, 3000, 5000 eV | 1.823 |
 | `mermin`: Mermin (MELF), barrier on, vacuum-level cutoff | 0.685 |  | 0.669 |  | 0.549 |  | 0.384 |  | 0.236 |  | 0.121 |  | 100 | 0.685 |
 
 Not run for Si: `penn-full` (full Penn, barrier on, vacuum-level cutoff). The reason is given in the text below the tables.
@@ -2601,13 +2622,28 @@ the DHFS elastic potential; nothing was adjusted to these data):
   1.7 (Au) and 3.1 (Si). Moving the work function across the range of its
   cited table changes δ_max by +2 / -4 % (Al, low / high), +9 / -8 % (Cu)
   and +2 / -4 % (Au). (Si has one cited affinity, no range.)
-- **The cutoff reference matters little.** Following electrons to 1 eV
+- **The cutoff reference matters little next to the barrier, and does not
+  move a maximum.** Following electrons to 1 eV
   above the Fermi level instead of 1 eV above the vacuum level changes δ at
-  the points run by +6 to +10 % for Si (to 400 eV), +2 to +5 % for Al (to
-  400 eV), -0.3 to +7 % for Cu and +1 to +5 % for Au (both to 1000 eV), with
-  no maximum moved (Cu 400 eV, Si 200 eV and Au 600 eV in both rows; the Al
-  row stops at 400 eV, below the default's maximum). The row is incomplete
-  ("Rows that are incomplete", above).
+  the points run (100 eV to 1 keV, all four materials) by +2 to +9 % for
+  Al, -0.3 to +7 % for Cu, +6 to +12 % for Si and +1 to +5 % for Au. No
+  maximum moves on the energy grid (Al 600 eV, Cu 400 eV, Si 200 eV and Au
+  600 eV in both rows), and δ_max rises by 7 % (Al, 7.521 to 8.030), 6 %
+  (Cu, 1.675 to 1.769), 10 % (Si, 1.664 to 1.823) and 2 % (Au, 2.736 to
+  2.782). That is the size of the work-function range of the item above,
+  and far below the factor 1.7 to 3.1 of removing the barrier. For Al the
+  change grows with energy, from +2.4 % at 100 eV to +8.7 % at 1 keV. For
+  Si it is +5.5 and +5.9 % at 100 and 150 eV and +8 to +12 % from 200 eV
+  up. Cu and Au show no trend. The Poisson floor of one δ value is 0.8 to
+  1.2 % (Al), 1.7 to 2.1 % (Cu), 1.7 to 2.3 % (Si) and 1.3 to 2.0 % (Au).
+  With the two floors added in quadrature as the error of a difference
+  (which understates it), the change is at least 2 errors at every Si
+  energy (2.0 to 4.2), 2.4 to 7.0 for Al from 150 eV up (1.4 at 100 eV),
+  2.0 to 2.7 at six of the eight Cu energies (-0.1 at 200 eV, 1.3 at 600
+  eV) and above 2 at one Au energy only (2.2 at 300 eV; 0.5 to 1.8 at the
+  others). So the Al and Si changes are resolved point by point and the Au
+  change is not, though it is positive at all eight energies.
+  The row was not run above 1 keV ("Rows that are incomplete", above).
 - **Si** is now simulated (default, `barrier-off`, `cutoff-band-bottom` and
   `mermin` rows); its inputs, the 199 eV end of its ELF and the provenance of
   its valence band width are above.
@@ -2632,7 +2668,7 @@ and Cu excess that Mermin shares (#242 tested its candidates, below, and
 none explains it; #301 added the binding-energy row, and what could still
 not be tested is split into #312 to #315), the Si excess that the
 regeneration introduced (bisected to #241 and #355 in #379, "Why Si δ doubled after #241"), full Penn (the Al table builds since #256, the Si table since #298; table
-reuse is tracked in #168), the incomplete `cutoff-band-bottom` points (Al above 400 eV, Cu and Au above 1000 eV, Si above 400 eV; #380), the
+reuse is tracked in #168), the `cutoff-band-bottom` points above 1 keV (not run by decision, #380: "Rows that are incomplete", above), the
 correlation-polarization correction at the low table energies, the cited
 barrier parameters for Al, Cu and Au (#115 found none that can be opened),
 and a δ(E) oracle run for Al, Cu, Si and Au, 100 eV to 5 keV (the #150
