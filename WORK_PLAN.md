@@ -50,13 +50,13 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-- **#179**: [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
+- **#403**: Validation: bound adaptive sputter retries and handle zero-yield observations
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#401**: docs(crystal): record opened 4H-SiC density measurements; 4H gap stands
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -82,6 +82,7 @@ Issues carrying `loom:curated`.
 - **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
 - **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
 - **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary *(curated)*
+- **#403**: Validation: bound adaptive sputter retries and handle zero-yield observations *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -108,9 +109,9 @@ Issues carrying `loom:curated`.
 | Operator priority | 0 |
 | Ready (`loom:issue`) | 0 |
 | In Progress (`loom:building`) | 1 |
-| PRs awaiting review | 1 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 14 |
+| Curated | 15 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
