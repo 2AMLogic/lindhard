@@ -1,25 +1,53 @@
 {
   "format": "lindhard-electron-run/1",
   "problem": "e_5keV_si",
-  "lindhard_version": "lindhard 0.0.1 (6ffd486)",
-  "date": "2026-10-07",
-  "host": "Darwin arm64, 18 logical CPUs, load average 12.0 at start",
+  "lindhard_version": "lindhard 0.0.1 (bd91a73)",
+  "date": "2026-10-10",
+  "host": "Darwin arm64, 28 logical CPUs, load average 8.3 at start",
   "histories": 10000,
   "batches": 10,
   "values": {
-    "eta": 0.2164,
-    "delta": 0.5889,
-    "primary_depth_nm": 150.084,
-    "r50_nm": 87.5763
+    "eta": 0.2171,
+    "delta": 1.2241,
+    "primary_depth_nm": 150.05,
+    "r50_nm": 88.0784
   },
   "std_err": {
-    "eta": 0.00329039,
-    "delta": 0.0117837,
-    "primary_depth_nm": 0.712965,
-    "r50_nm": 0.782569
+    "eta": 0.00364067,
+    "delta": 0.0170408,
+    "primary_depth_nm": 0.728299,
+    "r50_nm": 0.670963
   },
-  "primaries_stopped": 8276,
-  "wall_s": 134.061,
+  "primaries_stopped": 8275,
+  "table_coverage": [
+    {
+      "layer": 0,
+      "elastic": {
+        "above": 0,
+        "below": 0,
+        "energy_max_ev": 5012.44,
+        "energy_min_ev": 10.0,
+        "within": 197392055
+      },
+      "inelastic": {
+        "above": 0,
+        "below": 0,
+        "energy_max_ev": 5012.44,
+        "energy_min_ev": 10.0,
+        "within": 197392055
+      }
+    }
+  ],
+  "event_cap_diagnostics": {
+    "primary_event_capped": 0,
+    "secondary_tracks": 0,
+    "affected_histories": 0,
+    "event_cap_ev": 0.0,
+    "affected_fraction": 0.0,
+    "status": "uncapped"
+  },
+  "truncation_note": "uncapped: no primary or secondary track hit the collision cap (all diagnostics reported zero)",
+  "wall_s": 21.949,
   "materials": {
     "cstool_source": "https://github.com/Nebula-simulator/cstool",
     "cstool_commit": "0c739eb3fcc3fe5297e74c601ac4a9546db596cf",
@@ -32,7 +60,7 @@
     "software": {
       "name": "lindhard",
       "version": "0.0.1",
-      "git_describe": "6ffd486"
+      "git_describe": "bd91a73"
     },
     "models": [
       {
@@ -176,6 +204,6 @@
         "seed": 1
       }
     },
-    "threads": 18
+    "threads": 2
   }
 }

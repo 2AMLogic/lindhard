@@ -882,10 +882,12 @@ a mean of batch fractions, and is not inferred from primary caps. `status` is
 diagnosis, and `truncation_note` says so), `uncapped` only if all four are
 reported zeros, and `unknown` otherwise. A field absent from a summary (an
 older binary or artifact, including one batch of several) is `null` and never
-zero; the oracles' own diagnostics are `null` (their outputs carry none). The
-committed summaries predate the fields and so read as unknown, not uncapped;
-the #364 rerun of the δ(E) file recorded them (all 218 runs `uncapped`), and
-the next rerun (#365) keeps them. In
+zero; the oracles' own diagnostics are `null` (their outputs carry none). The six
+`lindhard-electron-<problem>.json` summaries carry them since the #365 re-run
+(all six `uncapped`); the committed comparison summaries (`nebula-*`,
+`geant4_microelec-*`) predate the fields and so read as unknown, not
+uncapped. The #364 rerun of the δ(E) file recorded them too (all 218 runs
+`uncapped`). In
 `validation/experiments/se_yield_results.json` each run has the same fields
 under `event_caps` (with `affected_fraction` and `status`), and
 `se_yield.py --markdown` lists truncated runs and the count of unknown ones. A
@@ -1152,21 +1154,38 @@ tables of this section as built, not a current build.
 - *Surface:* Nebula and lindhard apply the same step barrier (quantum
   transmission and refraction); the Geant4 setup has none.
 
-**Status:** the lindhard side predates #241: its inelastic tables were on
-the model's own axis with Fermi energy 0, not on the band-bottom axis with
-the band's Fermi energy that `lindhard run` builds since (cstool's "Fermi
-correction", so one of the inelastic differences above is gone); the
-comparison has not been re-run (#287). Run locally on 2026-10-07 (lindhard `6ffd486`) against Nebula
+**Status:** the lindhard side was re-run alone on 2026-10-10
+(`run_electron.py --lindhard-only`, lindhard `bd91a73`, two threads, the
+same histories, batches and seeds; cstool commit `0c739eb`, the same
+parameter and ELF files by SHA-256) (#365). That build has the band-bottom
+inelastic tables of #241 (on the band's Fermi energy, as cstool's "Fermi
+correction" is, so one of the inelastic differences above is gone), the
+rate refinement of #339 and the loss window of #342; all six runs report
+no collision cap reached. The oracles were not re-run: their rows are
+from the run of 2026-10-07 (lindhard `6ffd486`, before #241) against Nebula
 v1.0.2-1-ga50a8e8 (commit `a50a8e8`, cstool commit `0c739eb`) and Geant4
 v11.4.3 (commit `2ee379e`, G4EMLOW 8.8; the models it reports for the
-region are `G4MicroElecElasticModel` and `G4MicroElecInelasticModel`).
+region are `G4MicroElecElasticModel` and `G4MicroElecInelasticModel`), and
+`update_docs.py` recomputes Δ and the verdicts against the new lindhard
+rows by the harness's own rule (marked † in the table). Their summary
+files keep the comparison against `6ffd486` as it was run.
+
+What the re-run changed on the lindhard side (same seeds, so the two runs
+are not independent and no σ is given): Si δ roughly doubled at every
+energy (2.17 to 4.13 at 1 keV, 0.589 to 1.224 at 5 keV, 0.162 to 0.316 at
+20 keV), the change #364 found in the δ(E) tables. At 1 keV in Si the mean
+primary depth rose by 6 % (13.48 to 14.31 nm) and r50 by 26 % (9.22 to
+11.58 nm). Cu δ moved by -3.8 % to +0.4 %, and every other value (η at
+every energy, primary depth and r50 at 5 and 20 keV, all Cu lengths) by
+less than 2 %.
 The speed side of these problems (electrons/s, thread scaling, determinism at
 every thread count, the Nebula CPU timing) is in
 [`benchmarks.md`](benchmarks.md), "Electron engine (#152)".
 
-**Tolerances (vs Nebula, 5 and 20 keV): all eight checks pass.** |Δη| is at
-most 0.025 and |Δr50| at most 13.0 %. Notes on every difference that is
-beyond its tolerance, or beyond statistics where no tolerance applies:
+**Tolerances (vs Nebula, 5 and 20 keV): all eight checks pass**, as
+before the re-run. |Δη| is at most 0.023 and |Δr50| at most 12.9 %
+(before: 0.025 and 13.0 %). Notes on every difference that is beyond its
+tolerance, or beyond statistics where no tolerance applies:
 
 - **r50, 5 and 20 keV (within the 15 % tolerance, but 6σ to 13σ).**
   lindhard's radius is 8 % to 13 % smaller than Nebula's for both
@@ -1178,19 +1197,23 @@ beyond its tolerance, or beyond statistics where no tolerance applies:
   cross sections that set the lateral spread differ (free-atom
   Thomas-Fermi Yukawa stand-in against ELSEPA's muffin-tin Dirac-Fock
   potential).
-- **r50, 1 keV (reported only): +23 % (Si) and +29 % (Cu).** The sign is the
-  opposite of 5 and 20 keV, so this is not one scale factor. At 1 keV r50 is
-  3 to 9 nm, where the secondaries' own spread and the sub-200-eV elastic
+- **r50, 1 keV (reported only): +54 % (Si) and +28 % (Cu)** (before the
+  re-run: +23 % and +29 %; the Si gap grew with lindhard's r50, above). The
+  sign is the opposite of 5 and 20 keV, so this is not one scale factor. At
+  1 keV lindhard's r50 is 3 to 12 nm, where the secondaries' own spread and the sub-200-eV elastic
   model (acoustic phonons in Nebula, Mott in lindhard) weigh most.
   Unexplained beyond that.
-- **η, 20 keV (within tolerance): -0.025 (Si, 3.3σ) and -0.025 (Cu,
-  2.0σ).** Agreement at 1 and 5 keV is within statistics (at most 1.9σ).
+- **η, 20 keV (within tolerance): -0.022 (Si, 3.4σ) and -0.023 (Cu,
+  1.8σ).** Agreement at 1 and 5 keV is within statistics (at most 1.6σ).
   The elastic model is the leading candidate: large-angle scattering at
   10 to 20 keV comes from the inner part of the atomic potential, where the
   Thomas-Fermi stand-in and the Dirac-Fock density differ most.
-- **δ (reported only): lindhard's is 2.7 to 7.1 times Nebula's at every
-  energy and in both elements (lindhard 2.17 vs 0.35 for Si at 1 keV).**
-  Not explained. The escape barrier, the secondary model and the band
+- **δ (reported only): lindhard's is 12 to 14 times Nebula's for Si and
+  2.7 to 3.3 times for Cu, at every energy (lindhard 4.13 vs 0.35 for Si at
+  1 keV).** Before the re-run it was 6.3 to 7.1 times for Si and 2.7 to 3.4
+  times for Cu: the band-bottom tables of #241 and the changes after them
+  roughly doubled Si δ (as in the δ(E) tables, #364) and left Cu δ within
+  4 %, so the Si gap widened. Not explained. The escape barrier, the secondary model and the band
   parameters are the same on both sides, so the difference lies in how slow
   electrons are transported: Nebula's quasi-elastic channel below 100 eV
   (acoustic-phonon scattering with energy loss) against lindhard's Mott
@@ -1198,7 +1221,7 @@ beyond its tolerance, or beyond statistics where no tolerance applies:
   single-pole Penn at low energy. Neither is tested in isolation here. The
   comparison with measured yields is #149.
 - **Geant4 MicroElec (reported only).** MicroElec gives η = 0.47 to 0.59 in
-  Si, two to three times both other codes, with correspondingly shallower
+  Si, 1.7 to 3.4 times both other codes, with correspondingly shallower
   primaries and a smaller r50; δ is smaller because electrons below 16.7 eV
   are killed. The application itself is not the cause: in a one-off local
   check with `AddMicroElec` left out (plain `G4EmStandardPhysics_option4`,
@@ -1209,26 +1232,26 @@ beyond its tolerance, or beyond statistics where no tolerance applies:
 <!-- validation:electron-oracles:begin -->
 | Problem | Code (version, commit) | Histories | η | δ | Primary depth (nm) | r50 (nm) | Tolerance (vs Nebula) |
 |---|---|---|---|---|---|---|---|
-| `e_1keV_si` | lindhard (0.0.1 (6ffd486)) | 20000 | 0.275 ± 0.003 | 2.172 ± 0.015 | 13.48 ± 0.05 | 9.22 ± 0.04 | - |
-| `e_1keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 20000 | 0.276 ± 0.003<br>Δ -0.001 ± 0.004 (0.2σ) | 0.347 ± 0.005<br>Δ +1.825 ± 0.016 (111.8σ) | n/a | 7.50 ± 0.04<br>Δ +22.9 % ± 0.8 % (29.3σ) | reported only |
-| `e_1keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e) | 20000 | 0.469 ± 0.005<br>Δ -0.193 ± 0.005 (35.5σ) | 0.119 ± 0.002<br>Δ +2.053 ± 0.016 (131.4σ) | 9.23 ± 0.04<br>Δ +46.0 % ± 0.9 % (50.0σ) | 5.71 ± 0.04<br>Δ +61.4 % ± 1.2 % (50.4σ) | reported only |
-| `e_5keV_si` | lindhard (0.0.1 (6ffd486)) | 10000 | 0.216 ± 0.003 | 0.589 ± 0.012 | 150.1 ± 0.7 | 87.58 ± 0.78 | - |
-| `e_5keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 10000 | 0.224 ± 0.005<br>Δ -0.007 ± 0.006 (1.3σ) | 0.090 ± 0.004<br>Δ +0.499 ± 0.012 (40.5σ) | n/a | 99.26 ± 0.57<br>Δ -11.8 % ± 0.9 % (12.6σ) | η pass, r50 pass |
-| `e_5keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e) | 10000 | 0.533 ± 0.004<br>Δ -0.317 ± 0.005 (59.2σ) | 0.026 ± 0.002<br>Δ +0.563 ± 0.012 (47.0σ) | 90.79 ± 0.62<br>Δ +65.3 % ± 1.4 % (47.7σ) | 65.09 ± 0.46<br>Δ +34.5 % ± 1.5 % (22.6σ) | reported only |
-| `e_20keV_si` | lindhard (0.0.1 (6ffd486)) | 4000 | 0.172 ± 0.006 | 0.162 ± 0.010 | 1589.8 ± 15.2 | 979.1 ± 7.3 | - |
-| `e_20keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 4000 | 0.197 ± 0.004<br>Δ -0.025 ± 0.008 (3.3σ) | 0.023 ± 0.002<br>Δ +0.139 ± 0.010 (13.3σ) | n/a | 1063.9 ± 12.1<br>Δ -8.0 % ± 1.2 % (6.4σ) | η pass, r50 pass |
-| `e_20keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e) | 4000 | 0.593 ± 0.006<br>Δ -0.421 ± 0.009 (49.4σ) | 0.008 ± 0.001<br>Δ +0.153 ± 0.010 (14.9σ) | 802.9 ± 14.4<br>Δ +98.0 % ± 4.0 % (24.4σ) | 588.8 ± 8.1<br>Δ +66.3 % ± 2.6 % (25.4σ) | reported only |
-| `e_1keV_cu` | lindhard (0.0.1 (6ffd486)) | 20000 | 0.500 ± 0.005 | 2.440 ± 0.024 | 5.03 ± 0.03 | 3.45 ± 0.01 | - |
-| `e_1keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 20000 | 0.488 ± 0.004<br>Δ +0.013 ± 0.007 (1.9σ) | 0.903 ± 0.011<br>Δ +1.537 ± 0.026 (58.4σ) | n/a | 2.67 ± 0.01<br>Δ +29.4 % ± 0.8 % (36.2σ) | reported only |
+| `e_1keV_si` | lindhard (0.0.1 (bd91a73)) | 20000 | 0.280 ± 0.003 | 4.131 ± 0.019 | 14.31 ± 0.08 | 11.58 ± 0.04 | - |
+| `e_1keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8)† | 20000 | 0.276 ± 0.003<br>Δ +0.004 ± 0.004 (0.9σ) | 0.347 ± 0.005<br>Δ +3.784 ± 0.020 (187.5σ) | n/a | 7.50 ± 0.04<br>Δ +54.3 % ± 1.0 % (56.9σ) | reported only |
+| `e_1keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e)† | 20000 | 0.469 ± 0.005<br>Δ -0.189 ± 0.005 (34.7σ) | 0.119 ± 0.002<br>Δ +4.012 ± 0.020 (204.6σ) | 9.23 ± 0.04<br>Δ +55.0 % ± 1.2 % (47.0σ) | 5.71 ± 0.04<br>Δ +102.6 % ± 1.5 % (68.4σ) | reported only |
+| `e_5keV_si` | lindhard (0.0.1 (bd91a73)) | 10000 | 0.217 ± 0.004 | 1.224 ± 0.017 | 150.1 ± 0.7 | 88.08 ± 0.67 | - |
+| `e_5keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8)† | 10000 | 0.224 ± 0.005<br>Δ -0.006 ± 0.006 (1.1σ) | 0.090 ± 0.004<br>Δ +1.134 ± 0.017 (65.2σ) | n/a | 99.26 ± 0.57<br>Δ -11.3 % ± 0.8 % (13.3σ) | η pass, r50 pass |
+| `e_5keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e)† | 10000 | 0.533 ± 0.004<br>Δ -0.316 ± 0.006 (56.7σ) | 0.026 ± 0.002<br>Δ +1.198 ± 0.017 (69.7σ) | 90.79 ± 0.62<br>Δ +65.3 % ± 1.4 % (47.4σ) | 65.09 ± 0.46<br>Δ +35.3 % ± 1.4 % (25.2σ) | reported only |
+| `e_20keV_si` | lindhard (0.0.1 (bd91a73)) | 4000 | 0.175 ± 0.005 | 0.316 ± 0.017 | 1589.8 ± 15.2 | 977.7 ± 7.4 | - |
+| `e_20keV_si` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8)† | 4000 | 0.197 ± 0.004<br>Δ -0.022 ± 0.006 (3.4σ) | 0.023 ± 0.002<br>Δ +0.293 ± 0.017 (17.5σ) | n/a | 1063.9 ± 12.1<br>Δ -8.1 % ± 1.3 % (6.5σ) | η pass, r50 pass |
+| `e_20keV_si` | Geant4 MicroElec (v11.4.3, 2ee379e)† | 4000 | 0.593 ± 0.006<br>Δ -0.419 ± 0.008 (55.3σ) | 0.008 ± 0.001<br>Δ +0.307 ± 0.017 (18.4σ) | 802.9 ± 14.4<br>Δ +98.0 % ± 4.0 % (24.4σ) | 588.8 ± 8.1<br>Δ +66.0 % ± 2.6 % (25.2σ) | reported only |
+| `e_1keV_cu` | lindhard (0.0.1 (bd91a73)) | 20000 | 0.500 ± 0.006 | 2.450 ± 0.020 | 5.07 ± 0.02 | 3.40 ± 0.01 | - |
+| `e_1keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8)† | 20000 | 0.488 ± 0.004<br>Δ +0.012 ± 0.007 (1.6σ) | 0.903 ± 0.011<br>Δ +1.547 ± 0.023 (68.6σ) | n/a | 2.67 ± 0.01<br>Δ +27.6 % ± 0.8 % (32.5σ) | reported only |
 | `e_1keV_cu` | Geant4 MicroElec | - | not applicable (MicroElec: silicon only) | | | | - |
-| `e_5keV_cu` | lindhard (0.0.1 (6ffd486)) | 10000 | 0.396 ± 0.007 | 0.849 ± 0.019 | 43.31 ± 0.29 | 27.78 ± 0.26 | - |
-| `e_5keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 10000 | 0.399 ± 0.004<br>Δ -0.003 ± 0.008 (0.3σ) | 0.273 ± 0.004<br>Δ +0.577 ± 0.020 (29.2σ) | n/a | 31.56 ± 0.24<br>Δ -11.9 % ± 1.1 % (11.3σ) | η pass, r50 pass |
+| `e_5keV_cu` | lindhard (0.0.1 (bd91a73)) | 10000 | 0.396 ± 0.007 | 0.824 ± 0.019 | 43.31 ± 0.29 | 27.87 ± 0.25 | - |
+| `e_5keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8)† | 10000 | 0.399 ± 0.004<br>Δ -0.003 ± 0.008 (0.3σ) | 0.273 ± 0.004<br>Δ +0.552 ± 0.020 (28.1σ) | n/a | 31.56 ± 0.24<br>Δ -11.7 % ± 1.0 % (11.3σ) | η pass, r50 pass |
 | `e_5keV_cu` | Geant4 MicroElec | - | not applicable (MicroElec: silicon only) | | | | - |
-| `e_20keV_cu` | lindhard (0.0.1 (6ffd486)) | 4000 | 0.326 ± 0.008 | 0.260 ± 0.016 | 397.8 ± 3.9 | 273.4 ± 3.3 | - |
-| `e_20keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8) | 4000 | 0.351 ± 0.010<br>Δ -0.025 ± 0.013 (2.0σ) | 0.076 ± 0.004<br>Δ +0.183 ± 0.017 (11.0σ) | n/a | 314.2 ± 2.9<br>Δ -13.0 % ± 1.3 % (9.9σ) | η pass, r50 pass |
+| `e_20keV_cu` | lindhard (0.0.1 (bd91a73)) | 4000 | 0.329 ± 0.008 | 0.250 ± 0.019 | 397.7 ± 3.9 | 273.7 ± 3.4 | - |
+| `e_20keV_cu` | Nebula (v1.0.2-1-ga50a8e8, a50a8e8)† | 4000 | 0.351 ± 0.010<br>Δ -0.023 ± 0.013 (1.8σ) | 0.076 ± 0.004<br>Δ +0.173 ± 0.019 (9.0σ) | n/a | 314.2 ± 2.9<br>Δ -12.9 % ± 1.3 % (9.6σ) | η pass, r50 pass |
 | `e_20keV_cu` | Geant4 MicroElec | - | not applicable (MicroElec: silicon only) | | | | - |
 
-Values are pooled over all histories, ± the batch-means standard error (10 batches). Δ is lindhard minus the oracle: absolute for η and δ, relative for the lengths, ± the combined standard error, with the difference in units of it in brackets. η and δ split the front-face escapes at 50 eV (vacuum energy). r50 is the radius of the cylinder about the beam axis that holds half the energy deposited. Tolerances (vs Nebula at 5 and 20 keV only): |Δη| ≤ 0.03 and |Δr50| ≤ 15 %. Every summary's settings and its list of differing inputs are in its file under `validation/oracles/summaries/`.
+Values are pooled over all histories, ± the batch-means standard error (10 batches). Δ is lindhard minus the oracle: absolute for η and δ, relative for the lengths, ± the combined standard error, with the difference in units of it in brackets. η and δ split the front-face escapes at 50 eV (vacuum energy). r50 is the radius of the cylinder about the beam axis that holds half the energy deposited. Tolerances (vs Nebula at 5 and 20 keV only): |Δη| ≤ 0.03 and |Δr50| ≤ 15 %. Every summary's settings and its list of differing inputs are in its file under `validation/oracles/summaries/`. † The oracle was run beside an earlier lindhard build (`6ffd486`): its values are from that run's committed summary, and Δ and the tolerance verdict are recomputed against the lindhard row of the problem by the rule of `run_electron.py`.
 <!-- validation:electron-oracles:end -->
 
 ## 3. Experiment (the real bar)
@@ -2554,9 +2577,10 @@ the DHFS elastic potential; nothing was adjusted to these data):
   were re-runs of the same code). The single-pole default still fails the
   Al and Au yield bounds after the #364 regeneration.
 - **#150 reports a δ excess against Nebula for Si and Cu as well.** In
-  "Electron oracles" (section 2), lindhard's δ is 2.7 to 7.1 times
-  Nebula's at every energy and in both elements (`e_1keV_si` and
-  `e_5keV_si` among them), with the same escape barrier and the same
+  "Electron oracles" (section 2), lindhard's δ is 12 to 14 times
+  Nebula's for Si and 2.7 to 3.3 times for Cu at every energy
+  (`e_1keV_si` and `e_5keV_si` among them; 2.7 to 7.1 times before the #365
+  re-run of lindhard's side), with the same escape barrier and the same
   secondary model on both sides; lindhard ran the single-pole model and
   Nebula full Penn (section 2). The cause found in #173 is consistent with
   part of that gap, but the comparison does not isolate it: the elastic
