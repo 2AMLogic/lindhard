@@ -21,6 +21,11 @@ one version).
 
 ### Added
 
+- Python: `Run.run_dynamic()` runs an input with a `[dynamic]` section and
+  returns an immutable `DynamicRunResult` (step series, per-step slab
+  composition, `summary()`, `write(dir)`), equal to the CLI's dynamic output
+  for the same input and seed (#397). `lindhard_cli::publish::publish_dynamic`
+  is the shared publication helper.
 - `[physics] stopping = "none"`: no electronic stopping (nuclear loss only),
   for like-for-like comparisons with codes run with electronic stopping off
   and for nuclear-only studies. Echoed in `summary.json` and listed in

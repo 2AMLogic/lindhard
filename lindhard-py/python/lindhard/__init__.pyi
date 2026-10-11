@@ -1,6 +1,7 @@
 from ._lindhard import (
     FATE_NAMES as FATE_NAMES,
     Beam as Beam,
+    DynamicRunResult as DynamicRunResult,
     Element as Element,
     Histogram as Histogram,
     InputError as InputError,
@@ -19,6 +20,7 @@ from ._lindhard import (
 __all__ = [
     "FATE_NAMES",
     "Beam",
+    "DynamicRunResult",
     "Element",
     "Histogram",
     "InputError",

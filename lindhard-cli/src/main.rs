@@ -348,14 +348,7 @@ fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
     let d = dynamic::simulate_dynamic(r, threads)?;
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let summary = output::dynamic_summary_json(r, &d)?;
-    let set = OutputSet::begin(out, output::DYNAMIC_SUMMARY_FILE, summary)?;
-    set.write(output::DYNAMIC_STEPS_FILE, output::dynamic_steps_csv(&d))?;
-    set.write(
-        output::DYNAMIC_COMPOSITION_FILE,
-        output::dynamic_composition_csv(&d),
-    )?;
-    // Last, so the summary describes the completed output set.
-    set.publish()?;
+    publish::publish_dynamic(out, summary, &d)?;
     let last = d.steps.last().expect("step 0");
     eprintln!(
         "{} ions in {} steps ({} attempts rejected): {} sputtered atoms, {} slabs left; wrote {}",

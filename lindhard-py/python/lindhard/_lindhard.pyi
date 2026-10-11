@@ -12,6 +12,7 @@ __version__: str
 __all__ = [
     "FATE_NAMES",
     "Beam",
+    "DynamicRunResult",
     "Element",
     "Histogram",
     "InputError",
@@ -233,6 +234,40 @@ class RunResult:
     def write(self, out_dir: str | os.PathLike[str]) -> None: ...
 
 @final
+class DynamicRunResult:
+    """The fluence-step series and slab composition of a finished dynamic run.
+
+    Lengths are in nm, ``fluence_cm2`` in ions/cm^2 and areal inventory in
+    atoms/cm^2, as in the dynamic CSVs. Index 0 of every per-step array and of
+    ``composition`` is step 0, the initial target.
+    """
+
+    @property
+    def species(self) -> list[str]: ...
+    @property
+    def species_z(self) -> npt.NDArray[np.uint8]: ...
+    @property
+    def n_steps(self) -> int: ...
+    @property
+    def rejected_attempts(self) -> int: ...
+    @property
+    def steps(self) -> dict[str, npt.NDArray[Any]]:
+        """Per-step arrays: ``step``, ``first_index``, ``ions``, ``ions_done``,
+        ``attempts``, ``clamped``, ``removed_slabs``, ``n_slabs``, ``cum_*``
+        counts (uint64); ``fluence_cm2``, ``max_change``, ``surface_nm``,
+        ``thickness_nm``, ``sputter_yield`` (float64); and
+        ``cum_sputtered_by_species`` of shape ``(n_steps, len(species))``."""
+    @property
+    def composition(self) -> list[dict[str, Any]]:
+        """One dict per step: ``step`` (int), ``front_nm``, ``back_nm``,
+        ``thickness_nm`` of shape ``(n_slabs,)`` and ``atoms_per_cm2``,
+        ``fraction`` of shape ``(n_slabs, len(species))``. ``n_slabs`` can
+        change between steps when erosion removes slabs."""
+    def summary(self) -> dict[str, Any]: ...
+    def summary_json(self) -> str: ...
+    def write(self, out_dir: str | os.PathLike[str]) -> None: ...
+
+@final
 class Run:
     """A complete run description: the whole input document of the CLI."""
 
@@ -273,3 +308,10 @@ class Run:
         seed: int | None = None,
         threads: int | None = None,
     ) -> RunResult: ...
+    def run_dynamic(
+        self,
+        *,
+        ions: int | None = None,
+        seed: int | None = None,
+        threads: int | None = None,
+    ) -> DynamicRunResult: ...

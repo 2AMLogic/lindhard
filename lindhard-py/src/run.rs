@@ -8,6 +8,7 @@ use lindhard::input::{Input, Resolved, RunSpec, StoppingSpec};
 use pyo3::exceptions::PyUserWarning;
 use pyo3::prelude::*;
 
+use crate::dynamic_result::DynamicRunResult;
 use crate::errors;
 use crate::result::RunResult;
 use crate::spec::{Beam, Material, Physics, Tally, Target};
@@ -137,32 +138,42 @@ impl Run {
         seed: Option<u64>,
         threads: Option<usize>,
     ) -> PyResult<RunResult> {
-        let mut input = self.input.clone();
-        if let Some(n) = ions {
-            input.run.ions = n;
-        }
-        if let Some(s) = seed {
-            input.run.seed = s;
-        }
-        if threads.is_some() {
-            input.run.threads = threads;
-        }
-        let resolved = self.resolve(&input)?;
-        for w in &resolved.warnings {
-            PyErr::warn(
-                py,
-                &py.get_type::<PyUserWarning>(),
-                &std::ffi::CString::new(w.as_str()).unwrap_or_default(),
-                1,
-            )?;
-        }
-        if input.run.threads == Some(0) {
-            return Err(errors::input("threads must be at least 1"));
-        }
+        let (input, resolved) = self.prepare(py, ions, seed, threads)?;
         let sim = py
             .detach(|| lindhard_cli::sim::simulate(&resolved, input.run.threads))
             .map_err(|e| errors::run(&e))?;
         Ok(RunResult::new(resolved, sim))
+    }
+
+    /// Run the fluence-dependent simulation of a run with a `[dynamic]`
+    /// section and return a `DynamicRunResult`.
+    ///
+    /// `ions`, `seed` and `threads` override the run's own values for this
+    /// call only, as in `run()`; `ions` is the number of primaries standing
+    /// for the whole fluence. The GIL is released while transport runs.
+    /// Results depend only on the input and the seed, never on `threads`.
+    ///
+    /// Raises `InputError` for an invalid configuration or one without a
+    /// `[dynamic]` section, and `RunError` if transport fails.
+    #[pyo3(signature = (*, ions=None, seed=None, threads=None))]
+    fn run_dynamic(
+        &self,
+        py: Python<'_>,
+        ions: Option<u64>,
+        seed: Option<u64>,
+        threads: Option<usize>,
+    ) -> PyResult<DynamicRunResult> {
+        if self.input.dynamic.is_none() {
+            return Err(errors::input(
+                "run_dynamic() needs a [dynamic] section (fluence_cm2 and ions_per_step); \
+                 this run has none, use run() for a static run",
+            ));
+        }
+        let (input, resolved) = self.prepare(py, ions, seed, threads)?;
+        let sim = py
+            .detach(|| lindhard_cli::dynamic::simulate_dynamic(&resolved, input.run.threads))
+            .map_err(|e| errors::run(&e))?;
+        Ok(DynamicRunResult::new(resolved, sim))
     }
 
     #[getter]
@@ -280,6 +291,40 @@ impl Run {
 }
 
 impl Run {
+    /// The input with the per-call overrides applied, resolved; resolution
+    /// warnings are issued as `UserWarning`.
+    fn prepare(
+        &self,
+        py: Python<'_>,
+        ions: Option<u64>,
+        seed: Option<u64>,
+        threads: Option<usize>,
+    ) -> PyResult<(Input, Resolved)> {
+        let mut input = self.input.clone();
+        if let Some(n) = ions {
+            input.run.ions = n;
+        }
+        if let Some(s) = seed {
+            input.run.seed = s;
+        }
+        if threads.is_some() {
+            input.run.threads = threads;
+        }
+        let resolved = self.resolve(&input)?;
+        for w in &resolved.warnings {
+            PyErr::warn(
+                py,
+                &py.get_type::<PyUserWarning>(),
+                &std::ffi::CString::new(w.as_str()).unwrap_or_default(),
+                1,
+            )?;
+        }
+        if input.run.threads == Some(0) {
+            return Err(errors::input("threads must be at least 1"));
+        }
+        Ok((input, resolved))
+    }
+
     fn resolve(&self, input: &Input) -> PyResult<Resolved> {
         let base = self
             .base_dir
