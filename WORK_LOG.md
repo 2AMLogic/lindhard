@@ -4,6 +4,29 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-10
 
+- **PR #371**: feat(full_penn): report ω_p exhaustion on the direct DIIMFP and IMFP paths (#368)
+- **PR #367**: docs(validation): knot-derived width cap does not bound the Mermin f-sum (#337, negative result)
+- **PR #363**: fix(inelastic): start the rate refinement at the model's rate onset (#357)
+- **PR #362**: Full Penn: bound the ω_p and profile bisections; Si table builds in 224 s (#298)
+- **PR #359**: docs: stable README status, trimmed architecture module table
+- **PR #358**: fix(inelastic): stop loss-density bisection at floating-point resolution (#345)
+- **PR #355**: feat(inelastic): refine band-bottom tables in lindhard run (#339)
+- **PR #354**: renovate: move onto the 2AMLogic org preset
+- **PR #352**: feat(crystal): source GaN cell and measured density; record the 4H-SiC density gap
+- **PR #299**: Full Penn: make one inelastic table build finish in minutes (#256)
+- **PR #236**: ci: build, test and publish Python wheels (abi3, trusted publishing)
+- **PR #198**: Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC) (#179)
+- **Issue #368** (closed): Report ω_p exhaustion on the direct full-Penn DIIMFP and IMFP paths (follow-up to #298)
+- **Issue #357** (closed): Rate refinement fails on an optical ELF whose onset lies inside the 2-20 eV window
+- **Issue #356** (closed): Dependency Dashboard
+- **Issue #350** (closed): Docs: replace the README status narrative and trim architecture.md module-table rows to stable summaries
+- **Issue #345** (closed): Mermin inelastic table: Si row at T = 1000 eV exhausts MAX_NODES in the loss-density refinement
+- **Issue #339** (closed): Resolve the inelastic rate from E_F upward on the band-bottom axis: extra table rows above the Fermi level
+- **Issue #337** (closed): Mermin fit: measure a knot-derived upper bound on the oscillator width against the #311 wide oscillators
+- **Issue #298** (closed): Full Penn: isolated (q, ω) points where one loss-function evaluation takes seconds (Si table build does not finish)
+- **Issue #291** (closed): Electron table grid: the default 10 points per decade under-resolves the inelastic rate just above the Fermi level on the band-bottom axis
+- **Issue #256** (closed): Full Penn: make one inelastic table build finish in usable time (split from #169)
+- **Issue #233** (closed): Python wheels: maturin multi-platform builds and PyPI trusted publishing (Epic #28, Phase 2)
 - **PR #351**: feat(inelastic): rate refinement of band-bottom tables above E_F (part of #339)
 - **PR #348**: PSF parameter CSV: export convergence and iteration diagnostics
 - **PR #346**: ci: pin the clippy gate and add a stable/beta clippy canary (#336)
