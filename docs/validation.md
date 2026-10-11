@@ -1644,7 +1644,11 @@ convention when yields matter, and #61 showed that `E_d` is inert once below
 4 for reasons unrelated to what is tested here. Both `weak_collisions` = 0
 (the default) and 3 (TRIDYN's maximum, #64) are run at each distinct
 measured energy (energies within 2 % merged), seed 1, with at least 20 000
-ions and more where the Poisson error would exceed 3 %. Nothing was varied
+ions and more where the Poisson error would exceed 3 %, up to a per-run
+budget of `--max-ions` (100 × `--ions` by default): a run that reaches the
+budget without the target error — in particular a legitimately observed
+zero yield near a sputtering threshold — is marked in the results and in
+the block below instead of retrying forever (#403). Nothing was varied
 beyond these two settings, and nothing was fitted. RustBCA, through the
 unmodified level-2 adapter (binary only) and the same settings, is shown
 for context only.

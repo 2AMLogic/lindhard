@@ -128,6 +128,76 @@ class SputterProblem(unittest.TestCase):
         self.assertTrue(p["id"].endswith("_probe"))
 
 
+class IonBudget(unittest.TestCase):
+    """run.check_ion_budget: invalid budgets fail clearly, before any transport (#403)."""
+
+    def test_valid_budgets_pass(self):
+        self.assertIsNone(run.check_ion_budget(1, 1))
+        self.assertIsNone(run.check_ion_budget(20000, 2_000_000))
+
+    def test_nonpositive_ions(self):
+        self.assertIn("positive", run.check_ion_budget(0, 1000))
+        self.assertIn("positive", run.check_ion_budget(-5, 1000))
+
+    def test_max_below_ions(self):
+        self.assertIn("at least --ions", run.check_ion_budget(20000, 19999))
+
+
+class AdaptiveSputterRun(unittest.TestCase):
+    """run.adaptive_sputter_run: the rerun rule of #70, bounded and status-reporting (#403).
+    Fake results only; no compiled CLI."""
+
+    @staticmethod
+    def fake(seq):
+        """A run_once returning (yield, se) keyed by the requested ion count, plus the counts it saw."""
+        calls = []
+
+        def run_once(n):
+            calls.append(n)
+            y, se = seq[n]
+            return {"sputter_yield": y, "sputter_yield_se": se}
+
+        return run_once, calls
+
+    def test_all_zero_stops_at_the_budget_without_raising(self):
+        run_once, calls = self.fake({1000: (0.0, 0.0), 4000: (0.0, 0.0), 8000: (0.0, 0.0)})
+        r, n, status = run.adaptive_sputter_run(run_once, 1000, 8000)
+        # Finite: ZERO_YIELD_GROWTH per step, clamped to the budget; the loop cannot run away (#403).
+        self.assertEqual(calls, [1000, 4000, 8000])
+        self.assertEqual((r["sputter_yield"], n, status), (0.0, 8000, "zero_yield"))
+
+    def test_zero_then_positive_converges_normally(self):
+        seq = {1000: (0.0, 0.0), 4000: (1.0, 0.01)}  # 1 % <= 3 %: the larger run reaches the target
+        run_once, calls = self.fake(seq)
+        r, n, status = run.adaptive_sputter_run(run_once, 1000, 100_000)
+        self.assertEqual(calls, [1000, 4000])
+        self.assertEqual((r["sputter_yield"], n, status), (1.0, 4000, "reached"))
+
+    def test_tiny_positive_yield_never_exceeds_the_budget(self):
+        # 5 % relative error at every count: the resize formula always wants more, and the
+        # budget caps it (#403). 4 × the ions per resize (5 % / 2.5 %, squared), clamped.
+        run_once, calls = self.fake({n: (1e-3, 5e-5) for n in (20_000, 80_000, 100_000)})
+        r, n, status = run.adaptive_sputter_run(run_once, 20_000, 100_000)
+        self.assertEqual(calls, [20_000, 80_000, 100_000])
+        self.assertTrue(all(a < b for a, b in zip(calls, calls[1:])))  # every retry strictly increases n
+        self.assertTrue(all(c <= 100_000 for c in calls))  # never above the budget
+        self.assertEqual((r["sputter_yield"], n, status), (1e-3, 100_000, "budget_exhausted"))
+
+    def test_ordinary_yield_keeps_todays_sizing_and_reaches(self):
+        # 5 % at --ions: the existing formula asks for 4 × 20 000 (to 2.5 %), which reaches it (#70, unchanged).
+        seq = {20_000: (1.0, 0.05), 80_000: (1.0, 0.02)}
+        run_once, calls = self.fake(seq)
+        r, n, status = run.adaptive_sputter_run(run_once, 20_000, 2_000_000)
+        self.assertEqual(calls, [20_000, 80_000])
+        self.assertEqual((r["sputter_yield"], n, status), (1.0, 80_000, "reached"))
+
+    def test_target_error_on_the_first_run_ends_immediately(self):
+        run_once, calls = self.fake({20_000: (1.0, 0.03)})
+        r, n, status = run.adaptive_sputter_run(run_once, 20_000, 100_000)
+        self.assertEqual(calls, [20_000])  # 3 % is the rerun threshold, <= is reached (as before)
+        self.assertEqual((r["sputter_yield"], n, status), (1.0, 20_000, "reached"))
+
+
 class AllSputterDatasets(unittest.TestCase):
     def test_every_dataset_passes_and_names_its_target(self):
         provenance = run.PROVENANCE.read_text()
@@ -297,6 +367,70 @@ class CommittedBaseline(unittest.TestCase):
             want = f"{update_docs.gmean(k0):.2f} ({min(k0):.2f}-{max(k0):.2f})"
             self.assertEqual(got, want, t)
         self.assertEqual(data, before)
+
+
+class Level3SputterRendering(unittest.TestCase):
+    """update_docs.level3_sputter with injected records (#403): budget status is visible,
+    the error claim is qualified, and legacy records (no status fields) render unchanged."""
+
+    @staticmethod
+    def row(**kw):
+        r = {"energy_ev": 1000.0, "ion": "Ar", "target": "Cu", "n_points": 1, "sets": ["s"],
+             "yield_min": 1.0, "yield_median": 2.0, "yield_max": 3.0,
+             "lindhard_k0": 1.0, "lindhard_k0_ions": 20000, "lindhard_k0_se": 0.02,
+             "lindhard_k0_in_band": True, "lindhard_k0_over_median": 0.5,
+             "lindhard_k3": 0.8, "lindhard_k3_ions": 20000, "lindhard_k3_se": 0.02,
+             "lindhard_k3_in_band": True, "lindhard_k3_over_median": 0.4}
+        r.update(kw)
+        return r
+
+    def render(self, rows, **kw):
+        sp = {"ions_per_run": 20000, "max_ions": 2_000_000, "seed": 1, "energy_merge_rel": 0.02,
+              "physics": {"primary_cutoff_ev": 2.0, "recoil_cutoff_ev": 1.0},
+              "e_s_ev": {"Ar->Cu": 3.49}, "rows": rows}
+        sp.update(kw)
+        return update_docs.level3_sputter((sp, ["Cu"], {"Cu": None}))
+
+    def test_legacy_row_without_status_claims_the_target_and_no_marker(self):
+        text = self.render([self.row()])
+        self.assertIn("Statistical errors (Poisson) are at most 2.50 % of the yield.", text)
+        self.assertNotIn("[budget_exhausted]", text)
+        self.assertNotIn("[zero_yield]", text)
+        self.assertNotIn("stopped at the per-run ion budget", text)
+
+    def test_zero_yield_row_is_marked_and_the_claim_is_withdrawn(self):
+        zero = self.row(lindhard_k0=0.0, lindhard_k0_se=0.0, lindhard_k0_over_median=0.0,
+                        lindhard_k0_in_band=False, lindhard_k0_status="zero_yield",
+                        lindhard_k3=0.0, lindhard_k3_se=0.0, lindhard_k3_over_median=0.0,
+                        lindhard_k3_in_band=False, lindhard_k3_status="zero_yield")
+        text = self.render([zero])
+        self.assertEqual(text.count("0.00 (0.00) [zero_yield]"), 2)  # visible in both table cells
+        self.assertNotIn("are at most", text)  # the 0/0 must not raise nor produce a false claim
+        self.assertIn("No run reached the 2.5 % Poisson target", text)
+        self.assertIn("not a precise zero", text)
+
+    def test_budget_exhausted_row_keeps_the_reached_share_and_qualifies_it(self):
+        text = self.render([self.row(lindhard_k3_status="budget_exhausted")])
+        self.assertIn("[budget_exhausted]", text)
+        # The share covers every positive run, reached or not (0.02/0.8 here); the marker and the
+        # qualification below say which runs fell short of the target.
+        self.assertIn("are at most 2.50 %", text)
+        self.assertIn("stopped at the per-run ion budget", text)
+        self.assertIn("not a precise zero", text)
+
+    def test_zero_rows_are_excluded_from_the_error_share(self):
+        zero0 = self.row(lindhard_k0=0.0, lindhard_k0_se=0.0, lindhard_k0_over_median=0.0,
+                         lindhard_k0_in_band=False, lindhard_k0_status="zero_yield")
+        good = self.row(lindhard_k3_status="reached")
+        text = self.render([zero0, good])
+        self.assertIn("are at most 2.50 %", text)  # 0.02/0.8 of the reached run, not 0/0 of the zero one
+
+    def test_unmet_rows_qualify_the_up_to_clause(self):
+        text = self.render([self.row(lindhard_k0_ions=2_000_000, lindhard_k3_ions=2_000_000,
+                                     lindhard_k3_status="budget_exhausted")])
+        self.assertIn("(up to 2000000 where the Poisson error would exceed 3 %); rows marked "
+                      "[budget_exhausted] or [zero_yield] stopped at the per-run ion budget without "
+                      "reaching the 2.5 % target", text)
 
 
 class TuningPilot(unittest.TestCase):
