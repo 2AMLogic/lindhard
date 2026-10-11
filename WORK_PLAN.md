@@ -50,7 +50,7 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-- **#403**: Validation: bound adaptive sputter retries and handle zero-yield observations
+_None._
 
 ## PRs Awaiting Review
 
@@ -82,7 +82,6 @@ Issues carrying `loom:curated`.
 - **#301**: Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test *(curated)*
 - **#313**: SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap *(curated)*
 - **#336**: CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary *(curated)*
-- **#403**: Validation: bound adaptive sputter retries and handle zero-yield observations *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -108,10 +107,10 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 0 |
 | Operator priority | 0 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 1 |
+| In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 15 |
+| Curated | 14 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 9 |
 <!-- guide:plan-body:end -->
