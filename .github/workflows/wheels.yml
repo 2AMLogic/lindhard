@@ -86,8 +86,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       - name: v<tag> == [workspace.package] version in Cargo.toml
@@ -112,7 +112,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.plan.outputs.platforms) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -145,12 +145,12 @@ jobs:
           cp target/release/lindhard* cli/ 2>/dev/null || true
           rm -f cli/*.d cli/*.pdb
           ls -l cli lindhard-py/dist
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wheel-${{ matrix.name }}
           path: lindhard-py/dist/*.whl
           if-no-files-found: error
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: cli-${{ matrix.name }}
           path: cli/
@@ -168,15 +168,15 @@ jobs:
     steps:
       # The checkout supplies tests/ and examples/; lindhard itself comes only
       # from the wheel, installed into a fresh venv (no maturin develop).
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.py }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: wheel-${{ matrix.name }}
           path: dist
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: cli-${{ matrix.name }}
           path: cli
@@ -201,9 +201,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
       # pip builds the sdist outside the git checkout, so build.rs would stamp
@@ -229,7 +229,7 @@ jobs:
           "$PY" -m pip install --no-deps lindhard-py/dist/lindhard-*.tar.gz
           "$PY" -c "import lindhard, sys; print(lindhard.__file__); sys.exit('imported from the source tree, not the sdist build' if 'site-packages' not in lindhard.__file__ else 0)"
           LINDHARD_BIN="$PWD/target/release/lindhard" "$PY" -m pytest lindhard-py/tests -v
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: sdist
           path: lindhard-py/dist/*.tar.gz
@@ -250,12 +250,12 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: wheel-*
           path: dist
           merge-multiple: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: sdist
           path: dist

@@ -46,7 +46,7 @@ jobs:
       version: ${{ steps.check.outputs.version }}
       dry_run: ${{ steps.check.outputs.dry_run }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - name: Tag equals the workspace version and CHANGELOG.md has its section
@@ -109,7 +109,7 @@ jobs:
       VERSION: ${{ needs.preflight.outputs.version }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
@@ -140,7 +140,7 @@ jobs:
           fi
           rm -rf "$name"
           ls -l
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: archive-${{ matrix.target }}
           path: dist/lindhard-*
@@ -152,7 +152,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: archive-*
           path: dist
@@ -191,7 +191,7 @@ jobs:
           done
           t=x86_64-pc-windows-msvc
           check "$t" "$(unzip -Z1 "lindhard-$VERSION-$t.zip")" lindhard.exe
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: release-files
           path: dist/*
@@ -206,10 +206,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           name: release-files
           path: dist
@@ -239,7 +239,7 @@ jobs:
     # Protected environment: requires the configured reviewers' approval.
     environment: release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
