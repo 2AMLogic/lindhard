@@ -222,7 +222,7 @@ fn moments_outside_type_iv_are_errors() {
 fn expected_histogram(binning: Binning, n: f64, pdf: impl Fn(f64) -> f64) -> Histogram {
     let mut h = Histogram::new(binning);
     let mut inside = 0;
-    for i in 0..binning.bins {
+    for (i, count) in h.counts.iter_mut().enumerate().take(binning.bins) {
         // Fine midpoint rule per bin.
         let (lo, hi) = (binning.edge(i), binning.edge(i + 1));
         let k = 64;
@@ -231,8 +231,8 @@ fn expected_histogram(binning: Binning, n: f64, pdf: impl Fn(f64) -> f64) -> His
             .sum::<f64>()
             * (hi - lo)
             / k as f64;
-        h.counts[i] = (n * mass).round() as u64;
-        inside += h.counts[i];
+        *count = (n * mass).round() as u64;
+        inside += *count;
     }
     h.overflow = (n as u64).saturating_sub(inside);
     h

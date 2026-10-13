@@ -393,14 +393,14 @@ fn channels_with_exchange_are_smaller_and_use_their_binding_energy() {
     assert_eq!(rb.shells_per_m[2], 0.0);
     // Each shell channel is its model's exchange integral with its own B,
     // which differs from the B = 0 one (larger denominator, higher limit).
-    for i in 0..2 {
+    for (i, &measured) in rb.shells_per_m.iter().enumerate().take(2) {
         let m = b.shell_model(i);
         let eb = b.inner_shells()[i].binding_energy_ev;
         let with_b = m
             .imfp_and_stopping_with_binding(e, eb)
             .unwrap()
             .inverse_imfp_per_m;
-        assert_eq!(rb.shells_per_m[i], with_b);
+        assert_eq!(measured, with_b);
         let without = m.imfp_and_stopping(e).unwrap().inverse_imfp_per_m;
         assert!(with_b > without, "{i}: {with_b:e} vs {without:e}");
     }
