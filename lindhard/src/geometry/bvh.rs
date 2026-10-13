@@ -167,9 +167,14 @@ impl Bvh {
                     cur += 1;
                     continue;
                 }
-                let first = node.first as usize;
-                for i in first..first + node.count as usize {
-                    if let Some(t) = ray.intersect(&self.tris[i]) {
+                for (i, tri) in self
+                    .tris
+                    .iter()
+                    .enumerate()
+                    .skip(node.first as usize)
+                    .take(node.count as usize)
+                {
+                    if let Some(t) = ray.intersect(tri) {
                         if t > tmin && t <= tmax {
                             f(t, i as u32);
                         }
@@ -481,15 +486,23 @@ mod tests {
             tris.push([[x, 0.0, 0.0], [x + 1.0, 0.0, 0.0], [x, 1.0, 0.5 + 0.01 * x]]);
         }
         let bvh = Bvh::build(&tris, 1e-12);
+        let mut nonzero_index = false;
         for i in 0..50 {
             let ray = Ray::new([i as f64 + 0.2, 0.2, -1.0], [0.0, 0.1, 1.0]);
             let mut a = Vec::new();
-            bvh.for_each_hit(&ray, f64::NEG_INFINITY, f64::INFINITY, |t, _| a.push(t));
+            bvh.for_each_hit(&ray, f64::NEG_INFINITY, f64::INFINITY, |t, tri| {
+                // The callback index must resolve to the triangle producing
+                // that hit, also for leaves that do not start at triangle 0.
+                assert_eq!(ray.intersect(bvh.triangle(tri)), Some(t));
+                nonzero_index |= tri > 0;
+                a.push(t);
+            });
             let mut b: Vec<f64> = tris.iter().filter_map(|t| ray.intersect(t)).collect();
             a.sort_by(f64::total_cmp);
             b.sort_by(f64::total_cmp);
             assert_eq!(a, b);
         }
+        assert!(nonzero_index);
         assert_eq!(bvh, Bvh::build(&tris, 1e-12));
     }
 }
