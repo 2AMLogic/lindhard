@@ -33,7 +33,7 @@ jobs:
       matrix:
         channel: [stable, beta]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.channel }}
@@ -64,7 +64,7 @@ jobs:
         run: |
           mkdir -p result
           echo "${{ job.status }}" > "result/${{ matrix.channel }}.txt"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: result-${{ matrix.channel }}
@@ -80,8 +80,8 @@ jobs:
       contents: read
       issues: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v7
         with:
           pattern: result-*
           path: results
