@@ -1,6 +1,6 @@
 {
   "loom_version": "0.19.1151",
-  "loom_commit": "4b3b3e77e5ef42971b3c0c3e68c000736a0c7c21",
+  "loom_commit": "08ee0f8708464aa8e0768640d56955d7f4fcbc98",
   "install_date": "2026-10-04",
   "loom_source_remote": "https://github.com/rjwalters/loom.git",
   "installed_files": [
@@ -717,7 +717,8 @@
     ".loom/scripts/tests/test-champion-needs-revision-routing.sh",
     ".loom/scripts/tests/test-champion-promotion-throughput.sh",
     ".loom/scripts/tests/test-create-pr-priority-labels.sh",
-    ".loom/scripts/tests/test-post-verdict-gate.sh"
+    ".loom/scripts/tests/test-post-verdict-gate.sh",
+    ".loom/scripts/tests/test-merge-pr-chain-lock.sh"
   ],
   "last_resync": "2026-10-13",
   "requires_daemon": "0.19.1081"
