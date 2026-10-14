@@ -723,7 +723,10 @@
     ".loom/docs/operator-presence.md",
     ".loom/scripts/tests/test-approval-history-per-issue-events.sh",
     ".agents/skills/loom-judge-reference/SKILL.md",
-    ".loom/hooks/presence-beat.sh"
+    ".loom/hooks/presence-beat.sh",
+    ".loom/scripts/tests/fixtures/config_resolver/.loom-local/fleet-repo.json",
+    ".loom/hooks/tests/test-guard-loom-workspace.sh",
+    ".loom/scripts/tests/lib/assert.sh"
   ],
   "last_resync": "2026-10-14",
   "requires_daemon": "0.19.1081"
