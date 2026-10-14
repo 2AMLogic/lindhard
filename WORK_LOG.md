@@ -2,6 +2,16 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-13
+
+- **PR #415**: Dependabot: render dependabot.yml from the org policy
+- **PR #414**: chore(deps): bump the github-actions group across 1 directory with 6 updates
+- **PR #413**: Remove Renovate config: Dependabot takes over
+- **PR #412**: chore(deps): bump criterion from 0.7.0 to 0.8.2
+- **PR #411**: Dependabot: render dependabot.yml from the org policy
+- **PR #410**: fix(clippy): satisfy beta needless_range_loop in BVH traversal and tests
+- **Issue #409** (closed): CI: clippy canary failing on latest stable or beta Rust
+
 ### 2026-10-11
 
 - **PR #407**: validation: fingerprint executable, input and tables for ion-run reuse (#406)
