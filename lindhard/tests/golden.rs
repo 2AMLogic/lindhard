@@ -11,24 +11,30 @@
 //!   relative tolerance of [`REL_TOL`], because `f64::exp`, `ln`, `sin`, `cos`,
 //!   `powf`, `tan` and `atan2` defer to the platform libm and may differ in the
 //!   last bits between platforms.
-//! - Crystal BCA run: exact (integers) and [`REL_TOL`] (floats) on Linux
-//!   (x86-64 and aarch64 both verified in CI). On every other OS it is
-//!   asserted only to the statistical tolerances in [`check_crystal_statistical`]
-//!   (conservation invariants exact, counts and sums to a stated relative
-//!   tolerance, no per-bin histogram check). This is a deliberate, documented
-//!   relaxation, not a pass-through of observed values: on aarch64 macOS the
-//!   run gave `recoils` = 67721 against 67786 on x86-64 Linux (PR #216 CI),
-//!   so a comparison in the crystal path (channelling / lattice-site
-//!   comparisons) flips on the libm or codegen difference and the history
-//!   diverges. The cause has not been located; see follow-up issue #217
-//!   and `docs/architecture.md`, "Reproducibility". Set
-//!   `LINDHARD_GOLDEN_CRYSTAL_STATISTICAL=1` to force the statistical check
-//!   on any platform.
+//! - Crystal BCA run: three tiers, chosen by platform.
+//!   - Linux (x86-64 and aarch64, both verified in CI): exact (integers) and
+//!     [`REL_TOL`] (floats) against [`EXPECTED_CRYSTAL`].
+//!   - aarch64 macOS: exact in the same sense against the separately pinned
+//!     [`EXPECTED_CRYSTAL_AARCH64_MACOS`].
+//!   - Every other OS or architecture: only the statistical tolerances in
+//!     [`check_crystal_statistical`] (conservation invariants exact, counts
+//!     and sums to a stated relative tolerance, no per-bin histogram check).
 //!
-//! The macOS result is not committed as an expected value: no macOS machine
-//! was available to the author, only the single integer above was read from
-//! the CI log. Per-platform value sets would be added here, each labelled with
-//! its platform, if a decision is made to pin them.
+//!   The crystal set is platform-labelled because the platform libm differs in
+//!   the last bit (glibc against macOS libm, for `tan`, `acos`, `sin`, `cos`,
+//!   `exp`, `ln`, `powf` and others). The differences enter through the BCA
+//!   path shared with the amorphous run, where they only move floats in the
+//!   last bits and happen to leave the integer counts alone; the crystal
+//!   path's lattice-site and simultaneous-collision comparisons amplify them
+//!   into different histories (`recoils` = 67721 on aarch64 macOS against
+//!   67786 on Linux, PR #216 CI). There is no single flipped comparison. The
+//!   engine keeps its tolerance-only cross-platform promise (`docs/architecture.md`,
+//!   "Reproducibility"); a pure-Rust libm that would make the two sets
+//!   identical was considered and declined (#217). Pinning a second set keeps
+//!   exact regression detection on the macOS runner. If the `macos-latest`
+//!   image's libm changes, that set may need regenerating. Set
+//!   `LINDHARD_GOLDEN_CRYSTAL_STATISTICAL=1` to force the statistical check on
+//!   any platform.
 //!
 //! Regenerating the expected values (after an intended change to the physics,
 //! the sampling order or the RNG streams):
@@ -39,10 +45,13 @@
 //!
 //! prints each pinned quantity as `name = value`; copy the values into the
 //! `EXPECTED_*` constants below and say in the commit why they changed. All
-//! values below (amorphous, crystal, electron) were generated on x86-64 Linux;
-//! the crystal set is the exact reference for Linux only, and the other
-//! platforms check the amorphous and electron sets exactly. Regenerate on
-//! x86-64 Linux, and state the platform in the commit.
+//! values below (amorphous, crystal, electron) were generated on x86-64 Linux
+//! except [`EXPECTED_CRYSTAL_AARCH64_MACOS`], which was generated on aarch64
+//! macOS; `EXPECTED_CRYSTAL` is the exact reference for Linux only, and the
+//! other platforms check the amorphous and electron sets exactly. Regenerate
+//! the Linux sets on x86-64 Linux and the macOS crystal set separately, on
+//! aarch64 macOS (or from the `macos-latest` CI log with the command above),
+//! and state the platform in the commit.
 //!
 //! The electron run uses constant mean free paths and isotropic angles
 //! computed in this file (not measured or tabulated data).
@@ -167,9 +176,19 @@ fn ion_run(crystal: bool) -> SummaryTally {
     bca.run(|| SummaryTally::new(0.5 * NM, 2000)).unwrap()
 }
 
-/// Whether the crystal run is checked exactly (Linux, or never forced off).
-fn crystal_exact() -> bool {
-    cfg!(target_os = "linux") && std::env::var_os("LINDHARD_GOLDEN_CRYSTAL_STATISTICAL").is_none()
+/// The pinned crystal set for this platform, or `None` where only the
+/// statistical check applies (other platforms, or when forced off by
+/// `LINDHARD_GOLDEN_CRYSTAL_STATISTICAL`).
+fn crystal_exact() -> Option<&'static IonExpected> {
+    if std::env::var_os("LINDHARD_GOLDEN_CRYSTAL_STATISTICAL").is_some() {
+        None
+    } else if cfg!(target_os = "linux") {
+        Some(&EXPECTED_CRYSTAL)
+    } else if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
+        Some(&EXPECTED_CRYSTAL_AARCH64_MACOS)
+    } else {
+        None
+    }
 }
 
 /// Relative tolerances for the crystal run on platforms where it is not exact.
@@ -180,7 +199,8 @@ fn crystal_exact() -> bool {
 const CRYSTAL_COUNT_TOL: f64 = 0.15;
 const CRYSTAL_SUM_TOL: f64 = 0.15;
 
-/// Documented relaxation for the crystal run off Linux; see the module docs.
+/// Documented relaxation for the crystal run on platforms without a pinned
+/// set; see the module docs.
 fn check_crystal_statistical(g: &Golden, t: &SummaryTally, e: &IonExpected) {
     let near = |what: &str, actual: f64, expected: f64, tol: f64| {
         if printing() {
@@ -305,6 +325,27 @@ const EXPECTED_CRYSTAL: IonExpected = IonExpected {
     electronic_nonlocal: 6.361895180662028e5,
 };
 
+/// Crystal reference for aarch64 macOS, generated on the `macos-latest` runner
+/// (image `macos-26-arm64` 20261013.0424, macOS 26.6.2) from the fixed-seed
+/// run above at 9e9697c, 2026-10-15. Differs from [`EXPECTED_CRYSTAL`] only
+/// because the platform libm differs in the last bit; see the module docs.
+/// Regenerate on aarch64 macOS, separately from the Linux sets.
+const EXPECTED_CRYSTAL_AARCH64_MACOS: IonExpected = IonExpected {
+    stopped: 100,
+    backscattered: 0,
+    transmitted: 0,
+    sputtered: 133,
+    recoils: 67721,
+    depth_hist: &[
+        0, 0, 1, 6, 12, 15, 13, 13, 11, 6, 6, 6, 4, 2, 2, 0, 1, 1, 0, 0,
+    ],
+    beyond: 1,
+    depth_sum: 1.9714783626537694e-6,
+    depth_sq_sum: 4.6289472492559004e-14,
+    lattice: 1.2878137943367276e6,
+    electronic_nonlocal: 6.360087276137662e5,
+};
+
 #[test]
 fn golden_amorphous_bca_batch() {
     let g = Golden { name: "amorphous" };
@@ -315,8 +356,8 @@ fn golden_amorphous_bca_batch() {
 fn golden_crystal_bca_batch() {
     let g = Golden { name: "crystal" };
     let t = ion_run(true);
-    if crystal_exact() {
-        check_ion(&g, &t, &EXPECTED_CRYSTAL);
+    if let Some(expected) = crystal_exact() {
+        check_ion(&g, &t, expected);
     } else {
         check_crystal_statistical(&g, &t, &EXPECTED_CRYSTAL);
     }
