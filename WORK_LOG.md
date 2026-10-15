@@ -2,6 +2,11 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-10-15
+
+- **PR #417**: Bump Repo Skills 0.21.2 -> 0.24.1
+- **Issue #51** (closed): Validation level 3: first published range datasets (B, P, As in amorphous Si) and stopping-input attribution (follow-up to #8)
+
 ### 2026-10-13
 
 - **PR #415**: Dependabot: render dependabot.yml from the org policy
