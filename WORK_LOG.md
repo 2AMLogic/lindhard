@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-10-15
 
+- **PR #419**: docs: record Au phonon energy-loss inputs as a provenance gap
+- **Issue #313** (closed): SE yield candidates (#301 item 2): acoustic-phonon energy loss per event, or the gap
 - **PR #417**: Bump Repo Skills 0.21.2 -> 0.24.1
 - **Issue #51** (closed): Validation level 3: first published range datasets (B, P, As in amorphous Si) and stopping-input attribution (follow-up to #8)
 
