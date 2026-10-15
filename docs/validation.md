@@ -3035,7 +3035,7 @@ Fermi energy between the free-electron value and TPP's. Tested and not the
 explanation in the published form: the secondary's binding energy of
 Azzolini et al. (it overshoots; (d)). Left untested, with the reason for
 each, one issue per item from #301: acoustic-phonon scattering for Cu
-(#312), the phonon energy loss (#313), a second Au ELF (#314), and the
+(#312), the phonon energy loss (#313: the Au inputs of Verduin's Eq. 3.116 are in a paywalled paper, recorded as a gap in `docs/data-provenance.md`), a second Au ELF (#314), and the
 elastic corrections below 50 eV (#315). The measurements themselves are a weak anchor
 (two resolving sets for Au, three for Cu, surface condition and incidence
 not stated; above).
