@@ -1,0 +1,40 @@
+# Sputtering yield of Cu under 1 keV Ar at one incidence angle: the base input
+# of the angle sweep in the book's examples gallery.
+#
+# Run:   lindhard run examples/sputtering_ar_cu_angle.toml --out out/sputter_angle_0
+# Sweep: validation/gallery.py runs this input at a series of `beam.tilt_deg`
+#        values (the CLI has no flag for the tilt, so it writes one copy of
+#        the input per angle) and tabulates results.sputtering.yield_per_ion.
+#
+# Same physics as ar_1keV_cu.toml (KrC potential, Lindhard-Scharff stopping,
+# E_s and E_d from the element table) with a short depth grid and no escape or
+# lateral tallies, so that a sweep over angles and seeds stays small. Illustration
+# of how the BCA yield depends on the angle, not a validated prediction: see
+# docs/validation.md for the sputtering comparisons that are validated.
+#
+# Schema: docs/cli.md. Energies are in eV, lengths in nm, angles in degrees.
+
+[beam]
+ion = "Ar"
+energy_ev = 1000.0
+tilt_deg = 0.0
+
+[target]
+substrate = "Cu"
+
+[physics]
+potential = "kr-c"
+stopping = "lindhard-scharff"
+free_path = "constant"
+primary_cutoff_ev = 2.0
+# Keep the recoil cutoff below E_s (3.49 eV for Cu), or sputtered atoms are
+# lost.
+recoil_cutoff_ev = 1.0
+
+[run]
+ions = 10000
+seed = 1
+
+[tally]
+depth_bin_nm = 0.5
+depth_bins = 40

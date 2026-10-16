@@ -944,6 +944,36 @@ fn electron_example_checks_runs_and_reports() {
     assert_eq!(tables.lines().count(), 1 + n_grid);
 }
 
+/// The gallery's layered electron example (a resist layer on Si, synthetic
+/// data) checks, runs, and deposits energy in both layers.
+#[test]
+fn electron_resist_on_si_example_checks_and_runs() {
+    let ex = examples_dir().join("electron/e_10keV_resist_on_si.toml");
+    let o = lindhard(&["check", ex.to_str().unwrap()]);
+    ok(&o);
+    assert!(String::from_utf8_lossy(&o.stdout).contains("electron run"));
+    let out = scratch("electron-resist-on-si");
+    run(&ex, &out, &["--histories", "20"]);
+
+    let s = json(&out.join("electron_summary.json"));
+    assert_eq!(s["results"]["histories"], 20);
+    let echo: lindhard::input::electron::ElectronInput =
+        serde_json::from_value(s["input"].clone()).unwrap();
+    echo.resolve_in(&examples_dir().join("electron")).unwrap();
+    let r = &s["results"];
+    assert!(r["budget"]["relative_imbalance"].as_f64().unwrap().abs() < 1e-9);
+    let layers = r["deposition"]["per_layer_ev"].as_array().unwrap();
+    assert_eq!(layers.len(), 2, "resist layer and Si substrate");
+    assert!(layers.iter().all(|e| e.as_f64().unwrap() > 0.0));
+    // Both materials say their data are synthetic.
+    let mats = s["physics"]["materials"].as_array().unwrap();
+    assert_eq!(mats.len(), 2);
+    for m in mats {
+        let prov = m["optical_elf"]["provenance"].as_str().unwrap();
+        assert!(prov.contains("not physical data"), "{prov}");
+    }
+}
+
 #[test]
 fn electron_output_is_byte_identical_across_thread_counts() {
     // 80 histories are five chunks of 16, so the threads really interleave.
