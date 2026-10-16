@@ -5,10 +5,12 @@ line, each with its own uncertainty, method and citation. The loader is
 `lindhard::ion::stopping::dataset::StoppingDataset`, and `dataset::compare`
 compares any `ElectronicStopping` model against a dataset.
 
-**No real data is shipped in this format yet.** Which published measurements
-may enter the tree is decided in issue #34. Until that is settled, the only
-datasets in the repository are synthetic ones generated at test time from
-our own models (see [`data-provenance.md`](data-provenance.md)).
+Which published measurements may enter the tree is decided in issue #34
+(measured points read from the original papers and cited as facts; see
+[`data-provenance.md`](data-provenance.md)). The one real dataset so far is
+`validation/data/stopping/bader1956_p_cu.csv` (Cu for protons, Bader et al.
+1956, #430); the others in the repository are synthetic ones generated at test
+time from our own models.
 
 ## Example
 
