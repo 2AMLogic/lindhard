@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 380" width="640" height="380" font-family="sans-serif" font-size="12" role="img" aria-label="10 keV electrons, 100 nm resist on Si (synthetic data)">
+<rect width="640" height="380" fill="#fff"/>
+<text x="320.0" y="22" text-anchor="middle" font-size="14" fill="#222">10 keV electrons, 100 nm resist on Si (synthetic data)</text>
+<line x1="70" x2="620" y1="325.0" y2="325.0" stroke="#ddd"/>
+<text x="64" y="329.0" text-anchor="end" fill="#222">0</text>
+<line x1="70" x2="620" y1="268.0" y2="268.0" stroke="#ddd"/>
+<text x="64" y="272.0" text-anchor="end" fill="#222">0.04</text>
+<line x1="70" x2="620" y1="211.0" y2="211.0" stroke="#ddd"/>
+<text x="64" y="215.0" text-anchor="end" fill="#222">0.08</text>
+<line x1="70" x2="620" y1="154.0" y2="154.0" stroke="#ddd"/>
+<text x="64" y="158.0" text-anchor="end" fill="#222">0.12</text>
+<line x1="70" x2="620" y1="97.0" y2="97.0" stroke="#ddd"/>
+<text x="64" y="101.0" text-anchor="end" fill="#222">0.16</text>
+<line x1="70" x2="620" y1="40.0" y2="40.0" stroke="#ddd"/>
+<text x="64" y="44.0" text-anchor="end" fill="#222">0.2</text>
+<line x1="70.0" x2="70.0" y1="325" y2="329" stroke="#222"/>
+<text x="70.0" y="343" text-anchor="middle" fill="#222">0</text>
+<line x1="180.0" x2="180.0" y1="325" y2="329" stroke="#222"/>
+<text x="180.0" y="343" text-anchor="middle" fill="#222">300</text>
+<line x1="290.0" x2="290.0" y1="325" y2="329" stroke="#222"/>
+<text x="290.0" y="343" text-anchor="middle" fill="#222">600</text>
+<line x1="400.0" x2="400.0" y1="325" y2="329" stroke="#222"/>
+<text x="400.0" y="343" text-anchor="middle" fill="#222">900</text>
+<line x1="510.0" x2="510.0" y1="325" y2="329" stroke="#222"/>
+<text x="510.0" y="343" text-anchor="middle" fill="#222">1200</text>
+<line x1="620.0" x2="620.0" y1="325" y2="329" stroke="#222"/>
+<text x="620.0" y="343" text-anchor="middle" fill="#222">1500</text>
+<rect x="70.0" y="40" width="36.7" height="285" fill="#999" fill-opacity="0.15"/>
+<text x="88.3" y="54" text-anchor="middle" fill="#222"></text>
+<line x1="106.7" x2="106.7" y1="40" y2="325" stroke="#222" stroke-dasharray="4 3"/>
+<text x="110.7" y="54" fill="#222">resist | Si</text>
+<rect x="70" y="40" width="550" height="285" fill="none" stroke="#222"/>
+<polyline points="70.0,279.1 88.3,279.1 88.3,264.0 106.7,264.0 106.7,221.0 125.0,221.0 125.0,207.5 143.3,207.5 143.3,181.7 161.7,181.7 161.7,175.7 180.0,175.7 180.0,163.1 198.3,163.1 198.3,171.8 216.7,171.8 216.7,175.5 235.0,175.5 235.0,174.0 253.3,174.0 253.3,175.9 271.7,175.9 271.7,179.9 290.0,179.9 290.0,198.5 308.3,198.5 308.3,201.1 326.7,201.1 326.7,218.9 345.0,218.9 345.0,226.2 363.3,226.2 363.3,225.1 381.7,225.1 381.7,252.5 400.0,252.5 400.0,249.1 418.3,249.1 418.3,262.1 436.7,262.1 436.7,274.0 455.0,274.0 455.0,275.1 473.3,275.1 473.3,282.2 491.7,282.2 491.7,290.5 510.0,290.5 510.0,301.4 528.3,301.4 528.3,303.6 546.7,303.6 546.7,305.6 565.0,305.6 565.0,311.3 583.3,311.3 583.3,311.9 601.7,311.9 601.7,311.9 620.0,311.9" fill="none" stroke="#1f77b4" stroke-width="1.8"/>
+<text x="614" y="317" text-anchor="end" fill="#1f77b4">lindhard, 50 nm bins, 1000 histories</text>
+<text x="345.0" y="368" text-anchor="middle" fill="#222">depth (nm)</text>
+<text transform="translate(16 182.5) rotate(-90)" text-anchor="middle" fill="#222">share of deposited energy (% per nm)</text>
+</svg>

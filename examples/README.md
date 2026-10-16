@@ -2,7 +2,8 @@
 
 Input files for the `lindhard` command. The schema is in
 [`../docs/cli.md`](../docs/cli.md); energies are in eV, lengths in nm and
-angles in degrees.
+angles in degrees. The book's [examples gallery](../book/src/gallery/index.md)
+walks through three of them with figures.
 
 | File | What it shows |
 |---|---|
@@ -14,6 +15,8 @@ angles in degrees.
 | [`as_50keV_sio2_on_si_crystal.toml`](as_50keV_sio2_on_si_crystal.toml) | 50 keV As through a 10 nm amorphous SiO₂ layer into a crystalline Si substrate: `[[crystal]]` names only layer 1, the oxide stays amorphous; shows layer assignment, not interface physics |
 | [`dynamic/as_1keV_si_film.toml`](dynamic/as_1keV_si_film.toml) | 1 keV As into a 10 nm Si film on Si with a `[dynamic]` table: the target composition and thickness change with fluence (adaptive steps, 2 nm slabs); writes `dynamic_*.csv` |
 | [`electron/e_10keV_si.toml`](electron/e_10keV_si.toml) | 10 keV electrons into Si with an `[electron]` table: Mott elastic (stand-in potential), single-pole Penn inelastic, Kieft-Bosch secondaries, the surface barrier and a cylindrical deposition grid; writes `electron_summary.json` and `electron_*.csv`. Its optical ELF ([`electron/synthetic_plasmon_elf.toml`](electron/synthetic_plasmon_elf.toml)) and band parameters are **synthetic**, not Si data |
+| [`sputtering_ar_cu_angle.toml`](sputtering_ar_cu_angle.toml) | 1 keV Ar onto Cu at one incidence angle (`beam.tilt_deg = 0`): the base input of the angle sweep in the book's [examples gallery](../book/src/gallery/sputtering-angle.md), which `validation/gallery.py` runs at several tilts and seeds; the angular dependence is an illustration, not a validated prediction |
+| [`electron/e_10keV_resist_on_si.toml`](electron/e_10keV_resist_on_si.toml) | 10 keV electrons into a 100 nm resist layer on Si: an `[electron]` run with a `[[target.layers]]` entry and two materials, writing the same `electron_*.csv` files. Its optical ELF, band parameters and resist data are **synthetic**, not those of any resist or of Si; the output shows the layered-target mechanics, not a resist stack |
 
 ```sh
 cargo run -p lindhard-cli -- check examples/b_5keV_si.toml

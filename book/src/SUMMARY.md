@@ -26,3 +26,10 @@
 - [First run: 5 keV B into Si](guide/first-run.md)
 - [TOML input reference](guide/input.md)
 - [Output files](guide/output.md)
+
+# Examples gallery
+
+- [Overview](gallery/index.md)
+  - [Implant through a screen oxide](gallery/screen-oxide.md)
+  - [Sputtering yield against incidence angle](gallery/sputtering-angle.md)
+  - [Electron deposition in a resist on Si](gallery/resist-on-si.md)
