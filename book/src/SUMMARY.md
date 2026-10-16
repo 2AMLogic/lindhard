@@ -26,6 +26,7 @@
 - [First run: 5 keV B into Si](guide/first-run.md)
 - [TOML input reference](guide/input.md)
 - [Output files](guide/output.md)
+- [Range calculator in the browser](guide/range-calculator.md)
 
 # Examples gallery
 

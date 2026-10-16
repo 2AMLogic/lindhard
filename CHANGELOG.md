@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: a WebAssembly build of the ion engine and a static
+  range-calculator page (species, energy and target in; `Rp`, `ΔRp` and a depth
+  profile out), published with the book. CI builds it on every pull request
+  that touches the library or the new crate and compares it with the native
+  build for the same seed (#432).
 - An examples gallery in the book (`book/src/gallery`): an implant through a
   screen oxide, a sputtering-yield sweep over the incidence angle, and
   electron deposition in a resist layer on Si (synthetic electron data). New
