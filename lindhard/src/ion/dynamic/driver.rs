@@ -99,6 +99,43 @@
 //! Erosion is a pure function of the step's merged integer tally and draws no
 //! random numbers, so it keeps the determinism of the run. With erosion off
 //! none of this code runs and results are unchanged.
+//!
+//! # Retention limit
+//!
+//! [`DynamicRun::with_retention`] sets, per implanted species, a saturation
+//! limit: the largest atomic fraction `f` of that species a slab may hold. The
+//! dynamic-composition codes TRIDYN (Moller and Eckstein, Nucl. Instrum.
+//! Methods B 2 (1984) 814) and SDTrimSP (Mutzke et al., IPP report 2019-02)
+//! describe a saturation concentration of the implanted species above which
+//! further atoms are not retained and are released again; only those published
+//! descriptions were used. The update below is this crate's own statement of
+//! that idea, and no numeric default is supplied: the limit is always given by
+//! the caller.
+//!
+//! Per accepted step, after the transport deltas (and erosion) are formed and
+//! before they are checked or applied, each slab is looked at with the
+//! composition it would have after the step. For a limited species `Z` with
+//! amount `a_Z` and `o` atoms/m² of all other elements, the slab may hold at
+//! most `a_max = f o / (1 - f)` of `Z` (that is `a_Z / (a_Z + o) <= f`). Any
+//! excess `a_Z - a_max` is **re-emitted**: it is added to the step's deltas as
+//! a removal from that slab and leaves the target, so it is not inventory any
+//! more and is reported in [`StepRecord::re_emitted_m2`]. Species are taken in
+//! ascending `Z` and each sees the amounts left by the earlier ones, so with
+//! several limited species in one slab the fractions are met in that order
+//! (removing one raises the fraction of the others slightly); with one limited
+//! species, the usual case, the limit is met exactly. A slab holding only the
+//! limited species has `o = 0` and loses all of it. Because the removal is part
+//! of the deltas, `max_change` and the adaptive policy see it. It is a pure
+//! function of the merged step tally and the grid, draws no random numbers and
+//! so keeps the thread-count invariance. The re-emitted atoms are not placed
+//! anywhere: this is a bookkeeping limit, not a model of diffusion or of where
+//! the released gas goes. With no limits set none of this code runs and
+//! results are unchanged.
+//!
+//! The atom balance of an element `Z` over a step is
+//! `Δ total_inventory(Z) = transport net - re_emitted`, where the transport net
+//! counts retained primaries and moved, sputtered and transmitted recoils per
+//! the conventions of the [parent module](super).
 
 use std::collections::BTreeMap;
 
@@ -184,6 +221,10 @@ pub struct StepRecord {
     /// off): add it to a depth of this step to get the depth in the original
     /// frame.
     pub recession_total_m: f64,
+    /// Atoms/m² re-emitted by the retention limit in this step, by atomic
+    /// number (see the [module docs](self), "Retention limit"); empty with no
+    /// limit set or nothing in excess.
+    pub re_emitted_m2: BTreeMap<u8, f64>,
 }
 
 /// A fluence-stepped run. See the [module docs](super).
@@ -199,6 +240,8 @@ pub struct DynamicRun<'a> {
     current_n: u64,
     cumulative: Yields,
     recession_m: f64,
+    retention: BTreeMap<u8, f64>,
+    re_emitted_m2: BTreeMap<u8, f64>,
 }
 
 // Manual: the borrowed stopping model is a trait object without `Debug`, and
@@ -214,6 +257,7 @@ impl std::fmt::Debug for DynamicRun<'_> {
             .field("current_n", &self.current_n)
             .field("cumulative", &self.cumulative)
             .field("recession_m", &self.recession_m)
+            .field("retention", &self.retention)
             .finish_non_exhaustive()
     }
 }
@@ -268,7 +312,40 @@ impl<'a> DynamicRun<'a> {
             current_n,
             cumulative: Yields::default(),
             recession_m: 0.0,
+            retention: BTreeMap::new(),
+            re_emitted_m2: BTreeMap::new(),
         })
+    }
+
+    /// Set the retention limits (see the [module docs](self), "Retention
+    /// limit"): for each `(Z, f)` the largest atomic fraction `f`, with
+    /// `0 < f < 1`, of element `Z` a slab may hold. Replaces any earlier
+    /// limits; an empty map switches the model off (the default).
+    pub fn with_retention(
+        mut self,
+        limits: impl IntoIterator<Item = (u8, f64)>,
+    ) -> Result<Self, DynamicRunError> {
+        let mut map = BTreeMap::new();
+        for (z, f) in limits {
+            if !(f.is_finite() && f > 0.0 && f < 1.0) {
+                return Err(DynamicRunError::Invalid(format!(
+                    "the retention limit of Z = {z} must be an atomic fraction in (0, 1)"
+                )));
+            }
+            if map.insert(z, f).is_some() {
+                return Err(DynamicRunError::Invalid(format!(
+                    "the retention limit of Z = {z} is given twice"
+                )));
+            }
+        }
+        self.retention = map;
+        Ok(self)
+    }
+
+    /// Atoms/m² re-emitted by the retention limit over the accepted steps, by
+    /// atomic number.
+    pub fn re_emitted_m2(&self) -> &BTreeMap<u8, f64> {
+        &self.re_emitted_m2
     }
 
     /// The current target.
@@ -347,6 +424,7 @@ impl<'a> DynamicRun<'a> {
                     .collect();
                 (d, 0.0, 0)
             };
+            let (deltas, re_emitted) = self.retention_deltas(deltas);
             let change = self.max_change(&deltas);
 
             let shrink = match self.cfg.policy {
@@ -414,6 +492,9 @@ impl<'a> DynamicRun<'a> {
             self.next_index += n;
             self.cumulative.add(tally.yields());
             self.recession_m += step_recession;
+            for (&z, &a) in &re_emitted {
+                *self.re_emitted_m2.entry(z).or_insert(0.0) += a;
+            }
             if let StepPolicy::Adaptive {
                 max_ions_per_step,
                 max_change,
@@ -437,6 +518,7 @@ impl<'a> DynamicRun<'a> {
                 removed_slabs: outcome.removed_slabs,
                 recession_m: step_recession,
                 recession_total_m: self.recession_m,
+                re_emitted_m2: re_emitted,
             }));
         }
     }
@@ -505,6 +587,65 @@ impl<'a> DynamicRun<'a> {
             })
             .collect();
         Ok((deltas, recession, leftover))
+    }
+
+    /// Add the removals the retention limits require to the step's `deltas`;
+    /// returns them with the atoms/m² re-emitted per element. See the module
+    /// docs, "Retention limit". Returns the deltas unchanged with no limits.
+    fn retention_deltas(
+        &self,
+        deltas: Vec<InventoryDelta>,
+    ) -> (Vec<InventoryDelta>, BTreeMap<u8, f64>) {
+        let mut re_emitted = BTreeMap::new();
+        if self.retention.is_empty() {
+            return (deltas, re_emitted);
+        }
+        let mut delta: BTreeMap<(usize, u8), f64> = BTreeMap::new();
+        for d in &deltas {
+            *delta.entry((d.slab, d.z)).or_insert(0.0) += d.delta_atoms_m2;
+        }
+        for slab in 0..self.grid.n_slabs() {
+            let inv = self.grid.inventory(slab).unwrap_or_default();
+            let have = |z: u8| {
+                inv.iter()
+                    .find(|&&(zz, _)| zz == z)
+                    .map_or(0.0, |&(_, a)| a)
+            };
+            // Composition after the step, in Z order.
+            let mut after: BTreeMap<u8, f64> = inv.iter().map(|&(z, a)| (z, a)).collect();
+            for (&(s, z), &d) in delta.range((slab, 0)..=(slab, u8::MAX)) {
+                debug_assert_eq!(s, slab);
+                *after.entry(z).or_insert(0.0) += d;
+            }
+            for (&z, &f) in &self.retention {
+                let a = after.get(&z).copied().unwrap_or(0.0);
+                let others: f64 = after
+                    .iter()
+                    .filter(|(&zz, _)| zz != z)
+                    .map(|(_, &x)| x)
+                    .sum();
+                let a_max = f * others / (1.0 - f);
+                if a <= a_max {
+                    continue;
+                }
+                let excess = a - a_max;
+                let d = delta.entry((slab, z)).or_insert(0.0);
+                // A slab with nothing else loses the species exactly.
+                *d = if a_max == 0.0 { -have(z) } else { *d - excess };
+                after.insert(z, a_max);
+                *re_emitted.entry(z).or_insert(0.0) += excess;
+            }
+        }
+        let deltas = delta
+            .into_iter()
+            .filter(|&(_, d)| d != 0.0)
+            .map(|((slab, z), d)| InventoryDelta {
+                slab,
+                z,
+                delta_atoms_m2: d,
+            })
+            .collect();
+        (deltas, re_emitted)
     }
 
     /// Largest `|delta_Z| / (atoms/m^2 of the slab)` over the deltas.

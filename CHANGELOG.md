@@ -9,6 +9,13 @@ one version).
 
 ### Added
 
+- Retention limit for implanted species in dynamic runs (#436):
+  `[dynamic.retention_limit] <Sym> = f` caps the atom fraction of that element
+  a slab may hold, re-emitting the excess (removed from the slab and the
+  target), and `DynamicRun::with_retention`, `StepRecord::re_emitted_m2`. The
+  steps file gains `cum_re_emitted_atoms_per_cm2_<Sym>` columns with a limit
+  set. Off by default, and then results and output are unchanged; no numeric
+  default is supplied.
 - An examples gallery in the book (`book/src/gallery`): an implant through a
   screen oxide, a sputtering-yield sweep over the incidence angle, and
   electron deposition in a resist layer on Si (synthetic electron data). New
