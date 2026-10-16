@@ -16,6 +16,13 @@ one version).
   voxels equal the 1D tallies of the same run on a laterally uniform target.
   Book page `guide/voxel-tallies.md`; example files in `examples/voxel-tally`
   (#433).
+- `ion::stopping::correction`: a per-pair multiplicative correction of an
+  electronic-stopping model, fitted to a `StoppingDataset` (seeded, applied
+  only inside the energy span of the data), with a bootstrap band that is
+  bit-identical across seeds and thread counts and held-out residuals of the
+  base and corrected model side by side. First real stopping dataset:
+  `validation/data/stopping/bader1956_p_cu.csv` (Cu for protons, Bader et al.
+  1956) (#430).
 - An examples gallery in the book (`book/src/gallery`): an implant through a
   screen oxide, a sputtering-yield sweep over the incidence angle, and
   electron deposition in a resist layer on Si (synthetic electron data). New
