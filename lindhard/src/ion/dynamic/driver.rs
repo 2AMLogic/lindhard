@@ -222,7 +222,7 @@ pub struct StepRecord {
     /// frame.
     pub recession_total_m: f64,
     /// Atoms/m² re-emitted by the retention limit in this step, by atomic
-    /// number (see the [module docs](self), "Retention limit"); empty with no
+    /// number (see the module docs, "Retention limit"); empty with no
     /// limit set or nothing in excess.
     pub re_emitted_m2: BTreeMap<u8, f64>,
 }
@@ -317,7 +317,7 @@ impl<'a> DynamicRun<'a> {
         })
     }
 
-    /// Set the retention limits (see the [module docs](self), "Retention
+    /// Set the retention limits (see the module docs, "Retention
     /// limit"): for each `(Z, f)` the largest atomic fraction `f`, with
     /// `0 < f < 1`, of element `Z` a slab may hold. Replaces any earlier
     /// limits; an empty map switches the model off (the default).
