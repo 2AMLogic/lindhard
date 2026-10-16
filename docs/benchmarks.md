@@ -367,9 +367,9 @@ draw as before, so the per-particle RNG stream is unchanged; it differs from
 the library `sin_cos` by about 2e-16 (a unit test checks 10^5 azimuths against
 it, including the octant boundaries), so, as in #37, single histories are not
 bit-identical to the previous commit but the distributions agree (the level-1
-harness passes), and results stay bit-identical across thread counts. In the profile of the changed
-binary the azimuth costs 7.9 % of the samples (`sin_cos_turns`), where it
-cost 13.2 %.
+harness passes), and results stay bit-identical across thread counts. In the
+profile of the changed binary the azimuth costs 7.9 % of the samples
+(`sin_cos_turns`), where it cost 13.2 %.
 
 **Candidate 2, the grid-coordinate `ln`: tried, rejected.** Replacing the two
 `ln` of the lookup with a series on the exponent and mantissa (about 1e-14
@@ -398,9 +398,10 @@ collision, and cascade recoils are pushed onto a stack and taken in energy
 order, so there is no batch of independent lookups to vectorize without
 changing the order of the physics. Batching the evaluation across particles
 would need a SIMD `ln` and `exp` as accurate as the table value requires, plus
-a new dependency (`wide`): a larger change than the 31 % it would address. A numbers-backed trigger for revisiting it: the lookup
-share rising above a third of the run after the libm calls are gone, or a
-profile where memory stalls in `half_angle_tan` dominate its `ln` and `exp`.
+a new dependency (`wide`): a larger change than the 31 % it would address. A
+numbers-backed trigger for revisiting it: the lookup share rising above a third
+of the run after the libm calls are gone, or a profile where memory stalls in
+`half_angle_tan` dominate its `ln` and `exp`.
 
 ## Electron engine (#152)
 
