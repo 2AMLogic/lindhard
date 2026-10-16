@@ -85,16 +85,21 @@ electron MC). The engines share the core and nothing else.
   generated on x86-64 Linux. The amorphous and electron runs are checked on
   every platform of the CI OS matrix (x86-64 Linux, aarch64 Linux, aarch64
   macOS) with integer outputs exact and floats to a relative tolerance of
-  1e-9. The crystal run is exact in the same sense on Linux (both
-  architectures) but, off Linux, is only checked statistically: conservation
-  invariants exact, counts and sums to a 15% relative tolerance. This is a
-  deliberate, documented relaxation. The first cross-platform evidence
-  (PR #216 CI) is that on aarch64 macOS the crystal run gives 67721 recoils
-  against 67786 on x86-64 Linux, while the amorphous and electron runs agree
-  exactly: a comparison in the crystal path flips on a libm or codegen
-  difference. The cause is not located. This is the evidence for the
-  separate decision on a pure-Rust libm (tracked in #217); none
-  is adopted today. The test file says how to regenerate the values and
+  1e-9. The crystal run has a pinned set per platform: one for Linux (both
+  architectures) and a separately labelled one for aarch64 macOS (generated on
+  the `macos-latest` runner), each checked exactly in the same sense. Any
+  other platform is only checked statistically: conservation invariants exact,
+  counts and sums to a 15% relative tolerance. The two sets differ (67721
+  recoils on aarch64 macOS against 67786 on Linux) because the platform libm
+  differs in the last bit for `tan`, `acos`, `sin`, `cos`, `exp`, `ln`,
+  `powf` and others. The differences enter through the BCA path shared with
+  the amorphous run, where they move floats in the last bits and leave the
+  integer counts alone at this sample size; the crystal path's lattice-site
+  and simultaneous-collision comparisons amplify them into different
+  histories. No single comparison flips. The promise stays tolerance-only:
+  a pure-Rust libm that would make the sets identical was considered and
+  declined (#217). If the macOS runner image's libm changes, the macOS set
+  may need regenerating. The test file says how to regenerate the values and
   which platform each set came from.
 
 ## Decisions
