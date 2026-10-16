@@ -76,6 +76,30 @@ What it covers:
   (the weak transfers made within the outer ring radius of it). It is wide,
   but a negative control shows the engine without weak collisions misses it
   in every case.
+- **Masked implant vs the analytic edge profile (#435).** 2 keV boron at
+  normal incidence into silicon, behind an ideal mask edge at `y = 0` and an
+  aperture 40 nm wide, on a voxel target tallied with the sparse `VoxelTally`
+  (#433). The aperture is 40 pencil beams entered at the voxel centres
+  (`Bca::with_entry_point`, one seed each), their tallies merged. The
+  analytic profile is the superposition of Gaussian pencil beams over the
+  aperture, `n0 (Phi(y/s) - Phi((y-a)/s))` with `Phi` the standard normal
+  distribution function, where `s` is the lateral straggle of the 1D
+  profile: the standard deviation of the lateral position of the stopped
+  primaries in a separate semi-infinite layer-stack run (the layer engine, a
+  different seed). Only the shape is compared; the amplitude is the number of
+  implanted atoms. `mask.straggle` compares the straggle fitted to the edge
+  profile (a one-parameter chi-square fit, uncertainty from the curvature)
+  with the 1D value, tolerance 1 % plus three combined standard errors;
+  `mask.edge_position` fits the shift of the whole profile and requires it to
+  be within three standard errors of the mask position; `mask.shape` holds
+  the cumulative lateral dose, with no fitted parameter, to the erf
+  prediction within 0.5 % of the implanted atoms plus `2/sqrt(N)`. The
+  pencil-beam distribution is not exactly Gaussian (the kurtosis is in
+  `mask.diagnostics`, with the chi-square per point of the erf profile, which
+  is above one at full statistics), so the error function is a good
+  description, not an exact one. Only the lateral marginal is compared: the
+  depth profile and the z direction are not part of this check. The `quick`
+  variant of this group is the fast reduced-statistics test that runs in CI.
 - **Elastic cross sections vs published partial waves (#93, not yet
   active).** `sigma_el` and `sigma_tr1` for C, Si, Cu and Au at 1 and 10 keV
   against Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409
@@ -163,6 +187,11 @@ Level 1, `full` statistics, `lindhard` 0.0.1.
 | `damage.cascade_electronic_share.si_10k` | Si 10 keV -> Si, K = 3 weak collisions: engine electronic share 0.4687 vs LNST partition 0.4458 (\|abs. diff.\|) | 0.0230 | <= 0.1212 | pass | share = (el_nl + el_loc)/(incident - backscattered - sputtered - transmitted - surface_barrier) = 1.0000 kept, 400 ions; LNST eq. (2.7) with the engine's ZBL, LS, E_c = E_d = 1 eV; tol = 3 SE 0.0041 + solver 0.0000 + truncation 0.0071 (LNST with K = 3 rings: 0.4387) + step 0.1077 + surface 0.0022 |
 | `damage.cascade_electronic_share.control` | Negative control: without weak collisions (the engine before #64) every case above misses its tolerance | smallest \|deviation\| / tolerance 1.3978 | exact | pass | shows the partition check detects the dropped nuclear loss beyond p_max |
 | `damage.cascade_electronic_share.robinson` | Context: Robinson's fit of the Lindhard partition (Thomas-Fermi cross section, no cutoffs), 1 - T_dam/T | Cu 1 keV: 0.1801 (LNST 0.3797); Cu 10 keV: 0.2498 (LNST 0.4480); Si 1 keV: 0.2156 (LNST 0.3459); Si 10 keV: 0.3098 (LNST 0.4458) | - | info | not comparable: with ZBL S_n and LS S_e the ratio S_e/S_n rises again below about 100 eV, while LNST's Thomas-Fermi cross section behaves as power-law scattering with s = 3 at low energy (p. 26), so S_e/S_n keeps falling (p. 21: it tends to zero for s < 4); the cascade tail spends much of its electronic loss there |
+| `mask.conservation` | masked implant: primaries at rest in the grid and outside it (34 outside) do not exceed the 240000 histories | 220751 <= 240000 | exact | pass | a history comes to rest at most once; the rest escaped by backscatter |
+| `mask.diagnostics` | B 2 keV into Si, 40 pencil beams x 6000 ions, mask edge at y = 0; 1D lateral straggle s_ref = 6.6776 nm, kurtosis 3.3434 | chi2/pts: fit 126.1976 / 74, s_ref 126.3602 / 74 | - | info | chi-square of the row counts against the erf profile |
+| `mask.straggle` | masked implant: lateral straggle fitted to the edge profile vs the 1D lateral straggle, \|s_fit / s_ref - 1\| | 0.148% | <= 2.179% | pass | s_fit = 6.6875 +- 0.0234 nm, s_ref = 6.6776 +- 0.0119 nm (1 % + 3 standard errors) |
+| `mask.edge_position` | masked implant: fitted shift of the edge profile from the mask position y = 0, in standard errors | 1.2905 | <= 3.0000 | pass | shift 0.0310 +- 0.0240 nm; an ideal edge sits at the half-dose point of an even pencil-beam distribution |
+| `mask.shape` | masked implant: largest gap between the measured and the erf-predicted cumulative lateral dose (s = s_ref, no fit), fraction of the implanted atoms | 0.0028 | <= 0.0093 | pass | 0.005 + 2 / sqrt(N); the pencil-beam distribution is only approximately Gaussian (kurtosis in mask.diagnostics) |
 <!-- validation:level1:end -->
 
 ### Known deviations (reported, not asserted)

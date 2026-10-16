@@ -29,6 +29,7 @@
 mod damage;
 mod engine;
 mod lss;
+mod mask;
 mod partition;
 mod report;
 mod scattering;
@@ -45,12 +46,13 @@ use report::{Check, Status};
 
 type Group = (&'static str, fn(&ScatteringTable, bool) -> Vec<Check>);
 
-const GROUPS: [Group; 5] = [
+const GROUPS: [Group; 6] = [
     ("scatter", |t, _| scattering::checks(t)),
     ("stopping", |_, _| stopping::checks()),
     ("range", lss::checks),
     ("engine", engine::checks),
     ("damage", damage::checks),
+    ("mask", mask::checks),
 ];
 
 /// libtest options that take a separate value (`--test-threads 4`); the value
