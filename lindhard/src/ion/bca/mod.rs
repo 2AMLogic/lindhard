@@ -57,8 +57,8 @@
 //! escape is reflected specularly about that normal. Escapes through the
 //! lateral faces of a voxel grid are reported as [`Face::Side`] and counted
 //! in [`EnergyBudget::lateral`]. [`crate::tally::ion::IonTally`] and the CLI
-//! tallies describe stacks only; use [`SummaryTally`] or a custom
-//! [`BcaTally`] for voxel runs.
+//! tallies describe stacks only; use [`crate::tally::voxel::VoxelTally`],
+//! [`SummaryTally`] or a custom [`BcaTally`] for voxel runs.
 //!
 //! A flight is drawn as a dimensionless number of mean free paths `tau` and
 //! converted to a length with the local `lambda`. When a flight reaches a

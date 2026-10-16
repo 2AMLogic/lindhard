@@ -18,6 +18,10 @@ walks through three of them with figures.
 | [`sputtering_ar_cu_angle.toml`](sputtering_ar_cu_angle.toml) | 1 keV Ar onto Cu at one incidence angle (`beam.tilt_deg = 0`): the base input of the angle sweep in the book's [examples gallery](../book/src/gallery/sputtering-angle.md), which `validation/gallery.py` runs at several tilts and seeds; the angular dependence is an illustration, not a validated prediction |
 | [`electron/e_10keV_resist_on_si.toml`](electron/e_10keV_resist_on_si.toml) | 10 keV electrons into a 100 nm resist layer on Si: an `[electron]` run with a `[[target.layers]]` entry and two materials, writing the same `electron_*.csv` files. Its optical ELF, band parameters and resist data are **synthetic**, not those of any resist or of Si; the output shows the layered-target mechanics, not a resist stack |
 
+[`voxel-tally/`](voxel-tally/) holds a small synthetic voxel tally in the two
+export formats (`example.csv`, `example.vtk`); see the book's
+[Voxel tallies](../book/src/guide/voxel-tallies.md) page.
+
 ```sh
 cargo run -p lindhard-cli -- check examples/b_5keV_si.toml
 cargo run --release -p lindhard-cli -- run examples/b_5keV_si.toml --out out/b_5keV_si
