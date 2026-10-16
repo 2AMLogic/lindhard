@@ -16,6 +16,13 @@ one version).
   voxels equal the 1D tallies of the same run on a laterally uniform target.
   Book page `guide/voxel-tallies.md`; example files in `examples/voxel-tally`
   (#433).
+- Retention limit for implanted species in dynamic runs (#436):
+  `[dynamic.retention_limit] <Sym> = f` caps the atom fraction of that element
+  a slab may hold, re-emitting the excess (removed from the slab and the
+  target), and `DynamicRun::with_retention`, `StepRecord::re_emitted_m2`. The
+  steps file gains `cum_re_emitted_atoms_per_cm2_<Sym>` columns with a limit
+  set. Off by default, and then results and output are unchanged; no numeric
+  default is supplied.
 - `ion::stopping::correction`: a per-pair multiplicative correction of an
   electronic-stopping model, fitted to a `StoppingDataset` (seeded, applied
   only inside the energy span of the data), with a bootstrap band that is

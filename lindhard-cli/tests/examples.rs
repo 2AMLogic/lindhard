@@ -713,6 +713,46 @@ fn dynamic_example_checks_runs_and_writes_a_time_series() {
     assert!(comp.lines().count() > n_steps, "at least one slab per step");
     let h: Vec<_> = comp.lines().next().unwrap().split(',').collect();
     assert!(h.contains(&"fraction_As") && h.contains(&"atoms_per_cm2_Si"));
+    // The retention columns exist only with a limit set.
+    assert!(!steps.lines().next().unwrap().contains("re_emitted"));
+}
+
+#[test]
+fn dynamic_retention_limit_caps_the_implanted_species_and_reports_re_emission() {
+    let text = std::fs::read_to_string(dynamic_example()).unwrap()
+        + "\n[dynamic.retention_limit]\nAs = 0.02\n";
+    let dir = scratch("dynamic-retention");
+    let input = dir.join("input.toml");
+    std::fs::write(&input, text).unwrap();
+    ok(&lindhard(&["check", input.to_str().unwrap()]));
+    let out = dir.join("out");
+    run(&input, &out, &["--ions", "1500"]);
+
+    let s = json(&out.join("dynamic_summary.json"));
+    assert_eq!(s["input"]["dynamic"]["retention_limit"]["As"], 0.02);
+    let comp = std::fs::read_to_string(out.join("dynamic_composition.csv")).unwrap();
+    let h: Vec<_> = comp.lines().next().unwrap().split(',').collect();
+    let fi = h.iter().position(|c| *c == "fraction_As").unwrap();
+    for l in comp.lines().skip(1) {
+        let f: f64 = l.split(',').nth(fi).unwrap().parse().unwrap();
+        assert!(f <= 0.02 * (1.0 + 1e-9), "{l}");
+    }
+    let steps = std::fs::read_to_string(out.join("dynamic_steps.csv")).unwrap();
+    let h: Vec<_> = steps.lines().next().unwrap().split(',').collect();
+    let ci = h
+        .iter()
+        .position(|c| *c == "cum_re_emitted_atoms_per_cm2_As")
+        .unwrap();
+    let last: f64 = steps
+        .lines()
+        .last()
+        .unwrap()
+        .split(',')
+        .nth(ci)
+        .unwrap()
+        .parse()
+        .unwrap();
+    assert!(last > 0.0, "the limit was meant to bind");
 }
 
 #[test]
@@ -765,6 +805,14 @@ fn invalid_dynamic_settings_fail_naming_the_field() {
     assert!(e.contains("dynamic.number_density_cm3"), "{e}");
     let e = fails("dyn-erosion", &format!("{base}erosion = 1\n"));
     assert!(e.contains("erosion"), "{e}");
+    for (name, tail) in [
+        ("dyn-ret-frac", "[dynamic.retention_limit]\nAs = 1.5\n"),
+        ("dyn-ret-zero", "[dynamic.retention_limit]\nAs = 0.0\n"),
+        ("dyn-ret-sym", "[dynamic.retention_limit]\nXx = 0.1\n"),
+    ] {
+        let e = fails(name, &format!("{base}{tail}"));
+        assert!(e.contains("dynamic.retention_limit"), "{e}");
+    }
 }
 
 // ---- electron runs -------------------------------------------------------------

@@ -108,6 +108,18 @@ fn drive_with(
     seed: u64,
     erosion: bool,
 ) -> Outcome {
+    drive_retained(g, count, fluence_m2, policy, seed, erosion, &[])
+}
+
+fn drive_retained(
+    g: CompositionGrid,
+    count: u64,
+    fluence_m2: f64,
+    policy: StepPolicy,
+    seed: u64,
+    erosion: bool,
+    limits: &[(u8, f64)],
+) -> Outcome {
     let ls = LindhardScharff::new();
     let mut run = DynamicRun::new(
         g,
@@ -121,6 +133,8 @@ fn drive_with(
             erosion,
         },
     )
+    .unwrap()
+    .with_retention(limits.iter().copied())
     .unwrap();
     let mut records = Vec::new();
     run.run_all(|r, _| records.push(r.clone())).unwrap();
@@ -154,6 +168,10 @@ fn fingerprint(o: &Outcome) -> Vec<u64> {
         v.push(r.removed_slabs.len() as u64);
         v.push(r.recession_m.to_bits());
         v.push(r.recession_total_m.to_bits());
+        for (&z, a) in &r.re_emitted_m2 {
+            v.push(u64::from(z));
+            v.push(a.to_bits());
+        }
     }
     v.extend(o.grid.thicknesses_m().iter().map(|t| t.to_bits()));
     for i in 0..o.grid.n_slabs() {
@@ -500,4 +518,183 @@ fn erosion_is_bit_identical_at_1_2_and_8_threads() {
             );
         }
     }
+}
+
+// ---- retention limit -------------------------------------------------------------
+
+fn fraction(g: &CompositionGrid, slab: usize, z: u8) -> f64 {
+    let inv = g.inventory(slab).unwrap();
+    let total: f64 = inv.iter().map(|&(_, a)| a).sum();
+    inv.iter()
+        .find(|&&(zz, _)| zz == z)
+        .map_or(0.0, |&(_, a)| a)
+        / total
+}
+
+#[test]
+fn retention_saturates_at_the_limit_with_a_flat_top() {
+    // 1 keV As into 6 slabs of 2 nm of Si: the front slabs fill first. With a
+    // limit f, a slab that has reached it holds exactly the fraction
+    // As / (As + Si) = f (the analytic plateau), and no slab ever exceeds it.
+    let f = 0.05;
+    let (count, fluence) = (3000, 8e19);
+    let policy = StepPolicy::Adaptive {
+        max_ions_per_step: 100,
+        min_ions_per_step: 5,
+        max_change: 0.05,
+    };
+    let free = drive(grid(12, 1.0, false), count, fluence, policy, 9);
+    let capped = drive_retained(
+        grid(12, 1.0, false),
+        count,
+        fluence,
+        policy,
+        9,
+        false,
+        &[(AS, f)],
+    );
+    let fr = |o: &Outcome| -> Vec<f64> {
+        (0..o.grid.n_slabs())
+            .map(|i| fraction(&o.grid, i, AS))
+            .collect()
+    };
+    let free_fr = fr(&free);
+    assert!(
+        free_fr.iter().cloned().fold(0.0, f64::max) > 2.0 * f,
+        "the unlimited run was meant to exceed the limit: {free_fr:?}"
+    );
+    let capped_fr = fr(&capped);
+    assert!(
+        capped_fr.iter().all(|&x| x <= f * (1.0 + 1e-12)),
+        "{capped_fr:?}"
+    );
+    let plateau: Vec<&f64> = capped_fr
+        .iter()
+        .filter(|&&x| (x - f).abs() <= 1e-9 * f)
+        .collect();
+    assert!(
+        plateau.len() >= 2,
+        "at least two slabs should sit on the plateau: {capped_fr:?}"
+    );
+    // Flat top: the saturated slabs are adjacent.
+    let on: Vec<usize> = (0..capped_fr.len())
+        .filter(|&i| (capped_fr[i] - f).abs() <= 1e-9 * f)
+        .collect();
+    assert!(on.windows(2).all(|w| w[1] == w[0] + 1), "{capped_fr:?}");
+    let re: f64 = capped
+        .records
+        .iter()
+        .flat_map(|r| r.re_emitted_m2.get(&AS))
+        .sum();
+    assert!(re > 0.0);
+}
+
+#[test]
+fn retention_accounts_for_every_atom() {
+    // Thick film, no substrate, nothing leaves through the back: for the beam
+    // species, retained change = implanted - sputtered - re-emitted, step by
+    // step. (The recoils of As are included in the sputtered count.)
+    let (count, fluence) = (2000, 3e19);
+    let o = drive_retained(
+        grid(6, 3.0, false),
+        count,
+        fluence,
+        fixed(100),
+        4,
+        false,
+        &[(AS, 0.04)],
+    );
+    let per_ion = fluence / count as f64;
+    let (mut implanted, mut sputtered, mut re) = (0.0, 0.0, 0.0);
+    for r in &o.records {
+        assert_eq!(r.clamped, 0);
+        assert_eq!(r.yields.recoils_transmitted, 0);
+        implanted += r.yields.primaries_in_slabs as f64 * per_ion;
+        sputtered += *r.yields.sputtered.get(&AS).unwrap_or(&0) as f64 * per_ion;
+        re += r.re_emitted_m2.get(&AS).copied().unwrap_or(0.0);
+    }
+    assert!(re > 0.0, "the limit was meant to bind");
+    let retained = o.grid.total_inventory(AS);
+    assert!(
+        (retained - (implanted - sputtered - re)).abs() <= 1e-9 * implanted,
+        "retained {retained}, implanted {implanted}, sputtered {sputtered}, re-emitted {re}"
+    );
+    // Si is untouched by the limit: only the recoil bookkeeping moves it.
+    assert!(o.records.iter().all(|r| !r.re_emitted_m2.contains_key(&SI)));
+}
+
+#[test]
+fn retention_is_bit_identical_at_1_2_and_8_threads() {
+    let run = || {
+        drive_retained(
+            grid(4, 3.0, true),
+            800,
+            3e19,
+            StepPolicy::Adaptive {
+                max_ions_per_step: 200,
+                min_ions_per_step: 5,
+                max_change: 0.05,
+            },
+            13,
+            true,
+            &[(AS, 0.03)],
+        )
+    };
+    let reference = with_threads(1, run);
+    assert!(reference
+        .records
+        .iter()
+        .any(|r| !r.re_emitted_m2.is_empty()));
+    let fp = fingerprint(&reference);
+    for n in [2, 8] {
+        assert_eq!(fp, fingerprint(&with_threads(n, run)), "{n} threads");
+    }
+}
+
+#[test]
+fn retention_off_or_out_of_reach_changes_nothing() {
+    let policy = StepPolicy::Adaptive {
+        max_ions_per_step: 100,
+        min_ions_per_step: 5,
+        max_change: 0.05,
+    };
+    let base = drive(grid(4, 4.0, true), 600, 2e19, policy, 6);
+    // No limits, and a limit the run never gets near, give the same bits.
+    let empty = drive_retained(grid(4, 4.0, true), 600, 2e19, policy, 6, false, &[]);
+    let far = drive_retained(
+        grid(4, 4.0, true),
+        600,
+        2e19,
+        policy,
+        6,
+        false,
+        &[(AS, 0.999)],
+    );
+    assert_eq!(fingerprint(&base), fingerprint(&empty));
+    assert_eq!(fingerprint(&base), fingerprint(&far));
+}
+
+#[test]
+fn retention_rejects_bad_limits() {
+    let ls = LindhardScharff::new();
+    let make = || {
+        DynamicRun::new(
+            grid(2, 4.0, true),
+            beam(10),
+            config(1),
+            &ls,
+            table(),
+            DynamicConfig {
+                fluence_m2: 1e18,
+                policy: fixed(10),
+                erosion: false,
+            },
+        )
+        .unwrap()
+    };
+    for f in [0.0, 1.0, -0.1, f64::NAN, 1.5] {
+        assert!(make().with_retention([(AS, f)]).is_err(), "{f}");
+    }
+    assert!(make().with_retention([(AS, 0.1), (AS, 0.2)]).is_err());
+    assert!(make().with_retention([(AS, 0.1), (SI, 0.9)]).is_ok());
 }
