@@ -82,6 +82,54 @@ pub fn rotate_sc(u: [f64; 3], polar: (f64, f64), azimuth: (f64, f64)) -> [f64; 3
     [v[0] * f, v[1] * f, v[2] * f]
 }
 
+/// `(sin, cos)` of the angle `2 pi u` for `u` in `[0, 1)`, the azimuth of a
+/// collision drawn as a fraction of a turn.
+///
+/// The azimuth is the one transcendental call left per collision that the
+/// geometry of the scattering does not remove, and the platform `sin` and
+/// `cos` are two separate library calls. This does the same with exact
+/// argument reduction and short Maclaurin series: `x = 4u` is split as the
+/// nearest integer number of quarter turns `k` plus a remainder, so the
+/// series argument `r = (x - k) pi / 2` lies in `[-pi/4, pi/4]`, where the
+/// series through `r^17` (sine) and `r^18` (cosine) have truncation error
+/// below 1e-19 (the first omitted terms, `r^19 / 19!` and `r^20 / 20!`). The
+/// quarter turn `k` then rotates `(sin r, cos r)` into place. Results agree
+/// with the library `sin_cos` to about 2e-16 and are the same on every
+/// platform, because only IEEE multiplications and additions are used.
+#[inline]
+pub fn sin_cos_turns(u: f64) -> (f64, f64) {
+    let x = 4.0 * u;
+    let k = (x + 0.5).floor();
+    let r = (x - k) * (0.5 * PI);
+    let z = r * r;
+    let sin_r = r
+        * (1.0
+            + z * (-1.0 / 6.0
+                + z * (1.0 / 120.0
+                    + z * (-1.0 / 5_040.0
+                        + z * (1.0 / 362_880.0
+                            + z * (-1.0 / 39_916_800.0
+                                + z * (1.0 / 6_227_020_800.0
+                                    + z * (-1.0 / 1_307_674_368_000.0
+                                        + z * (1.0 / 355_687_428_096_000.0)))))))));
+    let cos_r = 1.0
+        + z * (-1.0 / 2.0
+            + z * (1.0 / 24.0
+                + z * (-1.0 / 720.0
+                    + z * (1.0 / 40_320.0
+                        + z * (-1.0 / 3_628_800.0
+                            + z * (1.0 / 479_001_600.0
+                                + z * (-1.0 / 87_178_291_200.0
+                                    + z * (1.0 / 20_922_789_888_000.0
+                                        + z * (-1.0 / 6_402_373_705_728_000.0)))))))));
+    match k as u8 & 3 {
+        0 => (sin_r, cos_r),
+        1 => (cos_r, -sin_r),
+        2 => (-sin_r, -cos_r),
+        _ => (-cos_r, sin_r),
+    }
+}
+
 /// Lab deflection of the projectile, as `(sin psi, cos psi)`, from the
 /// half-angle sine and cosine of the centre-of-mass angle (`s = sin(theta/2)`,
 /// `c = cos(theta/2)`, `s^2 + c^2 = 1`) and `mu = M1 / M2`.
@@ -221,6 +269,28 @@ mod tests {
         let a = rotate(u, 1.1, 2.2);
         let b = rotate_sc(u, 1.1f64.sin_cos(), 2.2f64.sin_cos());
         assert_eq!(a, b);
+    }
+
+    #[test]
+    fn sin_cos_turns_matches_the_library() {
+        let mut worst = 0.0f64;
+        let n = 100_000;
+        for i in 0..=n {
+            // Grid including every octant boundary, plus the largest u < 1.
+            let u = if i == n {
+                1.0 - f64::EPSILON / 2.0
+            } else {
+                i as f64 / n as f64
+            };
+            let (s, c) = sin_cos_turns(u);
+            let (rs, rc) = (2.0 * PI * u).sin_cos();
+            worst = worst.max((s - rs).abs()).max((c - rc).abs());
+            assert!((s * s + c * c - 1.0).abs() < 1e-15, "{u}");
+        }
+        assert!(worst < 1e-15, "{worst}");
+        assert_eq!(sin_cos_turns(0.0), (0.0, 1.0));
+        let (s, c) = sin_cos_turns(0.25);
+        assert!((s - 1.0).abs() < 1e-16 && c.abs() < 1e-16);
     }
 
     #[test]
