@@ -25,9 +25,10 @@
 //!   double quotes around a field that contains a comma, `""` for a literal
 //!   quote inside one. Quoted fields do not span lines.
 //!
-//! No real measurement is shipped with this module: which published data may
-//! enter the tree is decided separately (issue #34). Tests use synthetic points
-//! generated from this repository's own models.
+//! No measurement is shipped with this module. Which published data may enter
+//! the tree is decided in issue #34; the one real dataset so far is in
+//! `validation/data/stopping/`. Tests here use synthetic points generated from
+//! this repository's own models.
 //!
 //! Every result is a pure function of the model and the dataset, computed in
 //! dataset order with sequential summation, so it is bitwise reproducible

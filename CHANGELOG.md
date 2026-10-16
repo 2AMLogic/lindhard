@@ -14,6 +14,13 @@ one version).
   profile out), published with the book. CI builds it on every pull request
   that touches the library or the new crate and compares it with the native
   build for the same seed (#432).
+- `ion::stopping::correction`: a per-pair multiplicative correction of an
+  electronic-stopping model, fitted to a `StoppingDataset` (seeded, applied
+  only inside the energy span of the data), with a bootstrap band that is
+  bit-identical across seeds and thread counts and held-out residuals of the
+  base and corrected model side by side. First real stopping dataset:
+  `validation/data/stopping/bader1956_p_cu.csv` (Cu for protons, Bader et al.
+  1956) (#430).
 - An examples gallery in the book (`book/src/gallery`): an implant through a
   screen oxide, a sputtering-yield sweep over the incidence angle, and
   electron deposition in a resist layer on Si (synthetic electron data). New

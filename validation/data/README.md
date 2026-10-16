@@ -24,6 +24,10 @@ derived from it, or any other code's output, however well known
   decision (#70). Every point has a manual second read
   (`digitize/secondread_ar_*_am32.json`), and the symbols that NIFS-DATA-23
   separates a second compilation read (`digitize/crosscheck_ar_*_nifs23.json`).
+- **Stopping, protons in Cu:** `stopping/bader1956_p_cu.csv`, 15 values
+  (50 to 600 keV) from Table I of Bader et al., Phys. Rev. 103, 32 (1956),
+  in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
+  curve values; no uncertainty stated.
 - **Optical ELF, Al, Cu, glassy C and Au:**
   `optical/{al,cu,c,au}_elf_hagemann1975.toml`, ELF converted by
   `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz (1975) as
