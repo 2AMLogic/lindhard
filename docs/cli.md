@@ -372,6 +372,7 @@ step sizes and thread count.
 | `atomic_volume_nm3.<Sym>` | elemental solid volume from the element table | Atomic volume, nm³/atom, per element (ideal mixing). Required for an element with no tabulated solid density (a gas) |
 | `energies.<Sym>` | `[physics.energies.<Sym>]`, then element defaults | `e_d_ev`, `e_b_ev`, `e_s_ev` of an element that enters the target during the run (the beam species, for example). Elements already in a layer keep that layer's energies |
 | `erosion` | `false` | Sputter erosion: sputtered atoms are removed from the front of the target (slab 0 first, then deeper slabs) instead of from the slab where they were displaced, and the surface recedes. Must be a boolean |
+| `retention_limit.<Sym>` | none (off) | Retention limit of an implanted species: the largest atom fraction of that element a slab may hold, in (0, 1). Atoms above it are re-emitted: removed from the slab and from the target. No default value is supplied. Written as a `[dynamic.retention_limit]` table, e.g. `As = 0.05` |
 
 With `erosion = false` the front surface stays at `x = 0`: swelling moves the
 interior interfaces and the back face of the slabs, not the front surface (the
@@ -386,6 +387,10 @@ step sputters more of an element than the slabs hold, the excess is not
 removed and the element is counted in the `clamped` column. With a substrate,
 atoms sputtered from the substrate remove nothing from the slabs, so the
 recession falls short of `Y F / n` once the film is thin.
+With a `retention_limit` the excess over the limit is removed after each step
+(model and assumptions: the book's dynamic-composition page); the steps file
+gains `cum_re_emitted_atoms_per_cm2_<Sym>` columns, the atoms/cm² re-emitted so
+far per element. Without one the output is unchanged.
 `dynamic_summary.json` totals gain `recession_nm` only with erosion on. Depths
 in the output are measured from the front surface of that step. A dynamic run
 needs `E_d` for every element that can occur, including the beam species. The Python bindings run static inputs only.
