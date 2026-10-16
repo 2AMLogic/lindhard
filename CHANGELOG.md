@@ -16,6 +16,11 @@ one version).
   voxels equal the 1D tallies of the same run on a laterally uniform target.
   Book page `guide/voxel-tallies.md`; example files in `examples/voxel-tally`
   (#433).
+- Level-1 validation group `mask` (#435): a masked implant (2 keV B into Si,
+  ideal edge mask) run on a voxel target with the sparse voxel tally and
+  compared to the analytic error-function edge profile whose width is the
+  lateral straggle of the 1D profile. The measured straggle is reported with
+  its statistical uncertainty beside the 1D value.
 - Retention limit for implanted species in dynamic runs (#436):
   `[dynamic.retention_limit] <Sym> = f` caps the atom fraction of that element
   a slab may hold, re-emitting the excess (removed from the slab and the
