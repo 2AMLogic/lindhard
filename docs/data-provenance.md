@@ -751,3 +751,13 @@ energies. Level 3 keeps the untuned comparison as the primary result.
 - EADL / EPICS2017 subshell binding energies: resolved. The operator ruled
   on 2026-10-06 (https://github.com/2AMLogic/lindhard/issues/34#issuecomment-6030285546) that the numbers may be committed as cited
   facts with the credit IAEA-NDS-224 Rev. 1 requests; see the row above.
+
+- **Fluence-dependent validation data (2026-10-16, #437): none stored.**
+  Searched scholarly indexes and the web for (a) measured steady-state
+  surface composition and partial sputter yields of a binary target (Cu-Ni,
+  Cr-Mo, Ni-W, Cu-Zn, Al-Pd-Si alloy studies) and (b) high-fluence As or Ge
+  in Si profiles. The primary measurements are closed access and no openable
+  copy with numeric values was found, so nothing was entered. SDTrimSP and
+  TRIDYN results exist in the literature but are Tier C code output and are
+  not usable as reference data. A source read by hand may close the gap; see
+  [`validation.md`](validation.md), "Fluence-dependent targets vs measurement".
