@@ -1,0 +1,21 @@
+# format: lindhard-stopping-data/1
+# name: bader1956-p-cu
+# description: Stopping cross section of Cu for protons, 50 to 600 keV, as printed in Table I of Bader et al. (1956); values from the authors' smooth curves through their measured points
+# source: M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956)
+# note: the paper states no uncertainty for these values, so sigma is 0 (none stated)
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation
+1,,Cu,50000,21.5,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,75000,23.0,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,100000,24.0,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,125000,24.3,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,150000,24.0,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,175000,23.4,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,200000,22.9,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,250000,21.7,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,300000,21.0,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,350000,20.2,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,400000,19.5,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,450000,18.8,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,500000,18.1,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,550000,17.5,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
+1,,Cu,600000,16.9,0,backscattering of protons from thin evaporated Cu layers (smoothed curve),"M. Bader, R. E. Pixley, F. S. Mozer and W. Whaling, Phys. Rev. 103, 32 (1956), doi:10.1103/PhysRev.103.32, Table I (Cu column)"
