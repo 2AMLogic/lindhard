@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: a WebAssembly build of the ion engine and a static
+  range-calculator page (species, energy and target in; `Rp`, `ΔRp` and a depth
+  profile out), published with the book. CI builds it on every pull request
+  that touches the library or the new crate and compares it with the native
+  build for the same seed (#432).
 - Retention limit for implanted species in dynamic runs (#436):
   `[dynamic.retention_limit] <Sym> = f` caps the atom fraction of that element
   a slab may hold, re-emitting the excess (removed from the slab and the

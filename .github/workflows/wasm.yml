@@ -1,0 +1,64 @@
+name: wasm
+
+# Builds the WebAssembly package of lindhard-wasm and tests it under Node
+# against the native build: the same 10^4-ion B into Si case and seed, checked
+# against lindhard-wasm/tests/b_5keV_si.golden.json with the tolerance stated
+# in lindhard-wasm/tests/parity.rs (the native side of the test runs in the
+# `rust` job of ci.yml). The browser page itself is built and published with
+# the book (book.yml).
+#
+# Runs on every pull request that touches the library or the new crate.
+
+on:
+  pull_request:
+    paths:
+      - "lindhard/**"
+      - "lindhard-wasm/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+      - ".github/workflows/wasm.yml"
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wasm-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  wasm:
+    name: Build the WASM package and test it under Node
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Must equal the `=` pin on wasm-bindgen in lindhard-wasm/Cargo.toml: the
+      # command-line tool refuses a module built by another version. One pin
+      # for the whole job: the URL and the checksum both read it.
+      WASM_BINDGEN_VERSION: "0.2.129"
+      WASM_BINDGEN_SHA256: "82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e"
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: install wasm-bindgen ${{ env.WASM_BINDGEN_VERSION }}
+        run: |
+          set -euo pipefail
+          tarball="wasm-bindgen-$WASM_BINDGEN_VERSION-x86_64-unknown-linux-musl"
+          curl -fsSL --retry 3 -o /tmp/wasm-bindgen.tar.gz \
+            "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$WASM_BINDGEN_VERSION/$tarball.tar.gz"
+          echo "$WASM_BINDGEN_SHA256  /tmp/wasm-bindgen.tar.gz" | sha256sum --check --strict
+          mkdir -p /tmp/wasm-bindgen-bin
+          tar -xzf /tmp/wasm-bindgen.tar.gz -C /tmp/wasm-bindgen-bin --strip-components=1 "$tarball/wasm-bindgen"
+          echo /tmp/wasm-bindgen-bin >> "$GITHUB_PATH"
+      - name: build the Node package
+        run: lindhard-wasm/build.sh nodejs "$RUNNER_TEMP/lindhard-wasm-node"
+      - name: native-versus-WASM parity and smoke tests
+        run: node --test lindhard-wasm/tests/node/parity.test.mjs
+        env:
+          LINDHARD_WASM_PKG: ${{ runner.temp }}/lindhard-wasm-node
+      - name: build the browser package
+        run: lindhard-wasm/build.sh web "$RUNNER_TEMP/lindhard-wasm-web"

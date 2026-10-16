@@ -5,6 +5,10 @@ target/
 # Rendered mdBook (built in CI, published to GitHub Pages)
 book/book/
 
+# The WASM range-calculator page, generated into the book source by
+# .github/workflows/book.yml (lindhard-wasm/build.sh).
+/book/src/calculator/
+
 # Python oracle/venv (validation harness)
 .venv/
 __pycache__/

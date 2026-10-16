@@ -10,7 +10,7 @@ it:
 
 - `lindhard-cli`: TOML input, JSON/CSV output (M0); an `[electron]` input runs the electron engine (M1).
 - `lindhard-py`: pyo3/maturin Python package, NumPy arrays out (bindings built; PyPI wheels in M3). It reuses the CLI's driver, tallies and writers (`lindhard-cli` is also a small library), so a Python run and a command run of the same input and seed agree bit for bit; it adds no physics and no second copy of the TOML schema.
-- WASM build for in-browser range calculators (M3).
+- `lindhard-wasm`: wasm-bindgen build of the ion engine for in-browser range calculators (M3), with a static page published with the book. It runs the library's transport on one thread and does not use `lindhard-cli` (whose driver needs `std::time::Instant`); a test compares it to the native build for the same seed.
 
 Within the library, the shared core (materials, geometry, random numbers,
 tallies, input/output) is separate from the particle engines (ion BCA,

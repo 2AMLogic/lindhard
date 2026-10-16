@@ -27,12 +27,17 @@ jobs:
       # One pin for the whole job: the URL and the checksum both read it.
       MDBOOK_VERSION: "0.5.4"
       MDBOOK_SHA256: "5222beabd3e37dc5be0d18ff99b79058469354db5c220153a1b92db5ba12be89"
+      # Same pin as wasm.yml and the `=` pin in lindhard-wasm/Cargo.toml.
+      WASM_BINDGEN_VERSION: "0.2.129"
+      WASM_BINDGEN_SHA256: "82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e"
     steps:
       - uses: actions/checkout@v7
       - name: Every model enum variant is named in the manual
         # Python standard library only; reads the Rust sources and book/src.
         run: python3 validation/check_manual_coverage.py
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Build the lindhard binary
         run: cargo build --release -p lindhard-cli
@@ -50,6 +55,24 @@ jobs:
           mkdir -p /tmp/mdbook-bin
           tar -xzf /tmp/mdbook.tar.gz -C /tmp/mdbook-bin mdbook
           echo /tmp/mdbook-bin >> "$GITHUB_PATH"
+      - name: install wasm-bindgen ${{ env.WASM_BINDGEN_VERSION }}
+        run: |
+          set -euo pipefail
+          tarball="wasm-bindgen-$WASM_BINDGEN_VERSION-x86_64-unknown-linux-musl"
+          curl -fsSL --retry 3 -o /tmp/wasm-bindgen.tar.gz \
+            "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$WASM_BINDGEN_VERSION/$tarball.tar.gz"
+          echo "$WASM_BINDGEN_SHA256  /tmp/wasm-bindgen.tar.gz" | sha256sum --check --strict
+          mkdir -p /tmp/wasm-bindgen-bin
+          tar -xzf /tmp/wasm-bindgen.tar.gz -C /tmp/wasm-bindgen-bin --strip-components=1 "$tarball/wasm-bindgen"
+          echo /tmp/wasm-bindgen-bin >> "$GITHUB_PATH"
+      - name: Build the range-calculator page into the book
+        # mdBook copies every non-Markdown file under book/src into the
+        # rendered book, so the page ships with the book (and with the Pages
+        # deploy) without a second publishing mechanism. book/src/calculator
+        # is generated and git-ignored.
+        run: |
+          lindhard-wasm/build.sh web book/src/calculator/pkg
+          cp lindhard-wasm/web/index.html book/src/calculator/index.html
       - name: mdbook build
         run: mdbook build book
       - name: Upload the rendered book
