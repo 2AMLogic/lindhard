@@ -9,6 +9,13 @@ one version).
 
 ### Added
 
+- `tally::VoxelTally`, a sparse 3D tally of implanted atoms, displacements and
+  deposited energy (electronic, lattice and rest) on a regular grid, for voxel,
+  mesh and CSG targets, with CSV and legacy ASCII VTK export and readers for
+  both (`VoxelReport`). Deterministic at any thread count; totals over all
+  voxels equal the 1D tallies of the same run on a laterally uniform target.
+  Book page `guide/voxel-tallies.md`; example files in `examples/voxel-tally`
+  (#433).
 - Retention limit for implanted species in dynamic runs (#436):
   `[dynamic.retention_limit] <Sym> = f` caps the atom fraction of that element
   a slab may hold, re-emitting the excess (removed from the slab and the
