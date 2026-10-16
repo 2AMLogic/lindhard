@@ -12,6 +12,7 @@
 //! installed on the machine.
 
 pub mod backscatter;
+pub mod stopping_report;
 
 /// Outcome of comparing a freshly rendered figure with the file on disk.
 #[derive(Debug, Clone, PartialEq, Eq)]

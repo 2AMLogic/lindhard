@@ -16,6 +16,7 @@
   - [Bragg additivity](models/stopping-bragg.md)
   - [Energy-loss straggling](models/straggling.md)
   - [Validity ranges and declined terms](models/stopping-validity.md)
+  - [Residuals against measurements](models/stopping-residuals.md)
 - [BCA transport and free-flight conventions](models/bca.md)
 - [Displacement damage](models/damage.md)
 - [Dynamic composition](models/dynamic-composition.md)
