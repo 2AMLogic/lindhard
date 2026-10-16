@@ -2,11 +2,11 @@
 //! of `lindhard::ion::dynamic` on a rayon pool of the requested size. Shared
 //! by the CLI and anything else that calls it, so the numbers are the same.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use anyhow::{anyhow, bail, Context, Result};
-use lindhard::elements::element;
+use lindhard::elements::{element, element_by_symbol};
 use lindhard::geometry::Stack;
 use lindhard::input::{DynamicSpec, RelaxationChoice, Resolved};
 use lindhard::ion::bca::Beam;
@@ -55,6 +55,9 @@ pub struct StepRow {
     /// erosion off). Depths of this step plus this are depths in the original
     /// frame.
     pub recession_m: f64,
+    /// Atoms/m^2 re-emitted by the retention limit up to and including this
+    /// step, by atomic number (empty with no limit set).
+    pub re_emitted_m2: BTreeMap<u8, f64>,
     /// Event counts summed over steps 1..=this one.
     pub cumulative: Yields,
     /// The slabs after the step.
@@ -67,6 +70,8 @@ pub struct DynamicSimulation {
     /// Atomic numbers of every species the run can contain, sorted: the beam
     /// species and every element of the target.
     pub species: Vec<u8>,
+    /// Whether any retention limit was set (adds the re-emission columns).
+    pub retention: bool,
     /// Step 0 (the initial target) and every accepted step.
     pub steps: Vec<StepRow>,
     /// Attempts that were rejected and retried, over the whole run.
@@ -220,6 +225,13 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         },
     )
     .context("setting up the fluence loop")?;
+    run = run
+        .with_retention(
+            d.retention_limit
+                .iter()
+                .map(|(sym, &f)| (element_by_symbol(sym).expect("validated").z, f)),
+        )
+        .context("setting the retention limits")?;
 
     let mut steps = vec![StepRow {
         step: 0,
@@ -232,6 +244,7 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         clamped: 0,
         removed_slabs: 0,
         recession_m: 0.0,
+        re_emitted_m2: BTreeMap::new(),
         cumulative: Yields::default(),
         slabs: slab_rows(run.grid()),
     }];
@@ -257,6 +270,7 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
                 clamped: rec.clamped,
                 removed_slabs: rec.removed_slabs.len(),
                 recession_m: rec.recession_total_m,
+                re_emitted_m2: run.re_emitted_m2().clone(),
                 cumulative: run.cumulative().clone(),
                 slabs: slab_rows(run.grid()),
             });
@@ -272,6 +286,7 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
     };
     Ok(DynamicSimulation {
         species,
+        retention: !d.retention_limit.is_empty(),
         steps,
         rejected_attempts: rejected,
         table,
