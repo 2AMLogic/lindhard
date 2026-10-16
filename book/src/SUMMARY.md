@@ -27,6 +27,7 @@
 - [TOML input reference](guide/input.md)
 - [Output files](guide/output.md)
 - [Voxel tallies and VTK export](guide/voxel-tallies.md)
+- [Layout cross-section import (finding)](guide/layout-import.md)
 
 # Examples gallery
 
