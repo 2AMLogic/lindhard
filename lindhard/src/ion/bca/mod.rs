@@ -1588,7 +1588,7 @@ impl<'a> Bca<'a> {
         for k in 1..=self.config.weak_collisions {
             let j = Self::draw_partner(rng, scratch);
             let b = scratch.p_max[j] * (f64::from(k) + Self::uniform(rng)).sqrt();
-            let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
+            let azimuth = kinematics::sin_cos_turns(Self::uniform(rng));
             if self.partner_beyond_surface(p, b, azimuth) {
                 continue;
             }
@@ -1605,7 +1605,7 @@ impl<'a> Bca<'a> {
         // without weak collisions (module docs).
         let j = Self::draw_partner(rng, scratch);
         let b = scratch.p_max[j] * Self::uniform(rng).sqrt();
-        let azimuth = (2.0 * PI * Self::uniform(rng)).sin_cos();
+        let azimuth = kinematics::sin_cos_turns(Self::uniform(rng));
         let (t, incoming, phi) = self.binary(p, j, b, azimuth, budget, tally)?;
 
         self.emit_recoil(

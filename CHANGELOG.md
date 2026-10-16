@@ -9,6 +9,11 @@ one version).
 
 ### Changed
 
+- The collision azimuth is computed by `kinematics::sin_cos_turns`, a short
+  series on the uniform draw, instead of two libm calls: about 1.04x ions/s for
+  B 5 keV into Si. It uses the same random draw, so streams are unchanged and
+  results stay bit-identical across thread counts; single histories differ from
+  the previous version at the 1e-16 level (#424).
 - The minimum supported Rust version is now 1.89 (was 1.85), for
   `std::fs::File::lock`, which the table cache's per-entry lock uses
   (#305).
