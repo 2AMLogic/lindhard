@@ -2168,6 +2168,40 @@ a stated limitation), and a measured PSF in an
 openable source, cited to its table or figure (digitized values with the
 second-read discipline of the sputter datasets).
 
+### Fluence-dependent targets vs measurement (#437): gap, no comparison
+
+**Status: not run.** The criteria are (a) the steady-state sputter yield and
+surface composition of one binary target against a cited measurement, and
+(b) one published high-fluence implant profile (for example As or Ge into Si)
+against the fluence-dependent engine, with both volume-relaxation conventions
+(`ideal-mixing`, `fixed-number-density`) reported. The engine side exists
+(fluence loop, erosion #234, retention limit #436). The measured side does
+not: no source with numeric values that may be stored could be opened on
+2026-10-16.
+
+| Input | Status | Where recorded |
+|---|---|---|
+| Steady-state partial sputter yields and surface fractions of a binary target, from a table or figure | **Gap.** Candidates found by search (Cu-Ni and Cr-Mo Auger studies, Ni-W and Cu-Zn low-energy Ar/Xe yields, Al-Pd-Si preferred sputtering) are closed access, and their abstracts carry no numbers | [`data-provenance.md`](data-provenance.md), "Fluence-dependent validation data" row |
+| A published high-fluence As or Ge in Si profile (shape, retained dose or surface peak) with values | **Gap.** The SIMS/RBS literature found is closed access or reports modelled profiles only | same row |
+
+Following the issue's sourcing rule, **there is no comparison table**: no
+yield, surface fraction or profile value was entered from memory, and no
+SDTrimSP/TRIDYN output (Tier C) was used as a stand-in. Reporting both
+relaxation conventions needs a measured profile to be compared with, so that
+part is deferred with it. The existing fluence-loop checks (level 1) are
+unchanged and are not presented as agreement with experiment.
+
+**Rule for when the data exist** (fixed now): the steady-state surface
+fraction of the preferentially sputtered component is compared within 20 %
+relative and the total yield within 30 %; a profile is compared by projected
+range and peak/surface concentration ratio within 25 %. Each is reported for
+both relaxation conventions, mismatches are listed as such, and loosening a
+tolerance needs operator sign-off.
+
+**What lifts the gap:** a measured table or digitizable figure in an openable
+source (second-read discipline of the sputter datasets), a provenance row, and
+a reduced-statistics variant in the unit tests.
+
 ### Secondary-electron yield δ(E): Al, Cu, Si and Au (#149)
 
 **What is compared.** δ(E) is the number of electrons that leave the front
