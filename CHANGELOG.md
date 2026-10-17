@@ -9,6 +9,14 @@ one version).
 
 ### Added
 
+- A generated page in the book, `models/stopping-residuals.md`, with the
+  per-system residuals of the electronic-stopping models against every
+  committed measured dataset (points, mean and rms residual, relative rms,
+  energy span, citations, skipped points) and, for single-element systems,
+  the held-out residuals of a fitted per-pair correction beside the
+  uncorrected ones. Regenerate with
+  `cargo run -p lindhard-plots --bin lindhard-stopping-report`; CI runs it
+  with `--check` in the job that checks the figures (#431).
 - `tally::VoxelTally`, a sparse 3D tally of implanted atoms, displacements and
   deposited energy (electronic, lattice and rest) on a regular grid, for voxel,
   mesh and CSG targets, with CSV and legacy ASCII VTK export and readers for
