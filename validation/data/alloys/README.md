@@ -82,16 +82,46 @@ correction. No total-yield column has been invented. The individual alloy
 yields and altered-layer thickness in Figs. 4–5 are inferred through the
 authors' kinetic model and are not independent measured yield fixtures.
 
-## Related papers already examined
+## Betz (1980): total yields
 
 G. Betz, “Alloy sputtering”, *Surface Science* **92**, 283–309 (1980),
 [doi:10.1016/0039-6028(80)90258-7](https://doi.org/10.1016/0039-6028(80)90258-7),
-has measured Cu–Ni total yields in Fig. 13, p. 304. Those points still need
-figure digitization and a second read; they are not transcribed here. Its
-2 keV Ar+ experiment uses **normal incidence**, unlike Ho's 20° from normal.
-Do not combine the two into one matched experimental row. The pure-element
-values quoted in Betz's discussion are extrapolated fit endpoints, not
-additional measurements from that figure.
+has measured Cu–Ni total yields in Fig. 13, p. 304 (PDF p. 22). All **22
+visible measurement markers** are in [betz1980_fig13.csv](betz1980_fig13.csv),
+with source metadata in [betz1980.json](betz1980.json). The fitted line and
+extrapolated pure-element endpoints are excluded.
+
+The first reading was an operator-supplied approximate coordinate table. A
+second manual reading used a separate 300 dpi rendering of the original PDF.
+Both readings, the pixel centres and axis calibration are retained in
+[the digitization record](../digitize/betz1980_fig13.json). The second reading
+sets the CSV values, rounded to 0.1 at% Cu and 0.01 atoms/ion. It is a manual
+marker read, not an automated detection result. Reproduce the CSV without
+needing the paper or any image package:
+
+```sh
+python3 validation/data/digitize/betz1980_fig13.py --check
+# Omit --check to regenerate the CSV from the recorded coordinates.
+```
+
+Estimated digitization bounds are ±1 at% Cu and ±0.03 atoms/ion for rows 1–15,
+and ±1.5 at% Cu and ±0.05 atoms/ion for crowded rows 16–22. All points agree
+between readings within the sum of their respective digitization bounds.
+These are reading bounds, **not experimental uncertainties or 1-sigma errors**.
+The paper gives no pointwise error bars or complete uncertainty budget for
+Fig. 13. Its 3% beam-current stability is only one contribution; full
+experimental uncertainty remains unknown and is represented as null in metadata.
+
+The 2 keV Ar+ experiment uses **normal incidence**, unlike Ho's 20° from
+normal. Cu–Ni samples are about 2000 Å thick, sputter-deposited on glass.
+Section 3 describes inventory divided by fluence to the film/substrate
+interface, located at a 50% AES signal decrease. Section 3.2 states a different
+preparation route for Cu–Ni than for the evaporated alloys and does not detail
+its separate inventory calibration. A steady-state simulation comparison
+needs to account for this film-integrated measurement. Do not combine Betz
+and Ho into one matched experimental row.
+
+## Related papers already examined
 
 G. Betz and G. K. Wehner, “Sputtering of Multicomponent Materials”, in
 R. Behrisch (ed.), *Sputtering by Particle Bombardment II*, Topics in Applied

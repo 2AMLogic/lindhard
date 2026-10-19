@@ -1,0 +1,47 @@
+{
+  "id": "ar_cuni_betz1980",
+  "kind": "alloy_total_sputter_yield",
+  "citation": "G. Betz, Alloy sputtering, Surface Science 92, 283–309 (1980)",
+  "doi": "10.1016/0039-6028(80)90258-7",
+  "url": "https://doi.org/10.1016/0039-6028(80)90258-7",
+  "source_location": "Fig. 13, p. 304 (PDF page 22); method in Section 3, pp. 301–302; Cu–Ni sample preparation in Section 3.2, p. 303.",
+  "source_pdf_sha256": "d30720aa5ce4b1f4a14b41f6fedbebfed2f7927e01c1841eeb5960a3011d6702",
+  "data_file": "betz1980_fig13.csv",
+  "point_count": 22,
+  "digitization_record": "../digitize/betz1980_fig13.json",
+  "reproduce": "python3 validation/data/digitize/betz1980_fig13.py --check",
+  "conditions": {
+    "projectile": "Ar+",
+    "energy_keV": 2.0,
+    "incidence_deg_from_normal": 0.0,
+    "target": "Cu–Ni solid-solution films sputter-deposited from Cu and Ni targets on glass",
+    "film_thickness_angstrom_approx": 2000,
+    "ion_current_density_microamp_cm2": 30,
+    "ion_current_stability_percent": 3,
+    "irradiation_temperature_K": null,
+    "temperature_note": "Not specified for the Cu–Ni yield experiment in Sections 3 and 3.2."
+  },
+  "observable": "Total sputtering yield in atoms/incident ion versus bulk Cu atomic percent. Section 3 describes dividing areal atom inventory by ion fluence to the film/substrate interface (50% AES signal decrease); this is a film-integrated erosion measurement, not a resolved steady-state surface flux.",
+  "method_limit": "Section 3 describes quartz microbalances for the evaporated systems. Section 3.2 states Cu–Ni films were sputter-deposited and of known composition, without detailing a separate Cu–Ni inventory calibration. Do not assign the evaporation preparation procedure to Cu–Ni.",
+  "uncertainty": {
+    "experimental_yield_uncertainty": null,
+    "experimental_composition_uncertainty": null,
+    "note": "No per-point error bars or full experimental uncertainty stated for Fig. 13. The 3% beam-current stability is one contribution, not the total yield uncertainty. CSV digitization bounds describe reading the figure only; missing experimental uncertainty must not be interpreted as zero."
+  },
+  "columns": {
+    "row_id": "Stable marker identifier corresponding to the two-read record.",
+    "bulk_cu_at_percent": "Digitized bulk Cu atomic percent; Ni is the balance.",
+    "total_yield_atoms_per_ion": "Digitized measured total sputtering yield, atoms per incident Ar+ ion.",
+    "cu_digitization_bound_at_percent": "Estimated absolute digitization bound, not 1 sigma or experimental uncertainty.",
+    "yield_digitization_bound_atoms_per_ion": "Estimated absolute digitization bound, not 1 sigma or experimental uncertainty."
+  },
+  "terms": "Facts, cited; measured markers only. Original PDF, figure image, article text and fitted curve are not redistributed.",
+  "limitations": [
+    "Do not combine with Ho1976 as a single matched experiment: Betz uses normal incidence and Ho about 20 degrees from normal.",
+    "The 4.8 (Cu) and 2.9 (Ni) atoms/ion quoted in the source are extrapolated fit endpoints, not additional Fig. 13 measurements.",
+    "A steady-state comparison requires a documented approximation for the film-integrated measurement.",
+    "These points provide total yield only, not new independent surface-composition data."
+  ],
+  "validation_status": "Source data only; no Lindhard comparison run. Experimental uncertainty remains unresolved.",
+  "added": "2026-10-19"
+}

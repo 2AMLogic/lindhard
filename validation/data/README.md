@@ -11,7 +11,9 @@ derived from it, or any other code's output, however well known
 - **Cu–Ni under Ar+:** [alloys/](alloys/README.md) contains Ho et al.
   (1976), Tables 1–2: nine rows of erosion rates and fitted AES quantities,
   with source units, printed uncertainties and an unresolved 0.5 keV
-  inconsistency. Reference inputs only; no dynamic-target comparison yet.
+  inconsistency. The same directory holds 22 measured total-yield markers
+  from Betz (1980), Fig. 13, with two readings and a reproducible digitization
+  record. Reference inputs only; no dynamic-target comparison yet.
 
 - **B in amorphous Si:** `ranges/b_{1,2,3,5,10,20}keV_asi_wach1982.json`,
   measured ranges of Wach and Wittmaack (1982) digitized from the compilation

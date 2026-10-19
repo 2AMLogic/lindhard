@@ -2210,11 +2210,14 @@ against the fluence-dependent engine, with both volume-relaxation conventions
 nine rows of Cu–Ni erosion rates and fitted AES quantities. Their conditions,
 uncertainties and a printed inconsistency are documented there. The
 conversion to total yield and the AES composition observable still need
-assessment; these source inputs do not establish agreement with Lindhard.
+assessment. Betz (1980), Fig. 13, also supplies 22 digitized total-yield
+markers with two recorded readings. Its normal-incidence, film-integrated
+yields form a separate experiment from Ho's oblique-incidence data. These
+source inputs do not establish agreement with Lindhard.
 
 | Input | Status | Where recorded |
 |---|---|---|
-| Steady-state partial sputter yields and surface fractions of a binary target, from a table or figure | **Source tables available; comparison pending.** Ho (1976) Cu–Ni erosion and fitted AES data are stored. Total-yield conversion requires an explicit density and flux-area convention; surface composition requires the authors’ calibration. No independent partial-yield fixture is claimed | [`data-provenance.md`](data-provenance.md), "Fluence-dependent validation data" row |
+| Steady-state partial sputter yields and surface fractions of a binary target, from a table or figure | **Source tables available; comparison pending.** Ho (1976) Cu–Ni erosion and fitted AES data and Betz (1980) total-yield markers are stored as separate experiments. Total-yield conversion requires an explicit density and flux-area convention; surface composition requires the authors’ calibration. No independent partial-yield fixture is claimed | [`data-provenance.md`](data-provenance.md), "Fluence-dependent validation data" row |
 | A published high-fluence As or Ge in Si profile (shape, retained dose or surface peak) with values | **Gap.** The SIMS/RBS literature found is closed access or reports modelled profiles only | same row |
 
 Following the issue's sourcing rule, **there is no simulation comparison table**:
