@@ -1913,9 +1913,11 @@ the issue's "full model":
   1.5 g/cm³ basis, so the C target is glassy carbon at 1.5 g/cm³ (not
   graphite at 2.27); for Si the REELS-derived ELF of Yang et al. (2019)
   (#125), which **ends at 199 eV**: the Si K shell (about 1.84 keV) and the
-  L-shell tail above 199 eV are absent. There is no separate inner-shell
-  channel (the transport loop has none yet, #273), so the shells enter only
-  through the ELF, and for Si the missing ones do not enter at all.
+  L-shell tail above 199 eV are absent. The library has an inner-shell
+  channel (#273) but `lindhard run` does not build shell tables (#156), so
+  in this graded table the shells enter only through the ELF, and for Si the
+  missing ones do not enter at all. A library-level comparison with the
+  channel is in "Inner-shell channels for Si (#449)" below.
 - **No secondaries, transparent surface in the graded table:** with the 50 eV
   cutoff no electron that could still count towards η is dropped, but fast
   secondaries (above 50 eV, which a measured η includes) are not generated.
@@ -2115,7 +2117,7 @@ every energy from 2 keV up. The excess grows with energy, from +0.018 at
 
 The offsets are not attributed here. Known parts of the reduced model act on
 them. The inelastic model is full Penn on the committed ELFs,
-with no inner-shell channels (#273). Fast
+with no inner-shell channels in the CLI (#156; the library has them, #273). Fast
 secondaries above 50 eV, which a measured η counts, are not generated. For
 Si the ELF ends at 199 eV, so the K shell and the L-shell tail are missing
 from the stopping power. A Si excess that grows with energy is consistent
@@ -2148,6 +2150,89 @@ close #148 with them), and fast secondaries for C (no band data; Al, Cu, Au
 and Si are in the sensitivity table). The full-Penn rerun is done. This is
 still a comparison of a model without inner shells, not of the issue's
 full model.
+
+#### Inner-shell channels for Si (#449)
+
+Library-level test of whether the missing Si inner shells explain the excess
+above. `lindhard run` cannot build shell tables (#156), so the example
+`lindhard-cli/examples/si_backscatter_shells.rs` builds them with
+`build_shell_channel_tables` and runs the transport itself, on the committed
+`eta_si.toml` (same elastic table, table grid 51 eV to 31 keV, 100000
+primaries, secondaries off, transparent surface in every row). Four variants:
+
+- **A** the committed baseline (full Penn, no shells). Its fast-electron
+  count at 10, 20 and 30 keV (seed 1) equals the committed `fast_count`
+  (21627, 21841, 21974): the example stops otherwise.
+- **B** single-pole Penn on the same ELF, no shells. The shell channels
+  support only single-pole Penn, so B is the matched control; A to B is the
+  change of the inelastic model.
+- **C** B plus the K shell (EADL2017 binding energy 1844.0 eV, hydrogenic ELF).
+- **D** C plus the L1, L2, L3 hydrogenic ELFs, each **kept only from 199 eV
+  up** (the end of the valence ELF, which already holds the L edges at 104
+  and 154 eV and everything below 199 eV; adding them uncut would count
+  99 to 199 eV twice). The cut is a choice of this example: the hydrogenic
+  ELF is taken as it is at 199 eV and the valence ELF is not adjusted at its
+  end.
+
+Command (release build, 2 threads; tables 514 s for A, 67 s for B and C, 92 s
+for D; main at `965688e` plus the example):
+
+```text
+cargo run --release -p lindhard-cli --example si_backscatter_shells -- \
+    validation/experiments/backscatter/eta_si.toml --table-cache DIR \
+    --threads 2 --determinism
+```
+
+η pooled over seeds 1 and 2 (200000 primaries, binomial σ). Residual against
+the measured median (0.186 at 10 keV, 0.1665 at 20 keV, 0.1605 at 30 keV).
+"Change" is against B, except B which is against A, in σ of the difference.
+
+| E (keV) | Variant | η ± σ | Residual | Change |
+|---|---|---|---|---|
+| 10 | A | 0.2161 ± 0.0009 | +0.030 | |
+| 10 | B | 0.2164 ± 0.0009 | +0.030 | +0.0003 (0.2σ) |
+| 10 | C | 0.2152 ± 0.0009 | +0.029 | -0.0012 (-0.9σ) |
+| 10 | D | 0.2044 ± 0.0009 | +0.018 | -0.0120 (-9.3σ) |
+| 20 | A | 0.2185 ± 0.0009 | +0.052 (fails) | |
+| 20 | B | 0.2182 ± 0.0009 | +0.052 (fails) | -0.0004 (-0.3σ) |
+| 20 | C | 0.2139 ± 0.0009 | +0.047 | -0.0042 (-3.2σ) |
+| 20 | D | 0.2026 ± 0.0009 | +0.036 | -0.0156 (-12.1σ) |
+| 30 | A | 0.2206 ± 0.0009 | +0.060 (fails) | |
+| 30 | B | 0.2205 ± 0.0009 | +0.060 (fails) | -0.0002 (-0.1σ) |
+| 30 | C | 0.2144 ± 0.0009 | +0.054 (fails) | -0.0061 (-4.7σ) |
+| 30 | D | 0.2031 ± 0.0009 | +0.043 | -0.0174 (-13.5σ) |
+
+(Residuals are of the pooled η; the per-seed values are in the example's
+output, and the two seeds agree within 0.002 for every row. Seed 1 alone at
+20 and 30 keV gives A: 0.21841 and 0.21974, residuals +0.052 and +0.059, as
+in the graded table. The pass bound is the unchanged 0.05.) Share of the
+single-pole stopping power at the table row nearest 20 keV: valence 90.5 %,
+K 3.1 %, L1 4.1 %, L2 0.8 %, L3 1.5 %.
+
+What this shows and does not show:
+
+- The inelastic-model change alone (A to B) moves η by less than 0.001 at
+  every energy, so single-pole and full Penn agree here; the control is
+  usable.
+- The K shell alone lowers η by 0.001 to 0.006, growing with energy, and
+  leaves 20 keV at +0.047 and 30 keV at +0.054: 30 keV still fails the bound.
+- With the L shells above the 199 eV cut (D) η falls by 0.012 to 0.017 and
+  all three energies are inside the bound (+0.018, +0.036, +0.043). This
+  reduces the excess but does not remove it (+0.036 to +0.043 remain at 20
+  and 30 keV), and D rests on the cut above and on hydrogenic L ELFs
+  (screened-hydrogen forms with tabulated binding energies, not measured Si
+  L-shell data). D's L shells carry 6.4 % of the stopping power at 20 keV, so
+  the size of its effect on η was not predicted by this example and is not
+  explained here.
+- Not demonstrated: full-Penn shell channels (the library rejects them),
+  Auger and fluorescence transport, M-shell and plasmon-region partition
+  (the valence ELF is used unchanged below 199 eV), fast secondaries (off in
+  every row; with them on the baseline η rises, see the fast-secondary
+  table), and any agreement of D with measured Si L-shell cross sections. No
+  parameter was fitted, no tolerance changed, and the Si rows of the graded
+  table above are unchanged. #148 stays open.
+- Determinism: variant C at 10 keV, seed 1, gives an identical tally on 1 and
+  on 2 threads.
 
 ### Resist PSF vs a published measurement (#151): gap, no comparison
 
