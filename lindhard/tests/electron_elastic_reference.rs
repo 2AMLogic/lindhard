@@ -18,8 +18,8 @@
 //! `correlation_polarization` setting), blank citations, non-positive or
 //! non-finite values, and duplicate or missing cases are rejected.
 
-use lindhard::electron::elastic::corrections::{solve_corrected, Corrections};
-use lindhard::electron::elastic::{SalvatDhfs, SolverOptions};
+use lindhard::electron::elastic::corrections::{solve_corrected, Corrections, ElectronDensity};
+use lindhard::electron::elastic::{SalvatDhfs, ScreenedPotential, SolverOptions};
 use serde::Deserialize;
 
 const TOL_1KEV: f64 = 0.05;
@@ -381,6 +381,93 @@ fn reported_gaps_are_not_discretization_error() {
                 "Z={} E={} {name}: moved by {d}",
                 c.z,
                 c.energy_ev
+            );
+        }
+    }
+}
+
+/// DHFS potential with every screening exponent divided by `scale`, i.e.
+/// `V_s(r) = V(r/s)/s` (and, for the exchange term, the Poisson density
+/// `rho_s(r) = rho(r/s)/s^3` of that same screening function). `Z` and the
+/// point-Coulomb limit are unchanged. A diagnostic perturbation of the
+/// in-tree fit (issue #452), not a model: nothing is adjusted toward the
+/// reference.
+struct Rescaled<'a> {
+    base: &'a SalvatDhfs,
+    scale: f64,
+}
+
+impl ScreenedPotential for Rescaled<'_> {
+    fn energy(&self, r: f64) -> f64 {
+        self.base.energy(r / self.scale) / self.scale
+    }
+    fn nuclear_charge(&self) -> f64 {
+        self.base.nuclear_charge()
+    }
+    fn length_scale(&self) -> f64 {
+        self.base.length_scale() * self.scale
+    }
+}
+
+impl ElectronDensity for Rescaled<'_> {
+    fn density(&self, r: f64) -> f64 {
+        self.base.density(r / self.scale) / self.scale.powi(3)
+    }
+    fn density_source(&self) -> String {
+        format!("DHFS density rescaled by {} (diagnostic)", self.scale)
+    }
+}
+
+/// Sensitivity of `sigma_el` / `sigma_tr1` to in-tree potential settings
+/// (issue #452). Reports, for the 8 cases, the fractional change relative to
+/// the baseline (DHFS with Furness-McCarthy exchange, as compared above) when
+/// exchange is switched off and when the DHFS screening length is scaled by
+/// 0.95 / 1.05. These perturb our own fit; they are not tuned to, and
+/// never compared as a pass/fail against, the reference. The assertions pin
+/// only invariants: a unit scale reproduces the plain DHFS potential bit-for-bit.
+#[test]
+fn potential_sensitivity_of_the_eight_cases() {
+    let f = fixture();
+    let opts = SolverOptions::default();
+    let run = |c: &Case, scale: f64, exchange: bool| {
+        let pot = SalvatDhfs::for_element(c.z).unwrap();
+        let r = Rescaled { base: &pot, scale };
+        let corr = Corrections {
+            exchange,
+            correlation_polarization: None,
+        };
+        let res = solve_corrected(&r, &r, c.energy_ev, &corr, &[], opts).unwrap();
+        (res.sigma_el, res.sigma_tr1)
+    };
+    eprintln!("sensitivity: change of ours relative to baseline (x/baseline - 1); 'ref gap' = baseline/ref - 1");
+    for c in &f.case {
+        let direct = {
+            let pot = SalvatDhfs::for_element(c.z).unwrap();
+            let corr = Corrections {
+                exchange: c.exchange,
+                correlation_polarization: None,
+            };
+            let r = solve_corrected(&pot, &pot, c.energy_ev, &corr, &[], opts).unwrap();
+            (r.sigma_el, r.sigma_tr1)
+        };
+        let base = run(c, 1.0, c.exchange);
+        assert_eq!(base, direct, "unit rescale must equal the plain potential");
+        let gap_el = base.0 / c.sigma_el_a02.unwrap() - 1.0;
+        let gap_tr = base.1 / c.sigma_tr1_a02.unwrap() - 1.0;
+        eprintln!(
+            "Z={} E={}: ref gap sigma_el {gap_el:+.4} sigma_tr1 {gap_tr:+.4}",
+            c.z, c.energy_ev
+        );
+        for (label, scale, exchange) in [
+            ("exchange off", 1.0, !c.exchange),
+            ("screening x0.95", 0.95, c.exchange),
+            ("screening x1.05", 1.05, c.exchange),
+        ] {
+            let v = run(c, scale, exchange);
+            eprintln!(
+                "  {label:<16} d sigma_el {:+.4}  d sigma_tr1 {:+.4}",
+                v.0 / base.0 - 1.0,
+                v.1 / base.1 - 1.0
             );
         }
     }

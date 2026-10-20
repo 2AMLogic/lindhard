@@ -127,7 +127,29 @@ What it covers:
   potential-sensitive observable, which is consistent with the reference
   report's own remark (Sec. 3.2) that `sigma_tr` depends only weakly on the
   potential. Nothing has been fitted to the reference. Scope: this does not
-  establish scientific agreement, and the issue stays open. Run
+  establish scientific agreement, and the issue stays open.
+  **Follow-up (#452): partly explained.** The source offers no same-potential
+  option: the SRD 64 Elastic and Transport1 pages (accessed 2026-10-20)
+  expose only an element choice (and the energy), no potential, exchange or
+  density selector, so no second fixture column exists. In-tree sensitivity
+  (`potential_sensitivity_of_the_eight_cases`, a diagnostic that perturbs our
+  own DHFS fit and is never fitted to the reference): scaling the DHFS
+  screening length by 1.05 moves `sigma_el` by +9.6 % to +10.2 % in all eight
+  cases (0.95: -9.2 % to -9.7 %; roughly 2 % per 1 % of length), so a screening
+  length 3 to 5 % longer than the DHFS fit would be enough for the -6 % to
+  -10 % `sigma_el` deficit; the deficit is therefore of the size a plausible
+  potential difference produces. Switching exchange off moves `sigma_el` by
+  only -0.4 % to -3.3 % in the same (wrong) direction, so exchange does not
+  account for it. The same rescale moves `sigma_tr1` by +1.6 % to +5.9 %
+  (x1.05), a far weaker response, consistent with the reference report's
+  remark. But the `sigma_tr1` reference gaps have mixed signs (-2.6 % to
+  +2.6 %), and a global rescale shifts them all the same way, so one
+  screening-length change cannot explain `sigma_el` and `sigma_tr1` together,
+  and in particular not Au at 10 keV (`sigma_tr1` -2.6 %). Verdict: the
+  `sigma_el` gap is consistent with a potential difference but not shown to
+  be caused by it (that needs the numerical DHF potential, out of scope);
+  the `sigma_tr1` pattern is unexplained. Tolerances and the 16 reference
+  values are unchanged and #93 stays open. Run
   `cargo test -p lindhard --test electron_elastic_reference -- --nocapture`
   for the per-value report; the `--ignored` completion gate fails until every
   value is within tolerance, and the fixture parser rejects malformed input
