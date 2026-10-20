@@ -100,28 +100,39 @@ What it covers:
   description, not an exact one. Only the lateral marginal is compared: the
   depth profile and the z direction are not part of this check. The `quick`
   variant of this group is the fast reduced-statistics test that runs in CI.
-- **Elastic cross sections vs published partial waves (#93, not yet
-  active).** `sigma_el` and `sigma_tr1` for C, Si, Cu and Au at 1 and 10 keV
-  against Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409
-  (2004), computed with the same DHFS potential and the exchange setting the
-  reference states; tolerance 5 % at 1 keV and 2 % at 10 keV, and a failure
-  records the measured gap rather than widening the band
-  (`lindhard/tests/electron_elastic_reference.rs`). **No reference value is
-  committed**: the paper's NIST reprint opens and was read in full, but it
-  tabulates no `sigma_el` or `sigma_tr1` for these elements at these
-  energies (its Tables 3 to 5 cover He and Hg at 50 and 100 eV and IMFPs; the
-  cross sections appear only in figures, and those use H, Al, Ni, Ag, Au and
-  Cm plus some gases, so C, Si and Cu are not even plotted and only Au
-  overlaps), and the C, Si and Au DHFS
-  coefficients are not in the tree (#130), so all eight cases are skipped and
-  reported as skipped (`lindhard/tests/data/elastic_reference.toml`,
-  provenance row). The harness reports `checked N of 16` and `INCOMPLETE`
-  while values are absent (zero comparisons is never reported as a pass), an
-  `--ignored` test fails until all 16 values are checked, and the fixture
-  parser rejects malformed input (blank citation, non-positive or non-finite
-  value, missing observable, duplicate or missing case, unknown setting such
-  as an unsupported `correlation_polarization`, loosened tolerance). Nothing
-  here has been validated yet: 0 of 16 values are checked.
+- **Elastic cross sections vs NIST SRD 64 (#93, level 1, active, FAILING:
+  9 of 16 values out of tolerance).** `sigma_el` and `sigma_tr1` for C, Si, Cu
+  and Au at 1 and 10 keV against NIST SRD 64 v5.0 (Jablonski, Salvat & Powell,
+  NIST NSRDS 64-2023), all 16 values transcribed 2026-10-20 under a scoped
+  operator-approved data-use exception (`docs/data-provenance.md`,
+  `lindhard/tests/data/elastic_reference.toml`). Tolerance 5 % at 1 keV and
+  2 % at 10 keV, pinned in the test; a failure records the measured gap
+  rather than widening the band
+  (`lindhard/tests/electron_elastic_reference.rs`). **Settings.** Reference:
+  free-atom numerical Dirac-Hartree-Fock density with Furness-McCarthy local
+  exchange, no correlation-polarization. Ours: analytic DHFS screening
+  (Salvat et al. 1987) with the same Furness-McCarthy exchange form
+  (`exchange = true`, no correlation-polarization). The potentials differ, so
+  this is **not** a same-potential validation and a gap mixes model
+  difference with solver error. **Result** (ours / reference - 1, 16 checked):
+  `sigma_el` is low in all eight cases (C -6.8 % at 1 keV, -6.4 % at 10 keV;
+  Si -6.5 %, -6.7 %; Cu -7.4 %, -7.9 %; Au -10.5 %, -5.8 %), all outside
+  tolerance. `sigma_tr1` is within tolerance in seven of eight cases (C +1.6 %,
+  +1.7 %; Si -2.5 %, -1.4 %; Cu -1.4 %, +0.4 %; Au +2.6 % at 1 keV) and
+  outside it for Au at 10 keV (-2.6 % against 2 %). Tightening the solver
+  settings (C and Au, step scale 0.1, phase tolerance 1e-10) changes the
+  values by at most 4e-8, so the gaps are not discretization error. The
+  likely cause, **not tested here**, is the potential difference: the
+  total elastic cross section is dominated by small angles and is the more
+  potential-sensitive observable, which is consistent with the reference
+  report's own remark (Sec. 3.2) that `sigma_tr` depends only weakly on the
+  potential. Nothing has been fitted to the reference. Scope: this does not
+  establish scientific agreement, and the issue stays open. Run
+  `cargo test -p lindhard --test electron_elastic_reference -- --nocapture`
+  for the per-value report; the `--ignored` completion gate fails until every
+  value is within tolerance, and the fixture parser rejects malformed input
+  (blank citation, non-positive or non-finite value, missing observable,
+  duplicate or missing case, unsupported setting, loosened tolerance).
 - **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
   Cu, built from the committed Hagemann optical ELFs (#98), and of Si, built
   from the Yang et al. (2019) ELF digitized in #125, with the Fermi
