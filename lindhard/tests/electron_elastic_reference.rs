@@ -425,7 +425,13 @@ impl ElectronDensity for Rescaled<'_> {
 /// 0.95 / 1.05. These perturb our own fit; they are not tuned to, and
 /// never compared as a pass/fail against, the reference. The assertions pin
 /// only invariants: a unit scale reproduces the plain DHFS potential bit-for-bit.
+///
+/// `#[ignore]`d: a report, not a gate. It runs 5 solves per case and took
+/// over 5 minutes per CI job in the debug profile, which pushed the 30-minute
+/// Rust jobs past their limit. Run it with
+/// `cargo test -p lindhard --release --test electron_elastic_reference -- --ignored --nocapture potential_sensitivity`.
 #[test]
+#[ignore = "slow diagnostic report (5 solves per case); run with --ignored --nocapture"]
 fn potential_sensitivity_of_the_eight_cases() {
     let f = fixture();
     let opts = SolverOptions::default();

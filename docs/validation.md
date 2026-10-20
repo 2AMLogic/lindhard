@@ -132,8 +132,9 @@ What it covers:
   option: the SRD 64 Elastic and Transport1 pages (accessed 2026-10-20)
   expose only an element choice (and the energy), no potential, exchange or
   density selector, so no second fixture column exists. In-tree sensitivity
-  (`potential_sensitivity_of_the_eight_cases`, a diagnostic that perturbs our
-  own DHFS fit and is never fitted to the reference): scaling the DHFS
+  (`potential_sensitivity_of_the_eight_cases`, an `#[ignore]`d diagnostic, run
+  with `--ignored --nocapture`, that perturbs our own DHFS fit and is never
+  fitted to the reference): scaling the DHFS
   screening length by 1.05 moves `sigma_el` by +9.6 % to +10.2 % in all eight
   cases (0.95: -9.2 % to -9.7 %; roughly 2 % per 1 % of length), so a screening
   length 3 to 5 % longer than the DHFS fit would be enough for the -6 % to
