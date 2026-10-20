@@ -42,6 +42,7 @@
 
 use std::f64::consts::PI;
 
+use crate::rng::uniform;
 use rand_core::Rng;
 
 use super::CrystalError;
@@ -63,10 +64,6 @@ pub enum Divergence {
         /// Cone half-angle, radians, in `[0, π]`.
         half_angle_rad: f64,
     },
-}
-
-fn uniform<R: Rng + ?Sized>(rng: &mut R) -> f64 {
-    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
 }
 
 impl Divergence {

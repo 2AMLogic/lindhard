@@ -11,18 +11,13 @@ use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
-use lindhard::rng::{run_particles, stream, ParticleRng};
+use lindhard::rng::{run_particles, stream, uniform, ParticleRng};
 use lindhard::tally::{
     Binning, DualPearson, Histogram, IonReport, IonTally, IonTallyConfig, Moments, PearsonError,
     PearsonIv,
 };
-use rand_core::Rng;
 
 const NM: f64 = 1e-9;
-
-fn uniform(rng: &mut ParticleRng) -> f64 {
-    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
-}
 
 /// Box-Muller standard normal.
 fn normal(rng: &mut ParticleRng) -> f64 {

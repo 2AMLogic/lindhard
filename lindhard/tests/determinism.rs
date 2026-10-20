@@ -1,7 +1,6 @@
 //! A toy random-walk tally must be bit-identical at any thread count.
 
-use lindhard::rng::run_particles;
-use rand_core::Rng;
+use lindhard::rng::{run_particles, uniform};
 
 #[derive(Default, PartialEq, Debug)]
 struct Tally {
@@ -26,7 +25,7 @@ fn run(threads: usize) -> Tally {
                 // summation order matters in floating point.
                 let mut x = 0.0f64;
                 for _ in 0..100 {
-                    let u = (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64;
+                    let u = uniform(rng);
                     x += (u - 0.5) * 0.1234567;
                 }
                 t.sum += x;

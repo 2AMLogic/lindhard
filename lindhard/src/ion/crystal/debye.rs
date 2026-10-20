@@ -85,8 +85,7 @@
 //! (1958).
 
 use crate::constants::{ATOMIC_MASS_UNIT, BOLTZMANN, HBAR};
-use crate::rng::ParticleRng;
-use rand_core::Rng;
+use crate::rng::{uniform, ParticleRng};
 
 /// Debye temperature of Si in kelvin: 640 K, "Debye temperature" row of
 /// <https://www.ioffe.ru/SVA/NSM/Semicond/Si/basic.html> (retrieved
@@ -279,8 +278,8 @@ pub fn sample_gaussian_3d(sigma: f64, rng: &mut ParticleRng) -> [f64; 3] {
     let mut out = [0.0; 3];
     for c in &mut out {
         // u1 in (0, 1] so that ln is finite; u2 in [0, 1).
-        let u1 = 1.0 - unit(rng);
-        let u2 = unit(rng);
+        let u1 = 1.0 - uniform(rng);
+        let u2 = uniform(rng);
         *c = sigma * (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
     }
     out
@@ -299,15 +298,11 @@ fn mean_square_1d(theta_d_k: f64, mass_amu: f64, temperature_k: f64) -> f64 {
     pref * (thermal + 0.25)
 }
 
-#[inline]
-fn unit(rng: &mut ParticleRng) -> f64 {
-    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::rng::stream;
+    use rand_core::Rng;
 
     /// Composite Simpson reference, independent of the series and tail
     /// expansions used in `debye_d1`.
