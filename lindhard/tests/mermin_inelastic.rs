@@ -507,8 +507,7 @@ fn si_mermin_rows_sample_the_window_of_their_rate() {
         build_inelastic_table_for_model, stopping_power_ev_per_m, InelasticTableOptions,
     };
     use lindhard::material::Material;
-    use lindhard::rng::stream;
-    use rand_core::Rng;
+    use lindhard::rng::{stream, uniform};
 
     let Some(elf) = si_elf() else { return };
     let elf_min = elf.energy_ev()[0];
@@ -551,7 +550,7 @@ fn si_mermin_rows_sample_the_window_of_their_rate() {
         };
         let below = (0..n)
             .filter(|&k| {
-                let u = (stream(342, k).next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64);
+                let u = uniform(&mut stream(342, k));
                 table.inverse_cdf(i, u).unwrap() < elf_min
             })
             .count() as f64
