@@ -2323,17 +2323,25 @@ surface composition of one binary target against a cited measurement, and
 (b) one published high-fluence implant profile (for example As or Ge into Si)
 against the fluence-dependent engine, with both volume-relaxation conventions
 (`ideal-mixing`, `fixed-number-density`) reported. The engine side exists
-(fluence loop, erosion #234, retention limit #436). The measured side does
-not: no source with numeric values that may be stored could be opened on
-2026-10-16.
+(fluence loop, erosion #234, retention limit #436). On 2026-10-19, Ho et al.
+(1976), Tables 1–2, were transcribed into
+[`validation/data/alloys/`](../validation/data/alloys/README.md). They provide
+nine rows of Cu–Ni erosion rates and fitted AES quantities. Their conditions,
+uncertainties and a printed inconsistency are documented there. The
+conversion to total yield and the AES composition observable still need
+assessment. Betz (1980), Fig. 13, also supplies 22 digitized total-yield
+markers with two recorded readings. Its normal-incidence, film-integrated
+yields form a separate experiment from Ho's oblique-incidence data. These
+source inputs do not establish agreement with Lindhard.
 
 | Input | Status | Where recorded |
 |---|---|---|
-| Steady-state partial sputter yields and surface fractions of a binary target, from a table or figure | **Gap.** Candidates found by search (Cu-Ni and Cr-Mo Auger studies, Ni-W and Cu-Zn low-energy Ar/Xe yields, Al-Pd-Si preferred sputtering) are closed access, and their abstracts carry no numbers | [`data-provenance.md`](data-provenance.md), "Fluence-dependent validation data" row |
+| Steady-state partial sputter yields and surface fractions of a binary target, from a table or figure | **Source tables available; comparison pending.** Ho (1976) Cu–Ni erosion and fitted AES data and Betz (1980) total-yield markers are stored as separate experiments. Total-yield conversion requires an explicit density and flux-area convention; surface composition requires the authors’ calibration. No independent partial-yield fixture is claimed | [`data-provenance.md`](data-provenance.md), "Fluence-dependent validation data" row |
 | A published high-fluence As or Ge in Si profile (shape, retained dose or surface peak) with values | **Gap.** The SIMS/RBS literature found is closed access or reports modelled profiles only | same row |
 
-Following the issue's sourcing rule, **there is no comparison table**: no
-yield, surface fraction or profile value was entered from memory, and no
+Following the issue's sourcing rule, **there is no simulation comparison table**:
+source tables alone are not a validation result. No yield, surface fraction
+or profile value was entered from memory, and no
 SDTrimSP/TRIDYN output (Tier C) was used as a stand-in. Reporting both
 relaxation conventions needs a measured profile to be compared with, so that
 part is deferred with it. The existing fluence-loop checks (level 1) are

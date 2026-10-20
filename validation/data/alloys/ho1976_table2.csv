@@ -1,0 +1,5 @@
+row_id,bulk_cu_at_percent,energy_keV,ion_intensity_cm2_s,erosion_rate_angstrom_min,erosion_rate_reported_pm_angstrom_min,r0_over_rinf,r0_over_rinf_reported_pm,tau_s,tau_reported_pm_s
+t2-r1,38.4,0.5,5.3e13,4.9,0.4,1.6,0.2,92,8
+t2-r2,38.4,1.0,5.5e13,9.5,0.7,1.7,0.2,145,10
+t2-r3,38.4,1.5,8.3e13,16.1,1.2,1.5,0.2,78,6
+t2-r4,38.4,2.0,9.4e13,23.0,2.5,1.7,0.2,50,5

@@ -8,6 +8,13 @@ derived from it, or any other code's output, however well known
 
 ## Status
 
+- **Cu–Ni under Ar+:** [alloys/](alloys/README.md) contains Ho et al.
+  (1976), Tables 1–2: nine rows of erosion rates and fitted AES quantities,
+  with source units, printed uncertainties and an unresolved 0.5 keV
+  inconsistency. The same directory holds 22 measured total-yield markers
+  from Betz (1980), Fig. 13, with two readings and a reproducible digitization
+  record. Reference inputs only; no dynamic-target comparison yet.
+
 - **B in amorphous Si:** `ranges/b_{1,2,3,5,10,20}keV_asi_wach1982.json`,
   measured ranges of Wach and Wittmaack (1982) digitized from the compilation
   of Wittmaack and Mutzke (2017), Fig. 8 (#51). The script is in
@@ -84,6 +91,7 @@ validation/data/sputtering/<id>.json  one measured sputter-yield set: metadata +
 validation/data/backscatter/<id>.json one measured electron backscatter set: metadata + points
 validation/data/optical/<id>.toml     measured optical energy-loss functions (ELF)
                                       and the scripts that ingested them
+validation/data/alloys/              cited alloy source tables and interpretation notes
 validation/data/digitize/             scripts that digitized a figure (not run
                                       by the harness; may need numpy/Pillow/scipy),
                                       and their cross-check records
