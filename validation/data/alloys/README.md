@@ -1,8 +1,12 @@
 # Cu–Ni alloy measurements
 
 These source tables make the published numbers usable without access to the
-papers. They are reference inputs, not a completed Lindhard validation run.
-The existing single-element sputter-yield harness does not load this directory.
+papers. They are reference inputs. The single-element sputter-yield harness does
+not load this directory; the Cu–Ni comparison with the fluence-dependent engine
+(#448) is `validation/experiments/cuni_dynamic.py`, with its results and verdicts
+in [the validation plan](../../../docs/validation.md#fluence-dependent-targets-vs-measurement-437-448-cuni-compared-not-validated).
+That comparison does not validate the engine: the verdicts there are failures
+and some conversions remain unresolved.
 
 ## Ho et al. (1976)
 
@@ -132,7 +136,8 @@ V. I. Shapovalov, *Materials* **16**, 3258 (2023),
 [doi:10.3390/ma16083258](https://doi.org/10.3390/ma16083258), concerns reactive
 sputtering; its chemistry differs from this inert-ion Cu–Ni comparison.
 
-These alloy tables do not supply a high-fluence implant depth profile. Both
-volume-relaxation comparisons and the fixed tolerances in
-[the validation plan](../../../docs/validation.md#fluence-dependent-targets-vs-measurement-437-gap-no-comparison)
-remain to be evaluated.
+These alloy tables do not supply a high-fluence implant depth profile. The Ho
+`t2-r4` and Betz comparisons for both volume-relaxation conventions and the
+fixed tolerances are in
+[the validation plan](../../../docs/validation.md#fluence-dependent-targets-vs-measurement-437-448-cuni-compared-not-validated);
+the other Ho rows have not been compared.

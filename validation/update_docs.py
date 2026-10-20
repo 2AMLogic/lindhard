@@ -46,6 +46,7 @@ SUMMARIES = ROOT / "validation" / "oracles" / "summaries"
 RESULTS = ROOT / "validation" / "experiments" / "results.json"
 SPUTTER_DATA = ROOT / "validation" / "data" / "sputtering"
 BACKSCATTER_RESULTS = ROOT / "validation" / "experiments" / "backscatter_results.json"
+CUNI_RESULTS = ROOT / "validation" / "experiments" / "cuni_dynamic_results.json"
 
 sys.path.insert(0, str(ROOT / "validation" / "experiments"))
 import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
@@ -1051,6 +1052,145 @@ def level3_backscatter() -> str:
     return "\n".join(lines)
 
 
+def level3_cuni_dynamic() -> str:
+    """The Cu-Ni fluence-dependent comparison (#448), from
+    validation/experiments/cuni_dynamic_results.json. The verdicts are the ones
+    the harness computed with the tolerances fixed in advance; nothing is judged here."""
+    if not CUNI_RESULTS.is_file():
+        return "No committed results yet: run `validation/experiments/cuni_dynamic.py`."
+    r = json.loads(CUNI_RESULTS.read_text())
+    st = r["settings"]
+    tol_m, tol_y = st["tolerances"]["surface_cu_fraction"], st["tolerances"]["total_yield"]
+    h, b = r["ho1976"], r["betz1980"]
+    e = h["experiment"]
+    ya, yb = e["yield_conventions"]["flux_per_sample_area"], e["yield_conventions"]["flux_per_beam_normal_area"]
+    m = e["surface_cu_fraction"]
+    lam = st["aes"]["attenuation_length_nm"]
+
+    def pm(x, se, nd=3):
+        return f"{x:.{nd}f} ± {se:.{nd}f}"
+
+    def rel(c):
+        return f"{100 * c['relative_difference']:+.1f} % ({c['verdict']})"
+
+    lines = [
+        f"{r['software']}; reproduce with `{r['reproduce']}` (all runs; `--reuse` resumes). "
+        f"Ho: {st['ions_ho_per_seed']} ions per run, seeds {st['seeds_ho']}, 2 keV Ar at 20° from the normal; "
+        f"Betz: {st['ions_betz']} ions per run, seed {st['seed_betz']}, normal incidence. Fluence "
+        f"{st['fluence_cm2']:.1e} cm⁻² per run, a {st['film_nm']:g} nm film on a substrate of the same alloy, "
+        f"slabs {st['base_numerics']['slab_nm']:g} nm, `max_change` {st['base_numerics']['max_change']:g}, "
+        f"`ions_per_step` {st['base_numerics']['ions_per_step']}, erosion on. Steady window: the last "
+        f"{100 * (1 - st['steady_window_start']):.0f} % of the ions, in {st['blocks']} blocks. Physics: the matched "
+        "sputter settings of section 3 (ZBL, Lindhard-Scharff, constant free path, cutoffs 2 / 1 eV, "
+        f"E_b = 0, E_d = E_s, E_s = {st['surface_binding_ev']['Cu']:g} eV (Cu) and "
+        f"{st['surface_binding_ev']['Ni']:g} eV (Ni)); no tuning set, no fitted parameter.",
+        "",
+        f"**Ho et al. (1976), row `{e['row_id']}` (2 keV, {100 * e['cu_fraction']:.1f} at% Cu).** Excluded: "
+        f"{', '.join('`' + x + '`' for x in r['ho_excluded_rows'])} (the conflicting 0.5 keV pair). "
+        f"Alloy number density {e['number_density_cm3']:.3e} cm⁻³ ({e['mass_density_g_cm3']:.2f} g/cm³), "
+        "additive atomic volumes of the elemental solids (an assumption: Ho's own alloy density was not "
+        f"available). Erosion {e['erosion_rate_angstrom_min']:g} ± {e['erosion_rate_pm']:g} Å/min at "
+        f"{e['ion_intensity_cm2_s']:.1e} ions cm⁻² s⁻¹; the ± are the printed amounts, not standard deviations.",
+        "",
+        "| Measured quantity | Value | Interval from the printed ± |",
+        "|---|---|---|",
+        f"| Total yield, intensity per sample area | {ya['yield']:.2f} atoms/ion | {ya['lo']:.2f}-{ya['hi']:.2f} |",
+        f"| Total yield, intensity per beam-normal area (÷ cos 20°) | {yb['yield']:.2f} atoms/ion | "
+        f"{yb['lo']:.2f}-{yb['hi']:.2f} |",
+        f"| Equilibrium surface Cu fraction m = c / (q (1 - c) + c), q = {e['q']:g} ± {e['q_pm']:g} | "
+        f"{m['value']:.4f} | {m['lo']:.4f}-{m['hi']:.4f} |",
+        "",
+        f"Tolerances (fixed in advance, not relaxed): total yield {100 * tol_y:g} % relative, surface Cu "
+        f"fraction {100 * tol_m:g} % relative. Simulated alloy yield = Cu and Ni atoms sputtered per ion "
+        "(sputtered argon is not erosion of the alloy). The surface fraction is the AES-weighted Cu fraction "
+        f"of Cu + Ni, attenuation lengths {lam['Cu']:.2f} nm (Cu 920 eV) and {lam['Ni']:.2f} nm (Ni 716 eV) "
+        "(Seah-Dench inelastic mean free path at normal emission), calibrated on the uniform bulk exactly as "
+        "R0 gives m. Mean ± standard error over the seeds.",
+        "",
+        "| Relaxation | Argon | Yield (atoms/ion) | vs sample-area flux | vs beam-normal flux | "
+        "Surface Cu fraction (AES) | vs m |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for key, run in h["runs"].items():
+        conv, ar = key.split("/")
+        c = h["comparison"][key]
+        sf = run["surface_cu_fraction"]["aes_x1"]
+        lines.append(
+            f"| {conv} | {ar} | {pm(run['yield']['value'], run['yield']['se'])} | "
+            f"{rel(c['yield']['flux_per_sample_area'])} | {rel(c['yield']['flux_per_beam_normal_area'])} | "
+            f"{pm(sf['value'], sf['se'], 4)} | {rel(c['surface_cu_fraction']['aes_x1'])} |")
+    lines += [
+        "",
+        "Surface Cu fraction under other depth mappings (relative difference from m; all must be within "
+        f"{100 * tol_m:g} % to pass):",
+        "",
+        "| Relaxation | Argon | First slab alone | AES, 0.5× length | AES, 1× | AES, 2× | Argon in the front slab |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for key, run in h["runs"].items():
+        conv, ar = key.split("/")
+        c = h["comparison"][key]["surface_cu_fraction"]
+        lines.append(f"| {conv} | {ar} | " + " | ".join(
+            f"{run['surface_cu_fraction'][k]['value']:.3f} ({rel(c[k])})"
+            for k in ("first_slab", "aes_x0.5", "aes_x1", "aes_x2"))
+            + f" | {100 * run['front_slab_ar_fraction']:.1f} % |")
+    lines += [
+        "",
+        "**Convergence evidence.** Yield over the quarters 2, 3 and 4 of the run (steady-state check: a drift "
+        "means the run had not reached steady state), then the range over one-at-a-time changes (slab "
+        "0.25 / 1.0 nm, `max_change` 0.05, twice the ions; one seed each, standard errors of those runs "
+        "0.01-0.02):",
+        "",
+        "| Relaxation | Argon | Yield, quarter 2 / 3 / 4 | Yield range, sensitivity runs | AES m range, sensitivity runs |",
+        "|---|---|---|---|---|",
+    ]
+    for key, run in h["runs"].items():
+        conv, ar = key.split("/")
+        sens = list(h["sensitivity"][key].values())
+        ys = [x["yield"]["value"] for x in sens]
+        ms = [x["surface_cu_fraction"]["aes_x1"]["value"] for x in sens]
+        w = run["yield_windows_quarters_2_to_4"]
+        lines.append(f"| {conv} | {ar} | {w[0]:.3f} / {w[1]:.3f} / {w[2]:.3f} | {min(ys):.3f}-{max(ys):.3f} | "
+                     f"{min(ms):.4f}-{max(ms):.4f} |")
+    lines += [
+        "",
+        f"**Betz (1980), Fig. 13** (2 keV Ar, normal incidence, about {b['film_nm']:g} nm film; 22 digitized "
+        "markers, digitization bounds ±0.03-0.05 atoms/ion; experimental uncertainty unknown, not zero). "
+        "Simulated steady-state yield against each marker, relative difference (all verdicts at "
+        f"{100 * tol_y:g} %):",
+        "",
+        "| Marker | Cu (at%) | Measured | ideal-mixing, Ar re-emitted | fixed-number-density, Ar re-emitted | "
+        "ideal-mixing, Ar retained | fixed-number-density, Ar retained |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    order = ["ideal-mixing/ar-re-emitted", "fixed-number-density/ar-re-emitted",
+             "ideal-mixing/ar-retained", "fixed-number-density/ar-retained"]
+    for p in b["points"]:
+        lines.append(f"| {p['row_id']} | {100 * p['cu_fraction']:.1f} | {p['measured_yield']:.2f} ± {p['digitization_bound']:.2f} | "
+                     + " | ".join(f"{p['runs'][k]['yield']:.2f} ({100 * p['runs'][k]['relative_difference']:+.0f} %)"
+                                  for k in order) + " |")
+    lines.append("")
+    summary = []
+    for k in order:
+        rs = [p["runs"][k] for p in b["points"]]
+        passed = sum(x["verdict"] == "pass" for x in rs)
+        summary.append(f"{k}: {passed} of {len(rs)} pass "
+                       f"({100 * min(x['relative_difference'] for x in rs):+.0f} to "
+                       f"{100 * max(x['relative_difference'] for x in rs):+.0f} %)")
+    worst = max(abs(x["transient_bias_of_film_yield"]) for p in b["points"] for x in p["runs"].values())
+    lines += [
+        "Betz summary: " + "; ".join(summary) + ". The transient bias of the film-integrated yield, estimated "
+        f"from each run's own cumulative sputtering (intercept over the film inventory), is at most "
+        f"{100 * worst:.2f} %, so replacing the film-integrated measurement by the steady-state yield is "
+        "justified within that model estimate (the film is eroded over a fluence about 100 times the "
+        "transient's). It is an engine estimate, not a measurement.",
+        "",
+        "Per-run values: `validation/experiments/cuni_dynamic_results.json`; data: "
+        "`validation/data/alloys/`; provenance: [`data-provenance.md`](data-provenance.md).",
+    ]
+    return "\n".join(lines)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--level1", type=Path, help="Markdown table written by the level-1 harness")
@@ -1068,6 +1208,7 @@ def main() -> int:
     text = splice(text, "level3-sputter-crosscheck", level3_sputter_crosscheck())
     text = splice(text, "level3-sputter-summary", level3_sputter_summary())
     text = splice(text, "level3-backscatter", level3_backscatter())
+    text = splice(text, "level3-cuni-dynamic", level3_cuni_dynamic())
     text = splice(text, "level3-se-yield", se_yield.markdown(se_yield.load_datasets(), se_yield.load_results()))
     if args.check:
         if text != old:
