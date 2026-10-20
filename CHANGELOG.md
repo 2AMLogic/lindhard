@@ -9,6 +9,10 @@ one version).
 
 ### Added
 
+- Example `si_backscatter_shells` (`lindhard-cli/examples`): the Si
+  backscatter coefficient with K and L inner-shell channels against a matched
+  single-pole control, with the committed baseline reproduced bit for bit
+  (#449, part of #148; results in `docs/validation.md`).
 - `tally::VoxelTally`, a sparse 3D tally of implanted atoms, displacements and
   deposited energy (electronic, lattice and rest) on a regular grid, for voxel,
   mesh and CSG targets, with CSV and legacy ASCII VTK export and readers for
