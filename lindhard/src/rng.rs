@@ -37,7 +37,7 @@ pub fn uniform<R: Rng + ?Sized>(rng: &mut R) -> f64 {
     (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
 }
 
-/// Random stream for particle `index' of the run with the given `seed`.
+/// Random stream for particle `index` of the run with the given `seed`.
 ///
 /// The 64-bit seed forms the ChaCha key (little-endian, zero padded) and the
 /// particle index is the 64-bit ChaCha stream identifier. The result depends
