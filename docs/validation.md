@@ -2276,6 +2276,236 @@ What this shows and does not show:
 - Determinism: variant C at 10 keV, seed 1, gives an identical tally on 1 and
   on 2 threads.
 
+#### Si shell inputs, the 199 eV join and Au: source audit and comparison plan (#457)
+
+**Status: preparation only.** Nothing was simulated for this section, no
+source was opened for it that the tree's provenance rows do not already
+record, and no number, input, tolerance or graded-table row changed. It does
+not validate the model and does not close #148 (see the last paragraph). It
+extends "Inner-shell channels for Si (#449)" above and keeps its variant
+names: A the committed baseline (full Penn, no shells), B single-pole Penn on
+the same ELF (the matched control), C = B + K shell, D = C + hydrogenic
+L1, L2, L3 kept from 199 eV up. All numbers below are quoted from this file,
+from `docs/data-provenance.md`, or from the committed inputs at `dd0bd64`.
+
+##### 1. Si shell input audit
+
+"Opened" means a provenance row says the source was read; this audit did not
+open anything new. A source not opened is listed with the gap, not filled.
+
+| Source | What it supplies | Kind | Opened? | Gap |
+|---|---|---|---|---|
+| Yang et al., Phys. Rev. B 100, 245209 (2019), Fig. 7 (PDF p. 10; "Present" curve, mean of the 3, 4 and 5 keV analyses) | The Si valence ELF, 0.5 to 199 eV, `validation/data/optical/si_elf_yang2019.toml` (297 knots, digitized) | Measurement (REELS) inverted to a bulk ELF by the authors' reverse Monte Carlo model, which itself uses full Penn and a surface term (pp. 2-6, 10-11) | Yes, 2026-10-09 (open copy, SHA-256 in the provenance row) | The paper prints no ELF table, so the values are digitized. Not independent of the Penn extension lindhard applies downstream. The curve ends at 199 eV in the tree; the authors extend theirs above 200 eV (N_eff = 14.158, their Table II) with Henke's data to 30 keV and atomic scattering factors to 10 MeV (p. 13, as recorded in `lindhard/tests/optical_sumrule.rs`) |
+| EADL2017 as distributed in EPICS2017 | Binding energies and occupancies used by the shell channels: Si K 1844.0 eV (2 electrons), L1 154.0 eV (2), L2 and L3 104.0 eV (2 and 4 as listed), `lindhard/src/electron/eadl2017_binding.toml` | Published evaluated atomic data, free atom | Yes, 2026-10-06 | Free-atom values, used unshifted: no chemical shift, no work-function or Fermi-level reference (provenance row "Inner-shell channel tables"). The energy reference of the 104 and 154 eV edges in the measured ELF versus these values is not compared in the tree |
+| Stobbe (1930) as printed by Mikhailov, Nefiodov and Plunien, Phys. Lett. A 368, 391 (2007), eqs. (1)-(3), (6); Salvat, arXiv:2605.22442, eqs. (6.1a), (6.2) | Hydrogenic K-shell oscillator-strength density; conversion from cross section to `df/dW` and scaling by occupancy | Published analytic formula for a hydrogen-like ion | Mikhailov et al. and Salvat yes (2026-10-08); Stobbe's original not read | A model approximation, not Si data. `I = Z^2 E_h/2` is replaced by the tabulated `B` (no other screening). The 1s strength to discrete levels below the edge is not modelled; the continuum carries about 0.435 per electron |
+| Karzas and Latter, Astrophys. J. Suppl. 6, 167 (1961), eqs. (36)-(38), Appendix C, Table 1 (p. 178) | Hydrogenic 2s and 2p bound-free cross sections; the closed forms reproduce the 39 tabulated Gaunt factors within 5e-4 | Published calculation for a hydrogen-like ion | Yes, 2026-10-09 (open ADS scan) | Table 1 checks the formula against the source's own table only. Nothing in it is a Si measurement. The L ELFs are screened-hydrogen forms with Si's tabulated `B` |
+| de Vera et al., Int. J. Mol. Sci. 23, 6121 (2022), eqs. (1), (2), (32), (35) | The structure: ELF = outer part + inner part, one term per shell with `Θ(E - B)` | Published model, for liquid water | Yes, 2026-10-07 to 08 | It gives no partition of a measured Si ELF into valence and core; "No partition rule for splitting a single total ELF among shells is implemented" (provenance row). Its inner part comes from hydrogenic GOS via Fano (1963), closed access, not read |
+| Tanuma, Powell and Penn (2011), Si IMFPs 5.25, 24.3 and 164.2 Å at 99.5, 992.3 and 9897.1 eV (manuscript Tables 4, 1) | A published calculation of the inelastic mean free path from Palik and Henke optical data | Published calculation (full Penn) | Yes (authors' manuscript; the journal version was 403) | Tests the valence-ELF IMFP only at energies up to 9.9 keV; it does not separate valence from shell contributions |
+| Palik, *Handbook of Optical Constants of Solids* (1985), the source of `n(0) = 3.4155` and of TPP's Si optical data below 2 keV | Static refractive index and optical constants | Evaluated compilation | **No.** Only seen through Yang et al. (p. 6, their Ref. 63) and TPP | Closed compilation. For Au the same handbook was ruled out (provenance row, #314: Elsevier compilation, ruling #34 names measured optical constants, not handbooks). A Si verdict is a separate operator decision and none is taken here |
+| Henke et al. tables and atomic scattering factors (the source of the authors' extension above 200 eV) | Photoabsorption-derived ELF for the L-edge tail and the K shell | Evaluated compilation of measurements and calculation | **No** | Not located, not opened, no licence verdict recorded. This is the one concrete route to a non-hydrogenic L/K tail; it cannot be used until it is opened and given a provenance row |
+| Measured or calculated Si L2,3 and K photoabsorption or EELS spectra above the edge, as a primary source | The quantity D approximates with hydrogenic forms | Would be measurement or calculation | **No source identified or opened** | Gap: no primary source for this region has been opened in this tree. No value is entered here |
+
+Coverage and normalisation: the committed valence ELF's N_eff is 7.66
+electrons to 199 eV (3.13 to 30 eV, 3.50 to 99 eV) of the 14 in Si, ratio
+0.547, while its perfect-screening sum passes (P_eff 0.9135 against the
+target `1 - 1/n(0)^2` = 0.9143; `lindhard/tests/optical_sumrule.rs`,
+`SI_N_EFF_SHORT`). The ELF is therefore normalised through the
+perfect-screening sum below 199 eV and carries no sum-rule check on what
+lies above it. The hydrogenic ELFs are normalised by the f-sum rule of
+Shinotsuka et al. (2017), eq. (18), per shell, with the occupancy of the
+EADL table (provenance rows for the K and L shells). What the audit
+establishes: every shell input is either a free-atom tabulation or a
+hydrogenic formula, and the only Si-specific measurement is the valence ELF.
+What it does not establish: that any shell input describes Si.
+
+##### 2. The 199 eV join
+
+*Evidence for the cut as built.* The valence ELF already contains the L2,3
+and L1 edges (it rises at the 104 and 154 eV region, per the #449 section)
+and everything below 199 eV, so adding a hydrogenic L ELF below 199 eV would
+count 99 to 199 eV twice; this is why D keeps the L ELFs from 199 eV up. 199
+eV is the end of the table, not a physical boundary, and the example takes the
+hydrogenic ELF as it is at 199 eV without adjusting the valence ELF at its
+end. The #449 section already states this; nothing further supports the cut.
+
+*What the construction does not control.* (a) The hydrogenic L ELFs begin at
+their own thresholds (104 and 154 eV, free atom) with threshold-peaked
+strength; discarding the part below 199 eV removes strength that the
+measured ELF may carry instead of the same amount. Whether the measured
+ELF's strength between the edges and 199 eV equals the hydrogenic strength
+over the same range is not checked. (b) The valence ELF at 199 eV and the
+hydrogenic ELF at 199 eV are different functions and need not meet; a step
+or a gap at the join would show up as a feature in the loss distribution
+there. Neither the size of the step nor the stopping-power content of the
+region above 199 eV in the measured ELF is tabulated in the tree. (c)
+Valence and core are not separated in the REELS-derived ELF: its high-energy
+side includes whatever the authors' parametrisation puts there.
+
+*What a more defensible partition would need.* One ELF over the whole range
+whose region above 199 eV comes from an opened, cited source with a
+provenance row (the route the Yang authors took, Henke's data, is an
+unopened candidate), joined to the valence ELF with the join energy and the
+overlap rule fixed in advance from that source's own energy range, not from
+the backscatter result. Or, equivalently, shell ELFs from a calculation that
+states its own valence/core boundary. Either needs an operator decision on
+admissibility (see the Palik precedent above) before use.
+
+*Assessment independent of the backscatter pass/fail.* Judge the join and
+each variant by quantities that do not involve η: (i) the f-sum and
+perfect-screening sums of valence + shells against Z = 14 and
+`1 - 1/n(0)^2` (the tolerance 5 % of `optical_sumrule.rs`), reported for B,
+C and D separately, using the power-law and the linear rules the test
+already distinguishes; (ii) the single-pole stopping power and IMFP of each
+variant against the TPP (2011) Si values above at 99.5, 992.3 and 9897.1 eV,
+with the shell channels' share (valence 90.5 %, K 3.1 %, L1 4.1 %, L2 0.8 %,
+L3 1.5 % at the row nearest 20 keV is the reference decomposition); (iii)
+continuity of the combined ELF across 199 eV (ratio of the two ELFs at the
+join) and the shell strength in each side of it. The control stays B, so a
+model change (A to B, below 0.001 in η at all three energies) is never read
+as a shell effect. None of these quantities is computed here (unknown), and
+no cut or parameter is tuned to move η.
+
+##### 3. Au at 30 keV
+
+*Established.* In the graded table Au **passes** at all five energies from
+5 keV; the largest residual is -0.047 at 30 keV, 0.003 inside the 0.05
+bound (the single-pole model gave -0.052; the full-Penn rerun is the
+committed baseline). lindhard (0.4651 ± 0.0016, binomial σ at 100000
+primaries) is below the measured median (0.512) at all nine compared
+energies. The five measured sets at 30 keV are Bishop (1963) 0.521, Neubert
+(1980) 0.519, Heinrich (1966) 0.512, Reimer (1980) 0.482 and Wittry (1966)
+0.481 (`validation/data/backscatter/eta_au_*.json`; the median is Heinrich's
+0.512), a spread of 0.040: lindhard is 0.016 below the lowest set and is
+below the lowest set at six energies, 4 to 30 keV. The statistical σ is
+therefore a small part of the gap (0.047 against σ = 0.0016); the measured
+median's own spread is not. The input is `eta_au.toml` (SHA-256 below):
+Mott cross sections on the DHFS potential with Furness-McCarthy exchange and
+correlation-polarization corrections, full Penn on the Hagemann, Gudat and
+Kunz (1975) Table 5 ELF, secondaries off, transparent surface. The elastic
+corrections move Au by at most 0.0023 (the 1 and 10 keV rows of the
+sensitivity table; 30 keV is not in it). With Kieft-Bosch secondaries and a step barrier (not graded) Au at 30
+keV rises to 0.5294, +0.0643, and sits +0.017 above the median; that run
+takes `B = 0` for core losses and is described above as the size of the
+effect, not a corrected η.
+
+*Hypotheses, not findings.* (H1) Missing fast secondaries (above 50 eV)
+account for part of the deficit: the sign and the order of magnitude agree,
+but the bounding run overshoots and carries the `B = 0` caveat, so the
+fraction is unknown. (H2) The Au ELF: the Table 5 version used satisfies the
+perfect-screening sum (P_eff 1.000 power-law) and N_eff 82.60 against 79.0 of
+the authors, while the linear interpolation `elf()` serves gives N_eff =
+95.58 (+21 %, a pinned failure of the sum-rule test); the Table 6 variant
+exists in the tree only for the δ(E) candidates. How much either affects
+η at 30 keV is not known. (H3) Measured-set conditions (surface, film,
+angle and threshold unstated by Joy) and the median's definition over five
+sets that disagree by 0.04. (H4) Atomic data: Au's inner shells beyond K and
+L cannot be built by the library's hydrogenic builder ("the M shell and
+above are an error"), so the Si mechanism (shells lowering η) could not be
+transplanted to Au even if wanted; and shells lower η, the opposite of what
+Au needs. The Si result gives no reason to think the Au gap is a shell effect
+and no evidence either way.
+
+*Minimum evidence before a repair or rerun is chosen.* (1) An η
+rerun of the committed Au baseline with the Table 6 ELF (a pinned pair of
+inputs differing only in the ELF file), to bound H2, with the sum-rule
+consequences of the join at 1.5 and 350 eV (provenance row) stated first; (2) a separation of
+primary from secondary electrons in the escape spectrum (the summary does
+not distinguish them), to bound H1 without the `B = 0` artefact; (3) the
+measured-set conditions of the two low sets (Reimer, Wittry) and the three
+high sets, from their originals, which the provenance rows list as not
+seen; (4) an operator ruling on whether a Au gap inside the bound needs any
+repair at all. Until (1)-(3) exist no repair is selected.
+
+##### 4. Comparison plan (not executed; no execution is authorized)
+
+*Pinned identities.* Library and tool: the commit of the merge of this
+change (the plan changes no code; the baseline reproduction check below
+fixes the binary). Inputs: `eta_si.toml`
+`322fa7b5485da33e677970881a8532731470e14417da74f5c4a4f36200e61fd5`;
+`eta_au.toml`
+`50be54c9e869c0227072cbad1b70bee948aab883932341c75b4a151e335690c5`.
+Data: `si_elf_yang2019.toml`
+`bad895f027600d26c3f707f1267b7f9178c18fafe1ab1a684e7dd609c48374a9`;
+`au_elf_hagemann1975.toml`
+`acb90fefda5284e4e1793f64cc02afbd4545a95687b656f14ab045452c733bba`;
+`eadl2017_binding.toml`
+`c826e52988d143bfffb934d63df90be592a5e3e0a31bcd927c96c367619c8ea9`;
+example `si_backscatter_shells.rs`
+`7ff61dc57953970292c648d9806b9bfc752f63844f43ce1fe664a7d9b888772c`;
+committed results `backscatter_results.json`
+`865a9b16c643ae74bf7a0898881a7243bbfda5e61e354636ced6dd16557caf50`. Any
+new ELF or table file carries its own SHA-256 and a provenance row before it
+is used.
+
+*Matched design.* Seeds 1 and 2, 100000 primaries each (as #449); the
+table grid of the committed inputs (51 eV to 31 keV); secondaries off and a
+transparent surface in every row; the same measured medians and the 0.05
+bound as the graded table. Si: A, B, C, D as before (reproduction), plus at
+most one more variant per candidate join defined in section 2 *before* it is
+run, each against B. Au: the committed baseline and, only if criterion (1) of
+section 3 is approved, the one-factor ELF variant.
+
+*Controls and convergence.* Lower-energy controls at 1, 5 and 10 keV for
+both elements, where a variant that adds only high-energy channels is
+expected to coincide with its control within 2σ (an expectation to test, not
+a result; the K edge, 1844 eV, lies above the 1 keV row, and the L share of
+the stopping power at 1 and 5 keV is not tabulated in the tree); the reproduction of the committed `fast_count`
+(21627, 21841, 21974 at 10, 20, 30 keV, seed 1) as a hard precondition, as
+the example already enforces; a thread-count determinism check (1 and 2
+threads) on one row; the A to B and B to C comparisons reported alongside D
+so model change and shell effect stay separated; seed-to-seed agreement
+within 0.002, as in #449; and, for any ELF variant, the sum-rule table of
+section 2 before any transport run.
+
+*Uncertainty.* Binomial σ per run, σ of a difference as hypot(σ_a, σ_b) with
+the shared-seed caveat stated in the sensitivity table (a lower bound on
+significance), and the measured spread (min-max over sets) next to every
+residual; the residual is reported against the median and the nearest set.
+
+*Stop conditions.* Stop and report if the reproduction check fails; if the
+sum-rule or continuity checks of section 2 fail for a candidate (it is then
+not run); if a variant's η at the 1 or 5 keV controls moves outside 2σ of its
+control; or after the stated rows, with no further variants. No energy, cut
+or ELF is added after seeing a result.
+
+*Reporting.* Every row run is reported, including unchanged and worse
+results and every point outside 0.05; a variant that does not reduce the
+residual, or that worsens another element or energy, is reported as such.
+The graded table, the committed baseline and its raw results are not edited
+by such a run; its output is a new subsection, labelled diagnostic.
+
+*Cost.* From the wall times recorded above (two threads, shared host): the
+tables took 514 s for A, 67 s for B and C and 92 s for D, and 908 s for Au;
+the baseline sweep (`--skip-secondaries`), including the elastic tables of
+its correction variants, took 27 min wall in all. The transport time of a single 100000-primary row
+and the table time of a new ELF variant are unknown and must be measured on
+one row first. These are runtime estimates only; any run, provisioning or
+spending needs separate authorization.
+
+##### 5. Reconciliation with #156
+
+At `dd0bd64` the library can build shell tables (`build_shell_channel_tables`
+in `lindhard/src/electron/inelastic/table.rs`, `Transport::with_inner_shells`
+in `electron/transport.rs`) and #449 ran them at library level. `lindhard
+run` cannot: the CLI builds valence Penn tables only and has no binding-energy
+key, so the graded table's shell content is the ELF alone. The premise in
+the body of #156, that the transport loop does not run inner-shell
+channels, is out of date at library level; what remains of #156 is the CLI
+key and its echo. This plan needs nothing from #156: it uses the example
+`si_backscatter_shells.rs`, and an Au variant needs no shell channels. It
+would need #156 only if a later ruling wants a shell variant to be a graded,
+CLI-reproducible input. This section does not widen #156, implement any of
+it, or authorize new shell physics.
+
+##### 6. What this section does not do
+
+Preparation does not establish model validation and does not close #148,
+which stays open. The committed baseline, the raw #449 results, the 0.05
+bound, the Si failures at 20 and 30 keV in the graded table and every other
+graded row are unchanged by it. D remains diagnostic and is not promoted to
+graded evidence. No simulation, provisioning or spending was done or is
+authorized by it.
+
 ### Resist PSF vs a published measurement (#151): gap, no comparison
 
 **Status: not run.** The criterion is to reproduce a published measured
