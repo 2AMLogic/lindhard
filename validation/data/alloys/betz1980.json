@@ -42,6 +42,6 @@
     "A steady-state comparison requires a documented approximation for the film-integrated measurement.",
     "These points provide total yield only, not new independent surface-composition data."
   ],
-  "validation_status": "Source data only; no Lindhard comparison run. Experimental uncertainty remains unresolved.",
+  "validation_status": "Steady-state yields of the fluence-dependent engine compared with all 22 markers under both relaxation conventions (#448, validation/experiments/cuni_dynamic.py): none within the fixed 30 % tolerance. Experimental uncertainty remains unresolved.",
   "added": "2026-10-19"
 }

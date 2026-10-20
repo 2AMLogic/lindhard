@@ -9,6 +9,13 @@ one version).
 
 ### Added
 
+- Cu–Ni comparison of the fluence-dependent engine with measurement (#448,
+  part of #22): Ho et al. (1976) row `t2-r4` and the 22 Betz (1980) markers,
+  both relaxation conventions, `validation/experiments/cuni_dynamic.py` with
+  committed results and a reduced-statistics CI test. The engine is outside the
+  fixed tolerances (20 % surface fraction, 30 % total yield) and the section in
+  `docs/validation.md` says so; the high-fluence implant-profile criterion is
+  still a gap.
 - Example `si_backscatter_shells` (`lindhard-cli/examples`): the Si
   backscatter coefficient with K and L inner-shell channels against a matched
   single-pole control, with the committed baseline reproduced bit for bit

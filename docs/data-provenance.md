@@ -755,15 +755,23 @@ energies. Level 3 keeps the untuned comparison as the primary result.
   on 2026-10-06 (https://github.com/2AMLogic/lindhard/issues/34#issuecomment-6030285546) that the numbers may be committed as cited
   facts with the credit IAEA-NDS-224 Rev. 1 requests; see the row above.
 
-- **Fluence-dependent validation data (#437): alloy source tables added 2026-10-19; comparison still pending.**
-  Ho et al. (1976), Tables 1–2, are now transcribed in
+- **Fluence-dependent validation data (#437, #448): Cu–Ni compared 2026-10-20; implant profile still a gap.**
+  Ho et al. (1976), Tables 1–2, are transcribed in
   [`validation/data/alloys/`](../validation/data/alloys/README.md), with the
-  provenance row above. These supply measured erosion and fitted AES
-  quantities. Betz (1980), Fig. 13, now supplies 22 digitized total-yield
-  measurements at normal incidence, with two readings and its own provenance
-  row. The two experiments have different angles; Ho yield conversion,
-  observable mapping and both relaxation comparisons remain work to do. A qualifying measured high-fluence implant
-  depth profile is still missing. The following describes the earlier search.
+  provenance row above, and Betz (1980), Fig. 13, supplies 22 digitized
+  normal-incidence total yields with its own row. #448 compared Ho row `t2-r4`
+  and all 22 Betz markers with the fluence-dependent engine
+  (`validation/experiments/cuni_dynamic.py`, results in
+  `validation/experiments/cuni_dynamic_results.json`, tables in
+  [`validation.md`](validation.md)). The two experiments stay separate. No new
+  dataset is added by it: the simulation settings are in the results file, the
+  Seah–Dench attenuation-length formula (Surf. Interface Anal. 1, 2 (1979)) is
+  quoted from the publication, and the argon atomic volume uses the solid-argon
+  density 1.77 g/cm³ (CRC Handbook), both stated there as assumptions. Ho's own
+  alloy density, ion-flux area convention and AES analyzer geometry were not
+  available and are reported as unresolved. A qualifying measured high-fluence
+  implant depth profile is still missing. The following describes the earlier
+  search.
   **As of 2026-10-16:**
   Searched scholarly indexes and the web for (a) measured steady-state
   surface composition and partial sputter yields of a binary target (Cu-Ni,

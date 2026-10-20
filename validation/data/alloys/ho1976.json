@@ -89,5 +89,5 @@
     "source_basis": "Proportional AES calibration and oxide-cleared R0 extrapolation, pp. 400–402. Our algebra, not a printed composition column.",
     "limitations": "Requires valid proportional calibration and representative AES sampling; propagate bulk-composition and extrapolation uncertainties."
   },
-  "validation_status": "Source data only; neither relaxation convention compared. Total-yield conversion and high-fluence implant-profile reference remain outstanding."
+  "validation_status": "Row t2-r4 compared with the fluence-dependent engine under both relaxation conventions (#448, validation/experiments/cuni_dynamic.py): surface fraction and, in part, total yield outside the fixed tolerances. Flux-area convention and alloy density still unresolved; other rows not compared; high-fluence implant-profile reference outstanding."
 }

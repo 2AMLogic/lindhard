@@ -2554,47 +2554,200 @@ a stated limitation), and a measured PSF in an
 openable source, cited to its table or figure (digitized values with the
 second-read discipline of the sputter datasets).
 
-### Fluence-dependent targets vs measurement (#437): gap, no comparison
+### Fluence-dependent targets vs measurement (#437, #448): Cu–Ni compared, not validated
 
-**Status: not run.** The criteria are (a) the steady-state sputter yield and
-surface composition of one binary target against a cited measurement, and
-(b) one published high-fluence implant profile (for example As or Ge into Si)
-against the fluence-dependent engine, with both volume-relaxation conventions
-(`ideal-mixing`, `fixed-number-density`) reported. The engine side exists
-(fluence loop, erosion #234, retention limit #436). On 2026-10-19, Ho et al.
-(1976), Tables 1–2, were transcribed into
-[`validation/data/alloys/`](../validation/data/alloys/README.md). They provide
-nine rows of Cu–Ni erosion rates and fitted AES quantities. Their conditions,
-uncertainties and a printed inconsistency are documented there. The
-conversion to total yield and the AES composition observable still need
-assessment. Betz (1980), Fig. 13, also supplies 22 digitized total-yield
-markers with two recorded readings. Its normal-incidence, film-integrated
-yields form a separate experiment from Ho's oblique-incidence data. These
-source inputs do not establish agreement with Lindhard.
+**Status: run, and the engine does not reproduce the measurements.** Criterion
+(a) of #437 (steady-state sputter yield and surface composition of a binary
+target against a cited measurement, both volume-relaxation conventions) has now
+been run on Cu–Ni with the source tables of #447
+([`validation/data/alloys/`](../validation/data/alloys/README.md)). Criterion
+(b), a published high-fluence implant profile (As or Ge in Si), **remains a gap**:
+no openable measured profile has been found (see
+[`data-provenance.md`](data-provenance.md)). Nothing here validates the
+fluence-dependent engine or its implant profiles, and the parent epic (#22) is
+not complete.
 
-| Input | Status | Where recorded |
+**What was compared.** Two separate experiments, never merged (Ho is at about
+20° from the normal, Betz at normal incidence):
+
+* Ho et al. (1976), Table 2 row `t2-r4` (2 keV Ar⁺, 38.4 at% Cu), the total
+  yield from the erosion rate and the equilibrium surface Cu fraction from the
+  fitted AES ratio. The conflicting 0.5 keV / 38.4 at% pair (`t1-r3`, `t2-r1`)
+  is excluded and neither is used; the other Ho rows are deferred (this issue
+  covers the unambiguous 2 keV row only).
+* Betz (1980), Fig. 13: the total yield at 22 compositions (digitized markers).
+
+Each is run for `ideal-mixing` and `fixed-number-density`, and for two
+treatments of the implanted argon, which has no tabulated solid density or
+binding: kept as solid argon (`ar-retained`) and re-emitted after every step
+(`ar-re-emitted`, a retention limit of 10⁻⁶). Neither is a measured property of
+argon in Cu–Ni, both are reported, and none was chosen after seeing the results.
+The physics is the matched sputter setting of section 3 with the elemental
+cohesive energies as surface binding, no `tuning` set and no fitted parameter.
+The tolerances are the ones fixed in advance, **20 % relative on the surface
+Cu fraction and 30 % relative on the total yield**; they were neither tuned nor
+relaxed.
+
+**Result.**
+
+* *Surface Cu fraction (Ho):* fails in every variant and under every depth
+  mapping. The simulated surface is depleted in Cu (the preferentially sputtered
+  component, as measured) but less than measured: about 0.34 against m = 0.268,
+  +25 to +35 % where 20 % is allowed. The first slab alone and the AES-weighted
+  fractions differ from one another by at most 7 % (relative), so the failure is
+  not an artifact of the depth mapping.
+* *Total yield (Ho):* with argon re-emitted the engine is 26–27 % below the
+  measurement if Ho's intensity is per sample area (a pass at 30 %) and 31 %
+  below if it is per beam-normal area (a fail). **The verdict therefore depends
+  on a convention that is not resolved**, and even the pass lies outside the
+  interval the printed ± gives for either convention. With argon retained (not
+  at steady state, see below) the engine is 38–52 % low.
+* *Total yield (Betz):* 0 of 88 comparisons (22 markers × 2 conventions × 2
+  argon treatments) are within 30 %; the engine is 31–66 % low (31–47 % with argon
+  re-emitted), more so where Cu is plentiful.
+* The relaxation convention hardly matters here (differences of 1 % or less
+  with argon re-emitted); with argon retained it matters more because argon
+  accumulates in the front slab (about 12–13 % of it), and both retained-argon
+  rows are still drifting at the end of the run (ideal mixing: yield 1.99, 1.87,
+  1.81 over the quarters 2–4), so they are **not converged steady-state values**.
+  Argon re-emitted is converged (the three quarters agree within 0.5 %).
+
+**Conversions and the assumptions that remain unresolved.** The source PDFs are
+not redistributed and were not re-read for this comparison, so the following
+come from the stored tables ([`ho1976.json`](../validation/data/alloys/ho1976.json))
+and are stated rather than established:
+
+* *Ion-flux area (Ho):* unresolved. The conversion Y = N V / J is reported for
+  both readings of the intensity J, per sample area and per beam-normal area
+  (J cos 20° per sample area), with no angle correction applied silently. The
+  two differ by 6 %.
+* *Alloy density (Ho):* Ho's value was not available; N is the additive-volume
+  (Vegard) density of the elemental solids, 8.88 × 10²² cm⁻³ at 38.4 at% Cu.
+  The elements' number densities differ by 7 %, so a real deviation from
+  additivity of a few percent would move the converted yield by about as much.
+* *AES mapping:* the authors' proportional calibration gives
+  m = c / (q (1 − c) + c) (0.2683 for `t2-r4`; q's printed ± 0.2 gives
+  0.247–0.294). The simulated counterpart weights each slab by exp(−x/λ) for the
+  Cu 920 eV and Ni 716 eV lines and calibrates on the uniform bulk, which is what
+  R0 does in the measurement. λ is the Seah–Dench inelastic mean free path
+  (λ = 538/E² + 0.41 (aE)^½ monolayers, a the monolayer thickness in nm; Surf.
+  Interface Anal. 1, 2 (1979)), 1.35 nm (Cu) and 1.15 nm (Ni), from the elemental
+  atomic volumes; **the analyzer geometry and so the true escape depth of Ho's
+  instrument are not recorded**, hence the 0.5× and 2× lengths and the
+  first-slab limit are reported too. The coefficients are quoted from the
+  published formula and were not re-checked against the paper in this work.
+* *Oxide and AES transient:* the ~2 nm initial oxide is not modelled; Ho fit
+  oxide-cleared data, and the erosion rate is a crater-depth average over the
+  whole irradiation, so a steady-state yield is the natural counterpart. The ± on the erosion rates are crater-periphery
+  deviations, not standard deviations, and are shown as intervals only.
+* *Betz is film-integrated:* the yield is the film inventory divided by the
+  fluence to a 50 % AES decrease at the film/substrate interface. A steady-state
+  comparison is justified when the transient is a small part of that fluence.
+  The engine estimates it: the intercept of each run's cumulative sputtering
+  gives a bias of the film-integrated yield of at most 0.33 % (the film needs
+  about 100 times the fluence of the transient). That is a model estimate, not
+  evidence about the real transient, and nothing of Betz's Cu–Ni inventory
+  calibration is known beyond [`betz1980.json`](../validation/data/alloys/betz1980.json).
+  The digitization bounds are reading bounds only; the experimental uncertainty
+  is unknown and is not taken as zero. The fit endpoints quoted in the paper
+  (4.8 and 2.9 atoms/ion) are not measurements and are not used.
+* *Not modelled:* temperature (not stated for either experiment), surface
+  roughness and cone formation, and radiation-enhanced diffusion and segregation
+  (the engine moves matter only ballistically).
+
+**Reproduce.** Everything below the table is generated from the committed
+results by `python3 validation/update_docs.py`. The full runs take about
+30 minutes at 2 threads:
+
+```sh
+python3 validation/experiments/cuni_dynamic.py --threads 2        # all runs, writes the JSON
+python3 validation/experiments/cuni_dynamic.py --threads 2 --part ho1976 --reuse   # resume or one part
+python3 validation/update_docs.py
+```
+
+The CI job runs a reduced-statistics variant (`ho1976` row `t2-r4`, both
+conventions, argon re-emitted, a sixth of the ions of the committed run, one
+seed) in `validation/experiments/test_cuni_dynamic.py`, which also checks the
+conversions, the generated inputs and the committed results against the data
+files and the fixed tolerances.
+
+<!-- validation:level3-cuni-dynamic:begin -->
+lindhard 0.0.1 (72ea6f8); reproduce with `python3 validation/experiments/cuni_dynamic.py` (all runs; `--reuse` resumes). Ho: 60000 ions per run, seeds [1, 2, 3, 4], 2 keV Ar at 20° from the normal; Betz: 30000 ions per run, seed 1, normal incidence. Fluence 3.0e+16 cm⁻² per run, a 40 nm film on a substrate of the same alloy, slabs 0.5 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Steady window: the last 50 % of the ions, in 5 blocks. Physics: the matched sputter settings of section 3 (ZBL, Lindhard-Scharff, constant free path, cutoffs 2 / 1 eV, E_b = 0, E_d = E_s, E_s = 3.49 eV (Cu) and 4.44 eV (Ni)); no tuning set, no fitted parameter.
+
+**Ho et al. (1976), row `t2-r4` (2 keV, 38.4 at% Cu).** Excluded: `t1-r3`, `t2-r1` (the conflicting 0.5 keV pair). Alloy number density 8.876e+22 cm⁻³ (8.93 g/cm³), additive atomic volumes of the elemental solids (an assumption: Ho's own alloy density was not available). Erosion 23 ± 2.5 Å/min at 9.4e+13 ions cm⁻² s⁻¹; the ± are the printed amounts, not standard deviations.
+
+| Measured quantity | Value | Interval from the printed ± |
 |---|---|---|
-| Steady-state partial sputter yields and surface fractions of a binary target, from a table or figure | **Source tables available; comparison pending.** Ho (1976) Cu–Ni erosion and fitted AES data and Betz (1980) total-yield markers are stored as separate experiments. Total-yield conversion requires an explicit density and flux-area convention; surface composition requires the authors’ calibration. No independent partial-yield fixture is claimed | [`data-provenance.md`](data-provenance.md), "Fluence-dependent validation data" row |
-| A published high-fluence As or Ge in Si profile (shape, retained dose or surface peak) with values | **Gap.** The SIMS/RBS literature found is closed access or reports modelled profiles only | same row |
+| Total yield, intensity per sample area | 3.62 atoms/ion | 3.23-4.01 |
+| Total yield, intensity per beam-normal area (÷ cos 20°) | 3.85 atoms/ion | 3.43-4.27 |
+| Equilibrium surface Cu fraction m = c / (q (1 - c) + c), q = 1.7 ± 0.2 | 0.2683 | 0.2470-0.2936 |
 
-Following the issue's sourcing rule, **there is no simulation comparison table**:
-source tables alone are not a validation result. No yield, surface fraction
-or profile value was entered from memory, and no
-SDTrimSP/TRIDYN output (Tier C) was used as a stand-in. Reporting both
-relaxation conventions needs a measured profile to be compared with, so that
-part is deferred with it. The existing fluence-loop checks (level 1) are
-unchanged and are not presented as agreement with experiment.
+Tolerances (fixed in advance, not relaxed): total yield 30 % relative, surface Cu fraction 20 % relative. Simulated alloy yield = Cu and Ni atoms sputtered per ion (sputtered argon is not erosion of the alloy). The surface fraction is the AES-weighted Cu fraction of Cu + Ni, attenuation lengths 1.35 nm (Cu 920 eV) and 1.15 nm (Ni 716 eV) (Seah-Dench inelastic mean free path at normal emission), calibrated on the uniform bulk exactly as R0 gives m. Mean ± standard error over the seeds.
 
-**Rule for when the data exist** (fixed now): the steady-state surface
-fraction of the preferentially sputtered component is compared within 20 %
-relative and the total yield within 30 %; a profile is compared by projected
-range and peak/surface concentration ratio within 25 %. Each is reported for
-both relaxation conventions, mismatches are listed as such, and loosening a
-tolerance needs operator sign-off.
+| Relaxation | Argon | Yield (atoms/ion) | vs sample-area flux | vs beam-normal flux | Surface Cu fraction (AES) | vs m |
+|---|---|---|---|---|---|---|
+| ideal-mixing | ar-retained | 1.839 ± 0.007 | -49.2 % (fail) | -52.3 % (fail) | 0.3430 ± 0.0007 | +27.8 % (fail) |
+| ideal-mixing | ar-re-emitted | 2.665 ± 0.006 | -26.4 % (pass) | -30.8 % (fail) | 0.3484 ± 0.0002 | +29.9 % (fail) |
+| fixed-number-density | ar-retained | 2.248 ± 0.004 | -37.9 % (fail) | -41.6 % (fail) | 0.3493 ± 0.0009 | +30.2 % (fail) |
+| fixed-number-density | ar-re-emitted | 2.655 ± 0.006 | -26.6 % (pass) | -31.1 % (fail) | 0.3488 ± 0.0005 | +30.0 % (fail) |
 
-**What lifts the gap:** a measured table or digitizable figure in an openable
-source (second-read discipline of the sputter datasets), a provenance row, and
-a reduced-statistics variant in the unit tests.
+Surface Cu fraction under other depth mappings (relative difference from m; all must be within 20 % to pass):
+
+| Relaxation | Argon | First slab alone | AES, 0.5× length | AES, 1× | AES, 2× | Argon in the front slab |
+|---|---|---|---|---|---|---|
+| ideal-mixing | ar-retained | 0.338 (+25.9 % (fail)) | 0.337 (+25.5 % (fail)) | 0.343 (+27.8 % (fail)) | 0.360 (+34.2 % (fail)) | 13.1 % |
+| ideal-mixing | ar-re-emitted | 0.336 (+25.3 % (fail)) | 0.340 (+26.7 % (fail)) | 0.348 (+29.9 % (fail)) | 0.360 (+34.4 % (fail)) | 0.0 % |
+| fixed-number-density | ar-retained | 0.338 (+26.0 % (fail)) | 0.340 (+26.9 % (fail)) | 0.349 (+30.2 % (fail)) | 0.363 (+35.3 % (fail)) | 11.9 % |
+| fixed-number-density | ar-re-emitted | 0.337 (+25.5 % (fail)) | 0.340 (+26.8 % (fail)) | 0.349 (+30.0 % (fail)) | 0.361 (+34.5 % (fail)) | 0.0 % |
+
+**Convergence evidence.** Yield over the quarters 2, 3 and 4 of the run (steady-state check: a drift means the run had not reached steady state), then the range over one-at-a-time changes (slab 0.25 / 1.0 nm, `max_change` 0.05, twice the ions; one seed each, standard errors of those runs 0.01-0.02):
+
+| Relaxation | Argon | Yield, quarter 2 / 3 / 4 | Yield range, sensitivity runs | AES m range, sensitivity runs |
+|---|---|---|---|---|
+| ideal-mixing | ar-retained | 1.991 / 1.866 / 1.812 | 1.819-1.855 | 0.3428-0.3441 |
+| ideal-mixing | ar-re-emitted | 2.668 / 2.660 / 2.670 | 2.651-2.688 | 0.3477-0.3512 |
+| fixed-number-density | ar-retained | 2.322 / 2.258 / 2.237 | 2.231-2.266 | 0.3493-0.3510 |
+| fixed-number-density | ar-re-emitted | 2.673 / 2.651 / 2.660 | 2.641-2.677 | 0.3485-0.3521 |
+
+**Betz (1980), Fig. 13** (2 keV Ar, normal incidence, about 200 nm film; 22 digitized markers, digitization bounds ±0.03-0.05 atoms/ion; experimental uncertainty unknown, not zero). Simulated steady-state yield against each marker, relative difference (all verdicts at 30 %):
+
+| Marker | Cu (at%) | Measured | ideal-mixing, Ar re-emitted | fixed-number-density, Ar re-emitted | ideal-mixing, Ar retained | fixed-number-density, Ar retained |
+|---|---|---|---|---|---|---|
+| fig13-p01 | 14.1 | 3.13 ± 0.03 | 2.16 (-31 %) | 2.14 (-32 %) | 1.41 (-55 %) | 1.78 (-43 %) |
+| fig13-p02 | 18.6 | 3.36 ± 0.03 | 2.17 (-36 %) | 2.18 (-35 %) | 1.41 (-58 %) | 1.79 (-47 %) |
+| fig13-p03 | 21.4 | 3.21 ± 0.03 | 2.19 (-32 %) | 2.17 (-32 %) | 1.42 (-56 %) | 1.80 (-44 %) |
+| fig13-p04 | 24.1 | 3.26 ± 0.03 | 2.21 (-32 %) | 2.20 (-33 %) | 1.44 (-56 %) | 1.81 (-45 %) |
+| fig13-p05 | 28.3 | 3.50 ± 0.03 | 2.20 (-37 %) | 2.22 (-37 %) | 1.42 (-59 %) | 1.82 (-48 %) |
+| fig13-p06 | 34.4 | 3.58 ± 0.03 | 2.26 (-37 %) | 2.26 (-37 %) | 1.45 (-60 %) | 1.83 (-49 %) |
+| fig13-p07 | 36.1 | 3.52 ± 0.03 | 2.28 (-35 %) | 2.26 (-36 %) | 1.48 (-58 %) | 1.84 (-48 %) |
+| fig13-p08 | 41.9 | 3.65 ± 0.03 | 2.30 (-37 %) | 2.29 (-37 %) | 1.47 (-60 %) | 1.89 (-48 %) |
+| fig13-p09 | 44.4 | 3.93 ± 0.03 | 2.31 (-41 %) | 2.31 (-41 %) | 1.49 (-62 %) | 1.88 (-52 %) |
+| fig13-p10 | 50.3 | 3.78 ± 0.03 | 2.35 (-38 %) | 2.32 (-39 %) | 1.51 (-60 %) | 1.91 (-49 %) |
+| fig13-p11 | 53.3 | 4.23 ± 0.03 | 2.35 (-45 %) | 2.35 (-44 %) | 1.52 (-64 %) | 1.93 (-54 %) |
+| fig13-p12 | 61.4 | 4.03 ± 0.03 | 2.40 (-40 %) | 2.40 (-41 %) | 1.55 (-62 %) | 1.97 (-51 %) |
+| fig13-p13 | 67.0 | 4.18 ± 0.03 | 2.41 (-42 %) | 2.41 (-42 %) | 1.58 (-62 %) | 1.99 (-52 %) |
+| fig13-p14 | 74.1 | 4.07 ± 0.03 | 2.47 (-39 %) | 2.48 (-39 %) | 1.60 (-61 %) | 2.02 (-50 %) |
+| fig13-p15 | 79.9 | 4.35 ± 0.03 | 2.50 (-43 %) | 2.50 (-42 %) | 1.62 (-63 %) | 2.04 (-53 %) |
+| fig13-p16 | 84.3 | 4.33 ± 0.05 | 2.53 (-41 %) | 2.53 (-42 %) | 1.64 (-62 %) | 2.06 (-52 %) |
+| fig13-p17 | 87.5 | 4.67 ± 0.05 | 2.57 (-45 %) | 2.56 (-45 %) | 1.66 (-65 %) | 2.08 (-55 %) |
+| fig13-p18 | 88.5 | 4.41 ± 0.05 | 2.57 (-42 %) | 2.55 (-42 %) | 1.66 (-62 %) | 2.08 (-53 %) |
+| fig13-p19 | 90.7 | 4.55 ± 0.05 | 2.57 (-44 %) | 2.57 (-44 %) | 1.67 (-63 %) | 2.10 (-54 %) |
+| fig13-p20 | 91.1 | 4.64 ± 0.05 | 2.57 (-45 %) | 2.57 (-45 %) | 1.68 (-64 %) | 2.11 (-55 %) |
+| fig13-p21 | 91.3 | 4.88 ± 0.05 | 2.57 (-47 %) | 2.57 (-47 %) | 1.66 (-66 %) | 2.11 (-57 %) |
+| fig13-p22 | 92.6 | 4.92 ± 0.05 | 2.60 (-47 %) | 2.60 (-47 %) | 1.68 (-66 %) | 2.11 (-57 %) |
+
+Betz summary: ideal-mixing/ar-re-emitted: 0 of 22 pass (-47 to -31 %); fixed-number-density/ar-re-emitted: 0 of 22 pass (-47 to -32 %); ideal-mixing/ar-retained: 0 of 22 pass (-66 to -55 %); fixed-number-density/ar-retained: 0 of 22 pass (-57 to -43 %). The transient bias of the film-integrated yield, estimated from each run's own cumulative sputtering (intercept over the film inventory), is at most 0.33 %, so replacing the film-integrated measurement by the steady-state yield is justified within that model estimate (the film is eroded over a fluence about 100 times the transient's). It is an engine estimate, not a measurement.
+
+Per-run values: `validation/experiments/cuni_dynamic_results.json`; data: `validation/data/alloys/`; provenance: [`data-provenance.md`](data-provenance.md).
+<!-- validation:level3-cuni-dynamic:end -->
+
+**What lifts the remaining gap:** a measured high-fluence implant profile in an
+openable source (cited to its table or figure, second-read discipline of the
+sputter datasets) for criterion (b); for the Ho conversions, the paper's own
+flux-area and alloy-density statements and the AES analyzer geometry. The
+engine is low against both Cu–Ni data sets; where that comes from (the alloy
+model, the single-element yields at these settings, or the measurements) is not
+established here.
 
 ### Secondary-electron yield δ(E): Al, Cu, Si and Au (#149)
 
