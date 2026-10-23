@@ -57,8 +57,8 @@
 //! escape is reflected specularly about that normal. Escapes through the
 //! lateral faces of a voxel grid are reported as [`Face::Side`] and counted
 //! in [`EnergyBudget::lateral`]. [`crate::tally::ion::IonTally`] and the CLI
-//! tallies describe stacks only; use [`SummaryTally`] or a custom
-//! [`BcaTally`] for voxel runs.
+//! tallies describe stacks only; use [`crate::tally::voxel::VoxelTally`],
+//! [`SummaryTally`] or a custom [`BcaTally`] for voxel runs.
 //!
 //! A flight is drawn as a dimensionless number of mean free paths `tau` and
 //! converted to a length with the local `lambda`. When a flight reaches a
@@ -234,7 +234,7 @@ use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
 use crate::ion::stopping::mix::EquipartitionMix;
 use crate::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::material::EnergyKind;
-use crate::rng::{run_particles_range, ParticleRng};
+use crate::rng::{run_particles_range, uniform, ParticleRng};
 use crate::units::J_PER_EV;
 
 /// Largest [`BcaConfig::weak_collisions`]: "up to three additional weak
@@ -1213,9 +1213,9 @@ impl<'a> Bca<'a> {
             for cr in &self.crystals {
                 let e = cr.cell_edges();
                 shifts.push([
-                    e[0] * Self::uniform(&mut srng),
-                    e[1] * Self::uniform(&mut srng),
-                    e[2] * Self::uniform(&mut srng),
+                    e[0] * uniform(&mut srng),
+                    e[1] * uniform(&mut srng),
+                    e[2] * uniform(&mut srng),
                 ]);
             }
         }
@@ -1264,16 +1264,12 @@ impl<'a> Bca<'a> {
         &self.layers[self.geometry.material_index(region)]
     }
 
-    fn uniform(rng: &mut ParticleRng) -> f64 {
-        (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
-    }
-
     /// Number of mean free paths for a new flight.
     fn draw_tau(&self, rng: &mut ParticleRng, first_primary_flight: bool) -> f64 {
         match self.config.mean_free_path {
-            MeanFreePath::Constant if first_primary_flight => Self::uniform(rng),
+            MeanFreePath::Constant if first_primary_flight => uniform(rng),
             MeanFreePath::Constant => 1.0,
-            MeanFreePath::EnergyDependent { .. } => -(1.0 - Self::uniform(rng)).ln(),
+            MeanFreePath::EnergyDependent { .. } => -(1.0 - uniform(rng)).ln(),
         }
     }
 
@@ -1489,7 +1485,7 @@ impl<'a> Bca<'a> {
     /// the energy-dependent free path).
     fn draw_partner(rng: &mut ParticleRng, scratch: &Scratch) -> usize {
         let total = *scratch.cum.last().expect("layer has elements");
-        let u = Self::uniform(rng) * total;
+        let u = uniform(rng) * total;
         scratch
             .cum
             .iter()
@@ -1587,8 +1583,8 @@ impl<'a> Bca<'a> {
         // from TRIDYN (module docs).
         for k in 1..=self.config.weak_collisions {
             let j = Self::draw_partner(rng, scratch);
-            let b = scratch.p_max[j] * (f64::from(k) + Self::uniform(rng)).sqrt();
-            let azimuth = kinematics::sin_cos_turns(Self::uniform(rng));
+            let b = scratch.p_max[j] * (f64::from(k) + uniform(rng)).sqrt();
+            let azimuth = kinematics::sin_cos_turns(uniform(rng));
             if self.partner_beyond_surface(p, b, azimuth) {
                 continue;
             }
@@ -1604,8 +1600,8 @@ impl<'a> Bca<'a> {
         // the surface, unlike in TRIDYN: that would change the engine
         // without weak collisions (module docs).
         let j = Self::draw_partner(rng, scratch);
-        let b = scratch.p_max[j] * Self::uniform(rng).sqrt();
-        let azimuth = kinematics::sin_cos_turns(Self::uniform(rng));
+        let b = scratch.p_max[j] * uniform(rng).sqrt();
+        let azimuth = kinematics::sin_cos_turns(uniform(rng));
         let (t, incoming, phi) = self.binary(p, j, b, azimuth, budget, tally)?;
 
         self.emit_recoil(

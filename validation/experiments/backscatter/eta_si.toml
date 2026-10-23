@@ -18,9 +18,10 @@
 # - Inelastic: the full Penn algorithm on the energy-loss function of
 #   Yang et al. (2019), derived from REELS spectra (not a direct optical
 #   measurement). That ELF ENDS AT 199 eV: the Si K shell (about 1.84 keV)
-#   and the L-shell tail above 199 eV are absent, and the transport loop has
-#   no inner-shell channel to supply them (#156), so the stopping power lacks
-#   their share.
+#   and the L-shell tail above 199 eV are absent. The library has an
+#   inner-shell channel but `lindhard run` builds no shell tables (#156), so
+#   this input's stopping power lacks their share (a library-level run with
+#   them: lindhard-cli/examples/si_backscatter_shells.rs, #449).
 # - No secondaries and a transparent surface: no band parameters of Si are
 #   committed. With a 50 eV cutoff no electron that could count towards eta
 #   is dropped, but fast secondaries (above 50 eV) are not generated.

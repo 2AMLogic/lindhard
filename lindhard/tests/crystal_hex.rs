@@ -11,9 +11,8 @@ use lindhard::ion::crystal::lattice::{
 use lindhard::ion::crystal::search::{compare, path_metrics, site_position_in};
 use lindhard::ion::crystal::{Candidate, CrystalError, Lattice, LatticeSearch, Orientation};
 use lindhard::material::Material;
-use lindhard::rng::{stream, ParticleRng};
+use lindhard::rng::{stream, uniform};
 use lindhard::units::g_cm3_to_kg_m3;
-use rand_core::Rng;
 
 fn assert_close(got: [f64; 3], want: [f64; 3], tol: f64) {
     for i in 0..3 {
@@ -564,10 +563,6 @@ fn gan_placeholder_u_gives_four_equal_bonds() {
         assert!((x / d[0] - 1.0).abs() < 1e-12, "{:?}", &d[..5]);
     }
     assert!(d[4] / d[0] > 1.5, "{:?}", &d[..5]);
-}
-
-fn uniform(rng: &mut ParticleRng) -> f64 {
-    (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64
 }
 
 /// The orthohexagonal cell tiles the crystal: in a block of 4 x 4 x 4 cells

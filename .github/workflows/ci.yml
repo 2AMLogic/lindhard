@@ -39,9 +39,11 @@ jobs:
   validation-docs:
     name: Validation tables match the committed results
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
       - name: docs/validation.md is what validation/update_docs.py generates
         # Python standard library only; reads committed files, runs no simulation.
         run: python3 validation/update_docs.py --check
@@ -56,6 +58,11 @@ jobs:
           python3 validation/experiments/test_backscatter.py
           python3 validation/oracles/test_run_electron.py
           python3 validation/lib/test_lindhard_cli.py
+      - name: Cu-Ni fluence-dependent comparison (#448), reduced statistics
+        # Runs the real CLI on Ho row t2-r4 at a sixth of the committed ions
+        # (about 10 s after the release build), and checks the committed results
+        # against the data files and the fixed tolerances.
+        run: python3 validation/experiments/test_cuni_dynamic.py
 
   workflow-checks:
     name: Workflow checks (clippy pin, canary reporting)

@@ -1,0 +1,293 @@
+{
+  "id": "betz1980_fig13_digitization",
+  "source_pdf_sha256": "d30720aa5ce4b1f4a14b41f6fedbebfed2f7927e01c1841eeb5960a3011d6702",
+  "figure": 13,
+  "printed_page": 304,
+  "pdf_page": 22,
+  "read_date": "2026-10-19",
+  "first_read": {
+    "origin": "Operator-supplied approximate marker coordinates read from a crop of the figure.",
+    "estimated_bounds": {
+      "cu_at_percent": 1.0,
+      "yield_atoms_per_ion": 0.03
+    },
+    "image_sha256": "347f98c42446f5dd21ece582b981811f00a633bcb1ca5568126544bd1b6e85e6"
+  },
+  "second_read": {
+    "origin": "Assistant manual marker-centre read of the original PDF, rendered separately; not automated marker detection and not an independent laboratory measurement.",
+    "render": "pdftoppm -f 22 -l 22 -r 300 -x 450 -y 240 -W 900 -H 500 -singlefile -png INPUT.pdf OUTPUT",
+    "image_dimensions_px": [
+      900,
+      500
+    ],
+    "coordinate_origin": "top-left of rendered crop; x right, y down",
+    "axis_calibration": {
+      "x_endpoints_px": [
+        127,
+        848
+      ],
+      "x_values_at_percent": [
+        0,
+        100
+      ],
+      "left_y_ticks_px": [
+        395,
+        253,
+        109
+      ],
+      "left_y_values_atoms_per_ion": [
+        3,
+        4,
+        5
+      ],
+      "right_minus_left_y_shift_px": 3
+    },
+    "calibration_method": "Linear x calibration. Least-squares y = intercept + slope * yield through the three left ticks, with a 3-pixel linear downward shift across the width to account for scan skew. Calibration residual below 1 pixel.",
+    "selection": "22 visible marker centres, including circles overlapping the fitted line; the line and extrapolated endpoints are excluded."
+  },
+  "bounds_note": "Estimated digitization bounds only, not statistical confidence intervals. Rows 1\u201315: 1 at% and 0.03 atoms/ion; crowded rows 16\u201322: 1.5 at% and 0.05 atoms/ion. Includes manual-centre, axis and rounding effects. Compare the two reads using the sum of their respective bounds; do not treat that agreement as a measurement-uncertainty estimate.",
+  "points": [
+    {
+      "row_id": "fig13-p01",
+      "first_read_cu_at_percent": 14,
+      "first_read_yield_atoms_per_ion": 3.13,
+      "second_read_marker_px": [
+        229,
+        377
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p02",
+      "first_read_cu_at_percent": 18,
+      "first_read_yield_atoms_per_ion": 3.37,
+      "second_read_marker_px": [
+        261,
+        344
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p03",
+      "first_read_cu_at_percent": 21,
+      "first_read_yield_atoms_per_ion": 3.21,
+      "second_read_marker_px": [
+        281,
+        366
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p04",
+      "first_read_cu_at_percent": 24,
+      "first_read_yield_atoms_per_ion": 3.28,
+      "second_read_marker_px": [
+        301,
+        359
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p05",
+      "first_read_cu_at_percent": 29,
+      "first_read_yield_atoms_per_ion": 3.5,
+      "second_read_marker_px": [
+        331,
+        324
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p06",
+      "first_read_cu_at_percent": 34,
+      "first_read_yield_atoms_per_ion": 3.57,
+      "second_read_marker_px": [
+        375,
+        314
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p07",
+      "first_read_cu_at_percent": 36,
+      "first_read_yield_atoms_per_ion": 3.52,
+      "second_read_marker_px": [
+        387,
+        322
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p08",
+      "first_read_cu_at_percent": 42,
+      "first_read_yield_atoms_per_ion": 3.65,
+      "second_read_marker_px": [
+        429,
+        303
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p09",
+      "first_read_cu_at_percent": 45,
+      "first_read_yield_atoms_per_ion": 3.93,
+      "second_read_marker_px": [
+        447,
+        263
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p10",
+      "first_read_cu_at_percent": 51,
+      "first_read_yield_atoms_per_ion": 3.77,
+      "second_read_marker_px": [
+        490,
+        286
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p11",
+      "first_read_cu_at_percent": 53,
+      "first_read_yield_atoms_per_ion": 4.22,
+      "second_read_marker_px": [
+        511,
+        221
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p12",
+      "first_read_cu_at_percent": 61,
+      "first_read_yield_atoms_per_ion": 4.03,
+      "second_read_marker_px": [
+        570,
+        250
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p13",
+      "first_read_cu_at_percent": 67,
+      "first_read_yield_atoms_per_ion": 4.18,
+      "second_read_marker_px": [
+        610,
+        229
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p14",
+      "first_read_cu_at_percent": 74,
+      "first_read_yield_atoms_per_ion": 4.06,
+      "second_read_marker_px": [
+        661,
+        245
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p15",
+      "first_read_cu_at_percent": 80,
+      "first_read_yield_atoms_per_ion": 4.35,
+      "second_read_marker_px": [
+        703,
+        205
+      ],
+      "digitization_bound_cu_at_percent": 1.0,
+      "digitization_bound_yield_atoms_per_ion": 0.03
+    },
+    {
+      "row_id": "fig13-p16",
+      "first_read_cu_at_percent": 86,
+      "first_read_yield_atoms_per_ion": 4.32,
+      "second_read_marker_px": [
+        735,
+        207
+      ],
+      "digitization_bound_cu_at_percent": 1.5,
+      "digitization_bound_yield_atoms_per_ion": 0.05
+    },
+    {
+      "row_id": "fig13-p17",
+      "first_read_cu_at_percent": 88,
+      "first_read_yield_atoms_per_ion": 4.65,
+      "second_read_marker_px": [
+        758,
+        159
+      ],
+      "digitization_bound_cu_at_percent": 1.5,
+      "digitization_bound_yield_atoms_per_ion": 0.05
+    },
+    {
+      "row_id": "fig13-p18",
+      "first_read_cu_at_percent": 89,
+      "first_read_yield_atoms_per_ion": 4.4,
+      "second_read_marker_px": [
+        765,
+        196
+      ],
+      "digitization_bound_cu_at_percent": 1.5,
+      "digitization_bound_yield_atoms_per_ion": 0.05
+    },
+    {
+      "row_id": "fig13-p19",
+      "first_read_cu_at_percent": 91,
+      "first_read_yield_atoms_per_ion": 4.53,
+      "second_read_marker_px": [
+        781,
+        177
+      ],
+      "digitization_bound_cu_at_percent": 1.5,
+      "digitization_bound_yield_atoms_per_ion": 0.05
+    },
+    {
+      "row_id": "fig13-p20",
+      "first_read_cu_at_percent": 92,
+      "first_read_yield_atoms_per_ion": 4.6,
+      "second_read_marker_px": [
+        784,
+        164
+      ],
+      "digitization_bound_cu_at_percent": 1.5,
+      "digitization_bound_yield_atoms_per_ion": 0.05
+    },
+    {
+      "row_id": "fig13-p21",
+      "first_read_cu_at_percent": 92,
+      "first_read_yield_atoms_per_ion": 4.85,
+      "second_read_marker_px": [
+        785,
+        129
+      ],
+      "digitization_bound_cu_at_percent": 1.5,
+      "digitization_bound_yield_atoms_per_ion": 0.05
+    },
+    {
+      "row_id": "fig13-p22",
+      "first_read_cu_at_percent": 94,
+      "first_read_yield_atoms_per_ion": 4.88,
+      "second_read_marker_px": [
+        795,
+        124
+      ],
+      "digitization_bound_cu_at_percent": 1.5,
+      "digitization_bound_yield_atoms_per_ion": 0.05
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+# GPU feasibility prototype (#425). NOT a member of the root workspace: the
+# empty `[workspace]` table below keeps it out, so default builds, `cargo test
+# --workspace`, CI and `Cargo.lock` never see wgpu. Build it explicitly:
+#
+#     cargo run --release --manifest-path lindhard-gpu-proto/Cargo.toml
+#
+# See docs/gpu-feasibility.md.
+[workspace]
+
+[package]
+name = "lindhard-gpu-proto"
+version = "0.0.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[dependencies]
+lindhard = { path = "../lindhard" }
+wgpu = "30"
+pollster = "0.4"
+bytemuck = "1"

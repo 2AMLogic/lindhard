@@ -1,21 +1,44 @@
-# Published partial-wave elastic cross sections for the level-1 check of
-# issue #93 (tests/electron_elastic_reference.rs).
+# NIST Standard Reference Data, SRD 64 (NIST Electron Elastic-Scattering
+# Cross-Section Database), Version 5.0, for the level-1 check of issue #93
+# (tests/electron_elastic_reference.rs).
 #
-# STATUS: NO REFERENCE VALUE IS COMMITTED. Every `sigma_el` / `sigma_tr1`
-# below is deliberately absent (a documented placeholder). The intended
-# source, Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409 (2004),
-# doi:10.1063/1.1595653, was opened on 2026-10-07 (NIST reprint) but tabulates
-# no sigma_el / sigma_tr1 for these elements at 1 or 10 keV. Its cross sections
-# appear only in figures, for H, Al, Ni, Ag, Au and Cm plus some gases, so C,
-# Si and Cu are not even plotted and only Au overlaps (see
-# docs/data-provenance.md); values are never entered from memory or read off
-# figures.
+# Attribution and notice. The reference values below are taken from NIST
+# Standard Reference Database 64, "NIST Electron Elastic-Scattering
+# Cross-Section Database", Version 5.0, A. Jablonski, F. Salvat, C. J. Powell,
+# NIST NSRDS 64-2023 (December 2023), doi:10.6028/NIST.NSRDS.64-2023,
+# https://srdata.nist.gov/srd64/ (web page footer: "Last updated: June 06,
+# 2024"). (c) 2023 by the U.S. Department of Commerce on behalf of the United
+# States of America. All rights reserved. Distributed by the Office of Data and
+# Informatics (ODI), Material Measurement Laboratory (MML), NIST. Copyright for
+# NIST Standard Reference Data is governed by the Standard Reference Data Act.
+# These 16 numbers are used under the operator's scoped data-use ruling of
+# 2026-10-19 (issue #93, docs/data-provenance.md); no written NIST permission
+# is asserted and the repository's MIT licence does not relicense them.
 #
-# To fill a case, add `sigma_el_a02` / `sigma_tr1_a02` (bohr^2) together with
-# `sigma_el_cite` / `sigma_tr1_cite` naming the exact table and page, and set
-# `exchange` to the reference's stated setting (correlation_polarization is NOT
-# supported by the harness yet; the parser rejects it).
-# Convert units in the cite string, not silently.
+# Transcription. Read on 2026-10-20 from the live web application, one query
+# per value, as displayed (the page shows 4 significant figures for some
+# values and 7 for others; they are stored exactly as displayed, in units of
+# a0^2, a0^2 = 2.8002852e-21 m^2, so no unit conversion is applied):
+#   sigma_el  : https://srdata.nist.gov/srd64/Elastic    "Total Cross Section"
+#               (Elastic-Scattering Cross-Sections, coordinates dsigma/dOmega
+#               vs theta; the energy is entered in eV).
+#   sigma_tr1 : https://srdata.nist.gov/srd64/Transport1 "Transport Cross
+#               Section" (Transport Cross Sections > Display TCS Values). The
+#               NSRDS 64-2023 report, Sec. 3.2 Eq. (14), defines this as
+#               sigma_tr = sigma_el <1 - cos(theta)>, i.e. the first transport
+#               cross section.
+#
+# Reference model (NSRDS 64-2023, Sec. 3.1, Eqs. (8) and (10)). Relativistic
+# Dirac partial-wave analysis of a FREE-ATOM potential built from a
+# self-consistent numerical Dirac-Hartree-Fock (DHF, Desclaux) electron density
+# plus the Furness-McCarthy local exchange potential. No correlation-
+# polarization term. The solver under test uses the ANALYTIC DHFS screening of
+# Salvat et al. (1987) with the same Furness-McCarthy exchange form (evaluated
+# with the density that generates the analytic potential), so the comparison is
+# NOT a same-potential validation: the potentials differ (numerical DHF versus
+# analytic DHFS fit, and the density that enters the exchange term). Any gap
+# therefore mixes model difference with solver error; it is reported, not
+# fitted away.
 #
 # Tolerances are fixed by the issue: 2 % at 10 keV, 5 % at 1 keV.
 
@@ -24,37 +47,81 @@ rel_at_1000_ev = 0.05
 rel_at_10000_ev = 0.02
 
 [reference]
-source = "Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409 (2004), doi:10.1063/1.1595653"
-status = "placeholder: the cited paper has no such table, no values committed"
+source = "NIST Standard Reference Database 64, NIST Electron Elastic-Scattering Cross-Section Database, Version 5.0 (Jablonski, Salvat & Powell, NIST NSRDS 64-2023, doi:10.6028/NIST.NSRDS.64-2023), https://srdata.nist.gov/srd64/"
+status = "populated: 16 of 16 values transcribed 2026-10-20 (accessed under the operator's scoped 2026-10-19 ruling); see the header for notice, settings and caveats"
+version = "5.0"
+accessed = "2026-10-20"
+potential = "free-atom numerical Dirac-Hartree-Fock density (Desclaux) with Furness-McCarthy local exchange, NSRDS 64-2023 Sec. 3.1 Eqs. (8)-(10); no correlation-polarization"
+units = "a0^2 as displayed by the database (a0^2 = 2.8002852e-21 m^2); no conversion"
 
 [[case]]
 z = 6
 energy_ev = 1000.0
+exchange = true
+sigma_el_a02 = 1.935
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element C (Z=6), E = 1000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 1.391754E-1
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element C (Z=6), E = 1000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"
 
 [[case]]
 z = 6
 energy_ev = 10000.0
+exchange = true
+sigma_el_a02 = 2.244236E-1
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element C (Z=6), E = 10000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 2.335459E-3
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element C (Z=6), E = 10000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"
 
 [[case]]
 z = 14
 energy_ev = 1000.0
+exchange = true
+sigma_el_a02 = 4.915
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element Si (Z=14), E = 1000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 4.780440E-1
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element Si (Z=14), E = 1000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"
 
 [[case]]
 z = 14
 energy_ev = 10000.0
+exchange = true
+sigma_el_a02 = 7.690066E-1
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element Si (Z=14), E = 10000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 1.101214E-2
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element Si (Z=14), E = 10000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"
 
 [[case]]
 z = 29
 energy_ev = 1000.0
+exchange = true
+sigma_el_a02 = 4.878
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element Cu (Z=29), E = 1000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 1.163
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element Cu (Z=29), E = 1000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"
 
 [[case]]
 z = 29
 energy_ev = 10000.0
+exchange = true
+sigma_el_a02 = 1.215
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element Cu (Z=29), E = 10000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 3.805423E-2
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element Cu (Z=29), E = 10000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"
 
 [[case]]
 z = 79
 energy_ev = 1000.0
+exchange = true
+sigma_el_a02 = 8.944
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element Au (Z=79), E = 1000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 2.477
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element Au (Z=79), E = 1000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"
 
 [[case]]
 z = 79
 energy_ev = 10000.0
+exchange = true
+sigma_el_a02 = 2.896
+sigma_el_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Elastic, element Au (Z=79), E = 10000 eV, \"Total Cross Section\" as displayed, a0^2; accessed 2026-10-20"
+sigma_tr1_a02 = 1.624083E-1
+sigma_tr1_cite = "NIST SRD 64 v5.0, https://srdata.nist.gov/srd64/Transport1, element Au (Z=79), E = 10000 eV, \"Transport Cross Section\" (Eq. (14) sigma_tr1) as displayed, a0^2; accessed 2026-10-20"

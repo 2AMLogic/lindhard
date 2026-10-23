@@ -14,6 +14,29 @@ one version).
   profile out), published with the book. CI builds it on every pull request
   that touches the library or the new crate and compares it with the native
   build for the same seed (#432).
+- Cu–Ni comparison of the fluence-dependent engine with measurement (#448,
+  part of #22): Ho et al. (1976) row `t2-r4` and the 22 Betz (1980) markers,
+  both relaxation conventions, `validation/experiments/cuni_dynamic.py` with
+  committed results and a reduced-statistics CI test. The engine is outside the
+  fixed tolerances (20 % surface fraction, 30 % total yield) and the section in
+  `docs/validation.md` says so; the high-fluence implant-profile criterion is
+  still a gap.
+- Example `si_backscatter_shells` (`lindhard-cli/examples`): the Si
+  backscatter coefficient with K and L inner-shell channels against a matched
+  single-pole control, with the committed baseline reproduced bit for bit
+  (#449, part of #148; results in `docs/validation.md`).
+- `tally::VoxelTally`, a sparse 3D tally of implanted atoms, displacements and
+  deposited energy (electronic, lattice and rest) on a regular grid, for voxel,
+  mesh and CSG targets, with CSV and legacy ASCII VTK export and readers for
+  both (`VoxelReport`). Deterministic at any thread count; totals over all
+  voxels equal the 1D tallies of the same run on a laterally uniform target.
+  Book page `guide/voxel-tallies.md`; example files in `examples/voxel-tally`
+  (#433).
+- Level-1 validation group `mask` (#435): a masked implant (2 keV B into Si,
+  ideal edge mask) run on a voxel target with the sparse voxel tally and
+  compared to the analytic error-function edge profile whose width is the
+  lateral straggle of the 1D profile. The measured straggle is reported with
+  its statistical uncertainty beside the 1D value.
 - Retention limit for implanted species in dynamic runs (#436):
   `[dynamic.retention_limit] <Sym> = f` caps the atom fraction of that element
   a slab may hold, re-emitting the excess (removed from the slab and the
