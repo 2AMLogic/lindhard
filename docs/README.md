@@ -19,6 +19,7 @@ from this directory rather than copying them, so edit them here.
 | [`screen-oxide.md`](screen-oxide.md) | Screen-oxide characterization of the substrate channeling tail: command, setup, measured baselines, what is and is not supported |
 | [`validation.md`](validation.md) | The three validation levels (analytic, oracle, experiment), current results and known deviations |
 | [`benchmarks.md`](benchmarks.md) | How to run the benches, what they measure, and first numbers |
+| [`gpu-feasibility.md`](gpu-feasibility.md) | The GPU decision (defer): wgpu / CubeCL / CUDA on determinism, licence and a prototype kernel benchmark |
 | [`data-provenance.md`](data-provenance.md) | One row per dataset in the tree: origin, citation and terms |
 | [`prior-art.md`](prior-art.md) | Survey of open and closed ion and electron transport codes |
 | [`history.md`](history.md) | A historical note, from the 1947 neutron histories to lindhard |

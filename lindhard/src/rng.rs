@@ -21,11 +21,21 @@
 //! stream or the merge order.
 
 use rand_chacha::ChaCha8Rng;
-use rand_core::SeedableRng;
+use rand_core::{Rng, SeedableRng};
 use rayon::prelude::*;
 
 /// The generator type returned by [`stream`].
 pub type ParticleRng = ChaCha8Rng;
+
+/// Uniform draw on `[0, 1)` with 53 random bits: the top 53 bits of one
+/// `next_u64()`, scaled by the exact power of two `2^-53`.
+///
+/// Every sampler in the crate maps raw words to uniform variates through this
+/// one function, so the mapping from a stream to physics is fixed in one place
+/// (the thread-count invariant of [`run_particles`] rests on it).
+pub fn uniform<R: Rng + ?Sized>(rng: &mut R) -> f64 {
+    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
+}
 
 /// Random stream for particle `index` of the run with the given `seed`.
 ///
@@ -185,9 +195,18 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rand_core::Rng;
     use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+
+    #[test]
+    fn uniform_is_the_top_53_bits_scaled_by_two_to_the_minus_53() {
+        let (mut a, mut b) = (stream(7, 3), stream(7, 3));
+        for _ in 0..1000 {
+            let u = uniform(&mut a);
+            assert_eq!(u, (b.next_u64() >> 11) as f64 / (1u64 << 53) as f64);
+            assert!((0.0..1.0).contains(&u));
+        }
+    }
 
     /// Test-only copy of the driver before batching (#393): every chunk tally
     /// is collected, then all are folded in chunk order into an empty total.
@@ -241,7 +260,7 @@ mod tests {
     }
 
     fn order_history(t: &mut Order, rng: &mut ParticleRng, i: u64) {
-        let u = (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64;
+        let u = uniform(rng);
         // Spread magnitudes so the rounding of the sum depends on order.
         t.sum += (u - 0.5) * 10f64.powi((i % 17) as i32 - 8);
         t.indices.push(i);

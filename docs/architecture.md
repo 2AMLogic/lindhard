@@ -49,7 +49,9 @@ electron MC). The engines share the core and nothing else.
   per run and shared read-only.
 - Structure-of-arrays batching plus `wide` SIMD once profiling says it is
   worth doing. Do not do it first.
-- A GPU backend is a later, measured decision, not an assumption.
+- A GPU backend is a later, measured decision, not an assumption. The study
+  and its current answer (defer) are in
+  [`gpu-feasibility.md`](gpu-feasibility.md).
 - Benchmarks (criterion) track ions per second against RustBCA and OpenTRIM on
   matched problems (see [`validation.md`](validation.md)).
 

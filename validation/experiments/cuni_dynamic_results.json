@@ -1,0 +1,2538 @@
+{
+ "format": {
+  "name": "lindhard-cuni-dynamic-results",
+  "version": 1
+ },
+ "issue": "#448",
+ "reproduce": "python3 validation/experiments/cuni_dynamic.py",
+ "binary_sha256": "9e265eb639dca5df32cb1c85a030538cae8e32ac37ccdb01934165bf8a05ecb1",
+ "software": "lindhard 0.0.1 (72ea6f8)",
+ "settings": {
+  "physics": {
+   "potential": "zbl",
+   "stopping": "lindhard-scharff",
+   "free_path": "constant",
+   "primary_cutoff_ev": 2.0,
+   "recoil_cutoff_ev": 1.0
+  },
+  "base_numerics": {
+   "slab_nm": 0.5,
+   "max_change": 0.1,
+   "ions_per_step": 1000
+  },
+  "film_nm": 40.0,
+  "fluence_cm2": 3e+16,
+  "ions_ho_per_seed": 60000,
+  "seeds_ho": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "ions_betz": 30000,
+  "seed_betz": 1,
+  "blocks": 5,
+  "steady_window_start": 0.5,
+  "argon": {
+   "volume_nm3": 0.03747752240421516,
+   "energies": {
+    "e_d_ev": 3.49,
+    "e_b_ev": 0.0,
+    "e_s_ev": 0.0
+   },
+   "modes": {
+    "ar-retained": null,
+    "ar-re-emitted": 1e-06
+   }
+  },
+  "surface_binding_ev": {
+   "Cu": 3.49,
+   "Ni": 4.44
+  },
+  "tolerances": {
+   "surface_cu_fraction": 0.2,
+   "total_yield": 0.3
+  },
+  "aes": {
+   "lines_ev": {
+    "Cu": 920.0,
+    "Ni": 716.0
+   },
+   "scales": [
+    0.5,
+    1.0,
+    2.0
+   ],
+   "attenuation_length_nm": {
+    "Cu": 1.3497053182664078,
+    "Ni": 1.14816395194497
+   }
+  }
+ },
+ "ho_excluded_rows": [
+  "t1-r3",
+  "t2-r1"
+ ],
+ "ho1976": {
+  "experiment": {
+   "row_id": "t2-r4",
+   "cu_fraction": 0.384,
+   "energy_keV": 2.0,
+   "number_density_cm3": 8.875848605770933e+22,
+   "mass_density_g_cm3": 8.92528082735468,
+   "erosion_rate_angstrom_min": 23.0,
+   "erosion_rate_pm": 2.5,
+   "ion_intensity_cm2_s": 94000000000000.0,
+   "q": 1.7,
+   "q_pm": 0.2,
+   "yield_conventions": {
+    "flux_per_sample_area": {
+     "yield": 3.6195836512895645,
+     "lo": 3.226150645714612,
+     "hi": 4.013016656864517
+    },
+    "flux_per_beam_normal_area": {
+     "yield": 3.8518804673195572,
+     "lo": 3.433197807828301,
+     "hi": 4.2705631268108135
+    }
+   },
+   "surface_cu_fraction": {
+    "value": 0.26830631637786473,
+    "lo": 0.2470406587750901,
+    "hi": 0.2935779816513762
+   }
+  },
+  "runs": {
+   "ideal-mixing/ar-retained": {
+    "seeds": 4,
+    "yield": {
+     "value": 1.8391275495068138,
+     "se": 0.006957171492775465,
+     "per_seed": [
+      1.8344087981536408,
+      1.8598626673860394,
+      1.8306991900832557,
+      1.8315395424043188
+     ]
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "value": 0.3376962753086834,
+      "se": 0.000835604914376609,
+      "per_seed": [
+       0.3376508591515335,
+       0.3400711287201739,
+       0.33642270687487347,
+       0.33664040648815285
+      ]
+     },
+     "aes_x0.5": {
+      "value": 0.33665826941449667,
+      "se": 0.0007406027168974649,
+      "per_seed": [
+       0.33636654326292637,
+       0.338738856101197,
+       0.3352309449286043,
+       0.33629673336525906
+      ]
+     },
+     "aes_x1": {
+      "value": 0.3430209499888561,
+      "se": 0.0006744918343779253,
+      "per_seed": [
+       0.34274092246225524,
+       0.34483176138751126,
+       0.34157358743502875,
+       0.3429375286706293
+      ]
+     },
+     "aes_x2": {
+      "value": 0.3599396829747976,
+      "se": 0.0005211240310049276,
+      "per_seed": [
+       0.3598188626641106,
+       0.3612732853097904,
+       0.35872900303602206,
+       0.3599375808892674
+      ]
+     }
+    },
+    "yield_windows_quarters_2_to_4": [
+     1.9911857395243966,
+     1.8661276416960157,
+     1.8120294024166446
+    ],
+    "transient_intercept_sputtered_atoms": 9478.84702959118,
+    "front_slab_ar_fraction": 0.13079622899123408,
+    "recession_nm": 14.578908785547808
+   },
+   "ideal-mixing/ar-re-emitted": {
+    "seeds": 4,
+    "yield": {
+     "value": 2.6648753822231157,
+     "se": 0.00602486230901852,
+     "per_seed": [
+      2.6492492255552187,
+      2.6772698855949075,
+      2.662456031517231,
+      2.670526386225105
+     ]
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "value": 0.33631431889059343,
+      "se": 0.0005262164443690208,
+      "per_seed": [
+       0.3372804141940547,
+       0.33643328989310783,
+       0.3348266227154498,
+       0.33671694875976144
+      ]
+     },
+     "aes_x0.5": {
+      "value": 0.33995913465106375,
+      "se": 0.00028738867874367755,
+      "per_seed": [
+       0.3406166490551269,
+       0.3400985781951965,
+       0.3392276644211547,
+       0.3398936469327768
+      ]
+     },
+     "aes_x1": {
+      "value": 0.34842786753937455,
+      "se": 0.0001580000586571138,
+      "per_seed": [
+       0.34884649699171894,
+       0.3484905086715258,
+       0.3482351018871405,
+       0.348139362607113
+      ]
+     },
+     "aes_x2": {
+      "value": 0.36048757293999545,
+      "se": 0.00011146145261698619,
+      "per_seed": [
+       0.3607162945152494,
+       0.36051833512212933,
+       0.3605341235512486,
+       0.3601815385713544
+      ]
+     }
+    },
+    "yield_windows_quarters_2_to_4": [
+     2.6679512916696018,
+     2.659783859373407,
+     2.669969006612055
+    ],
+    "transient_intercept_sputtered_atoms": 306.4770666130571,
+    "front_slab_ar_fraction": 9.994768992180437e-07,
+    "recession_nm": 9.03005397510935
+   },
+   "fixed-number-density/ar-retained": {
+    "seeds": 4,
+    "yield": {
+     "value": 2.2476523483637436,
+     "se": 0.004181021438845691,
+     "per_seed": [
+      2.245612604975102,
+      2.2525716415320574,
+      2.236798079822337,
+      2.2556270671254777
+     ]
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "value": 0.33797056322047064,
+      "se": 0.0009563356900924009,
+      "per_seed": [
+       0.33820662836288695,
+       0.33527097097460706,
+       0.3397486451251871,
+       0.3386560084192015
+      ]
+     },
+     "aes_x0.5": {
+      "value": 0.34038062306443395,
+      "se": 0.00099455334857446,
+      "per_seed": [
+       0.34137807611766097,
+       0.33745415658020067,
+       0.3418194562881011,
+       0.34087080327177305
+      ]
+     },
+     "aes_x1": {
+      "value": 0.34926402038543686,
+      "se": 0.0008712792623651897,
+      "per_seed": [
+       0.35065290702299723,
+       0.3467298803489617,
+       0.3500634246697747,
+       0.3496098695000139
+      ]
+     },
+     "aes_x2": {
+      "value": 0.3629566329235778,
+      "se": 0.0006377487895023986,
+      "per_seed": [
+       0.3642419107997874,
+       0.36119256185645726,
+       0.36322900536916825,
+       0.3631630536688984
+      ]
+     }
+    },
+    "yield_windows_quarters_2_to_4": [
+     2.321926269004497,
+     2.258409890265398,
+     2.2368934445245126
+    ],
+    "transient_intercept_sputtered_atoms": 4889.109098175395,
+    "front_slab_ar_fraction": 0.11871580080768704,
+    "recession_nm": 10.32912503041011
+   },
+   "fixed-number-density/ar-re-emitted": {
+    "seeds": 4,
+    "yield": {
+     "value": 2.6554140745442645,
+     "se": 0.006121032467084902,
+     "per_seed": [
+      2.6442216009022377,
+      2.669342909349876,
+      2.6460904957927065,
+      2.6620012921322376
+     ]
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "value": 0.33665166173142674,
+      "se": 0.0008514294421778173,
+      "per_seed": [
+       0.33880377994973876,
+       0.3350976539359737,
+       0.33549418819330534,
+       0.3372110248466892
+      ]
+     },
+     "aes_x0.5": {
+      "value": 0.3403179220513603,
+      "se": 0.0006547588060778248,
+      "per_seed": [
+       0.34206712344152324,
+       0.3391735149789247,
+       0.3394713521278937,
+       0.34055969765709965
+      ]
+     },
+     "aes_x1": {
+      "value": 0.34878817265556805,
+      "se": 0.0005139772227431052,
+      "per_seed": [
+       0.350240278556262,
+       0.3478934217604972,
+       0.34827975833183117,
+       0.3487392319736818
+      ]
+     },
+     "aes_x2": {
+      "value": 0.3607907966884707,
+      "se": 0.0003870282768092337,
+      "per_seed": [
+       0.361906940531432,
+       0.3601203935851419,
+       0.36052964550112343,
+       0.3606062071361854
+      ]
+     }
+    },
+    "yield_windows_quarters_2_to_4": [
+     2.672966842735469,
+     2.6509625776572845,
+     2.6598671710672646
+    ],
+    "transient_intercept_sputtered_atoms": 733.4055273441336,
+    "front_slab_ar_fraction": 9.994840085659441e-07,
+    "recession_nm": 9.016532227461106
+   }
+  },
+  "sensitivity": {
+   "ideal-mixing/ar-retained": {
+    "slab_nm=0.25": {
+     "ions": 60000,
+     "yield": {
+      "value": 1.8191683691612397,
+      "block_se": 0.0194710278560954,
+      "blocks": [
+       1.8581216577540107,
+       1.8675199468085106,
+       1.8180150125104253,
+       1.7788141239173885,
+       1.773371104815864
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      1.9854,
+      1.854712827696618,
+      1.783663135452062
+     ],
+     "transient_intercept_sputtered_atoms": 10000.897850325622,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.33439144119337233,
+       "block_se": 0.002374983112197698
+      },
+      "aes_x0.5": {
+       "value": 0.3336223102370157,
+       "block_se": 0.001931938052240576
+      },
+      "aes_x1": {
+       "value": 0.34276350313649473,
+       "block_se": 0.0014106145470810204
+      },
+      "aes_x2": {
+       "value": 0.36372230282962975,
+       "block_se": 0.0007692143702220539
+      }
+     },
+     "front_slab_ar_fraction": 0.1316663359019225,
+     "total_attempts_rejected": 9115,
+     "steps": 14533,
+     "recession_nm": 14.600088958006108,
+     "input_sha256": "6282777cd795fd4319c55570f96f733698668b257cea88ea4083183aa70865f8"
+    },
+    "slab_nm=1.0": {
+     "ions": 60000,
+     "yield": {
+      "value": 1.8404429639159932,
+      "block_se": 0.018480200855575325,
+      "blocks": [
+       1.8697030363697031,
+       1.871692461308038,
+       1.8691526552355586,
+       1.786,
+       1.8056666666666668
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.0041360907271515,
+      1.8621585609593605,
+      1.8187333333333333
+     ],
+     "transient_intercept_sputtered_atoms": 9603.422165040407,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.340453024230991,
+       "block_se": 0.0023010092790582432
+      },
+      "aes_x0.5": {
+       "value": 0.33910611122620304,
+       "block_se": 0.0018575727393184813
+      },
+      "aes_x1": {
+       "value": 0.34333171610967544,
+       "block_se": 0.0015263117135847911
+      },
+      "aes_x2": {
+       "value": 0.3567686504731981,
+       "block_se": 0.0010608198223049673
+      }
+     },
+     "front_slab_ar_fraction": 0.13022292911447728,
+     "total_attempts_rejected": 4884,
+     "steps": 5809,
+     "recession_nm": 14.425231324440613,
+     "input_sha256": "7f6c83e404d58da32c8458a0fa540dafc886c60dff64bf380a60666a635c6dc1"
+    },
+    "max_change=0.05": {
+     "ions": 60000,
+     "yield": {
+      "value": 1.8305738971268077,
+      "block_se": 0.021666034520298735,
+      "blocks": [
+       1.8846666666666667,
+       1.8648333333333333,
+       1.8407537101884275,
+       1.7941666666666667,
+       1.7684491087789438
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      1.9890688528960874,
+      1.8665066346602655,
+      1.794641071785643
+     ],
+     "transient_intercept_sputtered_atoms": 9627.56617239154,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.3405108697754061,
+       "block_se": 0.0018951772472463881
+      },
+      "aes_x0.5": {
+       "value": 0.3385007123974142,
+       "block_se": 0.0014949580255521778
+      },
+      "aes_x1": {
+       "value": 0.3441124168491085,
+       "block_se": 0.0012103806774539315
+      },
+      "aes_x2": {
+       "value": 0.3604539082423928,
+       "block_se": 0.0008204184052565515
+      }
+     },
+     "front_slab_ar_fraction": 0.13020937391563767,
+     "total_attempts_rejected": 9797,
+     "steps": 17654,
+     "recession_nm": 14.495521852157237,
+     "input_sha256": "5d3b545de9743921f4b00fd179c109168c3a3c37d07c962ac65b7caeca0bfa98"
+    },
+    "ions=2x": {
+     "ions": 120000,
+     "yield": {
+      "value": 1.8550076889902634,
+      "block_se": 0.01844107929659735,
+      "blocks": [
+       1.906810035842294,
+       1.8607172643869891,
+       1.8713143428285857,
+       1.7947008831861357,
+       1.841495918707313
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      1.9931331044368146,
+      1.881003966534449,
+      1.829
+     ],
+     "transient_intercept_sputtered_atoms": 18166.077321168385,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.33923286130857133,
+       "block_se": 0.0010158024800685952
+      },
+      "aes_x0.5": {
+       "value": 0.337511432587123,
+       "block_se": 0.0011514706007811797
+      },
+      "aes_x1": {
+       "value": 0.34356601983892043,
+       "block_se": 0.0011504179403982958
+      },
+      "aes_x2": {
+       "value": 0.3602408362298488,
+       "block_se": 0.0008605646563377518
+      }
+     },
+     "front_slab_ar_fraction": 0.130052865363226,
+     "total_attempts_rejected": 13134,
+     "steps": 15107,
+     "recession_nm": 14.608582980391546,
+     "input_sha256": "f8e07df9ba085c1e905274902526e9f047beb1753a45303ca16df738fd7cdba0"
+    }
+   },
+   "ideal-mixing/ar-re-emitted": {
+    "slab_nm=0.25": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.6508603134785993,
+      "block_se": 0.016731894245870037,
+      "blocks": [
+       2.635256837891928,
+       2.6703315009162085,
+       2.6945,
+       2.595932655442574,
+       2.658280573142286
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.6887748300226635,
+      2.6612440829388624,
+      2.6404906339577363
+     ],
+     "transient_intercept_sputtered_atoms": 1085.3811912840465,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.3336866025680199,
+       "block_se": 0.0014035555348897923
+      },
+      "aes_x0.5": {
+       "value": 0.339184440698914,
+       "block_se": 0.0008115688323774278
+      },
+      "aes_x1": {
+       "value": 0.3512319706366493,
+       "block_se": 0.00044079117227709195
+      },
+      "aes_x2": {
+       "value": 0.3656951072107855,
+       "block_se": 0.0002548515177911153
+      }
+     },
+     "front_slab_ar_fraction": 9.98207978946398e-07,
+     "total_attempts_rejected": 10797,
+     "steps": 18111,
+     "recession_nm": 9.023117551405676,
+     "input_sha256": "a20af1e98f69c25e714ce279042886dfd80a50a62554f6d24b87233eb6dcf5ae"
+    },
+    "slab_nm=1.0": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.651904197259578,
+      "block_se": 0.013959798515852067,
+      "blocks": [
+       2.6461410788381743,
+       2.656385461820607,
+       2.696586178184846,
+       2.6089208152355496,
+       2.6514874522187135
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.702959054171398,
+      2.6571885196776988,
+      2.646663114426535
+     ],
+     "transient_intercept_sputtered_atoms": 1262.748164425313,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.3408388369994365,
+       "block_se": 0.0009157921883631358
+      },
+      "aes_x0.5": {
+       "value": 0.34280104091198904,
+       "block_se": 0.0009276127327711594
+      },
+      "aes_x1": {
+       "value": 0.3483432442331603,
+       "block_se": 0.0007673752908109707
+      },
+      "aes_x2": {
+       "value": 0.35786181006225065,
+       "block_se": 0.0005202426645036843
+      }
+     },
+     "front_slab_ar_fraction": 9.99135836975414e-07,
+     "total_attempts_rejected": 5159,
+     "steps": 6330,
+     "recession_nm": 9.042572576919605,
+     "input_sha256": "d87e4ca1362dae94f4ce8719379d336fd74987a3f52e4e9fc76d238fde843439"
+    },
+    "max_change=0.05": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.6524256578182843,
+      "block_se": 0.014781030315152493,
+      "blocks": [
+       2.645,
+       2.668223519599666,
+       2.6854811854811853,
+       2.599199733244415,
+       2.664223850766156
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.6862039074481565,
+      2.66364424294953,
+      2.641229005598507
+     ],
+     "transient_intercept_sputtered_atoms": 1198.4605309029284,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.3372255521501317,
+       "block_se": 0.0004566767442324791
+      },
+      "aes_x0.5": {
+       "value": 0.3404707538596242,
+       "block_se": 0.0002398165568816142
+      },
+      "aes_x1": {
+       "value": 0.3487405579050267,
+       "block_se": 0.0001432315076924549
+      },
+      "aes_x2": {
+       "value": 0.3606856580250203,
+       "block_se": 0.00011147932503605496
+      }
+     },
+     "front_slab_ar_fraction": 9.993155150703774e-07,
+     "total_attempts_rejected": 10629,
+     "steps": 19974,
+     "recession_nm": 9.037969080913765,
+     "input_sha256": "6bc4d571dd6351169a49f4fe2c69d3d4e484d93ed045764a494631f4068699cc"
+    },
+    "ions=2x": {
+     "ions": 120000,
+     "yield": {
+      "value": 2.6877127075594744,
+      "block_se": 0.011189958553800776,
+      "blocks": [
+       2.6683881715951685,
+       2.6834754975748454,
+       2.729925187032419,
+       2.6695246815949387,
+       2.68725
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.6495316198286494,
+      2.689628740918483,
+      2.6858333333333335
+     ],
+     "transient_intercept_sputtered_atoms": -1070.524907136918,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.3341349750501883,
+       "block_se": 0.0003568085206652364
+      },
+      "aes_x0.5": {
+       "value": 0.3386440957820976,
+       "block_se": 0.0004196862953425235
+      },
+      "aes_x1": {
+       "value": 0.34765871678003707,
+       "block_se": 0.00037557115104313064
+      },
+      "aes_x2": {
+       "value": 0.3600931685051375,
+       "block_se": 0.0002622528108696045
+      }
+     },
+     "front_slab_ar_fraction": 9.99650819363161e-07,
+     "total_attempts_rejected": 11836,
+     "steps": 14315,
+     "recession_nm": 9.059770876839316,
+     "input_sha256": "08114e9b583dd20e8d884bc72e9a87dd74123c66b58bb759a2ed0bdee664cef9"
+    }
+   },
+   "fixed-number-density/ar-retained": {
+    "slab_nm=0.25": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.2309110380463837,
+      "block_se": 0.01185636384845171,
+      "blocks": [
+       2.25,
+       2.2367544151949352,
+       2.2566238960173304,
+       2.220906968989663,
+       2.19026991002999
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.3172813979857265,
+      2.2453345774460143,
+      2.216490035326268
+     ],
+     "transient_intercept_sputtered_atoms": 5311.337717216986,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.33312360133559743,
+       "block_se": 0.0023096724665969694
+      },
+      "aes_x0.5": {
+       "value": 0.3379690319317975,
+       "block_se": 0.0016247847983620917
+      },
+      "aes_x1": {
+       "value": 0.35102816020108035,
+       "block_se": 0.0009699176243930126
+      },
+      "aes_x2": {
+       "value": 0.3674120035224564,
+       "block_se": 0.0004180516589950449
+      }
+     },
+     "front_slab_ar_fraction": 0.11961144505059033,
+     "total_attempts_rejected": 12911,
+     "steps": 20038,
+     "recession_nm": 10.330054518999463,
+     "input_sha256": "f8e6242c99c419806eca8714ae54ffb5324a82c745021fb1d3120a09b9a1b50b"
+    },
+    "slab_nm=1.0": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.2497326147810712,
+      "block_se": 0.016288389300132617,
+      "blocks": [
+       2.288855572213893,
+       2.2360902255639097,
+       2.2857142857142856,
+       2.233249791144528,
+       2.2047531992687386
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.348353552859619,
+      2.2597411262343208,
+      2.2397602397602396
+     ],
+     "transient_intercept_sputtered_atoms": 5661.043113135733,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.34044989796243946,
+       "block_se": 0.001780441975794113
+      },
+      "aes_x0.5": {
+       "value": 0.34273857602499797,
+       "block_se": 0.0016681174817635713
+      },
+      "aes_x1": {
+       "value": 0.34930745408198566,
+       "block_se": 0.001349731489041216
+      },
+      "aes_x2": {
+       "value": 0.36046742032408274,
+       "block_se": 0.0008684844397250186
+      }
+     },
+     "front_slab_ar_fraction": 0.11629831602493275,
+     "total_attempts_rejected": 4657,
+     "steps": 6668,
+     "recession_nm": 10.32785754597011,
+     "input_sha256": "d39cf115942e05527c215b65e7b1ea184c7f85bf17dea39e3ef68675b1d419fa"
+    },
+    "max_change=0.05": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.245615708493029,
+      "block_se": 0.015440403612194963,
+      "blocks": [
+       2.272,
+       2.2494584235960673,
+       2.279286785535744,
+       2.2346666666666666,
+       2.1926666666666668
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.3268448770081993,
+      2.2625824945003665,
+      2.2286514232384507
+     ],
+     "transient_intercept_sputtered_atoms": 5442.057490418258,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.33860457471383315,
+       "block_se": 0.0015736877979177452
+      },
+      "aes_x0.5": {
+       "value": 0.3413857322493717,
+       "block_se": 0.0011220937337169902
+      },
+      "aes_x1": {
+       "value": 0.35034789224143753,
+       "block_se": 0.0008739577687205043
+      },
+      "aes_x2": {
+       "value": 0.36382832100622703,
+       "block_se": 0.0005756167288211015
+      }
+     },
+     "front_slab_ar_fraction": 0.11808999854028472,
+     "total_attempts_rejected": 10147,
+     "steps": 18278,
+     "recession_nm": 10.342053371698556,
+     "input_sha256": "d0f32301fd02cd6dc04206bfb1fce0f4f7b31beab069ccf2ccd460c8c24ec41a"
+    },
+    "ions=2x": {
+     "ions": 120000,
+     "yield": {
+      "value": 2.2658542714310657,
+      "block_se": 0.012186597934370231,
+      "blocks": [
+       2.2799399949995833,
+       2.2416666666666667,
+       2.3070833333333334,
+       2.2491661107404934,
+       2.2514152514152515
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.311213272036778,
+      2.27450653507602,
+      2.257205691246543
+     ],
+     "transient_intercept_sputtered_atoms": 8508.487428272143,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.33805227955698386,
+       "block_se": 0.0013055934095461419
+      },
+      "aes_x0.5": {
+       "value": 0.34039519912585103,
+       "block_se": 0.0010055628928486175
+      },
+      "aes_x1": {
+       "value": 0.3493830659843479,
+       "block_se": 0.0007599051707647344
+      },
+      "aes_x2": {
+       "value": 0.36312610117934796,
+       "block_se": 0.00048760039536839783
+      }
+     },
+     "front_slab_ar_fraction": 0.11789705921202731,
+     "total_attempts_rejected": 11687,
+     "steps": 12734,
+     "recession_nm": 10.359488324329673,
+     "input_sha256": "447000feb777b329c30e47c8f582ab641e8ba5322c9eb19f398fafcece1b1f01"
+    }
+   },
+   "fixed-number-density/ar-re-emitted": {
+    "slab_nm=0.25": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.641,
+      "block_se": 0.010594678957959156,
+      "blocks": [
+       2.6443333333333334,
+       2.6598333333333333,
+       2.6546666666666665,
+       2.6001666666666665,
+       2.646
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.6741101186508467,
+      2.6490291586041237,
+      2.6329847465529874
+     ],
+     "transient_intercept_sputtered_atoms": 1063.0,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.3345345203730702,
+       "block_se": 0.0007465050669985562
+      },
+      "aes_x0.5": {
+       "value": 0.34019807791934575,
+       "block_se": 0.000539767503654052
+      },
+      "aes_x1": {
+       "value": 0.35212256646875567,
+       "block_se": 0.0004499456135633461
+      },
+      "aes_x2": {
+       "value": 0.36632145478269945,
+       "block_se": 0.00034946896994669883
+      }
+     },
+     "front_slab_ar_fraction": 9.993338159116157e-07,
+     "total_attempts_rejected": 11051,
+     "steps": 17577,
+     "recession_nm": 8.986352014627588,
+     "input_sha256": "1a28cbd878a7dba2374907f8207e29caa699dc705597158608bf3eb689992a8e"
+    },
+    "slab_nm=1.0": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.6487863178253264,
+      "block_se": 0.01103063473409748,
+      "blocks": [
+       2.6373937677053823,
+       2.6742866677790755,
+       2.6720375965088956,
+       2.615702479338843,
+       2.6445110777944363
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.6783216783216783,
+      2.653348452508004,
+      2.6440418304136415
+     ],
+     "transient_intercept_sputtered_atoms": 1027.820930480404,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.3410507058832394,
+       "block_se": 0.0006951451183913084
+      },
+      "aes_x0.5": {
+       "value": 0.3429531180945489,
+       "block_se": 0.0005721752176737036
+      },
+      "aes_x1": {
+       "value": 0.34848909289554747,
+       "block_se": 0.0004458190327996077
+      },
+      "aes_x2": {
+       "value": 0.3580105209739093,
+       "block_se": 0.0002887418303951048
+      }
+     },
+     "front_slab_ar_fraction": 9.99689754885476e-07,
+     "total_attempts_rejected": 4351,
+     "steps": 6390,
+     "recession_nm": 9.01068771587653,
+     "input_sha256": "97abf16d167e39882d7e982a10123b1de815b0b34ea995795c9d76c1daa12bb0"
+    },
+    "max_change=0.05": {
+     "ions": 60000,
+     "yield": {
+      "value": 2.641935862376189,
+      "block_se": 0.013728847999395465,
+      "blocks": [
+       2.6443779108449768,
+       2.6587725150100066,
+       2.6768820786142573,
+       2.5949641487410373,
+       2.634682658670665
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.6878836402455297,
+      2.651412203570477,
+      2.6324666666666667
+     ],
+     "transient_intercept_sputtered_atoms": 1420.8482574286754,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.33908565906426685,
+       "block_se": 0.0006423719602452303
+      },
+      "aes_x0.5": {
+       "value": 0.34228923317854054,
+       "block_se": 0.00043141954371380884
+      },
+      "aes_x1": {
+       "value": 0.3504140662431531,
+       "block_se": 0.0002702678303287214
+      },
+      "aes_x2": {
+       "value": 0.3620240849117645,
+       "block_se": 0.00014145572316064375
+      }
+     },
+     "front_slab_ar_fraction": 9.992322635095555e-07,
+     "total_attempts_rejected": 10305,
+     "steps": 19884,
+     "recession_nm": 9.009673728324461,
+     "input_sha256": "1b260e0acc6b9aea2ab0dec0f22a15c9a86ed1d873a1a5dd061f31a091206748"
+    },
+    "ions=2x": {
+     "ions": 120000,
+     "yield": {
+      "value": 2.676876741294977,
+      "block_se": 0.008203167973513278,
+      "blocks": [
+       2.6634134134134135,
+       2.6732145829865157,
+       2.704975414617885,
+       2.6591136287904034,
+       2.683666666666667
+      ]
+     },
+     "yield_windows_quarters_2_to_4": [
+      2.652988432947765,
+      2.6781724195431047,
+      2.675582944703531
+     ],
+     "transient_intercept_sputtered_atoms": -404.20895539724734,
+     "surface_cu_fraction": {
+      "first_slab": {
+       "value": 0.33599072367037,
+       "block_se": 0.0008911600319023563
+      },
+      "aes_x0.5": {
+       "value": 0.3403848109452763,
+       "block_se": 0.0007455782460415491
+      },
+      "aes_x1": {
+       "value": 0.3492056871941164,
+       "block_se": 0.000632460531630556
+      },
+      "aes_x2": {
+       "value": 0.36129699722729314,
+       "block_se": 0.00045457932369269427
+      }
+     },
+     "front_slab_ar_fraction": 9.998328204849816e-07,
+     "total_attempts_rejected": 11492,
+     "steps": 15863,
+     "recession_nm": 9.036375400528259,
+     "input_sha256": "b63b462578d1ae8b355d584bf4a7e1756e9dccd177c40ee6b69d1d2579e9556c"
+    }
+   }
+  },
+  "comparison": {
+   "ideal-mixing/ar-retained": {
+    "yield": {
+     "flux_per_sample_area": {
+      "relative_difference": -0.49189527672565875,
+      "tolerance": 0.3,
+      "verdict": "fail",
+      "interval_overlaps_printed_pm": false
+     },
+     "flux_per_beam_normal_area": {
+      "relative_difference": -0.5225377409526355,
+      "tolerance": 0.3,
+      "verdict": "fail",
+      "interval_overlaps_printed_pm": false
+     }
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "relative_difference": 0.2586221594317388,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x0.5": {
+      "relative_difference": 0.25475342496361364,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x1": {
+      "relative_difference": 0.27846766568763254,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x2": {
+      "relative_difference": 0.34152519342065196,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     }
+    }
+   },
+   "ideal-mixing/ar-re-emitted": {
+    "yield": {
+     "flux_per_sample_area": {
+      "relative_difference": -0.26376190220836887,
+      "tolerance": 0.3,
+      "verdict": "pass",
+      "interval_overlaps_printed_pm": false
+     },
+     "flux_per_beam_normal_area": {
+      "relative_difference": -0.3081624923637502,
+      "tolerance": 0.3,
+      "verdict": "fail",
+      "interval_overlaps_printed_pm": false
+     }
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "relative_difference": 0.2534714926984826,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x0.5": {
+      "relative_difference": 0.2670560247724022,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x1": {
+      "relative_difference": 0.2986196979748772,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x2": {
+      "relative_difference": 0.3435672249784414,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     }
+    }
+   },
+   "fixed-number-density/ar-retained": {
+    "yield": {
+     "flux_per_sample_area": {
+      "relative_difference": -0.3790301413360172,
+      "tolerance": 0.3,
+      "verdict": "fail",
+      "interval_overlaps_printed_pm": false
+     },
+     "flux_per_beam_normal_area": {
+      "relative_difference": -0.4164792060829869,
+      "tolerance": 0.3,
+      "verdict": "fail",
+      "interval_overlaps_printed_pm": false
+     }
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "relative_difference": 0.2596444533362958,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x0.5": {
+      "relative_difference": 0.2686269472130674,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x1": {
+      "relative_difference": 0.3017361093115553,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x2": {
+      "relative_difference": 0.35276961729225154,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     }
+    }
+   },
+   "fixed-number-density/ar-re-emitted": {
+    "yield": {
+     "flux_per_sample_area": {
+      "relative_difference": -0.2663758237502789,
+      "tolerance": 0.3,
+      "verdict": "pass",
+      "interval_overlaps_printed_pm": false
+     },
+     "flux_per_beam_normal_area": {
+      "relative_difference": -0.31061877514799635,
+      "tolerance": 0.3,
+      "verdict": "fail",
+      "interval_overlaps_printed_pm": false
+     }
+    },
+    "surface_cu_fraction": {
+     "first_slab": {
+      "relative_difference": 0.25472879757817174,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x0.5": {
+      "relative_difference": 0.26839325531225744,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x1": {
+      "relative_difference": 0.2999625851683568,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     },
+     "aes_x2": {
+      "relative_difference": 0.3446973651576543,
+      "tolerance": 0.2,
+      "verdict": "fail"
+     }
+    }
+   }
+  }
+ },
+ "betz1980": {
+  "points": [
+   {
+    "row_id": "fig13-p01",
+    "cu_fraction": 0.141,
+    "measured_yield": 3.13,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.4053273451592612,
+      "block_se": 0.015659883590903347,
+      "relative_difference": -0.551013627744645,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0023497977251592033,
+      "yield_windows_quarters_2_to_4": [
+       1.5341333333333333,
+       1.4065333333333334,
+       1.4042383046781288
+      ],
+      "input_sha256": "d2f02dd05a10e855871d0a755d8851abb257f7176aa6da09cd4dae47970e9280"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.1605734270983836,
+      "block_se": 0.022570146076708538,
+      "relative_difference": -0.3097209498088231,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 9.283559475950348e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.172220741135697,
+       2.1168467386954783,
+       2.204318272690924
+      ],
+      "input_sha256": "74742a1bc57c49346db07418eddfa11ead9e79c5bc40e815826480aa4d91c450"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.777054642773352,
+      "block_se": 0.012101933014216302,
+      "relative_difference": -0.4322509128519642,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0012251188340645404,
+      "yield_windows_quarters_2_to_4": [
+       1.8510666666666666,
+       1.7534703683929524,
+       1.8005591798695246
+      ],
+      "input_sha256": "e064555b68c563e436e028698c55e7589484fb763c8adb621e2038556bf6ed55"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.1398159026597545,
+      "block_se": 0.026034812625776737,
+      "relative_difference": -0.316352746754072,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0002492566412221957,
+      "yield_windows_quarters_2_to_4": [
+       2.1796583021890017,
+       2.0901934623082057,
+       2.1892215568862277
+      ],
+      "input_sha256": "fc3370470976cfa230c5f2b5f18eb3ba4e740ca1011a634cd4e251b26f099a14"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p02",
+    "cu_fraction": 0.18600000000000003,
+    "measured_yield": 3.36,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.4129313723572594,
+      "block_se": 0.020751118096475347,
+      "relative_difference": -0.5794847106079585,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.002535287386198053,
+      "yield_windows_quarters_2_to_4": [
+       1.5731804852039457,
+       1.4422614274258219,
+       1.3836946402447134
+      ],
+      "input_sha256": "50bba230739efd54ec26d470ce28c15d3b188ee0554805057e24b1180d49e8c4"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.1663910963264867,
+      "block_se": 0.006354852243432971,
+      "relative_difference": -0.3552407451409265,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00028326190146729603,
+      "yield_windows_quarters_2_to_4": [
+       2.2182666666666666,
+       2.153938584779706,
+       2.1788282290279626
+      ],
+      "input_sha256": "24ef60a475b86a5dde10bbec41964faa7c5cf32a8201eef4934aeafc248d5a7d"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.790844389701094,
+      "block_se": 0.0071375292823354815,
+      "relative_difference": -0.4670105983032458,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.001254397802801317,
+      "yield_windows_quarters_2_to_4": [
+       1.8644180775896546,
+       1.781854569713142,
+       1.7998667554963357
+      ],
+      "input_sha256": "bcf9533569a898c949adc7d4fbd5c572d6e21a0e5d8cdc3d4a7c42d449a22f55"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.175108278696781,
+      "block_se": 0.009554457058612353,
+      "relative_difference": -0.352646345625958,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00013198181897389213,
+      "yield_windows_quarters_2_to_4": [
+       2.1985333333333332,
+       2.1621260683760686,
+       2.188048975246207
+      ],
+      "input_sha256": "2433a77d4b5e85576b9cba3ac8a8a3b4eabac2c508f1f43a125aff3eec0eabd7"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p03",
+    "cu_fraction": 0.214,
+    "measured_yield": 3.21,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.4248181758283498,
+      "block_se": 0.016561289451161334,
+      "relative_difference": -0.556131409399268,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.002561943451803859,
+      "yield_windows_quarters_2_to_4": [
+       1.5818109081210827,
+       1.4223793011469725,
+       1.427162468345995
+      ],
+      "input_sha256": "16ad1a17fcbdb0b6a98dc5cbea3e5e77cab1b39800e71e280044e34068bef19e"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.186237042476564,
+      "block_se": 0.011147495384154509,
+      "relative_difference": -0.3189292702565222,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0002079885330947896,
+      "yield_windows_quarters_2_to_4": [
+       2.2136,
+       2.162309949319819,
+       2.2101545842217485
+      ],
+      "input_sha256": "823fe0fd358ad784c841b9738277aeb011bd46cc7e0bb0f993dba21e0c979297"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.7975818467611144,
+      "block_se": 0.017388085753936047,
+      "relative_difference": -0.4400056552146061,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0012842077638090487,
+      "yield_windows_quarters_2_to_4": [
+       1.8724312783560182,
+       1.8026755852842808,
+       1.7926181625066384
+      ],
+      "input_sha256": "70c0959888ee37b7c0fd27bad1df2c6c8cd10f47a86e70db0bc9b9d77202b70c"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.1696830055182743,
+      "block_se": 0.011922873464569689,
+      "relative_difference": -0.3240862911158024,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00032904780037808245,
+      "yield_windows_quarters_2_to_4": [
+       2.203412423353772,
+       2.1500733040117286,
+       2.1893333333333334
+      ],
+      "input_sha256": "6035a50d831920b14403906316c4e755a23d78b9aedf3f959467c059b6e5d1aa"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p04",
+    "cu_fraction": 0.24100000000000002,
+    "measured_yield": 3.26,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.4374966675181622,
+      "block_se": 0.023892287433541236,
+      "relative_difference": -0.5590501019882937,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00235954258408754,
+      "yield_windows_quarters_2_to_4": [
+       1.562358276643991,
+       1.4580834332933492,
+       1.4168999067039851
+      ],
+      "input_sha256": "11924b3e051dfa3e7aa29c14a099e26f71cbf6a170e8bef43e2d8b492a554271"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.2073130305821955,
+      "block_se": 0.015656594961567013,
+      "relative_difference": -0.3229101133183449,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00016756040152207414,
+      "yield_windows_quarters_2_to_4": [
+       2.227775556444089,
+       2.1668,
+       2.2478666666666665
+      ],
+      "input_sha256": "2ba031e14aa9428ffeff0b9194f89f37440c9e70a44f20d6098d6a7fee2ea531"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.8071320295921864,
+      "block_se": 0.015709843523635282,
+      "relative_difference": -0.4456650215974888,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00145428620302298,
+      "yield_windows_quarters_2_to_4": [
+       1.9080367852858857,
+       1.814859277044151,
+       1.799413567906171
+      ],
+      "input_sha256": "1bd4314156541b9d36e767ce5dace3ee848677640453ed6c3b58520dcc023b25"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.1960702057743084,
+      "block_se": 0.014129819989281636,
+      "relative_difference": -0.32635883258456794,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0002663794480977878,
+      "yield_windows_quarters_2_to_4": [
+       2.220411434678066,
+       2.158343321347716,
+       2.2339150126548555
+      ],
+      "input_sha256": "5ee33d4295e9d1427cdea424205224a9faf32c2f5b4b2687c895b07dead7c111"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p05",
+    "cu_fraction": 0.28300000000000003,
+    "measured_yield": 3.5,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.419500994770748,
+      "block_se": 0.011278003934050724,
+      "relative_difference": -0.5944282872083578,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0027336321607431997,
+      "yield_windows_quarters_2_to_4": [
+       1.5888324873096447,
+       1.404017560196887,
+       1.434950679818715
+      ],
+      "input_sha256": "56f3c14f6f5040c8c43cbf7c44a2e8c12819b8593a3ec69dd9d39eee36a4f81e"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.204023869174849,
+      "block_se": 0.013705858250565079,
+      "relative_difference": -0.3702788945214718,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0001958587128525044,
+      "yield_windows_quarters_2_to_4": [
+       2.2266666666666666,
+       2.1769097453672845,
+       2.2312
+      ],
+      "input_sha256": "84048254108d05b0457ab453e25f4e51724c427746ddeef1fdbd45b532f6b4bc"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.8200501347419773,
+      "block_se": 0.013530857774326301,
+      "relative_difference": -0.4799856757880065,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0013506070240449813,
+      "yield_windows_quarters_2_to_4": [
+       1.895649853215906,
+       1.8056480618089783,
+       1.8344
+      ],
+      "input_sha256": "8c20920bb9a11917b3f0bbc22698d92947599b7769a53d569e350d09bf556d48"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.216110445120436,
+      "block_se": 0.013179451200622782,
+      "relative_difference": -0.3668255871084468,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0001273093349239366,
+      "yield_windows_quarters_2_to_4": [
+       2.223735148845281,
+       2.180620258219087,
+       2.251733333333333
+      ],
+      "input_sha256": "056c2c0b55f58b82b5265196f9c9023459a6b5e1e98352dde4a8e22287a37e8d"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p06",
+    "cu_fraction": 0.344,
+    "measured_yield": 3.58,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.4480822011359327,
+      "block_se": 0.013883678726829437,
+      "relative_difference": -0.5955077650458289,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0026642984220568455,
+      "yield_windows_quarters_2_to_4": [
+       1.6135181975736568,
+       1.4592968854431225,
+       1.4369435215946844
+      ],
+      "input_sha256": "c26064e3f766e387db98c8d649ce337b8ffdd9dcc361dea05a71b14e635016f9"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.2592567568662267,
+      "block_se": 0.014767668314042245,
+      "relative_difference": -0.36892269361278585,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00010182916320040773,
+      "yield_windows_quarters_2_to_4": [
+       2.2717086834733893,
+       2.2326263838868883,
+       2.2858665245770613
+      ],
+      "input_sha256": "e9813e453279f6d03242689d9ee30dd584e1873893819f9d27babf85bdf7a044"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.8325080027290916,
+      "block_se": 0.01136375841883215,
+      "relative_difference": -0.48812625622092415,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0015023311059736784,
+      "yield_windows_quarters_2_to_4": [
+       1.918370073480294,
+       1.8148542526287768,
+       1.8501732871234338
+      ],
+      "input_sha256": "39f26ca1d1bfd4e7e01287a5020989c1db1653898b58c7a4876997f8dd8a1857"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.2556182358110597,
+      "block_se": 0.02054567130092962,
+      "relative_difference": -0.3699390402762403,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 4.9681311860982555e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.2590369481125783,
+       2.2201626883584478,
+       2.291061675769282
+      ],
+      "input_sha256": "11f7748be5a0158264ce9822d868d0ab5206a7104939e28e09b7e332fed8023b"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p07",
+    "cu_fraction": 0.361,
+    "measured_yield": 3.52,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.4754247148992252,
+      "block_se": 0.014474940394548861,
+      "relative_difference": -0.5808452514490838,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.002594937649187896,
+      "yield_windows_quarters_2_to_4": [
+       1.6427047212590025,
+       1.485070647827246,
+       1.4657333333333333
+      ],
+      "input_sha256": "802f6410315ad3a86210d678f41b7b4b3b32780ce0b7cf99df911b87180f9510"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.277057717183096,
+      "block_se": 0.013999095681379053,
+      "relative_difference": -0.3531086030729841,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": -8.026845028773883e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.2575696945444843,
+       2.2464676086376967,
+       2.3076923076923075
+      ],
+      "input_sha256": "70cd68cf85b501a6fcb13f89b88b4520b70750162fc6720bae1bb08a9fba45c4"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.8396770282052735,
+      "block_se": 0.01184013544681249,
+      "relative_difference": -0.47736448062350184,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.001473244278871041,
+      "yield_windows_quarters_2_to_4": [
+       1.9447852760736197,
+       1.8214809873248832,
+       1.8578659917410416
+      ],
+      "input_sha256": "ccd0d723390320a30bd20d13a1d0d7d2c1e976813dfe7331748f9a0ad77a71a3"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.2618725955286765,
+      "block_se": 0.014538732508128297,
+      "relative_difference": -0.3574225580884442,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 8.931739101040403e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.259106070713809,
+       2.2420407619555083,
+       2.2817333333333334
+      ],
+      "input_sha256": "dea79cabcab27c405afc17b970c648c45c42d0c845f05b37031b8dfcd81356da"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p08",
+    "cu_fraction": 0.419,
+    "measured_yield": 3.65,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.4744396803645194,
+      "block_se": 0.01389248046557859,
+      "relative_difference": -0.596043923187803,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0028209496180908182,
+      "yield_windows_quarters_2_to_4": [
+       1.6496467137714972,
+       1.4780695907212371,
+       1.4708
+      ],
+      "input_sha256": "f1dfe54812834d89794c40f83517a0c64bffb0cf44e3eba782646560faf90138"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.303846216153733,
+      "block_se": 0.012499565463002286,
+      "relative_difference": -0.3688092558482923,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0001296802504664851,
+      "yield_windows_quarters_2_to_4": [
+       2.321647560650493,
+       2.2835402482979577,
+       2.3241011984021305
+      ],
+      "input_sha256": "c1e496c618dfd699ec73e9cce046f913bddb4920700416a1e661bfc788b3aaad"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.8860605431509783,
+      "block_se": 0.011138781256698283,
+      "relative_difference": -0.4832710840682251,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0014210806911506956,
+      "yield_windows_quarters_2_to_4": [
+       1.9832,
+       1.8847027388109552,
+       1.8872920825016632
+      ],
+      "input_sha256": "a25815d64bd2ba4a2b4a58e036e90911144c62ee40e2a90e9d03cb168f8aba42"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.2926922103817233,
+      "block_se": 0.00958267819739587,
+      "relative_difference": -0.37186514784062374,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0001102633422412272,
+      "yield_windows_quarters_2_to_4": [
+       2.3057333333333334,
+       2.2635018002400322,
+       2.3218712514994
+      ],
+      "input_sha256": "b25668ac771ab19b24b5527c17d4d6421955451de6b03e0f977e11df31abf2b0"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p09",
+    "cu_fraction": 0.444,
+    "measured_yield": 3.93,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.494407527172013,
+      "block_se": 0.016947430797672344,
+      "relative_difference": -0.6197436317628466,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0027802712786498623,
+      "yield_windows_quarters_2_to_4": [
+       1.678323545114789,
+       1.5042621204049014,
+       1.4844
+      ],
+      "input_sha256": "084d52047729f67ca2313317dafd164d698509dfce73d4e97727f1dbd2e14776"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.312468783287182,
+      "block_se": 0.01916504455435158,
+      "relative_difference": -0.4115855513264168,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 8.653327284931089e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.339154779362752,
+       2.2815042005600747,
+       2.343420877216371
+      ],
+      "input_sha256": "8b18c50d6713d47b4a220a6ab6e2cc43d24fadea1854cd4ad89a5bea02723e4e"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.8801376567486288,
+      "block_se": 0.011755135617127556,
+      "relative_difference": -0.5215934715652344,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0014766953376983147,
+      "yield_windows_quarters_2_to_4": [
+       1.9748,
+       1.8862363296879168,
+       1.8740335910423886
+      ],
+      "input_sha256": "53e362ad642184139329c2b33bc9ac330cd50f788966eb81e62f41609b718375"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.3074290771831665,
+      "block_se": 0.015227922277939388,
+      "relative_difference": -0.41286791929181516,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0001353012589000368,
+      "yield_windows_quarters_2_to_4": [
+       2.3312,
+       2.2741698893185758,
+       2.340754566057859
+      ],
+      "input_sha256": "e05924ae869ccfc5224f261d3bae0d48ac29a55adbeb948ae4108cb20a0aafb4"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p10",
+    "cu_fraction": 0.503,
+    "measured_yield": 3.78,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.5058471944313907,
+      "block_se": 0.015487982448713055,
+      "relative_difference": -0.6016277263409019,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.002931963131132703,
+      "yield_windows_quarters_2_to_4": [
+       1.7069333333333334,
+       1.5138666666666667,
+       1.4978002932942274
+      ],
+      "input_sha256": "6b95c0701f94975aa4dc272058d1468750517199108986b79193bc9ec11959b3"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.3452441055053463,
+      "block_se": 0.01626103097920234,
+      "relative_difference": -0.379565051453612,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00013790249552909226,
+      "yield_windows_quarters_2_to_4": [
+       2.366182157621016,
+       2.3135084677957063,
+       2.3769661423620367
+      ],
+      "input_sha256": "aab4f62c057097e497f93de34534e4966a858276e10082c2e84072702207dcfd"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.9094626416010645,
+      "block_se": 0.014581832091882638,
+      "relative_difference": -0.4948511530155914,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0015593622686716885,
+      "yield_windows_quarters_2_to_4": [
+       1.9994666666666667,
+       1.9061333333333332,
+       1.9128
+      ],
+      "input_sha256": "d0cba6f14ac2aca7b71c8f1c13494cb1f7321854e6be7a96a7dc622d291fb41e"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.319088070855212,
+      "block_se": 0.011609851056139632,
+      "relative_difference": -0.3864846373398909,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00020932146306157124,
+      "yield_windows_quarters_2_to_4": [
+       2.342354352752966,
+       2.3007067609014533,
+       2.3374650139944024
+      ],
+      "input_sha256": "3a0e2adfe5ae503f0e1553f785250cd3dfebdc73a0ceeefe7be8512453ce6ce7"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p11",
+    "cu_fraction": 0.5329999999999999,
+    "measured_yield": 4.23,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.5159152002934717,
+      "block_se": 0.017062383750080828,
+      "relative_difference": -0.6416276122237656,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.002969104860655321,
+      "yield_windows_quarters_2_to_4": [
+       1.7142666666666666,
+       1.5275590551181102,
+       1.504196083655255
+      ],
+      "input_sha256": "4e4fb40210332c3d30e06d1dbed2b4a570047236d94b53fd1355208239995565"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.346521962086673,
+      "block_se": 0.02225080317164606,
+      "relative_difference": -0.4452666756296282,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00021603416347925537,
+      "yield_windows_quarters_2_to_4": [
+       2.374733475479744,
+       2.3138666666666667,
+       2.379416077856286
+      ],
+      "input_sha256": "f5e42f5778494b4d62e0cd2e0826087166a69da94dff6c7d497ca99e7bdb11d9"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.9321181050598373,
+      "block_se": 0.009929431512421575,
+      "relative_difference": -0.5432344905295894,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0014923459317273415,
+      "yield_windows_quarters_2_to_4": [
+       2.0113272921108742,
+       1.9198666666666666,
+       1.9442666666666666
+      ],
+      "input_sha256": "b3614f422fdf6ac587df041f49aaff235f91adcfd1119ff63b066a6236e2ca25"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.353914526315596,
+      "block_se": 0.017661717229032377,
+      "relative_difference": -0.44351902451167946,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00017572681823771035,
+      "yield_windows_quarters_2_to_4": [
+       2.3691856590697054,
+       2.333199946645325,
+       2.3746501399440225
+      ],
+      "input_sha256": "6014a52fa0f6cac9c8f6fbb9a4b785170b26272ad7203bce5d0fec644f7d5799"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p12",
+    "cu_fraction": 0.614,
+    "measured_yield": 4.03,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.5479389784895,
+      "block_se": 0.01659264484878308,
+      "relative_difference": -0.615896035114268,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.003050348451649901,
+      "yield_windows_quarters_2_to_4": [
+       1.7377617713752167,
+       1.5561951754385965,
+       1.5400778210116732
+      ],
+      "input_sha256": "2fdd24a5b0f4a854145cb2ee59d9d8d35758a8664fa1733a1aadac140ca5a015"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.3988177350143527,
+      "block_se": 0.01879600869988096,
+      "relative_difference": -0.4047598672420961,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 6.786479244314532e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.4099759935982927,
+       2.3627764455102587,
+       2.4348753499533395
+      ],
+      "input_sha256": "a311022a4c045a3c7c7d34ad8053d24584e5ebc9f30f34eee077a0d3946ad42e"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.9698392754989893,
+      "block_se": 0.015024345442550643,
+      "relative_difference": -0.5112061351119134,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0015322812839255252,
+      "yield_windows_quarters_2_to_4": [
+       2.0489333333333333,
+       1.9587615107433605,
+       1.9808179032902624
+      ],
+      "input_sha256": "9de48f940085b8c12bb37017a0fa043832c084ecf7466ba2eeb26661a094b334"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.3952354075383466,
+      "block_se": 0.014253328574203675,
+      "relative_difference": -0.4056487822485493,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00012026361138234132,
+      "yield_windows_quarters_2_to_4": [
+       2.400213304892681,
+       2.3649459783913565,
+       2.425506396588486
+      ],
+      "input_sha256": "3dd36f47e61ee26291b947c3fee77fedeb6703f3f0b930355b7f44726322733e"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p13",
+    "cu_fraction": 0.67,
+    "measured_yield": 4.18,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.5831892948636572,
+      "block_se": 0.018418888586712392,
+      "relative_difference": -0.6212465801761586,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0026856687297216082,
+      "yield_windows_quarters_2_to_4": [
+       1.731892757102841,
+       1.602159136345462,
+       1.5643076102892177
+      ],
+      "input_sha256": "9f49022c3e527b19fc39c275aca22283601767facb65a77a2558ce802e03dd3a"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.4142570096570095,
+      "block_se": 0.014297464898199445,
+      "relative_difference": -0.42242655271363405,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0002572690865349905,
+      "yield_windows_quarters_2_to_4": [
+       2.4322271091563374,
+       2.376417233560091,
+       2.452038369304556
+      ],
+      "input_sha256": "b8360e5d8b5e5577b2588c92f1dca10e23cebe89415c823aa1f13b5433e997f9"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 1.9896034150457016,
+      "block_se": 0.011145316685864834,
+      "relative_difference": -0.5240183217594016,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0015488826962269174,
+      "yield_windows_quarters_2_to_4": [
+       2.0705521472392636,
+       1.9868017597653647,
+       1.9924020261263664
+      ],
+      "input_sha256": "ca1003b05eff9bbb3b764c0c90b341ed3721fcc49b623f6bcc6027554776809e"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.405585241151481,
+      "block_se": 0.020384677911303384,
+      "relative_difference": -0.4245011384805069,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00020444117868259954,
+      "yield_windows_quarters_2_to_4": [
+       2.4295427276363153,
+       2.3758344459279037,
+       2.4353614698442283
+      ],
+      "input_sha256": "32bdb162c67baa727c4e0ee934b4f394b3b294340627cd0b7e8fd0735ee079d9"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p14",
+    "cu_fraction": 0.741,
+    "measured_yield": 4.07,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.5998970068077694,
+      "block_se": 0.011862463560624818,
+      "relative_difference": -0.6069049123322434,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0031056817986106796,
+      "yield_windows_quarters_2_to_4": [
+       1.794,
+       1.602293945052014,
+       1.5974943355990936
+      ],
+      "input_sha256": "e40b9b4412f37f335e21b44b2707429b18890dcfb7d3bb000ccb567bb1e459da"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.470653657854574,
+      "block_se": 0.01258865055063354,
+      "relative_difference": -0.3929597892249205,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 9.330201570707336e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.4772757563641212,
+       2.433333333333333,
+       2.508
+      ],
+      "input_sha256": "1551d210f2e6978887b116ab6f0939da8a17f8e5042c07f5eed2e69fd472d15f"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.019262002410251,
+      "block_se": 0.00711220619412499,
+      "relative_difference": -0.5038668298746313,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0015072248096533812,
+      "yield_windows_quarters_2_to_4": [
+       2.0937208372217038,
+       2.0065350760202723,
+       2.0319914689416154
+      ],
+      "input_sha256": "dd4df12495ca83da59d8039ad3de423c1910bc71b5666ea4038aa849e13e54f9"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.477441417359656,
+      "block_se": 0.016874222568103742,
+      "relative_difference": -0.39129203504676763,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 9.640487922852621e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.4863315108681157,
+       2.453587623366231,
+       2.5014658848614073
+      ],
+      "input_sha256": "268f37645e12cd89a34e21be59c53da0e80715c56e8cb5dfcaddb9b697a1df5a"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p15",
+    "cu_fraction": 0.799,
+    "measured_yield": 4.35,
+    "digitization_bound": 0.03,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.619691966578666,
+      "block_se": 0.01629709018877631,
+      "relative_difference": -0.6276570191773181,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.003181952400554493,
+      "yield_windows_quarters_2_to_4": [
+       1.8150173379567884,
+       1.6391670004004806,
+       1.6001863932898415
+      ],
+      "input_sha256": "42cdcbf10be74f40deff1c16438815be4916a5bed5b9c48f3377f6ba209e379e"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.4951898060813944,
+      "block_se": 0.015813737918072116,
+      "relative_difference": -0.42639314802726563,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00026024905156965284,
+      "yield_windows_quarters_2_to_4": [
+       2.5399305555555554,
+       2.4581890812250333,
+       2.532258064516129
+      ],
+      "input_sha256": "c8129a905343ded128a79b8625a7171e6ca68d5df993d2617ce46545fd0fb6d9"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.041222326250442,
+      "block_se": 0.011057610747197888,
+      "relative_difference": -0.5307534882182892,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.001589066132384502,
+      "yield_windows_quarters_2_to_4": [
+       2.1370666666666667,
+       2.0406666666666666,
+       2.041733333333333
+      ],
+      "input_sha256": "199116fa9784847a0310f296833028f4beaafd4a15274145ac1133f9ab14122f"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.501982877491204,
+      "block_se": 0.013879195613379585,
+      "relative_difference": -0.4248315224158151,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00017735581630873434,
+      "yield_windows_quarters_2_to_4": [
+       2.5428228388473855,
+       2.467163980285067,
+       2.5369333333333333
+      ],
+      "input_sha256": "74824052fad85787399949bc6d5c9fc85ec506441b9aef525069b4f7b306b9e2"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p16",
+    "cu_fraction": 0.843,
+    "measured_yield": 4.33,
+    "digitization_bound": 0.05,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.6432770313772795,
+      "block_se": 0.015879365270015898,
+      "relative_difference": -0.6204902929844619,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.003077482535763645,
+      "yield_windows_quarters_2_to_4": [
+       1.8469565217391304,
+       1.6641860465116278,
+       1.6224
+      ],
+      "input_sha256": "c48232bf817dfa853adc0ad71f72bb0cd1ad71fcab334e17ab08abc44a924b7f"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.5337393510904382,
+      "block_se": 0.01224807696989591,
+      "relative_difference": -0.41484079651491035,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00016294989434190402,
+      "yield_windows_quarters_2_to_4": [
+       2.5574666666666666,
+       2.513282605793619,
+       2.5541350379544547
+      ],
+      "input_sha256": "e0e944f1d1db625b2c3bab0ea4fd772bb002d63dcf3d538d6ad17fe9aae6a5d4"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.0568453912509113,
+      "block_se": 0.017330186806882773,
+      "relative_difference": -0.5249779696880112,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0018079531125728672,
+      "yield_windows_quarters_2_to_4": [
+       2.171688763894469,
+       2.0487125033182902,
+       2.0650666666666666
+      ],
+      "input_sha256": "0fa37a17ee28cbc08c66ad792700cc02adb2208e44a59fb3e85655aa232994b6"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.5262540551286135,
+      "block_se": 0.013733066418366871,
+      "relative_difference": -0.41656950227976597,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00011843521945251742,
+      "yield_windows_quarters_2_to_4": [
+       2.5329245534524127,
+       2.5090036014405763,
+       2.5435159269625482
+      ],
+      "input_sha256": "f72ee74a09029d21eae5758574632f403987e359e066139be101f82fe3d87aa0"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p17",
+    "cu_fraction": 0.875,
+    "measured_yield": 4.67,
+    "digitization_bound": 0.05,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.6558892421641702,
+      "block_se": 0.022633152505664902,
+      "relative_difference": -0.6454198624916123,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.003073767730179894,
+      "yield_windows_quarters_2_to_4": [
+       1.8439498933901919,
+       1.681781808482262,
+       1.6300639658848615
+      ],
+      "input_sha256": "e8f1001d41c691de7711217eb16dbe18961adfbdf46751250f2236d1f9b8f837"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.5728691974601987,
+      "block_se": 0.011516156500268677,
+      "relative_difference": -0.4490644116787583,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": -0.00015238085284384597,
+      "yield_windows_quarters_2_to_4": [
+       2.5488,
+       2.5585333333333335,
+       2.5873333333333335
+      ],
+      "input_sha256": "c1296bab9fb9dcabf31d1a5e83000b4cccd8bdbc1398449f34c05a2d8dd32bae"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.0788203103617584,
+      "block_se": 0.012116678273608603,
+      "relative_difference": -0.5548564645906299,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0016111431543074986,
+      "yield_windows_quarters_2_to_4": [
+       2.1462503336002134,
+       2.0728944562899785,
+       2.084766093562575
+      ],
+      "input_sha256": "3d32522aaf3c46af37f4276d8d49bc6ed801b2c36598750828113b2db9a00b2f"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.558068008732043,
+      "block_se": 0.014390716958577692,
+      "relative_difference": -0.4522338311066289,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": -5.0802345754680264e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.5427122263747997,
+       2.5356,
+       2.580559254327563
+      ],
+      "input_sha256": "95287113f50a0110dc8ecabb652660a7e36a8a347e9cf19dd1ada717e241abe7"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p18",
+    "cu_fraction": 0.885,
+    "measured_yield": 4.41,
+    "digitization_bound": 0.05,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.6588887910946724,
+      "block_se": 0.022295069702964403,
+      "relative_difference": -0.6238347412483736,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.003188100272245387,
+      "yield_windows_quarters_2_to_4": [
+       1.877537393162393,
+       1.6909962706446457,
+       1.626865671641791
+      ],
+      "input_sha256": "6f651cf24a6f2611e1e1765dc23b77117afb46661e9132c94f1aa76966b09fb4"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.5740849085795796,
+      "block_se": 0.018160717347751536,
+      "relative_difference": -0.4163072769660817,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": -0.0001212240205429487,
+      "yield_windows_quarters_2_to_4": [
+       2.560725236635115,
+       2.5454181672669067,
+       2.602825536452086
+      ],
+      "input_sha256": "6d0c58aa872f03a7d72ebb6d11ab026681bea9ce84f5813eb053b332d7cc185d"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.0822933585264054,
+      "block_se": 0.016309992125148786,
+      "relative_difference": -0.5278246352547834,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0016869368881058562,
+      "yield_windows_quarters_2_to_4": [
+       2.1594454072790294,
+       2.0830884317392466,
+       2.0813040585495677
+      ],
+      "input_sha256": "b09339a331d0f802ca0bc3bbb9e6a7805cf0c989456e47696d5d3e01e07ce723"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.551393868803916,
+      "block_se": 0.010278779004659172,
+      "relative_difference": -0.4214526374594295,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": -1.858309889864704e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.549560351718625,
+       2.5272,
+       2.5756
+      ],
+      "input_sha256": "841434e0e82e1a26c6e66de961d1e3c4eee41ed39b2b90ce27ef168a926fbfca"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p19",
+    "cu_fraction": 0.907,
+    "measured_yield": 4.55,
+    "digitization_bound": 0.05,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.6691377268223255,
+      "block_se": 0.02156955129561687,
+      "relative_difference": -0.6331565435555329,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0031582861827494438,
+      "yield_windows_quarters_2_to_4": [
+       1.8629150553407121,
+       1.6962666666666666,
+       1.6420477269697373
+      ],
+      "input_sha256": "1fbc01a185e766d9f6fa1f309e749ab3a34098de71a36ca135b25c57674e64ba"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.566061401838243,
+      "block_se": 0.010042950002552986,
+      "relative_difference": -0.43603046113445204,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00011241055720877886,
+      "yield_windows_quarters_2_to_4": [
+       2.56392481002533,
+       2.546860418610852,
+       2.5852552992934275
+      ],
+      "input_sha256": "19fba14f7114e96e42612b69fcb6fb0e5fa6ec1747bd06057f20a66566077722"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.096284245975915,
+      "block_se": 0.009670167433836764,
+      "relative_difference": -0.539278187697601,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0017511528109992115,
+      "yield_windows_quarters_2_to_4": [
+       2.1740637078501934,
+       2.0903027877817792,
+       2.102225776356124
+      ],
+      "input_sha256": "9102254f51010bf7bbd6669deaa7ce0f2701a891aa57f35be5effa920f55c46a"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.566747304516884,
+      "block_se": 0.006396330816965156,
+      "relative_difference": -0.4358797132929925,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.000153607290672784,
+      "yield_windows_quarters_2_to_4": [
+       2.5797120767795256,
+       2.549419767907163,
+       2.584088486140725
+      ],
+      "input_sha256": "b2efe2e5dc071554b57d6dc69db2de66d8a848aa79ab1f1f422e6665ca064edf"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p20",
+    "cu_fraction": 0.9109999999999999,
+    "measured_yield": 4.64,
+    "digitization_bound": 0.05,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.6793980025223583,
+      "block_se": 0.018656361954017566,
+      "relative_difference": -0.6380607753184573,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0031001921468045077,
+      "yield_windows_quarters_2_to_4": [
+       1.8701333333333334,
+       1.6919178447586023,
+       1.666755531858171
+      ],
+      "input_sha256": "e24aeddd8df7778ec5b73d6463e7eafa9c597ce0619e298940ca1fbec99d0996"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.56988849804871,
+      "block_se": 0.009212736453684004,
+      "relative_difference": -0.4461447202481228,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00026644794410222663,
+      "yield_windows_quarters_2_to_4": [
+       2.5823560767590616,
+       2.554666666666667,
+       2.585121983735502
+      ],
+      "input_sha256": "06a575899f96e524d8791c6e6e53ca1a5d99c339821c605d590d01526661e912"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.109004029342356,
+      "block_se": 0.009771332894282145,
+      "relative_difference": -0.5454732695382852,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0017425241678984446,
+      "yield_windows_quarters_2_to_4": [
+       2.195626083477797,
+       2.1028449312141047,
+       2.1151184455682728
+      ],
+      "input_sha256": "1a84def0a75cc22549b26cfa179d0530052576e59120af9c6bbab9a138003a60"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.5660470907299215,
+      "block_se": 0.012823111826151909,
+      "relative_difference": -0.4469726097564824,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0002098295374901128,
+      "yield_windows_quarters_2_to_4": [
+       2.5815659597172202,
+       2.5576178394979303,
+       2.57439446366782
+      ],
+      "input_sha256": "204fa69981a6c99d459dac3f1e96da2b0c3c156cdffb8409572fdb3db69a7b3d"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p21",
+    "cu_fraction": 0.9129999999999999,
+    "measured_yield": 4.88,
+    "digitization_bound": 0.05,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.6616167624018625,
+      "block_se": 0.009998431724356053,
+      "relative_difference": -0.659504761802897,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00325597525756488,
+      "yield_windows_quarters_2_to_4": [
+       1.8887851713561807,
+       1.6669333333333334,
+       1.6563124916677776
+      ],
+      "input_sha256": "9f4a801b45800a1ae3c92e337d75a4704f7540528913d224f196fe6a1664521f"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.5699562380914336,
+      "block_se": 0.011693616577571257,
+      "relative_difference": -0.47336962334191934,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00016053857052870655,
+      "yield_windows_quarters_2_to_4": [
+       2.5720762768369116,
+       2.5596746232831045,
+       2.5802452679285524
+      ],
+      "input_sha256": "c6e867851fbe468d9b57e40940b46be33723d60a55dc9cf0c5a105b2b5ed9aa0"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.1108497281465026,
+      "block_se": 0.008345929400200007,
+      "relative_difference": -0.5674488261994871,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00165184172968571,
+      "yield_windows_quarters_2_to_4": [
+       2.1821576210161355,
+       2.1088,
+       2.1129182775629918
+      ],
+      "input_sha256": "3573069d7f486027e8218c0fadfa5a4f5b2c9aa9096db66de54dabdabedb66c3"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.5746097598364086,
+      "block_se": 0.011270608279831808,
+      "relative_difference": -0.47241603282040806,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.00018359367746755397,
+      "yield_windows_quarters_2_to_4": [
+       2.5911764705882354,
+       2.5640787024727465,
+       2.5852552992934275
+      ],
+      "input_sha256": "555a8aa1f894eceea5163d028109ffb7f15cb2165f07cd6fbbee38107e41e8fd"
+     }
+    }
+   },
+   {
+    "row_id": "fig13-p22",
+    "cu_fraction": 0.9259999999999999,
+    "measured_yield": 4.92,
+    "digitization_bound": 0.05,
+    "runs": {
+     "ideal-mixing/ar-retained": {
+      "yield": 1.6795149356994372,
+      "block_se": 0.023825906521623842,
+      "relative_difference": -0.6586351756708461,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.003049880715452575,
+      "yield_windows_quarters_2_to_4": [
+       1.8656,
+       1.7112948393119083,
+       1.6476939482804585
+      ],
+      "input_sha256": "802a40a02a1d5f4cf85168f10a98439793834d90957b5ea51e8ea2c3cc86eb67"
+     },
+     "ideal-mixing/ar-re-emitted": {
+      "yield": 2.5965976176989853,
+      "block_se": 0.010634422826049603,
+      "relative_difference": -0.47223625656524687,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": -2.5732342880426312e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.5984514751034573,
+       2.5758827448367754,
+       2.6173217854763493
+      ],
+      "input_sha256": "88005386efd6ca8dd3efc353ba4da71bbfc2f565e99b36599da5f6cdccd8cab8"
+     },
+     "fixed-number-density/ar-retained": {
+      "yield": 2.10686385890181,
+      "block_se": 0.011716389969993772,
+      "relative_difference": -0.5717756384345914,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 0.0016326110966126668,
+      "yield_windows_quarters_2_to_4": [
+       2.1746963832910717,
+       2.1124733475479744,
+       2.1012928162068505
+      ],
+      "input_sha256": "da82fab2b104abb3f4cdb1e02882e789a3c69cdb23836f601df9553801d17c99"
+     },
+     "fixed-number-density/ar-re-emitted": {
+      "yield": 2.598665273359509,
+      "block_se": 0.005388686629262151,
+      "relative_difference": -0.4718160013496933,
+      "verdict": "fail",
+      "transient_bias_of_film_yield": 1.9940918358218026e-05,
+      "yield_windows_quarters_2_to_4": [
+       2.617157319834821,
+       2.566105769230769,
+       2.6311235356762515
+      ],
+      "input_sha256": "34646ca54fc9bf8bc6e88025806924491eaf686ce4acf72144a654c9ee8813c7"
+     }
+    }
+   }
+  ],
+  "film_nm": 200.0
+ }
+}
