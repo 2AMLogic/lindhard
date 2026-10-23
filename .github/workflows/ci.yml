@@ -122,7 +122,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        # x86_64 Linux is pinned to 24.04: ubuntu-latest moved to 26.04, where
+        # linking lindhard-py fails with "unable to find library -lpython3.12".
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest]
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
