@@ -151,6 +151,72 @@ class Committed(unittest.TestCase):
                 self.assertEqual(c["verdict"], cd.verdict(c["relative_difference"], cd.TOL_TOTAL_YIELD))
 
 
+class Diagnostics(unittest.TestCase):
+    """The #465 diagnosis: inputs, interpolation and the committed findings."""
+
+    def test_static_inputs_parse_and_have_no_dynamic_block(self):
+        pure = tomllib.loads(cd.build_static_input(1.0, 20.0, 2000.0, 1000, 3))
+        self.assertEqual(pure["target"]["substrate"], "Cu")
+        self.assertEqual(set(pure["physics"]["energies"]), {"Cu"})
+        alloy = tomllib.loads(cd.build_static_input(0.384, 0.0, 2000.0, 1000, 3))
+        self.assertEqual(set(alloy["physics"]["energies"]), {"Cu", "Ni"})
+        self.assertEqual(alloy["materials"]["CuNi"]["density_g_cm3"], cd.alloy_density_g_cm3(0.384))
+        for t in (pure, alloy):
+            self.assertNotIn("dynamic", t)
+            self.assertNotIn("tuning", t["physics"])
+            self.assertTrue(t["physics"]["follow_recoils"])
+
+    def test_surface_binding_override_is_for_the_mechanism_test_only(self):
+        t = tomllib.loads(cd.build_static_input(0.3, 0.0, 2000.0, 10, 1, e_s_ev={"Ni": 3.49}))
+        self.assertEqual(t["physics"]["energies"]["Ni"]["e_s_ev"], 3.49)
+        self.assertEqual(t["physics"]["energies"]["Cu"]["e_s_ev"], cd.ELEMENTS["Cu"]["e_s_ev"])
+
+    def test_stored_cu_band_and_the_missing_ni_data(self):
+        band = cd.stored_cu_band(2000.0, 0.02)
+        self.assertGreater(band["points"], 0)
+        self.assertLessEqual(band["min"], band["median"])
+        self.assertLessEqual(band["median"], band["max"])
+        self.assertEqual(cd.count_stored_sets("ar_ni"), 0)
+        self.assertGreater(cd.count_stored_sets("ar_cu"), 0)
+
+    def test_betz_interpolation_stays_between_the_bracketing_markers(self):
+        r = cd.betz_interpolated_yield(38.4, cd.load_betz())
+        lo, hi = sorted(r["bracket_yields"])
+        self.assertLessEqual(lo, r["value"])
+        self.assertLessEqual(r["value"], hi)
+        self.assertLessEqual(r["bracket_at_percent"][0], 38.4)
+        self.assertLessEqual(38.4, r["bracket_at_percent"][1])
+
+    def test_required_surface_fraction_interpolates_the_flux_fraction(self):
+        grid = [{"cu_fraction": c, "cu_fraction_of_flux": {"value": f}} for c, f in ((0.2, 0.3), (0.3, 0.5))]
+        self.assertAlmostEqual(cd.required_surface_fraction(grid, 0.4), 0.25)
+        self.assertIsNone(cd.required_surface_fraction(grid, 0.9))
+
+    def test_committed_findings_are_reported_not_tuned(self):
+        r = json.loads(cd.RESULTS.read_text())
+        d = r["diagnostics"]
+        self.assertEqual(d["stored_data"]["ar_ni_sets"], 0)
+        self.assertIsNone(d["pure_ni_over_stored"])
+        self.assertEqual(r["settings"]["surface_binding_ev"], {s: e["e_s_ev"] for s, e in cd.ELEMENTS.items()})
+        for tag in ("ho_20deg", "betz_0deg"):
+            self.assertEqual(len(d[tag]["grid"]), len(cd.DIAG_COMPOSITIONS))
+            for g in d[tag]["grid"]:
+                # alloy yield is additive in the pure-element yields at fixed composition
+                self.assertAlmostEqual(g["total_over_additive"], 1.0, delta=0.02)
+
+
+class StaticRun(unittest.TestCase):
+    """The real CLI, one seed, a few thousand ions (about 1 s)."""
+
+    def test_static_yields_have_the_expected_structure(self):
+        binary = cd.lindhard_cli.lindhard_binary()
+        r = cd.static_yields(binary, 2, 0.384, 20.0, seeds=[1], ions=5000)
+        self.assertAlmostEqual(r["y_total"]["value"], r["y_cu"]["value"] + r["y_ni"]["value"])
+        self.assertTrue(1.0 < r["y_total"]["value"] < 6.0)
+        # Cu, the more weakly bound element, is over-represented in the flux
+        self.assertGreater(r["cu_fraction_of_flux"]["value"], 0.384)
+
+
 class ReducedRun(unittest.TestCase):
     """The real CLI at a sixth of the ions (about 10 s)."""
 

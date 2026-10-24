@@ -24,6 +24,14 @@ one version).
   fixed tolerances (20 % surface fraction, 30 % total yield) and the section in
   `docs/validation.md` says so; the high-fluence implant-profile criterion is
   still a gap.
+- Diagnosis of the Cu–Ni shortfall without tuning (#465, part of #22): static
+  pure-Cu and pure-Ni yields against the stored Ar → Cu data, the binary at
+  fixed composition, and the Ho/Betz data conventions, in the `diagnostics`
+  part of `cuni_dynamic.py` and `docs/validation.md`. The total-yield shortfall
+  is the pure-Cu one (0.67 of measured); the weak Cu depletion is a
+  binding-energy-only preference (1.24 against the 1.70 the AES ratio implies).
+  No Ar → Ni data is stored. The engine is unchanged; both comparisons still
+  fail their fixed tolerances.
 - Example `si_backscatter_shells` (`lindhard-cli/examples`): the Si
   backscatter coefficient with K and L inner-shell channels against a matched
   single-pole control, with the committed baseline reproduced bit for bit

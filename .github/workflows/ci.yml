@@ -117,7 +117,10 @@ jobs:
   rust:
     name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
+    # The slowest green leg takes ~27 min (macOS ~26 min, of which the test
+    # step is ~24 min), so 30 min cancels on small growth. 45 min leaves
+    # headroom while a hung run still stops.
+    timeout-minutes: 45
     env:
       # Exact Rust release for the required clippy gate (rustc 1.99.0,
       # released 2026-10-01). Bump deliberately; see CONTRIBUTING.md.
@@ -125,7 +128,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest]
+        # x86_64 Linux is pinned to 24.04: ubuntu-latest moved to 26.04, where
+        # linking lindhard-py fails with "unable to find library -lpython3.12".
+        os: [ubuntu-24.04, ubuntu-24.04-arm, macos-latest]
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
