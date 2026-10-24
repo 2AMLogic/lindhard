@@ -2561,9 +2561,11 @@ second-read discipline of the sputter datasets).
 target against a cited measurement, both volume-relaxation conventions) has now
 been run on Cu–Ni with the source tables of #447
 ([`validation/data/alloys/`](../validation/data/alloys/README.md)). Criterion
-(b), a published high-fluence implant profile (As or Ge in Si), **remains a gap**:
-no openable measured profile has been found (see
-[`data-provenance.md`](data-provenance.md)). Nothing here validates the
+(b), a published high-fluence implant profile: the **data now exist, no
+comparison has been run** (#466). The measured profile is 50 keV Sb in Si at
+5×10¹⁶ ions/cm² (Titze et al., Fig. 3, normalized SIMS concentration, 53
+digitized markers, [`validation/data/implant/`](../validation/data/implant/README.md);
+see [`data-provenance.md`](data-provenance.md)). Nothing here validates the
 fluence-dependent engine or its implant profiles, and the parent epic (#22) is
 not complete.
 
@@ -2874,13 +2876,15 @@ against the 1.70 the AES ratio implies; the dynamic machinery and the depth mapp
 are not responsible. Both tolerances are unchanged and both comparisons still fail
 as reported above.
 
-**What lifts the remaining gap:** a measured high-fluence implant profile in an
-openable source (cited to its table or figure, second-read discipline of the
-sputter datasets) for criterion (b); a stored, cross-checked Ar → Ni sputter
-dataset for the Ni half of the single-element check; for the Ho conversions, the
-paper's own flux-area and alloy-density statements and the AES analyzer
-geometry; and, for the Cu yield itself, the open Ar → Cu static-yield shortfall
-of section 3.
+**What lifts the remaining gap:** for criterion (b), the comparison itself
+against the stored Sb-in-Si profile (#466 supplies the data only). The profile
+is normalized to its maximum, so a comparison tests shape and peak depth, not
+retained dose, and needs sputter yield, beam angle and temperature stated as
+assumptions because the paper gives none; its peak region (10–19 nm) is sparse.
+For the Ni half of the single-element check, a stored, cross-checked Ar → Ni
+sputter dataset. For the Ho conversions, the paper's own flux-area and
+alloy-density statements and the AES analyzer geometry. For the Cu yield
+itself, the open Ar → Cu static-yield shortfall of section 3.
 
 ### Secondary-electron yield δ(E): Al, Cu, Si and Au (#149)
 
