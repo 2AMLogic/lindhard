@@ -86,6 +86,9 @@ jobs:
         # aarch64 and checked here on Linux x86_64, so this is also the
         # cross-machine byte-stability check.
         run: cargo run -p lindhard-plots --locked -- --check
+      - name: book/src/models/stopping-residuals.md is what lindhard-stopping-report renders
+        # Reads the committed stopping datasets only; same check as the figures.
+        run: cargo run -p lindhard-plots --locked --bin lindhard-stopping-report -- --check
 
   dependency-policy:
     name: Dependency licenses & sources (cargo-deny)
