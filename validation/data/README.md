@@ -14,6 +14,10 @@ derived from it, or any other code's output, however well known
   inconsistency. The same directory holds 22 measured total-yield markers
   from Betz (1980), Fig. 13, with two readings and a reproducible digitization
   record. Reference inputs only; no dynamic-target comparison yet.
+- **High-fluence implant profile:** [implant/](implant/README.md) contains one
+  measured SIMS profile, 50 keV Sb into Si at 5×10¹⁶ ions/cm² (Titze et al.,
+  Fig. 3), 53 digitized marker centres with two reads. Normalized
+  concentration, so shape and depth only. Reference input only; no comparison yet.
 
 - **B in amorphous Si:** `ranges/b_{1,2,3,5,10,20}keV_asi_wach1982.json`,
   measured ranges of Wach and Wittmaack (1982) digitized from the compilation
