@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: a WebAssembly build of the ion engine and a static
+  range-calculator page (species, energy and target in; `Rp`, `ΔRp` and a depth
+  profile out), published with the book. CI builds it on every pull request
+  that touches the library or the new crate and compares it with the native
+  build for the same seed (#432).
 - Cu–Ni comparison of the fluence-dependent engine with measurement (#448,
   part of #22): Ho et al. (1976) row `t2-r4` and the 22 Betz (1980) markers,
   both relaxation conventions, `validation/experiments/cuni_dynamic.py` with
