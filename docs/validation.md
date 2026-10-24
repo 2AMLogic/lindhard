@@ -2674,7 +2674,7 @@ conversions, the generated inputs and the committed results against the data
 files and the fixed tolerances.
 
 <!-- validation:level3-cuni-dynamic:begin -->
-lindhard 0.0.1 (72ea6f8); reproduce with `python3 validation/experiments/cuni_dynamic.py` (all runs; `--reuse` resumes). Ho: 60000 ions per run, seeds [1, 2, 3, 4], 2 keV Ar at 20° from the normal; Betz: 30000 ions per run, seed 1, normal incidence. Fluence 3.0e+16 cm⁻² per run, a 40 nm film on a substrate of the same alloy, slabs 0.5 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Steady window: the last 50 % of the ions, in 5 blocks. Physics: the matched sputter settings of section 3 (ZBL, Lindhard-Scharff, constant free path, cutoffs 2 / 1 eV, E_b = 0, E_d = E_s, E_s = 3.49 eV (Cu) and 4.44 eV (Ni)); no tuning set, no fitted parameter.
+lindhard 0.0.1 (fb81239); reproduce with `python3 validation/experiments/cuni_dynamic.py` (all runs; `--reuse` resumes). Ho: 60000 ions per run, seeds [1, 2, 3, 4], 2 keV Ar at 20° from the normal; Betz: 30000 ions per run, seed 1, normal incidence. Fluence 3.0e+16 cm⁻² per run, a 40 nm film on a substrate of the same alloy, slabs 0.5 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Steady window: the last 50 % of the ions, in 5 blocks. Physics: the matched sputter settings of section 3 (ZBL, Lindhard-Scharff, constant free path, cutoffs 2 / 1 eV, E_b = 0, E_d = E_s, E_s = 3.49 eV (Cu) and 4.44 eV (Ni)); no tuning set, no fitted parameter.
 
 **Ho et al. (1976), row `t2-r4` (2 keV, 38.4 at% Cu).** Excluded: `t1-r3`, `t2-r1` (the conflicting 0.5 keV pair). Alloy number density 8.876e+22 cm⁻³ (8.93 g/cm³), additive atomic volumes of the elemental solids (an assumption: Ho's own alloy density was not available). Erosion 23 ± 2.5 Å/min at 9.4e+13 ions cm⁻² s⁻¹; the ± are the printed amounts, not standard deviations.
 
@@ -2740,19 +2740,151 @@ Surface Cu fraction under other depth mappings (relative difference from m; all 
 
 Betz summary: ideal-mixing/ar-re-emitted: 0 of 22 pass (-47 to -31 %); fixed-number-density/ar-re-emitted: 0 of 22 pass (-47 to -32 %); ideal-mixing/ar-retained: 0 of 22 pass (-66 to -55 %); fixed-number-density/ar-retained: 0 of 22 pass (-57 to -43 %). The transient bias of the film-integrated yield, estimated from each run's own cumulative sputtering (intercept over the film inventory), is at most 0.33 %, so replacing the film-integrated measurement by the steady-state yield is justified within that model estimate (the film is eroded over a fluence about 100 times the transient's). It is an engine estimate, not a measurement.
 
+**Diagnosis (#465): static runs, same matched settings, no dynamic profile.** 4 seeds × 100000 ions per run, 2000 eV Ar; mean ± standard error over the seeds.
+
+*1. Single elements.* Stored measured Ar → Cu sets: 15; stored Ar → Ni sets: **0** (the Ni half of the comparison has no stored data and none is digitized here).
+
+| Target, incidence | Engine yield (atoms/ion) | Stored measured, normal incidence | Engine / measured |
+|---|---|---|---|
+| Cu, 0° | 2.628 ± 0.002 | 3.03-4.23 (median 3.92), 4 points of 4 sets within 2 % of the energy | 0.67 of the median (0.62-0.87 of the band's max and min) |
+| Cu, 0° | same | 3.03-4.55 (median 4.01), 7 points of 6 sets within 25 % of the energy | 0.66 of the median |
+| Ni, 0° | 2.088 ± 0.003 | no stored data | not available |
+| Cu, 20° | 3.062 ± 0.003 | no stored data at 20° | not available |
+| Ni, 20° | 2.477 ± 0.002 | no stored data at 20° | not available |
+
+*2. The binary at fixed composition, Ho geometry, 20°.* A uniform slab of the given Cu fraction (the real surface has a depth profile; this isolates the collisional physics). "Additive" is c Y(Cu) + (1 − c) Y(Ni) from the pure-element runs above; "preference" is (Y_Cu / Y_Ni) / (c / (1 − c)).
+
+| Cu fraction c | Y_Cu | Y_Ni | Total | Total / additive | Cu fraction of sputtered flux | Preference |
+|---|---|---|---|---|---|---|
+| 0.200 | 0.613 ± 0.002 | 1.977 ± 0.003 | 2.590 ± 0.004 | 0.999 | 0.2367 ± 0.0004 | 1.240 |
+| 0.240 | 0.736 ± 0.001 | 1.878 ± 0.004 | 2.613 ± 0.004 | 0.999 | 0.2815 ± 0.0006 | 1.241 |
+| 0.268 | 0.821 ± 0.001 | 1.810 ± 0.003 | 2.631 ± 0.004 | 0.999 | 0.3120 ± 0.0002 | 1.239 |
+| 0.280 | 0.857 ± 0.002 | 1.781 ± 0.004 | 2.638 ± 0.003 | 0.999 | 0.3250 ± 0.0007 | 1.238 |
+| 0.320 | 0.978 ± 0.001 | 1.680 ± 0.003 | 2.658 ± 0.004 | 0.998 | 0.3678 ± 0.0004 | 1.237 |
+| 0.340 | 1.040 ± 0.002 | 1.630 ± 0.004 | 2.670 ± 0.004 | 0.998 | 0.3897 ± 0.0006 | 1.239 |
+| 0.360 | 1.102 ± 0.002 | 1.580 ± 0.002 | 2.682 ± 0.004 | 0.998 | 0.4109 ± 0.0002 | 1.240 |
+| 0.384 | 1.175 ± 0.002 | 1.523 ± 0.002 | 2.698 ± 0.004 | 0.999 | 0.4355 ± 0.0002 | 1.238 |
+| 0.400 | 1.224 ± 0.002 | 1.481 ± 0.002 | 2.705 ± 0.004 | 0.998 | 0.4525 ± 0.0003 | 1.240 |
+
+At steady state the sputtered flux has the bulk composition (38.4 at% Cu). The uniform-slab Cu fraction at which this engine's flux has that composition is 0.335.
+
+Mechanism test, not a fit (both elements given Cu's 3.49 eV surface binding, same seeds and ions, at the listed uniform composition):
+
+| Cu fraction c | Total | Cu fraction of sputtered flux |
+|---|---|---|
+| 0.268 | 3.084 ± 0.004 | 0.2660 ± 0.0001 |
+| 0.384 | 3.076 ± 0.005 | 0.3823 ± 0.0004 |
+
+*2. The binary at fixed composition, Betz geometry, normal.* A uniform slab of the given Cu fraction (the real surface has a depth profile; this isolates the collisional physics). "Additive" is c Y(Cu) + (1 − c) Y(Ni) from the pure-element runs above; "preference" is (Y_Cu / Y_Ni) / (c / (1 − c)).
+
+| Cu fraction c | Y_Cu | Y_Ni | Total | Total / additive | Cu fraction of sputtered flux | Preference |
+|---|---|---|---|---|---|---|
+| 0.200 | 0.524 ± 0.001 | 1.671 ± 0.003 | 2.195 ± 0.004 | 1.000 | 0.2386 ± 0.0003 | 1.253 |
+| 0.240 | 0.627 ± 0.001 | 1.589 ± 0.004 | 2.217 ± 0.004 | 1.000 | 0.2831 ± 0.0004 | 1.250 |
+| 0.268 | 0.700 ± 0.002 | 1.530 ± 0.002 | 2.230 ± 0.004 | 0.999 | 0.3139 ± 0.0002 | 1.249 |
+| 0.280 | 0.732 ± 0.001 | 1.504 ± 0.002 | 2.236 ± 0.003 | 0.998 | 0.3275 ± 0.0003 | 1.252 |
+| 0.320 | 0.838 ± 0.002 | 1.419 ± 0.002 | 2.257 ± 0.003 | 0.999 | 0.3714 ± 0.0004 | 1.255 |
+| 0.340 | 0.892 ± 0.002 | 1.378 ± 0.002 | 2.271 ± 0.003 | 1.000 | 0.3930 ± 0.0004 | 1.257 |
+| 0.360 | 0.946 ± 0.002 | 1.335 ± 0.002 | 2.281 ± 0.003 | 0.999 | 0.4149 ± 0.0003 | 1.260 |
+| 0.384 | 1.007 ± 0.001 | 1.286 ± 0.002 | 2.292 ± 0.002 | 0.999 | 0.4391 ± 0.0004 | 1.256 |
+| 0.400 | 1.047 ± 0.001 | 1.251 ± 0.002 | 2.298 ± 0.002 | 0.997 | 0.4556 ± 0.0005 | 1.256 |
+
+At steady state the sputtered flux has the bulk composition (38.4 at% Cu). The uniform-slab Cu fraction at which this engine's flux has that composition is 0.332.
+
+Mechanism test, not a fit (both elements given Cu's 3.49 eV surface binding, same seeds and ions, at the listed uniform composition):
+
+| Cu fraction c | Total | Cu fraction of sputtered flux |
+|---|---|---|
+| 0.268 | 2.639 ± 0.003 | 0.2665 ± 0.0004 |
+| 0.384 | 2.636 ± 0.002 | 0.3821 ± 0.0002 |
+
+*3. The data.* Betz's markers bracketing Ho's bulk composition (36.1 and 41.9 at% Cu, normal incidence) give 3.57 atoms/ion by linear interpolation. Ho's converted yield is 3.62 (flux per sample area, ratio to Betz 1.01) or 3.85 (per beam-normal area, ratio 1.08); the engine's own 20° / 0° yield ratio for pure Cu is 1.16. Both experiments are digitized or converted with the unresolved conventions of the notes above.
+
 Per-run values: `validation/experiments/cuni_dynamic_results.json`; data: `validation/data/alloys/`; provenance: [`data-provenance.md`](data-provenance.md).
 <!-- validation:level3-cuni-dynamic:end -->
+
+**Diagnosis (#465): where the shortfall comes from.** Nothing was tuned and
+the engine was not changed; the static runs and tables above (generated, last
+block) isolate each candidate, in the order the operator ruling set.
+
+1. *Single-element yields: identified as the cause of the total-yield
+   shortfall.* Pure Cu at 2 keV, normal incidence, is 2.63 atoms/ion against a
+   stored measured band of 3.03–4.23 (median 3.92; 4 points of 4 sets within 2 %
+   of the energy): **0.67 of the median**, 0.62 of the band's top and 0.87 of its
+   bottom. This is the same low Ar → Cu static yield recorded in the single-element
+   table of section 3 (0 of 31 energies in the band), and it is present before
+   any alloy physics. At fixed composition the engine's alloy yield is additive in
+   the two pure-element yields to within 0.3 % at every composition and both
+   angles, so the alloy introduces no further loss: the engine/measured ratios of
+   the alloy total yield (Ho 0.69–0.74 per the flux convention; Betz at 38.4 at%
+   Cu about 0.64) are those of pure Cu. **Ni cannot be compared**: the repository
+   holds no Ar → Ni sputter set (0 stored; 15 Ar → Cu sets), so the engine's Ni
+   yield (2.09 at normal incidence, 2.48 at 20°) is reported without a ratio, and
+   no Ni data was digitized in this work (a separate dataset issue, with its own
+   provenance row). Why the engine is low for Cu at these settings is not
+   resolved here; section 3 documents what was tried and ruled out for Ar → Cu,
+   and the E_s tuning experiment there is not repeated.
+2. *Alloy model.* **The binding treatment is per species, not
+   composition-weighted:** every sputtered atom leaves over the surface barrier
+   of its own element (`ion::bca`, barrier by exit species; the dynamic engine
+   resolves the same per-species `E_s` per slab). With it, the engine's preference
+   for sputtering Cu over Ni is a constant factor, 1.24 at 20° and 1.25–1.26 at
+   normal incidence, independent of composition from 20 to 40 at% Cu. **Mechanism
+   test (not a fit):** giving both elements the same binding energy removes the
+   preference completely (the Cu fraction of the flux equals c: 0.266 at
+   c = 0.268, 0.382 at c = 0.384), so the mass-dependent part of the cascade
+   contributes nothing measurable here and the whole preference is a surface-binding
+   effect. A factor of 1.24 is close to the binding-energy ratio 4.44 / 3.49 = 1.27,
+   as the linear-cascade picture of preferential sputtering gives for a small
+   energy exponent (Sigmund, Phys. Rev. 184, 383 (1969); Betz and Wehner 1983, cited
+   in the data README; **these papers were not re-read in this work, so the match
+   to the published TRIDYN/SDTrimSP descriptions of the mixed-surface binding is
+   not independently checked here**: the TRIDYN report read for `ion::bca` is the
+   only such source in the tree). The dynamic bookkeeping is ruled out: at steady
+   state the sputtered flux must have the bulk composition (38.4 at% Cu), and the
+   uniform-slab Cu fraction at which the static engine's flux has that composition
+   is 0.335 (20°) and 0.332 (normal), against the dynamic engine's first-slab
+   0.336–0.338. The dynamic runs reproduce what the static collisional physics
+   predicts, so relaxation, erosion and mixing add nothing to the gap. **What the
+   measurement implies instead:** Ho's m = 0.268 (0.247–0.294 over the printed ±)
+   corresponds, if the surface were uniform, to a preference of 1.70 (1.90–1.50);
+   the engine's is 1.24. Closing that gap would need a different effective surface
+   binding (or a surface process outside ballistic sputtering) than the elemental
+   cohesive energies, which cannot be decided or tuned from these two data sets.
+   No correction justified by a published method was found, so none was made.
+3. *Data.* Betz's two markers bracketing Ho's composition (36.1 and 41.9 at% Cu,
+   normal incidence) interpolate to 3.57 atoms/ion; Ho's converted yield is 3.62
+   (per sample area, 1.01 of Betz) or 3.85 (per beam-normal area, 1.08). Allowing the
+   engine's own 20° / 0° gain of 1.16 for pure Cu, Ho would be expected 16 % above
+   Betz, so the two data sets agree with each other within about 15 %, well inside
+   the 26–36 % by which the engine is low against both; **the flux-area
+   convention, the alloy density and the Ho/Betz mismatch cannot explain the
+   total-yield shortfall**, though the convention still decides whether the Ho
+   comparison at 30 % passes. For the surface fraction, the depth mapping is ruled out
+   as before (first slab against AES-weighted within 7 %); the analyzer geometry of
+   Ho's instrument remains unrecorded. The Ho and Betz papers were **not re-read**
+   in this work (the PDFs are not redistributed): "what the papers state" about flux
+   area, alloy density and AES geometry is limited to the stored transcriptions in
+   [`validation/data/alloys/`](../validation/data/alloys/README.md), which record
+   the flux-area convention and the alloy density as unresolved and the AES
+   analyzer geometry as unrecorded.
+
+**Outcome.** The total-yield shortfall is the pure-Cu single-element shortfall
+(0.67), carried unchanged into the alloy; Ni is unchecked for lack of stored data.
+The weak Cu depletion is the engine's binding-energy-only preference (1.24)
+against the 1.70 the AES ratio implies; the dynamic machinery and the depth mapping
+are not responsible. Both tolerances are unchanged and both comparisons still fail
+as reported above.
 
 **What lifts the remaining gap:** for criterion (b), the comparison itself
 against the stored Sb-in-Si profile (#466 supplies the data only). The profile
 is normalized to its maximum, so a comparison tests shape and peak depth, not
 retained dose, and needs sputter yield, beam angle and temperature stated as
 assumptions because the paper gives none; its peak region (10–19 nm) is sparse.
-For the Ho conversions, the paper's own
-flux-area and alloy-density statements and the AES analyzer geometry. The
-engine is low against both Cu–Ni data sets; where that comes from (the alloy
-model, the single-element yields at these settings, or the measurements) is not
-established here.
+For the Ni half of the single-element check, a stored, cross-checked Ar → Ni
+sputter dataset. For the Ho conversions, the paper's own flux-area and
+alloy-density statements and the AES analyzer geometry. For the Cu yield
+itself, the open Ar → Cu static-yield shortfall of section 3.
 
 ### Secondary-electron yield δ(E): Al, Cu, Si and Au (#149)
 

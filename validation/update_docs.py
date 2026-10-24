@@ -1184,11 +1184,89 @@ def level3_cuni_dynamic() -> str:
         f"{100 * worst:.2f} %, so replacing the film-integrated measurement by the steady-state yield is "
         "justified within that model estimate (the film is eroded over a fluence about 100 times the "
         "transient's). It is an engine estimate, not a measurement.",
+    ]
+    if "diagnostics" in r:
+        lines += _cuni_diagnostics(r)
+    lines += [
         "",
         "Per-run values: `validation/experiments/cuni_dynamic_results.json`; data: "
         "`validation/data/alloys/`; provenance: [`data-provenance.md`](data-provenance.md).",
     ]
     return "\n".join(lines)
+
+
+def _cuni_diagnostics(r: dict) -> list[str]:
+    """The #465 diagnosis tables: static single-element yields against the stored
+    Ar -> Cu data, the binary at fixed composition, and the data conventions."""
+    d = r["diagnostics"]
+    sd = d["stored_data"]
+    band2, band25 = sd["cu_band_normal_incidence"]["within_2_percent"], sd["cu_band_normal_incidence"]["within_25_percent"]
+    pure = d["pure_elements"]
+    po = d["pure_cu_over_stored"]
+    dc = d["data_consistency"]
+    pm = lambda x, nd=3: f"{x['value']:.{nd}f} ± {x['se']:.{nd}f}"  # noqa: E731
+    lines = [
+        "",
+        f"**Diagnosis (#465): static runs, same matched settings, no dynamic profile.** "
+        f"{len(d['seeds'])} seeds × {d['ions_per_seed']} ions per run, {d['energy_ev']:g} eV Ar; "
+        "mean ± standard error over the seeds.",
+        "",
+        "*1. Single elements.* Stored measured Ar → Cu sets: "
+        f"{sd['ar_cu_sets']}; stored Ar → Ni sets: **{sd['ar_ni_sets']}** (the Ni half of the comparison has "
+        "no stored data and none is digitized here).",
+        "",
+        "| Target, incidence | Engine yield (atoms/ion) | Stored measured, normal incidence | Engine / measured |",
+        "|---|---|---|---|",
+        f"| Cu, 0° | {pm(pure['Cu_0deg']['y_total'])} | {band2['min']:.2f}-{band2['max']:.2f} (median "
+        f"{band2['median']:.2f}), {band2['points']} points of {len(band2['sets'])} sets within 2 % of the energy | "
+        f"{po['ratio_to_median']:.2f} of the median ({po['ratio_to_max']:.2f}-{po['ratio_to_min']:.2f} of the "
+        "band's max and min) |",
+        f"| Cu, 0° | same | {band25['min']:.2f}-{band25['max']:.2f} (median {band25['median']:.2f}), "
+        f"{band25['points']} points of {len(band25['sets'])} sets within 25 % of the energy | "
+        f"{po['engine_0deg'] / band25['median']:.2f} of the median |",
+        f"| Ni, 0° | {pm(pure['Ni_0deg']['y_total'])} | no stored data | not available |",
+        f"| Cu, 20° | {pm(pure['Cu_20deg']['y_total'])} | no stored data at 20° | not available |",
+        f"| Ni, 20° | {pm(pure['Ni_20deg']['y_total'])} | no stored data at 20° | not available |",
+        "",
+    ]
+    for tag, title in (("ho_20deg", "Ho geometry, 20°"), ("betz_0deg", "Betz geometry, normal")):
+        e = d[tag]
+        lines += [
+            f"*2. The binary at fixed composition, {title}.* A uniform slab of the given Cu fraction (the real "
+            "surface has a depth profile; this isolates the collisional physics). \"Additive\" is "
+            "c Y(Cu) + (1 − c) Y(Ni) from the pure-element runs above; \"preference\" is "
+            "(Y_Cu / Y_Ni) / (c / (1 − c)).",
+            "",
+            "| Cu fraction c | Y_Cu | Y_Ni | Total | Total / additive | Cu fraction of sputtered flux | Preference |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for g in e["grid"]:
+            lines.append(f"| {g['cu_fraction']:.3f} | {pm(g['y_cu'])} | {pm(g['y_ni'])} | {pm(g['y_total'])} | "
+                         f"{g['total_over_additive']:.3f} | {pm(g['cu_fraction_of_flux'], 4)} | "
+                         f"{g['preferential_factor_cu_over_ni']:.3f} |")
+        req = e["required_surface_fraction_equal_flux"]
+        lines += ["", "At steady state the sputtered flux has the bulk composition "
+                  f"({100 * r['ho1976']['experiment']['cu_fraction']:.1f} at% Cu). The uniform-slab Cu fraction at "
+                  f"which this engine's flux has that composition is {req:.3f}."
+                  if req is not None else "The grid does not bracket the bulk flux fraction.", ""]
+        lines += ["Mechanism test, not a fit (both elements given Cu's 3.49 eV surface binding, same seeds "
+                  "and ions, at the listed uniform composition):", "",
+                  "| Cu fraction c | Total | Cu fraction of sputtered flux |", "|---|---|---|"]
+        for k, g in e["mechanism_test_equal_binding_3.49_eV"].items():
+            lines.append(f"| {g['cu_fraction']:.3f} | {pm(g['y_total'])} | {pm(g['cu_fraction_of_flux'], 4)} |")
+        lines.append("")
+    b = dc["betz_normal_incidence_at_ho_bulk"]
+    lines += [
+        "*3. The data.* Betz's markers bracketing Ho's bulk composition "
+        f"({b['bracket_at_percent'][0]:g} and {b['bracket_at_percent'][1]:g} at% Cu, normal incidence) give "
+        f"{b['value']:.2f} atoms/ion by linear interpolation. Ho's converted yield is "
+        f"{dc['ho_yield_flux_per_sample_area']:.2f} (flux per sample area, ratio to Betz "
+        f"{dc['ho_over_betz_flux_per_sample_area']:.2f}) or {dc['ho_yield_flux_per_beam_normal_area']:.2f} "
+        f"(per beam-normal area, ratio {dc['ho_over_betz_flux_per_beam_normal_area']:.2f}); the engine's own "
+        f"20° / 0° yield ratio for pure Cu is {dc['engine_tilt_20_over_0_pure_cu']:.2f}. Both experiments "
+        "are digitized or converted with the unresolved conventions of the notes above.",
+    ]
+    return lines
 
 
 def main() -> int:
