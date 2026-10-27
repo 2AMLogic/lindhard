@@ -1,9 +1,12 @@
 # GPU feasibility study
 
-**Decision: defer.** No GPU backend now. The study could not measure a
-hardware GPU (the host that ran it has none), so the throughput half of the
-case is open, and the determinism half says a GPU path cannot be bit-identical
-to the CPU engine. Revisit when the trigger at the end of this page is met.
+**Decision: defer.** No GPU backend now. A hardware GPU (Apple M3 Ultra,
+Metal) now measures the kernel at about 140x one CPU thread, or about 20x
+including transfers, so the throughput half of the case is no longer open at
+kernel level. The determinism half still says a GPU path cannot be
+bit-identical to the CPU engine, and no profile yet shows the CPU engine is
+the bottleneck for a real workload. Revisit when the trigger at the end of
+this page is met.
 
 `architecture.md` calls a GPU backend "a later, measured decision, not an
 assumption". This page is that decision's record. It is a study, not a
@@ -67,6 +70,59 @@ What these numbers do and do not show:
   rate is an upper bound on what a ported engine could reach, not a forecast
   of it.
 
+### Hardware GPU: Apple M3 Ultra, Metal (#464)
+
+Same binary and method as above (median of at least 3 CPU repeats and 7 wgpu
+repeats per run, after one warm-up dispatch), run 5 times back to back. Each
+cell is the **median of the 5 runs**, with the min-max range across runs in
+brackets.
+
+Hardware: Apple M3 Ultra (Mac Studio), 28 CPU cores (20 performance + 8
+efficiency), 60-core integrated GPU with Metal 4 support, 96 GiB unified
+memory, macOS 27.0.1 (26A434). rustc 1.98.1 stable, wgpu 30.0.1, lindhard
+`23a513a2`, 2026-10-27. The host was an operator workstation in use, at load
+average about 11 to 12 on 28 cores during the runs. Adapter line, identical
+in all 5 runs:
+
+```text
+adapter: Apple M3 Ultra (IntegratedGpu, Metal)
+```
+
+No software-adapter warning was printed. The GPU is integrated and shares
+memory with the CPU, but wgpu still copies through a staging buffer, so the
+e2e column carries the same upload and read-back steps as on any other
+backend.
+
+| points | cpu 1T (Mpt/s) | wgpu kernel on M3 Ultra (Mpt/s) | wgpu e2e on M3 Ultra (Mpt/s) | max rel dev |
+|---:|---:|---:|---:|---:|
+| 16 384 | 40.1 [39.8-40.4] | 61 [24-80] | 53 [44-59] | 8.6e-6 |
+| 262 144 | 36.2 [35.8-36.9] | 926 [830-995] | 380 [266-515] | 9.5e-6 |
+| 2 097 152 | 36.5 [36.4-36.8] | 5 177 [4 812-5 823] | 735 [685-782] | 1.1e-5 |
+
+The CPU comparison point is the `cpu 1T` column of the same runs, on the
+same host: the `lindhard` library, f64, one thread of the M3 Ultra.
+
+What these numbers show:
+
+* **A measured GPU speedup exists for the kernel.** At 2 097 152 points the
+  dispatch-only rate is about 140x one CPU thread, and about 20x with the
+  upload and read-back included. At 262 144 points the ratios are about 26x
+  and 10x.
+* At 16 384 points the dispatch is too small to fill the GPU: per-dispatch
+  overhead dominates, the kernel column ranges from 24 to 80 Mpt/s between
+  runs, and the GPU is barely faster than one CPU thread. The engine would
+  need to batch collisions in the hundreds of thousands per dispatch to get
+  the larger-size rates.
+* The comparison is one CPU thread against the whole GPU. The engine
+  parallelises histories across threads, and this host has 28 CPU cores, so
+  the per-machine GPU-to-CPU ratio would be smaller than the per-thread
+  ratio. The multi-threaded CPU rate was not measured, so no figure for it is
+  given.
+* The f32 deviation (about 1e-5 relative) matches the llvmpipe rows, so the
+  Metal shader computes the same result as the software adapter did.
+* The kernel-only caveat above still applies: these are upper bounds for a
+  per-collision lookup, not a forecast for a branching cascade engine.
+
 ## Comparison
 
 | | wgpu (WGSL) | CubeCL | CUDA (cudarc or similar) |
@@ -76,7 +132,7 @@ What these numbers do and do not show:
 | Licence (crate) | MIT OR Apache-2.0 | MIT OR Apache-2.0 (`cubecl`, `cubecl-wgpu`, `cubecl-cuda`) | `cudarc` MIT OR Apache-2.0 |
 | Licence (runtime) | Platform graphics drivers | CUDA backend needs NVIDIA's runtime | NVIDIA CUDA toolkit and driver: proprietary EULA, not redistributed by us but required to run |
 | Determinism | f32; transcendental functions (`log`, `exp`, `sqrt`) are not required to be correctly rounded and differ between vendors and drivers | As wgpu on wgpu; as CUDA on CUDA | Same binary on same GPU model and driver is repeatable; across architectures `__expf`-class results can differ unless flags pin them |
-| Measured throughput | Not measured on a GPU (see above) | Not measured | Not measured (no CUDA device, and no code written) |
+| Measured throughput | Apple M3 Ultra (Metal), 2M points: kernel about 5.2 Gpt/s, e2e about 0.73 Gpt/s, against 36.5 Mpt/s for one CPU thread (see above) | Not measured | Not measured (no CUDA device, and no code written) |
 
 ### Determinism
 
@@ -147,17 +203,24 @@ requirement, not tree content.
 
 **Defer.**
 
-* *Go* would need a measured speedup on real hardware. This study has none.
-* *No-go* is also unearned: the kernel ports cleanly, the dependencies are
-  MIT-compatible, and counter-based RNG streams carry over.
-* The costs are known without a GPU: an f32-only (wgpu) or vendor-locked
-  (CUDA) second engine, no bit-for-bit agreement with the CPU engine, and a
+* *Go* needed a measured speedup on real hardware. It now has one at kernel
+  level: about 140x one CPU thread dispatch-only and about 20x end to end on
+  an Apple M3 Ultra at 2M points (#464). That is not enough for *go* on its
+  own: it is a kernel-only upper bound against one thread, it needs batches
+  of hundreds of thousands of collisions to appear, and no workload has yet
+  shown the CPU engine to be the bottleneck.
+* *No-go* is also unearned: the kernel ports cleanly, runs on real hardware
+  with the same f32 accuracy, the dependencies are MIT-compatible, and
+  counter-based RNG streams carry over.
+* The costs are known: an f32-only (wgpu) or vendor-locked (CUDA) second
+  engine, no bit-for-bit agreement with the CPU engine, and a
   divergent-branch workload (cascades) that is the hard case for GPUs.
 
-**Trigger to revisit:** a profile of a real workload showing the CPU engine is
-the bottleneck at the scale users run, *and* the missing measurement below.
+**Trigger to revisit:** a profile of a real workload showing the CPU engine
+(using all its threads) is the bottleneck at the scale users run. The
+hardware measurement that the trigger also required is now done (the M3
+Ultra rows above).
 
-**Open item (needs a human with hardware):** run `lindhard-gpu-proto` on a
-discrete GPU (and, for a CUDA comparison, write the equivalent `cudarc`
-kernel) and add a row set to the table above. Only the wgpu prototype's
-adapter line needs to read as a real GPU for the numbers to count.
+**Open items (optional, need a human with hardware):** a discrete-GPU row set
+(NVIDIA or AMD, Vulkan or DX12), and for a CUDA comparison, the equivalent
+`cudarc` kernel on an NVIDIA host. Neither is needed for the trigger above.
