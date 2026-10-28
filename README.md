@@ -79,8 +79,8 @@ cover both halves of this project.
 
 ## Documentation
 
-- [The lindhard book](https://2amlogic.github.io/lindhard/) (source in
-  [`book/`](book/)): the physics manual, one page per model, and the user
+- [The lindhard site](https://2amlogic.github.io/lindhard/) (landing page in
+  [`site/`](site/); the book is in [`book/`](book/)): the physics manual, one page per model, and the user
   guide, including a [first run](book/src/guide/first-run.md) from start to
   finish.
 - [`docs/architecture.md`](docs/architecture.md): design and module plan.
