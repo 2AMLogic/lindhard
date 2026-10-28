@@ -485,6 +485,7 @@ name = "lindhard-plots"
 version = "0.0.1"
 dependencies = [
  "anyhow",
+ "lindhard",
  "rizzma",
  "serde",
  "serde_json",
