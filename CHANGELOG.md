@@ -9,6 +9,14 @@ one version).
 
 ### Added
 
+- `lindhard run`: an optional `[electron.materials.<name>.inner_shells]` table
+  (`subshells` of K, L1, L2, L3, and an optional `binding` file) adds
+  hydrogenic inner-shell ionisation channels (`penn-single-pole` only) to every
+  layer of that material. Without `binding` the embedded EADL2017 table is
+  used; a table without a provenance, or without an element or subshell the
+  material needs, is refused. The summary records the table (path, SHA-256,
+  provenance, or the embedded one) and the channel model. A run without the
+  table is unchanged (#156).
 - `lindhard-wasm`: a WebAssembly build of the ion engine and a static
   range-calculator page (species, energy and target in; `Rp`, `ΔRp` and a depth
   profile out), published with the book. CI builds it on every pull request

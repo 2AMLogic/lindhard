@@ -7,7 +7,7 @@ use std::path::Path;
 use sha2::{Digest, Sha256};
 
 use crate::electron::boundary::{BandModel, BandStructure};
-use crate::electron::data::OpticalElf;
+use crate::electron::data::{OpticalElf, Subshell, SubshellBindingTable};
 use crate::electron::elastic::corrections::{CorrelationPolarization, PolarizationCutoff};
 use crate::electron::elastic::table::DEFAULT_MAX_ENERGY_EV;
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, MAX_OSCILLATORS};
@@ -459,6 +459,20 @@ impl ElectronInput {
                 ));
             }
         }
+        // Shell channels are tabulated with the single-pole model only
+        // (`build_shell_channel_tables`).
+        for (name, spec) in &e.materials {
+            if spec.inner_shells.is_some() && inelastic != PennAlgorithm::SinglePole {
+                return Err(invalid(
+                    format!("electron.materials.{name}.inner_shells"),
+                    format!(
+                        "only applies with electron.inelastic.model = \"{}\" (the model is \"{}\")",
+                        PennAlgorithm::SinglePole.label(),
+                        inelastic.label()
+                    ),
+                ));
+            }
+        }
         for m in &materials {
             if let FitWeighting::Relative { floor } = m.mermin_fit.weighting {
                 if let Some(f) = echo
@@ -781,6 +795,16 @@ impl ElectronInput {
             Some(f) => mermin_fit_options(&format!("{field}.mermin_fit"), f)?,
         };
 
+        let inner_shells = match &spec.inner_shells {
+            None => None,
+            Some(i) => Some(resolve_inner_shells(
+                base_dir,
+                &format!("{field}.inner_shells"),
+                material,
+                i,
+            )?),
+        };
+
         Ok(ResolvedElectronMaterial {
             name: name.to_string(),
             material: material.clone(),
@@ -789,9 +813,89 @@ impl ElectronInput {
             band,
             channels,
             mermin_fit,
+            inner_shells,
         })
     }
 }
+
+/// The subshells and binding table of an `inner_shells` table; errors name
+/// `field` and the key. The table must hold every requested subshell of every
+/// element of `material`.
+fn resolve_inner_shells(
+    base_dir: &Path,
+    field: &str,
+    material: &Material,
+    spec: &InnerShellsSpec,
+) -> Result<ResolvedInnerShells, InputError> {
+    let sf = format!("{field}.subshells");
+    if spec.subshells.is_empty() {
+        return Err(invalid(&sf, "must list at least one subshell"));
+    }
+    let mut subshells: Vec<Subshell> = Vec::new();
+    for label in &spec.subshells {
+        let s = match Subshell::from_label(label) {
+            Some(s) if SUPPORTED_SUBSHELLS.contains(&s.label()) => s,
+            _ => {
+                return Err(invalid(
+                    &sf,
+                    format!(
+                        "unknown or unsupported subshell {label:?}; expected one of \"K\", \
+                         \"L1\", \"L2\", \"L3\" (no hydrogenic formula is implemented for the M \
+                         shell and above)"
+                    ),
+                ))
+            }
+        };
+        if subshells.contains(&s) {
+            return Err(invalid(&sf, format!("{label:?} is listed twice")));
+        }
+        subshells.push(s);
+    }
+    let (binding, binding_file) = match &spec.binding {
+        None => (SubshellBindingTable::eadl2017(), None),
+        Some(path) => {
+            let bf = format!("{field}.binding");
+            let (text, file) = read_data_file(base_dir, &bf, path)?;
+            // The loader refuses a missing or blank provenance.
+            let table = SubshellBindingTable::from_toml_str(&text)
+                .map_err(|err| invalid(&bf, format!("{path}: {err}")))?;
+            (table, Some(file))
+        }
+    };
+    for c in material.components() {
+        if c.atom_fraction() <= 0.0 {
+            continue;
+        }
+        let z = c.z();
+        let sym = crate::elements::element(z).map_or("?", |e| e.symbol);
+        if binding.atom(z).is_none() {
+            return Err(invalid(
+                format!("{field}.binding"),
+                format!("the table has no entry for {sym} (Z = {z}), an element of the material"),
+            ));
+        }
+        for s in &subshells {
+            if binding.atom(z).and_then(|a| a.shell(*s)).is_none() {
+                return Err(invalid(
+                    &sf,
+                    format!(
+                        "{} is not in the binding table for {sym} (Z = {z}), an element of \
+                         the material",
+                        s.label()
+                    ),
+                ));
+            }
+        }
+    }
+    Ok(ResolvedInnerShells {
+        subshells,
+        binding,
+        binding_file,
+    })
+}
+
+/// The subshells with a hydrogenic formula (`electron::inelastic::shell_elf`).
+const SUPPORTED_SUBSHELLS: [&str; 4] = ["K", "L1", "L2", "L3"];
 
 /// The fit options of a `mermin_fit` table; errors name `field` and the key.
 fn mermin_fit_options(field: &str, f: &MerminFitSpec) -> Result<MerminFitOptions, InputError> {

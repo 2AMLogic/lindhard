@@ -440,6 +440,25 @@ pub struct MerminFitSpec {
     pub relative_floor: Option<f64>,
 }
 
+/// `[electron.materials.<name>.inner_shells]`: inner-shell ionisation
+/// channels of this material (single-pole Penn only). Each listed subshell of
+/// every element of the material becomes a channel with a hydrogenic optical
+/// ELF ([`crate::electron::inelastic::hydrogenic_shell_elfs`]) built from a
+/// binding-energy table ([`crate::electron::data::SubshellBindingTable`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct InnerShellsSpec {
+    /// Subshell labels: `"K"`, `"L1"`, `"L2"`, `"L3"` (the only ones with a
+    /// hydrogenic formula). Not empty, no repeats.
+    pub subshells: Vec<String>,
+    /// Path of a binding-energy table in the TOML form of
+    /// [`crate::electron::data::SubshellBindingTable::from_toml_str`],
+    /// relative to the input file's directory; its `provenance` is
+    /// required. Absent: the embedded EADL2017 table.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub binding: Option<String>,
+}
+
 /// `[electron.materials.<name>]`: the electron data of one material.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -461,6 +480,9 @@ pub struct ElectronMaterialSpec {
     /// [`MerminFitOptions::default`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mermin_fit: Option<MerminFitSpec>,
+    /// Inner-shell ionisation channels (`single-pole` only); absent: none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inner_shells: Option<InnerShellsSpec>,
 }
 
 /// A uniform binning in nm.
