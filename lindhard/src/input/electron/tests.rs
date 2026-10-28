@@ -514,3 +514,59 @@ seed = 3
     .to_string();
     assert!(e.contains("electron.materials.Ox.phonon"), "{e}");
 }
+
+/// `[electron.materials.<name>.inner_shells]` (#156): absent gives none,
+/// present resolves to the embedded EADL2017 table, and bad subshells or
+/// another inelastic model are refused naming the field.
+#[test]
+fn inner_shells_parse_validate_and_resolve() {
+    let d = dir("inner-shells");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let with = |body: &str| format!("{GOOD}\n[electron.materials.Si.inner_shells]\n{body}\n");
+    let resolve = |text: &str| {
+        ElectronInput::from_toml_str(text)
+            .map_err(|e| e.to_string())
+            .and_then(|i| i.resolve_in(&d).map_err(|e| e.to_string()))
+    };
+
+    let r = resolve(GOOD).unwrap();
+    assert!(r.materials[0].inner_shells.is_none());
+    assert!(!r.input.to_toml_string().unwrap().contains("inner_shells"));
+
+    let r = resolve(&with("subshells = [\"K\", \"L3\"]")).unwrap();
+    let s = r.materials[0].inner_shells.as_ref().unwrap();
+    let labels: Vec<_> = s.subshells.iter().map(|x| x.label()).collect();
+    assert_eq!(labels, ["K", "L3"]);
+    assert!(s.binding_file.is_none());
+    assert!(s.binding.atom(14).is_some());
+    assert!(r
+        .models()
+        .iter()
+        .any(|m| m.role == "inner-shell ionisation"));
+    assert!(r.input.to_toml_string().unwrap().contains("inner_shells"));
+
+    for (body, what) in [
+        ("subshells = []", "at least one"),
+        ("subshells = [\"M1\"]", "unsupported"),
+        ("subshells = [\"nope\"]", "unsupported"),
+        ("subshells = [\"K\", \"K\"]", "twice"),
+        (
+            "subshells = [\"K\"]\nbinding = \"missing.toml\"",
+            "cannot read",
+        ),
+    ] {
+        let e = resolve(&with(body)).unwrap_err();
+        assert!(
+            e.contains("electron.materials.Si.inner_shells"),
+            "{body}: {e}"
+        );
+        assert!(e.contains(what), "{body}: {e}");
+    }
+
+    let e = resolve(&with("subshells = [\"K\"]").replace(
+        "[electron.elastic]",
+        "[electron.inelastic]\nmodel = \"penn-full\"\n\n[electron.elastic]",
+    ))
+    .unwrap_err();
+    assert!(e.contains("electron.materials.Si.inner_shells") && e.contains("penn-single-pole"));
+}

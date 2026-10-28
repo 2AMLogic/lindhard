@@ -1145,6 +1145,9 @@ mod tests {
             polaron: _,
             // `inelastic.mermin_fit`.
             mermin_fit,
+            // Shell channels are separate tables (not cached); the valence
+            // table is the same with or without them.
+            inner_shells: _,
         } = &r.input.electron.materials["Si"];
         assert!(band.is_some());
         assert!(i.contains(&format!(
