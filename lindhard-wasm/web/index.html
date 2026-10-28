@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lindhard range calculator</title>
+<style>
+  body { font: 16px/1.4 system-ui, sans-serif; max-width: 46rem; margin: 1.5rem auto; padding: 0 1rem; }
+  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; align-items: end; }
+  label { display: flex; flex-direction: column; font-size: .85rem; gap: .2rem; }
+  input, button { font: inherit; padding: .3rem .4rem; }
+  table { border-collapse: collapse; margin: 1rem 0; }
+  th, td { text-align: left; padding: .2rem 1rem .2rem 0; }
+  #status { min-height: 1.4rem; }
+  #status.error { color: #b00020; }
+  canvas { width: 100%; height: auto; border: 1px solid #8884; }
+  small { color: #666; }
+  @media (prefers-color-scheme: dark) { small { color: #aaa; } #status.error { color: #ff8a80; } }
+</style>
+</head>
+<body>
+<h1>Ion range calculator</h1>
+<p>Projected range <i>R</i><sub>p</sub>, straggle Δ<i>R</i><sub>p</sub> and depth
+profile of an ion beam in an amorphous elemental target, from the
+<a href="https://github.com/2AMLogic/lindhard">lindhard</a> binary-collision
+engine running in your browser (WebAssembly, one thread). Nothing is sent to a
+server.</p>
+
+<form id="form">
+  <label>Ion <input id="ion" value="B" list="ions" required size="3"></label>
+  <label>Energy (keV) <input id="energy" type="number" value="5" min="0.01" step="any" required></label>
+  <label>Target <input id="target" value="Si" list="targets" required size="3"></label>
+  <label>Ions <input id="ions-n" type="number" value="10000" min="100" max="1000000" step="100" required></label>
+  <label>Seed <input id="seed" type="number" value="1" min="0" step="1" required></label>
+  <button id="run" type="submit">Run</button>
+</form>
+<datalist id="ions"><option>H<option>He<option>B<option>C<option>N<option>O<option>F<option>Al<option>Si<option>P<option>Ar<option>Ga<option>Ge<option>As<option>In<option>Sb<option>Xe</datalist>
+<datalist id="targets"><option>C<option>Al<option>Si<option>Ti<option>Fe<option>Ni<option>Cu<option>Ge<option>Ag<option>W<option>Pt<option>Au</datalist>
+
+<p id="status" role="status"></p>
+<table id="result" hidden>
+  <tr><th><i>R</i><sub>p</sub></th><td id="rp"></td></tr>
+  <tr><th>Δ<i>R</i><sub>p</sub></th><td id="drp"></td></tr>
+  <tr><th>Stopped</th><td id="stopped"></td></tr>
+</table>
+<canvas id="plot" width="800" height="420" hidden></canvas>
+<p><small>Amorphous target at its tabulated density, ZBL screening,
+Lindhard–Scharff electronic stopping, 7° tilt, and 15 eV displacement
+energy where the element table has none. The same seed gives the same result
+on every machine to within the statistical error. Model validity and its
+limits are in the <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/stopping-models.md">stopping-model
+notes</a>; warnings from the engine are shown above the result.</small></p>
+
+<script type="module">
+import init, { calculate } from "./pkg/lindhard_wasm.js";
+
+const $ = (id) => document.getElementById(id);
+const status = (text, error = false) => {
+  $("status").textContent = text;
+  $("status").className = error ? "error" : "";
+};
+const fmt = (x) => (x >= 100 ? x.toFixed(1) : x >= 10 ? x.toFixed(2) : x.toPrecision(3));
+
+function plot(r) {
+  const canvas = $("plot");
+  const ctx = canvas.getContext("2d");
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
+  const fg = dark ? "#ddd" : "#222";
+  const bar = dark ? "#6fa8ff" : "#1f5fbf";
+  const W = canvas.width, H = canvas.height;
+  const m = { l: 70, r: 15, t: 15, b: 45 };
+  const counts = Array.from(r.counts);
+  const w = r.bin_nm;
+  // Concentration profile: stopped ions per ion run, per nm of depth.
+  const y = counts.map((c) => c / (r.histories * w));
+  const ymax = Math.max(...y) * 1.05;
+  const xmax = counts.length * w;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.font = "14px system-ui, sans-serif";
+  const px = (x) => m.l + (x / xmax) * (W - m.l - m.r);
+  const py = (v) => H - m.b - (v / ymax) * (H - m.t - m.b);
+  ctx.fillStyle = bar;
+  y.forEach((v, i) => ctx.fillRect(px(i * w), py(v), Math.max(1, px(w) - px(0) - 1), py(0) - py(v)));
+  ctx.fillStyle = fg;
+  ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, H - m.b); ctx.lineTo(W - m.r, H - m.b); ctx.stroke();
+  ctx.textAlign = "center";
+  for (let i = 0; i <= 4; i++) {
+    const x = (xmax * i) / 4;
+    ctx.fillText(fmt(x), px(x), H - m.b + 18);
+  }
+  ctx.fillText("depth (nm)", (m.l + W - m.r) / 2, H - 8);
+  ctx.textAlign = "right";
+  for (let i = 0; i <= 4; i++) {
+    const v = (ymax * i) / 4;
+    ctx.fillText(v.toExponential(1), m.l - 6, py(v) + 5);
+  }
+  ctx.save(); ctx.translate(14, (H - m.b + m.t) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = "center"; ctx.fillText("stopped ions per incident ion per nm", 0, 0); ctx.restore();
+  // Mark Rp.
+  ctx.strokeStyle = "#d9534f"; ctx.setLineDash([5, 4]);
+  ctx.beginPath(); ctx.moveTo(px(r.rp_nm), m.t); ctx.lineTo(px(r.rp_nm), H - m.b); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+await init();
+
+$("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("run").disabled = true;
+  status("Running…");
+  $("result").hidden = true; $("plot").hidden = true;
+  // Let the browser paint the status before the (blocking) run starts.
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  try {
+    const t0 = performance.now();
+    const r = calculate(
+      $("ion").value.trim(), Number($("energy").value) * 1000, $("target").value.trim(),
+      Number($("ions-n").value), Number($("seed").value),
+    );
+    const s = (performance.now() - t0) / 1000;
+    $("rp").textContent = `${fmt(r.rp_nm)} nm (± ${fmt(r.rp_std_err_nm)})`;
+    $("drp").textContent = `${fmt(r.drp_nm)} nm (± ${fmt(r.drp_std_err_nm)})`;
+    $("stopped").textContent = `${r.stopped} of ${r.histories} ions`;
+    $("result").hidden = false; $("plot").hidden = false;
+    plot(r);
+    status(`${r.warnings ? r.warnings + " — " : ""}done in ${s.toFixed(1)} s (± is one standard error).`);
+  } catch (err) {
+    status(String(err.message ?? err), true);
+  } finally {
+    $("run").disabled = false;
+  }
+});
+status("Ready.");
+</script>
+</body>
+</html>
