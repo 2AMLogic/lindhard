@@ -9,6 +9,12 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: a steppable `Simulation` session (`new`, `step`, `done`,
+  `report_json`, `take_trajectories_json`, `warnings`) and `elements_json()`,
+  exposing compound and multi-layer targets, the full ion report and recorded
+  trajectories to a Web Worker. A run cut into steps gives byte-identical
+  results; the WASM build is checked against a native golden record in CI,
+  which also logs the module size (#479, part of #467).
 - `lindhard-wasm`: a WebAssembly build of the ion engine and a static
   range-calculator page (species, energy and target in; `Rp`, `ΔRp` and a depth
   profile out), published with the book. CI builds it on every pull request
