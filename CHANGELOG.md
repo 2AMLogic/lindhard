@@ -14,6 +14,14 @@ one version).
   profile out), published with the book. CI builds it on every pull request
   that touches the library or the new crate and compares it with the native
   build for the same seed (#432).
+- A generated page in the book, `models/stopping-residuals.md`, with the
+  per-system residuals of the electronic-stopping models against every
+  committed measured dataset (points, mean and rms residual, relative rms,
+  energy span, citations, skipped points) and, for single-element systems,
+  the held-out residuals of a fitted per-pair correction beside the
+  uncorrected ones. Regenerate with
+  `cargo run -p lindhard-plots --bin lindhard-stopping-report`; CI runs it
+  with `--check` in the job that checks the figures (#431).
 - Cu–Ni comparison of the fluence-dependent engine with measurement (#448,
   part of #22): Ho et al. (1976) row `t2-r4` and the 22 Betz (1980) markers,
   both relaxation conventions, `validation/experiments/cuni_dynamic.py` with
@@ -21,6 +29,14 @@ one version).
   fixed tolerances (20 % surface fraction, 30 % total yield) and the section in
   `docs/validation.md` says so; the high-fluence implant-profile criterion is
   still a gap.
+- Diagnosis of the Cu–Ni shortfall without tuning (#465, part of #22): static
+  pure-Cu and pure-Ni yields against the stored Ar → Cu data, the binary at
+  fixed composition, and the Ho/Betz data conventions, in the `diagnostics`
+  part of `cuni_dynamic.py` and `docs/validation.md`. The total-yield shortfall
+  is the pure-Cu one (0.67 of measured); the weak Cu depletion is a
+  binding-energy-only preference (1.24 against the 1.70 the AES ratio implies).
+  No Ar → Ni data is stored. The engine is unchanged; both comparisons still
+  fail their fixed tolerances.
 - Example `si_backscatter_shells` (`lindhard-cli/examples`): the Si
   backscatter coefficient with K and L inner-shell channels against a matched
   single-pole control, with the committed baseline reproduced bit for bit

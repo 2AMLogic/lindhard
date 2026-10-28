@@ -3,10 +3,10 @@
   "name": "lindhard-cuni-dynamic-results",
   "version": 1
  },
- "issue": "#448",
+ "issue": "#448, #465",
  "reproduce": "python3 validation/experiments/cuni_dynamic.py",
- "binary_sha256": "9e265eb639dca5df32cb1c85a030538cae8e32ac37ccdb01934165bf8a05ecb1",
- "software": "lindhard 0.0.1 (72ea6f8)",
+ "binary_sha256": "e26347536a3cc335514655954e58409fe97c9d7d0423a3c4d2be31daa4486f9e",
+ "software": "lindhard 0.0.1 (fb81239)",
  "settings": {
   "physics": {
    "potential": "zbl",
@@ -2534,5 +2534,762 @@
    }
   ],
   "film_nm": 200.0
+ },
+ "diagnostics": {
+  "energy_ev": 2000.0,
+  "seeds": [
+   1,
+   2,
+   3,
+   4
+  ],
+  "ions_per_seed": 100000,
+  "stored_data": {
+   "ar_cu_sets": 15,
+   "ar_ni_sets": 0,
+   "cu_band_normal_incidence": {
+    "within_2_percent": {
+     "points": 4,
+     "sets": [
+      "ar_cu_sputter_akaishi1977",
+      "ar_cu_sputter_bohdansky1980",
+      "ar_cu_sputter_koshkin1969",
+      "ar_cu_sputter_southern1963"
+     ],
+     "min": 3.029,
+     "median": 3.915,
+     "max": 4.231
+    },
+    "within_25_percent": {
+     "points": 7,
+     "sets": [
+      "ar_cu_sputter_akaishi1977",
+      "ar_cu_sputter_bader1961",
+      "ar_cu_sputter_bohdansky1980",
+      "ar_cu_sputter_keywell1955",
+      "ar_cu_sputter_koshkin1969",
+      "ar_cu_sputter_southern1963"
+     ],
+     "min": 3.029,
+     "median": 4.008,
+     "max": 4.548
+    }
+   }
+  },
+  "pure_elements": {
+   "Cu_0deg": {
+    "cu_fraction": 1.0,
+    "tilt_deg": 0.0,
+    "energy_ev": 2000.0,
+    "seeds": 4,
+    "ions_per_seed": 100000,
+    "y_cu": {
+     "value": 2.6283575,
+     "se": 0.0022757576577189832
+    },
+    "y_ni": {
+     "value": 0.0,
+     "se": 0.0
+    },
+    "y_total": {
+     "value": 2.6283575,
+     "se": 0.0022757576577189832
+    },
+    "cu_fraction_of_flux": {
+     "value": 1.0,
+     "se": 0.0
+    }
+   },
+   "Ni_0deg": {
+    "cu_fraction": 0.0,
+    "tilt_deg": 0.0,
+    "energy_ev": 2000.0,
+    "seeds": 4,
+    "ions_per_seed": 100000,
+    "y_cu": {
+     "value": 0.0,
+     "se": 0.0
+    },
+    "y_ni": {
+     "value": 2.08779,
+     "se": 0.0028805873243720995
+    },
+    "y_total": {
+     "value": 2.08779,
+     "se": 0.0028805873243720995
+    },
+    "cu_fraction_of_flux": {
+     "value": 0.0,
+     "se": 0.0
+    }
+   },
+   "Cu_20deg": {
+    "cu_fraction": 1.0,
+    "tilt_deg": 20.0,
+    "energy_ev": 2000.0,
+    "seeds": 4,
+    "ions_per_seed": 100000,
+    "y_cu": {
+     "value": 3.0618675,
+     "se": 0.0034198888261658244
+    },
+    "y_ni": {
+     "value": 0.0,
+     "se": 0.0
+    },
+    "y_total": {
+     "value": 3.0618675,
+     "se": 0.0034198888261658244
+    },
+    "cu_fraction_of_flux": {
+     "value": 1.0,
+     "se": 0.0
+    }
+   },
+   "Ni_20deg": {
+    "cu_fraction": 0.0,
+    "tilt_deg": 20.0,
+    "energy_ev": 2000.0,
+    "seeds": 4,
+    "ions_per_seed": 100000,
+    "y_cu": {
+     "value": 0.0,
+     "se": 0.0
+    },
+    "y_ni": {
+     "value": 2.4765175,
+     "se": 0.0021911578940520832
+    },
+    "y_total": {
+     "value": 2.4765175,
+     "se": 0.0021911578940520832
+    },
+    "cu_fraction_of_flux": {
+     "value": 0.0,
+     "se": 0.0
+    }
+   }
+  },
+  "pure_cu_over_stored": {
+   "engine_0deg": 2.6283575,
+   "stored_median": 3.915,
+   "ratio_to_median": 0.6713556832694764,
+   "ratio_to_min": 0.8677310993727303,
+   "ratio_to_max": 0.6212142519498937
+  },
+  "pure_ni_over_stored": null,
+  "ho_20deg": {
+   "grid": [
+    {
+     "cu_fraction": 0.2,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.6131175,
+      "se": 0.0017325048099981278
+     },
+     "y_ni": {
+      "value": 1.9770699999999999,
+      "se": 0.002876282322721474
+     },
+     "y_total": {
+      "value": 2.5901875,
+      "se": 0.004325140411978929
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.2367067455891301,
+      "se": 0.000358987470929198
+     },
+     "additive_expectation": 2.5935875,
+     "total_over_additive": 0.9986890744962335,
+     "preferential_factor_cu_over_ni": 1.2404568376435838
+    },
+    {
+     "cu_fraction": 0.24,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.735585,
+      "se": 0.0013818134220412468
+     },
+     "y_ni": {
+      "value": 1.87751,
+      "se": 0.004009715284988039
+     },
+     "y_total": {
+      "value": 2.613095,
+      "se": 0.004275380100061289
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.28150087883196745,
+      "se": 0.0005671747137930605
+     },
+     "additive_expectation": 2.6170014999999998,
+     "total_over_additive": 0.9985072610772291,
+     "preferential_factor_cu_over_ni": 1.2406605024740216
+    },
+    {
+     "cu_fraction": 0.268,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.8208825,
+      "se": 0.0011739560965669331
+     },
+     "y_ni": {
+      "value": 1.8098075,
+      "se": 0.0032179635770675044
+     },
+     "y_total": {
+      "value": 2.63069,
+      "se": 0.004248201580276756
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.312041232380119,
+      "se": 0.00020957285936955132
+     },
+     "additive_expectation": 2.6333913,
+     "total_over_additive": 0.9989742124537284,
+     "preferential_factor_cu_over_ni": 1.2388676160227396
+    },
+    {
+     "cu_fraction": 0.28,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.857235,
+      "se": 0.0016713741851143583
+     },
+     "y_ni": {
+      "value": 1.780775,
+      "se": 0.0035541091241922448
+     },
+     "y_total": {
+      "value": 2.63801,
+      "se": 0.003405652164661916
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.3249564180346805,
+      "se": 0.0007044654934796297
+     },
+     "additive_expectation": 2.6404155,
+     "total_over_additive": 0.9990889691414098,
+     "preferential_factor_cu_over_ni": 1.237842271723587
+    },
+    {
+     "cu_fraction": 0.32,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.9776275,
+      "se": 0.0008650854967381318
+     },
+     "y_ni": {
+      "value": 1.680065,
+      "se": 0.003078983869179354
+     },
+     "y_total": {
+      "value": 2.6576925,
+      "se": 0.0035620251145474335
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.36784938160078834,
+      "se": 0.00037874179195576544
+     },
+     "additive_expectation": 2.6638295,
+     "total_over_additive": 0.99769617387299,
+     "preferential_factor_cu_over_ni": 1.236534561162812
+    },
+    {
+     "cu_fraction": 0.34,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.0404225,
+      "se": 0.0015777007267962467
+     },
+     "y_ni": {
+      "value": 1.6296775000000001,
+      "se": 0.0035743236539705053
+     },
+     "y_total": {
+      "value": 2.6700999999999997,
+      "se": 0.004175286417321115
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.38965810742046647,
+      "se": 0.0005750927794458821
+     },
+     "additive_expectation": 2.6755364999999998,
+     "total_over_additive": 0.9979680710765859,
+     "preferential_factor_cu_over_ni": 1.239290397315167
+    },
+    {
+     "cu_fraction": 0.36,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.102065,
+      "se": 0.0015678302416609784
+     },
+     "y_ni": {
+      "value": 1.579745,
+      "se": 0.002471630703267285
+     },
+     "y_total": {
+      "value": 2.68181,
+      "se": 0.003902964685125117
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.4109409397794349,
+      "se": 0.00019393675713650984
+     },
+     "additive_expectation": 2.6872435,
+     "total_over_additive": 0.9979780395784751,
+     "preferential_factor_cu_over_ni": 1.2402170392478957
+    },
+    {
+     "cu_fraction": 0.384,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.1750625000000001,
+      "se": 0.0017662643016642199
+     },
+     "y_ni": {
+      "value": 1.5230375,
+      "se": 0.0020868491999503397
+     },
+     "y_total": {
+      "value": 2.6981,
+      "se": 0.0036610403803654457
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.4355147044206005,
+      "se": 0.0002232633447493106
+     },
+     "additive_expectation": 2.7012919,
+     "total_over_additive": 0.9988183801980082,
+     "preferential_factor_cu_over_ni": 1.2376557331976397
+    },
+    {
+     "cu_fraction": 0.4,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.22412,
+      "se": 0.0018100230201114394
+     },
+     "y_ni": {
+      "value": 1.4812325,
+      "se": 0.0023438087770407305
+     },
+     "y_total": {
+      "value": 2.7053525,
+      "se": 0.0037496897093848578
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.4524809571263425,
+      "se": 0.0003303427568088109
+     },
+     "additive_expectation": 2.7106575,
+     "total_over_additive": 0.9980429102533241,
+     "preferential_factor_cu_over_ni": 1.2396298352891932
+    }
+   ],
+   "required_surface_fraction_equal_flux": 0.3348111526851687,
+   "mechanism_test_equal_binding_3.49_eV": {
+    "equal_binding_cu_0.268": {
+     "cu_fraction": 0.268,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.8202975,
+      "se": 0.001194322506695742
+     },
+     "y_ni": {
+      "value": 2.26389,
+      "se": 0.002871196034175701
+     },
+     "y_total": {
+      "value": 3.0841875,
+      "se": 0.004028402030168548
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.26596862853466796,
+      "se": 8.679794173156881e-05
+     }
+    },
+    "equal_binding_cu_0.384": {
+     "cu_fraction": 0.384,
+     "tilt_deg": 20.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.1757975,
+      "se": 0.0030229686705841676
+     },
+     "y_ni": {
+      "value": 1.9000425,
+      "se": 0.0024833759783810675
+     },
+     "y_total": {
+      "value": 3.0758400000000004,
+      "se": 0.005077909674922092
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.38226731301168415,
+      "se": 0.00044890453823321816
+     }
+    }
+   }
+  },
+  "betz_0deg": {
+   "grid": [
+    {
+     "cu_fraction": 0.2,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.52369,
+      "se": 0.001319677991026598
+     },
+     "y_ni": {
+      "value": 1.6713049999999998,
+      "se": 0.002708383589277309
+     },
+     "y_total": {
+      "value": 2.194995,
+      "se": 0.0037276455929536735
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.23858316653115108,
+      "se": 0.00033778537630366824
+     },
+     "additive_expectation": 2.1959035,
+     "total_over_additive": 0.9995862750799386,
+     "preferential_factor_cu_over_ni": 1.2533678771977588
+    },
+    {
+     "cu_fraction": 0.24,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.6274875,
+      "se": 0.0008220540837844194
+     },
+     "y_ni": {
+      "value": 1.5892325,
+      "se": 0.0036332867925153857
+     },
+     "y_total": {
+      "value": 2.21672,
+      "se": 0.004137769125184915
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.2830718178952908,
+      "se": 0.0003903079298268808
+     },
+     "additive_expectation": 2.2175262,
+     "total_over_additive": 0.9996364417250178,
+     "preferential_factor_cu_over_ni": 1.2503165836339238
+    },
+    {
+     "cu_fraction": 0.268,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.6999774999999999,
+      "se": 0.001601090123426332
+     },
+     "y_ni": {
+      "value": 1.53012,
+      "se": 0.0021039288644501886
+     },
+     "y_total": {
+      "value": 2.2300975,
+      "se": 0.003692987442437428
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.31387656116386503,
+      "se": 0.00020652477332760175
+     },
+     "additive_expectation": 2.2326620900000003,
+     "total_over_additive": 0.9988513308791835,
+     "preferential_factor_cu_over_ni": 1.2494960155305348
+    },
+    {
+     "cu_fraction": 0.28,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.73204,
+      "se": 0.001210241022827005
+     },
+     "y_ni": {
+      "value": 1.50352,
+      "se": 0.0016381137526639412
+     },
+     "y_total": {
+      "value": 2.23556,
+      "se": 0.002592405575265387
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.32745229869921216,
+      "se": 0.000276902860913856
+     },
+     "additive_expectation": 2.2391489,
+     "total_over_additive": 0.9983972035088868,
+     "preferential_factor_cu_over_ni": 1.251987716444458
+    },
+    {
+     "cu_fraction": 0.32,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.838345,
+      "se": 0.0019255886545850383
+     },
+     "y_ni": {
+      "value": 1.41907,
+      "se": 0.00153271545521884
+     },
+     "y_total": {
+      "value": 2.257415,
+      "se": 0.003058601259835396
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.37137278829260534,
+      "se": 0.00044642900525117604
+     },
+     "additive_expectation": 2.2607716,
+     "total_over_additive": 0.9985152856661859,
+     "preferential_factor_cu_over_ni": 1.2553877715687032
+    },
+    {
+     "cu_fraction": 0.34,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.8923875,
+      "se": 0.0016384513775717178
+     },
+     "y_ni": {
+      "value": 1.3781625,
+      "se": 0.002066903380260755
+     },
+     "y_total": {
+      "value": 2.27055,
+      "se": 0.003222025760294262
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.39302683547340617,
+      "se": 0.00040234792467816634
+     },
+     "additive_expectation": 2.27158295,
+     "total_over_additive": 0.9995452730440683,
+     "preferential_factor_cu_over_ni": 1.2569501910312162
+    },
+    {
+     "cu_fraction": 0.36,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.9463025,
+      "se": 0.0018353036760529113
+     },
+     "y_ni": {
+      "value": 1.33476,
+      "se": 0.0016075809984777531
+     },
+     "y_total": {
+      "value": 2.2810625,
+      "se": 0.0031998968082320054
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.414850901927009,
+      "se": 0.0003273734040158236
+     },
+     "additive_expectation": 2.2823943,
+     "total_over_additive": 0.9994164899553071,
+     "preferential_factor_cu_over_ni": 1.2603880514516135
+    },
+    {
+     "cu_fraction": 0.384,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.006665,
+      "se": 0.0008792847472046166
+     },
+     "y_ni": {
+      "value": 1.2858175,
+      "se": 0.0019004971937188748
+     },
+     "y_total": {
+      "value": 2.2924825,
+      "se": 0.0023438443314349982
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.43911629586157896,
+      "se": 0.00035644408645713597
+     },
+     "additive_expectation": 2.29536792,
+     "total_over_additive": 0.9987429379077496,
+     "preferential_factor_cu_over_ni": 1.255900186068396
+    },
+    {
+     "cu_fraction": 0.4,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.047075,
+      "se": 0.0012664221255174013
+     },
+     "y_ni": {
+      "value": 1.25091,
+      "se": 0.0019458545680497389
+     },
+     "y_total": {
+      "value": 2.297985,
+      "se": 0.002480404872865203
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.45564965396170454,
+      "se": 0.00045044589168631187
+     },
+     "additive_expectation": 2.304017,
+     "total_over_additive": 0.9973819637615522,
+     "preferential_factor_cu_over_ni": 1.2555759407151592
+    }
+   ],
+   "required_surface_fraction_equal_flux": 0.33166268051599185,
+   "mechanism_test_equal_binding_3.49_eV": {
+    "equal_binding_cu_0.268": {
+     "cu_fraction": 0.268,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 0.7033324999999999,
+      "se": 0.0017839627004695628
+     },
+     "y_ni": {
+      "value": 1.93536,
+      "se": 0.0010498333201037137
+     },
+     "y_total": {
+      "value": 2.6386925,
+      "se": 0.002752248701819375
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.26654462815033747,
+      "se": 0.0004055109116513273
+     }
+    },
+    "equal_binding_cu_0.384": {
+     "cu_fraction": 0.384,
+     "tilt_deg": 0.0,
+     "energy_ev": 2000.0,
+     "seeds": 4,
+     "ions_per_seed": 100000,
+     "y_cu": {
+      "value": 1.0070350000000001,
+      "se": 0.0005899788131789243
+     },
+     "y_ni": {
+      "value": 1.6285124999999998,
+      "se": 0.0016660200829121648
+     },
+     "y_total": {
+      "value": 2.6355475,
+      "se": 0.0020360557253343873
+     },
+     "cu_fraction_of_flux": {
+      "value": 0.3820973912588672,
+      "se": 0.0002064822844563216
+     }
+    }
+   }
+  },
+  "dynamic_reference": {
+   "ideal-mixing/ar-retained": {
+    "yield": 1.8391275495068138,
+    "first_slab_cu": 0.3376962753086834
+   },
+   "ideal-mixing/ar-re-emitted": {
+    "yield": 2.6648753822231157,
+    "first_slab_cu": 0.33631431889059343
+   },
+   "fixed-number-density/ar-retained": {
+    "yield": 2.2476523483637436,
+    "first_slab_cu": 0.33797056322047064
+   },
+   "fixed-number-density/ar-re-emitted": {
+    "yield": 2.6554140745442645,
+    "first_slab_cu": 0.33665166173142674
+   }
+  },
+  "data_consistency": {
+   "betz_normal_incidence_at_ho_bulk": {
+    "value": 3.571551724137931,
+    "bracket_at_percent": [
+     36.1,
+     41.9
+    ],
+    "bracket_yields": [
+     3.52,
+     3.65
+    ]
+   },
+   "ho_yield_flux_per_sample_area": 3.6195836512895645,
+   "ho_yield_flux_per_beam_normal_area": 3.8518804673195572,
+   "ho_over_betz_flux_per_sample_area": 1.0134484758619104,
+   "ho_over_betz_flux_per_beam_normal_area": 1.078489341561836,
+   "cos20": 0.9396926207859084,
+   "engine_tilt_20_over_0_pure_cu": 1.1649357060445544,
+   "ho_alloy_number_density_cm3": 8.875848605770933e+22,
+   "ho_alloy_mass_density_g_cm3": 8.92528082735468
+  }
  }
 }

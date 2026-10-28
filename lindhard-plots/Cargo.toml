@@ -1,6 +1,6 @@
 [package]
 name = "lindhard-plots"
-description = "Renders the committed validation figures in docs/img from committed results (not published)"
+description = "Renders the committed validation figures in docs/img and the stopping-residual report in the book from committed results (not published)"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,10 +9,17 @@ rust-version.workspace = true
 # A docs-generation tool for this repository only. It is never published, so
 # its plotting dependency stays out of every crate users install.
 publish = false
+# `cargo run -p lindhard-plots` keeps meaning the figures.
+default-run = "lindhard-plots"
 
 [[bin]]
 name = "lindhard-plots"
 path = "src/main.rs"
+doc = false
+
+[[bin]]
+name = "lindhard-stopping-report"
+path = "src/stopping_report_main.rs"
 doc = false
 
 [lints]
@@ -20,6 +27,7 @@ workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+lindhard = { workspace = true }
 # Pinned exactly: rizzma is a young crate with near-daily patch releases, and
 # its declared rust-version has moved between patch releases before (1.13.0
 # declared 1.96, 1.13.1 to 1.13.7 declare 1.85). An exact pin means a bump is
