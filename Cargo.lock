@@ -514,6 +514,7 @@ name = "lindhard-wasm"
 version = "0.0.1"
 dependencies = [
  "lindhard",
+ "lindhard-cli",
  "serde_json",
  "wasm-bindgen",
 ]

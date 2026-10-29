@@ -63,6 +63,8 @@ jobs:
         run: node --test lindhard-wasm/tests/node/parity.test.mjs lindhard-wasm/tests/node/session.test.mjs
         env:
           LINDHARD_WASM_PKG: ${{ runner.temp }}/lindhard-wasm-node
+      - name: simulator form model and worker protocol
+        run: node --test lindhard-wasm/tests/node/toml_model.test.mjs lindhard-wasm/tests/node/worker.test.mjs
       - name: build the browser package
         run: lindhard-wasm/build.sh web "$RUNNER_TEMP/lindhard-wasm-web"
       - name: report the size of the browser module

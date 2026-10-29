@@ -72,7 +72,12 @@ jobs:
         # is generated and git-ignored.
         run: |
           lindhard-wasm/build.sh web book/src/calculator/pkg
-          cp lindhard-wasm/web/index.html book/src/calculator/index.html
+          cp lindhard-wasm/web/index.html lindhard-wasm/web/simulator.html \
+            lindhard-wasm/web/simulator.js lindhard-wasm/web/worker.js \
+            lindhard-wasm/web/toml_model.js book/src/calculator/
+          wasm="book/src/calculator/pkg/lindhard_wasm_bg.wasm"
+          echo "lindhard_wasm_bg.wasm: $(stat -c %s "$wasm") bytes, $(gzip -9 -c "$wasm" | wc -c) bytes gzipped"
+          echo "simulator page scripts: $(cat lindhard-wasm/web/simulator.js lindhard-wasm/web/worker.js lindhard-wasm/web/toml_model.js | wc -c) bytes"
       - name: mdbook build
         run: mdbook build book
       - name: API documentation

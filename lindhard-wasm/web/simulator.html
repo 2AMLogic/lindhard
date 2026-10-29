@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lindhard simulator</title>
+<style>
+  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --panel: #f4f5f8; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --panel: #22242a; } }
+  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 72rem; margin: 1rem auto; padding: 0 1rem; }
+  nav { display: flex; gap: .5rem; margin: 1rem 0; }
+  nav button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
+  fieldset { border: 1px solid var(--line); border-radius: .4rem; margin: 0 0 1rem; padding: .75rem; background: var(--panel); }
+  legend { font-weight: 600; padding: 0 .3rem; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; align-items: end; }
+  label { display: flex; flex-direction: column; font-size: .85rem; gap: .2rem; }
+  label.inline { flex-direction: row; align-items: center; gap: .4rem; }
+  input, select, button, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .25rem; padding: .3rem .4rem; min-width: 0; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .layer { border: 1px solid var(--line); border-radius: .3rem; padding: .6rem; margin: 0 0 .6rem; background: var(--bg); }
+  .layer h3 { margin: 0 0 .4rem; font-size: 1rem; }
+  .elements { width: 100%; border-collapse: collapse; margin: .5rem 0; font-size: .9rem; }
+  .elements th, .elements td { text-align: left; padding: .15rem .3rem .15rem 0; }
+  .elements input { width: 100%; }
+  .flag { color: var(--bad); font-weight: 600; }
+  .note, small { color: var(--muted); }
+  .tools { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; }
+  #problems { margin: 0; padding-left: 1.2rem; }
+  #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 ui-monospace, monospace; box-sizing: border-box; }
+  #status { min-height: 1.4rem; }
+  #status.error { color: var(--bad); }
+  progress { width: 100%; }
+  table.counters { border-collapse: collapse; margin: .6rem 0; }
+  table.counters th, table.counters td { text-align: left; padding: .2rem 1.2rem .2rem 0; }
+  [hidden] { display: none !important; }
+  @media (max-width: 40rem) { body { font-size: 15px; } .row { grid-template-columns: 1fr 1fr; } }
+</style>
+</head>
+<body>
+<h1>lindhard simulator</h1>
+<p>Set up a beam and a layered amorphous target, then run it. The
+<a href="https://github.com/2AMLogic/lindhard">lindhard</a> binary-collision engine
+runs in your browser (WebAssembly, in a Web Worker); nothing is sent to a server.
+The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
+
+<nav role="tablist" aria-label="View">
+  <button role="tab" id="tab-setup" aria-selected="true" aria-controls="setup">Setup</button>
+  <button role="tab" id="tab-run" aria-selected="false" aria-controls="run">Run</button>
+</nav>
+
+<p id="status" role="status"></p>
+
+<section id="setup" role="tabpanel" aria-labelledby="tab-setup">
+  <fieldset>
+    <legend>Ion</legend>
+    <div class="row">
+      <label>Element <input id="ion" list="symbols" size="3" required autocomplete="off"></label>
+      <label>Mass (u) <input id="mass" type="number" min="0" step="any"></label>
+      <label>Energy <input id="energy" type="number" min="0" step="any" required></label>
+      <label>Unit <select id="energy-unit"><option>eV</option><option selected>keV</option><option>MeV</option></select></label>
+      <label>Tilt from the normal (°) <input id="tilt" type="number" min="0" max="89.9" step="any" required></label>
+    </div>
+    <p class="note" id="mass-note"></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Target layers (surface first)</legend>
+    <div id="layers"></div>
+    <div class="tools">
+      <button type="button" id="add-layer">Add layer</button>
+      <label class="inline">Preset <select id="preset"></select></label>
+      <button type="button" id="add-preset">Add preset layer</button>
+    </div>
+    <p class="note">Blank energy fields use the element table's value, shown as the placeholder;
+    a field with no table value must be filled in. Preset densities cite the sources in
+    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md">the data provenance table</a>.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Calculation</legend>
+    <div class="row">
+      <label>Mode
+        <select id="mode">
+          <option value="quick">Ion distribution, quick damage (NRT estimate)</option>
+          <option value="full">Full cascades (recoils followed)</option>
+        </select></label>
+      <label>Ions <input id="ions" type="number" min="1" step="1" required></label>
+      <label>Seed <input id="seed" type="number" min="0" step="1" required></label>
+      <label>Depth bin (nm) <input id="bin" type="number" min="0" step="any" required></label>
+      <label>Depth bins <input id="bins" type="number" min="1" step="1" required></label>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Physics</legend>
+    <div class="row">
+      <label>Interatomic potential <select id="potential"></select></label>
+      <label>Electronic stopping <select id="stopping"></select></label>
+      <label>Primary cutoff (eV) <input id="pcut" type="number" min="0" step="any" required></label>
+      <label>Recoil cutoff (eV) <input id="rcut" type="number" min="0" step="any" required></label>
+    </div>
+    <p class="note" id="model-cite"></p>
+    <p class="note">The recoil cutoff must stay below the smallest surface binding energy, or
+    sputtered atoms are lost.</p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Input file</legend>
+    <p class="note">This is the lindhard input the setup produces. The same file runs unchanged
+    with <code>lindhard run file.toml --out out/</code> (lindhard-cli) and gives the same report for the same seed and ion count.</p>
+    <div class="tools">
+      <button type="button" id="download">Download</button>
+      <label>Load <input id="load" type="file" accept=".toml,text/plain"></label>
+    </div>
+    <textarea id="toml" readonly aria-label="Generated lindhard input file"></textarea>
+  </fieldset>
+
+  <div id="problems-box" role="alert" hidden>
+    <strong class="flag">Fix before running:</strong>
+    <ul id="problems"></ul>
+  </div>
+</section>
+
+<section id="run" role="tabpanel" aria-labelledby="tab-run" hidden>
+  <div class="tools">
+    <button type="button" id="btn-run">Run</button>
+    <button type="button" id="btn-pause" disabled>Pause</button>
+    <button type="button" id="btn-resume" disabled>Resume</button>
+    <button type="button" id="btn-stop" disabled>Stop</button>
+  </div>
+  <label>Progress <progress id="progress" max="1" value="0"></progress></label>
+  <p id="progress-text">Not started.</p>
+  <table class="counters" id="counters">
+    <tr><th>Ions done</th><td id="c-done">–</td></tr>
+    <tr><th><i>R</i><sub>p</sub></th><td id="c-rp">–</td></tr>
+    <tr><th>Δ<i>R</i><sub>p</sub></th><td id="c-drp">–</td></tr>
+    <tr><th>Stopped in the target</th><td id="c-stopped">–</td></tr>
+  </table>
+  <p id="warnings" class="note"></p>
+</section>
+
+<p><small>Amorphous, static layered targets; the models in use are listed under Physics and
+written into the input file. Results carry statistical error (shown as one standard error);
+the engine's validation status and its limits are in
+<a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md">docs/validation.md</a>.</small></p>
+
+<datalist id="symbols"></datalist>
+<script type="module" src="simulator.js"></script>
+</body>
+</html>
