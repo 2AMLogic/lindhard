@@ -2,8 +2,8 @@
 
 srim.org publishes, for each ion–target system, a plot of the stopping powers
 measured by the papers in its bibliography. This directory holds those
-measured points for **hydrogen and helium ions** (H, D and He into 132
-targets, 7,241 points, 1.1 keV/amu to 65 MeV/amu), read back from the plots
+measured points for **hydrogen and helium ions** (H, D and He, 132 ion–target systems
+covering 73 target elements; 7,241 points, 1.1 keV/amu to 65 MeV/amu), read back from the plots
 by [`../../digitize/srim_org/`](../../digitize/srim_org/README.md), under the
 rules in [`CONTRIBUTING.md`](../../../../CONTRIBUTING.md) ("The srim.org
 experimental-data compilation") and origin 4 of

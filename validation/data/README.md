@@ -39,7 +39,7 @@ derived from it, or any other code's output, however well known
   (50 to 600 keV) from Table I of Bader et al., Phys. Rev. 103, 32 (1956),
   in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
   curve values; no uncertainty stated.
-- **Stopping, H, D and He in 132 elements (srim.org compilation):**
+- **Stopping, H, D and He, 132 ion–target systems (73 target elements) (srim.org compilation):**
   `stopping/compilation/srim_org_h_he.csv`, 7,241 measured points digitized
   from the per-system plots of the srim.org compilation, each with candidate
   citation keys, an attribution grade and digitization uncertainties, plus
