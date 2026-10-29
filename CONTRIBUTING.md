@@ -49,6 +49,28 @@ committed as reference data. In particular, **no SRIM stopping table, and
 nothing interpolated or fitted from one, may enter this tree**, and that
 includes tables passed along through other projects.
 
+**The srim.org experimental-data compilation** (operator ruling, 2026-10-28).
+srim.org publishes plots of measured stopping powers (about 22,000 points)
+and a bibliography of the roughly 2,300 experimental papers behind them
+(`PlotCit.htm` and its per-system citation files). The measured points and the
+citations are facts reported by those papers, not SRIM output. They may enter
+the tree under these conditions:
+
+- Each point is cited to its **original paper** (the citation the plot's
+  legend names) and flagged as *digitized from the srim.org compilation plot*.
+  It carries a digitization uncertainty, and it is replaced by the paper's own
+  value once the paper has been read.
+- **Never** SRIM's fitted curves (the solid line on every plot), its
+  Experiment/Theory ratio panels, its stopping tables, its code, or its page
+  text and images. A digitizer must leave the curve out, not subtract it.
+- The site's images, PDFs and pages are not committed. Only the digitized
+  points and the bibliographic facts are.
+- This data is released under CC0 (`validation/data/stopping/compilation/LICENSE`),
+  separate from the MIT code. Every point keeps its citation regardless.
+
+The rest of this tier is unchanged. In particular, a stopping value computed by
+SRIM is still never reference data.
+
 **Mixed sources.** Some published reports bundle a program listing with the
 paper. The listing is Tier C even though the report is citable. Exclude the
 listing pages before any OCR or text extraction, not after.
