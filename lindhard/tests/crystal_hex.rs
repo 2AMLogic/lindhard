@@ -290,8 +290,11 @@ fn number_density_report_states_the_sources() {
 ///   check; see `docs/data-provenance.md`.
 ///
 /// Issue #179 asks for agreement within the cited precision. 6H and GaN meet
-/// it with the sources that could be opened; 4H is in
-/// [`number_density_discrepancies_are_recorded_gaps`], which does not claim it.
+/// it with the sources that could be opened; 4H meets it against the Ioffe
+/// archive value only in the sense of
+/// [`number_density_4h_agrees_within_measurement_spread`] (provisional, spread
+/// as uncertainty), and the printed-precision miss is pinned in
+/// [`number_density_discrepancies_are_recorded_gaps`].
 #[test]
 fn number_density_agrees_with_the_material_module() {
     for rel in density_differences(
@@ -308,9 +311,10 @@ fn number_density_agrees_with_the_material_module() {
 
 /// **Not an agreement test.** Regression pin on a known, unresolved
 /// disagreement between sources, so that a change to the cell or the density
-/// is noticed. The acceptance criterion of #179 (density within the cited
-/// precision) is **not met** for 4H-SiC, and the test must not be read as
-/// meeting it. Neither constant was adjusted to hide the offset; the gap is
+/// is noticed. Against the Ioffe value the printed-precision criterion is
+/// **not met** for 4H-SiC, and this test must not be read as meeting it; the
+/// ruled, spread-based agreement is
+/// [`number_density_4h_agrees_within_measurement_spread`]. Neither constant was adjusted to hide the offset; the gap is
 /// listed under Open questions in `docs/data-provenance.md`.
 ///
 /// * 4H-SiC: against the archive's 3.211 g/cm³ (half a unit: 1.6e-4) the
@@ -331,6 +335,68 @@ fn number_density_discrepancies_are_recorded_gaps() {
         [14, 6],
     ) {
         assert!((rel - 7.52e-4).abs() < 5e-6, "4H pinned difference {rel:e}");
+    }
+}
+
+/// The three opened primary measured 4H-SiC bulk densities, g/cm³: Lundqvist
+/// 1948 (3.201 ± 0.005), ORNL/TM-2023/3059 wafer A (3.17) and wafer B (3.21).
+/// See [`opened_measured_sic_densities_are_recorded_gaps`] for the sources.
+const MEASURED_4H_DENSITIES_G_CM3: [f64; 3] = [3.201, 3.17, 3.21];
+
+/// 4H-SiC density agreement, with the measurement spread as the stated
+/// uncertainty (operator ruling on #179, 2026-10-28, option 3). **Provisional**,
+/// not a validation: the three measurements differ in material quality and
+/// method, and their spread is taken as the uncertainty by ruling, not shown to
+/// be one.
+///
+/// Derivation, fixed before the cell was compared:
+///
+/// * reference density ρ̄ = mean of the three measured values
+///   = 9.581 / 3 = 3.19367 g/cm³;
+/// * uncertainty = half the range of the three values
+///   = (3.21 − 3.17) / 2 = 0.020 g/cm³;
+/// * relative tolerance = 0.020 / ρ̄ = 6.26e-3.
+///
+/// The Bauer 4H cell implies 3.21342 g/cm³, +6.18e-3 from ρ̄, inside the
+/// tolerance by 7.8e-5 (1.2 %). The margin is thin and depends on the choice of
+/// reference: against the midrange 3.19 the cell would sit at +7.3e-3, outside
+/// the same half-range. The reference (mean) and the half-range were chosen as
+/// the plain central value and spread of three numbers; the tolerance is
+/// computed here from the three values, not set from the result. The 6H-SiC and
+/// GaN tolerances and all lattice constants are unchanged.
+#[test]
+fn number_density_4h_agrees_within_measurement_spread() {
+    let v = MEASURED_4H_DENSITIES_G_CM3;
+    let mean = v.iter().sum::<f64>() / v.len() as f64;
+    let min = v.iter().cloned().fold(f64::INFINITY, f64::min);
+    let max = v.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+    let half_range = (max - min) / 2.0;
+    let tolerance = half_range / mean;
+    let lattice = Lattice::silicon_carbide_4h();
+    let d = density_differences(&lattice, mean, [14, 6]);
+    println!(
+        "4H-SiC: measured densities {v:?} g/cm3 (Lundqvist 1948 3.201 +-0.005; ORNL/TM-2023/3059 \
+         wafers A 3.17, B 3.21; temperatures not stated); mean {mean:.5}, half-range \
+         {half_range:.4} g/cm3, relative tolerance {tolerance:.3e}; cell Bauer 2001 via Mehl 2017 \
+         implies {:.5} g/cm3; lattice/material - 1 = {:+.3e} (species {:+.3e}, {:+.3e}); provisional",
+        mean * (1.0 + d[0]),
+        d[0],
+        d[1],
+        d[2]
+    );
+    assert!(
+        (d[0] - d[1]).abs() < 1e-12 && (d[0] - d[2]).abs() < 1e-12,
+        "species differences equal the total"
+    );
+    assert!(
+        (tolerance - 6.26e-3).abs() < 1e-5,
+        "tolerance {tolerance:e}"
+    );
+    for rel in d {
+        assert!(
+            rel.abs() < tolerance,
+            "4H relative difference {rel:e} vs {tolerance:e}"
+        );
     }
 }
 
