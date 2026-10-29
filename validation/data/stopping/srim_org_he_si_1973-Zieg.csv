@@ -1,0 +1,18 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-he-si-1973-zieg
+# description: He in Si, 14 points of one paper (Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+2,4.002603,Si,400260.3,72.2428,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,400260.3,71.5044,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,495882.5,72.2428,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,614319.5,71.1352,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,614319.5,70.3968,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,802922.2,67.4433,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,1152510,60.6132,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,1248892,58.7673,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,1300085,55.9983,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,2281164,43.815,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,2439066,43.0766,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,2505269,41.969,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,2607936,41.2306,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation
+2,4.002603,Si,2751389,40.6769,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)",1973-Zieg,digitized-compilation

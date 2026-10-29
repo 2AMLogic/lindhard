@@ -1,0 +1,19 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-si-1977-cemb
+# description: H in Si, 15 points of one paper (Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,Si,79968.9,23.0486,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,100405.6,21.0585,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,104521.5,22.0879,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,110266.1,20.6468,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,129485.4,20.0292,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,146064.1,18.0391,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,160415.5,17.4215,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,162572.3,17.0097,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,173829.7,19.0684,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,190912.3,15.0196,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,215352,12.9609,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,230257.8,13.9902,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,249517.3,15.4314,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,249517.3,13.5785,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation
+1,1.007825,Si,270389.4,15.0196,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)",1977-Cemb,digitized-compilation

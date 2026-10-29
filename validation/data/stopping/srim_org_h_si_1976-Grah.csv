@@ -1,0 +1,15 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-si-1976-grah
+# description: H in Si, 11 points of one paper (Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,Si,2272.041,3.4907,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,5072.786,6.0984,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,10452.15,9.461,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,15002.48,10.6963,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,19348.22,12.4119,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,24620.16,12.755,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,28910.47,14.1961,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,34869.74,15.7745,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,41499.21,17.4901,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,48730.35,18.9312,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
+1,1.007825,Si,57223.3,20.5095,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)",1976-Grah,digitized-compilation
