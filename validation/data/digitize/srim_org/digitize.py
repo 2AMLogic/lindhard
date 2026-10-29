@@ -167,6 +167,11 @@ HE_ANCHOR_DX = 7.0
 # The title block ("Ion = ...", "Target = ...") is drawn in pure blue over
 # the top of the panel.
 TITLE_PX = 60
+# Pairing the Experiment/Theory panel with the top panel: a lower point is the
+# same as a top point of its colour within 1.5 px in x and within this many
+# top-panel pixels in stopping (about three times the scatter of ratio x
+# curve against a direct reading, 0.7-1.6 px on the plots checked).
+LOWER_PAIR_PX, LOWER_DEFAULT_PX = 3.0, 1.6
 # Below the title, the annotations ("Plotted are Ion Names", V_F, <I>) are
 # pure blue text in a fixed box at the top left; "He" in them reads as a marker.
 ANNOT_BLUE, ANNOT_BOX = (0, 0, 255), (300, 255)
@@ -284,6 +289,75 @@ def plot_totals(gif):
     return fix(m.group(1)), fix(m.group(2)), txt.strip()
 
 
+def lower_marks(r, x0, x1, z1, rows):
+    """Markers in the Experiment/Theory panel, found as in the top panel.
+    Excluded: its title block (blue, like one marker colour), the blue
+    annotation box, and the magenta
+    "5%"/"10%" labels at the right edge."""
+    import residual
+    y0, y1 = residual.PANEL_TOP, residual.PANEL_BOTTOM
+    if z1 == 1:
+        marks = find_stars(r, x0, x1, y0, y1)
+    else:
+        import symdetect
+        colours = {tuple(int(row["colour"][i:i + 2], 16) for i in (1, 3, 5)) for row in rows}
+        marks = [(hx, hy_ + 4, c, 0) for hx, hy_, c, _ in symdetect.find_H(r, x0, x1, y0, y1, colours)
+                 if not on_curve(r, hx, hy_ + 4, c)]
+    return [m for m in marks if m[1] > y0 + residual.TITLE_PX and m[0] < x1 - 30
+            and not (m[2] == ANNOT_BLUE and m[0] < ANNOT_BOX[0] and m[1] < y0 + ANNOT_BOX[1] - 24)
+            and not (m[2] == ANNOT_BLUE and m[0] < x0 + residual.TITLE_BOX[0] and m[1] < y0 + residual.TITLE_BOX[1])]
+
+
+def lower_points(r, x0, x1, y0, y1, cx, cy, anchor, lower, pts, rows, z1):
+    """Add the points seen only in the Experiment/Theory panel to pts, as
+    ratio x SRIM curve, and mark top points also seen there.
+
+    The curve is read off the top panel as an intermediate only. Points seen
+    in both panels measure how well ratio x curve reproduces a direct reading;
+    that scatter, per plot, is the uncertainty given to points seen only below."""
+    import residual
+    D = cx["x_decade_px"]
+    curve = residual.trace_curve(r, x0, x1, y0, y1)
+    to_e = lambda xf: 10 ** (cx["x_first_decade_log10"] + (xf - cx["x_first_decade_px"]) / D)
+    ypx = abs(cy["y_per_px"])
+
+    def curve_s(xf):
+        yy = residual.curve_at(curve, xf)
+        return None if yy is None else cy["y_per_px"] * yy + cy["y_at_px0"]
+
+    top = [{"x": p["px"][0] + anchor, "s": p["stopping_ev_cm2_per_1e15"], "colour": p["colour"]} for p in pts]
+    bottom = [{"x": m[0] + anchor, "ratio": residual.ratio(m[1]), "colour": "#%02X%02X%02X" % m[2], "m": m}
+              for m in lower]
+    pairs, extra = residual.merge(top, bottom, curve_s, tol_px=1.5,
+                                  tol_s=lambda s: max(0.01 * s, LOWER_PAIR_PX * ypx))
+    for p in pts:
+        p["panel"] = "top"
+    dpx = []
+    for i, j in pairs:
+        pts[i]["panel"] = "both"
+        pts[i]["lower_check_rel"] = round(bottom[j]["s"] / top[i]["s"] - 1, 4)
+        dpx.append((bottom[j]["s"] - top[i]["s"]) / ypx)
+    if len(dpx) >= 10:
+        m = sum(dpx) / len(dpx)
+        sd = (sum((v - m) ** 2 for v in dpx) / (len(dpx) - 1)) ** 0.5
+    else:
+        sd = LOWER_DEFAULT_PX
+    for j in extra:
+        b = bottom[j]
+        mx, my, c, q = b["m"]
+        e = to_e(b["x"])
+        col = b["colour"]
+        pts.append({"energy_kev_per_amu": round(e, 4 - int(math.floor(math.log10(e)))),
+                    "stopping_ev_cm2_per_1e15": round(b["s"], 4),
+                    "u_energy_rel": round(math.log(10) / D * 0.6, 4),
+                    "u_stopping": round(sd * ypx, 4),
+                    "colour": col, "px": [mx, my], "match": q,
+                    "label": label_letter(r, mx, my, c, x1) if z1 == 1 else "He",
+                    "panel": "lower", "ratio": round(b["ratio"], 4),
+                    "candidates": [row["key"] or "ref%d" % row["ref"] for row in rows if row["colour"] == col]})
+    return {"pairs": len(pairs), "lower_only": len(extra), "pair_sd_px": round(sd, 3)}
+
+
 def digitize(gif, pdf=None):
     """One per-pair stopping plot -> dict with calibration, legend and points."""
     import legocr, citpdf
@@ -313,6 +387,7 @@ def digitize(gif, pdf=None):
         anchor = HE_ANCHOR_DX
     stars = [s for s in marks if not (s[0] >= x1 - 205 and s[1] <= leg_bottom + 2)
              and not (s[2] == ANNOT_BLUE and s[0] < ANNOT_BOX[0] and s[1] < ANNOT_BOX[1])]
+    lower = lower_marks(r, x0, x1, z1, rows)
     D = cx["x_decade_px"]
     pts = []
     for (px, py, c, q) in stars:
@@ -326,6 +401,7 @@ def digitize(gif, pdf=None):
                     "colour": col, "px": [px, py], "match": q,
                     "label": label_letter(r, px, py, c, x1) if z1 == 1 else "He",
                     "candidates": [row["key"] or "ref%d" % row["ref"] for row in rows if row["colour"] == col]})
+    lower_stats = lower_points(r, x0, x1, y0, y1, cx, cy, anchor, lower, pts, rows, z1)
     counts = defaultdict(int)
     for p in pts:
         counts[p["colour"]] += 1
@@ -337,6 +413,7 @@ def digitize(gif, pdf=None):
     n_sets, n_pts, _ = plot_totals(gif)
     legend_sum = sum(row["total"] for row in rows)
     return {"plot": os.path.basename(gif), "frame": [x0, x1, y0, y1], **cx, **cy,
+            "lower_panel": lower_stats,
             "plot_data_sets": n_sets, "plot_points": n_pts, "legend_rows": len(rows), "legend_points": legend_sum,
             "legend_complete": n_sets == len(rows) and n_pts == legend_sum,
             "legend": rows, "count_check": check, "n_points": len(pts), "points": pts}

@@ -53,13 +53,29 @@ there is not redone.
    right of the asterisk centre (fitted on 1981-Sant, D→Si, 19 points at
    0.1 MeV steps, scatter 0.27 px) and 7.0 px right of the H's left stroke for
    `He` (1974-Bagl, 2 MeV, three plots).
-7. **Output.** Energy, stopping, half-pixel uncertainties, the candidate keys
-   for the point's colour and an attribution grade (see the data README).
+7. **Experiment/Theory panel** (`residual.py`). Under each plot the same
+   points are drawn divided by SRIM's curve, on a fixed scale (1.0 at row
+   786, 0.05 per 39.5 px). Stacks on top spread apart here by their
+   few-percent differences. The curve is traced in the top panel (a
+   least-jump path through the black runs of each column), each lower marker
+   becomes ratio × curve at its energy, and it is paired with a top marker of
+   its colour (within 1.5 px in x and 1 % or 3 px in stopping, then 4 % for
+   what is left on both sides, where markers on the curve blur its trace).
+   The panel's blue title block is skipped, as blue is also a marker colour.
+   A pair checks
+   the top reading (`lower_check_rel` in the JSON); a lower marker with no
+   partner is a point hidden on top and is added, flagged `panel=lower`,
+   with the pairs' scatter on that plot as its uncertainty. The curve itself
+   is never written out.
+8. **Output.** Energy, stopping, uncertainties, the candidate keys for the
+   point's colour and an attribution grade (see the data README).
 
 ## Limits
 
-- Stacked markers cover each other, so dense regions lose points; recall on
-  the complete-legend plots is 61 %. The count check per colour is the
-  guard against false points.
+- Stacked markers cover each other in both panels, so dense regions still
+  lose points; recall on the complete-legend plots is 84 % (61 % from the top panel
+  alone). Where a complete legend's colour count is exceeded, the excess
+  lower-only points nearest a top point are left out (`run_all.cap_lower`). The count check
+  per colour is the guard against false points.
 - Ions heavier than helium, compound targets (`SRIM/Compounds`) and the
   range plots are not handled yet.

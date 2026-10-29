@@ -40,11 +40,13 @@ derived from it, or any other code's output, however well known
   in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
   curve values; no uncertainty stated.
 - **Stopping, H, D and He, 132 ion–target systems (73 target elements) (srim.org compilation):**
-  `stopping/compilation/srim_org_h_he.csv`, 7,241 measured points digitized
+  `stopping/compilation/srim_org_h_he.csv`, 10,267 measured points digitized
   from the per-system plots of the srim.org compilation, each with candidate
   citation keys, an attribution grade and digitization uncertainties, plus
   `srim_org_bibliography.csv` (#486). CC0. Measured markers only, no SRIM
-  curve; about 61 % of listed points are recovered where markers stack.
+  curve stored; points hidden on top are recovered from the
+  Experiment/Theory panel and flagged, and about 84 % of listed points are
+  found.
   See [stopping/compilation/](stopping/compilation/README.md). Reference
   input only; not loaded by the stopping report yet.
 - **Optical ELF, Al, Cu, glassy C and Au:**

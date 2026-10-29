@@ -60,8 +60,12 @@ the tree under these conditions:
   legend names) and flagged as *digitized from the srim.org compilation plot*.
   It carries a digitization uncertainty, and it is replaced by the paper's own
   value once the paper has been read.
-- SRIM's own computed values are not measurements: leave out the fitted curve
-  on every plot and the Experiment/Theory panels, as for any SRIM table.
+- SRIM's own computed values are not measurements: the fitted curve on every
+  plot is never stored, as for any SRIM table. A digitizer may read the curve
+  and the Experiment/Theory panel under it only as an intermediate, to recover
+  a measured point hidden under other markers on top (its ratio times the
+  curve). Such a point is flagged as reconstructed from the ratio panel, and
+  no point is made from the curve alone (operator ruling, 2026-10-28, #486).
 - The site's history and commentary are welcome too, as facts restated in our
   own words with citations. The site's files (images, PDFs, page text) stay in
   the operator's archive rather than being copied into the tree.
