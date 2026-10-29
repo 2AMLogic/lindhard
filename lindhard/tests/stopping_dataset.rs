@@ -406,3 +406,91 @@ fn loads_from_file() {
         Err(StoppingError::InvalidTable(_))
     ));
 }
+
+const ORIGIN_COLUMNS: &str = "ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin\n";
+
+#[test]
+fn loads_the_optional_citation_key_and_origin_pair() {
+    use lindhard::ion::stopping::dataset::Origin;
+    let rows = "1,1.007825,H,1.0e4,3.0,0.1,synthetic,made-up,2000-Test,digitized-compilation\n";
+    let ds = StoppingDataset::from_csv_str(&format!("{HEADER}{ORIGIN_COLUMNS}{rows}")).unwrap();
+    let p = &ds.points()[0];
+    assert_eq!(p.citation_key(), Some("2000-Test"));
+    assert_eq!(p.origin(), Some(Origin::DigitizedCompilation));
+    // An 8-column file loads unchanged, with neither value.
+    let plain = format!("{HEADER}{COLUMNS}5,,Si,1.0e4,12.0,0.1,synthetic,made-up\n");
+    let p = &StoppingDataset::from_csv_str(&plain).unwrap().points()[0].clone();
+    assert_eq!((p.citation_key(), p.origin()), (None, None));
+}
+
+#[test]
+fn a_lone_extra_column_is_an_error_naming_the_line() {
+    let cols = format!("{}{}", COLUMNS.trim_end(), ",citation_key\n");
+    let (line, reason) = reject(HEADER, &cols, "5,,Si,1e4,12,0.1,synthetic,made-up,k\n");
+    assert_eq!(line, 4);
+    assert!(reason.contains("unexpected extra column"), "{reason}");
+}
+
+#[test]
+fn rows_of_the_wrong_width_for_the_origin_columns_are_rejected() {
+    let (line, reason) = reject(
+        HEADER,
+        ORIGIN_COLUMNS,
+        "5,,Si,1e4,12,0.1,synthetic,made-up\n",
+    );
+    assert_eq!(line, 5);
+    assert!(reason.contains("expected 10 fields"), "{reason}");
+}
+
+#[test]
+fn an_unknown_origin_or_empty_key_is_rejected_with_its_line() {
+    let (line, reason) = reject(
+        HEADER,
+        ORIGIN_COLUMNS,
+        "5,,Si,1e4,12,0.1,synthetic,made-up,k,table\n",
+    );
+    assert_eq!(line, 5);
+    assert!(reason.contains("unknown origin"), "{reason}");
+    let (line, reason) = reject(
+        HEADER,
+        ORIGIN_COLUMNS,
+        "5,,Si,1e4,12,0.1,synthetic,made-up,,digitized-compilation\n",
+    );
+    assert_eq!(line, 5);
+    assert!(reason.contains("empty citation_key"), "{reason}");
+}
+
+/// The converted compilation (`validation/data/digitize/srim_org/convert_to_loader.py`)
+/// loads, with one point per source row.
+#[test]
+fn the_converted_compilation_loads() {
+    use lindhard::ion::stopping::dataset::Origin;
+    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("validation/data/stopping/compilation");
+    let source = std::fs::read_to_string(dir.join("srim_org_h_he.csv")).unwrap();
+    let ds = StoppingDataset::from_csv_file(dir.join("srim_org_h_he_loader.csv")).unwrap();
+    assert_eq!(ds.points().len(), source.lines().count() - 1);
+    assert_eq!(ds.points().len(), 7241);
+    assert!(ds
+        .points()
+        .iter()
+        .all(|p| p.origin() == Some(Origin::DigitizedCompilation)));
+    // First source row: H on H, 9.8301 keV/amu, 3.2318, sigma 0.0087.
+    let p = &ds.points()[0];
+    assert!((p.ion().mass_amu() - 1.007825).abs() < 1e-9);
+    assert!((p.energy_ev() - 9.8301 * 1.007825 * 1000.0).abs() < 1e-2);
+    assert_eq!(p.s_e_ev_1e15_cm2(), 3.2318);
+    assert_eq!(p.sigma_ev_1e15_cm2(), 0.0087);
+    assert_eq!(p.citation_key(), Some("1953-Phil"));
+    // A deuteron has mass 2.014102, and a multi-key row keeps every key.
+    assert!(ds
+        .points()
+        .iter()
+        .any(|p| p.ion().z() == 1 && (p.ion().mass_amu() - 2.014102).abs() < 1e-9));
+    assert!(ds
+        .points()
+        .iter()
+        .any(|p| p.citation_key().is_some_and(|k| k.contains('|'))));
+}
