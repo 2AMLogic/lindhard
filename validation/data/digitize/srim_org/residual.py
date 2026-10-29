@@ -16,7 +16,9 @@ ONE_ROW, ROWS_PER_005 = 786, 39.5
 # Below the panel's top edge, the title block and "STOP-2011" (as above).
 TITLE_PX = 60
 # The blue "Ion = ... / Target = ..." title reaches lower than that at the
-# left, in the same blue as one marker colour: (width from the frame, height).
+# left, in the same blue as one marker colour (and its "L" in "Lithium" or
+# "Lead" looks like a marker): (width from the frame, height). The top
+# panel's title is the same box.
 TITLE_BOX = (460, 90)
 
 

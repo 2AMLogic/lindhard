@@ -39,3 +39,38 @@ def find_H(r, x0, x1, y0, y1, colours, tail=True, max_inner=10, need=4, max_whit
         if all(h[2] != k[2] or abs(h[0] - k[0]) > 3 or abs(h[1] - k[1]) > 3 for k in kept):
             kept.append(h)
     return kept
+
+
+
+def find_L(r, x0, x1, y0, y1, colours, i_dx=(10, 11, 12)):
+    """'L' glyphs of "Li" in each colour, found by their bottom-left corner:
+    a stroke of 8 rows meeting a bar 6 wide, with no crossbar (an 'H' or
+    'E'), and the 'i' stem 10 to 12 px to the right (the font is scaled, so
+    the spacing varies by a pixel) with some ink of the colour and
+    little white, as it is often covered. Markers in a stack overlap by a
+    pixel or two, so the stroke and bar may be partly covered. Returns
+    (x, top row, colour, 7)."""
+    hits = []
+    for yb in range(y0 + 8, y1 - 1):
+        for x in range(x0 + 1, x1 - 14):
+            c = r[yb][x]
+            if c not in colours:
+                continue
+            if sum(1 for i in range(6) if r[yb][x + i] == c) < 4:
+                continue
+            col = [r[yb - j][x] for j in range(8)]
+            if col.count(c) < 6 or col.count(WHITE) > 1:
+                continue
+            if sum(1 for i in range(2, 6) if r[yb - 4][x + i] == c) > 1:
+                continue
+            if r[yb][x - 1] == c and r[yb - 4][x - 1] == c and r[yb][x - 2] != c:
+                continue  # one pixel right of a thicker stroke's edge
+            stems = [[r[yb - j][x + d] for j in range(5)] for d in i_dx]
+            if not any(st.count(c) >= 2 and st.count(WHITE) <= 2 for st in stems):
+                continue
+            hits.append((x, yb - 7, c, 7))
+    kept = []
+    for h in hits:
+        if all(h[2] != k[2] or abs(h[0] - k[0]) > 1 or abs(h[1] - k[1]) > 1 for k in kept):
+            kept.append(h)
+    return kept

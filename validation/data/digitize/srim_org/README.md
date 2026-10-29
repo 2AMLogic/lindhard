@@ -11,8 +11,8 @@ The input is a local mirror of the site (the operator keeps one; it is not in
 this repository and is never committed):
 
 ```sh
-python3 -I run_all.py <mirror>/site <work-dir> ../../stopping/compilation/srim_org_h_he.csv
-python3 -I bibliography.py <mirror>/site ../../stopping/compilation/srim_org_h_he.csv \
+python3 -I run_all.py <mirror>/site <work-dir> ../../stopping/compilation/srim_org_stopping.csv
+python3 -I bibliography.py <mirror>/site ../../stopping/compilation/srim_org_stopping.csv \
     ../../stopping/compilation/srim_org_bibliography.csv
 python3 -I digitize.py <mirror>/site/StopPlots/STOP0114.gif "<mirror>/site/Citations/Cit 01-14.pdf"  # one plot, JSON
 ```
@@ -47,12 +47,18 @@ there is not redone.
    variants, found by its 5-pixel bars and diagonals, tolerating cover by
    other ink) followed by a one-pixel label stroke. Helium plots draw `He`
    only (`symdetect.find_H`: two 8-pixel strokes 5 apart with a crossbar,
-   and ink after it). Rejected: the black curve (`on_curve`), thick title
-   text, the blue annotation block, the legend box.
+   and ink after it). Lithium plots draw `Li` (`symdetect.find_L`: the L's
+   corner, an 8-pixel stroke meeting a 6-pixel bar with no crossbar, and the
+   i's stem 10 to 12 px to the right, as the scaled font varies by a pixel).
+   Rejected: the black curve (`on_curve`), thick title text, the blue title
+   block (its "L" in "Lithium" looks like a marker), the blue annotation
+   block, the legend box.
 6. **Anchor.** The plotted point is the centre of the label text: 4.72 px
    right of the asterisk centre (fitted on 1981-Sant, D→Si, 19 points at
    0.1 MeV steps, scatter 0.27 px) and 7.0 px right of the H's left stroke for
-   `He` (1974-Bagl, 2 MeV, three plots).
+   `He` (1974-Bagl, 2 MeV, three plots) and `Li`. For `Li` that offset was
+   checked on 1975-Neuw2 (11 energies, 80 to 840 keV, three plots): it puts
+   them on round lab energies to 0.14 ± 0.15 px.
 7. **Experiment/Theory panel** (`residual.py`). Under each plot the same
    points are drawn divided by SRIM's curve, on a fixed scale (1.0 at row
    786, 0.05 per 39.5 px). Stacks on top spread apart here by their
@@ -73,9 +79,12 @@ there is not redone.
 ## Limits
 
 - Stacked markers cover each other in both panels, so dense regions still
-  lose points; recall on the complete-legend plots is 84 % (61 % from the top panel
-  alone). Where a complete legend's colour count is exceeded, the excess
+  lose points; recall on the complete-legend plots is 84 % for H, He and Li alike
+  (61 % for H and He from the top panel alone). Where a complete legend's colour count is exceeded, the excess
   lower-only points nearest a top point are left out (`run_all.cap_lower`). The count check
   per colour is the guard against false points.
-- Ions heavier than helium, compound targets (`SRIM/Compounds`) and the
-  range plots are not handled yet.
+- Compound targets (`SRIM/Compounds`) and the range plots are not handled
+  yet.
+- Ions heavier than lithium are out of scope: the site plots them only in
+  the aggregates `STOPZZxx` and `STOPxxZZ`, scaled to a reference target or
+  ion by SRIM's own ratio, so the printed value is not the measurement.

@@ -39,16 +39,15 @@ derived from it, or any other code's output, however well known
   (50 to 600 keV) from Table I of Bader et al., Phys. Rev. 103, 32 (1956),
   in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
   curve values; no uncertainty stated.
-- **Stopping, H, D and He, 132 ion–target systems (73 target elements) (srim.org compilation):**
-  `stopping/compilation/srim_org_h_he.csv`, 10,267 measured points digitized
+- **Stopping, H, D, He and Li, 174 ion–target systems (73 target elements) (srim.org compilation):**
+  `stopping/compilation/srim_org_stopping.csv`, 11,706 measured points digitized
   from the per-system plots of the srim.org compilation, each with candidate
   citation keys, an attribution grade and digitization uncertainties, plus
   `srim_org_bibliography.csv` (#486). CC0. Measured markers only, no SRIM
   curve stored; points hidden on top are recovered from the
   Experiment/Theory panel and flagged, and about 84 % of listed points are
-  found.
-  See [stopping/compilation/](stopping/compilation/README.md). Reference
-  input only; not loaded by the stopping report yet.
+  found. See [stopping/compilation/](stopping/compilation/README.md).
+  Reference input only; not loaded by the stopping report yet.
 - **Optical ELF, Al, Cu, glassy C and Au:**
   `optical/{al,cu,c,au}_elf_hagemann1975.toml`, ELF converted by
   `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz (1975) as
