@@ -469,10 +469,18 @@ fn the_converted_compilation_loads() {
         .parent()
         .unwrap()
         .join("validation/data/stopping/compilation");
-    let source = std::fs::read_to_string(dir.join("srim_org_h_he.csv")).unwrap();
+    let source = std::fs::read_to_string(dir.join("srim_org_stopping.csv")).unwrap();
     let ds = StoppingDataset::from_csv_file(dir.join("srim_org_h_he_loader.csv")).unwrap();
-    assert_eq!(ds.points().len(), source.lines().count() - 1);
-    assert_eq!(ds.points().len(), 7241);
+    // Only the H, D and He rows of origin `digitized-compilation` are converted.
+    let converted = source
+        .lines()
+        .skip(1)
+        .filter(|l| {
+            let f: Vec<&str> = l.split(',').collect();
+            f[17] == "digitized-compilation" && f[1] != "Li"
+        })
+        .count();
+    assert_eq!(ds.points().len(), converted);
     assert!(ds
         .points()
         .iter()

@@ -86,10 +86,11 @@ always checked.
 
 ### The srim.org compilation
 
-`validation/data/stopping/compilation/srim_org_h_he.csv` has 18 columns and is
+`validation/data/stopping/compilation/srim_org_stopping.csv` has 19 columns and is
 not read by the loader. `validation/data/digitize/srim_org/convert_to_loader.py`
-writes the 10-column `srim_org_h_he_loader.csv` from it (one point per source
-row, byte-identical on a rerun): ion symbol to `ion_z` and mass (H 1.007825,
+writes the 10-column `srim_org_h_he_loader.csv` from it (one point per
+converted source row, byte-identical on a rerun; Li points and the
+panel-recovered `residual-reconstructed` points are skipped): ion symbol to `ion_z` and mass (H 1.007825,
 D 2.014102, He 4.002603 u), energy `keV/u x mass x 1000` in eV, the stopping
 unchanged, `u_stopping` as sigma.
 

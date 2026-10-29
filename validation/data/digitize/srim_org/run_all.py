@@ -1,11 +1,13 @@
-"""Digitize every hydrogen and helium stopping plot of a srim.org mirror and
+"""Digitize every hydrogen, helium and lithium stopping plot of a srim.org mirror and
 write the compilation CSV.
 
 Usage: python3 -I run_all.py <mirror-site-dir> <work-dir> <out.csv> [ion_z ...]
 
 <mirror-site-dir> holds StopPlots/STOPzzZZ.gif and Citations/Cit zz-ZZ.pdf.
 One JSON per plot is written to <work-dir> (kept for review; not committed),
-then every attributable point goes to <out.csv>. Default ions: 1 and 2.
+then every attributable point goes to <out.csv>. Default ions: 1 to 3 (the
+only ions with a plot per target; heavier ions have only plots normalized to
+one target or one ion, which are not measurements as printed).
 """
 import csv, glob, json, os, re, sys
 
@@ -13,26 +15,39 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import citpdf
 import digitize
 
-METHOD = "srim_org-digitize/1"
+METHOD = "srim_org-digitize/2"
 SYM = ("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr "
        "Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb "
        "Lu Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U").split()
 COLUMNS = ["ion_z", "ion", "target_z", "target", "energy_kev_per_amu", "stopping_ev_cm2_per_1e15_atoms",
-           "u_energy_rel", "u_stopping", "citation_keys", "old_refs", "attribution", "label", "plot", "colour",
-           "pixel_x", "pixel_y", "origin", "method"]
+           "u_energy_rel", "u_stopping", "citation_keys", "old_refs", "attribution", "label", "panel", "plot",
+           "colour", "pixel_x", "pixel_y", "origin", "method"]
+
+
+def plots(site, ions):
+    """{file name: path on the site} of every per-pair plot. StopPlots/ has
+    most; SRIM/SRIMPICS/STOPzz/ holds the same files byte for byte plus some
+    targets StopPlots lacks, which are taken from there."""
+    found = {}
+    for d in ["StopPlots"] + ["SRIM/SRIMPICS/STOP%02d" % z for z in ions]:
+        if not os.path.isdir(os.path.join(site, d)):
+            continue
+        for f in sorted(os.listdir(os.path.join(site, d))):
+            if re.match(r"STOP\d{4}\.gif$", f) and int(f[4:6]) in ions:
+                found.setdefault(f, d + "/" + f)
+    return found
 
 
 def run(site, work, ions):
     os.makedirs(work, exist_ok=True)
-    for f in sorted(os.listdir(os.path.join(site, "StopPlots"))):
-        if not re.match(r"STOP\d{4}\.gif$", f) or int(f[4:6]) not in ions:
-            continue
+    for f, rel in sorted(plots(site, ions).items()):
         out = os.path.join(work, f[:-4] + ".json")
         if os.path.exists(out):
             continue
         pdf = os.path.join(site, "Citations", f"Cit {f[4:6]}-{f[6:8]}.pdf")
         try:
-            o = digitize.digitize(os.path.join(site, "StopPlots", f), pdf)
+            o = digitize.digitize(os.path.join(site, rel), pdf)
+            o["plot"] = rel
         except Exception as e:  # report and carry on; one bad plot must not stop the run
             print(f"{f}: {type(e).__name__}: {e}", file=sys.stderr)
             continue
@@ -52,7 +67,8 @@ def attribution(o, p):
 
 # Words in a citation file's comment line that name the ion of a plot.
 ION_WORDS = {1: r"\b(H|D|T|P|p|H\+|H2|H3|Protons?|Deuterons?|Tritons?|Hydrogen|Light [Ii]ons)\b",
-             2: r"(\bHe\b|He3|3He|4He|[Aa]lpha|Helium|Light [Ii]ons)"}
+             2: r"(\bHe\b|He3|3He|4He|[Aa]lpha|Helium|Light [Ii]ons)",
+             3: r"(\bLi\b|Li[67]|[67]Li|Lithium|Light [Ii]ons|Heavy [Ii]ons)"}
 
 
 def key_for(row, z1, ref_index):
@@ -68,31 +84,64 @@ def key_for(row, z1, ref_index):
     return "ref%d" % row["ref"]
 
 
+def cap_lower(o):
+    """Points of the plot that pass the legend's count. On a complete legend a
+    colour cannot hold more points than its rows list; where it does, the
+    excess comes from points seen only in the Experiment/Theory panel, which
+    can repeat a top point in a dense stack. Those nearest a top point of
+    their colour are dropped first. Returns (points, number dropped)."""
+    pts = [p for p in o["points"] if p["candidates"]]
+    if not o.get("legend_complete"):
+        return pts, 0
+    want = {}
+    for row in o["legend"]:
+        want[row["colour"]] = want.get(row["colour"], 0) + row["total"]
+    drop = set()
+    for c, n in want.items():
+        mine = [p for p in pts if p["colour"] == c]
+        excess = len(mine) - n
+        lower = [p for p in mine if p.get("panel") == "lower"]
+        if excess <= 0 or not lower:
+            continue
+        tops = [p for p in mine if p.get("panel") != "lower"]
+
+        def nearest(p):
+            return min((abs(t["px"][0] - p["px"][0]) / 2 + abs(t["stopping_ev_cm2_per_1e15"]
+                        / p["stopping_ev_cm2_per_1e15"] - 1) / 0.01 for t in tops), default=1e9)
+        drop.update(id(p) for p in sorted(lower, key=nearest)[:excess])
+    return [p for p in pts if id(p) not in drop], len(drop)
+
+
 def export(work, path, ref_index):
     w = csv.writer(open(path, "w", newline=""), lineterminator="\n")
     w.writerow(COLUMNS)
-    n = 0
+    n = n_dropped = 0
     for f in sorted(glob.glob(os.path.join(work, "STOP*.json"))):
         o = json.load(open(f))
-        z1, z2 = int(o["plot"][4:6]), int(o["plot"][6:8])
+        name = os.path.basename(o["plot"])
+        z1, z2 = int(name[4:6]), int(name[6:8])
         refs, keys = {}, {}
         for row in o["legend"]:
             refs.setdefault(row["colour"], []).append(str(row["ref"]))
             keys.setdefault(row["colour"], []).append(key_for(row, z1, ref_index))
-        for p in sorted(o["points"], key=lambda p: (p["colour"], p["energy_kev_per_amu"], p["px"][1])):
-            if not p["candidates"]:
-                continue  # a colour with no legend row: unattributable
+        # A colour with no legend row is unattributable and left out.
+        pts, dropped = cap_lower(o)
+        n_dropped += dropped
+        for p in sorted(pts, key=lambda p: (p["colour"], p["energy_kev_per_amu"], p["px"][1])):
             lab = p.get("label", "?")
+            # A point seen only in the Experiment/Theory panel is ratio x curve.
+            origin = "residual-reconstructed" if p.get("panel") == "lower" else "digitized-compilation"
             w.writerow([z1, "D" if lab == "D" else SYM[z1 - 1], z2, SYM[z2 - 1], p["energy_kev_per_amu"],
                         p["stopping_ev_cm2_per_1e15"], p["u_energy_rel"], p["u_stopping"],
                         "|".join(keys[p["colour"]]), "|".join(refs[p["colour"]]), attribution(o, p), lab,
-                        o["plot"], p["colour"], p["px"][0], p["px"][1], "digitized-compilation", METHOD])
+                        p.get("panel", "top"), o["plot"], p["colour"], p["px"][0], p["px"][1], origin, METHOD])
             n += 1
-    print(f"{n} points -> {path}", file=sys.stderr)
+    print(f"{n} points -> {path} ({n_dropped} lower-panel points over a legend count left out)",
+          file=sys.stderr)
 
 
 if __name__ == "__main__":
-    ions = [int(z) for z in sys.argv[4:]] or [1, 2]
+    ions = [int(z) for z in sys.argv[4:]] or [1, 2, 3]
     ref_index = citpdf.index(sys.argv[1])
     run(sys.argv[1], sys.argv[2], ions)
     export(sys.argv[2], sys.argv[3], ref_index)

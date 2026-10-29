@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Convert the 18-column digitizer output into a `lindhard-stopping-data/1` file.
 
-    python3 -I convert_to_loader.py <srim_org_h_he.csv> <srim_org_bibliography.csv> <out.csv>
+    python3 -I convert_to_loader.py <srim_org_stopping.csv> <srim_org_bibliography.csv> <out.csv>
 
 Issue #499. The loader (`docs/stopping-data-format.md`) reads a small fixed
 layout; this script maps the digitizer's columns onto it and leaves the
@@ -20,6 +20,9 @@ digitizer's own output untouched:
   picked, because the point belongs to one of them (or, for `partial-legend`,
   possibly to a paper not listed). `citation` spells the candidates out.
 * `origin` is `digitized-compilation`.
+* Rows of any other origin (the panel-recovered `residual-reconstructed`
+  points) and ions without a mass above (Li) are skipped, not converted: the
+  loader's origin set is closed, and no Li mass is chosen here.
 
 Row order is the input order; the output is a pure function of the two inputs
 (no clock, no environment), so a rerun is byte-identical.
@@ -55,9 +58,10 @@ def convert(source, bibliography_path, out):
     out.write(HEADER)
     w = csv.writer(out, lineterminator="\n")
     w.writerow(COLUMNS)
+    n = 0
     for r in rows:
-        if r["origin"] != "digitized-compilation":
-            raise SystemExit(f"unexpected origin {r['origin']!r}")
+        if r["origin"] != "digitized-compilation" or r["ion"] not in MASS_AMU:
+            continue
         mass = MASS_AMU[r["ion"]]
         keys = r["citation_keys"].split("|")
         attribution = r["attribution"]
@@ -83,7 +87,8 @@ def convert(source, bibliography_path, out):
                 r["origin"],
             ]
         )
-    return len(rows)
+        n += 1
+    return n
 
 
 def main(argv):
