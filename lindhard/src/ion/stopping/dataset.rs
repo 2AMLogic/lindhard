@@ -57,6 +57,33 @@ pub const COLUMNS: [&str; 8] = [
     "citation",
 ];
 
+/// The two optional trailing columns. They are accepted together or not at
+/// all.
+pub const OPTIONAL_COLUMNS: [&str; 2] = ["citation_key", "origin"];
+
+/// Where a point came from, when the file says so (the optional `origin`
+/// column).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Origin {
+    /// Read off the plots of a published compilation (see
+    /// `docs/stopping-data-format.md` and `docs/data-provenance.md`), not
+    /// copied from a table.
+    DigitizedCompilation,
+}
+
+impl Origin {
+    /// The value written in the `origin` column.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::DigitizedCompilation => "digitized-compilation",
+        }
+    }
+
+    fn parse(text: &str) -> Option<Self> {
+        (text == "digitized-compilation").then_some(Self::DigitizedCompilation)
+    }
+}
+
 /// Mass density given to the [`Material`] built for a compound target,
 /// kg/m³. It is a placeholder: under Bragg's rule (W. H. Bragg and R. Kleeman,
 /// Phil. Mag. 10, 318 (1905)) the stopping cross section per atom does not
@@ -169,6 +196,8 @@ pub struct StoppingPoint {
     sigma_ev_1e15_cm2: f64,
     method: String,
     citation: String,
+    citation_key: Option<String>,
+    origin: Option<Origin>,
 }
 
 impl StoppingPoint {
@@ -214,6 +243,17 @@ impl StoppingPoint {
     /// and record identifier).
     pub fn citation(&self) -> &str {
         &self.citation
+    }
+
+    /// Short key of the source in the point's bibliography, if the file has
+    /// the optional `citation_key` column.
+    pub fn citation_key(&self) -> Option<&str> {
+        self.citation_key.as_deref()
+    }
+
+    /// The point's origin, if the file has the optional `origin` column.
+    pub fn origin(&self) -> Option<Origin> {
+        self.origin
     }
 }
 
@@ -312,13 +352,42 @@ fn finite_positive(line: usize, column: &str, text: &str) -> Result<f64, Stoppin
     }
 }
 
-fn parse_point(line: usize, f: &[String]) -> Result<StoppingPoint, StoppingError> {
-    if f.len() != COLUMNS.len() {
+fn parse_point(
+    line: usize,
+    f: &[String],
+    with_origin: bool,
+) -> Result<StoppingPoint, StoppingError> {
+    let want = COLUMNS.len()
+        + if with_origin {
+            OPTIONAL_COLUMNS.len()
+        } else {
+            0
+        };
+    if f.len() != want {
         return Err(bad(
             line,
-            format!("expected {} fields, found {}", COLUMNS.len(), f.len()),
+            format!("expected {want} fields, found {}", f.len()),
         ));
     }
+    let (citation_key, origin) = if with_origin {
+        let key = f[8].trim();
+        if key.is_empty() {
+            return Err(bad(line, "empty citation_key; every point needs one"));
+        }
+        let origin = Origin::parse(&f[9]).ok_or_else(|| {
+            bad(
+                line,
+                format!(
+                    "unknown origin {:?}; the only known value is {:?}",
+                    f[9],
+                    Origin::DigitizedCompilation.as_str()
+                ),
+            )
+        })?;
+        (Some(key.to_string()), Some(origin))
+    } else {
+        (None, None)
+    };
     let ion_z: u8 = f[0]
         .parse()
         .map_err(|_| bad(line, format!("ion_z: not an atomic number: {:?}", f[0])))?;
@@ -356,6 +425,8 @@ fn parse_point(line: usize, f: &[String]) -> Result<StoppingPoint, StoppingError
         sigma_ev_1e15_cm2: sigma,
         method: f[6].trim().to_string(),
         citation: f[7].trim().to_string(),
+        citation_key,
+        origin,
     })
 }
 
@@ -370,6 +441,7 @@ impl StoppingDataset {
         let text = text.strip_prefix('\u{feff}').unwrap_or(text);
         let mut metadata: Vec<(String, String)> = Vec::new();
         let mut in_header = true;
+        let mut with_origin = false;
         let mut points = Vec::new();
         for (i, raw) in text.lines().enumerate() {
             let line = i + 1;
@@ -390,11 +462,11 @@ impl StoppingDataset {
             }
             let fields = split_csv(l).map_err(|e| bad(line, e))?;
             if in_header {
-                check_columns(line, &fields)?;
+                with_origin = check_columns(line, &fields)?;
                 check_metadata(line, &metadata)?;
                 in_header = false;
             } else {
-                points.push(parse_point(line, &fields)?);
+                points.push(parse_point(line, &fields, with_origin)?);
             }
         }
         if in_header {
@@ -449,7 +521,9 @@ impl StoppingDataset {
     }
 }
 
-fn check_columns(line: usize, fields: &[String]) -> Result<(), StoppingError> {
+/// Check the column header row; `true` when it carries the optional
+/// `citation_key`, `origin` pair.
+fn check_columns(line: usize, fields: &[String]) -> Result<bool, StoppingError> {
     for (k, want) in COLUMNS.iter().enumerate() {
         match fields.get(k) {
             Some(got) if got == want => {}
@@ -462,13 +536,42 @@ fn check_columns(line: usize, fields: &[String]) -> Result<(), StoppingError> {
             None => return Err(bad(line, format!("missing column {want:?}"))),
         }
     }
-    if fields.len() > COLUMNS.len() {
+    let extra = &fields[COLUMNS.len()..];
+    if extra.is_empty() {
+        return Ok(false);
+    }
+    if extra.len() == 1 {
         return Err(bad(
             line,
-            format!("unexpected extra column {:?}", fields[COLUMNS.len()]),
+            format!(
+                "unexpected extra column {:?}; the optional columns {OPTIONAL_COLUMNS:?} \
+                 come as a pair",
+                extra[0]
+            ),
         ));
     }
-    Ok(())
+    for (k, want) in OPTIONAL_COLUMNS.iter().enumerate() {
+        if extra[k] != *want {
+            return Err(bad(
+                line,
+                format!(
+                    "column {} must be {want:?}, found {:?}",
+                    COLUMNS.len() + k + 1,
+                    extra[k]
+                ),
+            ));
+        }
+    }
+    if extra.len() > OPTIONAL_COLUMNS.len() {
+        return Err(bad(
+            line,
+            format!(
+                "unexpected extra column {:?}",
+                extra[OPTIONAL_COLUMNS.len()]
+            ),
+        ));
+    }
+    Ok(true)
 }
 
 fn check_metadata(line: usize, metadata: &[(String, String)]) -> Result<(), StoppingError> {
