@@ -4,7 +4,8 @@ lindhard's transport loop is older than its physics. Its structure, a
 random free flight, a collision, then a stack of secondaries to follow, is
 the one John von Neumann sketched for fission neutrons at Los Alamos in
 1947. This page traces that lineage and shows where lindhard's choices sit
-in it. References are at the end. The facts were checked against them on
+in it. For the stopping physics, see the book chapter
+[History and literature of ion stopping](../book/src/history.md). References are at the end. The facts were checked against them on
 2026-10-04.
 
 ## Solitaire, a letter, and ENIAC (1946–1949)
