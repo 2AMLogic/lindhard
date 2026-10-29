@@ -11,10 +11,16 @@ The allowed origins are:
    Measurements are facts; we cite them.
 3. **A permissive source** (Tier A in [`../CONTRIBUTING.md`](../CONTRIBUTING.md)),
    with its notice kept in `THIRD_PARTY_LICENSES.md`.
+4. **A measured point digitized from the srim.org compilation plots**, under
+   the conditions in [`../CONTRIBUTING.md`](../CONTRIBUTING.md), Tier C (operator
+   ruling, 2026-10-28). Cite the original paper, flag the point as digitized
+   from the compilation, and record its digitization uncertainty. SRIM's
+   fitted curves and tables remain excluded (below).
 
 The following are **never allowed**:
 
-- SRIM tables, including any that other projects pass along.
+- SRIM tables and SRIM-fitted curves, including any that other projects pass
+  along. (Measured points from the srim.org compilation are origin 4, not this.)
 - ICRU report tables.
 - NIST SRD tables, until their terms have been reviewed and recorded here. The only exception is the scoped, operator-approved one below: the 16 NIST SRD 64 v5.0 values in `lindhard/tests/data/elastic_reference.toml` (#93). It covers no other SRD 64 output and no other NIST database; other unreviewed SRD sources stay excluded.
 - Anything whose origin is not known.
