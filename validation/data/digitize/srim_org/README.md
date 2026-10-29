@@ -1,8 +1,11 @@
 # srim.org stopping-plot digitizer
 
 Reads the measured points off srim.org's per-system stopping plots
-(`StopPlots/STOPzzZZ.gif`, ion Z then target Z) and writes
-[`../../stopping/compilation/`](../../stopping/compilation/README.md). Pure
+(`StopPlots/STOPzzZZ.gif`, ion Z then target Z, and the two with data that
+exist only under `SRIM/SRIMPICS/STOP01/`) and writes
+[`../../stopping/compilation/`](../../stopping/compilation/README.md).
+`figures.py` does the same for the site's one-off figures, the measured
+ranges and the stopping in compounds ([below](#the-one-off-figures-figurespy)). Pure
 Python 3 with no packages; needs ImageMagick (`magick`) to decode the GIFs,
 Tesseract for the axis labels and the plot's totals line, and `pdftotext`
 (poppler) for the citation lists. Issue #486.
@@ -15,6 +18,10 @@ python3 -I run_all.py <mirror>/site <work-dir> ../../stopping/compilation/srim_o
 python3 -I bibliography.py <mirror>/site ../../stopping/compilation/srim_org_stopping.csv \
     ../../stopping/compilation/srim_org_bibliography.csv
 python3 -I digitize.py <mirror>/site/StopPlots/STOP0114.gif "<mirror>/site/Citations/Cit 01-14.pdf"  # one plot, JSON
+python3 -I convert_to_loader.py ../../stopping/compilation/srim_org_stopping.csv \
+    ../../stopping/compilation/srim_org_bibliography.csv ../../stopping/compilation/srim_org_h_he_loader.csv
+python3 -I figures.py <mirror>/site <work-dir> --ranges=../../ranges/compilation/srim_org_ranges.csv \
+    --compounds=../../stopping/compilation/srim_org_compounds.csv
 ```
 
 `<work-dir>` gets one JSON per plot (calibration, legend rows, every point
@@ -79,12 +86,55 @@ there is not redone.
 ## Limits
 
 - Stacked markers cover each other in both panels, so dense regions still
-  lose points; recall on the complete-legend plots is 84 % for H, He and Li alike
-  (61 % for H and He from the top panel alone). Where a complete legend's colour count is exceeded, the excess
+  lose points; recall on the complete-legend plots is 84 % (H and He 84 %,
+  Li 85 %; 64 % from the top panel alone). Where a complete legend's colour count is exceeded, the excess
   lower-only points nearest a top point are left out (`run_all.cap_lower`). The count check
   per colour is the guard against false points.
-- Compound targets (`SRIM/Compounds`) and the range plots are not handled
-  yet.
 - Ions heavier than lithium are out of scope: the site plots them only in
   the aggregates `STOPZZxx` and `STOPxxZZ`, scaled to a reference target or
   ion by SRIM's own ratio, so the printed value is not the measurement.
+
+## The one-off figures (`figures.py`)
+
+The four range figures (`SRIM/SRIMPICS/RANGES/`) and the compound figures
+(`SRIM/Compounds/`) each have their own layout, so each is described once in
+`figures.json`: two axis labels per axis, read off the figure; the legend
+rows as printed (transcribed by eye: the legend font is too small for
+Tesseract); and one or more clean examples of each marker. The rest is
+measured and checked:
+
+- **Axes.** The labels are snapped to grid lines, and every other grid line
+  must then land on a round value (worst 1.2 px over all nine figures).
+- **Legend.** On the range figures the rows sit on a fixed pitch and take
+  their colours from the plotting program's 20-colour cycle; the colours
+  found must agree with the cycle on 90 % of rows. The compound figures give
+  their rows explicitly: a letter per data set (H in water), a colour per
+  data set, or a colour per target with one reference printed under the
+  plot.
+- **Keys.** A printed key is accepted only if a citation list on the site
+  has it and its entry names the ion and the target; one confusable digit or
+  author letter may be corrected to the only key that does.
+- **Markers.** Templates are the examples' own ink plus every isolated mark
+  of about their size. Letters share a size, so an isolated letter becomes a
+  template of the example letter it overlaps best. Where every marker
+  touches a curve (He in hydrocarbon gases), the H of `He` is drawn by hand
+  in its twelve raster variants. A match is ranked by the share of the
+  template it covers, less the ink of its colour around it that it does not
+  explain, so an E is not also read as an F; the best match wins where
+  several fit one place. The point is the centre of the marker's label.
+- **Seeds and rejects.** In the H-in-water cluster and the H-in-polystyrene
+  tail, markers were read by eye at 10× and listed in `figures.json`: a seed
+  is placed by the best template match within 4 px of the reading, or by eye
+  where nothing fits; a reject removes a match read as part of a neighbour.
+  Every such point says how it was placed (`how`, `note`).
+
+The checks that the figures pass: H in water 60 of 62 legend points, He in
+polystyrene 26 of 26 with energies on round values (99.8, 199.6, 249.8
+keV/amu), He in hydrocarbon gases 18 points per gas on 300 to 2000 keV in
+100 keV steps (299 to 1997 keV read). The counts and key statuses per
+figure are in the two data READMEs.
+
+Not handled: the low-resolution "He into Water" and "He into Ethelene Gas"
+(illegible legends, 5-pixel markers in overlapping chains), and the figures
+that hold no measured points as printed (listed in the stopping data
+README).

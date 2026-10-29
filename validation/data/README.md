@@ -39,8 +39,8 @@ derived from it, or any other code's output, however well known
   (50 to 600 keV) from Table I of Bader et al., Phys. Rev. 103, 32 (1956),
   in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
   curve values; no uncertainty stated.
-- **Stopping, H, D, He and Li, 174 ion–target systems (73 target elements) (srim.org compilation):**
-  `stopping/compilation/srim_org_stopping.csv`, 11,706 measured points digitized
+- **Stopping, H, D, He and Li, 176 ion–target systems (74 target elements) (srim.org compilation):**
+  `stopping/compilation/srim_org_stopping.csv`, 11,771 measured points digitized
   from the per-system plots of the srim.org compilation, each with candidate
   citation keys, an attribution grade and digitization uncertainties, plus
   `srim_org_bibliography.csv` (#486). CC0. Measured markers only, no SRIM
@@ -48,6 +48,17 @@ derived from it, or any other code's output, however well known
   Experiment/Theory panel and flagged, and about 84 % of listed points are
   found. See [stopping/compilation/](stopping/compilation/README.md).
   Reference input only; not loaded by the stopping report yet.
+- **Stopping in compounds (srim.org figures):**
+  `stopping/compilation/srim_org_compounds.csv`, 263 points from the site's
+  compound figures: H and He in water and polystyrene, He in five
+  hydrocarbon gases, Li in polyimide, formvar and polysulphone. Units as
+  printed per figure. CC0. See
+  [stopping/compilation/](stopping/compilation/README.md#srim_org_compoundscsv).
+- **Ranges (srim.org figures):** `ranges/compilation/srim_org_ranges.csv`,
+  221 measured ranges of B, P and As in Si and He in air, with the printed
+  legend keys checked against the site's citation lists (many Si keys name
+  other systems and are flagged). CC0. See
+  [ranges/compilation/](ranges/compilation/README.md).
 - **Optical ELF, Al, Cu, glassy C and Au:**
   `optical/{al,cu,c,au}_elf_hagemann1975.toml`, ELF converted by
   `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz (1975) as

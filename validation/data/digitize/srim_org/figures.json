@@ -1,0 +1,1847 @@
+[
+ {
+  "id": "range_b_si",
+  "file": "SRIM/SRIMPICS/RANGES/B into Si - Ranges.gif",
+  "quantity": "range",
+  "ion": "B",
+  "ion_z": 5,
+  "target": "Si",
+  "x": {
+   "scale": "log",
+   "unit": "keV",
+   "refs": [
+    [
+     10,
+     102
+    ],
+    [
+     1000,
+     737
+    ]
+   ]
+  },
+  "y": {
+   "scale": "log",
+   "unit": "nm",
+   "refs": [
+    [
+     100,
+     460
+    ],
+    [
+     1000,
+     249
+    ]
+   ]
+  },
+  "legend": {
+   "columns": [
+    [
+     132,
+     250,
+     114,
+     9.12,
+     0
+    ],
+    [
+     262,
+     380,
+     114,
+     9.12,
+     15
+    ]
+   ],
+   "rows": [
+    [
+     [
+      "1973-Crow",
+      2
+     ],
+     [
+      "1913-Tayl",
+      6
+     ],
+     [
+      "1975-Ohmu",
+      6
+     ],
+     [
+      "1975-Bier",
+      2
+     ],
+     [
+      "1875-Ohmu2",
+      13
+     ],
+     [
+      "1872-Zieg",
+      6
+     ],
+     [
+      "1958-Bich",
+      1
+     ],
+     [
+      "1973-Schu",
+      1
+     ],
+     [
+      "1973-Hofk2",
+      3
+     ],
+     [
+      "1970-Cair2",
+      3
+     ],
+     [
+      "1966-Davi",
+      2
+     ],
+     [
+      "1973-Witt",
+      9
+     ],
+     [
+      "1972-Nish",
+      1
+     ],
+     [
+      "1959-Roua",
+      1
+     ],
+     [
+      "1852-Simm",
+      2
+     ],
+     [
+      "1959-Lano",
+      3
+     ],
+     [
+      "1975-Ohmu",
+      7
+     ],
+     [
+      "1973-Comb",
+      1
+     ],
+     [
+      "1967-Lorg",
+      2
+     ],
+     [
+      "1972-Gitt",
+      5
+     ],
+     [
+      "1973-Schw",
+      5
+     ],
+     [
+      "1973-Hofk3",
+      3
+     ],
+     [
+      "1977-Ryss",
+      4
+     ],
+     [
+      "1852-Kupp",
+      1
+     ],
+     [
+      "1859-Lano",
+      1
+     ],
+     [
+      "1972-Maul",
+      1
+     ],
+     [
+      "1970-Pist",
+      2
+     ],
+     [
+      "1958-Mill",
+      1
+     ],
+     [
+      "1966-Klei",
+      2
+     ],
+     [
+      "1969-Davi",
+      7
+     ],
+     [
+      "1949-Wbra",
+      1
+     ],
+     [
+      "1973-Akas2",
+      1
+     ],
+     [
+      "1959-Lano",
+      2
+     ],
+     [
+      "1832-Reus",
+      1
+     ],
+     [
+      "1972-Akas",
+      3
+     ]
+    ],
+    [
+     [
+      "1970-Cair",
+      3
+     ],
+     [
+      "1975-Hiro",
+      3
+     ],
+     [
+      "1954-Reyn",
+      2
+     ],
+     [
+      "1974-Grae",
+      1
+     ],
+     [
+      "1975-Ohmu2",
+      13
+     ],
+     [
+      "1973-Akas",
+      2
+     ],
+     [
+      "1958-Kepl",
+      6
+     ],
+     [
+      "1973-Witt2",
+      1
+     ],
+     [
+      "1975-Hofk2",
+      7
+     ],
+     [
+      "1975-Hofk2",
+      6
+     ],
+     [
+      "1952-Simm",
+      1
+     ],
+     [
+      "1975-Buhl",
+      2
+     ],
+     [
+      "1966-Zori",
+      3
+     ],
+     [
+      "1973-Okab",
+      2
+     ],
+     [
+      "1953-Stil",
+      1
+     ],
+     [
+      "1975-Hofk",
+      6
+     ],
+     [
+      "1975-Witt",
+      9
+     ],
+     [
+      "1975-Hofk",
+      9
+     ],
+     [
+      "1974-Boga",
+      4
+     ],
+     [
+      "1976-Diet2",
+      2
+     ],
+     [
+      "1932-Reus",
+      3
+     ],
+     [
+      "1966-Roos",
+      3
+     ]
+    ]
+   ]
+  },
+  "citations": [
+   "Citations/Cit 05-All.pdf"
+  ],
+  "system_words": [
+   "(\\bB\\b|10B|11B|Boron)",
+   "(\\bSi\\b|Silicon)"
+  ],
+  "markers": [
+   {
+    "label": "*B",
+    "example": [
+     603,
+     282,
+     15,
+     11
+    ]
+   }
+  ],
+  "exclude": [
+   [
+    103,
+    62,
+    385,
+    480
+   ],
+   [
+    425,
+    75,
+    770,
+    155
+   ],
+   [
+    620,
+    455,
+    886,
+    565
+   ]
+  ],
+  "need": 0.6,
+  "max_white": 0.2
+ },
+ {
+  "id": "range_p_si",
+  "file": "SRIM/SRIMPICS/RANGES/P into Si - Ranges.gif",
+  "quantity": "range",
+  "ion": "P",
+  "ion_z": 15,
+  "target": "Si",
+  "x": {
+   "scale": "log",
+   "unit": "keV",
+   "refs": [
+    [
+     10,
+     102
+    ],
+    [
+     1000,
+     737
+    ]
+   ]
+  },
+  "y": {
+   "scale": "log",
+   "unit": "nm",
+   "refs": [
+    [
+     100,
+     393
+    ],
+    [
+     1000,
+     192
+    ]
+   ]
+  },
+  "legend": {
+   "columns": [
+    [
+     132,
+     250,
+     114,
+     9.12,
+     0
+    ]
+   ],
+   "rows": [
+    [
+     [
+      "1954-Reyn",
+      1
+     ],
+     [
+      "1956-Kepl",
+      6
+     ],
+     [
+      "1952-Kupp",
+      1
+     ],
+     [
+      "1953-Stil",
+      4
+     ],
+     [
+      "1874-Burk",
+      1
+     ],
+     [
+      "1873-Okab",
+      2
+     ],
+     [
+      "1953-Stil",
+      1
+     ],
+     [
+      "1976-Diet2",
+      2
+     ],
+     [
+      "1932-Reus",
+      1
+     ],
+     [
+      "1974-Okab2",
+      4
+     ],
+     [
+      "1971-Dell",
+      4
+     ],
+     [
+      "1972-Mora",
+      1
+     ],
+     [
+      "1958-Roua",
+      1
+     ],
+     [
+      "1975-Betz",
+      4
+     ],
+     [
+      "1849-Teas",
+      1
+     ],
+     [
+      "1952-Cart",
+      1
+     ],
+     [
+      "1955-Ryba",
+      1
+     ],
+     [
+      "1949-Teas",
+      3
+     ],
+     [
+      "1969-Davi",
+      5
+     ],
+     [
+      "1953-Stil",
+      7
+     ],
+     [
+      "1972-Kryl",
+      1
+     ],
+     [
+      "1946-Wilc",
+      1
+     ],
+     [
+      "1966-Roos",
+      1
+     ],
+     [
+      "1871-Moli",
+      4
+     ]
+    ]
+   ]
+  },
+  "citations": [
+   "Citations/Cit 15-All.pdf"
+  ],
+  "system_words": [
+   "(\\bP\\b|31P|Phosphorus)",
+   "(\\bSi\\b|Silicon)"
+  ],
+  "markers": [
+   {
+    "label": "*P",
+    "example": [
+     737,
+     210,
+     15,
+     11
+    ]
+   }
+  ],
+  "exclude": [
+   [
+    103,
+    62,
+    385,
+    340
+   ],
+   [
+    425,
+    75,
+    770,
+    155
+   ],
+   [
+    620,
+    455,
+    886,
+    565
+   ]
+  ],
+  "need": 0.6,
+  "max_white": 0.2
+ },
+ {
+  "id": "range_as_si",
+  "file": "SRIM/SRIMPICS/RANGES/As into Si - Ranges.gif",
+  "quantity": "range",
+  "ion": "As",
+  "ion_z": 33,
+  "target": "Si",
+  "x": {
+   "scale": "log",
+   "unit": "keV",
+   "refs": [
+    [
+     10,
+     102
+    ],
+    [
+     1000,
+     737
+    ]
+   ]
+  },
+  "y": {
+   "scale": "log",
+   "unit": "nm",
+   "refs": [
+    [
+     100,
+     369
+    ],
+    [
+     1000,
+     171
+    ]
+   ]
+  },
+  "legend": {
+   "columns": [
+    [
+     132,
+     250,
+     114,
+     9.12,
+     0
+    ]
+   ],
+   "rows": [
+    [
+     [
+      "1951-Good",
+      1
+     ],
+     [
+      "1949-Teas",
+      1
+     ],
+     [
+      "1959-Roua",
+      1
+     ],
+     [
+      "1952-Simm",
+      2
+     ],
+     [
+      "1975-Betz",
+      6
+     ],
+     [
+      "1949-Teas",
+      1
+     ],
+     [
+      "1958-Mill",
+      6
+     ],
+     [
+      "1947-Wytz",
+      1
+     ],
+     [
+      "1913-Tayl",
+      5
+     ],
+     [
+      "1947-Wytz",
+      1
+     ],
+     [
+      "1969-Davi",
+      3
+     ],
+     [
+      "1976-Oetz",
+      5
+     ],
+     [
+      "1949-Teas",
+      1
+     ],
+     [
+      "1909-Tayl",
+      1
+     ],
+     [
+      "1947-Wytz",
+      1
+     ],
+     [
+      "1953-Stil",
+      1
+     ]
+    ]
+   ]
+  },
+  "citations": [
+   "Citations/Cit 33-All.pdf"
+  ],
+  "system_words": [
+   "(\\bAs\\b|75As|Arsenic)",
+   "(\\bSi\\b|Silicon)"
+  ],
+  "markers": [
+   {
+    "label": "As",
+    "example": [
+     282,
+     482,
+     20,
+     13
+    ]
+   }
+  ],
+  "exclude": [
+   [
+    103,
+    62,
+    385,
+    270
+   ],
+   [
+    425,
+    75,
+    770,
+    155
+   ],
+   [
+    620,
+    455,
+    886,
+    565
+   ]
+  ],
+  "need": 0.6,
+  "max_white": 0.2
+ },
+ {
+  "id": "range_he_air",
+  "file": "SRIM/SRIMPICS/RANGES/He into Air - Ranges.gif",
+  "quantity": "range",
+  "ion": "He",
+  "ion_z": 2,
+  "target": "Air (STP)",
+  "x": {
+   "scale": "log",
+   "unit": "keV",
+   "refs": [
+    [
+     10,
+     102
+    ],
+    [
+     1000,
+     626
+    ]
+   ]
+  },
+  "y": {
+   "scale": "log",
+   "unit": "cm",
+   "refs": [
+    [
+     0.1,
+     426
+    ],
+    [
+     1,
+     244
+    ]
+   ]
+  },
+  "legend": {
+   "columns": [
+    [
+     132,
+     250,
+     114,
+     9.12,
+     0
+    ]
+   ],
+   "rows": [
+    [
+     [
+      "1930-Harp",
+      4
+     ],
+     [
+      "1926-Mait",
+      2
+     ],
+     [
+      "1949-VanD",
+      2
+     ],
+     [
+      "1953-Coop2",
+      1
+     ],
+     [
+      "1966-Roto2",
+      31
+     ],
+     [
+      "1971-Lang",
+      34
+     ],
+     [
+      "1953-Cook",
+      12
+     ],
+     [
+      "1943-Hack",
+      33
+     ],
+     [
+      "1941-Colb",
+      1
+     ],
+     [
+      "1932-Mode",
+      1
+     ]
+    ]
+   ]
+  },
+  "citations": [
+   "SRIM/Compounds/Citations/Air-He.pdf",
+   "Citations/Cit 02-All.pdf"
+  ],
+  "system_words": [
+   "(\\bHe\\b|4He|Alpha|Helium)",
+   "(Air)"
+  ],
+  "markers": [
+   {
+    "label": "He",
+    "example": [
+     477,
+     387,
+     21,
+     14
+    ]
+   }
+  ],
+  "exclude": [
+   [
+    103,
+    62,
+    340,
+    215
+   ],
+   [
+    250,
+    55,
+    480,
+    92
+   ],
+   [
+    580,
+    455,
+    886,
+    550
+   ]
+  ],
+  "need": 0.6,
+  "max_white": 0.2
+ },
+ {
+  "id": "stop_h_water",
+  "file": "SRIM/Compounds/H into Water.gif",
+  "quantity": "stopping_cross_section",
+  "ion": "H",
+  "ion_z": 1,
+  "target": "water",
+  "x": {
+   "scale": "log",
+   "unit": "keV/amu",
+   "refs": [
+    [
+     10,
+     104
+    ],
+    [
+     1000,
+     870
+    ]
+   ]
+  },
+  "y": {
+   "scale": "linear",
+   "unit": "eV/(1e15 molecules/cm2)",
+   "step": 5,
+   "refs": [
+    [
+     10,
+     452
+    ],
+    [
+     30,
+     140
+    ]
+   ]
+  },
+  "legend": {
+   "mode": "explicit",
+   "rows": [
+    {
+     "symbol": "A",
+     "key": "1974-Kaml",
+     "count": 1,
+     "colour": "#0000FF",
+     "target": "water",
+     "phase": "solid"
+    },
+    {
+     "symbol": "B",
+     "key": "1994-Baue",
+     "count": 10,
+     "colour": "#0000FF",
+     "target": "water",
+     "phase": "solid"
+    },
+    {
+     "symbol": "C",
+     "key": "1997-Baue",
+     "count": 12,
+     "colour": "#0000FF",
+     "target": "water",
+     "phase": "solid"
+    },
+    {
+     "symbol": "D",
+     "key": "1951-Fren",
+     "count": 10,
+     "colour": "#0000FF",
+     "target": "water",
+     "phase": "solid"
+    },
+    {
+     "symbol": "E",
+     "key": "1952-Wenz",
+     "count": 7,
+     "colour": "#0000FF",
+     "target": "water",
+     "phase": "solid"
+    },
+    {
+     "symbol": "F",
+     "key": "1977-Andr",
+     "count": 5,
+     "colour": "#0000FF",
+     "target": "water",
+     "phase": "solid"
+    },
+    {
+     "symbol": "G",
+     "key": "1953-Phil",
+     "count": 4,
+     "colour": "#FF0000",
+     "target": "water",
+     "phase": "vapour"
+    },
+    {
+     "symbol": "H",
+     "key": "1990-Mitt",
+     "count": 13,
+     "colour": "#FF0000",
+     "target": "water",
+     "phase": "vapour"
+    }
+   ]
+  },
+  "citations": [
+   "SRIM/Compounds/Citations/Water.pdf"
+  ],
+  "citations_are_system": true,
+  "system_words": [
+   "(\\bH\\b|1H|Hydrogen|Proton|Deuteron)",
+   "(Water|H2O|Ice)"
+  ],
+  "markers": [
+   {
+    "label": "B",
+    "examples": [
+     [
+      285,
+      317,
+      9,
+      12
+     ],
+     [
+      625,
+      317,
+      9,
+      11
+     ]
+    ]
+   },
+   {
+    "label": "C",
+    "examples": [
+     [
+      602,
+      294,
+      9,
+      12
+     ]
+    ]
+   },
+   {
+    "label": "D",
+    "examples": [
+     [
+      254,
+      364,
+      9,
+      12
+     ]
+    ]
+   },
+   {
+    "label": "E",
+    "examples": [
+     [
+      311,
+      294,
+      8,
+      12
+     ],
+     [
+      217,
+      359,
+      9,
+      12
+     ]
+    ]
+   },
+   {
+    "label": "F",
+    "examples": [
+     [
+      169,
+      418,
+      9,
+      11
+     ],
+     [
+      139,
+      462,
+      8,
+      11
+     ]
+    ]
+   },
+   {
+    "label": "G",
+    "examples": [
+     [
+      345,
+      224,
+      9,
+      12
+     ]
+    ]
+   },
+   {
+    "label": "H",
+    "examples": [
+     [
+      422,
+      186,
+      8,
+      11
+     ],
+     [
+      516,
+      215,
+      9,
+      10
+     ]
+    ]
+   }
+  ],
+  "exclude": [
+   [
+    130,
+    80,
+    385,
+    182
+   ],
+   [
+    130,
+    182,
+    310,
+    252
+   ],
+   [
+    720,
+    105,
+    885,
+    300
+   ],
+   [
+    355,
+    525,
+    630,
+    580
+   ]
+  ],
+  "letters": true,
+  "dedupe_px": [
+   5,
+   7
+  ],
+  "seeds": [
+   [
+    "E",
+    349,
+    260
+   ],
+   [
+    "C",
+    486,
+    239
+   ],
+   [
+    "D",
+    353,
+    238
+   ],
+   [
+    "D",
+    169,
+    406
+   ],
+   [
+    "D",
+    554,
+    228,
+    "lower half visible under an H: B or D; B is complete without it"
+   ],
+   [
+    "G",
+    101,
+    383
+   ],
+   [
+    "D",
+    101,
+    437
+   ],
+   [
+    "E",
+    104,
+    494
+   ],
+   [
+    "B",
+    104,
+    508
+   ],
+   [
+    "F",
+    104,
+    554
+   ],
+   [
+    "A",
+    875,
+    487.5,
+    "eye"
+   ],
+   [
+    "C|D",
+    453.5,
+    202,
+    "eye",
+    "top only visible above an H"
+   ],
+   [
+    "C|D|F",
+    374,
+    236,
+    "eye",
+    "overlapped by a B on the curve"
+   ],
+   [
+    "C|D|F",
+    374,
+    245,
+    "eye",
+    "overlapped by a B on the curve"
+   ],
+   [
+    "C|D|F",
+    405,
+    229.5,
+    "eye",
+    "overlapped by a B on the curve"
+   ]
+  ],
+  "need": 0.8,
+  "max_white": 0.12
+ },
+ {
+  "id": "stop_h_polystyrene",
+  "file": "SRIM/Compounds/H into Polystyrene.gif",
+  "quantity": "stopping_cross_section",
+  "ion": "H",
+  "ion_z": 1,
+  "target": "polystyrene",
+  "x": {
+   "scale": "log",
+   "unit": "keV/amu",
+   "refs": [
+    [
+     100,
+     216
+    ],
+    [
+     1000,
+     594
+    ]
+   ]
+  },
+  "y": {
+   "scale": "linear",
+   "unit": "eV/(1e15 atoms/cm2)",
+   "step": 2,
+   "refs": [
+    [
+     4,
+     471
+    ],
+    [
+     12,
+     198
+    ]
+   ]
+  },
+  "legend": {
+   "mode": "explicit",
+   "rows": [
+    {
+     "symbol": "H*",
+     "key": "1978-Port",
+     "count": 13,
+     "colour": "#0000FF",
+     "target": "polystyrene",
+     "phase": null
+    },
+    {
+     "symbol": "H*",
+     "key": "1980-Bedn",
+     "count": 10,
+     "colour": "#FF00FF",
+     "target": "polystyrene",
+     "phase": null
+    },
+    {
+     "symbol": "H*",
+     "key": "1981-Bedn",
+     "count": 9,
+     "colour": "#AA4900",
+     "target": "polystyrene",
+     "phase": null
+    },
+    {
+     "symbol": "H*",
+     "key": "1994-Wall",
+     "count": 8,
+     "colour": "#D524AA",
+     "target": "polystyrene",
+     "phase": null
+    }
+   ]
+  },
+  "citations": [
+   "SRIM/Compounds/Citations/Polystyrene.pdf"
+  ],
+  "citations_are_system": true,
+  "system_words": [
+   "(\\bH\\b|1H|Hydrogen|Proton|Deuteron)",
+   "(Polystyrene|PolyStyrene|polystyrene|C8H8)"
+  ],
+  "markers": [
+   {
+    "label": "H*",
+    "examples": [
+     [
+      207,
+      223,
+      17,
+      11
+     ]
+    ],
+    "join": 3
+   }
+  ],
+  "exclude": [
+   [
+    450,
+    80,
+    860,
+    150
+   ],
+   [
+    110,
+    140,
+    320,
+    170
+   ],
+   [
+    730,
+    160,
+    865,
+    235
+   ],
+   [
+    675,
+    240,
+    870,
+    290
+   ],
+   [
+    110,
+    485,
+    350,
+    545
+   ]
+  ],
+  "reject": [
+   [
+    735,
+    556,
+    "the H* at 728 matched again, 7 px right (its asterisk read as an H)"
+   ],
+   [
+    741,
+    557,
+    "the H* at 728 matched again, 13 px right"
+   ]
+  ],
+  "need": 0.6,
+  "max_white": 0.2
+ },
+ {
+  "id": "stop_he_polystyrene",
+  "file": "SRIM/Compounds/He into Polystyrene.gif",
+  "quantity": "stopping_cross_section",
+  "ion": "He",
+  "ion_z": 2,
+  "target": "polystyrene",
+  "x": {
+   "scale": "log",
+   "unit": "keV/amu",
+   "refs": [
+    [
+     40,
+     242
+    ],
+    [
+     400,
+     704
+    ]
+   ]
+  },
+  "y": {
+   "scale": "linear",
+   "unit": "eV/(1e15 atoms/cm2)",
+   "step": 5,
+   "refs": [
+    [
+     10,
+     471
+    ],
+    [
+     30,
+     198
+    ]
+   ]
+  },
+  "legend": {
+   "mode": "explicit",
+   "rows": [
+    {
+     "symbol": "He",
+     "key": "1980-Bedn",
+     "count": 9,
+     "colour": "#0000FF",
+     "target": "polystyrene",
+     "phase": null
+    },
+    {
+     "symbol": "He",
+     "key": "1981-Bedn",
+     "count": 8,
+     "colour": "#FF00FF",
+     "target": "polystyrene",
+     "phase": null
+    },
+    {
+     "symbol": "He",
+     "key": "1994-Wall",
+     "count": 9,
+     "colour": "#AA4900",
+     "target": "polystyrene",
+     "phase": null
+    }
+   ]
+  },
+  "citations": [
+   "SRIM/Compounds/Citations/Polystyrene.pdf"
+  ],
+  "citations_are_system": true,
+  "system_words": [
+   "(\\bHe\\b|4He|Helium|Alpha)",
+   "(Polystyrene|PolyStyrene|polystyrene|C8H8)"
+  ],
+  "markers": [
+   {
+    "label": "He",
+    "examples": [
+     [
+      620,
+      248,
+      17,
+      11
+     ],
+     [
+      661,
+      275,
+      17,
+      11
+     ]
+    ],
+    "join": 3
+   }
+  ],
+  "exclude": [
+   [
+    450,
+    80,
+    860,
+    150
+   ],
+   [
+    110,
+    120,
+    320,
+    150
+   ],
+   [
+    730,
+    160,
+    865,
+    225
+   ],
+   [
+    675,
+    240,
+    870,
+    290
+   ],
+   [
+    110,
+    510,
+    350,
+    570
+   ]
+  ],
+  "need": 0.6,
+  "max_white": 0.2
+ },
+ {
+  "id": "stop_li_polymers",
+  "file": "SRIM/Compounds/Li into Polymer Solids.gif",
+  "quantity": "stopping_cross_section",
+  "ion": "Li",
+  "ion_z": 3,
+  "target": "polymers",
+  "x": {
+   "scale": "log",
+   "unit": "MeV",
+   "refs": [
+    [
+     1,
+     314
+    ],
+    [
+     10,
+     846
+    ]
+   ]
+  },
+  "y": {
+   "scale": "linear",
+   "unit": "eV cm2/1e15 (as printed)",
+   "step": 5,
+   "refs": [
+    [
+     20,
+     553
+    ],
+    [
+     60,
+     116
+    ]
+   ]
+  },
+  "legend": {
+   "mode": "explicit",
+   "rows": [
+    {
+     "symbol": "Li",
+     "key": null,
+     "count": null,
+     "colour": "#000000",
+     "target": "polyimide C22H10N2O5",
+     "phase": null,
+     "reference": "F. Munnik et al., J. Appl. Phys., 85, 3934-3938 (1999)"
+    },
+    {
+     "symbol": "Li",
+     "key": null,
+     "count": null,
+     "colour": "#0000FF",
+     "target": "formvar C5H8O2",
+     "phase": null,
+     "reference": "F. Munnik et al., J. Appl. Phys., 85, 3934-3938 (1999)"
+    },
+    {
+     "symbol": "Li",
+     "key": null,
+     "count": null,
+     "colour": "#FF0000",
+     "target": "polysulphone C22H27O4S",
+     "phase": null,
+     "reference": "F. Munnik et al., J. Appl. Phys., 85, 3934-3938 (1999)"
+    }
+   ]
+  },
+  "citations": [],
+  "system_words": [],
+  "markers": [
+   {
+    "label": "Li",
+    "examples": [
+     [
+      117,
+      380,
+      20,
+      14
+     ],
+     [
+      122,
+      436,
+      21,
+      14
+     ],
+     [
+      127,
+      296,
+      21,
+      13
+     ]
+    ],
+    "join": 4
+   }
+  ],
+  "exclude": [
+   [
+    600,
+    105,
+    870,
+    170
+   ],
+   [
+    255,
+    445,
+    630,
+    560
+   ],
+   [
+    515,
+    575,
+    870,
+    600
+   ]
+  ],
+  "u_anchor_px": 2.4,
+  "need": 0.6,
+  "max_white": 0.2
+ },
+ {
+  "id": "stop_he_hc_gases",
+  "file": "SRIM/Compounds/He into Hydrocarbon Gases.gif",
+  "quantity": "stopping_cross_section",
+  "ion": "He",
+  "ion_z": 2,
+  "target": "hydrocarbon gases",
+  "x": {
+   "scale": "log",
+   "unit": "keV",
+   "refs": [
+    [
+     200,
+     188
+    ],
+    [
+     2000,
+     873
+    ]
+   ]
+  },
+  "y": {
+   "scale": "linear",
+   "unit": "eV cm2/1e15 (as printed; per molecule)",
+   "step": 50,
+   "refs": [
+    [
+     100,
+     487
+    ],
+    [
+     400,
+     122
+    ]
+   ]
+  },
+  "legend": {
+   "mode": "explicit",
+   "rows": [
+    {
+     "symbol": "He",
+     "key": null,
+     "count": null,
+     "colour": "#000000",
+     "target": "3-pentanone C5H10O",
+     "phase": "gas",
+     "reference": "papers of D. Powers (Baylor Univ., USA), per the srim.org Compounds page",
+     "candidate_key": "1978-Chau"
+    },
+    {
+     "symbol": "He",
+     "key": null,
+     "count": null,
+     "colour": "#0000FF",
+     "target": "butyraldehyde C4H8O",
+     "phase": "gas",
+     "reference": "papers of D. Powers (Baylor Univ., USA), per the srim.org Compounds page",
+     "candidate_key": "1978-Chau"
+    },
+    {
+     "symbol": "He",
+     "key": null,
+     "count": null,
+     "colour": "#FF0000",
+     "target": "acetone C3H6O",
+     "phase": "gas",
+     "reference": "papers of D. Powers (Baylor Univ., USA), per the srim.org Compounds page",
+     "candidate_key": "1978-Chau"
+    },
+    {
+     "symbol": "He",
+     "key": null,
+     "count": null,
+     "colour": "#FF00FF",
+     "target": "cyclopropane C3H6",
+     "phase": "gas",
+     "reference": "papers of D. Powers (Baylor Univ., USA), per the srim.org Compounds page"
+    },
+    {
+     "symbol": "He",
+     "key": null,
+     "count": null,
+     "colour": "#009200",
+     "target": "ethylene C2H4",
+     "phase": "gas",
+     "reference": "papers of D. Powers (Baylor Univ., USA), per the srim.org Compounds page"
+    }
+   ]
+  },
+  "citations": [],
+  "system_words": [],
+  "markers": [
+   {
+    "label": "He",
+    "ascii": [
+     [
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##########",
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#"
+     ],
+     [
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##########",
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#"
+     ],
+     [
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "##########",
+      "##########",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#",
+      "#........#"
+     ],
+     [
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "###########",
+      "###########",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#"
+     ],
+     [
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "###########",
+      "###########",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#"
+     ],
+     [
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "###########",
+      "###########",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#",
+      "#.........#"
+     ],
+     [
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##########",
+      "##########",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##"
+     ],
+     [
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##########",
+      "##########",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##"
+     ],
+     [
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##########",
+      "##########",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##",
+      "##......##"
+     ],
+     [
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "###########",
+      "###########",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##"
+     ],
+     [
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "###########",
+      "###########",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##"
+     ],
+     [
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "###########",
+      "###########",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##",
+      "##.......##"
+     ]
+    ],
+    "anchor": [
+     11.5,
+     7
+    ]
+   }
+  ],
+  "dedupe_px": [
+   11,
+   5
+  ],
+  "exclude": [
+   [
+    660,
+    75,
+    870,
+    125
+   ],
+   [
+    360,
+    455,
+    640,
+    600
+   ]
+  ],
+  "u_anchor_px": 1.0,
+  "need": 0.8,
+  "max_white": 0.15
+ }
+]
