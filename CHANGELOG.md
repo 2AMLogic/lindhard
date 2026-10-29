@@ -9,6 +9,12 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: a steppable `Simulation` session (`new`, `step`, `done`,
+  `report_json`, `take_trajectories_json`, `warnings`) and `elements_json()`,
+  exposing compound and multi-layer targets, the full ion report and recorded
+  trajectories to a Web Worker. A run cut into steps gives byte-identical
+  results; the WASM build is checked against a native golden record in CI,
+  which also logs the module size (#479, part of #467).
 - `lindhard run`: an optional `[electron.materials.<name>.inner_shells]` table
   (`subshells` of K, L1, L2, L3, and an optional `binding` file) adds
   hydrogenic inner-shell ionisation channels (`penn-single-pole` only) to every

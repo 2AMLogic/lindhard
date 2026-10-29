@@ -1,0 +1,9 @@
+{
+  "comment": "Native Simulation report of examples/as_50keV_si_sio2.toml with run.ions = ions and follow_recoils = true (Linux x86-64). Re-record with `cargo test -p lindhard-wasm --test session record -- --ignored --nocapture` only when the physics changes on purpose.",
+  "ions": 1000,
+  "depth_mean_m": 3.820753585953772e-8,
+  "depth_std_dev_m": 1.3161891836177403e-8,
+  "depth_mean_std_err_m": 4.1621556519096377e-10,
+  "depth_std_dev_std_err_m": 2.942217150376622e-10,
+  "stopped": 1000
+}

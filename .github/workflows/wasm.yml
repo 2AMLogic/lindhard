@@ -4,7 +4,10 @@ name: wasm
 # against the native build: the same 10^4-ion B into Si case and seed, checked
 # against lindhard-wasm/tests/b_5keV_si.golden.json with the tolerance stated
 # in lindhard-wasm/tests/parity.rs (the native side of the test runs in the
-# `rust` job of ci.yml). The browser page itself is built and published with
+# `rust` job of ci.yml). The same step runs the Simulation session through the
+# WASM build against lindhard-wasm/tests/as_50keV_si_sio2.golden.json
+# (tests/session.rs is the native side), and the log reports the size of the
+# browser module. The browser page itself is built and published with
 # the book (book.yml).
 #
 # Runs on every pull request that touches the library or the new crate.
@@ -57,8 +60,16 @@ jobs:
       - name: build the Node package
         run: lindhard-wasm/build.sh nodejs "$RUNNER_TEMP/lindhard-wasm-node"
       - name: native-versus-WASM parity and smoke tests
-        run: node --test lindhard-wasm/tests/node/parity.test.mjs
+        run: node --test lindhard-wasm/tests/node/parity.test.mjs lindhard-wasm/tests/node/session.test.mjs
         env:
           LINDHARD_WASM_PKG: ${{ runner.temp }}/lindhard-wasm-node
       - name: build the browser package
         run: lindhard-wasm/build.sh web "$RUNNER_TEMP/lindhard-wasm-web"
+      - name: report the size of the browser module
+        run: |
+          set -euo pipefail
+          wasm="$RUNNER_TEMP/lindhard-wasm-web/lindhard_wasm_bg.wasm"
+          raw=$(stat -c %s "$wasm")
+          gz=$(gzip -9 -c "$wasm" | wc -c)
+          echo "lindhard_wasm_bg.wasm: $raw bytes, $gz bytes gzipped"
+          echo "lindhard_wasm_bg.wasm: $raw bytes, $gz bytes gzipped" >> "$GITHUB_STEP_SUMMARY"
