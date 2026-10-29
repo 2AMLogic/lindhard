@@ -1099,6 +1099,208 @@ fn electron_data_without_provenance_is_refused() {
     assert!(e.contains("electron.materials.Si.band"), "{e}");
 }
 
+/// A scratch directory with the Si electron example as `input.toml`, its
+/// ELF beside it, and `extra` appended to the input (#156).
+fn inner_shell_input(name: &str, extra: &str) -> (PathBuf, PathBuf) {
+    let dir = scratch(name);
+    std::fs::copy(
+        examples_dir().join("electron/synthetic_plasmon_elf.toml"),
+        dir.join("synthetic_plasmon_elf.toml"),
+    )
+    .unwrap();
+    let mut text = std::fs::read_to_string(electron_example()).unwrap();
+    text.push_str(extra);
+    let input = dir.join("input.toml");
+    std::fs::write(&input, text).unwrap();
+    (dir, input)
+}
+
+/// `check` and `run` both refuse `input`; the `check` message.
+fn refused(dir: &Path, input: &Path) -> String {
+    for cmd in ["check", "run"] {
+        let mut args = vec![cmd, input.to_str().unwrap()];
+        if cmd == "run" {
+            args.extend(["--out", dir.to_str().unwrap()]);
+        }
+        assert!(!lindhard(&args).status.success(), "{cmd} must refuse");
+    }
+    assert!(!dir.join("electron_summary.json").exists());
+    String::from_utf8_lossy(&lindhard(&["check", input.to_str().unwrap()]).stderr).into_owned()
+}
+
+const SI_K_L: &str =
+    "\n[electron.materials.Si.inner_shells]\nsubshells = [\"K\", \"L1\", \"L2\", \"L3\"]\n";
+
+#[test]
+fn inner_shells_run_is_recorded_deterministic_and_leaves_other_runs_alone() {
+    let (dir, input) = inner_shell_input("electron-shells", SI_K_L);
+    let o = lindhard(&["check", input.to_str().unwrap()]);
+    ok(&o);
+    let mut sums = Vec::new();
+    for threads in ["1", "2"] {
+        let out = dir.join(format!("t{threads}"));
+        run(&input, &out, &["--histories", "48", "--threads", threads]);
+        sums.push(std::fs::read_to_string(out.join("electron_summary.json")).unwrap());
+    }
+    assert_eq!(deterministic_part(&sums[0]), deterministic_part(&sums[1]));
+    let s: serde_json::Value = serde_json::from_str(&sums[0]).unwrap();
+    let m = &s["physics"]["materials"][0]["inner_shells"];
+    assert_eq!(m["subshells"], serde_json::json!(["K", "L1", "L2", "L3"]));
+    assert_eq!(m["binding_source"], "embedded EADL2017");
+    assert!(m.get("binding_file").is_none());
+    assert!(m["binding_provenance"].as_str().unwrap().contains("EADL"));
+    let models = s["physics"]["models"].as_array().unwrap();
+    assert!(
+        models.iter().any(|x| x["role"] == "inner-shell ionisation"
+            && x["citation"].as_str().unwrap().contains("de Vera")),
+        "{models:?}"
+    );
+    // The layer metadata of the run lists the channels.
+    let layer = &s["physics"]["transport"]["layers"][0];
+    assert!(
+        layer.to_string().contains("inner_shells"),
+        "no inner-shell metadata: {layer}"
+    );
+
+    // Without the table: no key anywhere in the physics block, and the
+    // results differ from a run with the channels.
+    let plain = dir.join("plain");
+    run(
+        &electron_example(),
+        &plain,
+        &["--histories", "48", "--threads", "1"],
+    );
+    let p = json(&plain.join("electron_summary.json"));
+    assert!(p["physics"]["materials"][0].get("inner_shells").is_none());
+    assert!(!p["physics"]["models"]
+        .to_string()
+        .contains("inner-shell ionisation"));
+    assert_ne!(p["results"], s["results"]);
+}
+
+#[test]
+fn inner_shells_binding_override_equal_to_the_embedded_table_gives_the_same_run() {
+    use lindhard::electron::data::SubshellBindingTable;
+    let (dir, input) = inner_shell_input("electron-shells-override", SI_K_L);
+    std::fs::write(
+        dir.join("binding.toml"),
+        SubshellBindingTable::eadl2017().to_toml_string().unwrap(),
+    )
+    .unwrap();
+    let with_file = dir.join("with_binding.toml");
+    std::fs::write(
+        &with_file,
+        std::fs::read_to_string(&input)
+            .unwrap()
+            .replace(SI_K_L, &format!("{SI_K_L}binding = \"binding.toml\"\n")),
+    )
+    .unwrap();
+    let (a, b) = (dir.join("a"), dir.join("b"));
+    run(&input, &a, &["--histories", "32", "--threads", "2"]);
+    run(&with_file, &b, &["--histories", "32", "--threads", "2"]);
+    let (sa, sb) = (
+        json(&a.join("electron_summary.json")),
+        json(&b.join("electron_summary.json")),
+    );
+    assert_eq!(sa["results"], sb["results"]);
+    assert_eq!(sa["physics"]["transport"], sb["physics"]["transport"]);
+    let i = &sb["physics"]["materials"][0]["inner_shells"];
+    assert_eq!(i["binding_source"], "file");
+    assert_eq!(i["binding_file"]["path"], "binding.toml");
+    assert_eq!(i["binding_file"]["sha256"].as_str().unwrap().len(), 64);
+}
+
+#[test]
+fn inner_shells_binding_without_provenance_or_coverage_is_refused() {
+    use lindhard::electron::data::{AtomBindings, ShellBinding, Subshell, SubshellBindingTable};
+    let with_binding = format!("{SI_K_L}binding = \"binding.toml\"\n");
+
+    // No provenance.
+    let (dir, input) = inner_shell_input("electron-shells-noprov", &with_binding);
+    let stripped: String = SubshellBindingTable::eadl2017()
+        .to_toml_string()
+        .unwrap()
+        .lines()
+        .filter(|l| !l.starts_with("provenance"))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(dir.join("binding.toml"), stripped).unwrap();
+    let e = refused(&dir, &input);
+    assert!(
+        e.contains("electron.materials.Si.inner_shells.binding") && e.contains("provenance"),
+        "{e}"
+    );
+
+    // A table without the material's element.
+    let sub = |d| Subshell::new(d).unwrap();
+    let h = AtomBindings::new(1, vec![ShellBinding::new(sub(1), 13.6, 1.0).unwrap()]).unwrap();
+    let table = SubshellBindingTable::new("synthetic test table", vec![h]).unwrap();
+    let (dir, input) = inner_shell_input("electron-shells-noelement", &with_binding);
+    std::fs::write(dir.join("binding.toml"), table.to_toml_string().unwrap()).unwrap();
+    let e = refused(&dir, &input);
+    assert!(
+        e.contains("electron.materials.Si.inner_shells.binding") && e.contains("Si"),
+        "{e}"
+    );
+
+    // Si without its L1 shell, asked for L1.
+    let shell = |d, b, n| ShellBinding::new(sub(d), b, n).unwrap();
+    let si = AtomBindings::new(
+        14,
+        vec![
+            shell(1, 1839.0, 2.0),
+            shell(3, 99.8, 2.0),
+            shell(4, 99.2, 4.0),
+            shell(5, 13.0, 2.0),
+            shell(6, 8.0, 2.0),
+            shell(7, 8.0, 2.0),
+        ],
+    )
+    .unwrap();
+    let table = SubshellBindingTable::new("synthetic test table", vec![si]).unwrap();
+    let (dir, input) = inner_shell_input(
+        "electron-shells-nosubshell",
+        "\n[electron.materials.Si.inner_shells]\nsubshells = [\"K\", \"L1\"]\nbinding = \"binding.toml\"\n",
+    );
+    std::fs::write(dir.join("binding.toml"), table.to_toml_string().unwrap()).unwrap();
+    let e = refused(&dir, &input);
+    assert!(
+        e.contains("electron.materials.Si.inner_shells.subshells") && e.contains("L1"),
+        "{e}"
+    );
+}
+
+#[test]
+fn inner_shells_bad_subshells_and_model_are_refused_naming_the_field() {
+    let cases = [
+        ("m", "subshells = [\"M1\"]\n", "inner_shells.subshells"),
+        ("bogus", "subshells = [\"Z9\"]\n", "inner_shells.subshells"),
+        ("empty", "subshells = []\n", "inner_shells.subshells"),
+        (
+            "twice",
+            "subshells = [\"K\", \"K\"]\n",
+            "inner_shells.subshells",
+        ),
+        ("key", "subshells = [\"K\"]\nshells = 1\n", "shells"),
+    ];
+    for (name, body, field) in cases {
+        let (dir, input) = inner_shell_input(
+            &format!("electron-shells-bad-{name}"),
+            &format!("\n[electron.materials.Si.inner_shells]\n{body}"),
+        );
+        let e = refused(&dir, &input);
+        assert!(e.contains(field), "{name}: {e}");
+    }
+    // Shell channels are single-pole only.
+    let (dir, input) = inner_shell_input("electron-shells-bad-model", SI_K_L);
+    let text = std::fs::read_to_string(&input)
+        .unwrap()
+        .replace("penn-single-pole", "penn-full");
+    std::fs::write(&input, text).unwrap();
+    let e = refused(&dir, &input);
+    assert!(e.contains("electron.materials.Si.inner_shells"), "{e}");
+}
+
 #[test]
 fn tuning_none_is_bit_identical_and_unknown_sets_are_rejected() {
     // `tuning = "none"` is the default: same physical output, same echo, and
