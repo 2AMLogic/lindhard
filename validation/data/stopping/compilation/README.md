@@ -230,7 +230,7 @@ directory). Test the parser with
 The two files are **complementary, not a superset pair**, and neither
 supersedes the other. `srim_org_bibliography.csv` (267 rows) is keyed to the
 citation lists behind the digitized H/He plots and carries `old_ref` as the
-join to `old_refs` in `srim_org_h_he.csv`. `bibliography.csv` is built from all
+join to `old_refs` in `srim_org_stopping.csv`. `bibliography.csv` is built from all
 350 citation files and has a different parser. Compared on `citation_key`:
 
 - 262 of the 267 keys also occur in `bibliography.csv`; year agrees on all 262.
