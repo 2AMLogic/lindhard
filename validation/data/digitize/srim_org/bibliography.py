@@ -28,7 +28,7 @@ def main(site, comp, out):
     want = {}  # key -> set of (ion, target) pairs it appears on
     for row in csv.DictReader(open(comp)):
         for k in row["citation_keys"].split("|"):
-            want.setdefault(k, set()).add(row["plot"][4:8])
+            want.setdefault(k, set()).add(os.path.basename(row["plot"])[4:8])
     found = {}
     for e in citpdf.index(site).values():
         if e["key"] in want and e["key"] not in found:

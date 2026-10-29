@@ -24,17 +24,30 @@ COLUMNS = ["ion_z", "ion", "target_z", "target", "energy_kev_per_amu", "stopping
            "colour", "pixel_x", "pixel_y", "origin", "method"]
 
 
+def plots(site, ions):
+    """{file name: path on the site} of every per-pair plot. StopPlots/ has
+    most; SRIM/SRIMPICS/STOPzz/ holds the same files byte for byte plus some
+    targets StopPlots lacks, which are taken from there."""
+    found = {}
+    for d in ["StopPlots"] + ["SRIM/SRIMPICS/STOP%02d" % z for z in ions]:
+        if not os.path.isdir(os.path.join(site, d)):
+            continue
+        for f in sorted(os.listdir(os.path.join(site, d))):
+            if re.match(r"STOP\d{4}\.gif$", f) and int(f[4:6]) in ions:
+                found.setdefault(f, d + "/" + f)
+    return found
+
+
 def run(site, work, ions):
     os.makedirs(work, exist_ok=True)
-    for f in sorted(os.listdir(os.path.join(site, "StopPlots"))):
-        if not re.match(r"STOP\d{4}\.gif$", f) or int(f[4:6]) not in ions:
-            continue
+    for f, rel in sorted(plots(site, ions).items()):
         out = os.path.join(work, f[:-4] + ".json")
         if os.path.exists(out):
             continue
         pdf = os.path.join(site, "Citations", f"Cit {f[4:6]}-{f[6:8]}.pdf")
         try:
-            o = digitize.digitize(os.path.join(site, "StopPlots", f), pdf)
+            o = digitize.digitize(os.path.join(site, rel), pdf)
+            o["plot"] = rel
         except Exception as e:  # report and carry on; one bad plot must not stop the run
             print(f"{f}: {type(e).__name__}: {e}", file=sys.stderr)
             continue
@@ -105,7 +118,8 @@ def export(work, path, ref_index):
     n = n_dropped = 0
     for f in sorted(glob.glob(os.path.join(work, "STOP*.json"))):
         o = json.load(open(f))
-        z1, z2 = int(o["plot"][4:6]), int(o["plot"][6:8])
+        name = os.path.basename(o["plot"])
+        z1, z2 = int(name[4:6]), int(name[6:8])
         refs, keys = {}, {}
         for row in o["legend"]:
             refs.setdefault(row["colour"], []).append(str(row["ref"]))
