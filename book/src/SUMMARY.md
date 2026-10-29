@@ -21,6 +21,11 @@
 - [Displacement damage](models/damage.md)
 - [Dynamic composition](models/dynamic-composition.md)
 
+# History and literature
+
+- [History and literature of ion stopping](history.md)
+  - [James F. Ziegler (1935–2024)](history-ziegler.md)
+
 # User guide
 
 - [Installing](guide/install.md)
