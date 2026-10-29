@@ -466,6 +466,31 @@ browser and paste the text into #34, or ask the IAEA Nuclear Data Section.
 database until the terms have been read and recorded here. Meanwhile, use
 measured points from the original papers, cited as facts (origin 2).
 
+### Measured stopping datasets: first-batch search (#483)
+
+**No dataset added yet.** The first batch of #483 (H and He in Si; B, P and As
+in Si; H and He in Cu and Au) needs primary papers that can be read in full.
+The search on 2026-10-29 did not find enough of them, so no value was entered.
+Candidates were located through the bibliography lists at srim.org (a finding
+aid only: no value is taken from it, from any plot on it, or from any SRIM
+table or fit). What each route returned:
+
+| Paper | Wanted for | Outcome |
+|---|---|---|
+| C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953) | H in Cu | The archive at gymarkiv.sdu.dk answers scripted requests with a JavaScript challenge page, not the PDF. Not worked around. Not read |
+| A. Nomura and S. Kiyono, J. Phys. D 8, 1551 (1975), doi:10.1088/0022-3727/8/13/017 | H and He in Cu and Au | Flagged open access by Unpaywall, but the PDF URL returns the article page, then a JavaScript challenge. Not read |
+| V. Pires et al., arXiv:2504.15106 (2025) | He in Au, 0.5 to 5.1 MeV | Opened. The measured points appear only in Fig. 7, drawn together with points from a database and two model curves, with no table. Not digitized: separating the paper's own markers from the others cannot be done reliably at this resolution |
+| J. D. Melvin and T. A. Tombrello, Radiat. Eff. 26, 113 (1975) | H in Si | The Caltech authors record is restricted (no file) |
+| C. Foster et al., Radiat. Eff. 16, 139 (1972); J. A. Borders, Radiat. Eff. 16, 253 (1972) | H in Si; He in Au | OSTI holds the citation record only, no full text |
+| Morita et al., J. Phys. Soc. Jpn. 22, 1503 (1967) and 25, 1525 (1968); Barradas et al., Nucl. Instrum. Methods B 194, 15 (2002) | H in Cu and Au; He in Si | Unpaywall reports no open copy |
+
+Boron, phosphorus and arsenic in Si: srim.org has no per-pair list for these
+ions under the file names used for H, He and the targets above (HTTP 404), and
+the H, He and Si lists name no open copy of a B, P or As measurement either.
+
+Papers listed in the H and He lists for these targets that were not tried
+(no open copy was identified for them) are left for the follow-up issue, #488.
+
 ## Tuning factor sets (opt-in, #80)
 
 `[physics] tuning = "<set>"` selects a named, versioned set of
