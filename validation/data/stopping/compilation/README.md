@@ -41,6 +41,16 @@ the original papers.
   compilation's per-system citation lists. Parsed automatically; check a
   reference against the paper before relying on its wording.
 
+- `bibliography.csv`: the experimental stopping and range papers that srim.org's
+  citation files record, one row per paper (1230 rows), with a compiler's
+  comment, the ion–target pairs and compounds each is listed under, and a
+  Crossref DOI where exactly one candidate matches. Described in
+  [Experimental-paper bibliography](#experimental-paper-bibliography) below.
+- `fetch_bibliography.py`, `test_fetch_bibliography.py`: the script that builds
+  it, and its parser test.
+- `bibliography-unparsed.txt`: entries the parser could not split, kept
+  verbatim (two, the same paper listed in two compound files).
+
 These files sit in a subdirectory, so the stopping report
 (`lindhard-plots/src/stopping_report.rs`), which reads only the CSVs at the
 top of `stopping/`, does not load them. Its source guard refuses any dataset
@@ -183,3 +193,56 @@ high-energy tail of H in polystyrene), points were checked by eye at 10×.
 Four H-in-water points keep an uncertain letter (`symbol` `C|D` or
 `C|D|F`), so their paper is one of those rows; one more is read as D from
 its lower half (noted).
+
+## Experimental-paper bibliography
+
+`bibliography.csv` covers every ion–target pair (202 citation files, from
+`PlotCit.htm`) and every compound (148 files, from `SRIM/Compounds.htm`), not
+only the H and He plots, fetched 2026-10-29. Titles, authors, journal
+references and years are facts about published papers; the compiler's comment
+says what each paper measured. The citation PDFs and page text are not copied
+into the tree. The license is the CC0 1.0 one above.
+
+`fetch_bibliography.py` fetches the files (at most one request per second, into
+a scratch directory outside the tree), runs `pdftotext -layout` and parses the
+entries. The `Cit <Z>-All` and `Cit All-<Z>` aggregates repeat per-pair
+entries and serve only as a cross-check.
+
+| column | meaning |
+|---|---|
+| `citation_key` | the compiler's key as printed (for example `1962-Ewin`); not unique, since 73 keys are used for more than one paper |
+| `year`, `authors`, `title`, `journal` | as printed; title text order comes from the PDF layout and can be scrambled in a few entries |
+| `comment` | the compiler's note: quantity (S stopping, R range, d prefix for straggling), energy range, ions and targets |
+| `old_ref` | the old reference number; empty in the compound files, which do not print one |
+| `pairs` | ion–target pairs the paper is listed under, as `<ion Z>-<target Z>` (`01-14` is H in Si), joined with `;` |
+| `target` | compound names the paper is listed under, joined with `;`; empty for papers listed only under elemental pairs |
+| `doi` | Crossref DOI, only when exactly one candidate matches the normalized title, the year, the journal and, where printed, the first page (275 of 1230 filled); never guessed |
+
+Checks: per file, the `Comment :` lines, the entry-start lines and the parsed
+plus unparsed entries must agree (all 350 files pass). No measured value is
+in `bibliography.csv`. Rebuild with `python3 fetch_bibliography.py` (about 40
+minutes, needs poppler's `pdftotext`; `--no-fetch` reuses the scratch
+directory). Test the parser with
+`python3 -B -m unittest test_fetch_bibliography`.
+
+### Relation to `srim_org_bibliography.csv`
+
+The two files are **complementary, not a superset pair**, and neither
+supersedes the other. `srim_org_bibliography.csv` (267 rows) is keyed to the
+citation lists behind the digitized H/He plots and carries `old_ref` as the
+join to `old_refs` in `srim_org_h_he.csv`. `bibliography.csv` is built from all
+350 citation files and has a different parser. Compared on `citation_key`:
+
+- 262 of the 267 keys also occur in `bibliography.csv`; year agrees on all 262.
+  Normalized title agrees on 253 (the rest differ in apostrophes, truncation
+  or layout order); normalized journal reference on 203 (the older file keeps
+  trailing page-footer text on some rows). 25 of the 262 keys name more than
+  one paper in `bibliography.csv`, so match on key plus title.
+- Five keys of the older file are **absent** from `bibliography.csv`:
+  `1961-Niel`, `1966-Palm`, `1968-Powe`, `1980-Sant`, `2000-Berg`. Their
+  titles do not appear there under other keys either. Keep
+  `srim_org_bibliography.csv` for resolving the digitized points' citation
+  keys.
+
+The comparison was made once by script on the committed CSVs; neither file's
+rows were checked by hand against the papers.
