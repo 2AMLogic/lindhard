@@ -65,7 +65,8 @@ the tree under these conditions:
   and the Experiment/Theory panel under it only as an intermediate, to recover
   a measured point hidden under other markers on top (its ratio times the
   curve). Such a point is flagged as reconstructed from the ratio panel, and
-  no point is made from the curve alone (operator ruling, 2026-10-28, #486).
+  no point is made from the curve alone (operator ruling, 2026-10-28,
+  [recorded on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)).
 - The site's history and commentary are welcome too, as facts restated in our
   own words with citations. The site's files (images, PDFs, page text) stay in
   the operator's archive rather than being copied into the tree.

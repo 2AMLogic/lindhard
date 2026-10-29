@@ -14,7 +14,8 @@ These are measurements, not SRIM output. SRIM's fitted curve is never stored.
 It is read only as an intermediate: the Experiment/Theory panel under each
 plot shows the same points divided by that curve, and a point hidden under
 other markers on top is recovered there as ratio × curve and flagged
-(`panel` = `lower`, operator ruling of 2026-10-28, #486). No plot image, PDF
+(`panel` = `lower`; operator ruling of 2026-10-28,
+[recorded on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)). No plot image, PDF
 or page text from the site is stored here.
 
 **License:** CC0 1.0 ([`LICENSE`](LICENSE)), separate from the MIT code. Cite
