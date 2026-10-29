@@ -156,3 +156,46 @@ fn a_name_that_merely_contains_the_letters_is_not_refused() {
     let dir = Scratch::new("substring", &[("a.csv", text)]);
     assert!(render(&dir.0, "data").is_ok());
 }
+
+const ORIGIN_HEADER: &str = "# format: lindhard-stopping-data/1\n# name: compilation\n\
+    # description: invented points standing in for a digitized srim.org compilation\n\
+    ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,\
+    citation_key,origin\n";
+
+fn compilation(origin: &str) -> String {
+    let mut text = ORIGIN_HEADER.to_string();
+    for (i, e) in [1.0e4, 3.0e4, 1.0e5, 3.0e5, 1.0e6, 3.0e6]
+        .iter()
+        .enumerate()
+    {
+        text.push_str(&format!(
+            "1,,Si,{e},{},0.5,digitized plot,\"Digitized from the srim.org compilation: Test, J. 1 (2000)\",2000-Test,{origin}\n",
+            10.0 + i as f64
+        ));
+    }
+    text
+}
+
+#[test]
+fn a_compilation_origin_file_may_name_its_source() {
+    let dir = Scratch::new(
+        "compilation",
+        &[("a.csv", compilation("digitized-compilation"))],
+    );
+    assert!(render(&dir.0, "data").is_ok());
+}
+
+#[test]
+fn an_unknown_origin_is_refused_by_the_loader() {
+    let dir = Scratch::new("bad-origin", &[("a.csv", compilation("table"))]);
+    let err = format!("{:#}", render(&dir.0, "data").unwrap_err());
+    assert!(err.contains("unknown origin"), "{err}");
+}
+
+#[test]
+fn an_eight_column_file_mentioning_srim_is_still_refused() {
+    let text = synthetic(1.0).replace("Test Author", "SRIM compilation");
+    let dir = Scratch::new("srim-eight", &[("a.csv", text)]);
+    let err = render(&dir.0, "data").unwrap_err().to_string();
+    assert!(err.contains("may not enter"), "{err}");
+}

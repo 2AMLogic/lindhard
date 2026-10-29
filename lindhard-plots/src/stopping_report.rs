@@ -25,7 +25,7 @@ use lindhard::elements::element;
 use lindhard::ion::stopping::bethe::BetheBloch;
 use lindhard::ion::stopping::bragg::NoCorrection;
 use lindhard::ion::stopping::correction::{fit_correction, FitSettings, ResidualStats};
-use lindhard::ion::stopping::dataset::{compare, StoppingDataset, StoppingPoint, Target};
+use lindhard::ion::stopping::dataset::{compare, Origin, StoppingDataset, StoppingPoint, Target};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::mix::EquipartitionMix;
 use lindhard::ion::stopping::oen_robinson::OenRobinson;
@@ -74,9 +74,19 @@ pub fn render(data_dir: &Path, data_label: &str) -> Result<String> {
             .and_then(|n| n.to_str())
             .context("dataset file name is not UTF-8")?
             .to_string();
-        refuse_forbidden_sources(&name, &text)?;
         let ds = StoppingDataset::from_csv_str(&text)
             .with_context(|| format!("in {}", path.display()))?;
+        // Only a file whose every point declares the digitized-compilation
+        // origin (read off the plots of a published compilation, with the
+        // compilation named in the file's own header) skips the word guard;
+        // a file without the `origin` column is always checked.
+        let compilation = ds
+            .points()
+            .iter()
+            .all(|p| p.origin() == Some(Origin::DigitizedCompilation));
+        if !compilation {
+            refuse_forbidden_sources(&name, &text)?;
+        }
         datasets.push(Loaded { name, text, ds });
     }
     Ok(page(&datasets, data_label))

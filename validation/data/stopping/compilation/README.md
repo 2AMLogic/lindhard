@@ -23,6 +23,11 @@ the original papers.
 ## Files
 
 - `srim_org_stopping.csv`: one row per digitized point.
+- `srim_org_h_he_loader.csv`: the H, D and He points of `origin = digitized-compilation`
+  in the stopping loader's format (`docs/stopping-data-format.md`), made by
+  [`convert_to_loader.py`](../../digitize/srim_org/convert_to_loader.py). Rows
+  with several candidate papers keep every key, joined with `|`. Li points and
+  the panel-recovered points (`origin = residual-reconstructed`) are not in it.
 - `srim_org_bibliography.csv`: the papers behind the citation keys (key, old
   citation number, authors, year, title, journal reference), parsed from the
   compilation's per-system citation lists. Parsed automatically; check a
@@ -30,9 +35,11 @@ the original papers.
 
 These files sit in a subdirectory, so the stopping report
 (`lindhard-plots/src/stopping_report.rs`), which reads only the CSVs at the
-top of `stopping/`, does not load them. Its source guard refuses any
-dataset that mentions srim. Wiring this compilation into the report needs
-that guard to accept origin 4 explicitly; that is a separate change.
+top of `stopping/`, does not load them. Its source guard refuses any dataset
+that mentions srim unless every point has `origin = digitized-compilation`,
+which `srim_org_h_he_loader.csv` has. Moving that file to the top of
+`stopping/` would add it to the report and change the committed page; that is
+a separate change.
 
 ### `srim_org_stopping.csv` columns
 
