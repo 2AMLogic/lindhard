@@ -23,6 +23,14 @@ and check it is current with the same command and `-- --check`. The output is a 
 | File | Name | Points | Systems |
 |---|---|---|---|
 | `bader1956_p_cu.csv` | bader1956-p-cu | 15 | 1 |
+| `srim_org_h_si_1976-Grah.csv` | srim-org-h-si-1976-grah | 11 | 1 |
+| `srim_org_h_si_1977-Cemb.csv` | srim-org-h-si-1977-cemb | 15 | 1 |
+| `srim_org_h_si_1988-Mert.csv` | srim-org-h-si-1988-mert | 11 | 1 |
+| `srim_org_he_cu_1975-Nomu.csv` | srim-org-he-cu-1975-nomu | 14 | 1 |
+| `srim_org_he_cu_1977-Ande3.csv` | srim-org-he-cu-1977-ande3 | 17 | 1 |
+| `srim_org_he_si_1973-Lin.csv` | srim-org-he-si-1973-lin | 38 | 1 |
+| `srim_org_he_si_1973-Zieg.csv` | srim-org-he-si-1973-zieg | 14 | 1 |
+| `srim_org_he_si_1981-Pear.csv` | srim-org-he-si-1981-pear | 14 | 1 |
 
 ## bader1956-p-cu
 
@@ -85,4 +93,516 @@ Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-o
 | 19 | 500 keV | 18.100 | 73.426 | 18.065 | **held out** |
 | 20 | 550 keV | 17.500 | 77.010 | 17.394 | train |
 | 21 | 600 keV | 16.900 | 80.435 | 16.768 | train |
+
+## srim-org-h-si-1976-grah
+
+File: `srim_org_h_si_1976-Grah.csv`.
+
+H in Si, 11 points of one paper (Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on Si
+
+* Points: 11. Energy span: 2.272 keV to 57.223 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Grahmann, G.; Kalbitzer, S., Nucl. Inst. Methods, 132, 119-23 (1976).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 11 | 0 | +1.471 | 1.622 | +12.38 % | 14.02 % |
+| oen-robinson | 11 | 0 | +1.471 | 1.622 | +12.38 % | 14.02 % |
+| equipartition-ls-or | 11 | 0 | +1.471 | 1.622 | +12.38 % | 14.02 % |
+| bethe-bloch | 0 | 11 | n/a | n/a | n/a | n/a |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (2.272 keV) skipped: bethe-bloch is not applicable at 2272.041 eV for this ion.
+* bethe-bloch: line 6 (5.073 keV) skipped: bethe-bloch is not applicable at 5072.786 eV for this ion.
+* bethe-bloch: line 7 (10.452 keV) skipped: bethe-bloch is not applicable at 10452.15 eV for this ion.
+* bethe-bloch: line 8 (15.002 keV) skipped: bethe-bloch is not applicable at 15002.48 eV for this ion.
+* bethe-bloch: line 9 (19.348 keV) skipped: bethe-bloch is not applicable at 19348.22 eV for this ion.
+* bethe-bloch: line 10 (24.62 keV) skipped: bethe-bloch is not applicable at 24620.16 eV for this ion.
+* bethe-bloch: line 11 (28.91 keV) skipped: bethe-bloch is not applicable at 28910.47 eV for this ion.
+* bethe-bloch: line 12 (34.87 keV) skipped: bethe-bloch is not applicable at 34869.74 eV for this ion.
+* bethe-bloch: line 13 (41.499 keV) skipped: bethe-bloch is not applicable at 41499.21 eV for this ion.
+* bethe-bloch: line 14 (48.73 keV) skipped: bethe-bloch is not applicable at 48730.35 eV for this ion.
+* bethe-bloch: line 15 (57.223 keV) skipped: bethe-bloch is not applicable at 57223.3 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | +12.97 % | +2.10 % | 13.29 % | 4.13 % | lowers | 2.272 keV to 57.223 keV |
+| oen-robinson | 3 | +12.97 % | +2.10 % | 13.29 % | 4.13 % | lowers | 2.272 keV to 57.223 keV |
+| equipartition-ls-or | 3 | +12.97 % | +2.10 % | 13.29 % | 4.13 % | lowers | 2.272 keV to 57.223 keV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 2272.041 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 2.272 keV | 3.491 | 4.537 | 3.894 | train |
+| 6 | 5.073 keV | 6.098 | 6.779 | 6.092 | train |
+| 7 | 10.452 keV | 9.461 | 9.730 | 8.923 | train |
+| 8 | 15.002 keV | 10.696 | 11.658 | 10.717 | train |
+| 9 | 19.348 keV | 12.412 | 13.239 | 12.155 | train |
+| 10 | 24.62 keV | 12.755 | 14.934 | 13.663 | **held out** |
+| 11 | 28.91 keV | 14.196 | 16.183 | 14.753 | train |
+| 12 | 34.87 keV | 15.774 | 17.773 | 16.114 | train |
+| 13 | 41.499 keV | 17.490 | 19.389 | 17.469 | **held out** |
+| 14 | 48.73 keV | 18.931 | 21.010 | 18.801 | **held out** |
+| 15 | 57.223 keV | 20.509 | 22.767 | 20.215 | train |
+
+## srim-org-h-si-1977-cemb
+
+File: `srim_org_h_si_1977-Cemb.csv`.
+
+H in Si, 15 points of one paper (Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on Si
+
+* Points: 15. Energy span: 79.969 keV to 270.389 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Cembali, F.; Zignani, F., Rad. Effects, 31, 169-173 (1977).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 15 | 0 | +21.189 | 23.377 | +133.96 % | 155.46 % |
+| oen-robinson | 15 | 0 | +21.189 | 23.377 | +133.96 % | 155.46 % |
+| equipartition-ls-or | 15 | 0 | +21.189 | 23.377 | +133.96 % | 155.46 % |
+| bethe-bloch | 14 | 1 | -3.008 | 6.820 | -12.31 % | 33.72 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (79.969 keV) skipped: bethe-bloch is not applicable at 79968.9 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | +183.50 % | +5.35 % | 192.88 % | 12.22 % | lowers | 79.969 keV to 270.389 keV |
+| oen-robinson | 3 | +183.50 % | +5.35 % | 192.88 % | 12.22 % | lowers | 79.969 keV to 270.389 keV |
+| equipartition-ls-or | 3 | +183.50 % | +5.35 % | 192.88 % | 12.22 % | lowers | 79.969 keV to 270.389 keV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 79968.9 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 79.969 keV | 23.049 | 26.915 | 23.246 | train |
+| 6 | 100.406 keV | 21.058 | 30.158 | 21.569 | train |
+| 7 | 104.522 keV | 22.088 | 30.770 | 21.262 | train |
+| 8 | 110.266 keV | 20.647 | 31.604 | 20.850 | train |
+| 9 | 129.485 keV | 20.029 | 34.248 | 19.588 | train |
+| 10 | 146.064 keV | 18.039 | 36.375 | 18.627 | **held out** |
+| 11 | 160.416 keV | 17.422 | 38.120 | 17.875 | train |
+| 12 | 162.572 keV | 17.010 | 38.375 | 17.767 | train |
+| 13 | 173.83 keV | 19.068 | 39.682 | 17.229 | train |
+| 14 | 190.912 keV | 15.020 | 41.586 | 16.477 | train |
+| 15 | 215.352 keV | 12.961 | 44.167 | 15.518 | **held out** |
+| 16 | 230.258 keV | 13.990 | 45.670 | 14.990 | train |
+| 17 | 249.517 keV | 15.431 | 47.542 | 14.362 | **held out** |
+| 18 | 249.517 keV | 13.579 | 47.542 | 14.362 | train |
+| 19 | 270.389 keV | 15.020 | 49.491 | 13.741 | train |
+
+## srim-org-h-si-1988-mert
+
+File: `srim_org_h_si_1988-Mert.csv`.
+
+H in Si, 11 points of one paper (Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on Si
+
+* Points: 11. Energy span: 48.082 keV to 420.586 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 11 | 0 | +18.611 | 25.351 | +120.42 % | 172.84 % |
+| oen-robinson | 11 | 0 | +18.611 | 25.351 | +120.42 % | 172.84 % |
+| equipartition-ls-or | 11 | 0 | +18.611 | 25.351 | +120.42 % | 172.84 % |
+| bethe-bloch | 8 | 3 | -3.938 | 7.981 | -16.13 % | 34.69 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (48.082 keV) skipped: bethe-bloch is not applicable at 48082.32 eV for this ion.
+* bethe-bloch: line 6 (61.184 keV) skipped: bethe-bloch is not applicable at 61184.05 eV for this ion.
+* bethe-bloch: line 7 (75.8 keV) skipped: bethe-bloch is not applicable at 75799.53 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | +196.09 % | +0.72 % | 210.17 % | 1.40 % | lowers | 48.082 keV to 420.586 keV |
+| oen-robinson | 3 | +196.09 % | +0.72 % | 210.17 % | 1.40 % | lowers | 48.082 keV to 420.586 keV |
+| equipartition-ls-or | 3 | +196.09 % | +0.72 % | 210.17 % | 1.40 % | lowers | 48.082 keV to 420.586 keV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 48082.32 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 48.082 keV | 25.656 | 20.870 | 26.151 | train |
+| 6 | 61.184 keV | 25.862 | 23.542 | 25.542 | train |
+| 7 | 75.8 keV | 24.970 | 26.204 | 24.702 | train |
+| 8 | 95.17 keV | 23.941 | 29.361 | 23.534 | train |
+| 9 | 119.488 keV | 21.951 | 32.899 | 22.126 | train |
+| 10 | 160.416 keV | 19.961 | 38.120 | 20.028 | **held out** |
+| 11 | 196.093 keV | 17.971 | 42.146 | 18.476 | train |
+| 12 | 230.258 keV | 16.872 | 45.670 | 17.193 | train |
+| 13 | 289.105 keV | 15.431 | 51.175 | 15.351 | **held out** |
+| 14 | 309.12 keV | 14.471 | 52.916 | 14.811 | **held out** |
+| 15 | 420.586 keV | 12.824 | 61.724 | 12.374 | train |
+
+## srim-org-he-cu-1975-nomu
+
+File: `srim_org_he_cu_1975-Nomu.csv`.
+
+He in Cu, 14 points of one paper (Nomura, A.; Kiyono, S., J. Phys. D: Appl. Phys., 8, 1551-59 (1975) (C) 2011 SRIM.org Experimental Stopping and Range Papers Page 9 of 23 Citations for Ion = H , Target = C Pub. Citation Year Authors, Title, Journal Citation and Comments Numb) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### He (4.003 u) on Cu
+
+* Points: 14. Energy span: 5.519 keV to 11.525 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Nomura, A.; Kiyono, S., J. Phys. D: Appl. Phys., 8, 1551-59 (1975) (C) 2011 SRIM.org Experimental Stopping and Range Papers Page 9 of 23 Citations for Ion = H , Target = C Pub. Citation Year Authors, Title, Journal Citation and Comments Numb.
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 14 | 0 | +3.470 | 3.584 | +57.68 % | 63.12 % |
+| oen-robinson | 14 | 0 | +3.470 | 3.584 | +57.68 % | 63.12 % |
+| equipartition-ls-or | 14 | 0 | +3.470 | 3.584 | +57.68 % | 63.12 % |
+| bethe-bloch | 0 | 14 | n/a | n/a | n/a | n/a |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (5.519 keV) skipped: bethe-bloch is not applicable at 5519.189 eV for this ion.
+* bethe-bloch: line 6 (5.981 keV) skipped: bethe-bloch is not applicable at 5980.689 eV for this ion.
+* bethe-bloch: line 7 (7.213 keV) skipped: bethe-bloch is not applicable at 7213.491 eV for this ion.
+* bethe-bloch: line 8 (7.713 keV) skipped: bethe-bloch is not applicable at 7713.016 eV for this ion.
+* bethe-bloch: line 9 (7.922 keV) skipped: bethe-bloch is not applicable at 7922.352 eV for this ion.
+* bethe-bloch: line 10 (8.471 keV) skipped: bethe-bloch is not applicable at 8470.709 eV for this ion.
+* bethe-bloch: line 11 (8.7 keV) skipped: bethe-bloch is not applicable at 8700.458 eV for this ion.
+* bethe-bloch: line 12 (9.303 keV) skipped: bethe-bloch is not applicable at 9302.85 eV for this ion.
+* bethe-bloch: line 13 (9.303 keV) skipped: bethe-bloch is not applicable at 9302.85 eV for this ion.
+* bethe-bloch: line 14 (9.555 keV) skipped: bethe-bloch is not applicable at 9555.414 eV for this ion.
+* bethe-bloch: line 15 (9.947 keV) skipped: bethe-bloch is not applicable at 9946.869 eV for this ion.
+* bethe-bloch: line 16 (10.636 keV) skipped: bethe-bloch is not applicable at 10635.72 eV for this ion.
+* bethe-bloch: line 17 (11.22 keV) skipped: bethe-bloch is not applicable at 11220.5 eV for this ion.
+* bethe-bloch: line 18 (11.525 keV) skipped: bethe-bloch is not applicable at 11525.1 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | +57.64 % | +3.46 % | 65.36 % | 17.38 % | lowers | 5.519 keV to 11.525 keV |
+| oen-robinson | 3 | +57.64 % | +3.46 % | 65.36 % | 17.38 % | lowers | 5.519 keV to 11.525 keV |
+| equipartition-ls-or | 3 | +57.64 % | +3.46 % | 65.36 % | 17.38 % | lowers | 5.519 keV to 11.525 keV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 5519.189 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 5.519 keV | 5.361 | 8.006 | 5.077 | train |
+| 6 | 5.981 keV | 4.156 | 8.334 | 5.210 | **held out** |
+| 7 | 7.213 keV | 5.561 | 9.152 | 5.703 | train |
+| 8 | 7.713 keV | 5.561 | 9.464 | 5.951 | train |
+| 9 | 7.922 keV | 4.558 | 9.592 | 6.062 | train |
+| 10 | 8.471 keV | 6.163 | 9.918 | 6.373 | train |
+| 11 | 8.7 keV | 7.769 | 10.052 | 6.511 | **held out** |
+| 12 | 9.303 keV | 8.371 | 10.394 | 6.897 | train |
+| 13 | 9.303 keV | 7.368 | 10.394 | 6.897 | train |
+| 14 | 9.555 keV | 5.762 | 10.534 | 7.068 | train |
+| 15 | 9.947 keV | 7.769 | 10.748 | 7.345 | train |
+| 16 | 10.636 keV | 7.769 | 11.113 | 7.864 | **held out** |
+| 17 | 11.22 keV | 6.966 | 11.415 | 8.337 | train |
+| 18 | 11.525 keV | 8.973 | 11.569 | 8.596 | train |
+
+## srim-org-he-cu-1977-ande3
+
+File: `srim_org_he_cu_1977-Ande3.csv`.
+
+He in Cu, 17 points of one paper (Andersen, H. H.; Bak, J. F.; Knudsen, H.; Moller-Petersen, P.; Nielsen, B. R., Nucl. Inst. Methods, 140, 537-540 (1977)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### He (4.003 u) on Cu
+
+* Points: 17. Energy span: 6.395 MeV to 19.953 MeV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Andersen, H. H.; Bak, J. F.; Knudsen, H.; Moller-Petersen, P.; Nielsen, B. R., Nucl. Inst. Methods, 140, 537-540 (1977).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 17 | 0 | +354.035 | 360.387 | +1478.53 % | 1584.56 % |
+| oen-robinson | 17 | 0 | +354.035 | 360.387 | +1478.53 % | 1584.56 % |
+| equipartition-ls-or | 17 | 0 | +354.035 | 360.387 | +1478.53 % | 1584.56 % |
+| bethe-bloch | 17 | 0 | +2.587 | 2.637 | +9.97 % | 10.00 % |
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | +1824.64 % | +0.84 % | 1882.01 % | 1.12 % | lowers | 6.395 MeV to 19.953 MeV |
+| oen-robinson | 3 | +1824.64 % | +0.84 % | 1882.01 % | 1.12 % | lowers | 6.395 MeV to 19.953 MeV |
+| equipartition-ls-or | 3 | +1824.64 % | +0.84 % | 1882.01 % | 1.12 % | lowers | 6.395 MeV to 19.953 MeV |
+| bethe-bloch | 3 | +10.80 % | +0.84 % | 10.82 % | 1.14 % | lowers | 6.395 MeV to 19.953 MeV |
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 6.395 MeV | 38.477 | 272.512 | 38.392 | train |
+| 6 | 7.118 MeV | 35.868 | 287.502 | 35.973 | train |
+| 7 | 7.922 MeV | 33.660 | 303.315 | 33.673 | train |
+| 8 | 8.7 MeV | 31.653 | 317.861 | 31.756 | train |
+| 9 | 9.555 MeV | 30.047 | 333.113 | 29.925 | train |
+| 10 | 10.355 MeV | 28.442 | 346.765 | 28.423 | train |
+| 11 | 11.072 MeV | 27.238 | 358.568 | 27.218 | **held out** |
+| 12 | 11.997 MeV | 25.833 | 373.259 | 25.826 | train |
+| 13 | 12.657 MeV | 24.829 | 383.389 | 24.930 | train |
+| 14 | 13.534 MeV | 24.026 | 396.436 | 23.846 | train |
+| 15 | 14.278 MeV | 23.023 | 407.194 | 23.006 | train |
+| 16 | 15.063 MeV | 22.220 | 418.242 | 22.190 | train |
+| 17 | 15.892 MeV | 21.216 | 429.591 | 21.398 | **held out** |
+| 18 | 16.766 MeV | 20.614 | 441.248 | 20.629 | train |
+| 19 | 17.453 MeV | 19.811 | 450.200 | 20.067 | train |
+| 20 | 18.413 MeV | 19.009 | 462.414 | 19.338 | **held out** |
+| 21 | 19.953 MeV | 18.407 | 481.365 | 18.285 | train |
+
+Per point, for `bethe-bloch`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 6.395 MeV | 38.477 | 41.810 | 38.362 | train |
+| 6 | 7.118 MeV | 35.868 | 39.341 | 35.984 | train |
+| 7 | 7.922 MeV | 33.660 | 36.935 | 33.697 | train |
+| 8 | 8.7 MeV | 31.653 | 34.893 | 31.778 | train |
+| 9 | 9.555 MeV | 30.047 | 32.917 | 29.938 | train |
+| 10 | 10.355 MeV | 28.442 | 31.280 | 28.426 | train |
+| 11 | 11.072 MeV | 27.238 | 29.958 | 27.213 | **held out** |
+| 12 | 11.997 MeV | 25.833 | 28.423 | 25.814 | train |
+| 13 | 12.657 MeV | 24.829 | 27.432 | 24.915 | train |
+| 14 | 13.534 MeV | 24.026 | 26.230 | 23.829 | train |
+| 15 | 14.278 MeV | 23.023 | 25.297 | 22.989 | train |
+| 16 | 15.063 MeV | 22.220 | 24.390 | 22.176 | train |
+| 17 | 15.892 MeV | 21.216 | 23.508 | 21.389 | **held out** |
+| 18 | 16.766 MeV | 20.614 | 22.653 | 20.626 | train |
+| 19 | 17.453 MeV | 19.811 | 22.027 | 20.071 | train |
+| 20 | 18.413 MeV | 19.009 | 21.216 | 19.352 | **held out** |
+| 21 | 19.953 MeV | 18.407 | 20.045 | 18.317 | train |
+
+## srim-org-he-si-1973-lin
+
+File: `srim_org_he_si_1973-Lin.csv`.
+
+He in Si, 38 points of one paper (Lin, W. K.; Olson, H. G.; Powers, D., J. Appl. Phys., 44, 3631-34 (1973) (C) 2011 SRIM.org Experimental Stopping and Range Papers Page 1 of 5 Stopping for Ion =He , Target = Si Pub. Citation Year Authors, Title, Journal Citation and Comments Numb) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### He (4.003 u) on Si
+
+* Points: 38. Energy span: 237.462 keV to 1.969 MeV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Lin, W. K.; Olson, H. G.; Powers, D., J. Appl. Phys., 44, 3631-34 (1973) (C) 2011 SRIM.org Experimental Stopping and Range Papers Page 1 of 5 Stopping for Ion =He , Target = Si Pub. Citation Year Authors, Title, Journal Citation and Comments Numb.
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 38 | 0 | +17.380 | 32.267 | +32.12 % | 61.05 % |
+| oen-robinson | 38 | 0 | +17.380 | 32.267 | +32.12 % | 61.05 % |
+| equipartition-ls-or | 38 | 0 | +17.380 | 32.267 | +32.12 % | 61.05 % |
+| bethe-bloch | 27 | 11 | -18.332 | 25.785 | -26.86 % | 37.43 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (237.462 keV) skipped: bethe-bloch is not applicable at 237462.4 eV for this ion.
+* bethe-bloch: line 6 (247.197 keV) skipped: bethe-bloch is not applicable at 247196.8 eV for this ion.
+* bethe-bloch: line 7 (327.441 keV) skipped: bethe-bloch is not applicable at 327440.9 eV for this ion.
+* bethe-bloch: line 8 (327.441 keV) skipped: bethe-bloch is not applicable at 327440.9 eV for this ion.
+* bethe-bloch: line 9 (336.327 keV) skipped: bethe-bloch is not applicable at 336326.7 eV for this ion.
+* bethe-bloch: line 10 (369.368 keV) skipped: bethe-bloch is not applicable at 369368.2 eV for this ion.
+* bethe-bloch: line 11 (416.671 keV) skipped: bethe-bloch is not applicable at 416671 eV for this ion.
+* bethe-bloch: line 12 (416.671 keV) skipped: bethe-bloch is not applicable at 416671 eV for this ion.
+* bethe-bloch: line 13 (445.49 keV) skipped: bethe-bloch is not applicable at 445489.7 eV for this ion.
+* bethe-bloch: line 14 (445.49 keV) skipped: bethe-bloch is not applicable at 445489.7 eV for this ion.
+* bethe-bloch: line 15 (457.578 keV) skipped: bethe-bloch is not applicable at 457577.6 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | +14.95 % | +1.30 % | 20.53 % | 2.91 % | lowers | 237.462 keV to 1.969 MeV |
+| oen-robinson | 3 | +14.95 % | +1.30 % | 20.53 % | 2.91 % | lowers | 237.462 keV to 1.969 MeV |
+| equipartition-ls-or | 3 | +14.95 % | +1.30 % | 20.53 % | 2.91 % | lowers | 237.462 keV to 1.969 MeV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 237462.4 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 237.462 keV | 61.905 | 46.147 | 62.041 | train |
+| 6 | 247.197 keV | 57.844 | 47.083 | 62.855 | train |
+| 7 | 327.441 keV | 72.058 | 54.189 | 67.422 | train |
+| 8 | 327.441 keV | 67.997 | 54.189 | 67.422 | train |
+| 9 | 336.327 keV | 65.966 | 54.919 | 67.744 | train |
+| 10 | 369.368 keV | 67.997 | 57.554 | 68.701 | train |
+| 11 | 416.671 keV | 70.951 | 61.128 | 69.533 | train |
+| 12 | 416.671 keV | 67.997 | 61.128 | 69.533 | train |
+| 13 | 445.49 keV | 72.058 | 63.207 | 69.795 | train |
+| 14 | 445.49 keV | 71.320 | 63.207 | 69.795 | train |
+| 15 | 457.578 keV | 70.028 | 64.058 | 69.859 | train |
+| 16 | 516.176 keV | 72.981 | 68.036 | 69.861 | train |
+| 17 | 516.176 keV | 67.997 | 68.036 | 69.861 | train |
+| 18 | 559.364 keV | 68.920 | 70.826 | 69.599 | **held out** |
+| 19 | 598.069 keV | 67.074 | 73.235 | 69.223 | train |
+| 20 | 606.154 keV | 67.997 | 73.728 | 69.131 | train |
+| 21 | 630.97 keV | 72.058 | 75.222 | 68.821 | train |
+| 22 | 630.97 keV | 70.028 | 75.222 | 68.821 | **held out** |
+| 23 | 656.827 keV | 69.289 | 76.748 | 68.460 | train |
+| 24 | 683.765 keV | 67.259 | 78.306 | 68.050 | train |
+| 25 | 731.075 keV | 66.705 | 80.970 | 67.260 | train |
+| 26 | 731.075 keV | 63.936 | 80.970 | 67.260 | train |
+| 27 | 802.922 keV | 65.966 | 84.855 | 65.938 | train |
+| 28 | 802.922 keV | 63.013 | 84.855 | 65.938 | **held out** |
+| 29 | 917.917 keV | 62.090 | 90.729 | 63.641 | train |
+| 30 | 942.853 keV | 63.382 | 91.953 | 63.128 | train |
+| 31 | 981.478 keV | 62.644 | 93.817 | 62.327 | train |
+| 32 | 994.687 keV | 63.936 | 94.447 | 62.053 | train |
+| 33 | 1.049 MeV | 59.875 | 97.009 | 60.914 | train |
+| 34 | 1.122 MeV | 57.106 | 100.311 | 59.408 | train |
+| 35 | 1.2 MeV | 57.844 | 103.726 | 57.818 | train |
+| 36 | 1.2 MeV | 57.106 | 103.726 | 57.818 | train |
+| 37 | 1.2 MeV | 54.891 | 103.726 | 57.818 | train |
+| 38 | 1.216 MeV | 54.152 | 104.422 | 57.491 | train |
+| 39 | 1.3 MeV | 57.844 | 107.976 | 55.813 | train |
+| 40 | 1.654 MeV | 52.122 | 121.801 | 49.308 | train |
+| 41 | 1.699 MeV | 51.199 | 123.444 | 48.553 | train |
+| 42 | 1.969 MeV | 43.815 | 132.875 | 44.335 | train |
+
+## srim-org-he-si-1973-zieg
+
+File: `srim_org_he_si_1973-Zieg.csv`.
+
+He in Si, 14 points of one paper (Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### He (4.003 u) on Si
+
+* Points: 14. Energy span: 400.26 keV to 2.751 MeV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Ziegler, J. F.; Brodsky, M. H., J. Appl. Phys., 44, 188-96 (1973).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 14 | 0 | +48.214 | 68.530 | +108.52 % | 158.75 % |
+| oen-robinson | 14 | 0 | +48.214 | 68.530 | +108.52 % | 158.75 % |
+| equipartition-ls-or | 14 | 0 | +48.214 | 68.530 | +108.52 % | 158.75 % |
+| bethe-bloch | 12 | 2 | -13.235 | 25.158 | -17.82 % | 35.46 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (400.26 keV) skipped: bethe-bloch is not applicable at 400260.3 eV for this ion.
+* bethe-bloch: line 6 (400.26 keV) skipped: bethe-bloch is not applicable at 400260.3 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | +102.89 % | +0.62 % | 153.81 % | 1.22 % | lowers | 400.26 keV to 2.751 MeV |
+| oen-robinson | 3 | +102.89 % | +0.62 % | 153.81 % | 1.22 % | lowers | 400.26 keV to 2.751 MeV |
+| equipartition-ls-or | 3 | +102.89 % | +0.62 % | 153.81 % | 1.22 % | lowers | 400.26 keV to 2.751 MeV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 400260.3 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 400.26 keV | 72.243 | 59.912 | 72.925 | train |
+| 6 | 400.26 keV | 71.504 | 59.912 | 72.925 | **held out** |
+| 7 | 495.882 keV | 72.243 | 66.686 | 72.119 | train |
+| 8 | 614.319 keV | 71.135 | 74.223 | 70.332 | train |
+| 9 | 614.319 keV | 70.397 | 74.223 | 70.332 | train |
+| 10 | 802.922 keV | 67.443 | 84.855 | 66.832 | train |
+| 11 | 1.153 MeV | 60.613 | 101.664 | 60.257 | **held out** |
+| 12 | 1.249 MeV | 58.767 | 105.829 | 58.568 | train |
+| 13 | 1.3 MeV | 55.998 | 107.976 | 57.699 | train |
+| 14 | 2.281 MeV | 43.815 | 143.028 | 44.447 | train |
+| 15 | 2.439 MeV | 43.077 | 147.895 | 42.811 | train |
+| 16 | 2.505 MeV | 41.969 | 149.889 | 42.158 | **held out** |
+| 17 | 2.608 MeV | 41.231 | 152.930 | 41.180 | train |
+| 18 | 2.751 MeV | 40.677 | 157.079 | 39.880 | train |
+
+## srim-org-he-si-1981-pear
+
+File: `srim_org_he_si_1981-Pear.csv`.
+
+He in Si, 14 points of one paper (Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+
+### He (4.003 u) on Si
+
+* Points: 14. Energy span: 19.688 keV to 148.633 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-digitize/2.
+* Citation: Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 14 | 0 | -14.495 | 14.831 | -35.66 % | 36.30 % |
+| oen-robinson | 14 | 0 | -14.495 | 14.831 | -35.66 % | 36.30 % |
+| equipartition-ls-or | 14 | 0 | -14.495 | 14.831 | -35.66 % | 36.30 % |
+| bethe-bloch | 0 | 14 | n/a | n/a | n/a | n/a |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (19.688 keV) skipped: bethe-bloch is not applicable at 19688 eV for this ion.
+* bethe-bloch: line 6 (29.815 keV) skipped: bethe-bloch is not applicable at 29814.99 eV for this ion.
+* bethe-bloch: line 7 (39.494 keV) skipped: bethe-bloch is not applicable at 39493.68 eV for this ion.
+* bethe-bloch: line 8 (49.588 keV) skipped: bethe-bloch is not applicable at 49588.25 eV for this ion.
+* bethe-bloch: line 9 (59.807 keV) skipped: bethe-bloch is not applicable at 59806.89 eV for this ion.
+* bethe-bloch: line 10 (69.297 keV) skipped: bethe-bloch is not applicable at 69297.07 eV for this ion.
+* bethe-bloch: line 11 (79.224 keV) skipped: bethe-bloch is not applicable at 79223.52 eV for this ion.
+* bethe-bloch: line 12 (89.366 keV) skipped: bethe-bloch is not applicable at 89366.12 eV for this ion.
+* bethe-bloch: line 13 (99.469 keV) skipped: bethe-bloch is not applicable at 99468.69 eV for this ion.
+* bethe-bloch: line 14 (109.243 keV) skipped: bethe-bloch is not applicable at 109243 eV for this ion.
+* bethe-bloch: line 15 (118.377 keV) skipped: bethe-bloch is not applicable at 118377 eV for this ion.
+* bethe-bloch: line 16 (128.279 keV) skipped: bethe-bloch is not applicable at 128279.4 eV for this ion.
+* bethe-bloch: line 17 (139.006 keV) skipped: bethe-bloch is not applicable at 139006.4 eV for this ion.
+* bethe-bloch: line 18 (148.633 keV) skipped: bethe-bloch is not applicable at 148632.7 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |
+|---|---|---|---|---|---|---|---|
+| lindhard-scharff | 3 | -37.96 % | -2.01 % | 38.25 % | 2.50 % | lowers | 19.688 keV to 148.633 keV |
+| oen-robinson | 3 | -37.96 % | -2.01 % | 38.25 % | 2.50 % | lowers | 19.688 keV to 148.633 keV |
+| equipartition-ls-or | 3 | -37.96 % | -2.01 % | 38.25 % | 2.50 % | lowers | 19.688 keV to 148.633 keV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 19688 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Uncorrected | Corrected | Split |
+|---|---|---|---|---|---|
+| 5 | 19.688 keV | 24.986 | 13.288 | 24.274 | train |
+| 6 | 29.815 keV | 29.232 | 16.352 | 28.209 | **held out** |
+| 7 | 39.494 keV | 32.555 | 18.819 | 31.350 | train |
+| 8 | 49.588 keV | 25.540 | 21.088 | 34.226 | train |
+| 9 | 59.807 keV | 38.093 | 23.159 | 36.846 | train |
+| 10 | 69.297 keV | 40.308 | 24.929 | 39.083 | train |
+| 11 | 79.224 keV | 42.338 | 26.654 | 41.264 | **held out** |
+| 12 | 89.366 keV | 44.184 | 28.309 | 43.357 | train |
+| 13 | 99.469 keV | 46.030 | 29.867 | 45.328 | train |
+| 14 | 109.243 keV | 47.507 | 31.300 | 47.144 | train |
+| 15 | 118.377 keV | 48.984 | 32.582 | 48.770 | train |
+| 16 | 128.279 keV | 50.460 | 33.917 | 50.466 | **held out** |
+| 17 | 139.006 keV | 51.753 | 35.307 | 52.234 | train |
+| 18 | 148.633 keV | 53.045 | 36.509 | 53.766 | train |
 

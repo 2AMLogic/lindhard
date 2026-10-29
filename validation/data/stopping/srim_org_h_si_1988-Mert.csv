@@ -1,0 +1,15 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-si-1988-mert
+# description: H in Si, 11 points of one paper (Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,Si,48082.32,25.6564,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,61184.05,25.8622,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,75799.53,24.9701,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,95169.92,23.9408,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,119487.7,21.9507,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,160415.5,19.9606,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,196092.5,17.9705,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,230257.8,16.8725,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,289104.7,15.4314,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,309120.1,14.4706,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation
+1,1.007825,Si,420585.5,12.8236,0.0343,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Mertens, P.; Bauer, P., Nucl. Inst. Methods, B33, 133 (1988)",1988-Mert,digitized-compilation

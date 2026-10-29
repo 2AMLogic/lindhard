@@ -480,7 +480,7 @@ measured points from the original papers, cited as facts (origin 2).
 
 ### Measured stopping datasets: first-batch search (#483)
 
-**No dataset added yet.** The first batch of #483 (H and He in Si; B, P and As
+**Superseded by the resolution below.** The search for primary papers: the first batch of #483 (H and He in Si; B, P and As
 in Si; H and He in Cu and Au) needs primary papers that can be read in full.
 The search on 2026-10-29 did not find enough of them, so no value was entered.
 Candidates were located through the bibliography lists at srim.org (a finding
@@ -500,8 +500,38 @@ Boron, phosphorus and arsenic in Si: srim.org has no per-pair list for these
 ions under the file names used for H, He and the targets above (HTTP 404), and
 the H, He and Si lists name no open copy of a B, P or As measurement either.
 
-Papers listed in the H and He lists for these targets that were not tried
-(no open copy was identified for them) are left for the follow-up issue, #488.
+#### Resolution (#488): origin 4, per-paper files
+
+Under the operator ruling on #488 (2026-10-29, option 1), the first batch for
+H and He in Si, Cu and Au is taken as origin 4: points digitized from the
+srim.org compilation plots (plots `StopPlots/STOP0114.gif`, `0214`, `0129`,
+`0229`, `0179`, `0279`, mirror of 2026-10-28, not committed; retrieval date
+2026-10-28). B, P and As in Si are tracked in #503.
+`validation/data/digitize/srim_org/split_by_paper.py` selects from
+`srim_org_stopping.csv` the points with attribution `unique`, no panel-recovered
+points, and writes one file per (ion, target, paper) for the largest groups.
+Every point is `origin = digitized-compilation` with its half-pixel stopping
+sigma; the relative energy uncertainty has no loader column and is not carried.
+No value comes from the STOP-2011 curve, a SRIM table or a fit. Each file is
+cited to its paper in the compilation's bibliography, and a rerun of the script
+reproduces the files byte for byte.
+
+| File (`validation/data/stopping/`) | System | Paper | Points | Cross-check |
+|---|---|---|---|---|
+| `srim_org_h_si_1977-Cemb.csv` | H in Si | 1977-Cemb | 15 | no second source |
+| `srim_org_h_si_1976-Grah.csv` | H in Si | 1976-Grah | 11 | no second source |
+| `srim_org_h_si_1988-Mert.csv` | H in Si | 1988-Mert | 11 | no second source |
+| `srim_org_he_si_1973-Lin.csv` | He in Si | 1973-Lin | 38 | no second source |
+| `srim_org_he_si_1973-Zieg.csv` | He in Si | 1973-Zieg | 14 | no second source |
+| `srim_org_he_si_1981-Pear.csv` | He in Si | 1981-Pear | 14 | no second source |
+| `srim_org_he_cu_1977-Ande3.csv` | He in Cu | 1977-Ande3 | 17 | no second source |
+| `srim_org_he_cu_1975-Nomu.csv` | He in Cu | 1975-Nomu | 14 | no second source |
+
+H in Cu, H in Au and He in Au have no uniquely attributed paper (every colour
+group has two or more candidate papers), so no per-paper file was made; a point
+is never assigned to one of several candidates. The only in-tree second source
+is Bader et al. (1956) for H in Cu (0.2 % agreement, row above), which is a
+check of the digitizer, not of a per-paper file.
 
 ## Tuning factor sets (opt-in, #80)
 
