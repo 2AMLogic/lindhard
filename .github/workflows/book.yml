@@ -75,6 +75,19 @@ jobs:
           cp lindhard-wasm/web/index.html book/src/calculator/index.html
       - name: mdbook build
         run: mdbook build book
+      - name: API documentation
+        # Published under /api/ in the same artifact; the landing page links
+        # it only if it is there.
+        run: |
+          cargo doc -p lindhard --no-deps
+          mkdir -p book/book/api
+          cp -r target/doc/. book/book/api/
+      - name: Landing page over the book root
+        # site/ replaces the rendered index.html; introduction.html keeps the
+        # book's introduction. Then every relative link on it must resolve.
+        run: |
+          python3 validation/assemble_site.py book/book
+          python3 validation/check_site_links.py book/book
       - name: Upload the rendered book
         # The same artifact serves PR review (download it from the run) and
         # the Pages deploy below.

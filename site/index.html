@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lindhard: Monte Carlo transport of ions in matter</title>
+<meta name="description" content="lindhard is a clean-room, MIT-licensed Rust engine for Monte Carlo transport of ions in matter, in the binary-collision approximation.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="landing.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header>
+  <h1>lindhard</h1>
+  <p class="tagline">A clean-room, MIT-licensed Rust engine for Monte Carlo transport of ions in matter.</p>
+  <nav aria-label="Primary">
+    <ul>
+      <li><a href="introduction.html">Book</a></li>
+      <li><a href="calculator/index.html">Range calculator</a></li>
+      <li><a href="https://github.com/2AMLogic/lindhard">Repository</a></li>
+    </ul>
+  </nav>
+</header>
+<main id="main">
+  <section aria-labelledby="what">
+    <h2 id="what">What it is</h2>
+    <p>For a beam of ions entering a layered amorphous target, lindhard
+    computes where the ions stop, how much damage their cascades make, and
+    what is sputtered and backscattered. It works in the binary-collision
+    approximation (BCA). Results are deterministic: a run gives the same bits
+    on one thread or many.</p>
+    <p>An electron engine is planned and has not been started. lindhard is
+    early, pre-release software.</p>
+    <p>Every model is taken from published papers and cited where it is
+    implemented. The code is clean-room: the
+    <a href="https://github.com/2AMLogic/lindhard/blob/main/CONTRIBUTING.md">license tiers</a>
+    say what may be ported and what may only be read about.</p>
+  </section>
+
+  <section aria-labelledby="physics">
+    <h2 id="physics">Physics covered</h2>
+    <p>One manual page per model, with the equations, the assumptions, the
+    range of use and the papers.</p>
+    <ul>
+      <li><a href="models/potentials.html">Interatomic potentials</a> and their <a href="models/screening-lengths.html">screening lengths</a></li>
+      <li><a href="models/scattering.html">The scattering integral</a></li>
+      <li><a href="models/stopping.html">Electronic stopping</a> (Lindhard&#8211;Scharff, Oen&#8211;Robinson, Bethe&#8211;Bloch, user tables, Bragg additivity) and <a href="models/straggling.html">straggling</a></li>
+      <li><a href="models/bca.html">BCA transport</a></li>
+      <li><a href="models/damage.html">Displacement damage</a></li>
+      <li><a href="models/dynamic-composition.html">Dynamic composition</a></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="start">
+    <h2 id="start">Install and quick start</h2>
+    <p>lindhard is not yet published as a package; build it from source with
+    a stable Rust toolchain. See <a href="guide/install.html">Installing</a>.</p>
+<pre><code>git clone https://github.com/2AMLogic/lindhard.git
+cd lindhard
+cargo build --release -p lindhard-cli
+target/release/lindhard run examples/b_5keV_si.toml --out out/b_5keV_si</code></pre>
+    <p>The <a href="guide/first-run.html">first run</a> walks through that
+    example (5 keV boron into silicon) from start to finish.</p>
+  </section>
+
+  <section aria-labelledby="try">
+    <h2 id="try">Try it</h2>
+    <ul>
+      <li><a href="calculator/index.html">Range calculator</a>: projected range and straggle in your browser, as WebAssembly. Nothing you enter leaves your machine.</li>
+      <li><!--SIMULATOR_SLOT--></li>
+    </ul>
+  </section>
+
+  <section aria-labelledby="validation">
+    <h2 id="validation">How far to trust it</h2>
+    <p>Validation is reported in full, including where lindhard does not
+    agree with a reference. Known gaps exist and are listed, with their
+    causes, under
+    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md#known-deviations-reported-not-asserted">Known deviations</a>
+    in the validation document; read them before relying on a result. The
+    document also holds the
+    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md#results">analytic-check results</a>,
+    the code-to-code comparisons and the comparisons with measurement, and
+    says where a comparison is missing. The
+    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md">data provenance table</a>
+    records where every number in the tree comes from.</p>
+  </section>
+
+  <section aria-labelledby="docs">
+    <h2 id="docs">Documentation</h2>
+    <ul>
+      <li><a href="introduction.html">The book</a>: physics manual and user guide</li>
+      <li><!--API_LINK--></li>
+      <li><a href="https://github.com/2AMLogic/lindhard">Source repository</a></li>
+    </ul>
+  </section>
+</main>
+<footer>
+  <p>MIT licensed. <a href="https://github.com/2AMLogic/lindhard/blob/main/LICENSE">License</a></p>
+</footer>
+</body>
+</html>
