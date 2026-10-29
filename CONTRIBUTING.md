@@ -60,11 +60,11 @@ the tree under these conditions:
   legend names) and flagged as *digitized from the srim.org compilation plot*.
   It carries a digitization uncertainty, and it is replaced by the paper's own
   value once the paper has been read.
-- **Never** SRIM's fitted curves (the solid line on every plot), its
-  Experiment/Theory ratio panels, its stopping tables, its code, or its page
-  text and images. A digitizer must leave the curve out, not subtract it.
-- The site's images, PDFs and pages are not committed. Only the digitized
-  points and the bibliographic facts are.
+- SRIM's own computed values are not measurements: leave out the fitted curve
+  on every plot and the Experiment/Theory panels, as for any SRIM table.
+- The site's history and commentary are welcome too, as facts restated in our
+  own words with citations. The site's files (images, PDFs, page text) stay in
+  the operator's archive rather than being copied into the tree.
 - This data is released under CC0 (`validation/data/stopping/compilation/LICENSE`),
   separate from the MIT code. Every point keeps its citation regardless.
 
