@@ -1,0 +1,31 @@
+figure,symbol,colour,legend_rows,legend_keys,legend_count,found,status,note
+stop_h_water,A,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,1,1,ambiguous,6 legend rows share the colour; checked as a group
+stop_h_water,B,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,10,10,ambiguous,6 legend rows share the colour; checked as a group
+stop_h_water,C,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,12,9,ambiguous,6 legend rows share the colour; checked as a group
+stop_h_water,C|D,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,0,1,mismatch,6 legend rows share the colour; checked as a group; found exceeds the group total
+stop_h_water,C|D|F,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,0,3,mismatch,6 legend rows share the colour; checked as a group; found exceeds the group total
+stop_h_water,D,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,10,8,ambiguous,6 legend rows share the colour; checked as a group
+stop_h_water,E,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,7,7,ambiguous,6 legend rows share the colour; checked as a group
+stop_h_water,F,#0000FF,6,1974-Kami|1994-Baue|1997-Baue|1951-Fren|1952-Wenz|1977-Andr,5,4,ambiguous,6 legend rows share the colour; checked as a group
+stop_h_water,G,#FF0000,2,1953-Phil|1990-Mitt,4,4,ambiguous,2 legend rows share the colour; checked as a group
+stop_h_water,H,#FF0000,2,1953-Phil|1990-Mitt,13,13,ambiguous,2 legend rows share the colour; checked as a group
+stop_h_water,*,*,8,(all rows),62,60,mismatch,figure total: points found vs legend total
+stop_h_polystyrene,H*,#0000FF,1,1978-Port,13,12,mismatch,found below legend
+stop_h_polystyrene,H*,#AA4900,1,1981-Bedn,9,9,match,
+stop_h_polystyrene,H*,#D524AA,1,1994-Wall2,8,8,match,
+stop_h_polystyrene,H*,#FF00FF,1,1980-Bedn,10,7,mismatch,found below legend
+stop_h_polystyrene,*,*,4,(all rows),40,36,mismatch,figure total: points found vs legend total
+stop_he_polystyrene,He,#0000FF,1,1980-Bedn,9,9,match,
+stop_he_polystyrene,He,#AA4900,1,1994-Wall2,9,9,match,
+stop_he_polystyrene,He,#FF00FF,1,1981-Bedn,8,8,match,
+stop_he_polystyrene,*,*,3,(all rows),26,26,match,figure total: points found vs legend total
+stop_he_hc_gases,He,#000000,1,,,18,ambiguous,legend prints no count
+stop_he_hc_gases,He,#0000FF,1,,,18,ambiguous,legend prints no count
+stop_he_hc_gases,He,#009200,1,,,18,ambiguous,legend prints no count
+stop_he_hc_gases,He,#FF0000,1,,,18,ambiguous,legend prints no count
+stop_he_hc_gases,He,#FF00FF,1,,,18,ambiguous,legend prints no count
+stop_he_hc_gases,*,*,5,(all rows),0,90,ambiguous,figure total: points found vs legend total
+stop_li_polymers,Li,#000000,1,,,18,ambiguous,legend prints no count
+stop_li_polymers,Li,#0000FF,1,,,17,ambiguous,legend prints no count
+stop_li_polymers,Li,#FF0000,1,,,16,ambiguous,legend prints no count
+stop_li_polymers,*,*,3,(all rows),0,51,ambiguous,figure total: points found vs legend total
