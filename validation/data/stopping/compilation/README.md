@@ -246,3 +246,24 @@ join to `old_refs` in `srim_org_stopping.csv`. `bibliography.csv` is built from 
 
 The comparison was made once by script on the committed CSVs; neither file's
 rows were checked by hand against the papers.
+
+## Lithium: per-plot count check
+
+`srim_org_li_count_check.csv` is the per-colour count check of every Li
+per-pair plot with data (`StopPlots/STOP03ZZ.gif`, 42 of 92 targets):
+legend rows, printed total, points found, status (`match`, `mismatch`, or
+`ambiguous` where rows share a colour), whether the legend is complete, and
+a plot-total row. Over the 33 complete-legend plots the legend lists 1,145
+points and 977 are found, a recall of 85.3 %; 12 points over a legend count
+were found across the whole set (the cap in `run_all.cap_lower` keeps each
+colour within its legend count in the exported CSV, so the exported
+precision against the legend is 100 % by construction, and the uncapped
+excess is the honest number). On a rerun of `run_all.py` for Li alone on
+2026-10-30 the 1,453 exported Li points came back byte-identical.
+
+Per-pair plots exist on the mirror for H (`STOP01ZZ`), He (`STOP02ZZ`) and
+Li (`STOP03ZZ`) only; `SRIM/SRIMPICS/STOP-IONS/` holds the heavier ions as
+`STOPzzxx.gif` aggregates scaled by SRIM's own ratios, which are out of scope
+(above). No printed Li stopping table exists in this repository to check a
+value against; the value check available is the anchor check on 1975-Neuw2
+(11 round lab energies, offset 0.14 +/- 0.15 px, in the digitizer README).
