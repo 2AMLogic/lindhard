@@ -20,7 +20,6 @@ class FakeSimulation {
     return this.n;
   }
   done() { return this.n >= this.total; }
-  histories_done() { return BigInt(this.n); }
   warnings() { return ["w"]; }
   report_json() { return JSON.stringify({ histories: this.n }); }
   take_trajectories_json() { return '{"histories":[]}'; }

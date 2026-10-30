@@ -5,7 +5,7 @@
 //   { type: "run" } | { type: "pause" } | { type: "resume" } | { type: "stop" }
 // Messages from the worker
 //   { type: "ready", warnings }
-//   { type: "progress", done, total, report }   after every step
+//   { type: "progress", done, total, report, trajectories }   after every step
 //   { type: "finished", done, total, report } | { type: "stopped", done, total }
 //   { type: "error", message }
 //
@@ -19,6 +19,7 @@ export function createController(wasm, post) {
   let state = "idle"; // idle | running | paused
   let loop = null;
   let chunk = 64; // histories per step, adapted to the measured rate
+  let doneSoFar = 0; // histories done, as the last step() returned it
 
   const free = () => {
     sim?.free?.();
@@ -37,16 +38,17 @@ export function createController(wasm, post) {
     const mine = ++generation;
     while (state === "running" && mine === generation) {
       const t0 = performance.now();
-      const before = sim.histories_done();
+      const before = doneSoFar;
       let done;
       try {
-        done = sim.step(chunk);
+        done = Number(sim.step(chunk));
+        doneSoFar = done;
         post({ type: "progress", done, total: total(), report: JSON.parse(sim.report_json()), trajectories: JSON.parse(sim.take_trajectories_json()).histories });
       } catch (e) {
         return fail(e);
       }
       const ms = Math.max(performance.now() - t0, 0.5);
-      const ran = Number(done) - Number(before);
+      const ran = done - before;
       chunk = Math.max(1, Math.min(100000, Math.round((ran * TARGET_STEP_MS) / ms)));
       if (sim.done()) {
         state = "idle";
@@ -71,6 +73,7 @@ export function createController(wasm, post) {
             sim = new wasm.Simulation(msg.toml, msg.recordHistories ?? 0, msg.maxPoints ?? 1000);
             totalIons = msg.ions;
             chunk = 64;
+            doneSoFar = 0;
             post({ type: "ready", warnings: Array.from(sim.warnings()) });
             break;
           case "run":
@@ -84,7 +87,7 @@ export function createController(wasm, post) {
             if (state === "running") state = "paused";
             break;
           case "stop": {
-            const done = sim ? Number(sim.histories_done()) : 0;
+            const done = sim ? doneSoFar : 0;
             state = "idle";
             free();
             post({ type: "stopped", done, total: totalIons });
