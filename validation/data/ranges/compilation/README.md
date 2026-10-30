@@ -70,3 +70,26 @@ the site's air list (`SRIM/Compounds/Citations/Air-He.pdf`).
 - **Uncertainty.** `u_energy_rel` and `u_value` are read-off only (half a
   pixel and the anchor). They say nothing about the paper's own error, or
   about which range it measured.
+
+## Count check and hand check
+
+`count_check.csv` is the per-colour count check of each figure: the legend
+rows printed in that colour, their printed total, the points found, and a
+status. `match` and `mismatch` are per colour; `ambiguous` means several
+legend rows share the colour, so only the group total can be checked (every
+colour on B in Si). The last row of each figure is its total against the
+legend total. Nothing is forced to match: a `mismatch` is a count the
+digitizer could not reach, almost always markers hidden under others.
+
+`HANDCHECK.md` records ten points of B in Si read by eye at 8x on
+2026-10-30 against the recorded values: all within 1.7 % in depth and 0.7 %
+in energy (about 1.5 px at worst), with the axis references checked against
+the tick labels. On a rerun of `figures.py` the same day, from the same
+mirror, `srim_org_ranges.csv` came back byte-identical.
+
+The issue that asked for this data (#495) wanted one file per (ion, target,
+citation key). That is not possible honestly on these figures: a colour
+belongs to every legend row 20 places apart, so most points have several
+candidate papers (the `|`-joined columns above). One CSV with the candidate
+list per point is what the figures support; splitting by paper is the work of
+#483, after the papers are read.
