@@ -247,6 +247,26 @@ join to `old_refs` in `srim_org_stopping.csv`. `bibliography.csv` is built from 
 The comparison was made once by script on the committed CSVs; neither file's
 rows were checked by hand against the papers.
 
+## Compound figures: count check and hand check
+
+`srim_org_compounds_count_check.csv` is the per-colour (and per-letter, on H
+in water) count check of each compound figure against its printed legend
+counts: `match`, `mismatch`, or `ambiguous` where rows share a colour or the
+figure prints no count (He in hydrocarbon gases, Li in polymers). The last row
+of each figure is its total. He in polystyrene matches row for row (26/26);
+H in polystyrene finds 36 of 40 (two rows short); H in water finds 60 of 62,
+with four markers in the dense cluster read as a letter pair.
+
+`HANDCHECK_compounds.md` records ten points, five on H in water and five on
+He in polystyrene, read by eye at 8x on 2026-10-30: all within 0.7 % of the
+recorded values, with the axis references checked on the tick labels. The
+stopping unit of each figure (per molecule for water, per atom for
+polystyrene) is the one printed on its y axis and carried in `value_unit`;
+the target composition is in `target` as the figure names it (water,
+polystyrene, the five gases, and the three polymers with their formulas).
+On a rerun of `figures.py` the same day `srim_org_compounds.csv` came back
+byte-identical.
+
 ## Lithium: per-plot count check
 
 `srim_org_li_count_check.csv` is the per-colour count check of every Li
