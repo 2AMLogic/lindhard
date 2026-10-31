@@ -3974,6 +3974,21 @@ the Si fail as a known single-pole low-energy overestimate (as for Al,
 δ table was regenerated for #379. The tables of #364 (PR #378) already
 use this convention, so no rerun is needed.
 
+### Local electronic stopping: channel vs random (#513)
+
+Under `stopping = "equipartition-ls-or"` the electronic loss has a nonlocal half (Lindhard–Scharff, per unit path) and a local half (Oen–Robinson, per collision partner within `p_max`, at its own closest approach). The local term is normalised so that the loss averaged over impact parameters in an amorphous target equals the Lindhard–Scharff loss (`stopping.oen_robinson_normalisation`), so the amorphous path is unchanged and the crystal-off run reproduces it (`crystal_amorphous_identity`).
+
+The constants of the local term (`c = 0.3`, the Firsov-type length) are **unverified** (`OR_CONSTANTS_UNVERIFIED`, #251; crystal runs carry `electronic_constants_unverified: true`). No primary-sourced channeled-fraction or tail calibration for B, P or As in Si was read (see `docs/data-provenance.md`, the gap row), so there is no calibration knob: a scalar on the local term would be a free parameter without a source.
+
+Measured (`boron_channeled_loss_per_path_is_below_random` in `lindhard/tests/crystal_electronic.rs`; B 20 keV into Si, mean total electronic loss per unit path over the first 100 Å, 8000 histories per direction, seed 1, `p_max` = amorphous constant-path radius; Linux x86-64):
+
+| Lattice | random (30/17), eV/Å | ⟨100⟩, eV/Å | ⟨100⟩ / random |
+|---|---|---|---|
+| static | 8.327 ± 0.004 | 7.518 ± 0.005 | 0.903 ± 0.001 |
+| 300 K | 8.317 ± 0.004 | 7.527 ± 0.005 | 0.905 ± 0.001 |
+
+A channeled ion loses about 10 % less per unit path than in a random direction. The reduction comes only from fewer partners within `p_max`; the nonlocal half is the same on both sides. Errors are statistical only (delta method over histories). This is a model result, not a comparison with measurement.
+
 ## Reporting
 
 The tables above are the committed summary metrics. A release note states

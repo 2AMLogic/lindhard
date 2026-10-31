@@ -907,3 +907,141 @@ fn fixed_direction_partners_lean_to_small_impact_parameters() {
     println!("crystal/amorphous 30/17, static, path window: {q:.4} +- {sq:.4}");
     assert!(q - 1.0 > 3.0 * sq, "R_crystal / R_amorphous = {q} +- {sq}");
 }
+
+/// Per-history electronic loss (local + nonlocal) and path of the primary
+/// inside a path window, as the sums the ratio estimator of the mean loss per
+/// unit path needs (issue #513). `merge` is a plain sum, so the result is
+/// bit-identical at any thread count.
+#[derive(Debug, Clone, PartialEq)]
+struct LossPerPathTally {
+    limit_m: f64,
+    open: bool,
+    cur_loss: f64,
+    cur_path: f64,
+    n: u64,
+    sum_t: f64,
+    sum_p: f64,
+    sum_tt: f64,
+    sum_pp: f64,
+    sum_tp: f64,
+}
+
+impl LossPerPathTally {
+    fn new(limit_m: f64) -> Self {
+        Self {
+            limit_m,
+            open: false,
+            cur_loss: 0.0,
+            cur_path: 0.0,
+            n: 0,
+            sum_t: 0.0,
+            sum_p: 0.0,
+            sum_tt: 0.0,
+            sum_pp: 0.0,
+            sum_tp: 0.0,
+        }
+    }
+
+    /// Mean electronic loss per unit path, eV/m, and its standard error
+    /// (delta method over histories).
+    fn loss_per_path(&self) -> (f64, f64) {
+        let n = self.n as f64;
+        let s = self.sum_t / self.sum_p;
+        let mean_p = self.sum_p / n;
+        let var = (self.sum_tt - 2.0 * s * self.sum_tp + s * s * self.sum_pp) / (n - 1.0);
+        (s, (var.max(0.0) / n).sqrt() / mean_p)
+    }
+}
+
+impl BcaTally for LossPerPathTally {
+    fn begin_history(&mut self, _index: u64) {
+        self.open = true;
+        self.cur_loss = 0.0;
+        self.cur_path = 0.0;
+    }
+
+    fn electronic(
+        &mut self,
+        p: &Particle,
+        from: [f64; 3],
+        channel: ElectronicChannel,
+        energy_ev: f64,
+    ) {
+        if !(p.is_primary() && self.open) {
+            return;
+        }
+        self.cur_loss += energy_ev;
+        if channel == ElectronicChannel::NonLocal {
+            let d2: f64 = (0..3).map(|k| (p.pos[k] - from[k]).powi(2)).sum();
+            self.cur_path += d2.sqrt();
+            if self.cur_path > self.limit_m {
+                self.open = false;
+            }
+        }
+    }
+
+    fn end_history(&mut self, _index: u64, _budget: &EnergyBudget) {
+        let (t, p) = (self.cur_loss, self.cur_path);
+        self.n += 1;
+        self.sum_t += t;
+        self.sum_p += p;
+        self.sum_tt += t * t;
+        self.sum_pp += p * p;
+        self.sum_tp += t * p;
+    }
+
+    fn merge(&mut self, o: Self) {
+        self.n += o.n;
+        self.sum_t += o.sum_t;
+        self.sum_p += o.sum_p;
+        self.sum_tt += o.sum_tt;
+        self.sum_pp += o.sum_pp;
+        self.sum_tp += o.sum_tp;
+    }
+}
+
+/// Ratio of the mean electronic energy loss per unit path (local plus
+/// nonlocal, `equipartition-ls-or`) of B 20 keV ions channeled along <100> of
+/// Si to the same in a random direction (the crystal at 30/17), same
+/// `p_max` and seed, static lattice and 300 K (issue #513). The ratio is
+/// printed with its standard error and asserted below 1 by more than three
+/// standard errors; the measured values are in `docs/validation.md`,
+/// "Local electronic stopping".
+#[test]
+#[ignore = "statistical; run with --release -- --ignored"]
+fn boron_channeled_loss_per_path_is_below_random() {
+    let p_max = amorphous_p_max(&si());
+    let (z, e) = (5u8, 2.0e4);
+    let run = |tilt, twist, thermal| {
+        let t = run_tally(
+            beam(z, e, tilt, twist, N_AXIAL),
+            Some(crystal_si(tilt, twist, p_max, thermal)),
+            None,
+            1,
+            || LossPerPathTally::new(PATH_WINDOW_M),
+        );
+        let (s, se) = t.loss_per_path();
+        (s, se, t.n)
+    };
+    for thermal in [false, true] {
+        let state = if thermal { "300 K" } else { "static" };
+        let random = run(30.0, 17.0, thermal);
+        let axial = run(0.0, 0.0, thermal);
+        let ratio = axial.0 / random.0;
+        let sigma = ratio * ((axial.1 / axial.0).powi(2) + (random.1 / random.0).powi(2)).sqrt();
+        println!(
+            "B 20 keV in Si, {state}: random {:.4} +- {:.4} eV/A, <100> {:.4} +- {:.4} eV/A, \
+             ratio <100>/random = {ratio:.4} +- {sigma:.4} (n = {}, {})",
+            random.0 * 1e-10,
+            random.1 * 1e-10,
+            axial.0 * 1e-10,
+            axial.1 * 1e-10,
+            axial.2,
+            random.2
+        );
+        assert!(
+            1.0 - ratio > 3.0 * sigma,
+            "{state}: ratio {ratio} +- {sigma} is not below 1"
+        );
+    }
+}
