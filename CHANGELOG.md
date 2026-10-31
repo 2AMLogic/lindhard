@@ -9,6 +9,12 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: the simulator page (`simulator.html`), first slice: a Setup
+  view (ion, layered target with compositions, densities and energies,
+  calculation mode, physics choices), a live lindhard TOML input file with
+  Download and Load, and a minimal Run view driven by a Web Worker. A page-
+  generated input is checked to give the same report under the CLI driver
+  (part of #469, child 2 of #467).
 - `lindhard-wasm`: a steppable `Simulation` session (`new`, `step`, `done`,
   `report_json`, `take_trajectories_json`, `warnings`) and `elements_json()`,
   exposing compound and multi-layer targets, the full ion report and recorded

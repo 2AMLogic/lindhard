@@ -33,6 +33,7 @@
 - [TOML input reference](guide/input.md)
 - [Output files](guide/output.md)
 - [Range calculator in the browser](guide/range-calculator.md)
+- [Simulator in the browser](guide/simulator.md)
 - [Voxel tallies and VTK export](guide/voxel-tallies.md)
 - [Layout cross-section import (finding)](guide/layout-import.md)
 
