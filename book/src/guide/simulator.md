@@ -5,8 +5,26 @@ of the [range calculator](range-calculator.md). It runs the same engine as
 WebAssembly in a Web Worker, so the page stays responsive during a run, and it
 is static: there is no server and nothing you enter leaves your machine.
 
-This first release has the **Setup** view and a minimal **Run** view. The
-trajectory view, distribution plots and exports are still to come.
+The page has a **Setup** view and a **Run** view. The Run view shows live
+counters, a trajectory view, and the energy partition. The distribution plots
+and exports are still to come.
+
+## Run
+
+- **Counters**: ions done, R<sub>p</sub> and ΔR<sub>p</sub>, lateral (y, z) and
+  radial spread, ions stopped, backscattered and transmitted per ion, sputtered
+  atoms per ion, vacancies per ion (the followed cascade in full-cascade mode,
+  the NRT estimate in quick mode), and the share of the incident energy that went
+  to electrons, to the lattice, out of the target, and elsewhere. Brackets give one
+  standard error.
+- **Trajectories**: the paths of the first 50 ion histories, in a side view
+  (depth across, lateral y down, layers shaded and named) or an end-on y × z view.
+  Primary paths are always drawn; recoil cascades can be switched off. Species are
+  told apart by colour and by the shape of the marker at the track's end, and the
+  generation by the dash pattern (solid primary, dashed first recoils, dotted later
+  ones). A history cut at the per-track point limit is flagged.
+- **Limit**: the page runs up to 100 000 ions so that it stays responsive; use
+  `lindhard run` for larger runs.
 
 ## Setup
 
