@@ -109,6 +109,21 @@ residual < 1e-9).
   crystal tails remain about ten times (B) the control or well above it (As),
   as the beam keeps some collimation after the oxide.
 
+## The interface and the acceptance trend (#514)
+
+The B -> Si trend through 0, 2 and 10 nm of SiO2 asked for by step 23 of the
+crystalline-implant epic is the aligned-direction table above (B 5 keV, tail
+0.833 / 0.384 / 0.083 for 0 / 2 / 10 nm). It is qualitative; the quantitative
+comparison with measured profiles is step 24 (#515). The interface itself is
+exact: the geometry cuts a flight at the boundary and the lattice model
+resumes at the actual entry point and direction. `lindhard/tests/crystal_interface.rs`
+checks this (`crossing_the_interface_equals_starting_at_it`: an ion that
+crosses a transparent overlayer follows the same leading events as one started
+at the bare crystal surface; later events cannot be compared at a tight
+tolerance because collisions amplify rounding differences) and that recoils
+and lattice deposits carry the layer they occur in, for the oxide and the
+crystal alike.
+
 ## Deviations and caveats to report
 
 - Off-axis, a screen does **not** reduce the crystal tail: the crystal tail
