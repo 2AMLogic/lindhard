@@ -34,6 +34,8 @@
   progress { width: 100%; }
   table.counters { border-collapse: collapse; margin: .6rem 0; }
   table.counters th, table.counters td { text-align: left; padding: .2rem 1.2rem .2rem 0; }
+  canvas { width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  .legend { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: 0; margin: .3rem 0; font-size: .85rem; }
   [hidden] { display: none !important; }
   @media (max-width: 40rem) { body { font-size: 15px; } .row { grid-template-columns: 1fr 1fr; } }
 </style>
@@ -132,12 +134,38 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
   </div>
   <label>Progress <progress id="progress" max="1" value="0"></progress></label>
   <p id="progress-text">Not started.</p>
+  <p class="note" id="cap-note"></p>
   <table class="counters" id="counters">
     <tr><th>Ions done</th><td id="c-done">–</td></tr>
     <tr><th><i>R</i><sub>p</sub></th><td id="c-rp">–</td></tr>
     <tr><th>Δ<i>R</i><sub>p</sub></th><td id="c-drp">–</td></tr>
+    <tr><th>Lateral straggle, y</th><td id="c-ly">–</td></tr>
+    <tr><th>Lateral straggle, z</th><td id="c-lz">–</td></tr>
+    <tr><th>Radial</th><td id="c-rad">–</td></tr>
     <tr><th>Stopped in the target</th><td id="c-stopped">–</td></tr>
+    <tr><th>Backscattered (per ion)</th><td id="c-back">–</td></tr>
+    <tr><th>Transmitted (per ion)</th><td id="c-trans">–</td></tr>
+    <tr><th>Sputtered atoms per ion</th><td id="c-sput">–</td></tr>
+    <tr><th>Vacancies per ion <span id="c-vac-mode"></span></th><td id="c-vac">–</td></tr>
+    <tr><th>Energy to electrons (ionization)</th><td id="c-eion">–</td></tr>
+    <tr><th>Energy to the lattice (nuclear)</th><td id="c-enuc">–</td></tr>
+    <tr><th>Energy carried out of the target</th><td id="c-eesc">–</td></tr>
+    <tr><th>Energy, other (surface barrier, at rest)</th><td id="c-eoth">–</td></tr>
   </table>
+  <fieldset>
+    <legend>Trajectories</legend>
+    <div class="tools">
+      <label>View
+        <select id="traj-view">
+          <option value="side">Side: depth across, y down</option>
+          <option value="end">End-on: y across, z down</option>
+        </select></label>
+      <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
+    </div>
+    <canvas id="traj" width="900" height="360" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
+    <ul id="traj-legend" class="legend"></ul>
+    <p class="note" id="traj-note"></p>
+  </fieldset>
   <p id="warnings" class="note"></p>
 </section>
 

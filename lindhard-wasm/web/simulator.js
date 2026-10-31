@@ -3,6 +3,10 @@
 
 import init, { elements_json } from "./pkg/lindhard_wasm.js";
 import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
+import {
+  INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
+  layerSpans, segmentBounds, speciesLabels, trajectorySegments,
+} from "./run_view.js";
 
 const $ = (id) => document.getElementById(id);
 const UNIT_EV = { eV: 1, keV: 1e3, MeV: 1e6 };
@@ -206,6 +210,9 @@ function refresh() {
     ? `${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "";
   $("model-cite").textContent = `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`;
   problems = validate(setup, elements);
+  if (setup.run.ions > INTERACTIVE_MAX_IONS) {
+    problems.push({ path: "run.ions", message: `the page runs at most ${INTERACTIVE_MAX_IONS} ions; use lindhard-cli for more` });
+  }
   $("problems").replaceChildren(...problems.map((p) => h("li", {}, `${p.path}: ${p.message}`)));
   $("problems-box").hidden = problems.length === 0;
   $("toml").value = toToml(setup);
@@ -250,14 +257,133 @@ function setButtons(state) {
   $("btn-stop").disabled = state === "idle";
 }
 
+const pm = (x, e) => `${fmt(nm(x))} nm (± ${fmt(nm(e))})`;
+const dash = (m) => (m ? pm(m.mean, m.err) : "–");
+const pct = (f) => (f == null ? "–" : `${(100 * f).toFixed(1)} %`);
+const perIon = (x) => (x == null ? "–" : x.toPrecision(3));
+
 function counters(done, total, report) {
-  $("progress").value = total ? done / total : 0;
+  const c = deriveCounters(report, { done, total, followRecoils: setup.physics.followRecoils });
+  $("progress").value = c.fraction;
   $("progress-text").textContent = `${done} of ${total} ions`;
   $("c-done").textContent = `${done} / ${total}`;
-  const d = report?.range?.depth;
-  $("c-rp").textContent = d ? `${fmt(nm(d.mean))} nm (± ${fmt(nm(d.mean_std_err))})` : "–";
-  $("c-drp").textContent = d ? `${fmt(nm(d.std_dev))} nm (± ${fmt(nm(d.std_dev_std_err))})` : "–";
-  $("c-stopped").textContent = report ? String(report.range.stopped) : "–";
+  $("c-rp").textContent = dash(c.depth);
+  $("c-drp").textContent = c.depth ? pm(c.depth.sd, c.depth.sdErr) : "–";
+  $("c-ly").textContent = c.lateralY ? `${fmt(nm(c.lateralY.sd))} nm (± ${fmt(nm(c.lateralY.sdErr))})` : "–";
+  $("c-lz").textContent = c.lateralZ ? `${fmt(nm(c.lateralZ.sd))} nm (± ${fmt(nm(c.lateralZ.sdErr))})` : "–";
+  $("c-rad").textContent = dash(c.radial);
+  $("c-stopped").textContent = c.stopped == null ? "–" : String(c.stopped);
+  $("c-back").textContent = perIon(c.backscatter);
+  $("c-trans").textContent = perIon(c.transmission);
+  $("c-sput").textContent = perIon(c.sputterYield);
+  $("c-vac").textContent = perIon(c.vacancies);
+  $("c-vac-mode").textContent = report ? `(${c.modeLabel})` : "";
+  $("c-eion").textContent = pct(c.partition?.ionization);
+  $("c-enuc").textContent = pct(c.partition?.nuclear);
+  $("c-eesc").textContent = pct(c.partition?.escaped);
+  $("c-eoth").textContent = pct(c.partition?.other);
+}
+
+// ---- trajectory view -------------------------------------------------------
+
+// Okabe-Ito colours, safe for the common colour-vision deficiencies; the
+// second cue is the dash pattern (generation) and an end marker (species).
+const SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
+const MARKERS = ["circle", "square", "triangle", "diamond", "cross", "plus"];
+let histories = []; // recorded so far in this run
+let symbolOfZ = () => undefined;
+
+function marker(ctx, kind, x, y, r) {
+  ctx.beginPath();
+  if (kind === "circle") ctx.arc(x, y, r, 0, 2 * Math.PI);
+  else if (kind === "square") ctx.rect(x - r, y - r, 2 * r, 2 * r);
+  else if (kind === "triangle") { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y + r); ctx.lineTo(x - r, y + r); ctx.closePath(); }
+  else if (kind === "diamond") { ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y); ctx.closePath(); }
+  else if (kind === "cross") { ctx.moveTo(x - r, y - r); ctx.lineTo(x + r, y + r); ctx.moveTo(x + r, y - r); ctx.lineTo(x - r, y + r); }
+  else { ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); }
+  ctx.fill();
+  ctx.stroke();
+}
+
+function drawTrajectories() {
+  const cv = $("traj"), ctx = cv.getContext("2d");
+  const css = getComputedStyle(document.documentElement);
+  const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
+  const panel = css.getPropertyValue("--panel").trim() || "#eee", muted = css.getPropertyValue("--muted").trim() || "#666";
+  const view = $("traj-view").value;
+  const segs = trajectorySegments(histories, { view, cascades: $("traj-cascades").checked });
+  const bd = segmentBounds(segs, view);
+  const W = cv.width, H = cv.height, pad = 28;
+  const sx = (u) => pad + ((u - bd.u0) / (bd.u1 - bd.u0)) * (W - 2 * pad);
+  const sy = (v) => pad + ((v - bd.v0) / (bd.v1 - bd.v0)) * (H - 2 * pad);
+  ctx.setLineDash([]);
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.lineWidth = 1;
+  if (view === "side") {
+    // Layers shaded alternately, boundaries as lines, names at the top.
+    layerSpans(setup.layers).forEach((l, i) => {
+      const x0 = sx(Math.max(l.top, bd.u0)), x1 = sx(Math.min(l.bottom, bd.u1));
+      if (x1 <= x0) return;
+      ctx.fillStyle = i % 2 ? bg : panel;
+      ctx.fillRect(x0, 0, x1 - x0, H);
+      ctx.strokeStyle = muted;
+      ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, H); ctx.stroke();
+      ctx.fillStyle = muted;
+      ctx.fillText(l.name, x0 + 4, 14);
+    });
+  }
+  const axes = view === "side" ? ["depth", "y"] : ["y", "z"];
+  ctx.fillStyle = muted;
+  ctx.fillText(`${axes[0]} → ${fmt(nm(bd.u1))} nm`, W - 160, H - 8);
+  ctx.fillText(`${axes[1]} ±${fmt(nm(bd.v1))} nm`, 4, H - 8);
+  ctx.lineWidth = 1.2;
+  for (const s of segs) {
+    ctx.strokeStyle = SPECIES_COLOURS[s.species % SPECIES_COLOURS.length];
+    ctx.setLineDash(dashFor(s.generation));
+    ctx.beginPath(); ctx.moveTo(sx(s.a[0]), sy(s.a[1])); ctx.lineTo(sx(s.b[0]), sy(s.b[1])); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+  // End markers: one per track, shape by species.
+  for (const h of histories) for (const t of h.tracks) {
+    if (t.generation > 0 && !$("traj-cascades").checked) continue;
+    const q = t.points[t.points.length - 1];
+    if (!q) continue;
+    const [u, v] = view === "side" ? [q[0], q[1]] : [q[1], q[2]];
+    ctx.fillStyle = SPECIES_COLOURS[t.species % SPECIES_COLOURS.length];
+    ctx.strokeStyle = fg;
+    marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), t.generation ? 2.5 : 4);
+  }
+  const n = histories.length;
+  $("traj-note").textContent = n === 0
+    ? `No trajectories yet. The first ${RECORDED_HISTORIES} ion histories of a run are recorded.`
+    : `${n} recorded histor${n === 1 ? "y" : "ies"} (the first ${RECORDED_HISTORIES} of the run), ${segs.length} segments.` +
+      (anyTruncated(histories) ? " Some histories were cut at the point limit of each track, so their tails are missing." : "");
+}
+
+function drawLegend(report) {
+  const names = speciesLabels(report, symbolOfZ);
+  const item = (text, swatch) => h("li", {}, swatch, ` ${text}`);
+  const line = (i, g) => {
+    const c = document.createElement("canvas");
+    c.width = 34; c.height = 12;
+    c.style.cssText = "width:34px;height:12px;border:0";
+    const x = c.getContext("2d");
+    x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.fillStyle = x.strokeStyle; x.lineWidth = 2;
+    x.setLineDash(dashFor(g));
+    x.beginPath(); x.moveTo(0, 6); x.lineTo(26, 6); x.stroke();
+    x.setLineDash([]);
+    x.strokeStyle = "#888";
+    marker(x, MARKERS[i % MARKERS.length], 29, 6, 3);
+    return c;
+  };
+  $("traj-legend").replaceChildren(
+    ...names.map((n, i) => item(`${n}: ${MARKERS[i % MARKERS.length]} at the track's end`, line(i, 0))),
+    item("solid: primary ion", line(0, 0)),
+    item("dashed: first recoils", line(0, 1)),
+    item("dotted: later generations", line(0, 2)),
+  );
 }
 
 function startRun() {
@@ -275,6 +401,9 @@ function startRun() {
         break;
       case "progress":
         counters(m.done, m.total, m.report);
+        histories.push(...m.trajectories);
+        if (histories.length === m.trajectories.length) drawLegend(m.report);
+        if (m.trajectories.length) drawTrajectories();
         break;
       case "finished":
         counters(m.done, m.total, m.report);
@@ -292,8 +421,10 @@ function startRun() {
     }
   };
   worker.onerror = (e) => { status(`The worker failed: ${e.message}`, true); endRun(); };
-  worker.postMessage({ type: "init", toml: toToml(setup), ions: setup.run.ions, recordHistories: 0, maxPoints: 1000 });
+  worker.postMessage({ type: "init", toml: toToml(setup), ions: setup.run.ions, recordHistories: RECORDED_HISTORIES, maxPoints: MAX_POINTS_PER_TRACK });
+  histories = [];
   counters(0, setup.run.ions, null);
+  drawTrajectories();
 }
 
 function endRun() {
@@ -333,7 +464,12 @@ try {
   $("potential").replaceChildren(...POTENTIALS.map((p) => h("option", {}, p)));
   $("stopping").replaceChildren(...STOPPINGS.map((p) => h("option", {}, p)));
   $("preset").replaceChildren(...Object.keys(PRESETS).map((p) => h("option", {}, p)));
-  $("ions").max = String(MAX_IONS);
+  $("ions").max = String(Math.min(MAX_IONS, INTERACTIVE_MAX_IONS));
+  $("cap-note").textContent = `The page runs up to ${INTERACTIVE_MAX_IONS} ions and records the paths of the first ${RECORDED_HISTORIES}, so a run stays responsive; the command-line tool has no such limit.`;
+  symbolOfZ = (z) => elements.find((e) => e.z === z)?.symbol;
+  $("traj-view").addEventListener("change", drawTrajectories);
+  $("traj-cascades").addEventListener("change", drawTrajectories);
+  drawTrajectories();
   $("add-layer").addEventListener("click", () => addPreset("Si"));
   $("add-preset").addEventListener("click", () => addPreset($("preset").value));
   for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "mode", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut"]) {

@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: the simulator's Run view gains live counters (straggle,
+  backscatter, transmission, sputter yield, vacancies per ion, energy partition),
+  a trajectory view (side and end-on, layers shaded, species and generation with
+  non-colour cues) and an interactive cap of 100 000 ions (part of #469, child 2
+  of #467).
 - `lindhard-wasm`: the simulator page (`simulator.html`), first slice: a Setup
   view (ion, layered target with compositions, densities and energies,
   calculation mode, physics choices), a live lindhard TOML input file with
