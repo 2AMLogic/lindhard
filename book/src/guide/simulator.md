@@ -6,8 +6,8 @@ WebAssembly in a Web Worker, so the page stays responsive during a run, and it
 is static: there is no server and nothing you enter leaves your machine.
 
 The page has a **Setup** view and a **Run** view. The Run view shows live
-counters, a trajectory view, and the energy partition. The distribution plots
-and exports are still to come.
+counters, a trajectory view, the energy partition, live distribution plots and
+downloads.
 
 ## Run
 
@@ -23,6 +23,18 @@ and exports are still to come.
   told apart by colour and by the shape of the marker at the track's end, and the
   generation by the dash pattern (solid primary, dashed first recoils, dotted later
   ones). A history cut at the per-track point limit is flagged.
+- **Distributions**, updated as the run proceeds: the ion range distribution
+  (total and, with more than one layer, per layer, with the Pearson IV density of
+  the four depth moments drawn over it when it exists; Hofker 1975, Heinrich 2004),
+  the lateral and radial distributions, damage versus depth (vacancies,
+  interstitials, replacements; zero in quick mode), and escapes (counts per species
+  and face, with energy and polar-angle spectra). Series are told apart by colour
+  and by dash pattern, with a legend; counts that fall outside the plotted range
+  are stated under each plot.
+- **Downloads**: each plot's data as CSV (one row per bin per series, with the
+  under- and overflow counts as rows), the full report as JSON, and the trajectory
+  view as a PNG. Results are shown with their statistical error, the models in use,
+  and a pointer to `docs/validation.md`.
 - **Limit**: the page runs up to 100 000 ions so that it stays responsive; use
   `lindhard run` for larger runs.
 
