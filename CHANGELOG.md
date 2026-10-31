@@ -54,6 +54,13 @@ one version).
   fixed tolerances (20 % surface fraction, 30 % total yield) and the section in
   `docs/validation.md` says so; the high-fluence implant-profile criterion is
   still a gap.
+- Sb-in-Si high-fluence implant comparison of the fluence-dependent engine
+  with measurement (#512, part of #22): the stored Titze et al. (2021) profile
+  (50 keV Sb, 5×10¹⁶ ions/cm²) against both relaxation conventions,
+  `validation/experiments/sb_si_dynamic.py` with committed results,
+  side-by-side sensitivities and a reduced-statistics CI test. Peak depth and
+  shape (the data are max-normalized) are outside the 25 % tolerance and the
+  section in `docs/validation.md` says so; nothing was tuned.
 - Diagnosis of the Cu–Ni shortfall without tuning (#465, part of #22): static
   pure-Cu and pure-Ni yields against the stored Ar → Cu data, the binary at
   fixed composition, and the Ho/Betz data conventions, in the `diagnostics`

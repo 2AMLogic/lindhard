@@ -882,8 +882,9 @@ energies. Level 3 keeps the untuned comparison as the primary result.
   no figure or text. The authors normalize the concentration to its maximum, so
   the set gives profile shape and depth, not retained dose; the peak region
   (about 10–19 nm) is partly hidden behind other series and is sparse. The
-  paper's SRIM and TRIDYN curves are code output and were not used. No
-  engine comparison has been run.
+  paper's SRIM and TRIDYN curves are code output and were not used. The
+  engine comparison (#512, `validation/experiments/sb_si_dynamic.py`) uses the
+  markers only, normalized by the engine profile's own maximum.
   Candidates seen and not entered: Wittmaack, Nucl. Instrum. Methods B 267,
   2846 (2009), 145 keV Xe in Si (only the abstract record was opened, so no
   profile numbers; access); Sandia slide deck OSTI 1408290 and a

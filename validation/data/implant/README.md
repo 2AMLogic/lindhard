@@ -1,7 +1,10 @@
 # High-fluence implant depth profile
 
 One measured implant depth profile at a fluence high enough that sputtering
-changes its shape. Reference input only; no engine comparison has been run.
+changes its shape. Reference input for the fluence-dependent engine comparison of
+`validation/experiments/sb_si_dynamic.py` (#512; result and metric in
+[`docs/validation.md`](../../../docs/validation.md), "Fluence-dependent targets vs
+measurement").
 
 ## Titze et al. (2021), Fig. 3, 50 keV Sb into Si at 5×10¹⁶ ions/cm²
 

@@ -47,6 +47,8 @@ RESULTS = ROOT / "validation" / "experiments" / "results.json"
 SPUTTER_DATA = ROOT / "validation" / "data" / "sputtering"
 BACKSCATTER_RESULTS = ROOT / "validation" / "experiments" / "backscatter_results.json"
 CUNI_RESULTS = ROOT / "validation" / "experiments" / "cuni_dynamic_results.json"
+SBSI_RESULTS = ROOT / "validation" / "experiments" / "sb_si_dynamic_results.json"
+SBSI_MARKERS = ROOT / "validation" / "data" / "implant" / "titze2021_fig3_5e16.csv"
 
 sys.path.insert(0, str(ROOT / "validation" / "experiments"))
 import run as experiments  # noqa: E402  (energy_groups: the one grouping rule of the level-3 sputter runs)
@@ -1195,6 +1197,104 @@ def level3_cuni_dynamic() -> str:
     return "\n".join(lines)
 
 
+def level3_sb_si_dynamic() -> str:
+    """The Sb-in-Si high-fluence implant comparison (#512), from
+    validation/experiments/sb_si_dynamic_results.json. The verdicts are the ones
+    the harness computed with the tolerance fixed in advance; nothing is judged here."""
+    if not SBSI_RESULTS.is_file():
+        return "No committed results yet: run `validation/experiments/sb_si_dynamic.py`."
+    r = json.loads(SBSI_RESULTS.read_text())
+    st, ref = r["settings"], r["stored"]
+    tol = st["tolerance"]
+    runs, sens = r["runs"], r["sensitivity"]
+    convs = list(runs)
+
+    def verdict_cell(c):
+        return f"{100 * c['relative_difference']:+.0f} % ({c['verdict']})"
+
+    def peak_cell(run):
+        pk = run["peak"]
+        return f"{pk['depth_nm']:.1f} nm (±{pk['resolution_nm'] / 2:.1f}; ≥95 %: {pk['plateau_nm'][0]:.1f}–{pk['plateau_nm'][1]:.1f})"
+
+    lines = [
+        f"{r['software']}; reproduce with `{r['reproduce']}`. 50 keV Sb into Si, "
+        f"{st['fluence_cm2']:.0e} ions/cm², {st['tilt_deg']:g}° from the normal; {st['ions_per_seed']} ions per run, "
+        f"seeds {st['seeds']}; a {st['base_numerics']['film_nm']:g} nm Si layer on Si, cells and slabs "
+        f"{st['base_numerics']['slab_nm']:g} nm, `max_change` {st['base_numerics']['max_change']}, "
+        f"`ions_per_step` {st['base_numerics']['ions_per_step']}, erosion on. Physics: ZBL, Lindhard-Scharff, "
+        f"constant free path, cutoffs {st['physics']['primary_cutoff_ev']:g} / {st['physics']['recoil_cutoff_ev']:g} eV, "
+        f"E_b = 0, E_d = E_s with E_s = {st['surface_binding_ev']['Si']:g} eV (Si) and "
+        f"{st['surface_binding_ev']['Sb']:g} eV (Sb); no `tuning` set, no fitted parameter. "
+        "Assumptions, none from the paper: no native oxide in the engine target (the profile depth is measured from the "
+        "current surface after implantation, as in the engine output), the 7° tilt without azimuth, no dynamic annealing "
+        "(temperature and flux are not stated), no channelling (amorphous target). Not compared: retained dose, absolute "
+        "concentration and surface recession (the data are normalized to their own maximum).",
+        "",
+        f"**Metric (fixed before the first full run; tolerance {100 * tol:.0f} %).** Peak depth: the centre of the "
+        "maximum cell of the seed-mean Sb concentration, resolution one cell, against the printed peak "
+        f"(about {ref['printed_peak_nm']:g} nm) and, separately, against the largest stored marker "
+        f"({ref['marker_max_depth_nm']:g} nm). The stored markers have a gap from {ref['largest_gap_nm'][0]:g} to "
+        f"{ref['largest_gap_nm'][1]:g} nm, so the data cannot place the peak closer. Shape: root-mean-square difference "
+        "over the 53 markers between the stored profile and the engine profile, each divided by its own maximum, "
+        "against the tolerance in units of the maximum; the gap contributes no residual.",
+        "",
+        "| Convention | Engine peak depth | vs printed peak | vs largest marker | Shape RMS | Worst marker | Peak in gap | Recession | Yield |",
+        "|---|---|---|---|---|---|---|---|---|",
+    ]
+    for conv in convs:
+        run = runs[conv]
+        sr = run["shape_residual"]
+        lines.append(
+            f"| `{conv}` | {peak_cell(run)} | {verdict_cell(run['peak_depth']['printed_peak'])} | "
+            f"{verdict_cell(run['peak_depth']['marker_maximum'])} | {sr['rms']:.3f} ({sr['verdict']}) | "
+            f"{sr['max_abs']:.2f} at {sr['max_abs_at_depth_nm']:g} nm | {'yes' if run['peak_in_unmeasured_gap'] else 'no'} | "
+            f"{run['recession_nm']:.1f} nm | {run['sputter_yield']:.2f} |")
+    # Engine against stored markers at selected depths.
+    import csv as _csv
+    with open(SBSI_MARKERS, newline="") as f:
+        markers = [{k: float(v) for k, v in row.items() if k != "row_id"} for row in _csv.DictReader(f)]
+
+    def at(profile, z):
+        top = max(c["sb_cm3"] for c in profile)
+        xs, ys = [c["centre_nm"] for c in profile], [c["sb_cm3"] / top for c in profile]
+        if z <= xs[0]:
+            return ys[0]
+        if z > xs[-1]:
+            return 0.0
+        for x0, y0, x1, y1 in zip(xs, ys, xs[1:], ys[1:]):
+            if x0 <= z <= x1:
+                return y0 + (y1 - y0) * (z - x0) / (x1 - x0)
+        return 0.0
+
+    lines += ["", "Normalized concentration at selected stored markers (the nearest marker to each listed depth; the engine "
+              "value is read off its own max-normalized profile at the marker depth):", "",
+              "| Marker depth (nm) | Stored | " + " | ".join(f"`{c}`" for c in convs) + " |",
+              "|---|---|" + "---|" * len(convs)]
+    for z in (2, 5, 8, 13, 19, 23, 26, 30, 34, 38):
+        m = min(markers, key=lambda m: abs(m["depth_nm"] - z))
+        lines.append(f"| {m['depth_nm']:.2f} | {m['normalized_sb_concentration']:.3f} | "
+                     + " | ".join(f"{at(runs[c]['profile'], m['depth_nm']):.3f}" for c in convs) + " |")
+    lines += ["", "Sensitivity, one change at a time, one seed (side by side; no run is chosen from them). "
+              "Each cell: peak depth, peak-depth verdict against the printed peak, shape RMS and its verdict.", "",
+              "| Change | " + " | ".join(f"`{c}`" for c in convs) + " |", "|---|" + "---|" * len(convs)]
+    labels = [x["label"] for x in st["sensitivity"]]
+    for label in labels:
+        cells = []
+        for conv in convs:
+            run = sens.get(conv, {}).get(label)
+            if run is None:
+                cells.append("not run")
+            else:
+                cells.append(f"{run['peak']['depth_nm']:.1f} nm, {run['peak_depth']['printed_peak']['verdict']}; "
+                             f"{run['shape_residual']['rms']:.3f}, {run['shape_residual']['verdict']}")
+        lines.append(f"| {label} | " + " | ".join(cells) + " |")
+    lines += ["", "The oxide variant is run with `ideal-mixing` only: `fixed-number-density` takes one atom density for the "
+              "whole target, which cannot describe SiO₂ over Si. Not modelled: " + "; ".join(st["not_modelled"]) + ".",
+              "", "Per-run values and the engine profiles: `validation/experiments/sb_si_dynamic_results.json`; data: "
+              "`validation/data/implant/`; provenance: [`data-provenance.md`](data-provenance.md)."]
+    return "\n".join(lines)
+
+
 def _cuni_diagnostics(r: dict) -> list[str]:
     """The #465 diagnosis tables: static single-element yields against the stored
     Ar -> Cu data, the binary at fixed composition, and the data conventions."""
@@ -1287,6 +1387,7 @@ def main() -> int:
     text = splice(text, "level3-sputter-summary", level3_sputter_summary())
     text = splice(text, "level3-backscatter", level3_backscatter())
     text = splice(text, "level3-cuni-dynamic", level3_cuni_dynamic())
+    text = splice(text, "level3-sb-si-dynamic", level3_sb_si_dynamic())
     text = splice(text, "level3-se-yield", se_yield.markdown(se_yield.load_datasets(), se_yield.load_results()))
     if args.check:
         if text != old:

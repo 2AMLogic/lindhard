@@ -2561,8 +2561,9 @@ second-read discipline of the sputter datasets).
 target against a cited measurement, both volume-relaxation conventions) has now
 been run on Cu–Ni with the source tables of #447
 ([`validation/data/alloys/`](../validation/data/alloys/README.md)). Criterion
-(b), a published high-fluence implant profile: the **data now exist, no
-comparison has been run** (#466). The measured profile is 50 keV Sb in Si at
+(b), a published high-fluence implant profile, has now been run too (#466 data,
+#512 comparison): **the engine does not reproduce the measured profile either**,
+with no tuning (section below). The measured profile is 50 keV Sb in Si at
 5×10¹⁶ ions/cm² (Titze et al., Fig. 3, normalized SIMS concentration, 53
 digitized markers, [`validation/data/implant/`](../validation/data/implant/README.md);
 see [`data-provenance.md`](data-provenance.md)). Nothing here validates the
@@ -2876,12 +2877,77 @@ against the 1.70 the AES ratio implies; the dynamic machinery and the depth mapp
 are not responsible. Both tolerances are unchanged and both comparisons still fail
 as reported above.
 
-**What lifts the remaining gap:** for criterion (b), the comparison itself
-against the stored Sb-in-Si profile (#466 supplies the data only). The profile
-is normalized to its maximum, so a comparison tests shape and peak depth, not
-retained dose, and needs sputter yield, beam angle and temperature stated as
-assumptions because the paper gives none; its peak region (10–19 nm) is sparse.
-For the Ni half of the single-element check, a stored, cross-checked Ar → Ni
+**Criterion (b): Sb in Si at 5×10¹⁶ ions/cm² (#512).** The stored Titze et
+al. profile (Fig. 3, SIMS, normalized to its own maximum) against the
+fluence-dependent engine, both volume-relaxation conventions, four fixed seeds,
+no `tuning`, no fitted parameter. The profile is normalized, so peak depth and
+shape are tested and retained dose is not; the tolerance is the 25 % preset;
+the metric and the assumptions were fixed in `sb_si_dynamic.py` before the
+first full run. The table is generated from the committed results.
+
+<!-- validation:level3-sb-si-dynamic:begin -->
+lindhard 0.0.1 (75785a6); reproduce with `python3 validation/experiments/sb_si_dynamic.py`. 50 keV Sb into Si, 5e+16 ions/cm², 7° from the normal; 20000 ions per run, seeds [1, 2, 3, 4]; a 150 nm Si layer on Si, cells and slabs 1 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Physics: ZBL, Lindhard-Scharff, constant free path, cutoffs 5 / 2 eV, E_b = 0, E_d = E_s with E_s = 4.63 eV (Si) and 2.75 eV (Sb); no `tuning` set, no fitted parameter. Assumptions, none from the paper: no native oxide in the engine target (the profile depth is measured from the current surface after implantation, as in the engine output), the 7° tilt without azimuth, no dynamic annealing (temperature and flux are not stated), no channelling (amorphous target). Not compared: retained dose, absolute concentration and surface recession (the data are normalized to their own maximum).
+
+**Metric (fixed before the first full run; tolerance 25 %).** Peak depth: the centre of the maximum cell of the seed-mean Sb concentration, resolution one cell, against the printed peak (about 15 nm) and, separately, against the largest stored marker (19.09 nm). The stored markers have a gap from 13.47 to 19.09 nm, so the data cannot place the peak closer. Shape: root-mean-square difference over the 53 markers between the stored profile and the engine profile, each divided by its own maximum, against the tolerance in units of the maximum; the gap contributes no residual.
+
+| Convention | Engine peak depth | vs printed peak | vs largest marker | Shape RMS | Worst marker | Peak in gap | Recession | Yield |
+|---|---|---|---|---|---|---|---|---|
+| `ideal-mixing` | 29.5 nm (±0.5; ≥95 %: 18.5–35.5) | +97 % (fail) | +55 % (fail) | 0.467 (fail) | 0.78 at 35.54 nm | no | 34.5 nm | 3.33 |
+| `fixed-number-density` | 25.5 nm (±0.5; ≥95 %: 23.5–34.5) | +70 % (fail) | +34 % (fail) | 0.436 (fail) | 0.72 at 34.71 nm | no | 33.6 nm | 3.36 |
+
+Normalized concentration at selected stored markers (the nearest marker to each listed depth; the engine value is read off its own max-normalized profile at the marker depth):
+
+| Marker depth (nm) | Stored | `ideal-mixing` | `fixed-number-density` |
+|---|---|---|---|
+| 2.23 | 0.141 | 0.693 | 0.640 |
+| 5.12 | 0.631 | 0.737 | 0.738 |
+| 8.02 | 0.814 | 0.769 | 0.790 |
+| 12.89 | 0.943 | 0.849 | 0.838 |
+| 19.09 | 0.978 | 0.953 | 0.913 |
+| 23.06 | 0.807 | 0.967 | 0.964 |
+| 25.87 | 0.644 | 0.970 | 1.000 |
+| 29.83 | 0.458 | 1.000 | 0.990 |
+| 34.21 | 0.237 | 0.982 | 0.957 |
+| 38.02 | 0.124 | 0.885 | 0.748 |
+
+Sensitivity, one change at a time, one seed (side by side; no run is chosen from them). Each cell: peak depth, peak-depth verdict against the printed peak, shape RMS and its verdict.
+
+| Change | `ideal-mixing` | `fixed-number-density` |
+|---|---|---|
+| baseline, seed 1 | 32.5 nm, fail; 0.473, fail | 29.5 nm, fail; 0.421, fail |
+| tilt=0deg | 31.5 nm, fail; 0.476, fail | 31.5 nm, fail; 0.425, fail |
+| oxide=2.9nm SiO2 | 26.5 nm, fail; 0.470, fail | not run |
+| es=0.5x | 19.5 nm, fail; 0.411, fail | 17.5 nm, pass; 0.346, fail |
+| es=2x | 35.5 nm, fail; 0.479, fail | 31.5 nm, fail; 0.466, fail |
+| ed=15eV | 31.5 nm, fail; 0.448, fail | 28.5 nm, fail; 0.388, fail |
+| slab=0.5nm | 33.5 nm, fail; 0.442, fail | 31.5 nm, fail; 0.395, fail |
+
+The oxide variant is run with `ideal-mixing` only: `fixed-number-density` takes one atom density for the whole target, which cannot describe SiO₂ over Si. Not modelled: temperature and beam flux (not stated in the paper): no dynamic annealing; azimuth of the 7 degree tilt (not stated); crystal channelling (amorphous target).
+
+Per-run values and the engine profiles: `validation/experiments/sb_si_dynamic_results.json`; data: `validation/data/implant/`; provenance: [`data-provenance.md`](data-provenance.md).
+<!-- validation:level3-sb-si-dynamic:end -->
+
+**Result.** Fails on both observables under both conventions. The engine
+profile is a broad, nearly flat-topped distribution whose maximum sits at about
+25–30 nm (seed to seed 18–33 nm: the top is flat to within the noise, so the
+peak depth is only as good as that spread), against the printed 15 nm and a
+stored profile that peaks near 15–19 nm and falls steadily beyond; the
+shape residual is about 0.44–0.47 of the maximum against the 0.25 allowed. The
+engine peak does not fall inside the unmeasured 13.5–19 nm gap, so the missing
+markers do not decide the verdict. The sensitivities move the peak by up to about
+12 nm but none brings the shape inside the tolerance; the
+surface-binding scale of 0.5 (a different yield) puts the peak near the stored
+one in two of the cells, and is listed as a sensitivity, not as a better
+setting: no binding energy was chosen or fitted from these data. The 25 % peak
+tolerance is a narrow target against a flat-topped distribution of 1 nm
+cells, which is stated, not relaxed. Retained dose, surface recession and the
+paper's SRIM / TRIDYN curves are not compared.
+
+**What lifts the remaining gap:** for criterion (b), a second, independent
+high-fluence profile (the comparison against Titze et al. is done; a single
+normalized profile cannot separate the sputtering, the mixing and the
+displacement-energy convention that all move the peak), preferably with a
+stated retained dose or sputter depth, flux and temperature. For the Ni half of the single-element check, a stored, cross-checked Ar → Ni
 sputter dataset. For the Ho conversions, the paper's own flux-area and
 alloy-density statements and the AES analyzer geometry. For the Cu yield
 itself, the open Ar → Cu static-yield shortfall of section 3.

@@ -63,6 +63,11 @@ jobs:
         # (about 10 s after the release build), and checks the committed results
         # against the data files and the fixed tolerances.
         run: python3 validation/experiments/test_cuni_dynamic.py
+      - name: Sb-in-Si high-fluence implant comparison (#512), reduced statistics
+        # Runs the real CLI at a fifth of the committed ions, one seed, both
+        # conventions (about 30 s after the release build), and checks the
+        # committed results against the data files and the fixed tolerance.
+        run: python3 validation/experiments/test_sb_si_dynamic.py
 
   workflow-checks:
     name: Workflow checks (clippy pin, canary reporting)
