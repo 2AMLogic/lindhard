@@ -125,3 +125,6 @@ validation/oracle-runs/
 lindhard-py/python/**/*.so
 lindhard-py/python/**/*.pyd
 lindhard-py/python/**/*.dylib
+
+# Repo Skills Codex-side machine-local install metadata (never committed)
+.agents/skills/repo/.install-local.json
