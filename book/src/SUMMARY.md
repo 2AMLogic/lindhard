@@ -26,6 +26,12 @@
 - [History and literature of ion stopping](history.md)
   - [James F. Ziegler (1935–2024)](history-ziegler.md)
 
+# Validation, status and provenance
+
+- [Validation](validation.md)
+- [Status and roadmap](status.md)
+- [About and the clean-room rule](about.md)
+
 # User guide
 
 - [Installing](guide/install.md)

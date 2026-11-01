@@ -4,7 +4,9 @@ name: Book
 # and push to main, and publishes it to GitHub Pages from main only.
 # Pages must be enabled for the repository with "GitHub Actions" as the
 # source (Settings -> Pages); until then the deploy job fails on main and
-# the build job is unaffected.
+# the build job is unaffected. The build is scripts/deploy-site.sh
+# --no-deploy; the `cloudflare` job publishes the same tree to Cloudflare Pages
+# from main once the repository has the Cloudflare secrets (skipped before).
 
 on:
   pull_request:
@@ -65,40 +67,17 @@ jobs:
           mkdir -p /tmp/wasm-bindgen-bin
           tar -xzf /tmp/wasm-bindgen.tar.gz -C /tmp/wasm-bindgen-bin --strip-components=1 "$tarball/wasm-bindgen"
           echo /tmp/wasm-bindgen-bin >> "$GITHUB_PATH"
-      - name: Build the range-calculator page into the book
-        # mdBook copies every non-Markdown file under book/src into the
-        # rendered book, so the page ships with the book (and with the Pages
-        # deploy) without a second publishing mechanism. book/src/calculator
-        # is generated and git-ignored.
-        run: |
-          lindhard-wasm/build.sh web book/src/calculator/pkg
-          cp lindhard-wasm/web/index.html lindhard-wasm/web/simulator.html \
-            lindhard-wasm/web/simulator.js lindhard-wasm/web/worker.js \
-            lindhard-wasm/web/toml_model.js lindhard-wasm/web/run_view.js lindhard-wasm/web/plots.js book/src/calculator/
-          wasm="book/src/calculator/pkg/lindhard_wasm_bg.wasm"
-          echo "lindhard_wasm_bg.wasm: $(stat -c %s "$wasm") bytes, $(gzip -9 -c "$wasm" | wc -c) bytes gzipped"
-          echo "simulator page scripts: $(cat lindhard-wasm/web/simulator.js lindhard-wasm/web/worker.js lindhard-wasm/web/toml_model.js lindhard-wasm/web/run_view.js lindhard-wasm/web/plots.js | wc -c) bytes"
-      - name: mdbook build
-        run: mdbook build book
-      - name: API documentation
-        # Published under /api/ in the same artifact; the landing page links
-        # it only if it is there.
-        run: |
-          cargo doc -p lindhard --no-deps
-          mkdir -p book/book/api
-          cp -r target/doc/. book/book/api/
-      - name: Landing page over the book root
-        # site/ replaces the rendered index.html; introduction.html keeps the
-        # book's introduction. Then every relative link on it must resolve.
-        run: |
-          python3 validation/assemble_site.py book/book
-          python3 validation/check_site_links.py book/book
+      - name: Build the site (book, calculator, API docs, landing page)
+        # The one build for both hosts: scripts/deploy-site.sh --no-deploy
+        # writes the combined tree to site/dist and checks every relative
+        # link on the landing page. Pull requests run exactly this.
+        run: scripts/deploy-site.sh --no-deploy
       - name: Upload the rendered book
         # The same artifact serves PR review (download it from the run) and
         # the Pages deploy below.
         uses: actions/upload-pages-artifact@v5
         with:
-          path: book/book
+          path: site/dist
 
   deploy:
     name: Deploy to GitHub Pages
@@ -118,3 +97,42 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  cloudflare:
+    name: Publish to Cloudflare Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: cloudflare-pages
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      LINDHARD_PAGES_PROJECT: ${{ vars.LINDHARD_PAGES_PROJECT }}
+    steps:
+      - id: creds
+        # Secrets cannot appear in an `if:`, so test them here. Until the
+        # Cloudflare secrets exist this job succeeds without publishing.
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare secrets are not configured; skipping the publish."
+          fi
+      - uses: actions/checkout@v7
+        if: steps.creds.outputs.have == 'true'
+      - uses: actions/download-artifact@v8
+        if: steps.creds.outputs.have == 'true'
+        with:
+          name: github-pages
+          path: /tmp/pages
+      - name: Publish
+        if: steps.creds.outputs.have == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p site/dist
+          tar -xf /tmp/pages/artifact.tar -C site/dist
+          scripts/deploy-site.sh --publish-only

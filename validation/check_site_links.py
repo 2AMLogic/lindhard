@@ -22,6 +22,8 @@ ROOT = Path(__file__).resolve().parents[1]
 
 # URLs published before the landing page; they must keep resolving.
 EXISTING = ["introduction.html", "models/overview.html", "guide/install.html", "guide/first-run.html"]
+# Pages the landing page links to that must exist in the built book.
+EXISTING += ["validation.html", "status.html", "about.html"]
 
 
 class Collector(HTMLParser):
