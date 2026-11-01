@@ -9,6 +9,11 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: the simulator's Run view gains live distribution plots (ion
+  range with the Pearson IV overlay, lateral and radial, damage versus depth,
+  escapes by species with energy and polar-angle spectra), CSV per plot, the full
+  report as JSON, the trajectory view as PNG, and the statistical-error, models
+  and validation caveats (part of #469, child 2 of #467).
 - `lindhard-wasm`: the simulator's Run view gains live counters (straggle,
   backscatter, transmission, sputter yield, vacancies per ion, energy partition),
   a trajectory view (side and end-on, layers shaded, species and generation with

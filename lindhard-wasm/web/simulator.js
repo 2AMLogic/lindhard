@@ -3,6 +3,7 @@
 
 import init, { elements_json } from "./pkg/lindhard_wasm.js";
 import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
+import { buildPlots, caveatLines, dashForSeries, niceTicks, plotExtent, reportJson, toCsv } from "./plots.js";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
   layerSpans, segmentBounds, speciesLabels, trajectorySegments,
@@ -386,6 +387,135 @@ function drawLegend(report) {
   );
 }
 
+// ---- distribution plots and exports ------------------------------------------
+
+let lastReport = null;
+let plotSpecs = [];
+const plotViews = new Map(); // id -> {canvas, legend, note}
+
+function download(name, blob) {
+  const a = h("a", { href: URL.createObjectURL(blob), download: name });
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function plotView(spec) {
+  let v = plotViews.get(spec.id);
+  if (v) return v;
+  const canvas = h("canvas", { width: 900, height: 300, role: "img", "aria-label": spec.title });
+  const legend = h("ul", { className: "legend" });
+  const note = h("p", { className: "note" });
+  const csv = h("button", {
+    type: "button",
+    on: { click: () => {
+      const s = plotSpecs.find((p) => p.id === spec.id);
+      if (s) download(`lindhard-${s.id}.csv`, new Blob([toCsv(s.table)], { type: "text/csv" }));
+    } },
+  }, "Download CSV");
+  const box = h("div", { className: "plot" }, h("h3", {}, spec.title), canvas, legend, note, h("div", { className: "tools" }, csv));
+  $("plots").append(box);
+  v = { canvas, legend, note };
+  plotViews.set(spec.id, v);
+  return v;
+}
+
+function legendSwatch(i) {
+  const c = document.createElement("canvas");
+  c.width = 34; c.height = 12;
+  c.style.cssText = "width:34px;height:12px;border:0";
+  const x = c.getContext("2d");
+  x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.lineWidth = 2;
+  x.setLineDash(dashForSeries(i));
+  x.beginPath(); x.moveTo(0, 6); x.lineTo(32, 6); x.stroke();
+  return c;
+}
+
+function drawPlot(spec) {
+  const { canvas, legend, note } = plotView(spec);
+  const ctx = canvas.getContext("2d");
+  const css = getComputedStyle(document.documentElement);
+  const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
+  const muted = css.getPropertyValue("--muted").trim() || "#666";
+  const W = canvas.width, H = canvas.height, L = 64, R = 12, T = 12, B = 40;
+  const ext = plotExtent(spec);
+  const yTicks = niceTicks(0, ext.y1, 5);
+  const y1 = Math.max(ext.y1, yTicks[yTicks.length - 1]);
+  const sx = (x) => L + ((x - ext.x0) / (ext.x1 - ext.x0)) * (W - L - R);
+  const sy = (y) => H - B - (y / y1) * (H - B - T);
+  ctx.setLineDash([]);
+  ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.lineWidth = 1; ctx.strokeStyle = muted; ctx.fillStyle = muted;
+  for (const t of yTicks) {
+    ctx.beginPath(); ctx.moveTo(L - 4, sy(t)); ctx.lineTo(L, sy(t)); ctx.stroke();
+    ctx.textAlign = "right"; ctx.fillText(String(t), L - 7, sy(t) + 4);
+  }
+  ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, H - B); ctx.lineTo(W - R, H - B); ctx.stroke();
+  ctx.textAlign = "center";
+  if (spec.kind === "bars") {
+    const n = spec.categories.length, bw = (W - L - R) / Math.max(n, 1);
+    spec.categories.forEach((c, i) => {
+      ctx.fillStyle = muted;
+      ctx.fillText(c, L + (i + 0.5) * bw, H - B + 16, bw - 4);
+      ctx.fillStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length];
+      const top = sy(spec.series[0].y[i]);
+      ctx.fillRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
+      ctx.strokeStyle = fg; ctx.strokeRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
+    });
+  } else {
+    for (const t of niceTicks(ext.x0, ext.x1, 6)) {
+      ctx.strokeStyle = muted; ctx.fillStyle = muted;
+      ctx.beginPath(); ctx.moveTo(sx(t), H - B); ctx.lineTo(sx(t), H - B + 4); ctx.stroke();
+      ctx.fillText(String(t), sx(t), H - B + 16);
+    }
+    ctx.lineWidth = 1.6;
+    for (const s of spec.series) {
+      ctx.strokeStyle = SPECIES_COLOURS[s.style % SPECIES_COLOURS.length];
+      ctx.setLineDash(dashForSeries(s.style));
+      ctx.beginPath();
+      if (s.line) {
+        s.y.forEach((y, i) => {
+          const x = sx((s.bins.lo[i] + s.bins.hi[i]) / 2);
+          if (i === 0) ctx.moveTo(x, sy(y)); else ctx.lineTo(x, sy(y));
+        });
+      } else {
+        s.y.forEach((y, i) => {
+          if (i === 0) ctx.moveTo(sx(s.bins.lo[i]), sy(y)); else ctx.lineTo(sx(s.bins.lo[i]), sy(y));
+          ctx.lineTo(sx(s.bins.hi[i]), sy(y));
+        });
+      }
+      ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+  ctx.fillStyle = fg; ctx.textAlign = "center";
+  ctx.fillText(spec.xLabel, (L + W - R) / 2, H - 6);
+  ctx.save(); ctx.translate(14, (T + H - B) / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText(spec.yLabel, 0, 0); ctx.restore();
+  if (spec.empty) { ctx.fillStyle = muted; ctx.fillText("No data yet", (L + W - R) / 2, (T + H - B) / 2); }
+  legend.replaceChildren(...(spec.kind === "hist"
+    ? spec.series.map((s) => h("li", {}, legendSwatch(s.style), ` ${s.label}`)) : []));
+  const flows = spec.series.filter((s) => s.bins && !s.overlay && (s.bins.underflow || s.bins.overflow))
+    .map((s) => `${s.label}: ${s.bins.underflow} below, ${s.bins.overflow} above the plotted range`);
+  note.textContent = [spec.note, ...flows].filter(Boolean).join(" ");
+}
+
+function drawPlots(report) {
+  lastReport = report;
+  if (report === null) { $("plots").replaceChildren(); plotViews.clear(); }
+  plotSpecs = buildPlots(report, { layerNames: setup.layers.map((l) => l.name), symbolOfZ });
+  for (const s of plotSpecs) drawPlot(s);
+  $("caveats").replaceChildren(...caveatLines(report, setup.physics).map((t) => h("li", {}, t)));
+  $("dl-json").disabled = report === null;
+}
+
+$("dl-json").addEventListener("click", () => {
+  if (lastReport) download("lindhard-report.json", new Blob([reportJson(lastReport)], { type: "application/json" }));
+});
+$("dl-png").addEventListener("click", () => {
+  $("traj").toBlob((b) => b && download("lindhard-trajectories.png", b), "image/png");
+});
+
 function startRun() {
   refresh();
   if (problems.length) return;
@@ -401,12 +531,14 @@ function startRun() {
         break;
       case "progress":
         counters(m.done, m.total, m.report);
+        drawPlots(m.report);
         histories.push(...m.trajectories);
         if (histories.length === m.trajectories.length) drawLegend(m.report);
         if (m.trajectories.length) drawTrajectories();
         break;
       case "finished":
         counters(m.done, m.total, m.report);
+        drawPlots(m.report);
         status("Done (± is one standard error).");
         endRun();
         break;
@@ -425,6 +557,7 @@ function startRun() {
   histories = [];
   counters(0, setup.run.ions, null);
   drawTrajectories();
+  drawPlots(null);
 }
 
 function endRun() {
@@ -470,6 +603,7 @@ try {
   $("traj-view").addEventListener("change", drawTrajectories);
   $("traj-cascades").addEventListener("change", drawTrajectories);
   drawTrajectories();
+  drawPlots(null);
   $("add-layer").addEventListener("click", () => addPreset("Si"));
   $("add-preset").addEventListener("click", () => addPreset($("preset").value));
   for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "mode", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut"]) {
