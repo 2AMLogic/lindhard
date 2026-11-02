@@ -127,3 +127,6 @@ lindhard-py/python/**/*.dylib
 
 # Repo Skills Codex-side machine-local install metadata (never committed)
 .agents/skills/repo/.install-local.json
+
+# Combined site built by scripts/deploy-site.sh.
+/site/dist/

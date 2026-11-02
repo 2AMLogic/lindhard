@@ -17,6 +17,9 @@
     <ul>
       <li><a href="introduction.html">Book</a></li>
       <li><a href="calculator/index.html">Range calculator</a></li>
+      <li><a href="validation.html">Validation</a></li>
+      <li><a href="status.html">Status</a></li>
+      <li><a href="about.html">About</a></li>
       <li><a href="https://github.com/2AMLogic/lindhard">Repository</a></li>
     </ul>
   </nav>
@@ -29,8 +32,9 @@
     what is sputtered and backscattered. It works in the binary-collision
     approximation (BCA). Results are deterministic: a run gives the same bits
     on one thread or many.</p>
-    <p>An electron engine is planned and has not been started. lindhard is
-    early, pre-release software.</p>
+    <p>A low-energy electron engine is under development. lindhard is early,
+    pre-release software; the <a href="status.html">status table</a> says what
+    is done.</p>
     <p>Every model is taken from published papers and cited where it is
     implemented. The code is clean-room: the
     <a href="https://github.com/2AMLogic/lindhard/blob/main/CONTRIBUTING.md">license tiers</a>
@@ -53,8 +57,8 @@
 
   <section aria-labelledby="start">
     <h2 id="start">Install and quick start</h2>
-    <p>lindhard is not yet published as a package; build it from source with
-    a stable Rust toolchain. See <a href="guide/install.html">Installing</a>.</p>
+    <p>lindhard has no published release yet, so there is no package to install;
+    build it from source with a stable Rust toolchain. See <a href="guide/install.html">Installing</a>.</p>
 <pre><code>git clone https://github.com/2AMLogic/lindhard.git
 cd lindhard
 cargo build --release -p lindhard-cli
@@ -78,6 +82,8 @@ target/release/lindhard run examples/b_5keV_si.toml --out out/b_5keV_si</code></
     causes, under
     <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md#known-deviations-reported-not-asserted">Known deviations</a>
     in the validation document; read them before relying on a result. The
+    <a href="validation.html">validation summary</a> lists the comparisons
+    with their residuals. The
     document also holds the
     <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md#results">analytic-check results</a>,
     the code-to-code comparisons and the comparisons with measurement, and
