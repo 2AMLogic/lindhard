@@ -9,22 +9,14 @@ use lindhard::ion::dynamic::{
 };
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 
 const NM: f64 = 1e-9;
 const SI: u8 = 14;
 const AS: u8 = 33;
 
 mod common;
+use common::si;
 use common::zbl_si_table as table;
-
-/// Test parameters (not data): E_d = 15 eV for every element, E_s = 2 eV where
-/// the element table has none.
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(SI, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(SI, 15.0).unwrap();
-    m
-}
 
 /// `n_slabs` slabs of `slab_nm` of Si, with a Si substrate if asked.
 fn grid(n_slabs: usize, slab_nm: f64, substrate: bool) -> CompositionGrid {

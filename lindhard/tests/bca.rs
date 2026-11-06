@@ -12,6 +12,8 @@ use lindhard::material::{EnergyKind, Material};
 const NM: f64 = 1e-9;
 
 mod common;
+use common::si_surface_binding_if_unset as si;
+use common::sio2;
 use common::zbl_si_table as table;
 
 /// Set `E_d` = 15 eV for every element and `E_s` = 2 eV where the element
@@ -29,14 +31,6 @@ fn ready(mut m: Material) -> Material {
 
 fn elemental(z: u8) -> Material {
     ready(Material::from_atom_fractions(&[(z, 1.0)], None).unwrap())
-}
-
-fn si() -> Material {
-    elemental(14)
-}
-
-fn sio2() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap())
 }
 
 fn run_summary(bca: &Bca, bin_m: f64, bins: usize) -> SummaryTally {

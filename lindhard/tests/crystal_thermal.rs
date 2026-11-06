@@ -17,24 +17,13 @@ use lindhard::ion::crystal::debye::{ThermalVibration, THETA_D_SI};
 use lindhard::ion::crystal::{Lattice, Orientation};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
 
 mod common;
+use common::si_surface_binding_if_unset as si;
 use common::zbl_si_table as table;
-
-/// Silicon at the tabulated (crystal) density with `E_d` = 15 eV, as in
-/// `tests/crystal_bca.rs`.
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    if m.surface_binding_energy_ev(14).is_err() {
-        m.set_surface_binding_energy_ev(14, 2.0).unwrap();
-    }
-    m
-}
 
 fn beam(z: u8, e: f64, tilt_deg: f64, twist_deg: f64, count: u64) -> Beam {
     Beam {

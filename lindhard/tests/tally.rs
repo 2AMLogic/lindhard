@@ -7,7 +7,6 @@ use lindhard::geometry::Stack;
 use lindhard::ion::bca::{Bca, BcaConfig, Beam, SummaryTally};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::rng::{run_particles, stream, uniform, ParticleRng};
 use lindhard::tally::{
     Binning, DualPearson, Histogram, IonReport, IonTally, IonTallyConfig, Moments, PearsonError,
@@ -291,14 +290,8 @@ fn dual_pearson_rejects_thin_histograms() {
 // ---- The ion tally on the BCA engine ----
 
 mod common;
+use common::si;
 use common::zbl_si_table as table;
-
-/// `E_d` = 15 eV for every element (a test parameter, not data).
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m
-}
 
 fn config() -> IonTallyConfig {
     IonTallyConfig {

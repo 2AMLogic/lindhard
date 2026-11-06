@@ -119,18 +119,8 @@ const P2_BINS: usize = 10;
 const UNIFORM_TOLERANCE: f64 = 0.05;
 
 mod common;
+use common::si_surface_binding_if_unset as si;
 use common::zbl_si_table as table;
-
-/// Silicon at the tabulated (crystal) density with `E_d` = 15 eV, as in
-/// `tests/crystal_bca.rs`.
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    if m.surface_binding_energy_ev(14).is_err() {
-        m.set_surface_binding_energy_ev(14, 2.0).unwrap();
-    }
-    m
-}
 
 /// The amorphous constant-path radius of `m`, m.
 fn amorphous_p_max(m: &Material) -> f64 {

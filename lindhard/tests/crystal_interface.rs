@@ -24,24 +24,9 @@ const SEED: u64 = 7;
 const PREFIX: usize = 6;
 
 mod common;
+use common::si;
+use common::sio2;
 use common::zbl_si_table as table;
-
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m
-}
-
-fn sio2() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap();
-    for z in [14, 8] {
-        m.set_displacement_energy_ev(z, 15.0).unwrap();
-        if m.surface_binding_energy_ev(z).is_err() {
-            m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-        }
-    }
-    m
-}
 
 /// An overlayer so dilute that no collision or measurable electronic loss
 /// happens across it: it only supplies an interface.

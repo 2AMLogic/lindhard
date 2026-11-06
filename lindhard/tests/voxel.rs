@@ -14,26 +14,9 @@ use lindhard::material::Material;
 const NM: f64 = 1e-9;
 
 mod common;
+use common::si_surface_binding_if_unset as si;
+use common::sio2;
 use common::zbl_si_table as table;
-
-/// Test parameters (not data): `E_d` = 15 eV, `E_s` = 2 eV where unset.
-fn ready(mut m: Material) -> Material {
-    for (z, _) in m.atom_fractions() {
-        m.set_displacement_energy_ev(z, 15.0).unwrap();
-        if m.surface_binding_energy_ev(z).is_err() {
-            m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-        }
-    }
-    m
-}
-
-fn si() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0)], None).unwrap())
-}
-
-fn sio2() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap())
-}
 
 fn beam(count: u64) -> Beam {
     Beam {

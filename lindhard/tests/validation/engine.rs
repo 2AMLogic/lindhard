@@ -12,29 +12,11 @@ use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
+use crate::common::si_surface_binding_if_unset as si;
+use crate::common::sio2;
 use crate::report::{num, sci, Check};
 
 const NM: f64 = 1e-9;
-
-/// `E_d` = 15 eV everywhere and `E_s` = 2 eV where the element table has
-/// none (O). Test parameters, not data.
-fn ready(mut m: Material) -> Material {
-    for (z, _) in m.atom_fractions() {
-        m.set_displacement_energy_ev(z, 15.0).unwrap();
-        if m.surface_binding_energy_ev(z).is_err() {
-            m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-        }
-    }
-    m
-}
-
-fn si() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0)], None).unwrap())
-}
-
-fn sio2() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap())
-}
 
 fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
     rayon::ThreadPoolBuilder::new()

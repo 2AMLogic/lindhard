@@ -11,7 +11,6 @@ use lindhard::ion::bca::{
 };
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::tally::Binning;
 use lindhard::tally::{
     IonTally, IonTallyConfig, VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError,
@@ -21,15 +20,8 @@ use lindhard::tally::{
 const NM: f64 = 1e-9;
 
 mod common;
+use common::si_with_surface_binding as si;
 use common::zbl_si_table as table;
-
-/// Test parameters (not data): `E_d` = 15 eV, `E_s` = 2 eV.
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m.set_surface_binding_energy_ev(14, 2.0).unwrap();
-    m
-}
 
 fn beam(count: u64) -> Beam {
     Beam {
