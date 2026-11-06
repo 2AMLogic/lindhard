@@ -413,3 +413,15 @@ fn corrected_atomic_results_feed_the_table() {
     let t = combine(&m, &[x], &default_probability_grid(), None).unwrap();
     assert!(t.model().contains("exchange on (test)"));
 }
+
+#[test]
+fn log_energy_grid_rejects_an_unbounded_point_count() {
+    let e = log_energy_grid(10.0, 5.0e4, 1.0e300)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("points per decade"), "{e}");
+    let e = log_energy_grid(10.0, 5.0e4, i64::MAX as f64)
+        .unwrap_err()
+        .to_string();
+    assert!(e.contains("points per decade"), "{e}");
+}

@@ -245,6 +245,12 @@ impl PotentialSource for SalvatDhfsTable {
 // ---------------------------------------------------------------------------
 // Grids
 
+/// Most intervals [`log_energy_grid`] will build. A guard against an input
+/// whose `points_per_decade` would otherwise request an unbounded allocation
+/// (found by the malformed-input corpus in `tests/input_robustness.rs`); the
+/// default grid uses a few hundred.
+pub const MAX_GRID_INTERVALS: usize = 1_000_000;
+
 /// A log-spaced energy grid from `min_ev` to `max_ev` (both included exactly)
 /// with at least `points_per_decade` points per decade.
 pub fn log_energy_grid(
@@ -265,7 +271,17 @@ pub fn log_energy_grid(
         ));
     }
     let decades = (max_ev / min_ev).log10();
-    let intervals = ((decades * points_per_decade).ceil() as usize).max(1);
+    let wanted = (decades * points_per_decade).ceil();
+    if wanted > MAX_GRID_INTERVALS as f64 {
+        return Err(invalid(
+            "points per decade",
+            format!(
+                "{points_per_decade} over {decades:.1} decades needs {wanted} grid intervals \
+                 (at most {MAX_GRID_INTERVALS})"
+            ),
+        ));
+    }
+    let intervals = (wanted as usize).max(1);
     let step = decades / intervals as f64;
     let mut grid: Vec<f64> = (0..=intervals)
         .map(|i| min_ev * 10f64.powf(step * i as f64))
