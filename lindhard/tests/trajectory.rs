@@ -2,34 +2,17 @@
 //! with the other tallies, recording changes no result, the caps flag
 //! truncation, and the output does not depend on the thread count.
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaTally, Beam, EnergyBudget, Face, Particle, SummaryTally,
 };
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
 use lindhard::tally::{History, Recorded, TrackEnd, TrajectoryConfig, TrajectoryRecorder};
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 fn si() -> Material {
     let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();

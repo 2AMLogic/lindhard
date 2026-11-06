@@ -2,12 +2,9 @@
 //! the ion tally wired to the BCA engine.
 
 use std::f64::consts::PI;
-use std::sync::OnceLock;
 
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{Bca, BcaConfig, Beam, SummaryTally};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -293,21 +290,8 @@ fn dual_pearson_rejects_thin_histograms() {
 
 // ---- The ion tally on the BCA engine ----
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 /// `E_d` = 15 eV for every element (a test parameter, not data).
 fn si() -> Material {

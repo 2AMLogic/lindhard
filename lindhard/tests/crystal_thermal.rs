@@ -9,16 +9,12 @@
 //! `cargo test --release -p lindhard --test crystal_thermal -- --ignored --nocapture`.
 //! The measured numbers are in the module docs of `lindhard::ion::bca::crystal`.
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaError, Beam, CrystalTarget, ElectronicLoss, SummaryTally, Thermal,
 };
 use lindhard::ion::crystal::debye::{ThermalVibration, THETA_D_SI};
 use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -26,21 +22,8 @@ use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 /// Silicon at the tabulated (crystal) density with `E_d` = 15 eV, as in
 /// `tests/crystal_bca.rs`.
