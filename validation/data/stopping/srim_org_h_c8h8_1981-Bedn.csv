@@ -1,0 +1,13 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-c8h8-1981-bedn
+# description: H in C8H8, 9 points of one paper (Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,C8H8,70144.62,11.11,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,85241.84,11.02,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,100480.2,11.11,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,130513.3,10.02,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,151073,9.377,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,201161.9,8.293,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,300735,6.681,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,400509.7,5.597,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation
+1,1.007825,C8H8,501695.3,4.63,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)",1981-Bedn,digitized-compilation

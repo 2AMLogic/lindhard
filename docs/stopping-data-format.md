@@ -9,7 +9,7 @@ Which published measurements may enter the tree is decided in issue #34
 (measured points read from the original papers and cited as facts; see
 [`data-provenance.md`](data-provenance.md)). The real datasets are
 `validation/data/stopping/bader1956_p_cu.csv` (Cu for protons, Bader et al.
-1956, #430) and eight per-paper files `srim_org_<ion>_<target>_<key>.csv` of
+1956, #430) and per-paper files `srim_org_<ion>_<target>_<key>.csv` of
 points digitized from the srim.org compilation plots (#488, made by
 `validation/data/digitize/srim_org/split_by_paper.py`); the others in the
 repository are synthetic ones generated at test time from our own models.

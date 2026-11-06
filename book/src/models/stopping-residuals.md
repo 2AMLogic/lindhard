@@ -23,9 +23,18 @@ and check it is current with the same command and `-- --check`. The output is a 
 | File | Name | Points | Systems |
 |---|---|---|---|
 | `bader1956_p_cu.csv` | bader1956-p-cu | 15 | 1 |
+| `srim_org_h_c8h8_1978-Port.csv` | srim-org-h-c8h8-1978-port | 12 | 1 |
+| `srim_org_h_c8h8_1980-Bedn.csv` | srim-org-h-c8h8-1980-bedn | 7 | 1 |
+| `srim_org_h_c8h8_1981-Bedn.csv` | srim-org-h-c8h8-1981-bedn | 9 | 1 |
+| `srim_org_h_h2o-solid_1952-Wenz.csv` | srim-org-h-h2o-solid-1952-wenz | 7 | 1 |
+| `srim_org_h_h2o-solid_1994-Baue.csv` | srim-org-h-h2o-solid-1994-baue | 10 | 1 |
+| `srim_org_h_h2o-solid_1997-Baue.csv` | srim-org-h-h2o-solid-1997-baue | 9 | 1 |
+| `srim_org_h_h2o-vapour_1990-Mitt.csv` | srim-org-h-h2o-vapour-1990-mitt | 13 | 1 |
 | `srim_org_h_si_1976-Grah.csv` | srim-org-h-si-1976-grah | 11 | 1 |
 | `srim_org_h_si_1977-Cemb.csv` | srim-org-h-si-1977-cemb | 15 | 1 |
 | `srim_org_h_si_1988-Mert.csv` | srim-org-h-si-1988-mert | 11 | 1 |
+| `srim_org_he_c8h8_1980-Bedn.csv` | srim-org-he-c8h8-1980-bedn | 9 | 1 |
+| `srim_org_he_c8h8_1981-Bedn.csv` | srim-org-he-c8h8-1981-bedn | 8 | 1 |
 | `srim_org_he_cu_1975-Nomu.csv` | srim-org-he-cu-1975-nomu | 14 | 1 |
 | `srim_org_he_cu_1977-Ande3.csv` | srim-org-he-cu-1977-ande3 | 17 | 1 |
 | `srim_org_he_si_1973-Lin.csv` | srim-org-he-si-1973-lin | 38 | 1 |
@@ -93,6 +102,189 @@ Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-o
 | 19 | 500 keV | 18.100 | 73.426 | 18.065 | **held out** |
 | 20 | 550 keV | 17.500 | 77.010 | 17.394 | train |
 | 21 | 600 keV | 16.900 | 80.435 | 16.768 | train |
+
+## srim-org-h-c8h8-1978-port
+
+File: `srim_org_h_c8h8_1978-Port.csv`.
+
+H in C8H8, 12 points of one paper (Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on C8H8
+
+* Points: 12. Energy span: 2.259 MeV to 5.598 MeV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 12 | 0 | +124.143 | 125.175 | +13310.72 % | 13922.54 % |
+| oen-robinson | 12 | 0 | +124.143 | 125.175 | +13310.72 % | 13922.54 % |
+| equipartition-ls-or | 12 | 0 | +124.143 | 125.175 | +13310.72 % | 13922.54 % |
+| bethe-bloch | 12 | 0 | +0.125 | 0.131 | +12.46 % | 12.59 % |
+
+No per-pair correction is fitted: the target is a compound.
+
+## srim-org-h-c8h8-1980-bedn
+
+File: `srim_org_h_c8h8_1980-Bedn.csv`.
+
+H in C8H8, 7 points of one paper (Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on C8H8
+
+* Points: 7. Energy span: 120.637 keV to 480.833 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 7 | 0 | +25.566 | 27.177 | +415.60 % | 482.29 % |
+| oen-robinson | 7 | 0 | +25.566 | 27.177 | +415.60 % | 482.29 % |
+| equipartition-ls-or | 7 | 0 | +25.566 | 27.177 | +415.60 % | 482.29 % |
+| bethe-bloch | 7 | 0 | +0.403 | 0.416 | +6.27 % | 6.92 % |
+
+No per-pair correction is fitted: the target is a compound.
+
+## srim-org-h-c8h8-1981-bedn
+
+File: `srim_org_h_c8h8_1981-Bedn.csv`.
+
+H in C8H8, 9 points of one paper (Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on C8H8
+
+* Points: 9. Energy span: 70.145 keV to 501.695 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 9 | 0 | +18.627 | 21.900 | +284.56 % | 387.87 % |
+| oen-robinson | 9 | 0 | +18.627 | 21.900 | +284.56 % | 387.87 % |
+| equipartition-ls-or | 9 | 0 | +18.627 | 21.900 | +284.56 % | 387.87 % |
+| bethe-bloch | 9 | 0 | +0.155 | 0.479 | +3.13 % | 6.43 % |
+
+No per-pair correction is fitted: the target is a compound.
+
+## srim-org-h-h2o-solid-1952-wenz
+
+File: `srim_org_h_h2o-solid_1952-Wenz.csv`.
+
+H in H2O (solid), 7 points of one paper (Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on H2O
+
+* Points: 7. Energy span: 10.32 keV to 45.171 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 7 | 0 | +3.754 | 3.843 | +75.45 % | 82.16 % |
+| oen-robinson | 7 | 0 | +3.754 | 3.843 | +75.45 % | 82.16 % |
+| equipartition-ls-or | 7 | 0 | +3.754 | 3.843 | +75.45 % | 82.16 % |
+| bethe-bloch | 0 | 7 | n/a | n/a | n/a | n/a |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (10.32 keV) skipped: bethe-bloch is not applicable at 10320.13 eV for this ion.
+* bethe-bloch: line 6 (19.421 keV) skipped: bethe-bloch is not applicable at 19420.79 eV for this ion.
+* bethe-bloch: line 7 (20.489 keV) skipped: bethe-bloch is not applicable at 20489.08 eV for this ion.
+* bethe-bloch: line 8 (20.489 keV) skipped: bethe-bloch is not applicable at 20489.08 eV for this ion.
+* bethe-bloch: line 9 (35.868 keV) skipped: bethe-bloch is not applicable at 35868.49 eV for this ion.
+* bethe-bloch: line 10 (41.049 keV) skipped: bethe-bloch is not applicable at 41048.71 eV for this ion.
+* bethe-bloch: line 11 (45.171 keV) skipped: bethe-bloch is not applicable at 45170.72 eV for this ion.
+
+No per-pair correction is fitted: the target is a compound.
+
+## srim-org-h-h2o-solid-1994-baue
+
+File: `srim_org_h_h2o-solid_1994-Baue.csv`.
+
+H in H2O (solid), 10 points of one paper (Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on H2O
+
+* Points: 10. Energy span: 10.35 keV to 308.798 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 10 | 0 | +9.645 | 12.266 | +156.58 % | 204.54 % |
+| oen-robinson | 10 | 0 | +9.645 | 12.266 | +156.58 % | 204.54 % |
+| equipartition-ls-or | 10 | 0 | +9.645 | 12.266 | +156.58 % | 204.54 % |
+| bethe-bloch | 5 | 5 | +0.436 | 0.740 | +6.73 % | 11.18 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (10.35 keV) skipped: bethe-bloch is not applicable at 10350.36 eV for this ion.
+* bethe-bloch: line 6 (30.789 keV) skipped: bethe-bloch is not applicable at 30789.05 eV for this ion.
+* bethe-bloch: line 7 (38.892 keV) skipped: bethe-bloch is not applicable at 38891.97 eV for this ion.
+* bethe-bloch: line 8 (41.049 keV) skipped: bethe-bloch is not applicable at 41048.71 eV for this ion.
+* bethe-bloch: line 9 (52.155 keV) skipped: bethe-bloch is not applicable at 52154.94 eV for this ion.
+
+No per-pair correction is fitted: the target is a compound.
+
+## srim-org-h-h2o-solid-1997-baue
+
+File: `srim_org_h_h2o-solid_1997-Baue.csv`.
+
+H in H2O (solid), 9 points of one paper (Bauer, P. Golser, R. Aumayr, F. Semrad, D. Arnau, A., Nucl. Inst. Methods, B 125 102-105 (1997)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on H2O
+
+* Points: 9. Energy span: 18.393 keV to 308.798 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Bauer, P. Golser, R. Aumayr, F. Semrad, D. Arnau, A., Nucl. Inst. Methods, B 125 102-105 (1997).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 9 | 0 | +10.287 | 12.862 | +157.31 % | 210.65 % |
+| oen-robinson | 9 | 0 | +10.287 | 12.862 | +157.31 % | 210.65 % |
+| equipartition-ls-or | 9 | 0 | +10.287 | 12.862 | +157.31 % | 210.65 % |
+| bethe-bloch | 6 | 3 | +1.107 | 1.191 | +15.64 % | 16.79 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (18.393 keV) skipped: bethe-bloch is not applicable at 18392.81 eV for this ion.
+* bethe-bloch: line 6 (20.489 keV) skipped: bethe-bloch is not applicable at 20489.08 eV for this ion.
+* bethe-bloch: line 7 (30.789 keV) skipped: bethe-bloch is not applicable at 30789.05 eV for this ion.
+
+No per-pair correction is fitted: the target is a compound.
+
+## srim-org-h-h2o-vapour-1990-mitt
+
+File: `srim_org_h_h2o-vapour_1990-Mitt.csv`.
+
+H in H2O (vapour), 13 points of one paper (Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### H (1.008 u) on H2O
+
+* Points: 13. Energy span: 28.652 keV to 307.89 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 13 | 0 | +13.156 | 15.468 | +196.22 % | 251.17 % |
+| oen-robinson | 13 | 0 | +13.156 | 15.468 | +196.22 % | 251.17 % |
+| equipartition-ls-or | 13 | 0 | +13.156 | 15.468 | +196.22 % | 251.17 % |
+| bethe-bloch | 11 | 2 | +0.367 | 0.896 | +6.38 % | 13.06 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (28.652 keV) skipped: bethe-bloch is not applicable at 28652.46 eV for this ion.
+* bethe-bloch: line 6 (36.856 keV) skipped: bethe-bloch is not applicable at 36856.16 eV for this ion.
+
+No per-pair correction is fitted: the target is a compound.
 
 ## srim-org-h-si-1976-grah
 
@@ -259,6 +451,63 @@ Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-o
 | 13 | 289.105 keV | 15.431 | 51.175 | 15.351 | **held out** |
 | 14 | 309.12 keV | 14.471 | 52.916 | 14.811 | **held out** |
 | 15 | 420.586 keV | 12.824 | 61.724 | 12.374 | train |
+
+## srim-org-he-c8h8-1980-bedn
+
+File: `srim_org_he_c8h8_1980-Bedn.csv`.
+
+He in C8H8, 9 points of one paper (Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### He (4.003 u) on C8H8
+
+* Points: 9. Energy span: 109.351 keV to 349.267 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 9 | 0 | +2.874 | 3.175 | +12.33 % | 13.07 % |
+| oen-robinson | 9 | 0 | +2.874 | 3.175 | +12.33 % | 13.07 % |
+| equipartition-ls-or | 9 | 0 | +2.874 | 3.175 | +12.33 % | 13.07 % |
+| bethe-bloch | 3 | 6 | -2.339 | 2.756 | -9.15 % | 10.86 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (109.351 keV) skipped: bethe-bloch is not applicable at 109351.1 eV for this ion.
+* bethe-bloch: line 6 (149.697 keV) skipped: bethe-bloch is not applicable at 149697.4 eV for this ion.
+* bethe-bloch: line 7 (179.117 keV) skipped: bethe-bloch is not applicable at 179116.5 eV for this ion.
+* bethe-bloch: line 8 (198.849 keV) skipped: bethe-bloch is not applicable at 198849.3 eV for this ion.
+* bethe-bloch: line 9 (209.016 keV) skipped: bethe-bloch is not applicable at 209015.9 eV for this ion.
+* bethe-bloch: line 10 (228.629 keV) skipped: bethe-bloch is not applicable at 228628.7 eV for this ion.
+
+No per-pair correction is fitted: the target is a compound.
+
+## srim-org-he-c8h8-1981-bedn
+
+File: `srim_org_he_c8h8_1981-Bedn.csv`.
+
+He in C8H8, 8 points of one paper (Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+
+### He (4.003 u) on C8H8
+
+* Points: 8. Energy span: 239.155 keV to 999.85 keV.
+* Stated uncertainty: on every point.
+* Method: digitized plot, srim_org-figures/1.
+* Citation: Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Phys. Stat. Sol. A, 68, 187 (1981).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---|---|---|---|---|---|
+| lindhard-scharff | 8 | 0 | +13.358 | 15.556 | +50.95 % | 59.52 % |
+| oen-robinson | 8 | 0 | +13.358 | 15.556 | +50.95 % | 59.52 % |
+| equipartition-ls-or | 8 | 0 | +13.358 | 15.556 | +50.95 % | 59.52 % |
+| bethe-bloch | 7 | 1 | +3.030 | 3.627 | +11.25 % | 13.51 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 5 (239.155 keV) skipped: bethe-bloch is not applicable at 239155.5 eV for this ion.
+
+No per-pair correction is fitted: the target is a compound.
 
 ## srim-org-he-cu-1975-nomu
 
