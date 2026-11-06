@@ -1414,6 +1414,14 @@ Values are pooled over all histories, ± the batch-means standard error (10 batc
 - **Electronic stopping:** IAEA stopping database experimental points, with
   per-system residual statistics reported (terms of reuse still unread; see
   the open questions in [`data-provenance.md`](data-provenance.md)).
+  Bragg-additivity residuals against nine per-paper compound files (H in
+  water, H and He in polystyrene; #525) are in
+  [`stopping-residuals.md`](../book/src/models/stopping-residuals.md): the
+  Lindhard-Scharff-family models sit 12 % to over 100 times above those points
+  (all taken at 10 keV and above, mostly beyond their velocity range), Bethe-Bloch
+  has a mean relative residual between -9 % and +16 % where it applies, and
+  water solid and vapour
+  differ by no more than the scatter between papers; nothing was fitted.
 - **Sputtering:** published yields vs. energy and angle. Ar → Si, Cu, Ag
   and Au at normal incidence, 0.2 to 10 keV, are in (#69, #70, below); the
   angular dependence is not yet.

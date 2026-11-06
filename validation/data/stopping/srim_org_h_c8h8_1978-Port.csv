@@ -1,0 +1,16 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-c8h8-1978-port
+# description: H in C8H8, 12 points of one paper (Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,C8H8,2258536,1.524,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,3007350,1.201,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,3315744,1.143,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,3459863,1.084,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,3611037,1.084,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,3814618,0.9963,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,4415281,0.9084,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,4720652,0.8498,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,4926249,0.8498,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,5204408,0.7912,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,5397911,0.7619,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation
+1,1.007825,C8H8,5598468,0.7619,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Porter, L. E. Naylor, H. Duder, J. C., Nucl. Inst. Methods, 155, 25-28 (1978)",1978-Port,digitized-compilation

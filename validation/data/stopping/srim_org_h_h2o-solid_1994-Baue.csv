@@ -1,0 +1,14 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-h2o-solid-1994-baue
+# description: H in H2O (solid), 10 points of one paper (Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,H2O,10350.36,2.008667,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,30789.05,6.09,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,38891.97,6.996667,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,41048.71,7.383333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,52154.94,7.906667,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,61678.89,7.99,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,102596.6,8.706667,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,122853.9,8.76,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,235931.8,6.1,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
+1,1.007825,H2O,308797.6,5.76,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bauer, P. Kaferbock, W. Necas, V., Nucl. Inst. Methods, B93, 132-136 (1994)",1994-Baue,digitized-compilation
