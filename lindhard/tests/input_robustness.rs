@@ -19,7 +19,10 @@
 //! reproduces from its saved file with the command printed in the report.
 //!
 //! The memory cap needs `sh` and `ulimit`, so the whole file is `cfg(unix)`;
-//! the repo has no `libc` dependency and denies `unsafe`.
+//! the repo has no `libc` dependency and denies `unsafe`. The cap is
+//! effective on Linux only: macOS does not enforce RLIMIT_AS, so there a
+//! runaway allocation is contained by the silence timeout (`Timeout`), not
+//! by `ResourceLimit`.
 #![cfg(unix)]
 
 use std::collections::BTreeMap;
@@ -478,7 +481,16 @@ fn containment_detects_timeout_and_resource_limit() {
     write_case(&dir, 2, "[nope]\n", base);
     let r = run_range(&dir, 0, 3, Duration::from_secs(3));
     assert_eq!(r[&0], Class::Timeout, "{r:?}");
-    assert_eq!(r[&1], Class::ResourceLimit, "{r:?}");
+    if cfg!(target_os = "linux") {
+        assert_eq!(r[&1], Class::ResourceLimit, "{r:?}");
+    } else {
+        // macOS does not enforce RLIMIT_AS (`ulimit -v`), so the allocation is
+        // not refused and the child is killed by the silence timeout instead.
+        assert!(
+            matches!(r[&1], Class::ResourceLimit | Class::Timeout),
+            "{r:?}"
+        );
+    }
     // The case after both failures still ran in a restarted child.
     assert!(matches!(r[&2], Class::ReturnedErr(_)), "{r:?}");
     let _ = std::fs::remove_dir_all(&dir);
