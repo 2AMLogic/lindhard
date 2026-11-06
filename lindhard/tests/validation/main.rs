@@ -26,6 +26,8 @@
 //! the one achieved and justified in the PR that introduced the model, not a
 //! band widened to make a check pass.
 
+#[path = "../common/mod.rs"]
+mod common;
 mod damage;
 mod engine;
 mod lss;

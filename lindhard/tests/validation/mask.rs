@@ -29,9 +29,9 @@ use lindhard::ion::bca::{Bca, BcaConfig, BcaTally, Beam};
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig, VoxelTally, VoxelTallyGrid};
 
+use crate::common::si_with_surface_binding as si;
 use crate::report::{num, pct, Check};
 
 const NM: f64 = 1e-9;
@@ -40,13 +40,6 @@ const NM: f64 = 1e-9;
 /// data: `E_d` = 15 eV, `E_s` = 2 eV (as the other level-1 engine checks).
 const ION_Z: u8 = 5;
 const ENERGY_EV: f64 = 2.0e3;
-
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m.set_surface_binding_energy_ev(14, 2.0).unwrap();
-    m
-}
 
 /// Standard normal distribution function, from the complementary error
 /// function of Abramowitz and Stegun, *Handbook of Mathematical Functions*

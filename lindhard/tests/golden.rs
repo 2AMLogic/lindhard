@@ -121,13 +121,8 @@ fn fold(h: &[u64], n: usize) -> Vec<u64> {
 // ---------------------------------------------------------------------------
 
 mod common;
+use common::si;
 use common::zbl_si_table as scattering_table;
-
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m
-}
 
 fn ion_run(crystal: bool) -> SummaryTally {
     let st = Stack::semi_infinite(si());
