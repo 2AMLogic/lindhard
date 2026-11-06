@@ -53,7 +53,6 @@
 //! The measured numbers are in the module docs of `lindhard::ion::bca::crystal`.
 
 use std::f64::consts::PI;
-use std::sync::OnceLock;
 
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
@@ -62,8 +61,6 @@ use lindhard::ion::bca::{
 };
 use lindhard::ion::crystal::debye::THETA_D_SI;
 use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::oen_robinson::OR_CONSTANTS_UNVERIFIED;
 use lindhard::ion::stopping::Ion;
@@ -121,21 +118,8 @@ const P2_BINS: usize = 10;
 /// the partners per path from the amorphous value, in the direction average.
 const UNIFORM_TOLERANCE: f64 = 0.05;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 /// Silicon at the tabulated (crystal) density with `E_d` = 15 eV, as in
 /// `tests/crystal_bca.rs`.

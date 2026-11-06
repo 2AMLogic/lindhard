@@ -4,8 +4,6 @@
 //! surface, and a crystal-in-stack run reports recoils, lattice deposits and
 //! escapes with the layer they belong to. See `docs/screen-oxide.md`.
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaTally, Beam, CrystalTarget, ElectronicChannel, EnergyBudget, Face,
@@ -13,8 +11,6 @@ use lindhard::ion::bca::{
 };
 use lindhard::ion::crystal::debye::THETA_D_SI;
 use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -27,21 +23,8 @@ const SEED: u64 = 7;
 /// "identical"; the entry state is the part the interface decides.
 const PREFIX: usize = 6;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 fn si() -> Material {
     let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();

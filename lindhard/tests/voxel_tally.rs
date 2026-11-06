@@ -4,14 +4,11 @@
 //! exporters (including the checked-in example files).
 
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 use lindhard::geometry::{Boundary, Stack, VoxelGrid};
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaTally, Beam, ElectronicChannel, EnergyBudget, Particle, SummaryTally,
 };
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -23,21 +20,8 @@ use lindhard::tally::{
 
 const NM: f64 = 1e-9;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 /// Test parameters (not data): `E_d` = 15 eV, `E_s` = 2 eV.
 fn si() -> Material {

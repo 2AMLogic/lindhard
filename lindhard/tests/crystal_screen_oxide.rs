@@ -26,8 +26,6 @@
 //! any substrate statistic, so a loss of transmitted histories is not read as
 //! dechanneling.
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaTally, Beam, CrystalTarget, ElectronicChannel, EnergyBudget, Face, Particle,
@@ -35,8 +33,6 @@ use lindhard::ion::bca::{
 };
 use lindhard::ion::crystal::debye::THETA_D_SI;
 use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -50,21 +46,8 @@ const AT_INTERFACE: f64 = 1e-14;
 const SEED: u64 = 1;
 const TEMPERATURE_K: f64 = 300.0;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 /// Silicon at the crystal density with `E_d` = 15 eV (as `crystal_bca.rs`).
 fn si() -> Material {
