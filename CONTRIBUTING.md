@@ -199,6 +199,41 @@ normal run and confirm the recovery comment and closure. The reporting logic and
 the workflow wiring have offline tests:
 `python3 .github/scripts/test_clippy_canary.py` (needs PyYAML).
 
+## Dependency advisories
+
+The weekly [`advisories`](.github/workflows/advisories.yml) workflow (also
+runnable by `workflow_dispatch`) runs `cargo deny check advisories` against the
+RustSec database, with the policy in the `[advisories]` table of `deny.toml`. It
+is not a pull-request workflow and not a required check, on purpose: the
+database changes without any commit here, so a PR-time check would fail
+unrelated PRs on a newly published advisory. `ci.yml` runs only
+`cargo deny check licenses sources`.
+
+The workflow pins its own cargo-deny (`CARGO_DENY_VERSION` in `advisories.yml`),
+newer than the one in `ci.yml`: 0.18.2 cannot load the current database
+(`unsupported CVSS version: 4.0`). Keep `deny.toml` parseable by both.
+
+**Reading the report.** A failing run opens, reopens or comments on the single
+tracking issue (identified by the hidden `<!-- advisories-tracking -->` marker in
+its body); each comment carries the commit SHA and run URL, and the run log lists
+the advisory IDs. A green run comments "recovered" and closes the issue. A red
+run with a reporting error (API failure, or more than one issue carrying the
+marker) needs that fixed first: remove the marker from all but one issue, then
+re-run. Never create a second tracking issue by hand.
+
+**Responding.** Reproduce with `cargo deny check advisories`, then update the
+affected crate (`cargo update -p <crate>`), or replace it. If an advisory truly
+does not apply, add it to `ignore` in `deny.toml` in a pull request, with the
+advisory ID and a comment giving the reason and what would let the entry go.
+Never ignore without both.
+
+To check the reporting path live, dispatch the workflow with `simulate-failure`
+set to true, confirm the tracking issue is created, dispatch it again and confirm
+no second issue appears, then dispatch a normal run and confirm the recovery
+comment and closure. The reporting logic and the workflow wiring have offline
+tests: `python3 .github/scripts/test_advisories_report.py` (needs PyYAML). They
+are not run by `ci.yml`.
+
 ## Everything else
 
 - Rust stable, `cargo fmt`, `cargo test` green, `cargo clippy -- -D warnings` clean on
@@ -213,7 +248,8 @@ the workflow wiring have offline tests:
 - No C/Fortran dependencies in the default build.
 - Every dependency must be permissively licensed and come from crates.io.
   `cargo deny check licenses sources` enforces both in CI, and `deny.toml`
-  holds the allowlist.
+  holds the allowlist. Known-vulnerable, yanked and unmaintained crates are
+  reported weekly, not gated per PR (see "Dependency advisories" above).
 - **Reproducibility is a feature.** Every random draw comes from a counter-based
   stream keyed on (seed, particle index), so a run gives the same bits on 1
   thread or 64. A PR that breaks this needs a test showing why it must. The invariant is
