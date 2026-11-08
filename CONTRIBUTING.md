@@ -49,6 +49,32 @@ committed as reference data. In particular, **no SRIM stopping table, and
 nothing interpolated or fitted from one, may enter this tree**, and that
 includes tables passed along through other projects.
 
+**Reference, never input.** A Tier C code's output (a local run, or a table
+printed in its book or manual) may be used to *check* our results, under
+"Oracles" below. It may never be used to *make* them. Our models are
+generated independently from published physics. So do not tune, fit or
+calibrate any parameter of ours against SRIM values, or choose between
+models because one lands closer to SRIM. If a comparison shows a gap,
+explain it from the physics, or record it as a known difference.
+
+**The SRIM book.** J. F. Ziegler, J. P. Biersack and M. D. Ziegler, *SRIM:
+The Stopping and Range of Ions in Matter* (SRIM Co., 2008). Treat it as Tier C
+literature:
+
+- **Citable:** the text, the derivations, and the published formulas and
+  constants (for example the universal screening function and the
+  magic-formula constants). Cite them by edition, page and equation, and
+  check every digit against the page itself, not against memory.
+- **Reference only:** the printed stopping, range and straggling tables and
+  plots, and fitted electronic-stopping coefficient sets. These may be
+  compared against locally, like any oracle output, but never transcribed
+  into the tree or used as model input.
+- **Never:** the bundled software and any program listing (see "Mixed
+  sources").
+- **Page images stay out of the tree.** The book is copyrighted. Keep scans
+  or photos locally (for example under the gitignored
+  `validation/oracle-runs/`), and commit only citations.
+
 **The srim.org experimental-data compilation** (operator ruling, 2026-10-28).
 srim.org publishes plots of measured stopping powers (about 22,000 points)
 and a bibliography of the roughly 2,300 experimental papers behind them
@@ -74,7 +100,8 @@ the tree under these conditions:
   separate from the MIT code. Every point keeps its citation regardless.
 
 The rest of this tier is unchanged. In particular, a stopping value computed by
-SRIM is still never reference data.
+SRIM is still never committed or used as reference data in the tree; comparison
+use is governed by "Reference, never input" and "Oracles".
 
 **Mixed sources.** Some published reports bundle a program listing with the
 paper. The listing is Tier C even though the report is citable. Exclude the
@@ -90,7 +117,10 @@ Comparing against third-party programs is encouraged, and the harness under
 `validation/` drives them. Their raw outputs are regenerated locally into
 `validation/oracle-runs/`, which is gitignored. Commit only our own **summary
 metrics** of a comparison (for example "Rp within 3% of oracle X at version
-Y"), never their tables or curves.
+Y"), never their tables or curves. This includes SRIM: run it locally, or
+compare against the tables in its book, as a full reference. Its numbers stay
+in `oracle-runs/`, and only the summary metrics are committed, naming the
+SRIM version or the book's edition and page.
 
 ### Data
 

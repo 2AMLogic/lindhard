@@ -78,7 +78,10 @@ From [`CONTRIBUTING.md`](../CONTRIBUTING.md):
 - Raw oracle output, and the input files written for an oracle, stay in
   `oracle-runs/`. Commit only scalar summary metrics, with the oracle's name,
   version and upstream commit. Install oracles outside this tree.
-- No SRIM/TRIM output anywhere, including as reference data. SRIM may be run
-  locally as a familiarity check; its output never becomes a fixture.
+- No SRIM/TRIM output committed anywhere, including as reference data. SRIM
+  is a full comparison reference: run it locally, or compare against the
+  printed tables of the SRIM book (2008 edition), with the numbers kept in
+  `oracle-runs/`. Its output never becomes a fixture, and nothing of ours is
+  tuned or fitted to it (CONTRIBUTING.md, "Reference, never input").
 - Every experimental dataset is cited to its paper and has a row in
   [`docs/data-provenance.md`](../docs/data-provenance.md).

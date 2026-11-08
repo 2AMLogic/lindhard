@@ -10,10 +10,13 @@ be read about in papers, and what may never enter the tree) and the
   source in a doc comment.
 - Every dataset gets a row in `docs/data-provenance.md`. No SRIM-derived
   tables, ever: SRIM's computed output (curves, tables, model values) is never
-  data here. Measured points from the srim.org compilation are facts from
-  their papers and are admitted under `CONTRIBUTING.md`, including points
-  recovered from its Experiment/Theory panel, where the curve is read only as
-  an intermediate and never stored ([operator ruling on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)).
+  data here. SRIM (runs, or the SRIM book we own) is a comparison reference
+  only: compare locally, commit summary metrics, never tune or fit to it. Page
+  scans of the book stay out of the tree. Measured points from the srim.org
+  compilation are facts from their papers and are admitted under
+  `CONTRIBUTING.md`, including points recovered from its Experiment/Theory
+  panel, where the curve is read only as an intermediate and never stored
+  ([operator ruling on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)).
 - Determinism across thread counts is a tested invariant. Do not break it.
 - This repo is public. Keep it free of anything that is not already
   published physics, and of any description of downstream applications.

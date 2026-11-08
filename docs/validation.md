@@ -589,7 +589,7 @@ Programs are run unmodified on matched problems, under the rules in
 | RustBCA | Amorphous ranges, sputter yields, reflection coefficients, ions/s |
 | OpenTRIM | Ranges, damage profiles, ions/s |
 | iradina / IM3D | 3D geometry cases (M3) |
-| SRIM (via Wine, local only) | Range moments only, as a familiarity check; never a fixture |
+| SRIM (via Wine, local only; or the SRIM book's printed tables) | Ranges, straggling and stopping as a reference; summary metrics only, never a fixture, never a tuning target |
 | Nebula | Electron PSFs, SE/BSE yields (M1) |
 | Geant4 MicroElec | Electron energy deposition in Si/SiO₂ (M1) |
 | PENELOPE / penEasy | Electron depth–dose above ~1 keV (M1) |
