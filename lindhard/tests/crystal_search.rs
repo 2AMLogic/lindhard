@@ -4,12 +4,7 @@
 
 use lindhard::ion::crystal::search::{compare, path_metrics, site_position};
 use lindhard::ion::crystal::{Candidate, CrystalError, Lattice, LatticeSearch};
-use lindhard::rng::{stream, ParticleRng};
-use rand_core::Rng;
-
-fn uniform(rng: &mut ParticleRng) -> f64 {
-    (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64
-}
+use lindhard::rng::{stream, uniform};
 
 /// O(N) reference: scan every site of the cell block `lo..hi` per axis.
 fn brute(

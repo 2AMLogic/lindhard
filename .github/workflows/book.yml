@@ -4,7 +4,9 @@ name: Book
 # and push to main, and publishes it to GitHub Pages from main only.
 # Pages must be enabled for the repository with "GitHub Actions" as the
 # source (Settings -> Pages); until then the deploy job fails on main and
-# the build job is unaffected.
+# the build job is unaffected. The build is scripts/deploy-site.sh
+# --no-deploy; the `cloudflare` job publishes the same tree to Cloudflare Pages
+# from main once the repository has the Cloudflare secrets (skipped before).
 
 on:
   pull_request:
@@ -27,12 +29,17 @@ jobs:
       # One pin for the whole job: the URL and the checksum both read it.
       MDBOOK_VERSION: "0.5.4"
       MDBOOK_SHA256: "5222beabd3e37dc5be0d18ff99b79058469354db5c220153a1b92db5ba12be89"
+      # Same pin as wasm.yml and the `=` pin in lindhard-wasm/Cargo.toml.
+      WASM_BINDGEN_VERSION: "0.2.129"
+      WASM_BINDGEN_SHA256: "82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e"
     steps:
       - uses: actions/checkout@v7
       - name: Every model enum variant is named in the manual
         # Python standard library only; reads the Rust sources and book/src.
         run: python3 validation/check_manual_coverage.py
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
       - name: Build the lindhard binary
         run: cargo build --release -p lindhard-cli
@@ -50,14 +57,27 @@ jobs:
           mkdir -p /tmp/mdbook-bin
           tar -xzf /tmp/mdbook.tar.gz -C /tmp/mdbook-bin mdbook
           echo /tmp/mdbook-bin >> "$GITHUB_PATH"
-      - name: mdbook build
-        run: mdbook build book
+      - name: install wasm-bindgen ${{ env.WASM_BINDGEN_VERSION }}
+        run: |
+          set -euo pipefail
+          tarball="wasm-bindgen-$WASM_BINDGEN_VERSION-x86_64-unknown-linux-musl"
+          curl -fsSL --retry 3 -o /tmp/wasm-bindgen.tar.gz \
+            "https://github.com/wasm-bindgen/wasm-bindgen/releases/download/$WASM_BINDGEN_VERSION/$tarball.tar.gz"
+          echo "$WASM_BINDGEN_SHA256  /tmp/wasm-bindgen.tar.gz" | sha256sum --check --strict
+          mkdir -p /tmp/wasm-bindgen-bin
+          tar -xzf /tmp/wasm-bindgen.tar.gz -C /tmp/wasm-bindgen-bin --strip-components=1 "$tarball/wasm-bindgen"
+          echo /tmp/wasm-bindgen-bin >> "$GITHUB_PATH"
+      - name: Build the site (book, calculator, API docs, landing page)
+        # The one build for both hosts: scripts/deploy-site.sh --no-deploy
+        # writes the combined tree to site/dist and checks every relative
+        # link on the landing page. Pull requests run exactly this.
+        run: scripts/deploy-site.sh --no-deploy
       - name: Upload the rendered book
         # The same artifact serves PR review (download it from the run) and
         # the Pages deploy below.
         uses: actions/upload-pages-artifact@v5
         with:
-          path: book/book
+          path: site/dist
 
   deploy:
     name: Deploy to GitHub Pages
@@ -77,3 +97,42 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v5
+
+  cloudflare:
+    name: Publish to Cloudflare Pages
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: cloudflare-pages
+      cancel-in-progress: false
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      LINDHARD_PAGES_PROJECT: ${{ vars.LINDHARD_PAGES_PROJECT }}
+    steps:
+      - id: creds
+        # Secrets cannot appear in an `if:`, so test them here. Until the
+        # Cloudflare secrets exist this job succeeds without publishing.
+        run: |
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "have=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "have=false" >> "$GITHUB_OUTPUT"
+            echo "Cloudflare secrets are not configured; skipping the publish."
+          fi
+      - uses: actions/checkout@v7
+        if: steps.creds.outputs.have == 'true'
+      - uses: actions/download-artifact@v8
+        if: steps.creds.outputs.have == 'true'
+        with:
+          name: github-pages
+          path: /tmp/pages
+      - name: Publish
+        if: steps.creds.outputs.have == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p site/dist
+          tar -xf /tmp/pages/artifact.tar -C site/dist
+          scripts/deploy-site.sh --publish-only

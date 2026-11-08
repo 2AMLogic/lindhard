@@ -12,7 +12,7 @@ use lindhard::ion::stopping::correction::{fit_correction, Correction, Correction
 use lindhard::ion::stopping::dataset::{compare, StoppingDataset};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::{to_ev_1e15_cm2, ElectronicStopping, Ion, StoppingError};
-use lindhard::rng::stream;
+use lindhard::rng::{stream, uniform};
 use rand_core::Rng;
 use std::path::PathBuf;
 
@@ -29,10 +29,7 @@ fn true_factor(energy_ev: f64) -> f64 {
 
 /// Approximately standard normal (sum of 12 uniforms minus 6), made up.
 fn noise(rng: &mut impl Rng) -> f64 {
-    (0..12)
-        .map(|_| (rng.next_u64() >> 11) as f64 / (1u64 << 53) as f64)
-        .sum::<f64>()
-        - 6.0
+    (0..12).map(|_| uniform(rng)).sum::<f64>() - 6.0
 }
 
 /// 40 points from 1 keV to 100 keV: B in Si, `LS * true_factor * (1 + 2 % N(0,1))`,

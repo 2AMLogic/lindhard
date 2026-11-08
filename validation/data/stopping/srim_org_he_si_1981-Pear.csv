@@ -1,0 +1,18 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-he-si-1981-pear
+# description: He in Si, 14 points of one paper (Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+2,4.002603,Si,19688,24.9862,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,29814.99,29.2319,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,39493.68,32.5546,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,49588.25,25.54,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,59806.89,38.0925,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,69297.07,40.3077,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,79223.52,42.3382,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,89366.12,44.1842,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,99468.69,46.0301,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,109243,47.5069,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,118377,48.9837,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,128279.4,50.4604,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,139006.4,51.7526,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation
+2,4.002603,Si,148632.7,53.0448,0.0923,"digitized plot, srim_org-digitize/2","Digitized from the srim.org compilation: Pearce, J. D.; Hart, R. R., J. Appl. Phys., 52, 5056 (1981)",1981-Pear,digitized-compilation

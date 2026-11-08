@@ -1,37 +1,20 @@
 //! Integration tests for the amorphous BCA engine (`lindhard::ion::bca`).
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaError, BcaTally, Beam, ElectronicChannel, ElectronicLoss, Face,
     LatticeDeposit, MeanFreePath, Particle, SummaryTally,
 };
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use lindhard::material::{EnergyKind, Material};
 
 const NM: f64 = 1e-9;
 
-/// One ZBL table shared by every test in this binary (the angle depends on
-/// the screening function only, so one table serves every pair).
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::si_surface_binding_if_unset as si;
+use common::sio2;
+use common::zbl_si_table as table;
 
 /// Set `E_d` = 15 eV for every element and `E_s` = 2 eV where the element
 /// table has no default. These are test parameters, not data: the engine only
@@ -48,14 +31,6 @@ fn ready(mut m: Material) -> Material {
 
 fn elemental(z: u8) -> Material {
     ready(Material::from_atom_fractions(&[(z, 1.0)], None).unwrap())
-}
-
-fn si() -> Material {
-    elemental(14)
-}
-
-fn sio2() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap())
 }
 
 fn run_summary(bca: &Bca, bin_m: f64, bins: usize) -> SummaryTally {

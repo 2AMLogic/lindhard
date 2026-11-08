@@ -14,17 +14,20 @@ use std::fmt::Write as _;
 use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
-use lindhard::electron::data::CrossSectionTable;
+use lindhard::electron::data::{CrossSectionTable, ShellChannelTable};
 use lindhard::electron::elastic::table::{
     combine, default_probability_grid, AtomicElastic, PotentialSource, SalvatDhfsTable,
     ThomasFermiYukawa, DEFAULT_REFINE_TOLERANCE,
 };
 use lindhard::electron::elastic::{SalvatDhfs, SolverOptions};
 use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, mean_loss_ev, EnergyAxis, InelasticTableOptions,
-    RateRefinement,
+    build_inelastic_table_for_model, build_shell_channel_tables, mean_loss_ev, EnergyAxis,
+    InelasticTableOptions, RateRefinement,
 };
-use lindhard::electron::inelastic::{PennAlgorithm, PennInelastic};
+use lindhard::electron::inelastic::{
+    hydrogenic_shell_elfs, PennAlgorithm, PennInelastic, ShellElfGrid, ShellResolvedChannels,
+    SinglePolePenn,
+};
 use lindhard::electron::transport::{LayerTables, RunMetadata, Transport};
 use lindhard::input::electron::{
     DataFile, ElectronInput, PotentialChoice, ResolvedElectron, ResolvedElectronMaterial,
@@ -246,6 +249,44 @@ fn inelastic_table(
     )?)
 }
 
+/// The inner-shell channel tables of one material (`inner_shells` given):
+/// one hydrogenic channel per requested subshell of every element, each
+/// tabulated with the valence channel's single-pole model on the axis of
+/// the inelastic table. The valence table of the result is not used: the
+/// run keeps the material's own inelastic table, which is the same build.
+fn shell_tables(
+    r: &ResolvedElectron,
+    m: &ResolvedElectronMaterial,
+) -> Result<Vec<ShellChannelTable>> {
+    let Some(i) = &m.inner_shells else {
+        return Ok(Vec::new());
+    };
+    let (fermi_ev, axis) = inelastic_axis(r, m);
+    let valence = SinglePolePenn::new(m.optical_elf.clone()).with_fermi_energy_ev(fermi_ev)?;
+    let mut wanted = Vec::new();
+    for c in m.material.components() {
+        if c.atom_fraction() <= 0.0 {
+            continue;
+        }
+        let n = m.material.number_density_of(c.z())?;
+        for &s in &i.subshells {
+            wanted.push((c.z(), s, n));
+        }
+    }
+    let shells = hydrogenic_shell_elfs(
+        m.optical_elf.material(),
+        &i.binding,
+        &wanted,
+        ShellElfGrid::default(),
+    )?;
+    let channels = ShellResolvedChannels::new(valence, shells)?;
+    let mut options = InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis);
+    options.rate_refinement = rate_refinement(r, m);
+    let built =
+        build_shell_channel_tables(&channels, &m.material, &options, i.binding.provenance())?;
+    Ok(built.shells)
+}
+
 /// The rate refinement of the inelastic table of `m` (#339): the library's
 /// default ([`RateRefinement::default`]) on the band-bottom axis of a
 /// material with a band, where the rate climbs from zero at the Fermi
@@ -315,6 +356,19 @@ pub fn simulate_electron(
             })
             .collect::<Result<_>>()
     })?;
+    let shells: Vec<Vec<ShellChannelTable>> = pool.install(|| {
+        r.materials
+            .iter()
+            .map(|m| {
+                shell_tables(r, m).with_context(|| {
+                    format!(
+                        "electron.materials.{}.inner_shells: building the channels",
+                        m.name
+                    )
+                })
+            })
+            .collect::<Result<_>>()
+    })?;
     let table_build_s = t0.elapsed().as_secs_f64();
 
     let layer_tables: Vec<LayerTables> = r
@@ -339,6 +393,16 @@ pub fn simulate_electron(
         let c = &r.materials[i].channels;
         if c.any() {
             transport = transport.with_insulator_channels(layer, c.clone())?;
+        }
+        if !shells[i].is_empty() {
+            transport = transport
+                .with_inner_shells(layer, shells[i].clone())
+                .with_context(|| {
+                    format!(
+                        "electron.materials.{}.inner_shells: layer {layer}",
+                        r.materials[i].name
+                    )
+                })?;
         }
     }
     let proto =
@@ -426,6 +490,19 @@ fn table_out<'a>(t: &'a CrossSectionTable, origin: &'a TableOrigin) -> TableOut<
     }
 }
 
+/// `physics.materials[].inner_shells`: the subshells of every element that
+/// are channels, and the binding-energy table they came from.
+#[derive(Serialize)]
+struct InnerShellsOut<'a> {
+    subshells: Vec<&'static str>,
+    /// `"embedded EADL2017"` or `"file"`.
+    binding_source: &'static str,
+    /// The `binding` file (path, SHA-256); absent for the embedded table.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    binding_file: Option<&'a DataFile>,
+    binding_provenance: &'a str,
+}
+
 #[derive(Serialize)]
 struct MaterialOut<'a> {
     name: &'a str,
@@ -433,6 +510,8 @@ struct MaterialOut<'a> {
     band: Option<&'a lindhard::electron::boundary::BandStructure>,
     phonon: Option<&'a lindhard::electron::phonon::FrohlichPhonon>,
     polaron: Option<&'a lindhard::electron::phonon::PolaronTrapping>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    inner_shells: Option<InnerShellsOut<'a>>,
     elastic_table: TableOut<'a>,
     inelastic_table: TableOut<'a>,
 }
@@ -592,6 +671,16 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
                 band: m.band.as_ref(),
                 phonon: m.channels.phonon.as_ref(),
                 polaron: m.channels.polaron.as_ref(),
+                inner_shells: m.inner_shells.as_ref().map(|i| InnerShellsOut {
+                    subshells: i.subshells.iter().map(|s| s.label()).collect(),
+                    binding_source: if i.binding_file.is_some() {
+                        "file"
+                    } else {
+                        "embedded EADL2017"
+                    },
+                    binding_file: i.binding_file.as_ref(),
+                    binding_provenance: i.binding.provenance(),
+                }),
                 elastic_table: table_out(&t.elastic, &t.elastic_origin),
                 inelastic_table: table_out(&t.inelastic, &t.inelastic_origin),
             }

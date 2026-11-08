@@ -1,0 +1,13 @@
+{
+  "comment": "Native result of range_profile for 10^4 ions of 5 keV B into Si, seed 1 (Linux x86-64, rustc 1.99.0). Re-record with `cargo test -p lindhard-wasm --test parity record -- --ignored --nocapture` only when the physics changes on purpose.",
+  "ion": "B",
+  "energy_ev": 5000.0,
+  "target": "Si",
+  "ions": 10000,
+  "seed": 1,
+  "rp_nm": 24.38995725595143,
+  "drp_nm": 12.728934527954362,
+  "rp_std_err_nm": 0.13100354677550838,
+  "drp_std_err_nm": 0.08573835216188491,
+  "stopped": 9441
+}

@@ -1,0 +1,11 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-h2o-solid-1952-wenz
+# description: H in H2O (solid), 7 points of one paper (Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,H2O,10320.13,2.307667,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)",1952-Wenz,digitized-compilation
+1,1.007825,H2O,19420.79,4.593333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)",1952-Wenz,digitized-compilation
+1,1.007825,H2O,20489.08,5.193333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)",1952-Wenz,digitized-compilation
+1,1.007825,H2O,20489.08,5.683333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)",1952-Wenz,digitized-compilation
+1,1.007825,H2O,35868.49,6.58,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)",1952-Wenz,digitized-compilation
+1,1.007825,H2O,41048.71,6.88,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)",1952-Wenz,digitized-compilation
+1,1.007825,H2O,45170.72,7.306667,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Wenzel, W. A. Whaling, W., Phys. Rev., 87, 499-503 (1952)",1952-Wenz,digitized-compilation

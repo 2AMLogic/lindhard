@@ -16,9 +16,21 @@
   - [Bragg additivity](models/stopping-bragg.md)
   - [Energy-loss straggling](models/straggling.md)
   - [Validity ranges and declined terms](models/stopping-validity.md)
+  - [Residuals against measurements](models/stopping-residuals.md)
 - [BCA transport and free-flight conventions](models/bca.md)
 - [Displacement damage](models/damage.md)
 - [Dynamic composition](models/dynamic-composition.md)
+
+# History and literature
+
+- [History and literature of ion stopping](history.md)
+  - [James F. Ziegler (1935–2024)](history-ziegler.md)
+
+# Validation, status and provenance
+
+- [Validation](validation.md)
+- [Status and roadmap](status.md)
+- [About and the clean-room rule](about.md)
 
 # User guide
 
@@ -26,6 +38,8 @@
 - [First run: 5 keV B into Si](guide/first-run.md)
 - [TOML input reference](guide/input.md)
 - [Output files](guide/output.md)
+- [Range calculator in the browser](guide/range-calculator.md)
+- [Simulator in the browser](guide/simulator.md)
 - [Voxel tallies and VTK export](guide/voxel-tallies.md)
 - [Layout cross-section import (finding)](guide/layout-import.md)
 

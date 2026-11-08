@@ -3,54 +3,20 @@
 //! lateral boundaries must be invisible, vacuum side faces must conserve
 //! energy, and results must not depend on the thread count.
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::{Boundary, Geometry, Stack, VoxelGrid};
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaError, BcaTally, Beam, LatticeDeposit, Particle, SummaryTally,
 };
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
 
 const NM: f64 = 1e-9;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
-
-/// Test parameters (not data): `E_d` = 15 eV, `E_s` = 2 eV where unset.
-fn ready(mut m: Material) -> Material {
-    for (z, _) in m.atom_fractions() {
-        m.set_displacement_energy_ev(z, 15.0).unwrap();
-        if m.surface_binding_energy_ev(z).is_err() {
-            m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-        }
-    }
-    m
-}
-
-fn si() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0)], None).unwrap())
-}
-
-fn sio2() -> Material {
-    ready(Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap())
-}
+mod common;
+use common::si_surface_binding_if_unset as si;
+use common::sio2;
+use common::zbl_si_table as table;
 
 fn beam(count: u64) -> Beam {
     Beam {

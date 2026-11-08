@@ -2,46 +2,21 @@
 //! convergence under step refinement, index continuity, determinism at any
 //! thread count, adaptive reject/retry and conservation.
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{Bca, BcaConfig, BcaTally, Beam, SummaryTally};
 use lindhard::ion::dynamic::{
     CompositionGrid, DynamicConfig, DynamicRun, InventoryTally, Relaxation, StepPolicy, StepRecord,
 };
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 
 const NM: f64 = 1e-9;
 const SI: u8 = 14;
 const AS: u8 = 33;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
-
-/// Test parameters (not data): E_d = 15 eV for every element, E_s = 2 eV where
-/// the element table has none.
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(SI, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(SI, 15.0).unwrap();
-    m
-}
+mod common;
+use common::si;
+use common::zbl_si_table as table;
 
 /// `n_slabs` slabs of `slab_nm` of Si, with a Si substrate if asked.
 fn grid(n_slabs: usize, slab_nm: f64, substrate: bool) -> CompositionGrid {

@@ -1,0 +1,243 @@
+plot,colour,legend_keys,legend_count,found,status,legend_complete,note
+StopPlots/STOP0301.gif,#0000FF,1965-Alli,15,15,match,True,
+StopPlots/STOP0301.gif,#009200,ref2,8,8,match,True,
+StopPlots/STOP0301.gif,#AA4900,ref362,10,9,mismatch,True,
+StopPlots/STOP0301.gif,#D524AA,1977-Ande4,5,5,match,True,
+StopPlots/STOP0301.gif,#FF0000,1978-Ande|1977-Ande4,20,20,ambiguous,True,2 rows share the colour
+StopPlots/STOP0301.gif,#FF00FF,ref371,5,0,mismatch,True,
+StopPlots/STOP0301.gif,#FF9255,1977-Ande4,11,0,mismatch,True,
+StopPlots/STOP0301.gif,*,(all rows),74,57,mismatch,True,plot says 74 points; legend complete
+StopPlots/STOP0302.gif,#0000FF,1965-Alli,15,14,mismatch,True,
+StopPlots/STOP0302.gif,#009200,1968-Hvel,4,3,mismatch,True,
+StopPlots/STOP0302.gif,#AA4900,1971-Hvel,9,9,match,True,
+StopPlots/STOP0302.gif,#D524AA,1977-Ande4,11,11,match,True,
+StopPlots/STOP0302.gif,#FF0000,1956-Alli|1978-Ande,18,16,ambiguous,True,2 rows share the colour
+StopPlots/STOP0302.gif,#FF00FF,ref362,10,6,mismatch,True,
+StopPlots/STOP0302.gif,#FF9255,1977-Ande4,11,11,match,True,
+StopPlots/STOP0302.gif,*,(all rows),78,70,mismatch,True,plot says 78 points; legend complete
+StopPlots/STOP0304.gif,#0000FF,ref362,1,1,match,True,
+StopPlots/STOP0304.gif,#FF0000,1975-Neuw2,11,11,match,True,
+StopPlots/STOP0304.gif,*,(all rows),12,12,match,True,plot says 12 points; legend complete
+StopPlots/STOP0305.gif,#0000FF,1966-Macd,11,6,mismatch,True,
+StopPlots/STOP0305.gif,#009200,1975-Neuw2,1,0,mismatch,True,
+StopPlots/STOP0305.gif,#AA4900,1975-Neuw,1,1,match,True,
+StopPlots/STOP0305.gif,#D524AA,1976-Piet,1,1,match,True,
+StopPlots/STOP0305.gif,#FF0000,1969-Neuw,3,2,mismatch,True,
+StopPlots/STOP0305.gif,#FF00FF,1975-Neuw2,11,11,match,True,
+StopPlots/STOP0305.gif,#FF9255,1976-Piet,1,1,match,True,
+StopPlots/STOP0305.gif,*,(all rows),29,22,mismatch,True,plot says 29 points; legend complete
+StopPlots/STOP0306.gif,#000000,1987-Read,1,3,mismatch,False,
+StopPlots/STOP0306.gif,#0000FF,1963-Ormr|ref1909,13,12,ambiguous,False,2 rows share the colour
+StopPlots/STOP0306.gif,#009200,1969-Bern|ref1281,28,22,ambiguous,False,2 rows share the colour
+StopPlots/STOP0306.gif,#00FF00,1982-Mert3,7,0,mismatch,False,
+StopPlots/STOP0306.gif,#00FFFF,1986-Lin,8,8,match,False,
+StopPlots/STOP0306.gif,#5500AA,1980-Mert,7,7,match,False,
+StopPlots/STOP0306.gif,#5500FF,1979-Mert,6,6,match,False,
+StopPlots/STOP0306.gif,#5592FF,1980-Fear,2,2,match,False,
+StopPlots/STOP0306.gif,#55B600,ref1404,7,7,match,False,
+StopPlots/STOP0306.gif,#55FF55,1982-Mert,7,7,match,False,
+StopPlots/STOP0306.gif,#55FFFF,1979-Sant2,34,17,mismatch,False,
+StopPlots/STOP0306.gif,#8092AA,1980-Ande,7,7,match,False,
+StopPlots/STOP0306.gif,#AA4900,1970-Bern|ref1816,28,9,ambiguous,False,2 rows share the colour
+StopPlots/STOP0306.gif,#AA4955,ref1425,10,9,mismatch,False,
+StopPlots/STOP0306.gif,#D524AA,1971-Hogb,0,9,mismatch,False,
+StopPlots/STOP0306.gif,#FF0000,1963-Ormr|1977-Mert|ref1909,14,13,ambiguous,False,3 rows share the colour
+StopPlots/STOP0306.gif,#FF00FF,ref194|1984-Sant2|1996-Liu,30,20,ambiguous,False,3 rows share the colour
+StopPlots/STOP0306.gif,#FF9255,1971-Maju|2001-Zhan,9,8,ambiguous,False,2 rows share the colour
+StopPlots/STOP0306.gif,*,(all rows),218,166,mismatch,False,plot says 214 points; legend partial (Not All Data Shown)
+StopPlots/STOP0307.gif,#0000FF,1965-Alli,10,10,match,True,
+StopPlots/STOP0307.gif,#009200,1978-Ande,12,11,mismatch,True,
+StopPlots/STOP0307.gif,#AA4900,ref1425,1,1,match,True,
+StopPlots/STOP0307.gif,#FF0000,1977-Ande4,11,10,mismatch,True,
+StopPlots/STOP0307.gif,#FF00FF,1977-Ande4,11,11,match,True,
+StopPlots/STOP0307.gif,*,(all rows),45,43,mismatch,True,plot says 45 points; legend complete
+StopPlots/STOP0308.gif,#0000FF,1978-Ande,2,2,match,True,
+StopPlots/STOP0308.gif,#FF0000,ref1425,1,1,match,True,
+StopPlots/STOP0308.gif,*,(all rows),3,3,match,True,plot says 3 points; legend complete
+StopPlots/STOP0310.gif,#0000FF,1971-Hvel,9,9,match,True,
+StopPlots/STOP0310.gif,#009200,1978-Ande,11,11,match,True,
+StopPlots/STOP0310.gif,#FF0000,1977-Ande4,11,10,mismatch,True,
+StopPlots/STOP0310.gif,#FF00FF,1977-Ande4,11,11,match,True,
+StopPlots/STOP0310.gif,*,(all rows),42,41,mismatch,True,plot says 42 points; legend complete
+StopPlots/STOP0313.gif,#000000,ref1281,13,3,mismatch,True,
+StopPlots/STOP0313.gif,#0000FF,1962-Tepl|ref1816,16,13,ambiguous,True,2 rows share the colour
+StopPlots/STOP0313.gif,#009200,1975-Neuw2,1,0,mismatch,True,
+StopPlots/STOP0313.gif,#00FF00,1991-Anto,2,2,match,True,
+StopPlots/STOP0313.gif,#00FFFF,1996-Liu,9,7,mismatch,True,
+StopPlots/STOP0313.gif,#5500AA,1984-Sant2,17,14,mismatch,True,
+StopPlots/STOP0313.gif,#5500FF,1982-Mert,7,7,match,True,
+StopPlots/STOP0313.gif,#5592FF,1983-Kris,4,4,match,True,
+StopPlots/STOP0313.gif,#55B600,1991-Anto,1,1,match,True,
+StopPlots/STOP0313.gif,#55FF55,1980-Ande,4,4,match,True,
+StopPlots/STOP0313.gif,#55FFFF,1980-Mert,7,4,mismatch,True,
+StopPlots/STOP0313.gif,#8092AA,ref1425,7,7,match,True,
+StopPlots/STOP0313.gif,#AA4900,1975-Neuw,1,1,match,True,
+StopPlots/STOP0313.gif,#AA4955,1986-Lin,8,5,mismatch,True,
+StopPlots/STOP0313.gif,#D524AA,1977-Ande3,12,12,match,True,
+StopPlots/STOP0313.gif,#FF0000,1969-Bern|1979-Mert|ref2034,32,28,ambiguous,True,3 rows share the colour
+StopPlots/STOP0313.gif,#FF00FF,1975-Neuw2|1991-Rais,29,29,ambiguous,True,2 rows share the colour
+StopPlots/STOP0313.gif,#FF9255,1976-Piet,1,1,match,True,
+StopPlots/STOP0313.gif,*,(all rows),171,142,mismatch,True,plot says 171 points; legend complete
+StopPlots/STOP0314.gif,#0000FF,1970-Apel,11,8,mismatch,False,
+StopPlots/STOP0314.gif,#009200,1996-Liu,10,10,match,False,
+StopPlots/STOP0314.gif,#AA4900,1999-Jian,10,8,mismatch,False,
+StopPlots/STOP0314.gif,#FF0000,1979-Coma,1,1,match,False,
+StopPlots/STOP0314.gif,#FF00FF,1984-Sant2,17,17,match,False,
+StopPlots/STOP0314.gif,#FF9255,2001-daSi,22,20,mismatch,False,
+StopPlots/STOP0314.gif,*,(all rows),71,64,mismatch,False,plot says None points; legend partial (Not All Data Shown)
+StopPlots/STOP0318.gif,#0000FF,1956-Alli,8,8,match,True,
+StopPlots/STOP0318.gif,#009200,1977-Ande4,11,11,match,True,
+StopPlots/STOP0318.gif,#AA4900,1977-Ande4,11,12,mismatch,True,
+StopPlots/STOP0318.gif,#D524AA,ref1425,1,1,match,True,
+StopPlots/STOP0318.gif,#FF0000,ref362,10,10,match,True,
+StopPlots/STOP0318.gif,#FF00FF,ref409,9,9,match,True,
+StopPlots/STOP0318.gif,#FF9255,1978-Ande,12,11,mismatch,True,
+StopPlots/STOP0318.gif,*,(all rows),62,62,match,True,plot says 62 points; legend complete
+StopPlots/STOP0322.gif,#0000FF,1969-Bern,13,5,mismatch,True,
+StopPlots/STOP0322.gif,#009200,1975-Neuw,1,1,match,True,
+StopPlots/STOP0322.gif,#AA4900,1976-Piet,1,0,mismatch,True,
+StopPlots/STOP0322.gif,#D524AA,1991-Anto,1,1,match,True,
+StopPlots/STOP0322.gif,#FF0000,1975-Neuw2,11,10,mismatch,True,
+StopPlots/STOP0322.gif,#FF00FF,1975-Neuw2,1,0,mismatch,True,
+StopPlots/STOP0322.gif,#FF9255,1991-Anto,2,2,match,True,
+StopPlots/STOP0322.gif,*,(all rows),30,19,mismatch,True,plot says 30 points; legend complete
+StopPlots/STOP0323.gif,#0000FF,1970-Apel,11,4,mismatch,True,
+StopPlots/STOP0323.gif,#FF0000,1982-Mert3,7,0,mismatch,True,
+StopPlots/STOP0323.gif,#FF00FF,ref1404,7,6,mismatch,True,
+StopPlots/STOP0323.gif,*,(all rows),25,10,mismatch,True,plot says 25 points; legend complete
+StopPlots/STOP0324.gif,#0000FF,1970-Apel,11,9,mismatch,True,
+StopPlots/STOP0324.gif,#FF0000,1982-Mert3,7,0,mismatch,True,
+StopPlots/STOP0324.gif,#FF00FF,ref1404,7,7,match,True,
+StopPlots/STOP0324.gif,*,(all rows),25,16,mismatch,True,plot says 25 points; legend complete
+StopPlots/STOP0326.gif,#0000FF,1970-Apel,11,11,match,True,
+StopPlots/STOP0326.gif,#FF0000,1982-Mert3,7,0,mismatch,True,
+StopPlots/STOP0326.gif,#FF00FF,ref1404,7,7,match,True,
+StopPlots/STOP0326.gif,*,(all rows),25,18,mismatch,True,plot says 25 points; legend complete
+StopPlots/STOP0327.gif,#0000FF,1977-Mert,1,1,match,False,
+StopPlots/STOP0327.gif,*,(all rows),1,1,match,False,plot says None points; legend partial (Not All Data Shown)
+StopPlots/STOP0328.gif,#0000FF,1962-Tepl,9,8,mismatch,True,
+StopPlots/STOP0328.gif,#009200,1980-Ande,6,3,mismatch,True,
+StopPlots/STOP0328.gif,#5500FF,1986-Lin,6,6,match,True,
+StopPlots/STOP0328.gif,#55FF55,1989-Rais,18,18,match,True,
+StopPlots/STOP0328.gif,#55FFFF,1991-Anto,2,2,match,True,
+StopPlots/STOP0328.gif,#8092AA,1991-Anto,2,2,match,True,
+StopPlots/STOP0328.gif,#AA4900,ref1425,10,9,mismatch,True,
+StopPlots/STOP0328.gif,#D524AA,ref1404,7,6,mismatch,True,
+StopPlots/STOP0328.gif,#FF0000,1969-Bern|1984-Sant2,30,29,ambiguous,True,2 rows share the colour
+StopPlots/STOP0328.gif,#FF00FF,1977-Mert,1,1,match,True,
+StopPlots/STOP0328.gif,#FF9255,1982-Mert3,7,0,mismatch,True,
+StopPlots/STOP0328.gif,*,(all rows),98,84,mismatch,True,plot says 98 points; legend complete
+StopPlots/STOP0329.gif,#0000FF,1968-Zaru,10,5,mismatch,False,
+StopPlots/STOP0329.gif,#009200,1975-Neuw2,11,11,match,False,
+StopPlots/STOP0329.gif,#00FF00,1996-Chen,15,14,mismatch,False,
+StopPlots/STOP0329.gif,#5500AA,ref1281,15,0,mismatch,False,
+StopPlots/STOP0329.gif,#5500FF,1982-Mert,7,5,mismatch,False,
+StopPlots/STOP0329.gif,#5592FF,1986-Lin,11,6,mismatch,False,
+StopPlots/STOP0329.gif,#55B600,1997-Vake,28,26,mismatch,False,
+StopPlots/STOP0329.gif,#55FF55,1980-Ande,6,5,mismatch,False,
+StopPlots/STOP0329.gif,#55FFFF,1980-Mert,7,7,match,False,
+StopPlots/STOP0329.gif,#8092AA,ref1425,10,9,mismatch,False,
+StopPlots/STOP0329.gif,#AA4900,1975-Neuw2,1,0,mismatch,False,
+StopPlots/STOP0329.gif,#AA4955,ref1816,7,6,mismatch,False,
+StopPlots/STOP0329.gif,#D524AA,1977-Ande3,7,6,mismatch,False,
+StopPlots/STOP0329.gif,#FF0000,1968-Zaru|1979-Mert,11,10,ambiguous,False,2 rows share the colour
+StopPlots/STOP0329.gif,#FF00FF,1969-Bern,13,13,match,False,
+StopPlots/STOP0329.gif,#FF9255,1976-Piet,1,1,match,False,
+StopPlots/STOP0329.gif,*,(all rows),160,124,mismatch,False,plot says 173 points; legend partial (Not All Data Shown)
+StopPlots/STOP0330.gif,#0000FF,1982-Mert3,7,0,mismatch,True,
+StopPlots/STOP0330.gif,#FF0000,ref1404,7,6,mismatch,True,
+StopPlots/STOP0330.gif,#FF00FF,1997-Vake,10,10,match,True,
+StopPlots/STOP0330.gif,*,(all rows),24,16,mismatch,True,plot says 24 points; legend complete
+StopPlots/STOP0332.gif,#0000FF,1970-Apel,11,11,match,False,
+StopPlots/STOP0332.gif,*,(all rows),11,11,match,False,plot says None points; legend partial (Not All Data Shown)
+StopPlots/STOP0334.gif,#0000FF,1970-Apel,11,10,mismatch,True,
+StopPlots/STOP0334.gif,#FF0000,1980-Ande,6,5,mismatch,True,
+StopPlots/STOP0334.gif,#FF00FF,ref1425,9,8,mismatch,True,
+StopPlots/STOP0334.gif,*,(all rows),26,23,mismatch,True,plot says 26 points; legend complete
+StopPlots/STOP0336.gif,#0000FF,1977-Ande4,11,5,mismatch,True,
+StopPlots/STOP0336.gif,#009200,ref1425,1,0,mismatch,True,
+StopPlots/STOP0336.gif,#FF0000,1977-Ande4,11,10,mismatch,True,
+StopPlots/STOP0336.gif,#FF00FF,1978-Ande,12,12,match,True,
+StopPlots/STOP0336.gif,*,(all rows),35,27,mismatch,True,plot says 35 points; legend complete
+StopPlots/STOP0341.gif,#0000FF,1977-Mert,1,1,match,False,
+StopPlots/STOP0341.gif,*,(all rows),1,1,match,False,plot says None points; legend partial (Not All Data Shown)
+StopPlots/STOP0346.gif,#0000FF,2001-Diwa,1,0,mismatch,True,
+StopPlots/STOP0346.gif,#FF0000,1998-Hu,24,22,mismatch,True,
+StopPlots/STOP0346.gif,*,(all rows),25,22,mismatch,True,plot says 25 points; legend complete
+StopPlots/STOP0347.gif,#0000FF,1962-Tepl,9,9,match,False,
+StopPlots/STOP0347.gif,#009200,1979-Mert,5,4,mismatch,False,
+StopPlots/STOP0347.gif,#00FF00,ref2034,15,14,mismatch,False,
+StopPlots/STOP0347.gif,#5500AA,ref1281,15,0,mismatch,False,
+StopPlots/STOP0347.gif,#5500FF,1983-Kris,4,4,match,False,
+StopPlots/STOP0347.gif,#5592FF,1991-Anto,2,2,match,False,
+StopPlots/STOP0347.gif,#55FF55,1984-Sant2,17,14,mismatch,False,
+StopPlots/STOP0347.gif,#55FFFF,1986-Lin,7,5,mismatch,False,
+StopPlots/STOP0347.gif,#8092AA,1991-Anto,2,2,match,False,
+StopPlots/STOP0347.gif,#AA4900,1982-Mert,7,6,mismatch,False,
+StopPlots/STOP0347.gif,#AA4955,ref1816,6,4,mismatch,False,
+StopPlots/STOP0347.gif,#D524AA,1980-Mert,7,5,mismatch,False,
+StopPlots/STOP0347.gif,#FF0000,1971-Zaru|ref1425,18,17,ambiguous,False,2 rows share the colour
+StopPlots/STOP0347.gif,#FF00FF,1977-Ande3,10,10,match,False,
+StopPlots/STOP0347.gif,#FF9255,1980-Ande,5,4,mismatch,False,
+StopPlots/STOP0347.gif,*,(all rows),129,100,mismatch,False,plot says 132 points; legend partial (Not All Data Shown)
+StopPlots/STOP0349.gif,#0000FF,1986-Lin,12,12,match,True,
+StopPlots/STOP0349.gif,*,(all rows),12,12,match,True,plot says 12 points; legend complete
+StopPlots/STOP0350.gif,#0000FF,1986-Lin,12,12,match,True,
+StopPlots/STOP0350.gif,#FF0000,1991-Rais,13,13,match,True,
+StopPlots/STOP0350.gif,*,(all rows),25,25,match,True,plot says 25 points; legend complete
+StopPlots/STOP0352.gif,#0000FF,1980-Ande,6,5,mismatch,True,
+StopPlots/STOP0352.gif,#FF0000,ref1425,8,8,match,True,
+StopPlots/STOP0352.gif,*,(all rows),14,13,mismatch,True,plot says 14 points; legend complete
+StopPlots/STOP0354.gif,#0000FF,1977-Ande4,11,8,mismatch,True,
+StopPlots/STOP0354.gif,#009200,ref1425,1,0,mismatch,True,
+StopPlots/STOP0354.gif,#FF0000,1977-Ande4,11,11,match,True,
+StopPlots/STOP0354.gif,#FF00FF,1978-Ande,12,11,mismatch,True,
+StopPlots/STOP0354.gif,*,(all rows),35,30,mismatch,True,plot says 35 points; legend complete
+StopPlots/STOP0357.gif,#0000FF,ref1312,4,4,match,True,
+StopPlots/STOP0357.gif,*,(all rows),4,4,match,True,plot says 4 points; legend complete
+StopPlots/STOP0360.gif,#0000FF,ref1312,4,4,match,True,
+StopPlots/STOP0360.gif,*,(all rows),4,4,match,True,plot says 4 points; legend complete
+StopPlots/STOP0364.gif,#0000FF,1998-Hu,24,23,mismatch,True,
+StopPlots/STOP0364.gif,#FF0000,2001-Diwa,1,1,match,True,
+StopPlots/STOP0364.gif,*,(all rows),25,24,mismatch,True,plot says 25 points; legend complete
+StopPlots/STOP0365.gif,#0000FF,ref1312,3,3,match,True,
+StopPlots/STOP0365.gif,*,(all rows),3,3,match,True,plot says 3 points; legend complete
+StopPlots/STOP0366.gif,#0000FF,ref1312,4,4,match,True,
+StopPlots/STOP0366.gif,*,(all rows),4,4,match,True,plot says 4 points; legend complete
+StopPlots/STOP0371.gif,#0000FF,ref1312,4,4,match,True,
+StopPlots/STOP0371.gif,#FF0000,1998-Hu,25,23,mismatch,True,
+StopPlots/STOP0371.gif,#FF00FF,2001-Diwa,1,1,match,True,
+StopPlots/STOP0371.gif,*,(all rows),30,28,mismatch,True,plot says 30 points; legend complete
+StopPlots/STOP0373.gif,#0000FF,1975-Neuw2,11,11,match,True,
+StopPlots/STOP0373.gif,#009200,ref1312,5,5,match,True,
+StopPlots/STOP0373.gif,#AA4900,1988-Kuro,6,5,mismatch,True,
+StopPlots/STOP0373.gif,#FF0000,1975-Neuw,1,0,mismatch,True,
+StopPlots/STOP0373.gif,#FF00FF,1976-Piet,1,1,match,True,
+StopPlots/STOP0373.gif,#FF9255,2001-Diwa,3,3,match,True,
+StopPlots/STOP0373.gif,*,(all rows),27,25,mismatch,True,plot says 27 points; legend complete
+StopPlots/STOP0374.gif,#0000FF,1991-Anto,2,2,match,True,
+StopPlots/STOP0374.gif,*,(all rows),2,2,match,True,plot says 2 points; legend complete
+StopPlots/STOP0375.gif,#0000FF,ref1312,4,4,match,True,
+StopPlots/STOP0375.gif,*,(all rows),4,4,match,True,plot says 4 points; legend complete
+StopPlots/STOP0378.gif,#0000FF,ref1312,5,5,match,False,
+StopPlots/STOP0378.gif,*,(all rows),5,5,match,False,plot says None points; legend partial (Not All Data Shown)
+StopPlots/STOP0379.gif,#0000FF,1948-Wilc,5,5,match,True,
+StopPlots/STOP0379.gif,#009200,1977-Datz,2,2,match,True,
+StopPlots/STOP0379.gif,#5500AA,ref1816,6,6,match,True,
+StopPlots/STOP0379.gif,#5500FF,1984-Sant2,17,16,mismatch,True,
+StopPlots/STOP0379.gif,#5592FF,ref1281,15,10,mismatch,True,
+StopPlots/STOP0379.gif,#55FF55,1986-Lin,12,11,mismatch,True,
+StopPlots/STOP0379.gif,#55FFFF,1988-Kuro,7,7,match,True,
+StopPlots/STOP0379.gif,#8092AA,1991-Anto,2,2,match,True,
+StopPlots/STOP0379.gif,#AA4900,1979-Mert,5,5,match,True,
+StopPlots/STOP0379.gif,#AA4955,2001-Diwa,2,2,match,True,
+StopPlots/STOP0379.gif,#D524AA,ref1313,7,5,mismatch,True,
+StopPlots/STOP0379.gif,#FF0000,1962-Tepl|ref1312,14,14,ambiguous,True,2 rows share the colour
+StopPlots/STOP0379.gif,#FF00FF,1977-Ande3,6,6,match,True,
+StopPlots/STOP0379.gif,#FF9255,1982-Mert,7,7,match,True,
+StopPlots/STOP0379.gif,*,(all rows),107,98,mismatch,True,plot says 107 points; legend complete
+StopPlots/STOP0382.gif,#0000FF,ref1281,14,8,mismatch,True,
+StopPlots/STOP0382.gif,#FF0000,ref1816,6,6,match,True,
+StopPlots/STOP0382.gif,*,(all rows),20,14,mismatch,True,plot says 20 points; legend complete
+StopPlots/STOP0383.gif,#0000FF,ref1312,5,5,match,False,
+StopPlots/STOP0383.gif,*,(all rows),5,5,match,False,plot says None points; legend partial (Not All Data Shown)

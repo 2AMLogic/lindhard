@@ -9,6 +9,75 @@ one version).
 
 ### Added
 
+- `lindhard-wasm`: the simulator's Run view gains live distribution plots (ion
+  range with the Pearson IV overlay, lateral and radial, damage versus depth,
+  escapes by species with energy and polar-angle spectra), CSV per plot, the full
+  report as JSON, the trajectory view as PNG, and the statistical-error, models
+  and validation caveats (part of #469, child 2 of #467).
+- `lindhard-wasm`: the simulator's Run view gains live counters (straggle,
+  backscatter, transmission, sputter yield, vacancies per ion, energy partition),
+  a trajectory view (side and end-on, layers shaded, species and generation with
+  non-colour cues) and an interactive cap of 100 000 ions (part of #469, child 2
+  of #467).
+- `lindhard-wasm`: the simulator page (`simulator.html`), first slice: a Setup
+  view (ion, layered target with compositions, densities and energies,
+  calculation mode, physics choices), a live lindhard TOML input file with
+  Download and Load, and a minimal Run view driven by a Web Worker. A page-
+  generated input is checked to give the same report under the CLI driver
+  (part of #469, child 2 of #467).
+- `lindhard-wasm`: a steppable `Simulation` session (`new`, `step`, `done`,
+  `report_json`, `take_trajectories_json`, `warnings`) and `elements_json()`,
+  exposing compound and multi-layer targets, the full ion report and recorded
+  trajectories to a Web Worker. A run cut into steps gives byte-identical
+  results; the WASM build is checked against a native golden record in CI,
+  which also logs the module size (#479, part of #467).
+- `lindhard run`: an optional `[electron.materials.<name>.inner_shells]` table
+  (`subshells` of K, L1, L2, L3, and an optional `binding` file) adds
+  hydrogenic inner-shell ionisation channels (`penn-single-pole` only) to every
+  layer of that material. Without `binding` the embedded EADL2017 table is
+  used; a table without a provenance, or without an element or subshell the
+  material needs, is refused. The summary records the table (path, SHA-256,
+  provenance, or the embedded one) and the channel model. A run without the
+  table is unchanged (#156).
+- `lindhard-wasm`: a WebAssembly build of the ion engine and a static
+  range-calculator page (species, energy and target in; `Rp`, `ΔRp` and a depth
+  profile out), published with the book. CI builds it on every pull request
+  that touches the library or the new crate and compares it with the native
+  build for the same seed (#432).
+- A generated page in the book, `models/stopping-residuals.md`, with the
+  per-system residuals of the electronic-stopping models against every
+  committed measured dataset (points, mean and rms residual, relative rms,
+  energy span, citations, skipped points) and, for single-element systems,
+  the held-out residuals of a fitted per-pair correction beside the
+  uncorrected ones. Regenerate with
+  `cargo run -p lindhard-plots --bin lindhard-stopping-report`; CI runs it
+  with `--check` in the job that checks the figures (#431).
+- Cu–Ni comparison of the fluence-dependent engine with measurement (#448,
+  part of #22): Ho et al. (1976) row `t2-r4` and the 22 Betz (1980) markers,
+  both relaxation conventions, `validation/experiments/cuni_dynamic.py` with
+  committed results and a reduced-statistics CI test. The engine is outside the
+  fixed tolerances (20 % surface fraction, 30 % total yield) and the section in
+  `docs/validation.md` says so; the high-fluence implant-profile criterion is
+  still a gap.
+- Sb-in-Si high-fluence implant comparison of the fluence-dependent engine
+  with measurement (#512, part of #22): the stored Titze et al. (2021) profile
+  (50 keV Sb, 5×10¹⁶ ions/cm²) against both relaxation conventions,
+  `validation/experiments/sb_si_dynamic.py` with committed results,
+  side-by-side sensitivities and a reduced-statistics CI test. Peak depth and
+  shape (the data are max-normalized) are outside the 25 % tolerance and the
+  section in `docs/validation.md` says so; nothing was tuned.
+- Diagnosis of the Cu–Ni shortfall without tuning (#465, part of #22): static
+  pure-Cu and pure-Ni yields against the stored Ar → Cu data, the binary at
+  fixed composition, and the Ho/Betz data conventions, in the `diagnostics`
+  part of `cuni_dynamic.py` and `docs/validation.md`. The total-yield shortfall
+  is the pure-Cu one (0.67 of measured); the weak Cu depletion is a
+  binding-energy-only preference (1.24 against the 1.70 the AES ratio implies).
+  No Ar → Ni data is stored. The engine is unchanged; both comparisons still
+  fail their fixed tolerances.
+- Example `si_backscatter_shells` (`lindhard-cli/examples`): the Si
+  backscatter coefficient with K and L inner-shell channels against a matched
+  single-pole control, with the committed baseline reproduced bit for bit
+  (#449, part of #148; results in `docs/validation.md`).
 - `tally::VoxelTally`, a sparse 3D tally of implanted atoms, displacements and
   deposited energy (electronic, lattice and rest) on a regular grid, for voxel,
   mesh and CSG targets, with CSV and legacy ASCII VTK export and readers for

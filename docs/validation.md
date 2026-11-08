@@ -100,28 +100,70 @@ What it covers:
   description, not an exact one. Only the lateral marginal is compared: the
   depth profile and the z direction are not part of this check. The `quick`
   variant of this group is the fast reduced-statistics test that runs in CI.
-- **Elastic cross sections vs published partial waves (#93, not yet
-  active).** `sigma_el` and `sigma_tr1` for C, Si, Cu and Au at 1 and 10 keV
-  against Jablonski, Salvat & Powell, J. Phys. Chem. Ref. Data 33, 409
-  (2004), computed with the same DHFS potential and the exchange setting the
-  reference states; tolerance 5 % at 1 keV and 2 % at 10 keV, and a failure
-  records the measured gap rather than widening the band
-  (`lindhard/tests/electron_elastic_reference.rs`). **No reference value is
-  committed**: the paper's NIST reprint opens and was read in full, but it
-  tabulates no `sigma_el` or `sigma_tr1` for these elements at these
-  energies (its Tables 3 to 5 cover He and Hg at 50 and 100 eV and IMFPs; the
-  cross sections appear only in figures, and those use H, Al, Ni, Ag, Au and
-  Cm plus some gases, so C, Si and Cu are not even plotted and only Au
-  overlaps), and the C, Si and Au DHFS
-  coefficients are not in the tree (#130), so all eight cases are skipped and
-  reported as skipped (`lindhard/tests/data/elastic_reference.toml`,
-  provenance row). The harness reports `checked N of 16` and `INCOMPLETE`
-  while values are absent (zero comparisons is never reported as a pass), an
-  `--ignored` test fails until all 16 values are checked, and the fixture
-  parser rejects malformed input (blank citation, non-positive or non-finite
-  value, missing observable, duplicate or missing case, unknown setting such
-  as an unsupported `correlation_polarization`, loosened tolerance). Nothing
-  here has been validated yet: 0 of 16 values are checked.
+- **Elastic cross sections vs NIST SRD 64 (#93, level 1, active, FAILING:
+  9 of 16 values out of tolerance).** `sigma_el` and `sigma_tr1` for C, Si, Cu
+  and Au at 1 and 10 keV against NIST SRD 64 v5.0 (Jablonski, Salvat & Powell,
+  NIST NSRDS 64-2023), all 16 values transcribed 2026-10-20 under a scoped
+  operator-approved data-use exception (`docs/data-provenance.md`,
+  `lindhard/tests/data/elastic_reference.toml`). Tolerance 5 % at 1 keV and
+  2 % at 10 keV, pinned in the test; a failure records the measured gap
+  rather than widening the band
+  (`lindhard/tests/electron_elastic_reference.rs`). **Settings.** Reference:
+  free-atom numerical Dirac-Hartree-Fock density with Furness-McCarthy local
+  exchange, no correlation-polarization. Ours: analytic DHFS screening
+  (Salvat et al. 1987) with the same Furness-McCarthy exchange form
+  (`exchange = true`, no correlation-polarization). The potentials differ, so
+  this is **not** a same-potential validation and a gap mixes model
+  difference with solver error. **Result** (ours / reference - 1, 16 checked):
+  `sigma_el` is low in all eight cases (C -6.8 % at 1 keV, -6.4 % at 10 keV;
+  Si -6.5 %, -6.7 %; Cu -7.4 %, -7.9 %; Au -10.5 %, -5.8 %), all outside
+  tolerance. `sigma_tr1` is within tolerance in seven of eight cases (C +1.6 %,
+  +1.7 %; Si -2.5 %, -1.4 %; Cu -1.4 %, +0.4 %; Au +2.6 % at 1 keV) and
+  outside it for Au at 10 keV (-2.6 % against 2 %). Tightening the solver
+  settings (C and Au, step scale 0.1, phase tolerance 1e-10) changes the
+  values by at most 4e-8, so the gaps are not discretization error. The
+  likely cause, **not tested here**, is the potential difference: the
+  total elastic cross section is dominated by small angles and is the more
+  potential-sensitive observable, which is consistent with the reference
+  report's own remark (Sec. 3.2) that `sigma_tr` depends only weakly on the
+  potential. Nothing has been fitted to the reference. Scope: this does not
+  establish scientific agreement, and the issue stays open.
+  **Follow-up (#452): partly explained.** The source offers no same-potential
+  option: the SRD 64 Elastic and Transport1 pages (accessed 2026-10-20)
+  expose only an element choice (and the energy), no potential, exchange or
+  density selector, so no second fixture column exists. In-tree sensitivity
+  (`potential_sensitivity_of_the_eight_cases`, an `#[ignore]`d diagnostic, run
+  with `--release -- --ignored --nocapture potential_sensitivity`, that
+  perturbs our own DHFS fit and is never fitted to the reference): scaling
+  the DHFS screening length by 1.05 moves `sigma_el` by +9.6 % to +10.2 % in all eight
+  cases (0.95: -9.2 % to -9.7 %; roughly 2 % per 1 % of length), so a screening
+  length 3 to 5 % longer than the DHFS fit would be enough for the -6 % to
+  -10 % `sigma_el` deficit; the deficit is therefore of the size a plausible
+  potential difference produces. Switching exchange off moves `sigma_el` by
+  only -0.4 % to -3.3 % in the same (wrong) direction, so exchange does not
+  account for it. The same rescale moves `sigma_tr1` by +1.6 % to +5.9 %
+  (x1.05), a far weaker response, consistent with the reference report's
+  remark. The `sigma_tr1` reference gaps have mixed signs (-2.6 % to +2.6 %)
+  and a global rescale shifts all of them upward, so it can only help the
+  cases where ours is low: Si (-2.5 %, -1.4 %), Cu at 1 keV (-1.4 %) and Au at
+  10 keV (-2.6 %). For Au at 10 keV, the one `sigma_tr1` value outside its
+  tolerance, the x1.05 rescale (+2.56 %) closes the gap, so it is consistent
+  with a roughly 5 % longer screening length; `sigma_el` there needs only
+  about 3 % (x1.05 overshoots it to about +3.7 %), so the two sizes do not
+  match exactly. A longer screening length cannot explain the positive gaps,
+  C (+1.6 %, +1.7 %), Cu at 10 keV (+0.4 %) and Au at 1 keV (+2.6 %), which
+  it would widen. Verdict: the `sigma_el` gap is consistent with a potential
+  difference but not shown to be caused by it (that needs the numerical DHF
+  potential, out of scope); the `sigma_tr1` pattern is partly explained
+  (mixed): the negative gaps have the sign a longer screening
+  length gives (the size matches for Au at 10 keV and Si at 1 keV, overshoots
+  for Cu at 1 keV), the positive gaps do not. Tolerances and the 16 reference
+  values are unchanged and #93 stays open. Run
+  `cargo test -p lindhard --test electron_elastic_reference -- --nocapture`
+  for the per-value report; the `--ignored` completion gate fails until every
+  value is within tolerance, and the fixture parser rejects malformed input
+  (blank citation, non-positive or non-finite value, missing observable,
+  duplicate or missing case, unsupported setting, loosened tolerance).
 - **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
   Cu, built from the committed Hagemann optical ELFs (#98), and of Si, built
   from the Yang et al. (2019) ELF digitized in #125, with the Fermi
@@ -1372,6 +1414,14 @@ Values are pooled over all histories, ± the batch-means standard error (10 batc
 - **Electronic stopping:** IAEA stopping database experimental points, with
   per-system residual statistics reported (terms of reuse still unread; see
   the open questions in [`data-provenance.md`](data-provenance.md)).
+  Bragg-additivity residuals against nine per-paper compound files (H in
+  water, H and He in polystyrene; #525) are in
+  [`stopping-residuals.md`](../book/src/models/stopping-residuals.md): the
+  Lindhard-Scharff-family models sit 12 % to over 100 times above those points
+  (all taken at 10 keV and above, mostly beyond their velocity range), Bethe-Bloch
+  has a mean relative residual between -9 % and +16 % where it applies, and
+  water solid and vapour
+  differ by no more than the scatter between papers; nothing was fitted.
 - **Sputtering:** published yields vs. energy and angle. Ar → Si, Cu, Ag
   and Au at normal incidence, 0.2 to 10 keV, are in (#69, #70, below); the
   angular dependence is not yet.
@@ -1913,9 +1963,11 @@ the issue's "full model":
   1.5 g/cm³ basis, so the C target is glassy carbon at 1.5 g/cm³ (not
   graphite at 2.27); for Si the REELS-derived ELF of Yang et al. (2019)
   (#125), which **ends at 199 eV**: the Si K shell (about 1.84 keV) and the
-  L-shell tail above 199 eV are absent. There is no separate inner-shell
-  channel (the transport loop has none yet, #273), so the shells enter only
-  through the ELF, and for Si the missing ones do not enter at all.
+  L-shell tail above 199 eV are absent. The library has an inner-shell
+  channel (#273) but `lindhard run` does not build shell tables (#156), so
+  in this graded table the shells enter only through the ELF, and for Si the
+  missing ones do not enter at all. A library-level comparison with the
+  channel is in "Inner-shell channels for Si (#449)" below.
 - **No secondaries, transparent surface in the graded table:** with the 50 eV
   cutoff no electron that could still count towards η is dropped, but fast
   secondaries (above 50 eV, which a measured η includes) are not generated.
@@ -2115,7 +2167,7 @@ every energy from 2 keV up. The excess grows with energy, from +0.018 at
 
 The offsets are not attributed here. Known parts of the reduced model act on
 them. The inelastic model is full Penn on the committed ELFs,
-with no inner-shell channels (#273). Fast
+with no inner-shell channels in the CLI (#156; the library has them, #273). Fast
 secondaries above 50 eV, which a measured η counts, are not generated. For
 Si the ELF ends at 199 eV, so the K shell and the L-shell tail are missing
 from the stopping power. A Si excess that grows with energy is consistent
@@ -2148,6 +2200,319 @@ close #148 with them), and fast secondaries for C (no band data; Al, Cu, Au
 and Si are in the sensitivity table). The full-Penn rerun is done. This is
 still a comparison of a model without inner shells, not of the issue's
 full model.
+
+#### Inner-shell channels for Si (#449)
+
+Library-level test of whether the missing Si inner shells explain the excess
+above. `lindhard run` cannot build shell tables (#156), so the example
+`lindhard-cli/examples/si_backscatter_shells.rs` builds them with
+`build_shell_channel_tables` and runs the transport itself, on the committed
+`eta_si.toml` (same elastic table, table grid 51 eV to 31 keV, 100000
+primaries, secondaries off, transparent surface in every row). Four variants:
+
+- **A** the committed baseline (full Penn, no shells). Its fast-electron
+  count at 10, 20 and 30 keV (seed 1) equals the committed `fast_count`
+  (21627, 21841, 21974): the example stops otherwise.
+- **B** single-pole Penn on the same ELF, no shells. The shell channels
+  support only single-pole Penn, so B is the matched control; A to B is the
+  change of the inelastic model.
+- **C** B plus the K shell (EADL2017 binding energy 1844.0 eV, hydrogenic ELF).
+- **D** C plus the L1, L2, L3 hydrogenic ELFs, each **kept only from 199 eV
+  up** (the end of the valence ELF, which already holds the L edges at 104
+  and 154 eV and everything below 199 eV; adding them uncut would count
+  99 to 199 eV twice). The cut is a choice of this example: the hydrogenic
+  ELF is taken as it is at 199 eV and the valence ELF is not adjusted at its
+  end.
+
+Command (release build, 2 threads; tables 514 s for A, 67 s for B and C, 92 s
+for D; main at `965688e` plus the example):
+
+```text
+cargo run --release -p lindhard-cli --example si_backscatter_shells -- \
+    validation/experiments/backscatter/eta_si.toml --table-cache DIR \
+    --threads 2 --determinism
+```
+
+η pooled over seeds 1 and 2 (200000 primaries, binomial σ). Residual against
+the measured median (0.186 at 10 keV, 0.1665 at 20 keV, 0.1605 at 30 keV).
+"Change" is against B, except B which is against A, in σ of the difference.
+
+| E (keV) | Variant | η ± σ | Residual | Change |
+|---|---|---|---|---|
+| 10 | A | 0.2161 ± 0.0009 | +0.030 | |
+| 10 | B | 0.2164 ± 0.0009 | +0.030 | +0.0003 (0.2σ) |
+| 10 | C | 0.2152 ± 0.0009 | +0.029 | -0.0012 (-0.9σ) |
+| 10 | D | 0.2044 ± 0.0009 | +0.018 | -0.0120 (-9.3σ) |
+| 20 | A | 0.2185 ± 0.0009 | +0.052 (fails) | |
+| 20 | B | 0.2182 ± 0.0009 | +0.052 (fails) | -0.0004 (-0.3σ) |
+| 20 | C | 0.2139 ± 0.0009 | +0.047 | -0.0042 (-3.2σ) |
+| 20 | D | 0.2026 ± 0.0009 | +0.036 | -0.0156 (-12.1σ) |
+| 30 | A | 0.2206 ± 0.0009 | +0.060 (fails) | |
+| 30 | B | 0.2205 ± 0.0009 | +0.060 (fails) | -0.0002 (-0.1σ) |
+| 30 | C | 0.2144 ± 0.0009 | +0.054 (fails) | -0.0061 (-4.7σ) |
+| 30 | D | 0.2031 ± 0.0009 | +0.043 | -0.0174 (-13.5σ) |
+
+(Residuals are of the pooled η; the per-seed values are in the example's
+output, and the two seeds agree within 0.002 for every row. Seed 1 alone at
+20 and 30 keV gives A: 0.21841 and 0.21974, residuals +0.052 and +0.059, as
+in the graded table. The pass bound is the unchanged 0.05.) Share of the
+single-pole stopping power at the table row nearest 20 keV: valence 90.5 %,
+K 3.1 %, L1 4.1 %, L2 0.8 %, L3 1.5 %.
+
+What this shows and does not show:
+
+- The inelastic-model change alone (A to B) moves η by less than 0.001 at
+  every energy, so single-pole and full Penn agree here; the control is
+  usable.
+- The K shell alone lowers η by 0.001 to 0.006, growing with energy, and
+  leaves 20 keV at +0.047 and 30 keV at +0.054: 30 keV still fails the bound.
+- With the L shells above the 199 eV cut (D) η falls by 0.012 to 0.017 and
+  all three energies are inside the bound (+0.018, +0.036, +0.043). This
+  reduces the excess but does not remove it (+0.036 to +0.043 remain at 20
+  and 30 keV), and D rests on the cut above and on hydrogenic L ELFs
+  (screened-hydrogen forms with tabulated binding energies, not measured Si
+  L-shell data). D's L shells carry 6.4 % of the stopping power at 20 keV, so
+  the size of its effect on η was not predicted by this example and is not
+  explained here.
+- Not demonstrated: full-Penn shell channels (the library rejects them),
+  Auger and fluorescence transport, M-shell and plasmon-region partition
+  (the valence ELF is used unchanged below 199 eV), fast secondaries (off in
+  every row; with them on the baseline η rises, see the fast-secondary
+  table), and any agreement of D with measured Si L-shell cross sections. No
+  parameter was fitted, no tolerance changed, and the Si rows of the graded
+  table above are unchanged. #148 stays open.
+- Determinism: variant C at 10 keV, seed 1, gives an identical tally on 1 and
+  on 2 threads.
+
+#### Si shell inputs, the 199 eV join and Au: source audit and comparison plan (#457)
+
+**Status: preparation only.** Nothing was simulated for this section, no
+source was opened for it that the tree's provenance rows do not already
+record, and no number, input, tolerance or graded-table row changed. It does
+not validate the model and does not close #148 (see the last paragraph). It
+extends "Inner-shell channels for Si (#449)" above and keeps its variant
+names: A the committed baseline (full Penn, no shells), B single-pole Penn on
+the same ELF (the matched control), C = B + K shell, D = C + hydrogenic
+L1, L2, L3 kept from 199 eV up. All numbers below are quoted from this file,
+from `docs/data-provenance.md`, or from the committed inputs at `dd0bd64`.
+
+##### 1. Si shell input audit
+
+"Opened" means a provenance row says the source was read; this audit did not
+open anything new. A source not opened is listed with the gap, not filled.
+
+| Source | What it supplies | Kind | Opened? | Gap |
+|---|---|---|---|---|
+| Yang et al., Phys. Rev. B 100, 245209 (2019), Fig. 7 (PDF p. 10; "Present" curve, mean of the 3, 4 and 5 keV analyses) | The Si valence ELF, 0.5 to 199 eV, `validation/data/optical/si_elf_yang2019.toml` (297 knots, digitized) | Measurement (REELS) inverted to a bulk ELF by the authors' reverse Monte Carlo model, which itself uses full Penn and a surface term (pp. 2-6, 10-11) | Yes, 2026-10-09 (open copy, SHA-256 in the provenance row) | The paper prints no ELF table, so the values are digitized. Not independent of the Penn extension lindhard applies downstream. The curve ends at 199 eV in the tree; the authors extend theirs above 200 eV (N_eff = 14.158, their Table II) with Henke's data to 30 keV and atomic scattering factors to 10 MeV (p. 13, as recorded in `lindhard/tests/optical_sumrule.rs`) |
+| EADL2017 as distributed in EPICS2017 | Binding energies and occupancies used by the shell channels: Si K 1844.0 eV (2 electrons), L1 154.0 eV (2), L2 and L3 104.0 eV (2 and 4 as listed), `lindhard/src/electron/eadl2017_binding.toml` | Published evaluated atomic data, free atom | Yes, 2026-10-06 | Free-atom values, used unshifted: no chemical shift, no work-function or Fermi-level reference (provenance row "Inner-shell channel tables"). The energy reference of the 104 and 154 eV edges in the measured ELF versus these values is not compared in the tree |
+| Stobbe (1930) as printed by Mikhailov, Nefiodov and Plunien, Phys. Lett. A 368, 391 (2007), eqs. (1)-(3), (6); Salvat, arXiv:2605.22442, eqs. (6.1a), (6.2) | Hydrogenic K-shell oscillator-strength density; conversion from cross section to `df/dW` and scaling by occupancy | Published analytic formula for a hydrogen-like ion | Mikhailov et al. and Salvat yes (2026-10-08); Stobbe's original not read | A model approximation, not Si data. `I = Z^2 E_h/2` is replaced by the tabulated `B` (no other screening). The 1s strength to discrete levels below the edge is not modelled; the continuum carries about 0.435 per electron |
+| Karzas and Latter, Astrophys. J. Suppl. 6, 167 (1961), eqs. (36)-(38), Appendix C, Table 1 (p. 178) | Hydrogenic 2s and 2p bound-free cross sections; the closed forms reproduce the 39 tabulated Gaunt factors within 5e-4 | Published calculation for a hydrogen-like ion | Yes, 2026-10-09 (open ADS scan) | Table 1 checks the formula against the source's own table only. Nothing in it is a Si measurement. The L ELFs are screened-hydrogen forms with Si's tabulated `B` |
+| de Vera et al., Int. J. Mol. Sci. 23, 6121 (2022), eqs. (1), (2), (32), (35) | The structure: ELF = outer part + inner part, one term per shell with `Θ(E - B)` | Published model, for liquid water | Yes, 2026-10-07 to 08 | It gives no partition of a measured Si ELF into valence and core; "No partition rule for splitting a single total ELF among shells is implemented" (provenance row). Its inner part comes from hydrogenic GOS via Fano (1963), closed access, not read |
+| Tanuma, Powell and Penn (2011), Si IMFPs 5.25, 24.3 and 164.2 Å at 99.5, 992.3 and 9897.1 eV (manuscript Tables 4, 1) | A published calculation of the inelastic mean free path from Palik and Henke optical data | Published calculation (full Penn) | Yes (authors' manuscript; the journal version was 403) | Tests the valence-ELF IMFP only at energies up to 9.9 keV; it does not separate valence from shell contributions |
+| Palik, *Handbook of Optical Constants of Solids* (1985), the source of `n(0) = 3.4155` and of TPP's Si optical data below 2 keV | Static refractive index and optical constants | Evaluated compilation | **No.** Only seen through Yang et al. (p. 6, their Ref. 63) and TPP | Closed compilation. For Au the same handbook was ruled out (provenance row, #314: Elsevier compilation, ruling #34 names measured optical constants, not handbooks). A Si verdict is a separate operator decision and none is taken here |
+| Henke et al. tables and atomic scattering factors (the source of the authors' extension above 200 eV) | Photoabsorption-derived ELF for the L-edge tail and the K shell | Evaluated compilation of measurements and calculation | **No** | Not located, not opened, no licence verdict recorded. This is the one concrete route to a non-hydrogenic L/K tail; it cannot be used until it is opened and given a provenance row |
+| Measured or calculated Si L2,3 and K photoabsorption or EELS spectra above the edge, as a primary source | The quantity D approximates with hydrogenic forms | Would be measurement or calculation | **No source identified or opened** | Gap: no primary source for this region has been opened in this tree. No value is entered here |
+
+Coverage and normalisation: the committed valence ELF's N_eff is 7.66
+electrons to 199 eV (3.13 to 30 eV, 3.50 to 99 eV) of the 14 in Si, ratio
+0.547, while its perfect-screening sum passes (P_eff 0.9135 against the
+target `1 - 1/n(0)^2` = 0.9143; `lindhard/tests/optical_sumrule.rs`,
+`SI_N_EFF_SHORT`). The ELF is therefore normalised through the
+perfect-screening sum below 199 eV and carries no sum-rule check on what
+lies above it. The hydrogenic ELFs are normalised by the f-sum rule of
+Shinotsuka et al. (2017), eq. (18), per shell, with the occupancy of the
+EADL table (provenance rows for the K and L shells). What the audit
+establishes: every shell input is either a free-atom tabulation or a
+hydrogenic formula, and the only Si-specific measurement is the valence ELF.
+What it does not establish: that any shell input describes Si.
+
+##### 2. The 199 eV join
+
+*Evidence for the cut as built.* The valence ELF already contains the L2,3
+and L1 edges (it rises at the 104 and 154 eV region, per the #449 section)
+and everything below 199 eV, so adding a hydrogenic L ELF below 199 eV would
+count 99 to 199 eV twice; this is why D keeps the L ELFs from 199 eV up. 199
+eV is the end of the table, not a physical boundary, and the example takes the
+hydrogenic ELF as it is at 199 eV without adjusting the valence ELF at its
+end. The #449 section already states this; nothing further supports the cut.
+
+*What the construction does not control.* (a) The hydrogenic L ELFs begin at
+their own thresholds (104 and 154 eV, free atom) with threshold-peaked
+strength; discarding the part below 199 eV removes strength that the
+measured ELF may carry instead of the same amount. Whether the measured
+ELF's strength between the edges and 199 eV equals the hydrogenic strength
+over the same range is not checked. (b) The valence ELF at 199 eV and the
+hydrogenic ELF at 199 eV are different functions and need not meet; a step
+or a gap at the join would show up as a feature in the loss distribution
+there. Neither the size of the step nor the stopping-power content of the
+region above 199 eV in the measured ELF is tabulated in the tree. (c)
+Valence and core are not separated in the REELS-derived ELF: its high-energy
+side includes whatever the authors' parametrisation puts there.
+
+*What a more defensible partition would need.* One ELF over the whole range
+whose region above 199 eV comes from an opened, cited source with a
+provenance row (the route the Yang authors took, Henke's data, is an
+unopened candidate), joined to the valence ELF with the join energy and the
+overlap rule fixed in advance from that source's own energy range, not from
+the backscatter result. Or, equivalently, shell ELFs from a calculation that
+states its own valence/core boundary. Either needs an operator decision on
+admissibility (see the Palik precedent above) before use.
+
+*Assessment independent of the backscatter pass/fail.* Judge the join and
+each variant by quantities that do not involve η: (i) the f-sum and
+perfect-screening sums of valence + shells against Z = 14 and
+`1 - 1/n(0)^2` (the tolerance 5 % of `optical_sumrule.rs`), reported for B,
+C and D separately, using the power-law and the linear rules the test
+already distinguishes; (ii) the single-pole stopping power and IMFP of each
+variant against the TPP (2011) Si values above at 99.5, 992.3 and 9897.1 eV,
+with the shell channels' share (valence 90.5 %, K 3.1 %, L1 4.1 %, L2 0.8 %,
+L3 1.5 % at the row nearest 20 keV is the reference decomposition); (iii)
+continuity of the combined ELF across 199 eV (ratio of the two ELFs at the
+join) and the shell strength in each side of it. The control stays B, so a
+model change (A to B, below 0.001 in η at all three energies) is never read
+as a shell effect. None of these quantities is computed here (unknown), and
+no cut or parameter is tuned to move η.
+
+##### 3. Au at 30 keV
+
+*Established.* In the graded table Au **passes** at all five energies from
+5 keV; the largest residual is -0.047 at 30 keV, 0.003 inside the 0.05
+bound (the single-pole model gave -0.052; the full-Penn rerun is the
+committed baseline). lindhard (0.4651 ± 0.0016, binomial σ at 100000
+primaries) is below the measured median (0.512) at all nine compared
+energies. The five measured sets at 30 keV are Bishop (1963) 0.521, Neubert
+(1980) 0.519, Heinrich (1966) 0.512, Reimer (1980) 0.482 and Wittry (1966)
+0.481 (`validation/data/backscatter/eta_au_*.json`; the median is Heinrich's
+0.512), a spread of 0.040: lindhard is 0.016 below the lowest set and is
+below the lowest set at six energies, 4 to 30 keV. The statistical σ is
+therefore a small part of the gap (0.047 against σ = 0.0016); the measured
+median's own spread is not. The input is `eta_au.toml` (SHA-256 below):
+Mott cross sections on the DHFS potential with Furness-McCarthy exchange and
+correlation-polarization corrections, full Penn on the Hagemann, Gudat and
+Kunz (1975) Table 5 ELF, secondaries off, transparent surface. The elastic
+corrections move Au by at most 0.0023 (the 1 and 10 keV rows of the
+sensitivity table; 30 keV is not in it). With Kieft-Bosch secondaries and a step barrier (not graded) Au at 30
+keV rises to 0.5294, +0.0643, and sits +0.017 above the median; that run
+takes `B = 0` for core losses and is described above as the size of the
+effect, not a corrected η.
+
+*Hypotheses, not findings.* (H1) Missing fast secondaries (above 50 eV)
+account for part of the deficit: the sign and the order of magnitude agree,
+but the bounding run overshoots and carries the `B = 0` caveat, so the
+fraction is unknown. (H2) The Au ELF: the Table 5 version used satisfies the
+perfect-screening sum (P_eff 1.000 power-law) and N_eff 82.60 against 79.0 of
+the authors, while the linear interpolation `elf()` serves gives N_eff =
+95.58 (+21 %, a pinned failure of the sum-rule test); the Table 6 variant
+exists in the tree only for the δ(E) candidates. How much either affects
+η at 30 keV is not known. (H3) Measured-set conditions (surface, film,
+angle and threshold unstated by Joy) and the median's definition over five
+sets that disagree by 0.04. (H4) Atomic data: Au's inner shells beyond K and
+L cannot be built by the library's hydrogenic builder ("the M shell and
+above are an error"), so the Si mechanism (shells lowering η) could not be
+transplanted to Au even if wanted; and shells lower η, the opposite of what
+Au needs. The Si result gives no reason to think the Au gap is a shell effect
+and no evidence either way.
+
+*Minimum evidence before a repair or rerun is chosen.* (1) An η
+rerun of the committed Au baseline with the Table 6 ELF (a pinned pair of
+inputs differing only in the ELF file), to bound H2, with the sum-rule
+consequences of the join at 1.5 and 350 eV (provenance row) stated first; (2) a separation of
+primary from secondary electrons in the escape spectrum (the summary does
+not distinguish them), to bound H1 without the `B = 0` artefact; (3) the
+measured-set conditions of the two low sets (Reimer, Wittry) and the three
+high sets, from their originals, which the provenance rows list as not
+seen; (4) an operator ruling on whether a Au gap inside the bound needs any
+repair at all. Until (1)-(3) exist no repair is selected.
+
+##### 4. Comparison plan (not executed; no execution is authorized)
+
+*Pinned identities.* Library and tool: the commit of the merge of this
+change (the plan changes no code; the baseline reproduction check below
+fixes the binary). Inputs: `eta_si.toml`
+`322fa7b5485da33e677970881a8532731470e14417da74f5c4a4f36200e61fd5`;
+`eta_au.toml`
+`50be54c9e869c0227072cbad1b70bee948aab883932341c75b4a151e335690c5`.
+Data: `si_elf_yang2019.toml`
+`bad895f027600d26c3f707f1267b7f9178c18fafe1ab1a684e7dd609c48374a9`;
+`au_elf_hagemann1975.toml`
+`acb90fefda5284e4e1793f64cc02afbd4545a95687b656f14ab045452c733bba`;
+`eadl2017_binding.toml`
+`c826e52988d143bfffb934d63df90be592a5e3e0a31bcd927c96c367619c8ea9`;
+example `si_backscatter_shells.rs`
+`7ff61dc57953970292c648d9806b9bfc752f63844f43ce1fe664a7d9b888772c`;
+committed results `backscatter_results.json`
+`865a9b16c643ae74bf7a0898881a7243bbfda5e61e354636ced6dd16557caf50`. Any
+new ELF or table file carries its own SHA-256 and a provenance row before it
+is used.
+
+*Matched design.* Seeds 1 and 2, 100000 primaries each (as #449); the
+table grid of the committed inputs (51 eV to 31 keV); secondaries off and a
+transparent surface in every row; the same measured medians and the 0.05
+bound as the graded table. Si: A, B, C, D as before (reproduction), plus at
+most one more variant per candidate join defined in section 2 *before* it is
+run, each against B. Au: the committed baseline and, only if criterion (1) of
+section 3 is approved, the one-factor ELF variant.
+
+*Controls and convergence.* Lower-energy controls at 1, 5 and 10 keV for
+both elements, where a variant that adds only high-energy channels is
+expected to coincide with its control within 2σ (an expectation to test, not
+a result; the K edge, 1844 eV, lies above the 1 keV row, and the L share of
+the stopping power at 1 and 5 keV is not tabulated in the tree); the reproduction of the committed `fast_count`
+(21627, 21841, 21974 at 10, 20, 30 keV, seed 1) as a hard precondition, as
+the example already enforces; a thread-count determinism check (1 and 2
+threads) on one row; the A to B and B to C comparisons reported alongside D
+so model change and shell effect stay separated; seed-to-seed agreement
+within 0.002, as in #449; and, for any ELF variant, the sum-rule table of
+section 2 before any transport run.
+
+*Uncertainty.* Binomial σ per run, σ of a difference as hypot(σ_a, σ_b) with
+the shared-seed caveat stated in the sensitivity table (a lower bound on
+significance), and the measured spread (min-max over sets) next to every
+residual; the residual is reported against the median and the nearest set.
+
+*Stop conditions.* Stop and report if the reproduction check fails; if the
+sum-rule or continuity checks of section 2 fail for a candidate (it is then
+not run); if a variant's η at the 1 or 5 keV controls moves outside 2σ of its
+control; or after the stated rows, with no further variants. No energy, cut
+or ELF is added after seeing a result.
+
+*Reporting.* Every row run is reported, including unchanged and worse
+results and every point outside 0.05; a variant that does not reduce the
+residual, or that worsens another element or energy, is reported as such.
+The graded table, the committed baseline and its raw results are not edited
+by such a run; its output is a new subsection, labelled diagnostic.
+
+*Cost.* From the wall times recorded above (two threads, shared host): the
+tables took 514 s for A, 67 s for B and C and 92 s for D, and 908 s for Au;
+the baseline sweep (`--skip-secondaries`), including the elastic tables of
+its correction variants, took 27 min wall in all. The transport time of a single 100000-primary row
+and the table time of a new ELF variant are unknown and must be measured on
+one row first. These are runtime estimates only; any run, provisioning or
+spending needs separate authorization.
+
+##### 5. Reconciliation with #156
+
+At `dd0bd64` the library can build shell tables (`build_shell_channel_tables`
+in `lindhard/src/electron/inelastic/table.rs`, `Transport::with_inner_shells`
+in `electron/transport.rs`) and #449 ran them at library level. `lindhard
+run` cannot: the CLI builds valence Penn tables only and has no binding-energy
+key, so the graded table's shell content is the ELF alone. The premise in
+the body of #156, that the transport loop does not run inner-shell
+channels, is out of date at library level; what remains of #156 is the CLI
+key and its echo. This plan needs nothing from #156: it uses the example
+`si_backscatter_shells.rs`, and an Au variant needs no shell channels. It
+would need #156 only if a later ruling wants a shell variant to be a graded,
+CLI-reproducible input. This section does not widen #156, implement any of
+it, or authorize new shell physics.
+
+##### 6. What this section does not do
+
+Preparation does not establish model validation and does not close #148,
+which stays open. The committed baseline, the raw #449 results, the 0.05
+bound, the Si failures at 20 and 30 keV in the graded table and every other
+graded row are unchanged by it. D remains diagnostic and is not promoted to
+graded evidence. No simulation, provisioning or spending was done or is
+authorized by it.
 
 ### Resist PSF vs a published measurement (#151): gap, no comparison
 
@@ -2197,39 +2562,403 @@ a stated limitation), and a measured PSF in an
 openable source, cited to its table or figure (digitized values with the
 second-read discipline of the sputter datasets).
 
-### Fluence-dependent targets vs measurement (#437): gap, no comparison
+### Fluence-dependent targets vs measurement (#437, #448): Cu–Ni compared, not validated
 
-**Status: not run.** The criteria are (a) the steady-state sputter yield and
-surface composition of one binary target against a cited measurement, and
-(b) one published high-fluence implant profile (for example As or Ge into Si)
-against the fluence-dependent engine, with both volume-relaxation conventions
-(`ideal-mixing`, `fixed-number-density`) reported. The engine side exists
-(fluence loop, erosion #234, retention limit #436). The measured side does
-not: no source with numeric values that may be stored could be opened on
-2026-10-16.
+**Status: run, and the engine does not reproduce the measurements.** Criterion
+(a) of #437 (steady-state sputter yield and surface composition of a binary
+target against a cited measurement, both volume-relaxation conventions) has now
+been run on Cu–Ni with the source tables of #447
+([`validation/data/alloys/`](../validation/data/alloys/README.md)). Criterion
+(b), a published high-fluence implant profile, has now been run too (#466 data,
+#512 comparison): **the engine does not reproduce the measured profile either**,
+with no tuning (section below). The measured profile is 50 keV Sb in Si at
+5×10¹⁶ ions/cm² (Titze et al., Fig. 3, normalized SIMS concentration, 53
+digitized markers, [`validation/data/implant/`](../validation/data/implant/README.md);
+see [`data-provenance.md`](data-provenance.md)). Nothing here validates the
+fluence-dependent engine or its implant profiles, and the parent epic (#22) is
+not complete.
 
-| Input | Status | Where recorded |
+**What was compared.** Two separate experiments, never merged (Ho is at about
+20° from the normal, Betz at normal incidence):
+
+* Ho et al. (1976), Table 2 row `t2-r4` (2 keV Ar⁺, 38.4 at% Cu), the total
+  yield from the erosion rate and the equilibrium surface Cu fraction from the
+  fitted AES ratio. The conflicting 0.5 keV / 38.4 at% pair (`t1-r3`, `t2-r1`)
+  is excluded and neither is used; the other Ho rows are deferred (this issue
+  covers the unambiguous 2 keV row only).
+* Betz (1980), Fig. 13: the total yield at 22 compositions (digitized markers).
+
+Each is run for `ideal-mixing` and `fixed-number-density`, and for two
+treatments of the implanted argon, which has no tabulated solid density or
+binding: kept as solid argon (`ar-retained`) and re-emitted after every step
+(`ar-re-emitted`, a retention limit of 10⁻⁶). Neither is a measured property of
+argon in Cu–Ni, both are reported, and none was chosen after seeing the results.
+The physics is the matched sputter setting of section 3 with the elemental
+cohesive energies as surface binding, no `tuning` set and no fitted parameter.
+The tolerances are the ones fixed in advance, **20 % relative on the surface
+Cu fraction and 30 % relative on the total yield**; they were neither tuned nor
+relaxed.
+
+**Result.**
+
+* *Surface Cu fraction (Ho):* fails in every variant and under every depth
+  mapping. The simulated surface is depleted in Cu (the preferentially sputtered
+  component, as measured) but less than measured: about 0.34 against m = 0.268,
+  +25 to +35 % where 20 % is allowed. The first slab alone and the AES-weighted
+  fractions differ from one another by at most 7 % (relative), so the failure is
+  not an artifact of the depth mapping.
+* *Total yield (Ho):* with argon re-emitted the engine is 26–27 % below the
+  measurement if Ho's intensity is per sample area (a pass at 30 %) and 31 %
+  below if it is per beam-normal area (a fail). **The verdict therefore depends
+  on a convention that is not resolved**, and even the pass lies outside the
+  interval the printed ± gives for either convention. With argon retained (not
+  at steady state, see below) the engine is 38–52 % low.
+* *Total yield (Betz):* 0 of 88 comparisons (22 markers × 2 conventions × 2
+  argon treatments) are within 30 %; the engine is 31–66 % low (31–47 % with argon
+  re-emitted), more so where Cu is plentiful.
+* The relaxation convention hardly matters here (differences of 1 % or less
+  with argon re-emitted); with argon retained it matters more because argon
+  accumulates in the front slab (about 12–13 % of it), and both retained-argon
+  rows are still drifting at the end of the run (ideal mixing: yield 1.99, 1.87,
+  1.81 over the quarters 2–4), so they are **not converged steady-state values**.
+  Argon re-emitted is converged (the three quarters agree within 0.5 %).
+
+**Conversions and the assumptions that remain unresolved.** The source PDFs are
+not redistributed and were not re-read for this comparison, so the following
+come from the stored tables ([`ho1976.json`](../validation/data/alloys/ho1976.json))
+and are stated rather than established:
+
+* *Ion-flux area (Ho):* unresolved. The conversion Y = N V / J is reported for
+  both readings of the intensity J, per sample area and per beam-normal area
+  (J cos 20° per sample area), with no angle correction applied silently. The
+  two differ by 6 %.
+* *Alloy density (Ho):* Ho's value was not available; N is the additive-volume
+  (Vegard) density of the elemental solids, 8.88 × 10²² cm⁻³ at 38.4 at% Cu.
+  The elements' number densities differ by 7 %, so a real deviation from
+  additivity of a few percent would move the converted yield by about as much.
+* *AES mapping:* the authors' proportional calibration gives
+  m = c / (q (1 − c) + c) (0.2683 for `t2-r4`; q's printed ± 0.2 gives
+  0.247–0.294). The simulated counterpart weights each slab by exp(−x/λ) for the
+  Cu 920 eV and Ni 716 eV lines and calibrates on the uniform bulk, which is what
+  R0 does in the measurement. λ is the Seah–Dench inelastic mean free path
+  (λ = 538/E² + 0.41 (aE)^½ monolayers, a the monolayer thickness in nm; Surf.
+  Interface Anal. 1, 2 (1979)), 1.35 nm (Cu) and 1.15 nm (Ni), from the elemental
+  atomic volumes; **the analyzer geometry and so the true escape depth of Ho's
+  instrument are not recorded**, hence the 0.5× and 2× lengths and the
+  first-slab limit are reported too. The coefficients are quoted from the
+  published formula and were not re-checked against the paper in this work.
+* *Oxide and AES transient:* the ~2 nm initial oxide is not modelled; Ho fit
+  oxide-cleared data, and the erosion rate is a crater-depth average over the
+  whole irradiation, so a steady-state yield is the natural counterpart. The ± on the erosion rates are crater-periphery
+  deviations, not standard deviations, and are shown as intervals only.
+* *Betz is film-integrated:* the yield is the film inventory divided by the
+  fluence to a 50 % AES decrease at the film/substrate interface. A steady-state
+  comparison is justified when the transient is a small part of that fluence.
+  The engine estimates it: the intercept of each run's cumulative sputtering
+  gives a bias of the film-integrated yield of at most 0.33 % (the film needs
+  about 100 times the fluence of the transient). That is a model estimate, not
+  evidence about the real transient, and nothing of Betz's Cu–Ni inventory
+  calibration is known beyond [`betz1980.json`](../validation/data/alloys/betz1980.json).
+  The digitization bounds are reading bounds only; the experimental uncertainty
+  is unknown and is not taken as zero. The fit endpoints quoted in the paper
+  (4.8 and 2.9 atoms/ion) are not measurements and are not used.
+* *Not modelled:* temperature (not stated for either experiment), surface
+  roughness and cone formation, and radiation-enhanced diffusion and segregation
+  (the engine moves matter only ballistically).
+
+**Reproduce.** Everything below the table is generated from the committed
+results by `python3 validation/update_docs.py`. The full runs take about
+30 minutes at 2 threads:
+
+```sh
+python3 validation/experiments/cuni_dynamic.py --threads 2        # all runs, writes the JSON
+python3 validation/experiments/cuni_dynamic.py --threads 2 --part ho1976 --reuse   # resume or one part
+python3 validation/update_docs.py
+```
+
+The CI job runs a reduced-statistics variant (`ho1976` row `t2-r4`, both
+conventions, argon re-emitted, a sixth of the ions of the committed run, one
+seed) in `validation/experiments/test_cuni_dynamic.py`, which also checks the
+conversions, the generated inputs and the committed results against the data
+files and the fixed tolerances.
+
+<!-- validation:level3-cuni-dynamic:begin -->
+lindhard 0.0.1 (fb81239); reproduce with `python3 validation/experiments/cuni_dynamic.py` (all runs; `--reuse` resumes). Ho: 60000 ions per run, seeds [1, 2, 3, 4], 2 keV Ar at 20° from the normal; Betz: 30000 ions per run, seed 1, normal incidence. Fluence 3.0e+16 cm⁻² per run, a 40 nm film on a substrate of the same alloy, slabs 0.5 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Steady window: the last 50 % of the ions, in 5 blocks. Physics: the matched sputter settings of section 3 (ZBL, Lindhard-Scharff, constant free path, cutoffs 2 / 1 eV, E_b = 0, E_d = E_s, E_s = 3.49 eV (Cu) and 4.44 eV (Ni)); no tuning set, no fitted parameter.
+
+**Ho et al. (1976), row `t2-r4` (2 keV, 38.4 at% Cu).** Excluded: `t1-r3`, `t2-r1` (the conflicting 0.5 keV pair). Alloy number density 8.876e+22 cm⁻³ (8.93 g/cm³), additive atomic volumes of the elemental solids (an assumption: Ho's own alloy density was not available). Erosion 23 ± 2.5 Å/min at 9.4e+13 ions cm⁻² s⁻¹; the ± are the printed amounts, not standard deviations.
+
+| Measured quantity | Value | Interval from the printed ± |
 |---|---|---|
-| Steady-state partial sputter yields and surface fractions of a binary target, from a table or figure | **Gap.** Candidates found by search (Cu-Ni and Cr-Mo Auger studies, Ni-W and Cu-Zn low-energy Ar/Xe yields, Al-Pd-Si preferred sputtering) are closed access, and their abstracts carry no numbers | [`data-provenance.md`](data-provenance.md), "Fluence-dependent validation data" row |
-| A published high-fluence As or Ge in Si profile (shape, retained dose or surface peak) with values | **Gap.** The SIMS/RBS literature found is closed access or reports modelled profiles only | same row |
+| Total yield, intensity per sample area | 3.62 atoms/ion | 3.23-4.01 |
+| Total yield, intensity per beam-normal area (÷ cos 20°) | 3.85 atoms/ion | 3.43-4.27 |
+| Equilibrium surface Cu fraction m = c / (q (1 - c) + c), q = 1.7 ± 0.2 | 0.2683 | 0.2470-0.2936 |
 
-Following the issue's sourcing rule, **there is no comparison table**: no
-yield, surface fraction or profile value was entered from memory, and no
-SDTrimSP/TRIDYN output (Tier C) was used as a stand-in. Reporting both
-relaxation conventions needs a measured profile to be compared with, so that
-part is deferred with it. The existing fluence-loop checks (level 1) are
-unchanged and are not presented as agreement with experiment.
+Tolerances (fixed in advance, not relaxed): total yield 30 % relative, surface Cu fraction 20 % relative. Simulated alloy yield = Cu and Ni atoms sputtered per ion (sputtered argon is not erosion of the alloy). The surface fraction is the AES-weighted Cu fraction of Cu + Ni, attenuation lengths 1.35 nm (Cu 920 eV) and 1.15 nm (Ni 716 eV) (Seah-Dench inelastic mean free path at normal emission), calibrated on the uniform bulk exactly as R0 gives m. Mean ± standard error over the seeds.
 
-**Rule for when the data exist** (fixed now): the steady-state surface
-fraction of the preferentially sputtered component is compared within 20 %
-relative and the total yield within 30 %; a profile is compared by projected
-range and peak/surface concentration ratio within 25 %. Each is reported for
-both relaxation conventions, mismatches are listed as such, and loosening a
-tolerance needs operator sign-off.
+| Relaxation | Argon | Yield (atoms/ion) | vs sample-area flux | vs beam-normal flux | Surface Cu fraction (AES) | vs m |
+|---|---|---|---|---|---|---|
+| ideal-mixing | ar-retained | 1.839 ± 0.007 | -49.2 % (fail) | -52.3 % (fail) | 0.3430 ± 0.0007 | +27.8 % (fail) |
+| ideal-mixing | ar-re-emitted | 2.665 ± 0.006 | -26.4 % (pass) | -30.8 % (fail) | 0.3484 ± 0.0002 | +29.9 % (fail) |
+| fixed-number-density | ar-retained | 2.248 ± 0.004 | -37.9 % (fail) | -41.6 % (fail) | 0.3493 ± 0.0009 | +30.2 % (fail) |
+| fixed-number-density | ar-re-emitted | 2.655 ± 0.006 | -26.6 % (pass) | -31.1 % (fail) | 0.3488 ± 0.0005 | +30.0 % (fail) |
 
-**What lifts the gap:** a measured table or digitizable figure in an openable
-source (second-read discipline of the sputter datasets), a provenance row, and
-a reduced-statistics variant in the unit tests.
+Surface Cu fraction under other depth mappings (relative difference from m; all must be within 20 % to pass):
+
+| Relaxation | Argon | First slab alone | AES, 0.5× length | AES, 1× | AES, 2× | Argon in the front slab |
+|---|---|---|---|---|---|---|
+| ideal-mixing | ar-retained | 0.338 (+25.9 % (fail)) | 0.337 (+25.5 % (fail)) | 0.343 (+27.8 % (fail)) | 0.360 (+34.2 % (fail)) | 13.1 % |
+| ideal-mixing | ar-re-emitted | 0.336 (+25.3 % (fail)) | 0.340 (+26.7 % (fail)) | 0.348 (+29.9 % (fail)) | 0.360 (+34.4 % (fail)) | 0.0 % |
+| fixed-number-density | ar-retained | 0.338 (+26.0 % (fail)) | 0.340 (+26.9 % (fail)) | 0.349 (+30.2 % (fail)) | 0.363 (+35.3 % (fail)) | 11.9 % |
+| fixed-number-density | ar-re-emitted | 0.337 (+25.5 % (fail)) | 0.340 (+26.8 % (fail)) | 0.349 (+30.0 % (fail)) | 0.361 (+34.5 % (fail)) | 0.0 % |
+
+**Convergence evidence.** Yield over the quarters 2, 3 and 4 of the run (steady-state check: a drift means the run had not reached steady state), then the range over one-at-a-time changes (slab 0.25 / 1.0 nm, `max_change` 0.05, twice the ions; one seed each, standard errors of those runs 0.01-0.02):
+
+| Relaxation | Argon | Yield, quarter 2 / 3 / 4 | Yield range, sensitivity runs | AES m range, sensitivity runs |
+|---|---|---|---|---|
+| ideal-mixing | ar-retained | 1.991 / 1.866 / 1.812 | 1.819-1.855 | 0.3428-0.3441 |
+| ideal-mixing | ar-re-emitted | 2.668 / 2.660 / 2.670 | 2.651-2.688 | 0.3477-0.3512 |
+| fixed-number-density | ar-retained | 2.322 / 2.258 / 2.237 | 2.231-2.266 | 0.3493-0.3510 |
+| fixed-number-density | ar-re-emitted | 2.673 / 2.651 / 2.660 | 2.641-2.677 | 0.3485-0.3521 |
+
+**Betz (1980), Fig. 13** (2 keV Ar, normal incidence, about 200 nm film; 22 digitized markers, digitization bounds ±0.03-0.05 atoms/ion; experimental uncertainty unknown, not zero). Simulated steady-state yield against each marker, relative difference (all verdicts at 30 %):
+
+| Marker | Cu (at%) | Measured | ideal-mixing, Ar re-emitted | fixed-number-density, Ar re-emitted | ideal-mixing, Ar retained | fixed-number-density, Ar retained |
+|---|---|---|---|---|---|---|
+| fig13-p01 | 14.1 | 3.13 ± 0.03 | 2.16 (-31 %) | 2.14 (-32 %) | 1.41 (-55 %) | 1.78 (-43 %) |
+| fig13-p02 | 18.6 | 3.36 ± 0.03 | 2.17 (-36 %) | 2.18 (-35 %) | 1.41 (-58 %) | 1.79 (-47 %) |
+| fig13-p03 | 21.4 | 3.21 ± 0.03 | 2.19 (-32 %) | 2.17 (-32 %) | 1.42 (-56 %) | 1.80 (-44 %) |
+| fig13-p04 | 24.1 | 3.26 ± 0.03 | 2.21 (-32 %) | 2.20 (-33 %) | 1.44 (-56 %) | 1.81 (-45 %) |
+| fig13-p05 | 28.3 | 3.50 ± 0.03 | 2.20 (-37 %) | 2.22 (-37 %) | 1.42 (-59 %) | 1.82 (-48 %) |
+| fig13-p06 | 34.4 | 3.58 ± 0.03 | 2.26 (-37 %) | 2.26 (-37 %) | 1.45 (-60 %) | 1.83 (-49 %) |
+| fig13-p07 | 36.1 | 3.52 ± 0.03 | 2.28 (-35 %) | 2.26 (-36 %) | 1.48 (-58 %) | 1.84 (-48 %) |
+| fig13-p08 | 41.9 | 3.65 ± 0.03 | 2.30 (-37 %) | 2.29 (-37 %) | 1.47 (-60 %) | 1.89 (-48 %) |
+| fig13-p09 | 44.4 | 3.93 ± 0.03 | 2.31 (-41 %) | 2.31 (-41 %) | 1.49 (-62 %) | 1.88 (-52 %) |
+| fig13-p10 | 50.3 | 3.78 ± 0.03 | 2.35 (-38 %) | 2.32 (-39 %) | 1.51 (-60 %) | 1.91 (-49 %) |
+| fig13-p11 | 53.3 | 4.23 ± 0.03 | 2.35 (-45 %) | 2.35 (-44 %) | 1.52 (-64 %) | 1.93 (-54 %) |
+| fig13-p12 | 61.4 | 4.03 ± 0.03 | 2.40 (-40 %) | 2.40 (-41 %) | 1.55 (-62 %) | 1.97 (-51 %) |
+| fig13-p13 | 67.0 | 4.18 ± 0.03 | 2.41 (-42 %) | 2.41 (-42 %) | 1.58 (-62 %) | 1.99 (-52 %) |
+| fig13-p14 | 74.1 | 4.07 ± 0.03 | 2.47 (-39 %) | 2.48 (-39 %) | 1.60 (-61 %) | 2.02 (-50 %) |
+| fig13-p15 | 79.9 | 4.35 ± 0.03 | 2.50 (-43 %) | 2.50 (-42 %) | 1.62 (-63 %) | 2.04 (-53 %) |
+| fig13-p16 | 84.3 | 4.33 ± 0.05 | 2.53 (-41 %) | 2.53 (-42 %) | 1.64 (-62 %) | 2.06 (-52 %) |
+| fig13-p17 | 87.5 | 4.67 ± 0.05 | 2.57 (-45 %) | 2.56 (-45 %) | 1.66 (-65 %) | 2.08 (-55 %) |
+| fig13-p18 | 88.5 | 4.41 ± 0.05 | 2.57 (-42 %) | 2.55 (-42 %) | 1.66 (-62 %) | 2.08 (-53 %) |
+| fig13-p19 | 90.7 | 4.55 ± 0.05 | 2.57 (-44 %) | 2.57 (-44 %) | 1.67 (-63 %) | 2.10 (-54 %) |
+| fig13-p20 | 91.1 | 4.64 ± 0.05 | 2.57 (-45 %) | 2.57 (-45 %) | 1.68 (-64 %) | 2.11 (-55 %) |
+| fig13-p21 | 91.3 | 4.88 ± 0.05 | 2.57 (-47 %) | 2.57 (-47 %) | 1.66 (-66 %) | 2.11 (-57 %) |
+| fig13-p22 | 92.6 | 4.92 ± 0.05 | 2.60 (-47 %) | 2.60 (-47 %) | 1.68 (-66 %) | 2.11 (-57 %) |
+
+Betz summary: ideal-mixing/ar-re-emitted: 0 of 22 pass (-47 to -31 %); fixed-number-density/ar-re-emitted: 0 of 22 pass (-47 to -32 %); ideal-mixing/ar-retained: 0 of 22 pass (-66 to -55 %); fixed-number-density/ar-retained: 0 of 22 pass (-57 to -43 %). The transient bias of the film-integrated yield, estimated from each run's own cumulative sputtering (intercept over the film inventory), is at most 0.33 %, so replacing the film-integrated measurement by the steady-state yield is justified within that model estimate (the film is eroded over a fluence about 100 times the transient's). It is an engine estimate, not a measurement.
+
+**Diagnosis (#465): static runs, same matched settings, no dynamic profile.** 4 seeds × 100000 ions per run, 2000 eV Ar; mean ± standard error over the seeds.
+
+*1. Single elements.* Stored measured Ar → Cu sets: 15; stored Ar → Ni sets: **0** (the Ni half of the comparison has no stored data and none is digitized here).
+
+| Target, incidence | Engine yield (atoms/ion) | Stored measured, normal incidence | Engine / measured |
+|---|---|---|---|
+| Cu, 0° | 2.628 ± 0.002 | 3.03-4.23 (median 3.92), 4 points of 4 sets within 2 % of the energy | 0.67 of the median (0.62-0.87 of the band's max and min) |
+| Cu, 0° | same | 3.03-4.55 (median 4.01), 7 points of 6 sets within 25 % of the energy | 0.66 of the median |
+| Ni, 0° | 2.088 ± 0.003 | no stored data | not available |
+| Cu, 20° | 3.062 ± 0.003 | no stored data at 20° | not available |
+| Ni, 20° | 2.477 ± 0.002 | no stored data at 20° | not available |
+
+*2. The binary at fixed composition, Ho geometry, 20°.* A uniform slab of the given Cu fraction (the real surface has a depth profile; this isolates the collisional physics). "Additive" is c Y(Cu) + (1 − c) Y(Ni) from the pure-element runs above; "preference" is (Y_Cu / Y_Ni) / (c / (1 − c)).
+
+| Cu fraction c | Y_Cu | Y_Ni | Total | Total / additive | Cu fraction of sputtered flux | Preference |
+|---|---|---|---|---|---|---|
+| 0.200 | 0.613 ± 0.002 | 1.977 ± 0.003 | 2.590 ± 0.004 | 0.999 | 0.2367 ± 0.0004 | 1.240 |
+| 0.240 | 0.736 ± 0.001 | 1.878 ± 0.004 | 2.613 ± 0.004 | 0.999 | 0.2815 ± 0.0006 | 1.241 |
+| 0.268 | 0.821 ± 0.001 | 1.810 ± 0.003 | 2.631 ± 0.004 | 0.999 | 0.3120 ± 0.0002 | 1.239 |
+| 0.280 | 0.857 ± 0.002 | 1.781 ± 0.004 | 2.638 ± 0.003 | 0.999 | 0.3250 ± 0.0007 | 1.238 |
+| 0.320 | 0.978 ± 0.001 | 1.680 ± 0.003 | 2.658 ± 0.004 | 0.998 | 0.3678 ± 0.0004 | 1.237 |
+| 0.340 | 1.040 ± 0.002 | 1.630 ± 0.004 | 2.670 ± 0.004 | 0.998 | 0.3897 ± 0.0006 | 1.239 |
+| 0.360 | 1.102 ± 0.002 | 1.580 ± 0.002 | 2.682 ± 0.004 | 0.998 | 0.4109 ± 0.0002 | 1.240 |
+| 0.384 | 1.175 ± 0.002 | 1.523 ± 0.002 | 2.698 ± 0.004 | 0.999 | 0.4355 ± 0.0002 | 1.238 |
+| 0.400 | 1.224 ± 0.002 | 1.481 ± 0.002 | 2.705 ± 0.004 | 0.998 | 0.4525 ± 0.0003 | 1.240 |
+
+At steady state the sputtered flux has the bulk composition (38.4 at% Cu). The uniform-slab Cu fraction at which this engine's flux has that composition is 0.335.
+
+Mechanism test, not a fit (both elements given Cu's 3.49 eV surface binding, same seeds and ions, at the listed uniform composition):
+
+| Cu fraction c | Total | Cu fraction of sputtered flux |
+|---|---|---|
+| 0.268 | 3.084 ± 0.004 | 0.2660 ± 0.0001 |
+| 0.384 | 3.076 ± 0.005 | 0.3823 ± 0.0004 |
+
+*2. The binary at fixed composition, Betz geometry, normal.* A uniform slab of the given Cu fraction (the real surface has a depth profile; this isolates the collisional physics). "Additive" is c Y(Cu) + (1 − c) Y(Ni) from the pure-element runs above; "preference" is (Y_Cu / Y_Ni) / (c / (1 − c)).
+
+| Cu fraction c | Y_Cu | Y_Ni | Total | Total / additive | Cu fraction of sputtered flux | Preference |
+|---|---|---|---|---|---|---|
+| 0.200 | 0.524 ± 0.001 | 1.671 ± 0.003 | 2.195 ± 0.004 | 1.000 | 0.2386 ± 0.0003 | 1.253 |
+| 0.240 | 0.627 ± 0.001 | 1.589 ± 0.004 | 2.217 ± 0.004 | 1.000 | 0.2831 ± 0.0004 | 1.250 |
+| 0.268 | 0.700 ± 0.002 | 1.530 ± 0.002 | 2.230 ± 0.004 | 0.999 | 0.3139 ± 0.0002 | 1.249 |
+| 0.280 | 0.732 ± 0.001 | 1.504 ± 0.002 | 2.236 ± 0.003 | 0.998 | 0.3275 ± 0.0003 | 1.252 |
+| 0.320 | 0.838 ± 0.002 | 1.419 ± 0.002 | 2.257 ± 0.003 | 0.999 | 0.3714 ± 0.0004 | 1.255 |
+| 0.340 | 0.892 ± 0.002 | 1.378 ± 0.002 | 2.271 ± 0.003 | 1.000 | 0.3930 ± 0.0004 | 1.257 |
+| 0.360 | 0.946 ± 0.002 | 1.335 ± 0.002 | 2.281 ± 0.003 | 0.999 | 0.4149 ± 0.0003 | 1.260 |
+| 0.384 | 1.007 ± 0.001 | 1.286 ± 0.002 | 2.292 ± 0.002 | 0.999 | 0.4391 ± 0.0004 | 1.256 |
+| 0.400 | 1.047 ± 0.001 | 1.251 ± 0.002 | 2.298 ± 0.002 | 0.997 | 0.4556 ± 0.0005 | 1.256 |
+
+At steady state the sputtered flux has the bulk composition (38.4 at% Cu). The uniform-slab Cu fraction at which this engine's flux has that composition is 0.332.
+
+Mechanism test, not a fit (both elements given Cu's 3.49 eV surface binding, same seeds and ions, at the listed uniform composition):
+
+| Cu fraction c | Total | Cu fraction of sputtered flux |
+|---|---|---|
+| 0.268 | 2.639 ± 0.003 | 0.2665 ± 0.0004 |
+| 0.384 | 2.636 ± 0.002 | 0.3821 ± 0.0002 |
+
+*3. The data.* Betz's markers bracketing Ho's bulk composition (36.1 and 41.9 at% Cu, normal incidence) give 3.57 atoms/ion by linear interpolation. Ho's converted yield is 3.62 (flux per sample area, ratio to Betz 1.01) or 3.85 (per beam-normal area, ratio 1.08); the engine's own 20° / 0° yield ratio for pure Cu is 1.16. Both experiments are digitized or converted with the unresolved conventions of the notes above.
+
+Per-run values: `validation/experiments/cuni_dynamic_results.json`; data: `validation/data/alloys/`; provenance: [`data-provenance.md`](data-provenance.md).
+<!-- validation:level3-cuni-dynamic:end -->
+
+**Diagnosis (#465): where the shortfall comes from.** Nothing was tuned and
+the engine was not changed; the static runs and tables above (generated, last
+block) isolate each candidate, in the order the operator ruling set.
+
+1. *Single-element yields: identified as the cause of the total-yield
+   shortfall.* Pure Cu at 2 keV, normal incidence, is 2.63 atoms/ion against a
+   stored measured band of 3.03–4.23 (median 3.92; 4 points of 4 sets within 2 %
+   of the energy): **0.67 of the median**, 0.62 of the band's top and 0.87 of its
+   bottom. This is the same low Ar → Cu static yield recorded in the single-element
+   table of section 3 (0 of 31 energies in the band), and it is present before
+   any alloy physics. At fixed composition the engine's alloy yield is additive in
+   the two pure-element yields to within 0.3 % at every composition and both
+   angles, so the alloy introduces no further loss: the engine/measured ratios of
+   the alloy total yield (Ho 0.69–0.74 per the flux convention; Betz at 38.4 at%
+   Cu about 0.64) are those of pure Cu. **Ni cannot be compared**: the repository
+   holds no Ar → Ni sputter set (0 stored; 15 Ar → Cu sets), so the engine's Ni
+   yield (2.09 at normal incidence, 2.48 at 20°) is reported without a ratio, and
+   no Ni data was digitized in this work (a separate dataset issue, with its own
+   provenance row). Why the engine is low for Cu at these settings is not
+   resolved here; section 3 documents what was tried and ruled out for Ar → Cu,
+   and the E_s tuning experiment there is not repeated.
+2. *Alloy model.* **The binding treatment is per species, not
+   composition-weighted:** every sputtered atom leaves over the surface barrier
+   of its own element (`ion::bca`, barrier by exit species; the dynamic engine
+   resolves the same per-species `E_s` per slab). With it, the engine's preference
+   for sputtering Cu over Ni is a constant factor, 1.24 at 20° and 1.25–1.26 at
+   normal incidence, independent of composition from 20 to 40 at% Cu. **Mechanism
+   test (not a fit):** giving both elements the same binding energy removes the
+   preference completely (the Cu fraction of the flux equals c: 0.266 at
+   c = 0.268, 0.382 at c = 0.384), so the mass-dependent part of the cascade
+   contributes nothing measurable here and the whole preference is a surface-binding
+   effect. A factor of 1.24 is close to the binding-energy ratio 4.44 / 3.49 = 1.27,
+   as the linear-cascade picture of preferential sputtering gives for a small
+   energy exponent (Sigmund, Phys. Rev. 184, 383 (1969); Betz and Wehner 1983, cited
+   in the data README; **these papers were not re-read in this work, so the match
+   to the published TRIDYN/SDTrimSP descriptions of the mixed-surface binding is
+   not independently checked here**: the TRIDYN report read for `ion::bca` is the
+   only such source in the tree). The dynamic bookkeeping is ruled out: at steady
+   state the sputtered flux must have the bulk composition (38.4 at% Cu), and the
+   uniform-slab Cu fraction at which the static engine's flux has that composition
+   is 0.335 (20°) and 0.332 (normal), against the dynamic engine's first-slab
+   0.336–0.338. The dynamic runs reproduce what the static collisional physics
+   predicts, so relaxation, erosion and mixing add nothing to the gap. **What the
+   measurement implies instead:** Ho's m = 0.268 (0.247–0.294 over the printed ±)
+   corresponds, if the surface were uniform, to a preference of 1.70 (1.90–1.50);
+   the engine's is 1.24. Closing that gap would need a different effective surface
+   binding (or a surface process outside ballistic sputtering) than the elemental
+   cohesive energies, which cannot be decided or tuned from these two data sets.
+   No correction justified by a published method was found, so none was made.
+3. *Data.* Betz's two markers bracketing Ho's composition (36.1 and 41.9 at% Cu,
+   normal incidence) interpolate to 3.57 atoms/ion; Ho's converted yield is 3.62
+   (per sample area, 1.01 of Betz) or 3.85 (per beam-normal area, 1.08). Allowing the
+   engine's own 20° / 0° gain of 1.16 for pure Cu, Ho would be expected 16 % above
+   Betz, so the two data sets agree with each other within about 15 %, well inside
+   the 26–36 % by which the engine is low against both; **the flux-area
+   convention, the alloy density and the Ho/Betz mismatch cannot explain the
+   total-yield shortfall**, though the convention still decides whether the Ho
+   comparison at 30 % passes. For the surface fraction, the depth mapping is ruled out
+   as before (first slab against AES-weighted within 7 %); the analyzer geometry of
+   Ho's instrument remains unrecorded. The Ho and Betz papers were **not re-read**
+   in this work (the PDFs are not redistributed): "what the papers state" about flux
+   area, alloy density and AES geometry is limited to the stored transcriptions in
+   [`validation/data/alloys/`](../validation/data/alloys/README.md), which record
+   the flux-area convention and the alloy density as unresolved and the AES
+   analyzer geometry as unrecorded.
+
+**Outcome.** The total-yield shortfall is the pure-Cu single-element shortfall
+(0.67), carried unchanged into the alloy; Ni is unchecked for lack of stored data.
+The weak Cu depletion is the engine's binding-energy-only preference (1.24)
+against the 1.70 the AES ratio implies; the dynamic machinery and the depth mapping
+are not responsible. Both tolerances are unchanged and both comparisons still fail
+as reported above.
+
+**Criterion (b): Sb in Si at 5×10¹⁶ ions/cm² (#512).** The stored Titze et
+al. profile (Fig. 3, SIMS, normalized to its own maximum) against the
+fluence-dependent engine, both volume-relaxation conventions, four fixed seeds,
+no `tuning`, no fitted parameter. The profile is normalized, so peak depth and
+shape are tested and retained dose is not; the tolerance is the 25 % preset;
+the metric and the assumptions were fixed in `sb_si_dynamic.py` before the
+first full run. The table is generated from the committed results.
+
+<!-- validation:level3-sb-si-dynamic:begin -->
+lindhard 0.0.1 (75785a6); reproduce with `python3 validation/experiments/sb_si_dynamic.py`. 50 keV Sb into Si, 5e+16 ions/cm², 7° from the normal; 20000 ions per run, seeds [1, 2, 3, 4]; a 150 nm Si layer on Si, cells and slabs 1 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Physics: ZBL, Lindhard-Scharff, constant free path, cutoffs 5 / 2 eV, E_b = 0, E_d = E_s with E_s = 4.63 eV (Si) and 2.75 eV (Sb); no `tuning` set, no fitted parameter. Assumptions, none from the paper: no native oxide in the engine target (the profile depth is measured from the current surface after implantation, as in the engine output), the 7° tilt without azimuth, no dynamic annealing (temperature and flux are not stated), no channelling (amorphous target). Not compared: retained dose, absolute concentration and surface recession (the data are normalized to their own maximum).
+
+**Metric (fixed before the first full run; tolerance 25 %).** Peak depth: the centre of the maximum cell of the seed-mean Sb concentration, resolution one cell, against the printed peak (about 15 nm) and, separately, against the largest stored marker (19.09 nm). The stored markers have a gap from 13.47 to 19.09 nm, so the data cannot place the peak closer. Shape: root-mean-square difference over the 53 markers between the stored profile and the engine profile, each divided by its own maximum, against the tolerance in units of the maximum; the gap contributes no residual.
+
+| Convention | Engine peak depth | vs printed peak | vs largest marker | Shape RMS | Worst marker | Peak in gap | Recession | Yield |
+|---|---|---|---|---|---|---|---|---|
+| `ideal-mixing` | 29.5 nm (±0.5; ≥95 %: 18.5–35.5) | +97 % (fail) | +55 % (fail) | 0.467 (fail) | 0.78 at 35.54 nm | no | 34.5 nm | 3.33 |
+| `fixed-number-density` | 25.5 nm (±0.5; ≥95 %: 23.5–34.5) | +70 % (fail) | +34 % (fail) | 0.436 (fail) | 0.72 at 34.71 nm | no | 33.6 nm | 3.36 |
+
+Normalized concentration at selected stored markers (the nearest marker to each listed depth; the engine value is read off its own max-normalized profile at the marker depth):
+
+| Marker depth (nm) | Stored | `ideal-mixing` | `fixed-number-density` |
+|---|---|---|---|
+| 2.23 | 0.141 | 0.693 | 0.640 |
+| 5.12 | 0.631 | 0.737 | 0.738 |
+| 8.02 | 0.814 | 0.769 | 0.790 |
+| 12.89 | 0.943 | 0.849 | 0.838 |
+| 19.09 | 0.978 | 0.953 | 0.913 |
+| 23.06 | 0.807 | 0.967 | 0.964 |
+| 25.87 | 0.644 | 0.970 | 1.000 |
+| 29.83 | 0.458 | 1.000 | 0.990 |
+| 34.21 | 0.237 | 0.982 | 0.957 |
+| 38.02 | 0.124 | 0.885 | 0.748 |
+
+Sensitivity, one change at a time, one seed (side by side; no run is chosen from them). Each cell: peak depth, peak-depth verdict against the printed peak, shape RMS and its verdict.
+
+| Change | `ideal-mixing` | `fixed-number-density` |
+|---|---|---|
+| baseline, seed 1 | 32.5 nm, fail; 0.473, fail | 29.5 nm, fail; 0.421, fail |
+| tilt=0deg | 31.5 nm, fail; 0.476, fail | 31.5 nm, fail; 0.425, fail |
+| oxide=2.9nm SiO2 | 26.5 nm, fail; 0.470, fail | not run |
+| es=0.5x | 19.5 nm, fail; 0.411, fail | 17.5 nm, pass; 0.346, fail |
+| es=2x | 35.5 nm, fail; 0.479, fail | 31.5 nm, fail; 0.466, fail |
+| ed=15eV | 31.5 nm, fail; 0.448, fail | 28.5 nm, fail; 0.388, fail |
+| slab=0.5nm | 33.5 nm, fail; 0.442, fail | 31.5 nm, fail; 0.395, fail |
+
+The oxide variant is run with `ideal-mixing` only: `fixed-number-density` takes one atom density for the whole target, which cannot describe SiO₂ over Si. Not modelled: temperature and beam flux (not stated in the paper): no dynamic annealing; azimuth of the 7 degree tilt (not stated); crystal channelling (amorphous target).
+
+Per-run values and the engine profiles: `validation/experiments/sb_si_dynamic_results.json`; data: `validation/data/implant/`; provenance: [`data-provenance.md`](data-provenance.md).
+<!-- validation:level3-sb-si-dynamic:end -->
+
+**Result.** Fails on both observables under both conventions. The engine
+profile is a broad, nearly flat-topped distribution whose maximum sits at about
+25–30 nm (seed to seed 18–33 nm: the top is flat to within the noise, so the
+peak depth is only as good as that spread), against the printed 15 nm and a
+stored profile that peaks near 15–19 nm and falls steadily beyond; the
+shape residual is about 0.44–0.47 of the maximum against the 0.25 allowed. The
+engine peak does not fall inside the unmeasured 13.5–19 nm gap, so the missing
+markers do not decide the verdict. The sensitivities move the peak by up to about
+12 nm but none brings the shape inside the tolerance; the
+surface-binding scale of 0.5 (a different yield) puts the peak near the stored
+one in two of the cells, and is listed as a sensitivity, not as a better
+setting: no binding energy was chosen or fitted from these data. The 25 % peak
+tolerance is a narrow target against a flat-topped distribution of 1 nm
+cells, which is stated, not relaxed. Retained dose, surface recession and the
+paper's SRIM / TRIDYN curves are not compared.
+
+**What lifts the remaining gap:** for criterion (b), a second, independent
+high-fluence profile (the comparison against Titze et al. is done; a single
+normalized profile cannot separate the sputtering, the mixing and the
+displacement-energy convention that all move the peak), preferably with a
+stated retained dose or sputter depth, flux and temperature. For the Ni half of the single-element check, a stored, cross-checked Ar → Ni
+sputter dataset. For the Ho conversions, the paper's own flux-area and
+alloy-density statements and the AES analyzer geometry. For the Cu yield
+itself, the open Ar → Cu static-yield shortfall of section 3.
 
 ### Secondary-electron yield δ(E): Al, Cu, Si and Au (#149)
 
@@ -3318,6 +4047,21 @@ the Si fail as a known single-pole low-energy overestimate (as for Al,
 `electron::inelastic::penn`, "Low energies") is for operator sign-off. No
 δ table was regenerated for #379. The tables of #364 (PR #378) already
 use this convention, so no rerun is needed.
+
+### Local electronic stopping: channel vs random (#513)
+
+Under `stopping = "equipartition-ls-or"` the electronic loss has a nonlocal half (Lindhard–Scharff, per unit path) and a local half (Oen–Robinson, per collision partner within `p_max`, at its own closest approach). The local term is normalised so that the loss averaged over impact parameters in an amorphous target equals the Lindhard–Scharff loss (`stopping.oen_robinson_normalisation`), so the amorphous path is unchanged and the crystal-off run reproduces it (`crystal_amorphous_identity`).
+
+The constants of the local term (`c = 0.3`, the Firsov-type length) are **unverified** (`OR_CONSTANTS_UNVERIFIED`, #251; crystal runs carry `electronic_constants_unverified: true`). No primary-sourced channeled-fraction or tail calibration for B, P or As in Si was read (see `docs/data-provenance.md`, the gap row), so there is no calibration knob: a scalar on the local term would be a free parameter without a source.
+
+Measured (`boron_channeled_loss_per_path_is_below_random` in `lindhard/tests/crystal_electronic.rs`; B 20 keV into Si, mean total electronic loss per unit path over the first 100 Å, 8000 histories per direction, seed 1, `p_max` = amorphous constant-path radius; Linux x86-64):
+
+| Lattice | random (30/17), eV/Å | ⟨100⟩, eV/Å | ⟨100⟩ / random |
+|---|---|---|---|
+| static | 8.327 ± 0.004 | 7.518 ± 0.005 | 0.903 ± 0.001 |
+| 300 K | 8.317 ± 0.004 | 7.527 ± 0.005 | 0.905 ± 0.001 |
+
+A channeled ion loses about 10 % less per unit path than in a random direction. The reduction comes only from fewer partners within `p_max`; the nonlocal half is the same on both sides. Errors are statistical only (delta method over histories). This is a model result, not a comparison with measurement.
 
 ## Reporting
 

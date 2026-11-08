@@ -23,13 +23,9 @@
 //! optional branches of the flight loop (local electronic loss, weak
 //! collisions in the digest case, a layered target with an interface).
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, ElectronicLoss};
 use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -37,21 +33,8 @@ use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 fn elemental(z: u8) -> Material {
     let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();

@@ -23,6 +23,9 @@
 //! * [`voxel`]: the sparse 3D [`VoxelTally`] of implanted atoms, displacements
 //!   and deposited energy on a regular grid (any geometry), with CSV and VTK
 //!   export.
+//! * [`trajectory`]: the opt-in [`TrajectoryRecorder`] of per-history collision
+//!   points of ions and their recoils, and the [`Recorded`] pairing with an
+//!   ordinary tally.
 //!
 //! Every accumulator here merges deterministically: integer counts are exact
 //! sums, and floating-point accumulators are combined in the order the caller
@@ -37,6 +40,7 @@ pub mod moments;
 pub mod pearson;
 pub mod psf;
 pub mod table_coverage;
+pub mod trajectory;
 pub mod voxel;
 
 pub use electron::{
@@ -58,4 +62,7 @@ pub use psf::{
     PsfNormalization, PsfReport, PsfResidual, RadialAccumulator, RadialProfile,
 };
 pub use table_coverage::{LayerTableCoverage, TableCoverageCounts, TableCoverageTally};
+pub use trajectory::{
+    History, Recorded, Track, TrackEnd, TrajectoryConfig, TrajectoryPoint, TrajectoryRecorder,
+};
 pub use voxel::{VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError, VoxelTallyGrid};

@@ -9,55 +9,20 @@
 //! The measured numbers are in the module docs of
 //! `lindhard::ion::bca::crystal` and the PR that introduced them.
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaError, Beam, CrystalTarget, ElectronicLoss, SummaryTally,
 };
 use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 
 const NM: f64 = 1e-9;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
-
-/// Silicon at the tabulated density (2.329 g/cm^3, the crystal density), with
-/// the illustrative `E_d` = 15 eV of the examples.
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m
-}
-
-fn sio2() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2200.0)).unwrap();
-    for z in [14, 8] {
-        m.set_displacement_energy_ev(z, 15.0).unwrap();
-        if m.surface_binding_energy_ev(z).is_err() {
-            m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-        }
-    }
-    m
-}
+mod common;
+use common::si;
+use common::sio2;
+use common::zbl_si_table as table;
 
 /// Beam of `z` at `e` eV with polar angle `tilt_deg` and azimuth `twist_deg`.
 fn beam(z: u8, e: f64, tilt_deg: f64, twist_deg: f64, count: u64) -> Beam {

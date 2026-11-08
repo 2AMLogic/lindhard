@@ -93,7 +93,8 @@ use rand_core::Rng;
 use serde::Serialize;
 
 use crate::electron::boundary::BandStructure;
-use crate::electron::transport::{deflect_cs, normalize, uniform};
+use crate::electron::transport::{deflect_cs, normalize};
+use crate::rng::uniform;
 
 /// Whether and how inelastic events make secondary electrons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]

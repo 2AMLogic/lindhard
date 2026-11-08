@@ -1,13 +1,16 @@
-# cargo-deny configuration — license and source gate for the dependency tree.
+# cargo-deny configuration — license, source and advisory policy for the
+# dependency tree.
 #
-# Two separate questions are gated here. `[licenses]` answers "may we ship this
+# Two separate questions are gated on every PR. `[licenses]` answers "may we ship this
 # dependency's code?"; `[sources]` answers "did this dependency come from where
 # we think it did?". The second does not follow from the first: a git dependency
 # inherits whatever `license` field its manifest happens to declare, so it can
 # sail through the license check while being an unreviewed, unversioned,
 # force-pushable input to a release binary.
 #
-# lindhard, lindhard-cli and lindhard-py are published under MIT (see LICENSE). The
+# lindhard, lindhard-cli and lindhard-py are published under MIT (see LICENSE);
+# lindhard-wasm (wasm-bindgen, the browser build) is built in CI and shipped as
+# a page with the book, never to crates.io. The
 # CLI is also distributed as a binary, which links every transitive dependency
 # into the shipped artifact. Both facts mean a dependency's license is our
 # license problem: a copyleft crate anywhere in the graph would impose terms
@@ -22,11 +25,56 @@
 #
 #     cargo deny check licenses sources
 #
+# The PR job runs only `licenses sources`. Advisories are checked by the weekly
+# `advisories` workflow (.github/workflows/advisories.yml), never on a PR: the
+# RustSec database changes without any commit here, so a PR-time check would
+# fail unrelated PRs on a newly published advisory. To run that check locally:
+#
+#     cargo deny check advisories
+#
 # Dev-dependencies are checked too (`graph.exclude-dev` is left at its default
 # of false). They are not linked into anything we publish, but a copyleft or
 # git-sourced dev-dependency is still worth knowing about before it becomes a
 # normal one — and a dev-dependency does execute on every contributor's machine
 # and in CI, which is reason enough to know where it came from.
+
+[advisories]
+# Known vulnerabilities, yanked crates and unmaintained crates in the graph. The
+# weekly advisories workflow runs `cargo deny check advisories` and reports a
+# failure through one marker-identified tracking issue; see CONTRIBUTING.md,
+# "Dependency advisories". Every key below parses under both cargo-deny 0.18.2
+# (the PR job's pin) and 0.20.2 (the weekly workflow's pin; see advisories.yml
+# for why they differ).
+
+# The RustSec advisory database, written out rather than inherited. This is
+# cargo-deny's default value.
+db-urls = ["https://github.com/rustsec/advisory-db"]
+
+# A yanked crate version is a failure, not cargo-deny's default `warn`: the
+# author withdrew that exact version (typically for a bug or a security fix),
+# and in a scheduled job a warning is a green run nobody reads.
+yanked = "deny"
+
+# Unmaintained-crate advisories (RUSTSEC "unmaintained"), scoped to the
+# workspace's own dependencies rather than cargo-deny's default `all`, which also
+# fails on transitive crates we cannot replace without the crate above them
+# moving. A crate we depend on directly is one we can swap in our own PR, so an
+# advisory against it is actionable. Widen to "all" if that proves too quiet.
+unmaintained = "workspace"
+
+# `vulnerability` and `unsound` are not set: cargo-deny 0.18.2 and 0.20.2 both
+# reject them as removed keys (cargo-deny PR #611), and vulnerability and
+# unsound advisories are errors by default, so the default applies.
+
+# No ignored advisories. An entry needs the advisory ID and a reason, as a
+# comment on the same line or the line above, and goes in a PR that edits this
+# file, for example:
+#
+#     ignore = [
+#         # RUSTSEC-YYYY-NNNN: <why it does not apply here / what unblocks removal>.
+#         "RUSTSEC-YYYY-NNNN",
+#     ]
+ignore = []
 
 [licenses]
 # Only these SPDX identifiers may satisfy a dependency's license expression.

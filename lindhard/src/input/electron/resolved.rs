@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use crate::electron::boundary::BandStructure;
-use crate::electron::data::OpticalElf;
+use crate::electron::data::{OpticalElf, Subshell, SubshellBindingTable};
 use crate::electron::elastic::corrections::{
     Corrections, CorrelationPolarization, PolarizationCutoff, CORRELATION_POLARIZATION_MODEL,
     EXCHANGE_MODEL,
@@ -98,6 +98,19 @@ impl ElasticChoice {
     }
 }
 
+/// The inner-shell channels of one material after loading and validation.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolvedInnerShells {
+    /// The subshells of every element of the material that become channels,
+    /// in input order.
+    pub subshells: Vec<Subshell>,
+    /// The binding energies and occupancies (checked to cover every element
+    /// and subshell above).
+    pub binding: SubshellBindingTable,
+    /// The `binding` file; `None` for the embedded EADL2017 table.
+    pub binding_file: Option<DataFile>,
+}
+
 /// The electron data of one material after loading and validation.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ResolvedElectronMaterial {
@@ -116,6 +129,8 @@ pub struct ResolvedElectronMaterial {
     /// Options of the Mermin oscillator fit of the `mermin-melf` table:
     /// [`MerminFitOptions::default`] unless `mermin_fit` is given.
     pub mermin_fit: MerminFitOptions,
+    /// Inner-shell channels, if given.
+    pub inner_shells: Option<ResolvedInnerShells>,
 }
 
 /// A validated electron input, in the engine's types.
@@ -271,6 +286,19 @@ impl ResolvedElectron {
                 citation: Cow::Borrowed(
                     "C exp(-gamma E), Ganachaud and Mokrani, Surf. Sci. 334, 329 (1995), as \
                      written in Taioli and Dapor, arXiv:2404.07521v5, Eq. (37)",
+                ),
+            });
+        }
+        if self.materials.iter().any(|x| x.inner_shells.is_some()) {
+            m.push(ModelInfo {
+                role: "inner-shell ionisation",
+                name: "hydrogenic-shell-single-pole-penn",
+                citation: Cow::Borrowed(
+                    "one channel per inner subshell, each from that shell's hydrogenic optical \
+                     ELF (electron::inelastic::shell_elf) with single-pole Penn, as the inner \
+                     part of the ELF in de Vera et al., Int. J. Mol. Sci. 23, 6121 (2022), \
+                     doi:10.3390/ijms23116121, eqs. (1)-(2), (32), (35); secondary energy \
+                     E_F + W - B (Verduin 2017, Eq. 3.86); no exchange correction",
                 ),
             });
         }
