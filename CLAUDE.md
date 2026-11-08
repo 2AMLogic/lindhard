@@ -9,7 +9,9 @@ be read about in papers, and what may never enter the tree) and the
 - Physics comes from published papers. Every model and constant cites its
   source in a doc comment.
 - Every dataset gets a row in `docs/data-provenance.md`. No SRIM-derived
-  tables, ever.
+  tables, ever. SRIM (runs, or the SRIM book we own) is a comparison
+  reference only: compare locally, commit summary metrics, never tune or fit
+  to it. Page scans of the book stay out of the tree.
 - Determinism across thread counts is a tested invariant. Do not break it.
 - This repo is public. Keep it free of anything that is not already
   published physics, and of any description of downstream applications.
