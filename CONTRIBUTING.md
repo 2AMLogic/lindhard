@@ -100,7 +100,8 @@ the tree under these conditions:
   separate from the MIT code. Every point keeps its citation regardless.
 
 The rest of this tier is unchanged. In particular, a stopping value computed by
-SRIM is still never reference data.
+SRIM is still never committed or used as reference data in the tree; comparison
+use is governed by "Reference, never input" and "Oracles".
 
 **Mixed sources.** Some published reports bundle a program listing with the
 paper. The listing is Tier C even though the report is citable. Exclude the
