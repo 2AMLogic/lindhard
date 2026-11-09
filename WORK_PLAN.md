@@ -38,11 +38,22 @@ quiet machine, a browser check) rather than on agent work. The SRIM book
 (Tier C literature, `CONTRIBUTING.md`) unblocked several of the source gaps
 on 2026-11-08 and 2026-11-09 (#537, #540).
 
+Operator rulings, 2026-11-09:
+
+- **Scope: hold 0.1.0 until the M1 and M3 validation gates close** (#148,
+  #151, #511). They are release blockers, not known deviations.
+- **Sources: the operator will obtain** the Oen and Robinson (1976) paper
+  (#251) and the SIMS papers for #515, and scan the relevant pages, as for
+  the SRIM book. Scans stay out of the tree.
+- **Publishing: GitHub release, crates.io and PyPI.** The website stays
+  live but unannounced, so the browser check (#469) does not gate the
+  release.
+
 Where the milestones stand:
 
 | Milestone | State | What is left |
 |---|---|---|
-| M0 amorphous ion core (#10) | Feature-complete and validated (levels 1 to 3) | #15 (constant-data verification: only inaccessible sources remain), #45 (screening and magic constants: narrowed by the SRIM book), #538 (0.8853 universal length) |
+| M0 amorphous ion core (#10) | Feature-complete and validated (levels 1 to 3) | #15 (constant-data verification: only inaccessible sources remain), #45 (screening and magic constants: narrowed by the SRIM book) |
 | M1 electron engine (#11) | Engine done, 24 sub-issues closed | Validation gates #148 (η), #151 (PSF); #111 and #162 wait on sources |
 | M2 crystalline implant (#12) | Engine done through step 23 (#513, #514) | SIMS validation #515 then #516; #251 (Oen-Robinson length) affects channeled-range accuracy |
 | M3 dynamic composition (#22) | Engine and two validations done | #511 (Ar to Cu/Ni yield ratio) |
@@ -52,35 +63,50 @@ Where the milestones stand:
 
 ### Close-out steps, in order
 
-1. **Land the SRIM-book verifications.** #540 (in review); #538 needs only
-   `EXPECTED_CRYSTAL_AARCH64_MACOS` regenerated on aarch64 macOS (the
-   attended operator session can do it).
+1. ~~**Land the SRIM-book verifications.**~~ Done 2026-11-09: #540 and
+   #538 (0.8853 universal length) merged.
 2. **Narrow #45 and #15 to what is truly inaccessible,** then close M0
    (#10). After #537 and #540, the ZBL and Moliere sets, both magic-formula
    sets and the nuclear stopping fit are verified. Left: the Lenz-Jensen
    polynomial digits and the Kr-C coefficients (Wilson, Haggmark and
    Biersack 1977). These are recorded gaps, not release blockers.
-3. **M2 SIMS validation** (#515, then #516). Before it, try to close #251
-   (Oen-Robinson length), since the channeled tail depends on it.
-4. **Decide the 0.1.0 scope for M1 and M3:** ship them with their open
-   validation gates (#148, #151, #511) listed as known deviations in the
-   README, or hold the release for them. Default: ship and list them.
+3. **M2 SIMS validation** (#515, then #516). Before it, close #251
+   (Oen-Robinson length), since the channeled tail depends on it. Both wait
+   on the papers the operator is obtaining.
+4. **Close the M1 and M3 validation gates** (operator ruling: they block
+   0.1.0):
+   - #148 (backscatter η): parked by the operator's 2026-10-19 ruling (the
+     0.05 tolerance stands; Si misses at 20 and 30 keV stay visible). #457
+     delivered a source audit and comparison plan (`docs/validation.md`,
+     "Si shell inputs, the 199 eV join and Au"). Executing it needs operator
+     decisions: whether a source for the Si core region above 199 eV (the
+     Henke tables, unopened) is admissible, and authorizing the comparison
+     runs. Operator inputs.
+   - #511 (Ar to Cu/Ni yield ratio): split on 2026-11-09 as the Builder
+     recommended. #543 stores the Ni datasets (IPPJ-AM-32, PDF p. 103,
+     digitized by the existing method); #544 then attributes the 0.67 Cu
+     ratio without tuning. Agent work.
+   - #151 (PSF): needs an openable measured PSF for a stated resist stack
+     and energy, and the PMMA optical ELF (#162; the open question there is
+     whether the CXRO tables are acceptable). Operator inputs.
 5. **Cut 0.1.0** (`CONTRIBUTING.md`, "Releasing"): CHANGELOG section,
-   workspace version, annotated tag. Before tagging: the browser check of
-   the WASM page (#469) if the site is announced with the release.
+   workspace version, annotated tag; publish the GitHub release, the crate
+   to crates.io and the wheels to PyPI. The website is not announced with
+   it, so #469 is not a prerequisite.
 
 ### Operator inputs that unblock work
 
 | Input | Unblocks |
 |---|---|
-| macOS golden regeneration | #538 |
-| Oen and Robinson, NIM 132, 647 (1976) | #251, then M2 accuracy |
+| Oen and Robinson, NIM 132, 647 (1976) (operator obtaining) | #251, then M2 accuracy |
 | Lenz (1932) and Jensen (1932); Wilson, Haggmark, Biersack (1977) | the rest of #45 |
-| SIMS profiles from openable papers (B, P, As in Si; screen oxide) | #515, #516 |
+| SIMS profiles from papers (B, P, As in Si; screen oxide) (operator obtaining) | #515, #516 |
+| An openable measured resist PSF; a ruling on the CXRO tables for the PMMA ELF | #151 (release gate), #162 |
+| A ruling on a Si core-region ELF source (Henke tables) and authorization of the #457 comparison runs | #148 (release gate) |
 | Primary stopping papers for B, P, As in Si | #503, #483 |
-| PMMA ELF (Ritsko 1978); a sourced high-l phase-shift method | #162; #111 |
+| A sourced high-l phase-shift method | #111 |
 | An idle machine for benchmarks; a penn-full build measurement | #76, #177; #360 |
-| A real-browser check of the WASM simulator | #469 |
+| A real-browser check of the WASM simulator (needed only to announce the website) | #469 |
 | Loom guard reviews | #195, #220 |
 
 ### After 0.1.0
