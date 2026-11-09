@@ -75,13 +75,17 @@ Where the milestones stand:
    on the papers the operator is obtaining.
 4. **Close the M1 and M3 validation gates** (operator ruling: they block
    0.1.0):
-   - #148 (backscatter η): its recorded blockers #125, #130 and #169 are
-     all closed, so its `loom:blocked` label looks stale. Re-check the gate
-     against the current results and close or finish it. Agent work.
-   - #511 (Ar to Cu/Ni yield ratio): split as the Builder recommended
-     (2026-10-31): first the Ni dataset (IPPJ-AM-32, PDF p. 103, digitized
-     by the existing method), then the attribution of the 0.67 Cu ratio
-     without tuning. Agent work.
+   - #148 (backscatter η): parked by the operator's 2026-10-19 ruling (the
+     0.05 tolerance stands; Si misses at 20 and 30 keV stay visible). #457
+     delivered a source audit and comparison plan (`docs/validation.md`,
+     "Si shell inputs, the 199 eV join and Au"). Executing it needs operator
+     decisions: whether a source for the Si core region above 199 eV (the
+     Henke tables, unopened) is admissible, and authorizing the comparison
+     runs. Operator inputs.
+   - #511 (Ar to Cu/Ni yield ratio): split on 2026-11-09 as the Builder
+     recommended. #543 stores the Ni datasets (IPPJ-AM-32, PDF p. 103,
+     digitized by the existing method); #544 then attributes the 0.67 Cu
+     ratio without tuning. Agent work.
    - #151 (PSF): needs an openable measured PSF for a stated resist stack
      and energy, and the PMMA optical ELF (#162; the open question there is
      whether the CXRO tables are acceptable). Operator inputs.
@@ -98,6 +102,7 @@ Where the milestones stand:
 | Lenz (1932) and Jensen (1932); Wilson, Haggmark, Biersack (1977) | the rest of #45 |
 | SIMS profiles from papers (B, P, As in Si; screen oxide) (operator obtaining) | #515, #516 |
 | An openable measured resist PSF; a ruling on the CXRO tables for the PMMA ELF | #151 (release gate), #162 |
+| A ruling on a Si core-region ELF source (Henke tables) and authorization of the #457 comparison runs | #148 (release gate) |
 | Primary stopping papers for B, P, As in Si | #503, #483 |
 | A sourced high-l phase-shift method | #111 |
 | An idle machine for benchmarks; a penn-full build measurement | #76, #177; #360 |
