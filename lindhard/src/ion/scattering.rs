@@ -111,7 +111,7 @@ pub struct MagicConstants {
 impl MagicConstants {
     /// Fit to the universal (ZBL) potential, Ziegler, Biersack, Littmark (1985),
     /// Ch. 2. Verified against J. F. Ziegler, J. P. Biersack, M. D. Ziegler,
-    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2008),
+    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2015),
     /// Fig. 2-21, p. 2-42, which labels them `0.9923 0.01162 0.007122 9.307
     /// 14.81`: these values to that rounding, with the last two listed in the
     /// other order. Our order is the one that fits the formula (Eq. 2-105):
@@ -122,12 +122,13 @@ impl MagicConstants {
         c: [0.99229, 0.011615, 0.0071222, 14.813, 9.3066],
     };
     /// Fit to the Moliere potential, Biersack and Haggmark, Nucl. Instrum.
-    /// Methods 174 (1980) 257, doi:10.1016/0029-554X(80)90440-1. The digits
-    /// are **unverified**: the paper is not open access, and no other copy
-    /// (primary, textbook or permissively licensed code) could be found. They
-    /// are tested against the quadrature instead
-    /// (`magic_formula_tracks_quadrature_for_moliere`), and that test rejects
-    /// the ZBL set and a `C4`/`C5` swap. See `docs/data-provenance.md`.
+    /// Methods 174 (1980) 257, doi:10.1016/0029-554X(80)90440-1. Verified
+    /// digit for digit against J. F. Ziegler, J. P. Biersack, M. D. Ziegler,
+    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2015),
+    /// Table 4-1, p. 7-6 (the 1980 paper itself is not open access). Also
+    /// tested against the quadrature (`magic_formula_tracks_quadrature_for_moliere`),
+    /// which rejects the ZBL set and a `C4`/`C5` swap. See
+    /// `docs/data-provenance.md`.
     pub const MOLIERE: Self = Self {
         c: [0.6743, 0.009611, 0.005175, 10.0, 6.314],
     };
@@ -432,7 +433,7 @@ mod tests {
     /// (1985), Ch. 2: `ln(1 + 1.1383 eps) / (2 (eps + 0.01321 eps^0.21226 +
     /// 0.19593 eps^0.5))` for `eps <= 30`, `ln(eps) / (2 eps)` above. Verified
     /// digit for digit against J. F. Ziegler, J. P. Biersack, M. D. Ziegler,
-    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2008),
+    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2015),
     /// Eqs. 2-89 and 2-90, p. 2-37; also cross-checked against the
     /// MIT-licensed `ir2-lab/screened_coulomb` (commit f84c3c8).
     fn zbl_fit(eps: f64) -> f64 {
