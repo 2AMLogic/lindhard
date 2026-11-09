@@ -10,7 +10,7 @@ be read about in papers, and what may never enter the tree) and the
   source in a doc comment.
 - Every dataset gets a row in `docs/data-provenance.md`. No SRIM-derived
   tables, ever: SRIM's computed output (curves, tables, model values) is never
-  data here. SRIM (runs, or the SRIM book we own) is a comparison reference
+  data here. SRIM (local runs, or the tables in the SRIM book) is a comparison reference
   only: compare locally, commit summary metrics, never tune or fit to it. Page
   scans of the book stay out of the tree. Measured points from the srim.org
   compilation are facts from their papers and are admitted under
