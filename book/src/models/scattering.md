@@ -113,11 +113,14 @@ Lindhard, Nielsen and Scharff (1968) and against the ZBL nuclear stopping
 fit; the magic formula is checked against the quadrature for both constant
 sets. The ZBL nuclear stopping fit, the magic formula and its ZBL constants
 have been verified against the SRIM book (Ziegler, Biersack and Ziegler
-2008, ch. 2, Eqs. 2-89 and 2-90, Eqs. 2-102 to 2-105 and Fig. 2-21; the
+2015, ch. 2, Eqs. 2-89 and 2-90, Eqs. 2-102 to 2-105 and Fig. 2-21; the
 figure lists C4 and C5 in the other order, which the quadrature check
 rejects). The ZBL constants were also cross-checked against
-`ir2-lab/screened_coulomb` (MIT); the Molière set is unverified against the
-paper and is checked only against the quadrature. See
+`ir2-lab/screened_coulomb` (MIT). The Molière set has been verified against
+the book's Table 4-1 (p. 7-6); the 1980 paper itself was not accessible. That
+table also lists the universal C4 and C5 in the other order, which the
+quadrature check rejects, as do the C4/C5 ratios of its own Molière and
+Kr-C columns. See
 [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md).
 
 ## References
@@ -126,7 +129,7 @@ paper and is checked only against the quadrature. See
 - J. F. Ziegler, J. P. Biersack, U. Littmark, *The Stopping and Range of Ions
   in Solids* (Pergamon, New York, 1985), ch. 2.
 - J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range
-  of Ions in Matter* (SRIM Co., 2008), ch. 2.
+  of Ions in Matter* (SRIM Co., 2015), ch. 2.
 - M. H. Mendenhall and R. A. Weller, Nucl. Instrum. Methods B 58, 11 (1991).
 - J. P. Biersack and L. G. Haggmark, Nucl. Instrum. Methods 174, 257 (1980),
   doi:10.1016/0029-554X(80)90440-1.

@@ -58,7 +58,9 @@ models because one lands closer to SRIM. If a comparison shows a gap,
 explain it from the physics, or record it as a known difference.
 
 **The SRIM book.** J. F. Ziegler, J. P. Biersack and M. D. Ziegler, *SRIM:
-The Stopping and Range of Ions in Matter* (SRIM Co., 2008). Treat it as Tier C
+The Stopping and Range of Ions in Matter* (SRIM Co., 2015; ISBN
+978-0-9654207-1-6; earlier printings 1984 to 2008). Page and equation
+numbers cited in this tree are from the 2015 printing. Treat it as Tier C
 literature:
 
 - **Citable:** the text, the derivations, and the published formulas and

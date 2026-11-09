@@ -43,7 +43,7 @@ cascade energies upward.
 From [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md):
 the Firsov and Lindhard lengths have been verified against scans of the
 primary papers (page references above). For the universal length, the
-SRIM book (Ziegler, Biersack and Ziegler, 2008, Ch. 2) confirms the exponent
+SRIM book (Ziegler, Biersack and Ziegler, 2015, Ch. 2) confirms the exponent
 0.23 but is inconsistent on the prefactor: Eq. 2-73 (p. 2-30) prints 0.8853,
 while the labels of Figs. 2-16 and 2-17 (p. 2-32) print 0.8854, a 10⁻⁴
 relative difference. The equation's 0.8853 is to be adopted (#536); until
@@ -57,4 +57,4 @@ then the code uses 0.8854.
 - J. F. Ziegler, J. P. Biersack, U. Littmark, *The Stopping and Range of Ions
   in Solids* (Pergamon, New York, 1985), ch. 2.
 - J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range
-  of Ions in Matter* (SRIM Co., 2008), ch. 2, pp. 2-29 to 2-32.
+  of Ions in Matter* (SRIM Co., 2015), ch. 2, pp. 2-29 to 2-32.
