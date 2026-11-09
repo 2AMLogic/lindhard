@@ -110,9 +110,14 @@ pub struct MagicConstants {
 
 impl MagicConstants {
     /// Fit to the universal (ZBL) potential, Ziegler, Biersack, Littmark (1985),
-    /// Ch. 2 / Appendix on the magic formula. Cross-checked against the
-    /// MIT-licensed `ir2-lab/screened_coulomb` (commit f84c3c8), which carries
-    /// the same five values in the same order.
+    /// Ch. 2. Verified against J. F. Ziegler, J. P. Biersack, M. D. Ziegler,
+    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2008),
+    /// Fig. 2-21, p. 2-42, which labels them `0.9923 0.01162 0.007122 9.307
+    /// 14.81`: these values to that rounding, with the last two listed in the
+    /// other order. Our order is the one that fits the formula (Eq. 2-105):
+    /// the swap fails `magic_formula_check_rejects_wrong_constants`. Also
+    /// cross-checked against the MIT-licensed `ir2-lab/screened_coulomb`
+    /// (commit f84c3c8), which carries the same five values in our order.
     pub const ZBL: Self = Self {
         c: [0.99229, 0.011615, 0.0071222, 14.813, 9.3066],
     };
@@ -425,9 +430,11 @@ mod tests {
 
     /// ZBL universal reduced nuclear stopping fit, Ziegler, Biersack, Littmark
     /// (1985), Ch. 2: `ln(1 + 1.1383 eps) / (2 (eps + 0.01321 eps^0.21226 +
-    /// 0.19593 eps^0.5))` for `eps <= 30`, `ln(eps) / (2 eps)` above. The
-    /// `eps <= 30` coefficients are cross-checked against the MIT-licensed
-    /// `ir2-lab/screened_coulomb` (commit f84c3c8).
+    /// 0.19593 eps^0.5))` for `eps <= 30`, `ln(eps) / (2 eps)` above. Verified
+    /// digit for digit against J. F. Ziegler, J. P. Biersack, M. D. Ziegler,
+    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2008),
+    /// Eqs. 2-89 and 2-90, p. 2-37; also cross-checked against the
+    /// MIT-licensed `ir2-lab/screened_coulomb` (commit f84c3c8).
     fn zbl_fit(eps: f64) -> f64 {
         if eps <= 30.0 {
             (1.0 + 1.1383 * eps).ln()
