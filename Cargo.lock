@@ -107,12 +107,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
-name = "base64"
-version = "0.22.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
-
-[[package]]
 name = "bitflags"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -832,11 +826,10 @@ checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
 
 [[package]]
 name = "rizzma"
-version = "1.13.7"
+version = "1.14.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "94d8e485bed9d809aa3b5cf1998141579a3221d6ba617bcf4bdce58113c7ee7e"
+checksum = "2acc7f7c1e42084cc51d6f7a2f517cc61f226a4772b710232ab7f5dda44c7ce9"
 dependencies = [
- "base64",
  "chrono",
  "png",
  "serde",
