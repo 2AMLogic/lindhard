@@ -1,14 +1,14 @@
 {
   "energy_budget_ev_per_ion": {
     "incident": 5000.0,
-    "electronic_nonlocal": 2172.168730014593,
+    "electronic_nonlocal": 2172.1786901529567,
     "electronic_local": 0.0,
-    "lattice": 2628.475261767412,
-    "surface_barrier": 1.1732420000000003,
-    "backscattered": 49.14058463893802,
-    "sputtered": 14.90822822514642,
+    "lattice": 2628.2107420032125,
+    "surface_barrier": 1.1801870000000008,
+    "backscattered": 49.18248330099315,
+    "sputtered": 15.101149480441952,
     "transmitted": 0.0,
-    "rest": 134.13395335390996,
-    "max_relative_residual": 3.819877747446298e-15
+    "rest": 134.14674806239364,
+    "max_relative_residual": 3.4560798667371273e-15
   }
 }

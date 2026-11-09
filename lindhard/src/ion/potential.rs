@@ -182,14 +182,14 @@ fn horner(c: &[f64], q: f64) -> f64 {
 /// Screening length `a(Z1, Z2)`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScreeningLength {
-    /// Universal length, `a_U = 0.8854 a0 / (Z1^0.23 + Z2^0.23)`.
-    /// Ziegler, Biersack, Littmark (1985), Ch. 2, restated in J. F. Ziegler,
-    /// J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range of Ions in
-    /// Matter* (SRIM Co., 2008), Ch. 2. That book confirms the exponent `0.23`
-    /// but is inconsistent on the prefactor: Eq. 2-73, p. 2-30, prints
-    /// `0.8853`, the labels of Figs. 2-16 and 2-17, p. 2-32, print `.8854`.
-    /// The equation's `0.8853` is to be adopted (#536, which also regenerates
-    /// the golden values); see `docs/data-provenance.md`.
+    /// Universal length, `a_U = 0.8853 a0 / (Z1^0.23 + Z2^0.23)`.
+    /// Ziegler, Biersack, Littmark (1985), Ch. 2; the page numbers are those of
+    /// J. F. Ziegler, J. P. Biersack and M. D. Ziegler, *SRIM: The Stopping
+    /// and Range of Ions in Matter* (SRIM Co., 2015), Eq. 2-73, p. 2-30, which
+    /// prints the prefactor as `0.8853`; its Figs. 2-16 and 2-17 (p. 2-32) label it
+    /// `.8854`. We use the Thomas-Fermi constant (`0.88534`, the same value
+    /// as the Firsov and Lindhard lengths), which agrees with Eq. 2-73 to the
+    /// printed digits; see `docs/data-provenance.md`.
     Universal,
     /// Firsov length, `a_F = 0.8853 a0 / (sqrt(Z1) + sqrt(Z2))^(2/3)`.
     /// O. B. Firsov, Sov. Phys. JETP 6, 534 (1958): the scaled distance
@@ -220,7 +220,9 @@ impl ScreeningLength {
     pub fn metres(self, z1: f64, z2: f64) -> f64 {
         let a0 = BOHR_RADIUS;
         match self {
-            ScreeningLength::Universal => 0.8854 * a0 / (z1.powf(0.23) + z2.powf(0.23)),
+            ScreeningLength::Universal => {
+                thomas_fermi_constant() * a0 / (z1.powf(0.23) + z2.powf(0.23))
+            }
             ScreeningLength::Firsov => {
                 thomas_fermi_constant() * a0 / (z1.sqrt() + z2.sqrt()).powf(2.0 / 3.0)
             }
@@ -339,6 +341,10 @@ mod tests {
         assert!((a / expect - 1.0).abs() < 1e-12);
         let a = ScreeningLength::Firsov.metres(14.0, 14.0);
         let expect = tf * a0 / (2.0 * 14f64.sqrt()).powf(2.0 / 3.0);
+        assert!((a / expect - 1.0).abs() < 1e-12);
+        // Universal: ZBL (1985) Eq. 2-73 prints 0.8853; same constant as above.
+        let a = ScreeningLength::Universal.metres(5.0, 14.0);
+        let expect = tf * a0 / (5f64.powf(0.23) + 14f64.powf(0.23));
         assert!((a / expect - 1.0).abs() < 1e-12);
     }
 

@@ -15,7 +15,7 @@ Scharff and Schiøtt (1963, p. 8).
 
 | Length | Formula | TOML (`[physics]`) | Rust |
 |---|---|---|---|
-| Universal | \\( a_U = 0.8854\\, a_0 / (Z_1^{0.23} + Z_2^{0.23}) \\) | `screening_length = "universal"` | `LengthChoice::Universal`, `ScreeningLength::Universal` |
+| Universal | \\( a_U = 0.8853\\, a_0 / (Z_1^{0.23} + Z_2^{0.23}) \\) | `screening_length = "universal"` | `LengthChoice::Universal`, `ScreeningLength::Universal` |
 | Firsov | \\( a_F = 0.8853\\, a_0 / (Z_1^{1/2} + Z_2^{1/2})^{2/3} \\) | `screening_length = "firsov"` | `LengthChoice::Firsov`, `ScreeningLength::Firsov` |
 | Lindhard (Thomas-Fermi) | \\( a_L = 0.8853\\, a_0 / (Z_1^{2/3} + Z_2^{2/3})^{1/2} \\) | `screening_length = "lindhard"` | `LengthChoice::Lindhard`, `ScreeningLength::Lindhard` |
 
@@ -42,12 +42,12 @@ cascade energies upward.
 
 From [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md):
 the Firsov and Lindhard lengths have been verified against scans of the
-primary papers (page references above). For the universal length, the
-SRIM book (Ziegler, Biersack and Ziegler, 2015, Ch. 2) confirms the exponent
-0.23 but is inconsistent on the prefactor: Eq. 2-73 (p. 2-30) prints 0.8853,
-while the labels of Figs. 2-16 and 2-17 (p. 2-32) print 0.8854, a 10⁻⁴
-relative difference. The equation's 0.8853 is to be adopted (#536); until
-then the code uses 0.8854.
+primary papers (page references above). The universal length uses the same
+constant: the SRIM book (Ziegler, Biersack and Ziegler, 2015, Ch. 2) confirms
+the exponent 0.23 and prints the prefactor as 0.8853 in Eq. 2-73 (p. 2-30),
+while the labels of its Figs. 2-16 and 2-17 (p. 2-32) print 0.8854, a 10⁻⁴
+relative difference. The code follows the equation and uses the Thomas-Fermi
+constant, 0.88534.
 
 ## References
 

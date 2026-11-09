@@ -275,53 +275,56 @@ const EXPECTED_AMORPHOUS: IonExpected = IonExpected {
     stopped: 100,
     backscattered: 0,
     transmitted: 0,
-    sputtered: 155,
-    recoils: 58821,
+    sputtered: 150,
+    recoils: 58760,
     depth_hist: &[
         0, 1, 6, 3, 7, 11, 16, 12, 14, 12, 4, 8, 2, 3, 1, 0, 0, 0, 0, 0,
     ],
     beyond: 0,
-    depth_sum: 1.895393904897188e-6,
-    depth_sq_sum: 4.0803189719301385e-14,
-    lattice: 1.1947263335161665e6,
-    electronic_nonlocal: 7.308933894123819e5,
+    depth_sum: 1.8954840691926284e-6,
+    depth_sq_sum: 4.080713479799724e-14,
+    lattice: 1.1945485053465255e6,
+    electronic_nonlocal: 7.309998307914562e5,
 };
 
 const EXPECTED_CRYSTAL: IonExpected = IonExpected {
     stopped: 100,
     backscattered: 0,
     transmitted: 0,
-    sputtered: 133,
-    recoils: 67786,
+    sputtered: 138,
+    recoils: 67745,
     depth_hist: &[
-        0, 0, 1, 6, 12, 15, 13, 13, 11, 6, 6, 6, 4, 2, 2, 0, 1, 1, 0, 0,
+        0, 0, 1, 9, 11, 20, 11, 10, 8, 7, 2, 6, 1, 5, 1, 0, 1, 1, 3, 1,
     ],
-    beyond: 1,
-    depth_sum: 1.972785412561225e-6,
-    depth_sq_sum: 4.644724413036624e-14,
-    lattice: 1.2876489887391336e6,
-    electronic_nonlocal: 6.361895180662028e5,
+    beyond: 2,
+    depth_sum: 2.041412042533878e-6,
+    depth_sq_sum: 5.354212475219413e-14,
+    lattice: 1.2859303222814216e6,
+    electronic_nonlocal: 6.381426919093495e5,
 };
 
-/// Crystal reference for aarch64 macOS, generated on the `macos-latest` runner
-/// (image `macos-26-arm64` 20261013.0424, macOS 26.6.2) from the fixed-seed
-/// run above at 9e9697c, 2026-10-15. Differs from [`EXPECTED_CRYSTAL`] only
-/// because the platform libm differs in the last bit; see the module docs.
-/// Regenerate on aarch64 macOS, separately from the Linux sets.
+/// Crystal reference for aarch64 macOS, regenerated on an aarch64 macOS host
+/// (Darwin 27) from the fixed-seed run above for #536 (Thomas-Fermi constant
+/// in the universal screening length), 2026-11-09. That host reproduces the
+/// previous set, generated on the `macos-latest` runner (image
+/// `macos-26-arm64` 20261013.0424), bit for bit. Differs from
+/// [`EXPECTED_CRYSTAL`] only because the platform libm differs in the last
+/// bit; see the module docs. Regenerate on aarch64 macOS, separately from the
+/// Linux sets.
 const EXPECTED_CRYSTAL_AARCH64_MACOS: IonExpected = IonExpected {
     stopped: 100,
     backscattered: 0,
     transmitted: 0,
-    sputtered: 133,
-    recoils: 67721,
+    sputtered: 138,
+    recoils: 67811,
     depth_hist: &[
-        0, 0, 1, 6, 12, 15, 13, 13, 11, 6, 6, 6, 4, 2, 2, 0, 1, 1, 0, 0,
+        0, 0, 1, 9, 11, 20, 11, 10, 8, 7, 2, 6, 1, 5, 1, 0, 1, 1, 3, 1,
     ],
-    beyond: 1,
-    depth_sum: 1.9714783626537694e-6,
-    depth_sq_sum: 4.6289472492559004e-14,
-    lattice: 1.2878137943367276e6,
-    electronic_nonlocal: 6.360087276137662e5,
+    beyond: 2,
+    depth_sum: 2.0413900918869233e-6,
+    depth_sq_sum: 5.35423308819931e-14,
+    lattice: 1.2855866118088732e6,
+    electronic_nonlocal: 6.38456309049572e5,
 };
 
 #[test]

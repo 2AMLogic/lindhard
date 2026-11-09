@@ -1,9 +1,9 @@
 {
   "primaries": {
-    "stopped": 9441,
-    "backscattered": 559,
+    "stopped": 9440,
+    "backscattered": 560,
     "transmitted": 0,
-    "stopped_depth_mean_nm": 24.38995725595139,
-    "stopped_depth_std_nm": 12.728934527954353
+    "stopped_depth_mean_nm": 24.39118364690772,
+    "stopped_depth_std_nm": 12.729758786642684
   }
 }

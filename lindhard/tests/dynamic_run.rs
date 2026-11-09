@@ -285,7 +285,7 @@ fn a_slab_that_empties_is_removed_and_the_run_continues() {
     let g0 = grid(4, 1.0, false);
     let o = drive(
         g0,
-        3000,
+        9000,
         4e20,
         StepPolicy::Adaptive {
             max_ions_per_step: 300,
@@ -306,7 +306,7 @@ fn a_slab_that_empties_is_removed_and_the_run_continues() {
         assert_eq!(r.first_index, next);
         next += r.ions;
     }
-    assert_eq!(next, 3000);
+    assert_eq!(next, 9000);
 }
 
 #[test]
@@ -512,7 +512,9 @@ fn retention_saturates_at_the_limit_with_a_flat_top() {
     // limit f, a slab that has reached it holds exactly the fraction
     // As / (As + Si) = f (the analytic plateau), and no slab ever exceeds it.
     let f = 0.05;
-    let (count, fluence) = (3000, 8e19);
+    // Enough ions and fluence that the plateau is well clear of per-slab
+    // counting noise (re-sized in #536; at 3000 ions / 8e19 it was marginal).
+    let (count, fluence) = (9000, 1.6e20);
     let policy = StepPolicy::Adaptive {
         max_ions_per_step: 100,
         min_ions_per_step: 5,
