@@ -54,3 +54,5 @@ prefactor as 0.8853 (its Figs. 2-16 and 2-17, p. 2-32, label it .8854, a
   33 (14) (1963), p. 8.
 - J. F. Ziegler, J. P. Biersack, U. Littmark, *The Stopping and Range of Ions
   in Solids* (Pergamon, New York, 1985), ch. 2.
+- J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range
+  of Ions in Matter* (SRIM Co., 2008), ch. 2, pp. 2-29 to 2-32.

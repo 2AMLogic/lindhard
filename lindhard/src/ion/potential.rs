@@ -50,10 +50,16 @@ pub enum Screening {
 /// Prefactors and exponents `(c_i, b_i)` of the sum-of-exponentials screening
 /// functions, `phi(x) = Sum_i c_i exp(-b_i x)`.
 ///
-/// Cross-checked digit for digit (Kr-C, Moliere) or to the printed rounding
-/// (ZBL, whose 4-digit values here are the commonly printed rounding of
-/// 0.18175, 0.50986, 0.28022, 0.028171 / 3.19980, 0.94229, 0.40290, 0.20162)
-/// against `include/screened_coulomb.h` of the MIT-licensed `ir2-lab/screened_coulomb`
+/// ZBL: verified against J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and
+/// Range of Ions in Matter* (SRIM Co., 2008), Ch. 2,
+/// Fig. 2-17, p. 2-32 (these 4-digit values exactly) and Fig. 2-18, p. 2-36
+/// (the 5-digit set 0.18175, 0.50986, 0.28022, 0.028171 / 3.1998, 0.94229,
+/// 0.4029, 0.20162). The book's Eq. 2-74, p. 2-31, misprints the fourth
+/// prefactor as `.2817` and the third exponent as `.4028`; the figures and
+/// the normalisation `Sum c_i = 1` settle both.
+///
+/// Kr-C and Moliere: cross-checked digit for digit against
+/// `include/screened_coulomb.h` of the MIT-licensed `ir2-lab/screened_coulomb`
 /// (commit f84c3c8), a component of OpenTRIM. This is a secondary source, not
 /// the cited papers.
 const ZBL_C: [(f64, f64); 4] = [
