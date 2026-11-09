@@ -1,10 +1,10 @@
 {
   "sputtering": {
-    "yield_per_ion": 0.2534
+    "yield_per_ion": 0.2549
   },
   "escapes": {
-    "backscatter_coefficient": 0.0559,
+    "backscatter_coefficient": 0.056,
     "transmission_coefficient": 0.0,
-    "energy_reflection_coefficient": 0.009828116927787605
+    "energy_reflection_coefficient": 0.00983649666019863
   }
 }
