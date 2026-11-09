@@ -15,7 +15,10 @@
 //! effects", Mat. Fys. Medd. Dan. Vid. Selsk. 33 (10) (1963), with the
 //! analytic fit `g(ε) = 3.4008 ε^(1/6) + 0.40244 ε^(3/4) + ε` of M. T.
 //! Robinson (in *Nuclear Fusion Reactors*, British Nuclear Energy Society,
-//! London, 1970, p. 364), as adopted by the NRT standard below. Here `ε` is
+//! London, 1970, p. 364), as adopted by the NRT standard below (coefficients
+//! checked against J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The
+//! Stopping and Range of Ions in Matter* (SRIM Co., 2015), Eq. 7-52,
+//! p. 7-28, a secondary source). Here `ε` is
 //! the Lindhard reduced energy and `k` the Lindhard-Scharff electronic
 //! stopping coefficient of the PKA (atomic number `Z1`, mass `A1`) in the
 //! target (`Z2`, `A2`), as in [`crate::ion::stopping::lindhard_scharff`]:

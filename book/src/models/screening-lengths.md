@@ -43,9 +43,11 @@ cascade energies upward.
 From [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md):
 the Firsov and Lindhard lengths have been verified against scans of the
 primary papers (page references above). The universal length uses the same
-constant: Ziegler, Biersack and Littmark (1985), Eq. 2-73, p. 2-30, prints the
-prefactor as 0.8853 (its Figs. 2-16 and 2-17, p. 2-32, label it .8854, a
-10⁻⁴ relative difference). The value is the Thomas-Fermi constant, 0.88534.
+constant: the SRIM book (Ziegler, Biersack and Ziegler, 2015, Ch. 2) confirms
+the exponent 0.23 and prints the prefactor as 0.8853 in Eq. 2-73 (p. 2-30),
+while the labels of its Figs. 2-16 and 2-17 (p. 2-32) print 0.8854, a 10⁻⁴
+relative difference. The code follows the equation and uses the Thomas-Fermi
+constant, 0.88534.
 
 ## References
 
@@ -55,4 +57,4 @@ prefactor as 0.8853 (its Figs. 2-16 and 2-17, p. 2-32, label it .8854, a
 - J. F. Ziegler, J. P. Biersack, U. Littmark, *The Stopping and Range of Ions
   in Solids* (Pergamon, New York, 1985), ch. 2.
 - J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range
-  of Ions in Matter* (SRIM Co., 2008), ch. 2, pp. 2-29 to 2-32.
+  of Ions in Matter* (SRIM Co., 2015), ch. 2, pp. 2-29 to 2-32.

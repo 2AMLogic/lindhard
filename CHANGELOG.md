@@ -9,7 +9,7 @@ one version).
 
 ### Changed
 
-- The universal screening length uses the Thomas-Fermi constant 0.88534 (ZBL 1985, Eq. 2-73 prints 0.8853) instead of 0.8854, a 1e-4 relative shift in `a_U`; golden values regenerated.
+- The universal screening length uses the Thomas-Fermi constant 0.88534 (the SRIM book, 2015, Eq. 2-73, prints 0.8853) instead of 0.8854, a 1e-4 relative shift in `a_U`; golden values regenerated.
 
 ### Added
 
