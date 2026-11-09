@@ -15,7 +15,7 @@ Scharff and Schiøtt (1963, p. 8).
 
 | Length | Formula | TOML (`[physics]`) | Rust |
 |---|---|---|---|
-| Universal | \\( a_U = 0.8854\\, a_0 / (Z_1^{0.23} + Z_2^{0.23}) \\) | `screening_length = "universal"` | `LengthChoice::Universal`, `ScreeningLength::Universal` |
+| Universal | \\( a_U = 0.8853\\, a_0 / (Z_1^{0.23} + Z_2^{0.23}) \\) | `screening_length = "universal"` | `LengthChoice::Universal`, `ScreeningLength::Universal` |
 | Firsov | \\( a_F = 0.8853\\, a_0 / (Z_1^{1/2} + Z_2^{1/2})^{2/3} \\) | `screening_length = "firsov"` | `LengthChoice::Firsov`, `ScreeningLength::Firsov` |
 | Lindhard (Thomas-Fermi) | \\( a_L = 0.8853\\, a_0 / (Z_1^{2/3} + Z_2^{2/3})^{1/2} \\) | `screening_length = "lindhard"` | `LengthChoice::Lindhard`, `ScreeningLength::Lindhard` |
 
@@ -42,10 +42,10 @@ cascade energies upward.
 
 From [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md):
 the Firsov and Lindhard lengths have been verified against scans of the
-primary papers (page references above). The universal-length prefactor has
-been seen only in secondary sources, which agree on the exponent 0.23 and
-print the prefactor as either 0.8854 or 0.8853 (a 10⁻⁴ relative
-difference).
+primary papers (page references above). The universal length uses the same
+constant: Ziegler, Biersack and Littmark (1985), Eq. 2-73, p. 2-30, prints the
+prefactor as 0.8853 (its Figs. 2-16 and 2-17, p. 2-32, label it .8854, a
+10⁻⁴ relative difference). The value is the Thomas-Fermi constant, 0.88534.
 
 ## References
 
