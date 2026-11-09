@@ -8,11 +8,14 @@
 //!   everywhere. This tests the property itself: attaching a crystal does not
 //!   touch transport, or the random streams, in amorphous regions.
 //! * **Fixed digests** (x86_64 Linux only): SHA-256 of the report produced
-//!   by the engine as of `4538a48` (before the crystal flight model), so any
-//!   change to any tallied bit fails here. They were recorded on x86_64
-//!   Linux; libm `exp`/`ln`/`pow`/trigonometry differ in the last bit on
-//!   other targets (macOS, aarch64 Linux), so the serialised floats, and the
-//!   digests, are platform dependent. The gate keeps the before/after
+//!   by the engine, so any change to any tallied bit fails here. They were
+//!   first recorded at `4538a48` (before the crystal flight model) and
+//!   re-recorded when the collision azimuth moved from libm `sin_cos` to
+//!   `kinematics::sin_cos_turns` (#424), which changes results at the
+//!   1e-16 level. They were recorded on x86_64 Linux; libm
+//!   `exp`/`ln`/`pow`/trigonometry differ in the last bit on other targets
+//!   (macOS, aarch64 Linux), so the serialised floats, and the digests, are
+//!   platform dependent. The gate keeps the before/after
 //!   evidence for the refactor on the platform where it was measured.
 //!
 //! The cases mirror `examples/b_5keV_si.toml` (B 5 keV into Si at 7 degrees,
@@ -20,13 +23,9 @@
 //! optional branches of the flight loop (local electronic loss, weak
 //! collisions in the digest case, a layered target with an interface).
 
-use std::sync::OnceLock;
-
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, ElectronicLoss};
 use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -34,21 +33,8 @@ use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
+mod common;
+use common::zbl_si_table as table;
 
 fn elemental(z: u8) -> Material {
     let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();
@@ -120,7 +106,7 @@ fn b_5kev_si_example_is_unchanged() {
     cfg.seed = 1;
     let d = digest(&stack, 5, 5.0e3, cfg, 3000);
     assert_eq!(
-        d, "358ec00db8250c22f99a4a0c200442dafed8457ffa47d8eb5738f983f6964db0",
+        d, "19a728c3b2ab0e5f9754a9068782b3af971dc70eda2a0d2bf717ccd860ae448b",
         "amorphous B 5 keV Si report changed"
     );
 }
@@ -135,7 +121,7 @@ fn all_optional_branches_are_unchanged() {
     cfg.weak_collisions = 2;
     let d = digest(&stack, 18, 2.0e3, cfg, 1500);
     assert_eq!(
-        d, "ad542f70448a84fb590cab530d66202274ff33f216f4c3423a7b9506683eec23",
+        d, "849a5430dfaecbdc97cd76f5ad6b91017def8ed2d2890722830ffc3ce3e8bb6a",
         "amorphous multi-branch report changed"
     );
 }

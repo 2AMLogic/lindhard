@@ -4,7 +4,7 @@ lindhard is a clean-room, MIT-licensed Rust engine for Monte Carlo transport
 of ions in matter, in the binary-collision approximation (BCA). For a beam of
 ions entering a layered amorphous target it computes where the ions stop,
 how much damage their cascades make, and what is sputtered and backscattered.
-An electron engine is planned and not yet started.
+A low-energy electron engine is under development; see [Status and roadmap](status.md).
 
 This book has two parts.
 

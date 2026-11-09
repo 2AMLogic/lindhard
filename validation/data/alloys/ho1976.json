@@ -1,0 +1,93 @@
+{
+  "id": "ar_cuni_ho1976",
+  "kind": "alloy_erosion_and_aes_source_tables",
+  "citation": "P. S. Ho, J. E. Lewis, H. S. Wildman and J. K. Howard, Auger study of preferred sputtering on binary alloy surfaces, Surface Science 57, 393–405 (1976)",
+  "doi": "10.1016/0039-6028(76)90191-6",
+  "url": "https://doi.org/10.1016/0039-6028(76)90191-6",
+  "source_pdf_sha256": "bd75ac30c2b5a35560da601d93f038ef3a6c5ddcd0d37a39e005f5006a4e47f2",
+  "source_access": "Original article PDF supplied by the operator; only cited numerical facts transcribed. PDF and page images not redistributed.",
+  "terms": "Facts, cited; original article copyright is not transferred to this repository.",
+  "added": "2026-10-19",
+  "tables": [
+    {
+      "file": "ho1976_table1.csv",
+      "table": 1,
+      "printed_page": 401,
+      "pdf_page": 9,
+      "rows": 5,
+      "constant_from_source": "All rows use 0.5 keV Ar+ (table footnote)."
+    },
+    {
+      "file": "ho1976_table2.csv",
+      "table": 2,
+      "printed_page": 402,
+      "pdf_page": 10,
+      "rows": 4,
+      "constant_from_source": "All rows use 38.4 at% Cu (table caption)."
+    }
+  ],
+  "conditions": {
+    "projectile": "Ar+",
+    "target": "Homogeneous coevaporated Cu–Ni films on thermally grown SiO2; random grain orientation",
+    "film_thickness_angstrom_approx": 5000,
+    "incidence_deg_from_normal_approx": 20,
+    "incidence_source": "Section 3, p. 398: about 70 degrees measured from the sample surface; converted to 20 degrees from normal.",
+    "irradiation_temperature_K": null,
+    "temperature_note": "Room temperature is stated for deposition, not irradiation.",
+    "ion_intensity_area_convention": "Not resolved here; establish sample-area versus beam-normal-area convention before converting erosion to atoms/ion.",
+    "methods": "Bulk composition: electron microprobe; ion intensity: Faraday cup; erosion: crater depth (Talystep and laser interferometry); AES: Cu 920 eV, corrected Ni 716 eV preferred."
+  },
+  "columns": {
+    "row_id": "Local stable identifier; tN-rM means Table N, data row M (one-based).",
+    "bulk_cu_at_percent": "Cu atomic percent in the bulk alloy; Ni is the balance.",
+    "energy_keV": "Incident Ar+ ion energy in keV.",
+    "ion_intensity_cm2_s": "Reported ion intensity in ions per square centimetre per second.",
+    "erosion_rate_angstrom_min": "Measured sputter erosion rate in angstroms per minute; NOT atoms per ion.",
+    "erosion_rate_reported_pm_angstrom_min": "Printed plus/minus erosion-rate amount; crater-periphery deviations, not declared 1 sigma.",
+    "r0_over_rinf": "Authors’ ratio of extrapolated zero-time Cu/Ni AES signal ratio to equilibrium ratio; dimensionless, model/extrapolation dependent.",
+    "r0_over_rinf_reported_pm": "Printed plus/minus amount, mainly extrapolation uncertainty, not declared 1 sigma.",
+    "tau_s": "Authors’ fitted transient time constant in seconds; model dependent.",
+    "tau_reported_pm_s": "Printed plus/minus amount in seconds, mainly extrapolation uncertainty, not declared 1 sigma."
+  },
+  "extraction": {
+    "method": "Table transcription from pdftotext, checked against rendered original pages. No figure digitization or simulation values.",
+    "second_read": "2026-10-19: all numeric cells and column units visually re-read on pp. 401–402 after initial text extraction; same assistant, not an independent reviewer.",
+    "corrections": "None; conflicting source rows retained exactly."
+  },
+  "limitations": [
+    {
+      "rows": [
+        "t1-r3",
+        "t2-r1"
+      ],
+      "reason": "Same printed composition, energy, intensity and erosion rate, but inconsistent R0/Rinf and tau. Exclude this ambiguous pair from an initial benchmark until resolved; do not silently repair or merge."
+    },
+    {
+      "rows": [
+        "t1-r1",
+        "t1-r2",
+        "t1-r3",
+        "t1-r4",
+        "t1-r5",
+        "t2-r1"
+      ],
+      "reason": "At 0.5 keV AES may include material beneath the altered layer (discussion, pp. 403–404)."
+    },
+    {
+      "rows": "all",
+      "reason": "Initial surface oxide changes transient sputtering; R0 and tau depend on fitting oxide-cleared late-time data and extrapolating (pp. 399–402, 404)."
+    },
+    {
+      "rows": "all",
+      "reason": "Erosion rates average crater-periphery depths; spatial variation dominates their reported uncertainty. No covariance or statistical confidence level supplied (p. 404)."
+    }
+  ],
+  "candidate_row": "t2-r4",
+  "derived_composition": {
+    "formula": "m = c / (q * (1 - c) + c)",
+    "inputs": "c = bulk_cu_at_percent / 100; q = r0_over_rinf",
+    "source_basis": "Proportional AES calibration and oxide-cleared R0 extrapolation, pp. 400–402. Our algebra, not a printed composition column.",
+    "limitations": "Requires valid proportional calibration and representative AES sampling; propagate bulk-composition and extrapolation uncertainties."
+  },
+  "validation_status": "Row t2-r4 compared with the fluence-dependent engine under both relaxation conventions (#448, validation/experiments/cuni_dynamic.py): surface fraction and, in part, total yield outside the fixed tolerances. Flux-area convention and alloy density still unresolved; other rows not compared; high-fluence implant-profile reference outstanding."
+}

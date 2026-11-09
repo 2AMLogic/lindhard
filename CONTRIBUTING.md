@@ -49,6 +49,62 @@ committed as reference data. In particular, **no SRIM stopping table, and
 nothing interpolated or fitted from one, may enter this tree**, and that
 includes tables passed along through other projects.
 
+**Reference, never input.** A Tier C code's output (a local run, or a table
+printed in its book or manual) may be used to *check* our results, under
+"Oracles" below. It may never be used to *make* them. Our models are
+generated independently from published physics. So do not tune, fit or
+calibrate any parameter of ours against SRIM values, or choose between
+models because one lands closer to SRIM. If a comparison shows a gap,
+explain it from the physics, or record it as a known difference.
+
+**The SRIM book.** J. F. Ziegler, J. P. Biersack and M. D. Ziegler, *SRIM:
+The Stopping and Range of Ions in Matter* (SRIM Co., 2015; ISBN
+978-0-9654207-1-6; earlier printings 1984 to 2008). Page and equation
+numbers cited in this tree are from the 2015 printing. Treat it as Tier C
+literature:
+
+- **Citable:** the text, the derivations, and the published formulas and
+  constants (for example the universal screening function and the
+  magic-formula constants). Cite them by edition, page and equation, and
+  check every digit against the page itself, not against memory.
+- **Reference only:** the printed stopping, range and straggling tables, the
+  SRIM curves on its plots, and fitted electronic-stopping coefficient sets. These may be
+  compared against locally, like any oracle output, but never transcribed
+  into the tree or used as model input.
+- **Never:** the bundled software and any program listing (see "Mixed
+  sources").
+- **Page images stay out of the tree.** The book is copyrighted. Keep scans
+  or photos locally (for example under the gitignored
+  `validation/oracle-runs/`), and commit only citations.
+
+**The srim.org experimental-data compilation** (operator ruling, 2026-10-28).
+srim.org publishes plots of measured stopping powers (about 22,000 points)
+and a bibliography of the roughly 2,300 experimental papers behind them
+(`PlotCit.htm` and its per-system citation files). The measured points and the
+citations are facts reported by those papers, not SRIM output. They may enter
+the tree under these conditions:
+
+- Each point is cited to its **original paper** (the citation the plot's
+  legend names) and flagged as *digitized from the srim.org compilation plot*.
+  It carries a digitization uncertainty, and it is replaced by the paper's own
+  value once the paper has been read.
+- SRIM's own computed values are not measurements: the fitted curve on every
+  plot is never stored, as for any SRIM table. A digitizer may read the curve
+  and the Experiment/Theory panel under it only as an intermediate, to recover
+  a measured point hidden under other markers on top (its ratio times the
+  curve). Such a point is flagged as reconstructed from the ratio panel, and
+  no point is made from the curve alone (operator ruling, 2026-10-28,
+  [recorded on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)).
+- The site's history and commentary are welcome too, as facts restated in our
+  own words with citations. The site's files (images, PDFs, page text) stay in
+  the operator's archive rather than being copied into the tree.
+- This data is released under CC0 (`validation/data/stopping/compilation/LICENSE`),
+  separate from the MIT code. Every point keeps its citation regardless.
+
+The rest of this tier is unchanged. In particular, a stopping value computed by
+SRIM is still never committed or used as reference data in the tree; comparison
+use is governed by "Reference, never input" and "Oracles".
+
 **Mixed sources.** Some published reports bundle a program listing with the
 paper. The listing is Tier C even though the report is citable. Exclude the
 listing pages before any OCR or text extraction, not after.
@@ -63,7 +119,10 @@ Comparing against third-party programs is encouraged, and the harness under
 `validation/` drives them. Their raw outputs are regenerated locally into
 `validation/oracle-runs/`, which is gitignored. Commit only our own **summary
 metrics** of a comparison (for example "Rp within 3% of oracle X at version
-Y"), never their tables or curves.
+Y"), never their tables or curves. This includes SRIM: run it locally, or
+compare against the tables in its book, as a full reference. Its numbers stay
+in `oracle-runs/`, and only the summary metrics are committed, naming the
+SRIM version or the book's edition and page.
 
 ### Data
 
@@ -172,6 +231,41 @@ normal run and confirm the recovery comment and closure. The reporting logic and
 the workflow wiring have offline tests:
 `python3 .github/scripts/test_clippy_canary.py` (needs PyYAML).
 
+## Dependency advisories
+
+The weekly [`advisories`](.github/workflows/advisories.yml) workflow (also
+runnable by `workflow_dispatch`) runs `cargo deny check advisories` against the
+RustSec database, with the policy in the `[advisories]` table of `deny.toml`. It
+is not a pull-request workflow and not a required check, on purpose: the
+database changes without any commit here, so a PR-time check would fail
+unrelated PRs on a newly published advisory. `ci.yml` runs only
+`cargo deny check licenses sources`.
+
+The workflow pins its own cargo-deny (`CARGO_DENY_VERSION` in `advisories.yml`),
+newer than the one in `ci.yml`: 0.18.2 cannot load the current database
+(`unsupported CVSS version: 4.0`). Keep `deny.toml` parseable by both.
+
+**Reading the report.** A failing run opens, reopens or comments on the single
+tracking issue (identified by the hidden `<!-- advisories-tracking -->` marker in
+its body); each comment carries the commit SHA and run URL, and the run log lists
+the advisory IDs. A green run comments "recovered" and closes the issue. A red
+run with a reporting error (API failure, or more than one issue carrying the
+marker) needs that fixed first: remove the marker from all but one issue, then
+re-run. Never create a second tracking issue by hand.
+
+**Responding.** Reproduce with `cargo deny check advisories`, then update the
+affected crate (`cargo update -p <crate>`), or replace it. If an advisory truly
+does not apply, add it to `ignore` in `deny.toml` in a pull request, with the
+advisory ID and a comment giving the reason and what would let the entry go.
+Never ignore without both.
+
+To check the reporting path live, dispatch the workflow with `simulate-failure`
+set to true, confirm the tracking issue is created, dispatch it again and confirm
+no second issue appears, then dispatch a normal run and confirm the recovery
+comment and closure. The reporting logic and the workflow wiring have offline
+tests: `python3 .github/scripts/test_advisories_report.py` (needs PyYAML). They
+are not run by `ci.yml`.
+
 ## Everything else
 
 - Rust stable, `cargo fmt`, `cargo test` green, `cargo clippy -- -D warnings` clean on
@@ -186,7 +280,8 @@ the workflow wiring have offline tests:
 - No C/Fortran dependencies in the default build.
 - Every dependency must be permissively licensed and come from crates.io.
   `cargo deny check licenses sources` enforces both in CI, and `deny.toml`
-  holds the allowlist.
+  holds the allowlist. Known-vulnerable, yanked and unmaintained crates are
+  reported weekly, not gated per PR (see "Dependency advisories" above).
 - **Reproducibility is a feature.** Every random draw comes from a counter-based
   stream keyed on (seed, particle index), so a run gives the same bits on 1
   thread or 64. A PR that breaks this needs a test showing why it must. The invariant is

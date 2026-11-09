@@ -70,6 +70,7 @@ cover both halves of this project.
 | [`lindhard/`](lindhard/README.md) | The library: materials, potentials, stopping, transport, tallies |
 | [`lindhard-cli/`](lindhard-cli/README.md) | `lindhard` binary: TOML in, JSON/CSV out |
 | [`lindhard-py/`](lindhard-py/README.md) | `lindhard` Python package (pyo3 + maturin): NumPy arrays out, same TOML schema |
+| [`lindhard-wasm/`](lindhard-wasm/README.md) | WebAssembly build and the static range-calculator page (wasm-bindgen) |
 | [`examples/`](examples/README.md) | Example CLI inputs |
 | [`book/`](book/README.md) | Source of the lindhard book (physics manual and user guide), built with mdBook |
 | [`tools/`](tools/README.md) | Developer tools: profiling helpers |
@@ -78,8 +79,8 @@ cover both halves of this project.
 
 ## Documentation
 
-- [The lindhard book](https://2amlogic.github.io/lindhard/) (source in
-  [`book/`](book/)): the physics manual, one page per model, and the user
+- [The lindhard site](https://2amlogic.github.io/lindhard/) (landing page in
+  [`site/`](site/); the book is in [`book/`](book/)): the physics manual, one page per model, and the user
   guide, including a [first run](book/src/guide/first-run.md) from start to
   finish.
 - [`docs/architecture.md`](docs/architecture.md): design and module plan.

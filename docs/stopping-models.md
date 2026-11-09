@@ -20,7 +20,27 @@ advisory; the models do not refuse energies outside them (Bethe-Bloch returns
 | User table | `table` | exactly the table's energy range | the table's own `provenance` |
 | Bragg additivity | `bragg` | where the element models apply; ignores chemical state unless a correction is supplied | Bragg & Kleeman 1905 |
 | Single-oscillator density effect (opt-in) | `bethe::density_effect_single_oscillator` | `βγ > I/ħω_p` (about 5.6 for Si, beyond the Bethe-Bloch 1 GeV/u range); zero below, so no effect in range; underestimates `δ` through the transition | Fermi 1940; Sternheimer 1952; Fano 1963 (specialisation ours) |
+| Per-pair correction (opt-in) | `correction` | only inside the energy span of its training points, for the one ion and target it was fitted to; the base model unchanged elsewhere | Fitted to cited measured points; the form (exponential of a Chebyshev series in `ln E`) is ours, the bootstrap is Efron, Ann. Statist. 7, 1 (1979). See "Per-pair corrections" below |
 | Bohr straggling | `straggling` | high energy, `v >> v0 Z1^(2/3)`; overestimates below about 1 MeV/u | Bohr 1948 |
+
+## Per-pair corrections
+
+`correction::fit_correction` fits a smooth multiplicative factor `g(E)` of a
+base model to the measured points of one ion on one element target
+(`StoppingDataset`), and `Correction` applies it. The fit is deterministic and
+seeded; the held-out split, the bootstrap band (`CorrectionFit::band`) and the
+held-out residuals of the base and the corrected model side by side
+(`HeldOutReport`) come with it, and a correction that does not lower the
+held-out rms says so (`reduces_rms_relative`). The correction is applied only
+inside the span of its training data. The band covers the scatter of the points
+about the polynomial form, not measurement systematics or bias of the form, and
+with no stated point uncertainty it says nothing about measurement error.
+Example: 15 values of the stopping of Cu for 50 to 600 keV protons (Bader et
+al. 1956, smoothed curve values) against Lindhard-Scharff, which is far outside
+its range there (the base is 2 to 4 times too high); the fit is a statement
+about that data, not a validated model of Cu. Bethe-Bloch returns
+`NotApplicable` at 50 keV, so it cannot be fitted over this span (the fit
+refuses rather than dropping points).
 
 ## What is deliberately not implemented
 

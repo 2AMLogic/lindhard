@@ -11,8 +11,7 @@ use lindhard::electron::transport::{
 };
 use lindhard::geometry::Stack;
 use lindhard::material::Material;
-use lindhard::rng;
-use rand_core::Rng;
+use lindhard::rng::{self, uniform};
 
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
@@ -72,10 +71,6 @@ fn elastic_isotropic(lambda_m: f64) -> CrossSectionTable {
 
 fn pair(elastic: CrossSectionTable, inelastic: CrossSectionTable) -> LayerTables {
     LayerTables { elastic, inelastic }
-}
-
-fn uniform(r: &mut impl Rng) -> f64 {
-    (r.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
 }
 
 // ---------------------------------------------------------------------------

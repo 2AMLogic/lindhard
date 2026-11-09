@@ -372,6 +372,7 @@ step sizes and thread count.
 | `atomic_volume_nm3.<Sym>` | elemental solid volume from the element table | Atomic volume, nm³/atom, per element (ideal mixing). Required for an element with no tabulated solid density (a gas) |
 | `energies.<Sym>` | `[physics.energies.<Sym>]`, then element defaults | `e_d_ev`, `e_b_ev`, `e_s_ev` of an element that enters the target during the run (the beam species, for example). Elements already in a layer keep that layer's energies |
 | `erosion` | `false` | Sputter erosion: sputtered atoms are removed from the front of the target (slab 0 first, then deeper slabs) instead of from the slab where they were displaced, and the surface recedes. Must be a boolean |
+| `retention_limit.<Sym>` | none (off) | Retention limit of an implanted species: the largest atom fraction of that element a slab may hold, in (0, 1). Atoms above it are re-emitted: removed from the slab and from the target. No default value is supplied. Written as a `[dynamic.retention_limit]` table, e.g. `As = 0.05` |
 
 With `erosion = false` the front surface stays at `x = 0`: swelling moves the
 interior interfaces and the back face of the slabs, not the front surface (the
@@ -386,6 +387,10 @@ step sputters more of an element than the slabs hold, the excess is not
 removed and the element is counted in the `clamped` column. With a substrate,
 atoms sputtered from the substrate remove nothing from the slabs, so the
 recession falls short of `Y F / n` once the film is thin.
+With a `retention_limit` the excess over the limit is removed after each step
+(model and assumptions: the book's dynamic-composition page); the steps file
+gains `cum_re_emitted_atoms_per_cm2_<Sym>` columns, the atoms/cm² re-emitted so
+far per element. Without one the output is unchanged.
 `dynamic_summary.json` totals gain `recession_nm` only with erosion on. Depths
 in the output are measured from the front surface of that step. A dynamic run
 needs `E_d` for every element that can occur, including the beam species. The Python bindings run static inputs only.
@@ -576,6 +581,7 @@ Every name the target uses needs an entry; an unused entry warns.
 | `phonon` | none (off) | Fröhlich LO-phonon channel, polar insulators only: `{ hbar_omega_ev, eps_static, eps_high_frequency, temperature_k, provenance }`, or `{ preset = "sio2-63mev" \| "sio2-153mev", temperature_k }` (the library's cited SiO₂ values) |
 | `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
 | `mermin_fit` | none (the default fit) | Options of this material's Mermin oscillator fit, `mermin-melf` only: see below |
+| `inner_shells` | none (valence only) | Inner-shell ionisation channels of this material, `penn-single-pole` only: see below |
 
 **`[electron.materials.<name>.mermin_fit]`** (`lindhard::electron::inelastic::MerminFitOptions`):
 the `mermin-melf` model fits Drude-Lorentz oscillators to each material's
@@ -629,9 +635,40 @@ it is given.
 No optical or band data of any real material is committed
 ([`data-provenance.md`](data-provenance.md)); the data files are the user's,
 and their terms are the user's concern. Subshell binding-energy tables
-(`SubshellBindingTable`) have no key yet: the transport loop does not use
-inner-shell channels, so there is nothing to feed them to (see "extending"
-below).
+(`SubshellBindingTable`) are read through the optional `binding` key of
+`inner_shells`, below.
+
+**`[electron.materials.<name>.inner_shells]`** adds inner-shell ionisation
+channels to a material (`lindhard::electron::transport::Transport::with_inner_shells`,
+attached to every layer of that material):
+
+| Key | Default | Meaning |
+|---|---|---|
+| `subshells` | required | Subshells of **every element** of the material that become channels: `"K"`, `"L1"`, `"L2"`, `"L3"` (the only ones with a hydrogenic formula). An empty list, a repeat, any other label and M and above are refused |
+| `binding` | the embedded EADL2017 table | Path of a binding-energy table in the TOML form of `SubshellBindingTable` (relative to the input file's directory). It is read with that type's loader, so **a table without a provenance is refused**, and so is one that lacks an element of the material or a requested subshell of it |
+
+```toml
+[electron.inelastic]
+model = "penn-single-pole"
+
+[electron.materials.Si.inner_shells]
+subshells = ["K", "L1", "L2", "L3"]
+# binding = "my_binding.toml"   # optional override of the EADL2017 table
+```
+
+Each channel is the shell's hydrogenic optical ELF
+(`electron::inelastic::hydrogenic_shell_elfs`, atom density from the material)
+tabulated with single-pole Penn on the energy axis of the material's
+inelastic table (`build_shell_channel_tables`). Limits, as in the library:
+single-pole Penn per channel, no exchange correction, and the material's
+valence ELF must not already contain the shells (no partition rule is
+applied: an ELF that covers the shell edges counts them twice). A material
+with no `inner_shells` table runs exactly as before. The summary records the
+subshells and the table under `physics.materials[].inner_shells`
+(`binding_source` is `"file"`, with the file's `path` and `sha256`, or
+`"embedded EADL2017"`, plus `binding_provenance`), the channel in
+`physics.models`, and the channels per layer in `physics.transport`. The
+channel tables are built on every run and are not part of the table cache.
 
 **`[electron.tally]`** (`lindhard::tally::ElectronTallyConfig`)
 
@@ -1031,10 +1068,9 @@ The electron schema and its output follow the same rules, with
   `electron.transport.secondaries`, `electron.transport.boundary`, a `band`
   `kind`, a `phonon` `preset`) and a new `physics.models` entry; existing
   values keep their meaning and defaults never change.
-- New per-material data (for example a subshell binding-energy table, once
-  inner-shell channels reach the transport loop, or a precomputed
-  cross-section cache) becomes a new optional key of
-  `[electron.materials.<name>]` that names a file. It must be read with the
+- New per-material data (for example a precomputed cross-section cache)
+  becomes a new optional key of `[electron.materials.<name>]` that names a
+  file. It must be read with the
   `lindhard::electron::data` loader of its type, so data without a
   provenance is refused, and recorded under `physics.materials` with its
   path, SHA-256 and provenance.

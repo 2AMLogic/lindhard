@@ -1,0 +1,11 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-c8h8-1980-bedn
+# description: H in C8H8, 7 points of one paper (Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,C8H8,120636.7,10.14,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)",1980-Bedn,digitized-compilation
+1,1.007825,C8H8,190478.9,8.733,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)",1980-Bedn,digitized-compilation
+1,1.007825,C8H8,211240.1,8.293,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)",1980-Bedn,digitized-compilation
+1,1.007825,C8H8,250545.3,7.531,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)",1980-Bedn,digitized-compilation
+1,1.007825,C8H8,352436.4,5.919,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)",1980-Bedn,digitized-compilation
+1,1.007825,C8H8,452412.6,5.07,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)",1980-Bedn,digitized-compilation
+1,1.007825,C8H8,480833.3,4.835,0.025,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Bednyakov, A. A. Bulgakov, Y. V. Nikolaev, V. S. Chernov, V. L., Sov. Phys., JETP 51, 954 (1980)",1980-Bedn,digitized-compilation

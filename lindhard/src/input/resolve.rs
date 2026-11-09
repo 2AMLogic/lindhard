@@ -110,6 +110,15 @@ impl Input {
                 }
             }
         }
+        for (sym, f) in &d.retention_limit {
+            let field = format!("dynamic.retention_limit.{sym}");
+            if element_by_symbol(sym).is_none() {
+                return Err(invalid(&field, format!("unknown element symbol {sym:?}")));
+            }
+            if !(f.is_finite() && *f > 0.0 && *f < 1.0) {
+                return Err(invalid(&field, "must be an atomic fraction in (0, 1)"));
+            }
+        }
         Ok(())
     }
 

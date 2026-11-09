@@ -18,8 +18,6 @@ use lindhard::ion::bca::{
     Bca, BcaConfig, BcaTally, Beam, ElectronicLoss, EnergyBudget, HistoryBuffers, LatticeDeposit,
     MeanFreePath, Particle,
 };
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -91,18 +89,8 @@ fn material(z: u8) -> Material {
     m
 }
 
-fn table() -> ScatteringTable {
-    ScatteringTable::build(
-        &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-        &TableSpec {
-            eps_min: 1e-6,
-            eps_max: 1e4,
-            beta_min: 1e-5,
-            beta_max: 1e2,
-            per_decade: 16,
-        },
-    )
-}
+mod common;
+use common::zbl_si_table as table;
 
 fn check(z_ion: u8, energy_ev: f64, z_target: u8, edit: impl Fn(&mut BcaConfig)) {
     const N: u64 = 150;
@@ -119,7 +107,7 @@ fn check(z_ion: u8, energy_ev: f64, z_target: u8, edit: impl Fn(&mut BcaConfig))
         azimuth_rad: 0.0,
         count: N,
     };
-    let bca = Bca::new(beam, &stack, cfg, &ls, &table).unwrap();
+    let bca = Bca::new(beam, &stack, cfg, &ls, table).unwrap();
     let mut buffers = HistoryBuffers::new();
     let run = |buffers: &mut HistoryBuffers| {
         let mut t = Counts::default();
@@ -172,7 +160,7 @@ fn counter_sees_allocations_of_fresh_buffers() {
     let ls = LindhardScharff::new();
     let cfg = BcaConfig::new(5.0, 2.0);
     let beam = Beam::normal(Ion::new(18).unwrap(), 1.0e3, 10);
-    let bca = Bca::new(beam, &stack, cfg, &ls, &table).unwrap();
+    let bca = Bca::new(beam, &stack, cfg, &ls, table).unwrap();
     let before = allocs();
     for i in 0..10 {
         let mut t = Counts::default();

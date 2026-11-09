@@ -330,6 +330,79 @@ remains is the table lookup (two `ln` and one `exp` per collision) and the
 azimuth `sin_cos`. Those are the next candidates, ahead of any layout change;
 the SoA / SIMD verdict stays "not yet".
 
+## Re-profile and the azimuth (#424)
+
+Phase 2 of the performance epic (#36): the profile of current `main` (`4544ec7`),
+then the scalar candidates it names, then the SoA / SIMD question.
+
+**Profile.** Same problem, sampler and symbolizer as above (B 5 keV into Si, 7 degrees
+off normal, seed 1, one thread, 5 x 10^4 ions, `lto = "fat"`,
+`codegen-units = 1`, frame pointers, rustc 1.99.0, Linux 6.17.0-1019-aws, Intel
+Xeon Platinum 8488C, 8 shared vCPUs, **load average 2 to 3**), 5 202 samples,
+9.6 k ions/s in the sampler build. Shares are of all samples; libm time is
+attributed to its caller.
+
+| Hot spot | Share |
+|---|---|
+| libm calls, all | 29.7 % |
+| of which `sin` / `cos`, the azimuth `sin_cos` | 13.2 % |
+| of which `ln`, the two grid coordinates of `ScatteringTable::half_angle_tan` | 8.7 % |
+| of which `exp`, the table value back to `tan(theta/2)` | 7.5 % |
+| `ScatteringTable::half_angle_tan` itself (four loads, bilinear weights) | 15.1 % |
+| `Bca::binary` itself | 11.6 % |
+| `electronic_nonlocal` | 5.9 % |
+| `lab_projectile_sc` | 5.9 % |
+| `rotate_sc` | 5.1 % |
+| ChaCha8 refill | 2.4 % |
+
+The table lookup as a whole (self time plus its `ln` and `exp`) is about 31 %
+and the azimuth `sin_cos` 13 %, as predicted at the end of the previous
+section.
+
+**Candidate 1, the azimuth: kept.** `kinematics::sin_cos_turns(u)` returns
+`(sin, cos)` of `2 pi u` from the uniform draw directly, by exact reduction to
+a quarter-turn count plus a remainder in `[-pi/4, pi/4]` and short Maclaurin
+series, instead of the two libm calls. It consumes the same single uniform
+draw as before, so the per-particle RNG stream is unchanged; it differs from
+the library `sin_cos` by about 2e-16 (a unit test checks 10^5 azimuths against
+it, including the octant boundaries), so, as in #37, single histories are not
+bit-identical to the previous commit but the distributions agree (the level-1
+harness passes), and results stay bit-identical across thread counts. In the
+profile of the changed binary the azimuth costs 7.9 % of the samples
+(`sin_cos_turns`), where it cost 13.2 %.
+
+**Candidate 2, the grid-coordinate `ln`: tried, rejected.** Replacing the two
+`ln` of the lookup with a series on the exponent and mantissa (about 1e-14
+accurate, far below the 0.07-wide grid cell) was slower than glibc's `ln`, so it
+is not in the tree.
+
+**Measured.** Same binary-alternation method as #37 (the three binaries run in
+rotation so that load drift hits all of them), sampler build, 6 x 10^4 ions per
+run, 7 runs of the first two, 3 of the third, median:
+
+| Variant | ions/s | Ratio |
+|---|---|---|
+| Before (`4544ec7`) | 9.67 k | 1.00 |
+| Azimuth `sin_cos_turns` | 10.07 k | 1.04x |
+| Azimuth and series `ln` (rejected) | 9.61 k | 0.99x |
+
+The gain is small (rounds of one binary differ by about 3 %, so the ratio is
+good to about +/- 2 %), but it is consistent in every round.
+
+**SoA / SIMD verdict: still not warranted.** After the change the largest
+items are the table lookup (about 31 %: two `ln`, one `exp`, four loads from a
+590 kB table) and `Bca::binary` itself, and neither is a layout cost: each
+collision depends on the previous one through the particle's energy and
+direction, the lookup argument `eps` comes from the energy left after the last
+collision, and cascade recoils are pushed onto a stack and taken in energy
+order, so there is no batch of independent lookups to vectorize without
+changing the order of the physics. Batching the evaluation across particles
+would need a SIMD `ln` and `exp` as accurate as the table value requires, plus
+a new dependency (`wide`): a larger change than the 31 % it would address. A
+numbers-backed trigger for revisiting it: the lookup share rising above a third
+of the run after the libm calls are gone, or a profile where memory stalls in
+`half_angle_tan` dominate its `ln` and `exp`.
+
 ## Electron engine (#152)
 
 The transport rate of the electron engine (electrons, i.e. primaries with

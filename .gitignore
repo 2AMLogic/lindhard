@@ -5,6 +5,10 @@ target/
 # Rendered mdBook (built in CI, published to GitHub Pages)
 book/book/
 
+# The WASM range-calculator page, generated into the book source by
+# .github/workflows/book.yml (lindhard-wasm/build.sh).
+/book/src/calculator/
+
 # Python oracle/venv (validation harness)
 .venv/
 __pycache__/
@@ -60,11 +64,11 @@ validation/oracle-runs/
 .loom/claims/
 .loom/locks/
 .loom/signals/
-.loom/sweep-dispatch-tap/
 .loom/status/
 .loom/retry-state/
 .loom/exit-codes/
 .loom/sweep-checkpoint/
+.loom/private-jobs/
 .loom/sweep-run/
 .loom/targets/
 .loom/target*/
@@ -110,7 +114,7 @@ validation/oracle-runs/
 .loom/gh-config-by-owner/
 .loom/gh-config-by-owner.*/
 .loom/gh-config-by-owner-*/
-.loom-local/
+/.loom-local/
 # <<< loom-managed <<<
 
 # Repo Skills machine-local install metadata (absolute source path + timestamp)
@@ -120,3 +124,9 @@ validation/oracle-runs/
 lindhard-py/python/**/*.so
 lindhard-py/python/**/*.pyd
 lindhard-py/python/**/*.dylib
+
+# Repo Skills Codex-side machine-local install metadata (never committed)
+.agents/skills/repo/.install-local.json
+
+# Combined site built by scripts/deploy-site.sh.
+/site/dist/

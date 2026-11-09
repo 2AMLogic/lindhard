@@ -254,7 +254,7 @@ use crate::electron::phonon::{
 };
 use crate::electron::secondary::{kieft_bosch, kieft_bosch_shell, SecondaryEvent, SecondaryModel};
 use crate::geometry::Stack;
-use crate::rng::run_particles;
+use crate::rng::{run_particles, uniform};
 
 /// Errors from building a [`Transport`] or starting a run.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -1740,11 +1740,6 @@ fn choose(x: f64, rates: impl IntoIterator<Item = f64>) -> usize {
         }
     }
     last
-}
-
-/// Uniform on `[0, 1)` with 53 random bits.
-pub(crate) fn uniform<R: Rng>(rng: &mut R) -> f64 {
-    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
 }
 
 /// Where an energy sits on a table's grid: lower row and weight of the upper.

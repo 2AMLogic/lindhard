@@ -50,10 +50,19 @@ pub enum Screening {
 /// Prefactors and exponents `(c_i, b_i)` of the sum-of-exponentials screening
 /// functions, `phi(x) = Sum_i c_i exp(-b_i x)`.
 ///
-/// Cross-checked digit for digit (Kr-C, Moliere) or to the printed rounding
-/// (ZBL, whose 4-digit values here are the commonly printed rounding of
-/// 0.18175, 0.50986, 0.28022, 0.028171 / 3.19980, 0.94229, 0.40290, 0.20162)
-/// against `include/screened_coulomb.h` of the MIT-licensed `ir2-lab/screened_coulomb`
+/// ZBL: verified against J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and
+/// Range of Ions in Matter* (SRIM Co., 2015), Ch. 2,
+/// Fig. 2-17, p. 2-32 (these 4-digit values exactly) and Fig. 2-18, p. 2-36
+/// (the 5-digit set 0.18175, 0.50986, 0.28022, 0.028171 / 3.1998, 0.94229,
+/// 0.4029, 0.20162). The book's Eq. 2-74, p. 2-31, misprints the fourth
+/// prefactor as `.2817` and the third exponent as `.4028`; the figures and
+/// the normalisation `Sum c_i = 1` settle both.
+///
+/// Moliere: verified against the same book, Eq. 2-62, p. 2-20, which
+/// misprints the middle prefactor as `5.5` (normalisation gives 0.55).
+///
+/// Kr-C and Moliere: cross-checked digit for digit against
+/// `include/screened_coulomb.h` of the MIT-licensed `ir2-lab/screened_coulomb`
 /// (commit f84c3c8), a component of OpenTRIM. This is a secondary source, not
 /// the cited papers.
 const ZBL_C: [(f64, f64); 4] = [
@@ -174,11 +183,13 @@ fn horner(c: &[f64], q: f64) -> f64 {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScreeningLength {
     /// Universal length, `a_U = 0.8854 a0 / (Z1^0.23 + Z2^0.23)`.
-    /// Ziegler, Biersack, Littmark (1985), Ch. 2. The primary source was not
-    /// accessible, so the prefactor is **unverified against it**. Secondary
-    /// sources agree on the exponent `0.23` but print the prefactor as either
-    /// `0.8854` or `0.8853` (a 1e-4 relative difference); see
-    /// `docs/data-provenance.md`.
+    /// Ziegler, Biersack, Littmark (1985), Ch. 2, restated in J. F. Ziegler,
+    /// J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range of Ions in
+    /// Matter* (SRIM Co., 2008), Ch. 2. That book confirms the exponent `0.23`
+    /// but is inconsistent on the prefactor: Eq. 2-73, p. 2-30, prints
+    /// `0.8853`, the labels of Figs. 2-16 and 2-17, p. 2-32, print `.8854`.
+    /// The equation's `0.8853` is to be adopted (#536, which also regenerates
+    /// the golden values); see `docs/data-provenance.md`.
     Universal,
     /// Firsov length, `a_F = 0.8853 a0 / (sqrt(Z1) + sqrt(Z2))^(2/3)`.
     /// O. B. Firsov, Sov. Phys. JETP 6, 534 (1958): the scaled distance

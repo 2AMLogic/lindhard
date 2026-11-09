@@ -1,0 +1,17 @@
+# Entries the parser could not read, verbatim from `pdftotext -layout`.
+
+=== target Dielectric-N ===
+           Tsai, J. C. C.    Morabito, J. M.                                                   1975-Tsai
+ 1975 Fluorine
+      'In-Depth Profile Detection Limits of Nitrogen in GaP and Nitrogen, Oxygen, and
+               in Si by SIMS and AES'
+           Ion Implantation in Semiconductors, Namba (ed.), Plenum, N. Y. P. 115-24 (1975)
+ Comment : R, dR. 50 keV N -> GaP, Si; 50 keV O, F -> Si
+
+=== target Dielectric-O ===
+            Tsai, J. C. C.    Morabito, J. M.                                                1975-Tsai
+ 1975 Fluorine
+      'In-Depth Profile Detection Limits of Nitrogen in GaP and Nitrogen, Oxygen, and
+               in Si by SIMS and AES'
+           Ion Implantation in Semiconductors, Namba (ed.), Plenum, N. Y. P. 115-24 (1975)
+ Comment : R, dR. 50 keV N -> GaP, Si; 50 keV O, F -> Si

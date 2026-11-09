@@ -18,9 +18,11 @@ use crate::report::{pct, sci, spct, Check};
 /// ZBL universal reduced nuclear stopping fit, Ziegler, Biersack, Littmark,
 /// *The Stopping and Range of Ions in Solids* (Pergamon, 1985), Ch. 2:
 /// `ln(1 + 1.1383 eps) / (2 (eps + 0.01321 eps^0.21226 + 0.19593 eps^0.5))`
-/// for `eps <= 30`, `ln(eps) / (2 eps)` above. The `eps <= 30` coefficients
-/// were cross-checked against the MIT-licensed `ir2-lab/screened_coulomb`
-/// (commit f84c3c8) in PR #40.
+/// for `eps <= 30`, `ln(eps) / (2 eps)` above. Verified digit for digit
+/// against J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping
+/// and Range of Ions in Matter* (SRIM Co., 2015), Eqs. 2-89 and 2-90, p. 2-37;
+/// the `eps <= 30` coefficients were also cross-checked against the
+/// MIT-licensed `ir2-lab/screened_coulomb` (commit f84c3c8) in PR #40.
 fn zbl_fit(eps: f64) -> f64 {
     if eps <= 30.0 {
         (1.0 + 1.1383 * eps).ln()

@@ -39,10 +39,12 @@ done
 # Every level-3 dataset must carry its provenance (validation/data/README.md).
 python3 validation/experiments/run.py --check
 python3 validation/experiments/backscatter.py --check
+python3 validation/experiments/sb_si_dynamic.py --check
 python3 validation/experiments/se_yield.py --datasets
 python3 validation/experiments/test_run.py
 python3 validation/experiments/test_se_yield.py
 python3 validation/experiments/test_se_yield_candidates.py
+python3 validation/experiments/test_sb_si_dynamic.py
 python3 validation/oracles/test_run_electron.py
 python3 validation/lib/test_lindhard_cli.py
 
@@ -57,6 +59,7 @@ if [ "$run_oracles" = 1 ]; then
 fi
 if [ "$run_experiments" = 1 ]; then
   python3 validation/experiments/run.py
+  python3 validation/experiments/sb_si_dynamic.py
 fi
 if [ "$run_backscatter" = 1 ]; then
   python3 validation/experiments/backscatter.py

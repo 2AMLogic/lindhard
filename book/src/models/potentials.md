@@ -96,9 +96,15 @@ level 3).
 ## Verification status
 
 From [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md):
-the ZBL, Kr-C and Molière coefficients have been cross-checked against an
-independent MIT-licensed implementation (`ir2-lab/screened_coulomb`, commit
-f84c3c8), a secondary source; the Lenz-Jensen set agrees with a textbook
+the ZBL coefficients have been verified against the SRIM book (Ziegler,
+Biersack and Ziegler 2015, ch. 2, Figs. 2-17 and 2-18; its Eq. 2-74 has two
+misprints, recorded there), and so have the Molière coefficients (Eq. 2-62;
+its middle prefactor is misprinted as 5.5). The Kr-C and Molière
+coefficients have also been cross-checked against an independent
+MIT-licensed implementation (`ir2-lab/screened_coulomb`, commit f84c3c8), a
+secondary source. The Lenz-Jensen polynomial agrees to within 9 % with the
+book's own three-exponential fit (Eq. 2-63), which supports its scale; the
+set agrees with a textbook
 tabulation (Möller 2017) but has not been checked against the primary
 papers, which were not accessible.
 
@@ -106,6 +112,8 @@ papers, which were not accessible.
 
 - J. F. Ziegler, J. P. Biersack, U. Littmark, *The Stopping and Range of Ions
   in Solids* (Pergamon, New York, 1985), ch. 2.
+- J. F. Ziegler, J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range
+  of Ions in Matter* (SRIM Co., 2015), ch. 2.
 - W. D. Wilson, L. G. Haggmark, J. P. Biersack, Phys. Rev. B 15, 2458 (1977).
 - G. Molière, Z. Naturforsch. A 2, 133 (1947).
 - W. Lenz, Z. Phys. 77, 713 (1932), doi:10.1007/BF01342150.

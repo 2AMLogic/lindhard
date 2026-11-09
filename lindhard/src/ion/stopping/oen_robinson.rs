@@ -15,7 +15,11 @@
 //! The constants `c = 0.3` and the choice of length were entered from the
 //! literature as remembered by the contributor and have **not** been verified
 //! against the 1976 paper; see `docs/data-provenance.md` and
-//! [`OR_CONSTANTS_UNVERIFIED`].
+//! [`OR_CONSTANTS_UNVERIFIED`]. A secondary source, J. F. Ziegler,
+//! J. P. Biersack, M. D. Ziegler, *SRIM: The Stopping and Range of Ions in
+//! Matter* (SRIM Co., 2015), Eq. 7-45, p. 7-17, prints
+//! `ΔE = 0.045 k √E / (π a²) exp(-0.3 r0 / a)`, which confirms `c = 0.3` and
+//! the prefactor `c² / (2π)`, but not which screening length `a` is.
 
 use super::lindhard_scharff::LindhardScharff;
 use super::{ElectronicStopping, Ion, StoppingError, ValidityRange};

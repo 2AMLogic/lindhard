@@ -1,0 +1,79 @@
+# 10 keV electrons into a 100 nm resist layer on Si: energy deposition in a
+# layered target (an electron run).
+#
+# Run:   lindhard run examples/electron/e_10keV_resist_on_si.toml --out out/e_10keV_resist_on_si
+# Check: lindhard check examples/electron/e_10keV_resist_on_si.toml
+#
+# Schema: docs/cli.md, "Electron runs". Energies are in eV, lengths in nm,
+# angles in degrees.
+#
+# SYNTHETIC DATA, as in e_10keV_si.toml. "Resist" is an illustrative organic
+# compound (the composition C5H8O2 and the density 1.19 g/cm^3 of a
+# PMMA-class polymer), but its electron data are not that polymer's, and not
+# Si's either: both materials use the same synthetic Drude-Lorentz plasmon
+# ELF (synthetic_plasmon_elf.toml) and round-number band parameters. No
+# optical or band data of real materials is committed
+# (docs/data-provenance.md; the PMMA ELF is a recorded gap). The output shows
+# the layered-target mechanics of a run (a layer over a substrate, deposition
+# per layer), not what a real resist stack does.
+
+[electron.beam]
+energy_ev = 10000.0
+tilt_deg = 0.0
+
+[electron.transport]
+cutoff_ev = 1.0
+cutoff_reference = "vacuum-level"
+secondaries = "kieft-bosch"
+boundary = "step-barrier"
+
+[electron.elastic]
+model = "mott"
+# The only potential that runs today is a stand-in (docs/data-provenance.md).
+potential = "thomas-fermi-yukawa"
+exchange = false
+
+[electron.inelastic]
+model = "penn-single-pole"
+
+[electron.tables]
+# A coarse grid keeps the example quick.
+min_energy_ev = 10.0
+points_per_decade = 8.0
+
+[electron.materials.Resist]
+optical_elf = "synthetic_plasmon_elf.toml"
+band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 4.0, affinity_ev = 1.0, provenance = "SYNTHETIC round numbers for the gallery example (examples/electron/e_10keV_resist_on_si.toml), not band parameters of any resist" }
+
+[electron.materials.Si]
+optical_elf = "synthetic_plasmon_elf.toml"
+band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0, provenance = "SYNTHETIC round numbers for the gallery example (examples/electron/e_10keV_resist_on_si.toml), not band parameters of Si" }
+
+[electron.tally]
+escape_energy_bins = 100
+escape_polar_bins = 18
+
+# Deposited energy: 20 radial bins of 50 nm and 30 depth bins of 50 nm, so the
+# resist (the first two bins) and the Si below it are separate rows.
+[electron.tally.cylindrical]
+r = { lo_nm = 0.0, hi_nm = 1000.0, bins = 20 }
+depth = { lo_nm = 0.0, hi_nm = 1500.0, bins = 30 }
+
+[materials.Resist]
+density_g_cm3 = 1.19
+elements = [
+  { symbol = "C", atom_fraction = 5.0 },
+  { symbol = "H", atom_fraction = 8.0 },
+  { symbol = "O", atom_fraction = 2.0 },
+]
+
+[target]
+substrate = "Si"
+
+[[target.layers]]
+material = "Resist"
+thickness_nm = 100.0
+
+[run]
+histories = 1000
+seed = 1

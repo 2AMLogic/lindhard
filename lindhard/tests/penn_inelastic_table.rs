@@ -17,8 +17,7 @@ use lindhard::electron::inelastic::{
     SinglePolePenn,
 };
 use lindhard::material::Material;
-use lindhard::rng::stream;
-use rand_core::Rng;
+use lindhard::rng::{stream, uniform};
 use rayon::prelude::*;
 use std::sync::OnceLock;
 
@@ -203,10 +202,6 @@ fn slice_integral(w: f64, lo: f64, hi: f64) -> f64 {
         s += f(a + h * k as f64) * if k % 2 == 1 { 4.0 } else { 2.0 };
     }
     s * h / 3.0
-}
-
-fn uniform(rng: &mut impl Rng) -> f64 {
-    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
 }
 
 fn histogram(s: &MomentumTransferSampler, lo: f64, hi: f64, seed: u64) -> Vec<u64> {

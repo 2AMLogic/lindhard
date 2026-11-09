@@ -840,6 +840,11 @@ pub fn dynamic_steps_csv(d: &DynamicSimulation) -> String {
     for &z in &d.species {
         write!(out, ",cum_sputtered_{}", symbol(z)).unwrap();
     }
+    if d.retention {
+        for &z in &d.species {
+            write!(out, ",cum_re_emitted_atoms_per_cm2_{}", symbol(z)).unwrap();
+        }
+    }
     out.push('\n');
     for s in &d.steps {
         let y = &s.cumulative;
@@ -876,6 +881,12 @@ pub fn dynamic_steps_csv(d: &DynamicSimulation) -> String {
         .unwrap();
         for &z in &d.species {
             write!(out, ",{}", y.sputtered.get(&z).copied().unwrap_or(0)).unwrap();
+        }
+        if d.retention {
+            for &z in &d.species {
+                let a = s.re_emitted_m2.get(&z).copied().unwrap_or(0.0);
+                write!(out, ",{:?}", a * 1e-4).unwrap();
+            }
         }
         out.push('\n');
     }

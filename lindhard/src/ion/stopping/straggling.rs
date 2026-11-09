@@ -31,7 +31,10 @@ pub enum StragglingModel {
     /// Bohr, non-relativistic.
     #[default]
     Bohr,
-    /// Bohr with the relativistic factor.
+    /// Bohr with the relativistic factor `(1 - β²/2) / (1 - β²)`. The same
+    /// correction appears in J. F. Ziegler, J. P. Biersack, M. D. Ziegler,
+    /// *SRIM: The Stopping and Range of Ions in Matter* (SRIM Co., 2015),
+    /// Eq. 7-47, p. 7-25, written there with `β = c²/v²`.
     BohrRelativistic,
 }
 

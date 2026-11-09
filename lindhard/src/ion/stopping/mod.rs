@@ -21,6 +21,7 @@
 
 pub mod bethe;
 pub mod bragg;
+pub mod correction;
 pub mod dataset;
 pub mod lindhard_scharff;
 pub mod mix;
@@ -77,6 +78,9 @@ pub enum StoppingError {
         /// What is wrong with the line.
         reason: String,
     },
+    /// A correction fit ([`correction`]) could not be made, with the reason.
+    #[error("invalid correction fit: {0}")]
+    InvalidFit(String),
     /// A user table was queried outside its energy range.
     #[error("energy {energy_ev} eV outside table range [{min_ev}, {max_ev}] eV")]
     OutOfTableRange {

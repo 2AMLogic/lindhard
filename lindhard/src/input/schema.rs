@@ -636,6 +636,12 @@ pub struct DynamicSpec {
     /// keeps the surface fixed at `x = 0`.
     #[serde(default, skip_serializing_if = "is_false")]
     pub erosion: bool,
+    /// Retention limit per element symbol: the largest atomic fraction of that
+    /// element a slab may hold, in (0, 1); the excess is re-emitted (see
+    /// [`crate::ion::dynamic::DynamicRun`], "Retention limit"). There is no
+    /// default value; absent or empty: no limit.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub retention_limit: BTreeMap<String, f64>,
 }
 
 fn is_false(v: &bool) -> bool {

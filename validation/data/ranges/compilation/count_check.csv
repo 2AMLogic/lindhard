@@ -1,0 +1,65 @@
+figure,symbol,colour,legend_rows,legend_keys,legend_count,found,status,note
+range_b_si,*B,#000000,2,1972-Gitt|1975-Ohmu2,18,9,ambiguous,2 legend rows share the colour; checked as a group
+range_b_si,*B,#0000FF,3,1973-Crow|1973-Schw|1973-Akas,9,2,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#009200,3,1975-Bier|1852-Kupp|1975-Hofk2,10,4,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#00FF00,3,1959-Lano|1970-Cair|1932-Reus,9,5,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#00FFFF,2,1967-Larg|1974-Gree,3,2,ambiguous,2 legend rows share the colour; checked as a group
+range_b_si,*B,#5500AA,3,1959-Roua|1832-Reus|1974-Boga,6,1,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#5500FF,3,1973-Hofk2|1968-Klei|1973-Okab,7,2,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#5592FF,3,1972-Nish|1959-Lano|1975-Hofk,12,8,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#55B600,3,1975-Ohmu|1975-Hira|1968-Roos,13,6,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#55FF55,3,1970-Cair2|1969-Davi|1953-Stil,11,9,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#55FFFF,3,1968-Davi|1949-Wbra|1975-Hofk,9,5,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#8092AA,3,1973-Witt|1973-Akas2|1975-Witt,19,6,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#AA4900,3,1975-Ohmu2|1859-Lano|1975-Hofk2,20,3,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#AA4955,3,1852-Simm|1972-Akas|1976-Diet2,7,4,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#D524AA,3,1958-Bich|1970-Pist|1975-Buhl,5,2,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*B,#FF0000,6,1913-Tayl|1973-Schu|1973-Hofk3|1958-Mill|1958-Kepl|1968-Zori,20,10,ambiguous,6 legend rows share the colour; checked as a group
+range_b_si,*B,#FF00FF,5,1975-Ohmu|1973-Comb|1977-Ryss|1954-Reyn|1973-Witt2,14,3,ambiguous,5 legend rows share the colour; checked as a group
+range_b_si,*B,#FF9255,3,1972-Zieg|1972-Maul|1952-Simm,8,3,ambiguous,3 legend rows share the colour; checked as a group
+range_b_si,*,*,57,(all rows),200,84,mismatch,figure total: points found vs legend total
+range_p_si,*P,#000000,1,1953-Stil,7,5,mismatch,found below legend
+range_p_si,*P,#0000FF,2,1954-Reyn|1972-Kryl,2,3,mismatch,2 legend rows share the colour; checked as a group; found exceeds the group total
+range_p_si,*P,#009200,2,1953-Stil|1871-Moli,8,7,ambiguous,2 legend rows share the colour; checked as a group
+range_p_si,*P,#00FF00,1,1952-Cart,1,1,match,
+range_p_si,*P,#00FFFF,1,1969-Davi,5,5,match,
+range_p_si,*P,#5500AA,1,1975-Betz,4,3,mismatch,found below legend
+range_p_si,*P,#5500FF,1,1932-Reus,1,1,match,
+range_p_si,*P,#5592FF,1,1958-Roua,1,1,match,
+range_p_si,*P,#55B600,1,1955-Ryba,1,1,match,
+range_p_si,*P,#55FF55,1,1974-Okab2,4,3,mismatch,found below legend
+range_p_si,*P,#55FFFF,1,1971-Dell,4,3,mismatch,found below legend
+range_p_si,*P,#8092AA,1,1972-Mora,1,0,mismatch,found below legend
+range_p_si,*P,#AA4900,1,1974-Burk,1,0,mismatch,found below legend
+range_p_si,*P,#AA4955,1,1849-Teas,1,1,match,
+range_p_si,*P,#D524AA,1,1953-Stil,1,1,match,
+range_p_si,*P,#FF0000,3,1956-Kepl|1976-Diet2|1946-Wilc,9,7,ambiguous,3 legend rows share the colour; checked as a group
+range_p_si,*P,#FF00FF,3,1952-Kupp|1949-Teas|1968-Roos,5,5,ambiguous,3 legend rows share the colour; checked as a group
+range_p_si,*P,#FF9255,1,1973-Okab,2,2,match,
+range_p_si,*,*,24,(all rows),58,49,mismatch,figure total: points found vs legend total
+range_as_si,As,#0000FF,1,1951-Good,1,1,match,
+range_as_si,As,#009200,1,1952-Simm,2,0,mismatch,found below legend
+range_as_si,As,#00FF00,1,1953-Stil,1,1,match,
+range_as_si,As,#5500AA,1,1909-Tayl,1,0,mismatch,found below legend
+range_as_si,As,#5500FF,1,1913-Tayl,5,3,mismatch,found below legend
+range_as_si,As,#5592FF,1,1949-Teas,1,0,mismatch,found below legend
+range_as_si,As,#55FF55,1,1947-Wytz,1,1,match,
+range_as_si,As,#55FFFF,1,1969-Davi,3,2,mismatch,found below legend
+range_as_si,As,#8092AA,1,1976-Oetz,5,2,mismatch,found below legend
+range_as_si,As,#AA4900,1,1975-Oetz,6,4,mismatch,found below legend
+range_as_si,As,#AA4955,1,1947-Wytz,1,0,mismatch,found below legend
+range_as_si,As,#D524AA,1,1958-Mill,6,3,mismatch,found below legend
+range_as_si,As,#FF0000,2,1949-Teas|1947-Wytz,2,1,ambiguous,2 legend rows share the colour; checked as a group
+range_as_si,As,#FF00FF,1,1959-Roua,1,0,mismatch,found below legend
+range_as_si,As,#FF9255,1,1949-Teas,1,0,mismatch,found below legend
+range_as_si,*,*,16,(all rows),37,18,mismatch,figure total: points found vs legend total
+range_he_air,He,#0000FF,1,1930-Harp,4,0,mismatch,found below legend
+range_he_air,He,#009200,1,1953-Coop2,1,0,mismatch,found below legend
+range_he_air,He,#5500FF,1,1941-Colb,1,0,mismatch,found below legend
+range_he_air,He,#55FF55,1,1932-Made,1,1,match,
+range_he_air,He,#AA4900,1,1966-Roto2,31,3,mismatch,found below legend
+range_he_air,He,#D524AA,1,1953-Cook,12,12,match,
+range_he_air,He,#FF0000,2,1926-Meit|1943-Hack,35,36,mismatch,2 legend rows share the colour; checked as a group; found exceeds the group total
+range_he_air,He,#FF00FF,1,1949-VanD,2,0,mismatch,found below legend
+range_he_air,He,#FF9255,1,1971-Lang,34,18,mismatch,found below legend
+range_he_air,*,*,10,(all rows),121,70,mismatch,figure total: points found vs legend total

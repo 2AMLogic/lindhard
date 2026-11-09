@@ -14,7 +14,7 @@ use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, Sampli
 use lindhard::electron::transport::{LayerTables, Primary, Transport, TransportConfig};
 use lindhard::geometry::Stack;
 use lindhard::material::Material;
-use lindhard::rng::stream;
+use lindhard::rng::{stream, uniform};
 use lindhard::tally::{
     fit_psf, Binning, CylindricalGrid, ElectronReport, ElectronTallyConfig, FullElectronTally,
     GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
@@ -27,10 +27,6 @@ const NM: f64 = 1e-9;
 // ---------------------------------------------------------------------------
 // Synthetic profiles with Poisson noise
 // ---------------------------------------------------------------------------
-
-fn uniform(rng: &mut impl Rng) -> f64 {
-    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
-}
 
 /// Poisson(`mean`) by counting the arrivals of a unit-rate Poisson process
 /// in `[0, mean]` (exact; cost proportional to `mean`).

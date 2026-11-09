@@ -46,5 +46,7 @@ mod schema;
 #[cfg(test)]
 mod tests;
 
-pub use resolved::{DataFile, ElasticChoice, ResolvedElectron, ResolvedElectronMaterial};
+pub use resolved::{
+    DataFile, ElasticChoice, ResolvedElectron, ResolvedElectronMaterial, ResolvedInnerShells,
+};
 pub use schema::*;

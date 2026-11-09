@@ -1,0 +1,39 @@
+{
+  "id": "sb_si_50keV_titze2021_fig3",
+  "kind": "implant_depth_profile_high_fluence",
+  "citation": "M. Titze, J. L. Pacheco, T. Byers, S. B. Van Deusen, D. L. Perry, D. Weathers and E. S. Bielejec, Evaluation of the Accuracy of Stopping and Range of Ions in Matter Simulations through Secondary Ion Mass Spectrometry and Rutherford Backscattering Spectrometry for low energy heavy ion implantation, Sandia National Laboratories report SAND2021-13560J (author manuscript dated 25 October 2021)",
+  "url": "https://www.osti.gov/servlets/purl/1830531",
+  "access_date": "2026-10-24",
+  "access": "Public OSTI full text, no subscription or login.",
+  "source_location": "Fig. 3, p. 3 (PDF page 3); conditions in Section II, pp. 1-3; saturation thresholds in Table I, p. 2.",
+  "source_pdf_sha256": "eb663ed963417122ee44927ef48f8290e6ab5ed129a1db7eb99625ea8264c760",
+  "data_file": "titze2021_fig3_5e16.csv",
+  "point_count": 53,
+  "digitization_record": "../digitize/titze2021_fig3.json",
+  "reproduce": "python3 validation/data/digitize/titze2021_fig3.py --check",
+  "conditions": {
+    "projectile": "Sb",
+    "energy_keV": 50,
+    "target": "Si wafer with a native oxide, measured oxide thickness 2.9 +/- 1.2 nm by SIMS (surface of the profile is the oxide surface)",
+    "incidence": "wafer mounted at 7 degrees to the beam to minimize channeling; the paper gives no azimuth",
+    "fluences_ions_cm2_in_figure": [5e13, 5e14, 5e15, 5e16],
+    "fluence_stored": 5e16,
+    "method": "Secondary ion mass spectrometry; depth scale from the sputter rate measured at a sacrificial location of the same wafer and assumed equal in the implant region; stated depth uncertainty 1-1.5 nm",
+    "irradiation_temperature_K": null,
+    "temperature_note": "Not stated."
+  },
+  "observable": "Sb concentration versus depth from SIMS, normalized by the authors to the maximum of each curve. The stored series is the 5e16 ions/cm2 curve, which the paper describes as skewed and shifted to shallower depth than the lower-fluence curves (peak near 15 nm against about 27.5 nm below saturation) and attributes to sputtering and redeposition. The first marker sits near 0 on the normalized scale at the surface; the Gaussian fit drawn by the authors (not stored) starts near 0.27 at the surface and does not follow the markers.",
+  "printed_text_values": {
+    "saturation_threshold_ions_cm2_50keV": 6.0e15,
+    "range_below_saturation_nm": "27.5 +/- 1.3 (SIMS, Gaussian fit)",
+    "straggle_below_saturation_nm": 9.7,
+    "location": "Section II, pp. 1-3, and Table I"
+  },
+  "limits": [
+    "Concentration is normalized to the curve maximum, so the stored profile gives shape and depth only, not retained dose or absolute concentration. The paper gives no retained-dose number for 5e16.",
+    "Markers hidden behind other series between about 10 and 19 nm are not detected by the first read; the peak region is sparse (see the CSV). The second read does not cover that region either.",
+    "No sputter yield, surface-recession or Sb surface-concentration number is printed for the 5e16 sample, and the paper states no beam flux or temperature, so a fluence-dependent engine comparison would need those stated as assumptions.",
+    "Only the SIMS markers of Fig. 3 are used. The paper's SRIM and TRIDYN results are code output and are not stored or used."
+  ],
+  "not_redistributed": "The paper, page images and article text."
+}

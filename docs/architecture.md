@@ -10,7 +10,7 @@ it:
 
 - `lindhard-cli`: TOML input, JSON/CSV output (M0); an `[electron]` input runs the electron engine (M1).
 - `lindhard-py`: pyo3/maturin Python package, NumPy arrays out (bindings built; PyPI wheels in M3). It reuses the CLI's driver, tallies and writers (`lindhard-cli` is also a small library), so a Python run and a command run of the same input and seed agree bit for bit; it adds no physics and no second copy of the TOML schema.
-- WASM build for in-browser range calculators (M3).
+- `lindhard-wasm`: wasm-bindgen build of the ion engine for in-browser range calculators (M3), with a static page published with the book. It runs the library's transport on one thread and does not use `lindhard-cli` (whose driver needs `std::time::Instant`); a test compares it to the native build for the same seed. Besides the one-shot calculator it has a steppable `Simulation` session for the in-browser simulator: it resolves a full TOML run description, advances it with `Bca::run_range` one engine chunk at a time (so the report and the recorded trajectories do not depend on the step sizes), and returns the `IonReport`, the trajectories and the element table as JSON.
 
 Within the library, the shared core (materials, geometry, random numbers,
 tallies, input/output) is separate from the particle engines (ion BCA,
@@ -30,13 +30,13 @@ electron MC). The engines share the core and nothing else.
 | `ion::bca` | Amorphous BCA: free-flight path selection, full recoil cascades, cutoffs, sputtering and backscatter | M0 |
 | `ion::damage` | NRT/Kinchin-Pease damage energy (Lindhard partition), reported beside the full-cascade defect counts of `tally::ion`, in different types and never conflated | M0 |
 | `ion::crystal` | Crystal data model: `Lattice` (cubic diamond and zincblende, hexagonal wurtzite and polytypes), `Orientation` (tilt, twist, wafer rotation), `Divergence`, Debye thermal displacements and the unit-cell neighbour search. The BCA flight model that uses them is `ion::bca::crystal`. Conventions: [`crystal-orientation.md`](crystal-orientation.md) and the module docs | M2 |
-| `ion::dynamic` | Target composition updated with fluence: `CompositionGrid` (per-slab areal inventories and volume relaxation, converted to a `geometry::Stack`), `InventoryTally` (atom counts per slab and element from transport events) and `DynamicRun` (deterministic fluence stepping with optional sputter erosion). Conventions: module docs | M3 |
+| `ion::dynamic` | Target composition updated with fluence: `CompositionGrid` (per-slab areal inventories and volume relaxation, converted to a `geometry::Stack`), `InventoryTally` (atom counts per slab and element from transport events) and `DynamicRun` (deterministic fluence stepping with optional sputter erosion and a per-species retention limit). Conventions: module docs | M3 |
 | `electron::data` | Validated inputs of the electron engine: optical ELF tables, subshell binding energies (from a user-supplied ENDF-6 File 28 copy) and versioned cross-section caches. Every loader requires a provenance | M1 |
 | `electron::elastic` | Mott cross sections from our own partial-wave solution (not ELSEPA tables); `elastic::table` builds per-material `CrossSectionTable`s on a log energy grid from an injected atomic potential (Salvat et al. DHFS or a Thomas-Fermi stand-in). Condensed-phase potentials are deferred: [`muffin-tin-deferral.md`](muffin-tin-deferral.md) | M1 |
 | `electron::inelastic` | Dielectric-function model (Lindhard / Mermin, Penn algorithm) built from optical data with provenance; inner-shell ionization channels from shell-resolved optical ELFs and an optional Born-Ochkur exchange correction | M1 |
 | `electron::secondary`, `electron::boundary` | Secondary-electron generation at inelastic events (Kieft-Bosch energy, Ivanchenko direction) and the inner-potential step at surfaces and interfaces (transmission, refraction, reflection) on per-layer band parameters with provenance; ported from Nebula and cstool (BSD-3) | M1 |
 | `electron::transport` | Event-by-event MC from about 10 eV to 50 keV in layered targets on `CrossSectionTable` inputs: exact layer crossings, secondaries, surface barriers, cutoffs, and opt-in per-layer insulator (`electron::phonon`) and inner-shell channels. Models and options: module docs | M1 |
-| `tally` | Histograms, moments and Pearson fits; `tally::ion` (range, damage, sputter and backscatter; `IonReport`) and `tally::electron` (deposition grids, yields, escape spectra, energy balance; `ElectronReport`); `tally::table_coverage` (table-range diagnostic); `tally::psf` (pencil-beam PSF profile with Gaussian fits, JSON and CSV export) | M0/M1 |
+| `tally` | Histograms, moments and Pearson fits; `tally::ion` (range, damage, sputter and backscatter; `IonReport`) and `tally::electron` (deposition grids, yields, escape spectra, energy balance; `ElectronReport`); `tally::table_coverage` (table-range diagnostic); `tally::psf` (pencil-beam PSF profile with Gaussian fits, JSON and CSV export); `tally::voxel` (sparse 3D `VoxelTally` of implanted atoms, displacements and deposited energy on a regular grid, with CSV and VTK export); `tally::trajectory` (opt-in `TrajectoryRecorder`: per-history collision points of the ion and its recoil cascade with parent links, capped in points per history and number of histories, truncation flagged; a plain `BcaTally`, so it costs nothing when unused and `Recorded<T>` pairs it with an ordinary tally without changing that tally's results; convention: module docs) | M0/M1 |
 
 ## Performance plan
 
@@ -49,7 +49,9 @@ electron MC). The engines share the core and nothing else.
   per run and shared read-only.
 - Structure-of-arrays batching plus `wide` SIMD once profiling says it is
   worth doing. Do not do it first.
-- A GPU backend is a later, measured decision, not an assumption.
+- A GPU backend is a later, measured decision, not an assumption. The study
+  and its current answer (defer) are in
+  [`gpu-feasibility.md`](gpu-feasibility.md).
 - Benchmarks (criterion) track ions per second against RustBCA and OpenTRIM on
   matched problems (see [`validation.md`](validation.md)).
 
@@ -85,16 +87,21 @@ electron MC). The engines share the core and nothing else.
   generated on x86-64 Linux. The amorphous and electron runs are checked on
   every platform of the CI OS matrix (x86-64 Linux, aarch64 Linux, aarch64
   macOS) with integer outputs exact and floats to a relative tolerance of
-  1e-9. The crystal run is exact in the same sense on Linux (both
-  architectures) but, off Linux, is only checked statistically: conservation
-  invariants exact, counts and sums to a 15% relative tolerance. This is a
-  deliberate, documented relaxation. The first cross-platform evidence
-  (PR #216 CI) is that on aarch64 macOS the crystal run gives 67721 recoils
-  against 67786 on x86-64 Linux, while the amorphous and electron runs agree
-  exactly: a comparison in the crystal path flips on a libm or codegen
-  difference. The cause is not located. This is the evidence for the
-  separate decision on a pure-Rust libm (tracked in #217); none
-  is adopted today. The test file says how to regenerate the values and
+  1e-9. The crystal run has a pinned set per platform: one for Linux (both
+  architectures) and a separately labelled one for aarch64 macOS (generated on
+  the `macos-latest` runner), each checked exactly in the same sense. Any
+  other platform is only checked statistically: conservation invariants exact,
+  counts and sums to a 15% relative tolerance. The two sets differ (67721
+  recoils on aarch64 macOS against 67786 on Linux) because the platform libm
+  differs in the last bit for `tan`, `acos`, `sin`, `cos`, `exp`, `ln`,
+  `powf` and others. The differences enter through the BCA path shared with
+  the amorphous run, where they move floats in the last bits and leave the
+  integer counts alone at this sample size; the crystal path's lattice-site
+  and simultaneous-collision comparisons amplify them into different
+  histories. No single comparison flips. The promise stays tolerance-only:
+  a pure-Rust libm that would make the sets identical was considered and
+  declined (#217). If the macOS runner image's libm changes, the macOS set
+  may need regenerating. The test file says how to regenerate the values and
   which platform each set came from.
 
 ## Decisions

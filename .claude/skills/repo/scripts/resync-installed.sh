@@ -344,6 +344,8 @@ fi
 
 VERSION="$(cat "$SOURCE_ROOT/VERSION" 2>/dev/null || echo unknown)"
 COMMIT="$(git -C "$SOURCE_ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+# The release tag HEAD sits exactly on, if any (repo#669); empty otherwise.
+TAG="$(git -C "$SOURCE_ROOT" describe --tags --exact-match --match 'v[0-9]*' HEAD 2>/dev/null || true)"
 # The install-date token is stamped once, at install time. Re-deriving it as
 # "today" would make every rendered file differ on every calendar day, turning a
 # no-op resync into permanent phantom drift — so reuse the recorded install date
@@ -400,7 +402,7 @@ fi
 # ---------------------------------------------------------------------------
 PLAN_SRC=(); PLAN_DST=(); PLAN_EXEC=(); PLAN_XFORM=()
 
-plan() {  # <source-rel> <dest-rel> <exec:0|1> [transform: render|codex-skill]
+plan() {  # <source-rel> <dest-rel> <exec:0|1> [transform: render|codex-skill|codex-command]
   PLAN_SRC+=("$1"); PLAN_DST+=("$2"); PLAN_EXEC+=("$3"); PLAN_XFORM+=("${4:-render}")
 }
 
@@ -456,6 +458,12 @@ if [[ "$CODEX_EMITTER" == true ]] && codex_skill_is_managed "$TARGET/$CODEX_SKIL
   while IFS= read -r cmd; do
     [[ -n "$cmd" ]] || continue
     plan "commands/repo/$cmd.md" "$CODEX_REFERENCES_REL/$cmd.md" 0
+    # Per-command skills (repo#676). A repo-<verb> dir someone else authored
+    # (SKILL.md present, no marker) is never planned, so never overwritten.
+    _cmd_dir="$(codex_command_skill_rel "$cmd")"
+    if [[ ! -f "$TARGET/$_cmd_dir/SKILL.md" ]] || codex_skill_is_managed "$TARGET/$_cmd_dir/SKILL.md"; then
+      plan "commands/repo/$cmd.md" "$_cmd_dir/SKILL.md" 0 codex-command
+    fi
   done <<<"$COMMANDS"
 fi
 
@@ -483,6 +491,7 @@ report() {  # <verb> <colour> <dest-rel> [detail]
 emit() {
   case "$2" in
     codex-skill) codex_skill_render "$1" "$COMMANDS" ;;
+    codex-command) codex_command_skill_render "$1" ;;
     *)           render <"$1" ;;
   esac
 }
@@ -689,6 +698,26 @@ while [[ $i -lt ${#PLAN_SRC[@]} ]]; do
   i=$((i + 1))
 done
 
+# Stale per-command Codex skills (repo#676): a marker-managed repo-<verb>/ whose
+# verb is no longer in this install's command set (a filtered install, or a verb
+# retired upstream) is removed. Unmarked directories are someone else's and stay.
+if [[ -n "$CODEX_ROOT" ]]; then
+  for _d in "$TARGET/$CODEX_SKILLS_ROOT_REL/$CODEX_COMMAND_SLUG_PREFIX"*/; do
+    _d="${_d%/}"
+    [[ -d "$_d" ]] || continue
+    [[ "$_d" == "$CODEX_ROOT" ]] && continue
+    codex_skill_is_managed "$_d/SKILL.md" || continue
+    _verb="${_d##*/}"; _verb="${_verb#"$CODEX_COMMAND_SLUG_PREFIX"}"
+    grep -qxF "$_verb" <<<"$COMMANDS" && continue
+    if [[ "$DRY_RUN" == true ]]; then
+      report "would drop" "$YELLOW" "${_d#"$TARGET"/}/" "verb not in this install"
+    else
+      rm -rf -- "$_d"
+      report "removed" "$YELLOW" "${_d#"$TARGET"/}/" "verb not in this install"
+    fi
+  done
+fi
+
 # ---------------------------------------------------------------------------
 # Report what was LEFT ALONE. This is the visible half of "never uninstalls":
 # an installed file with no source counterpart is named, not removed.
@@ -766,7 +795,7 @@ policy_kept() {
 stamp_metadata() {
   local tmp
   tmp="$(mktemp "$SKILL_ROOT/.install-metadata.XXXXXX")" || { warn "Could not stage install-metadata.json — version stamp skipped"; return; }
-  metadata_tracked_json "$VERSION" "$COMMIT" "${DEV_INSTALL:-false}" "${FILTERED:-false}" "$COMMANDS" "$GUARD_HOOK_INSTALLED" "$GUARD_POLICY" >"$tmp"
+  metadata_tracked_json "$VERSION" "$COMMIT" "${DEV_INSTALL:-false}" "${FILTERED:-false}" "$COMMANDS" "$GUARD_HOOK_INSTALLED" "$GUARD_POLICY" "$TAG" >"$tmp"
   if ! policy_kept "$tmp"; then
     rm -f "$tmp"
     warn "$SOURCE_ROOT/lib/metadata.sh cannot record \"guardHook\": \"disabled\" — metadata left as is so the"
@@ -780,7 +809,7 @@ stamp_metadata() {
   # keep claiming the version it was installed at.
   [[ -n "$CODEX_ROOT" && -f "$CODEX_ROOT/install-metadata.json" ]] || return 0
   tmp="$(mktemp "$CODEX_ROOT/.install-metadata.XXXXXX")" || { warn "Could not stage $CODEX_SKILL_REL/install-metadata.json — version stamp skipped"; return; }
-  metadata_tracked_json "$VERSION" "$COMMIT" "${DEV_INSTALL:-false}" "${FILTERED:-false}" "$COMMANDS" "$GUARD_HOOK_INSTALLED" "$GUARD_POLICY" >"$tmp"
+  metadata_tracked_json "$VERSION" "$COMMIT" "${DEV_INSTALL:-false}" "${FILTERED:-false}" "$COMMANDS" "$GUARD_HOOK_INSTALLED" "$GUARD_POLICY" "$TAG" >"$tmp"
   policy_kept "$tmp" || { rm -f "$tmp"; return 0; }
   mv -f "$tmp" "$CODEX_ROOT/install-metadata.json" 2>/dev/null \
     || { rm -f "$tmp"; warn "Could not update $CODEX_SKILL_REL/install-metadata.json — version stamp skipped"; }

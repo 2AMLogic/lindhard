@@ -64,7 +64,7 @@ jobs:
         run: |
           mkdir -p result
           echo "${{ job.status }}" > "result/${{ matrix.channel }}.txt"
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: result-${{ matrix.channel }}
@@ -81,7 +81,7 @@ jobs:
       issues: write
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: result-*
           path: results

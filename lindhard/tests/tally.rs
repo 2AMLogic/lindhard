@@ -2,27 +2,18 @@
 //! the ion tally wired to the BCA engine.
 
 use std::f64::consts::PI;
-use std::sync::OnceLock;
 
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{Bca, BcaConfig, Beam, SummaryTally};
-use lindhard::ion::potential::{Potential, Screening};
-use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
-use lindhard::rng::{run_particles, stream, ParticleRng};
+use lindhard::rng::{run_particles, stream, uniform, ParticleRng};
 use lindhard::tally::{
     Binning, DualPearson, Histogram, IonReport, IonTally, IonTallyConfig, Moments, PearsonError,
     PearsonIv,
 };
-use rand_core::Rng;
 
 const NM: f64 = 1e-9;
-
-fn uniform(rng: &mut ParticleRng) -> f64 {
-    (rng.next_u64() >> 11) as f64 * (1.0 / (1u64 << 53) as f64)
-}
 
 /// Box-Muller standard normal.
 fn normal(rng: &mut ParticleRng) -> f64 {
@@ -298,28 +289,9 @@ fn dual_pearson_rejects_thin_histograms() {
 
 // ---- The ion tally on the BCA engine ----
 
-fn table() -> &'static ScatteringTable {
-    static T: OnceLock<ScatteringTable> = OnceLock::new();
-    T.get_or_init(|| {
-        ScatteringTable::build(
-            &Potential::new(Screening::ZblUniversal, 14.0, 14.0),
-            &TableSpec {
-                eps_min: 1e-6,
-                eps_max: 1e4,
-                beta_min: 1e-5,
-                beta_max: 1e2,
-                per_decade: 16,
-            },
-        )
-    })
-}
-
-/// `E_d` = 15 eV for every element (a test parameter, not data).
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m
-}
+mod common;
+use common::si;
+use common::zbl_si_table as table;
 
 fn config() -> IonTallyConfig {
     IonTallyConfig {

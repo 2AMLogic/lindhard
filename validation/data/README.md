@@ -8,6 +8,17 @@ derived from it, or any other code's output, however well known
 
 ## Status
 
+- **Cu–Ni under Ar+:** [alloys/](alloys/README.md) contains Ho et al.
+  (1976), Tables 1–2: nine rows of erosion rates and fitted AES quantities,
+  with source units, printed uncertainties and an unresolved 0.5 keV
+  inconsistency. The same directory holds 22 measured total-yield markers
+  from Betz (1980), Fig. 13, with two readings and a reproducible digitization
+  record. Reference inputs only; no dynamic-target comparison yet.
+- **High-fluence implant profile:** [implant/](implant/README.md) contains one
+  measured SIMS profile, 50 keV Sb into Si at 5×10¹⁶ ions/cm² (Titze et al.,
+  Fig. 3), 53 digitized marker centres with two reads. Normalized
+  concentration, so shape and depth only. Reference input only; no comparison yet.
+
 - **B in amorphous Si:** `ranges/b_{1,2,3,5,10,20}keV_asi_wach1982.json`,
   measured ranges of Wach and Wittmaack (1982) digitized from the compilation
   of Wittmaack and Mutzke (2017), Fig. 8 (#51). The script is in
@@ -24,6 +35,30 @@ derived from it, or any other code's output, however well known
   decision (#70). Every point has a manual second read
   (`digitize/secondread_ar_*_am32.json`), and the symbols that NIFS-DATA-23
   separates a second compilation read (`digitize/crosscheck_ar_*_nifs23.json`).
+- **Stopping, protons in Cu:** `stopping/bader1956_p_cu.csv`, 15 values
+  (50 to 600 keV) from Table I of Bader et al., Phys. Rev. 103, 32 (1956),
+  in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
+  curve values; no uncertainty stated.
+- **Stopping, H, D, He and Li, 176 ion–target systems (74 target elements) (srim.org compilation):**
+  `stopping/compilation/srim_org_stopping.csv`, 11,771 measured points digitized
+  from the per-system plots of the srim.org compilation, each with candidate
+  citation keys, an attribution grade and digitization uncertainties, plus
+  `srim_org_bibliography.csv` (#486). CC0. Measured markers only, no SRIM
+  curve stored; points hidden on top are recovered from the
+  Experiment/Theory panel and flagged, and about 84 % of listed points are
+  found. See [stopping/compilation/](stopping/compilation/README.md).
+  Reference input only; not loaded by the stopping report yet.
+- **Stopping in compounds (srim.org figures):**
+  `stopping/compilation/srim_org_compounds.csv`, 263 points from the site's
+  compound figures: H and He in water and polystyrene, He in five
+  hydrocarbon gases, Li in polyimide, formvar and polysulphone. Units as
+  printed per figure. CC0. See
+  [stopping/compilation/](stopping/compilation/README.md#srim_org_compoundscsv).
+- **Ranges (srim.org figures):** `ranges/compilation/srim_org_ranges.csv`,
+  221 measured ranges of B, P and As in Si and He in air, with the printed
+  legend keys checked against the site's citation lists (many Si keys name
+  other systems and are flagged). CC0. See
+  [ranges/compilation/](ranges/compilation/README.md).
 - **Optical ELF, Al, Cu, glassy C and Au:**
   `optical/{al,cu,c,au}_elf_hagemann1975.toml`, ELF converted by
   `optical/ingest_hagemann.py` from Hagemann, Gudat and Kunz (1975) as
@@ -80,6 +115,7 @@ validation/data/sputtering/<id>.json  one measured sputter-yield set: metadata +
 validation/data/backscatter/<id>.json one measured electron backscatter set: metadata + points
 validation/data/optical/<id>.toml     measured optical energy-loss functions (ELF)
                                       and the scripts that ingested them
+validation/data/alloys/              cited alloy source tables and interpretation notes
 validation/data/digitize/             scripts that digitized a figure (not run
                                       by the harness; may need numpy/Pillow/scipy),
                                       and their cross-check records

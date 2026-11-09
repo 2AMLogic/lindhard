@@ -9,7 +9,14 @@ be read about in papers, and what may never enter the tree) and the
 - Physics comes from published papers. Every model and constant cites its
   source in a doc comment.
 - Every dataset gets a row in `docs/data-provenance.md`. No SRIM-derived
-  tables, ever.
+  tables, ever: SRIM's computed output (curves, tables, model values) is never
+  data here. SRIM (local runs, or the tables in the SRIM book) is a comparison reference
+  only: compare locally, commit summary metrics, never tune or fit to it. Page
+  scans of the book stay out of the tree. Measured points from the srim.org
+  compilation are facts from their papers and are admitted under
+  `CONTRIBUTING.md`, including points recovered from its Experiment/Theory
+  panel, where the curve is read only as an intermediate and never stored
+  ([operator ruling on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)).
 - Determinism across thread counts is a tested invariant. Do not break it.
 - This repo is public. Keep it free of anything that is not already
   published physics, and of any description of downstream applications.
@@ -21,7 +28,7 @@ Work is coordinated through `loom:` labels on issues and pull requests, and the 
 <!-- END LOOM ORCHESTRATION -->
 
 <!-- BEGIN REPO-SKILLS -->
-This repository has [Repo Skills](https://github.com/rjwalters/repo) v0.24.1 installed —
+This repository has [Repo Skills](https://github.com/rjwalters/repo) v0.25.10 installed —
 general repository hygiene and environment commands invoked as `/repo:<command>`. Run
 `/repo:help` for the command list, or see `.claude/skills/repo/SKILL.md` for the full
 guide. Hygiene commands apply safe, reversible fixes by default and report each

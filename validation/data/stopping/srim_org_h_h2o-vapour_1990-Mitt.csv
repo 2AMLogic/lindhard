@@ -1,0 +1,17 @@
+# format: lindhard-stopping-data/1
+# name: srim-org-h-h2o-vapour-1990-mitt
+# description: H in H2O (vapour), 13 points of one paper (Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)) read off the srim.org compilation plot; each has a half-pixel stopping uncertainty; the stopping is per average atom of the formula; the energy uncertainty (relative, in the compilation file) is not carried
+ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation,citation_key,origin
+1,1.007825,H2O,28652.46,7.393333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,36856.16,8.183333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,59501.99,8.783333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,69731.41,8.9,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,82218.36,8.59,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,102596.6,8.89,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,122853.9,8.29,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,154197.2,8.076667,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,174353.7,7.79,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,226155.9,6.88,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,256491.5,6.39,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,287431.7,5.383333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation
+1,1.007825,H2O,307890.5,5.203333,0.01833333,"digitized plot, srim_org-figures/1","Digitized from the srim.org compilation: Mitterschiffthaler, C. Bauer, P., Nucl. Inst. Methods, B48, 58 (1990)",1990-Mitt,digitized-compilation

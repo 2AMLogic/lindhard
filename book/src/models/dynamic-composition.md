@@ -44,7 +44,44 @@ surface is again \\( x = 0 \\); a depth plus the cumulative recession is
 the depth in the original frame. Erosion is off by default and then changes
 nothing.
 
+### Retention limit
+
+Optionally, each implanted species `Z` gets a **saturation limit**: the largest
+atomic fraction \\( f_Z \\) of a slab it may make up. Dynamic-composition codes
+(TRIDYN, SDTrimSP; see References) describe a saturation concentration of the
+implanted species above which further atoms are not retained and are released
+again. The update here is this crate's own statement of that idea; no numeric
+limit is built in, it is always given by the caller. Per accepted step, each
+slab is looked at with the composition it would have after the step. With
+\\( A_Z \\) of the limited species and \\( O \\) atoms/m² of everything else,
+the slab may hold at most
+
+\\[ A_\mathrm{max} = \frac{f_Z}{1 - f_Z}\, O \\]
+
+(that is \\( A_Z / (A_Z + O) \le f_Z \\)), and the excess
+\\( A_Z - A_\mathrm{max} \\) is **re-emitted**: removed from the slab through
+the same inventory deltas as any other change, and it leaves the target. A slab
+holding only the limited species loses all of it. With several limited species
+in one slab they are met in ascending \\( Z \\), each seeing the amounts left by
+the earlier ones, so the limit of a later species is met exactly and an earlier
+one can end marginally below its own after a later removal.
+
+The atom balance of each element over a step is
+\\( \Delta A_Z^\mathrm{total} = \text{transport net} - \text{re-emitted} \\),
+where the transport net is the retained primaries and the moved, sputtered and
+transmitted recoils under the conventions above. The re-emission is a pure
+function of the merged integer tally and the grid and draws no random numbers,
+so results stay bit-identical at any thread count. The model is off by
+default and then changes nothing (the CLI adds no columns either).
+
 ## Assumptions
+
+- The retention limit is a bookkeeping cap on a slab's composition. It has no
+  diffusion, no temperature or time dependence, no trapping chemistry and no
+  record of where re-emitted atoms go; the saturation fraction is a free
+  parameter, not a prediction. A limit reached within one step is applied
+  to the step's result, so steps small enough that no slab jumps far past the
+  limit give a better approximation (the adaptive policy sees the removal).
 
 - Ideal mixing is additivity of atomic volumes (a Vegard-type rule applied to
   atoms); it ignores chemistry, voids and amorphisation swelling, and a
@@ -69,7 +106,11 @@ covered by `lindhard/tests/dynamic.rs`. The fluence stepping loop
 `lindhard/tests/dynamic_run.rs`: the low-fluence limit equals the static
 engine, refining the step size converges, steps continue one global random
 stream, results are bit-identical on 1, 2 and 8 threads, adaptive rejection
-consumes no indices, and inventory follows the event conventions. There is no
+consumes no indices, and inventory follows the event conventions. The
+retention limit is checked for the analytic plateau (a saturated slab holds
+exactly \\( f_Z \\) and none exceeds it), for the atom balance
+(implanted − sputtered − re-emitted = retained), for bit-identity at 1, 2 and 8
+threads, and for leaving results unchanged when off or out of reach. There is no
 comparison with a measured dynamic profile yet.
 
 ## The fluence loop
@@ -88,8 +129,14 @@ design, not a published scheme. In the CLI it is the `[dynamic]` table
 
 ## References
 
-No published source is claimed for the two relaxation conventions (see
-above). The atomic volume uses the Avogadro constant of CODATA 2022 (P. J.
+- W. Möller and W. Eckstein, Nucl. Instrum. Methods B 2, 814 (1984), and
+  report IPP 9/64 (1988): TRIDYN, dynamic composition changes. Read for the
+  idea of a saturation concentration only; nothing was ported.
+- A. Mutzke et al., *SDTrimSP Version 6.00*, report IPP 2019-02 (2019): the
+  same, for the saturation of implanted species.
+
+No published source is claimed for the two relaxation conventions or for the
+exact form of the retention update (see above). The atomic volume uses the Avogadro constant of CODATA 2022 (P. J.
 Mohr, D. B. Newell, B. N. Taylor, E. Tiesinga, Rev. Mod. Phys. 97, 025002
 (2025)) and the element densities of `lindhard/src/elements.rs`, whose
 sources are in
