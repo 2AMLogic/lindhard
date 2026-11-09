@@ -65,8 +65,8 @@ literature:
   constants (for example the universal screening function and the
   magic-formula constants). Cite them by edition, page and equation, and
   check every digit against the page itself, not against memory.
-- **Reference only:** the printed stopping, range and straggling tables and
-  plots, and fitted electronic-stopping coefficient sets. These may be
+- **Reference only:** the printed stopping, range and straggling tables, the
+  SRIM curves on its plots, and fitted electronic-stopping coefficient sets. These may be
   compared against locally, like any oracle output, but never transcribed
   into the tree or used as model input.
 - **Never:** the bundled software and any program listing (see "Mixed
