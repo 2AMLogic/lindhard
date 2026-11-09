@@ -94,15 +94,21 @@ docs follow-up #121.
 <!-- guide:plan-body:start -->
 ## Operator Attention: Merge-Risk-Hold Pileup
 
-Judge-approved PRs stuck under a `loom:operator` merge-risk hold — implementation work is done, only a human merge decision is missing.
+Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
 - **PR #538**: fix: use the Thomas-Fermi constant for the universal screening length *(needs the aarch64 macOS crystal golden set)*
 
-## Operator Priority
+## Very Important
 
-Issues the operator starred (`loom:operator-priority`); land these first.
+`loom:very-important` (one counts per workspace); every stage takes these first.
 
 _None._
+
+## Important
+
+`loom:important`; taken before unlabelled work.
+
+- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots *(curated, operator)*
 
 ## Ready
 
@@ -164,10 +170,11 @@ _None._
 
 ## Backlog Balance
 
-| Tier | Count |
+| Bucket | Count |
 |------|-------|
 | Operator merge-risk holds | 1 |
-| Operator priority | 0 |
+| Very important | 0 |
+| Important | 1 |
 | Ready (`loom:issue`) | 0 |
 | In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 2 |
