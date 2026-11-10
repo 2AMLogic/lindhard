@@ -8,11 +8,6 @@ Chronological record of notable decisions and merges.
 - **PR #614**: feat: electron voxel damage map table and damage_export for electron runs
 - **PR #612**: feat: report pure-Ni yield against stored Ar -> Ni sets
 - **PR #611**: docs: record SiCOH and SiCN optical ELF as gaps
-- **Issue #597** (closed): Regenerate the #465 Cu-Ni diagnostic now that Ar -> Ni sets are stored
-- **Issue #602** (closed): Electron voxel damage map: input table and Python/CLI export
-- **Issue #572** (closed): [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549)
-- **Issue #568** (closed): Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
-- **Issue #549** (closed): Electron transport on 2-D/3-D voxel targets with a finite beam, and a position-dependent point-spread report
 - **PR #610**: refactor: share Gaussian and disc beam offset helpers across transport and exposure
 - **PR #609**: refactor: unify electron Face with geometry::Face via re-export
 - **PR #607**: docs: record HfO2 optical ELF as a gap with routes tried
@@ -29,6 +24,11 @@ Chronological record of notable decisions and merges.
 - **PR #586**: feat: split electron deposition into ionisation and lattice, add pairs and knock-on report
 - **PR #579**: feat: electron beam landing point, lateral profile and divergence
 - **PR #577**: data: add amorphous Al2O3 optical ELF (Hagemann 1975, Table 9)
+- **Issue #602** (closed): Electron voxel damage map: input table and Python/CLI export
+- **Issue #597** (closed): Regenerate the #465 Cu-Ni diagnostic now that Ar -> Ni sets are stored
+- **Issue #572** (closed): [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549)
+- **Issue #568** (closed): Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
+- **Issue #549** (closed): Electron transport on 2-D/3-D voxel targets with a finite beam, and a position-dependent point-spread report
 - **Issue #606** (closed): Collapse duplicate BeamProfile in tally::exposure into electron::transport::BeamProfile
 - **Issue #605** (closed): Unify duplicate Face enum: electron::transport re-exports geometry::Face
 - **Issue #598** (closed): data: second read of Al2O3 optical ELF rows above 20.5 eV against the DESY SR-74/7 scan
