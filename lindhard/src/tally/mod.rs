@@ -16,6 +16,9 @@
 //!   energy balance, and its plain-data [`ElectronReport`].
 //! * [`exposure`]: per-electron energy deposited in small target volumes and the
 //!   compound-Poisson distribution of the energy of a finite exposure.
+//! * [`photon`]: the [`crate::photon::PhotonTransport`] tally: photon-borne
+//!   energy deposited per region (split from electron-borne dose), escape by
+//!   face and the energy balance.
 //! * [`psf`]: the radial point-spread function of a pencil beam in a depth
 //!   slab (log radial bins, per-history errors) and its double- and
 //!   triple-Gaussian fits, with CSV export and serde derives.
@@ -42,6 +45,7 @@ pub mod hist;
 pub mod ion;
 pub mod moments;
 pub mod pearson;
+pub mod photon;
 pub mod psf;
 pub mod psf_scan;
 pub mod table_coverage;
@@ -72,6 +76,7 @@ pub use ion::{
 };
 pub use moments::{MomentSummary, Moments};
 pub use pearson::{type_iv_min_kurtosis, DualPearson, DualPearsonFit, PearsonError, PearsonIv};
+pub use photon::{PhotonEnergyBalance, PhotonFaceEscape, PhotonTally};
 pub use psf::{
     fit_psf, GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
     PsfNormalization, PsfReport, PsfResidual, RadialAccumulator, RadialProfile,

@@ -9,6 +9,8 @@ one version).
 
 ### Added
 
+- `lindhard::photon`: photon transport through any `Geometry` (layered `Stack` or `VoxelGrid`) with photoelectric absorption, incoherent and coherent scattering, from the committed EPDL2017 table (`PhotonTable::epdl2017()`, Z=1..92, 1 keV to 1 MeV; credit and terms in `docs/data-provenance.md`), and `tally::PhotonTally` with photon-borne energy per region, escape by face and an energy-balance check. Photoelectrons are deposited locally. Library-only and opt-in: no input key, and every existing output is unchanged (#562).
+
 - 2-D dynamic run: lateral implanted-species and displacement-damage profiles on a `VoxelTallyGrid` at chosen fluences (`DynamicRun2d::with_profiles`, `ProfileSnapshot` CSV export), a film cut-through run mode (`run_until_cut_through`) that reports the fluence bracket and the damage left in the substrate, and `compare_profile` for comparing a milled profile with published points (RMS depth difference, tolerance, per-point discrepancies). No published trench cross-section is committed yet (#561).
 
 ### Changed
