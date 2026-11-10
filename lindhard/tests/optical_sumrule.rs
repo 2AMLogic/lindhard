@@ -481,6 +481,27 @@ fn optical_elf_datasets_load_and_cite_their_source() {
     }
 }
 
+/// Amorphous Al2O3 (issue #568), Hagemann, Gudat and Kunz, DESY report SR-74/7,
+/// Table 9. No sum-rule case yet: the report gives no density for the film and
+/// none is assumed (docs/data-provenance.md, Al2O3 row).
+#[test]
+fn al2o3_elf_loads_and_cites_its_source() {
+    if !data_dir().is_dir() {
+        return;
+    }
+    let t = OpticalElf::from_toml_file(data_dir().join("al2o3_elf_hagemann1975.toml")).unwrap();
+    for cite in HAGEMANN {
+        assert!(t.provenance().contains(cite), "{cite}");
+    }
+    assert!(t.provenance().contains("Table 9"));
+    assert_eq!(t.energy_ev().len(), 100);
+    let (lo, hi) = t.energy_range_ev();
+    assert!(
+        (lo - 6.0).abs() < 0.01 && (hi - 1600.0).abs() < 0.5,
+        "{lo} {hi}"
+    );
+}
+
 /// The Table 6 composite (issue #314) equals Table 5 outside Table 6's span
 /// (1.5 to 350 eV), shares every energy with it, and is not smoothed at the
 /// seams: the steps there are pinned, measured, so a later change to the join

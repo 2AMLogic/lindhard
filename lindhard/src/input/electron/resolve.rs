@@ -925,6 +925,28 @@ impl ElectronInput {
             )?),
         };
 
+        let e_pair = match &spec.e_pair {
+            None => None,
+            Some(p) => {
+                if !(p.ev.is_finite() && p.ev > 0.0) {
+                    return Err(invalid(
+                        format!("{field}.e_pair.ev"),
+                        format!("must be finite and positive, got {}", p.ev),
+                    ));
+                }
+                if p.source.trim().is_empty() {
+                    return Err(invalid(
+                        format!("{field}.e_pair.source"),
+                        "a citation is required: E_pair has no default",
+                    ));
+                }
+                Some(ResolvedEPair {
+                    ev: p.ev,
+                    source: p.source.trim().to_string(),
+                })
+            }
+        };
+
         Ok(ResolvedElectronMaterial {
             name: name.to_string(),
             material: material.clone(),
@@ -934,6 +956,7 @@ impl ElectronInput {
             channels,
             mermin_fit,
             inner_shells,
+            e_pair,
         })
     }
 }

@@ -6,6 +6,7 @@
 
 use std::sync::OnceLock;
 
+use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::material::Material;
@@ -69,4 +70,58 @@ pub(crate) fn sio2() -> Material {
         }
     }
     m
+}
+
+/// Bare Si (Z = 14) with no displacement or surface binding energy set, as
+/// the electron tests use it: they never read either.
+pub(crate) fn bare_si() -> Material {
+    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
+}
+
+/// Energy grid (eV) of the synthetic electron tables.
+pub(crate) const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
+
+/// Cumulative probabilities of the synthetic table rows.
+pub(crate) const PROB: [f64; 3] = [0.0, 0.5, 1.0];
+
+/// A synthetic cross-section table on the energy grid `grid`: constant
+/// inverse mean free path `rate` (1/m) and `row(E, p)` as the `p`-quantile at
+/// energy `E` over [`PROB`]. A zero `rate` gives empty rows (no interaction).
+/// The numbers are made up to exercise the code, not material data.
+pub(crate) fn synthetic_table_on(
+    grid: &[f64],
+    axis: SamplingAxis,
+    rate: f64,
+    row: impl Fn(f64, f64) -> f64,
+) -> CrossSectionTable {
+    let quantiles = grid
+        .iter()
+        .map(|&e| {
+            if rate == 0.0 {
+                vec![]
+            } else {
+                PROB.iter().map(|&p| row(e, p)).collect()
+            }
+        })
+        .collect();
+    CrossSectionTable::new(CrossSectionTableParts {
+        model: "synthetic".into(),
+        material: "synthetic".into(),
+        provenance: "synthetic test table".into(),
+        axis,
+        energy_ev: grid.to_vec(),
+        inverse_mfp_per_m: vec![rate; grid.len()],
+        probability: PROB.to_vec(),
+        quantiles,
+    })
+    .unwrap()
+}
+
+/// [`synthetic_table_on`] on the standard [`GRID`].
+pub(crate) fn synthetic_table(
+    axis: SamplingAxis,
+    rate: f64,
+    row: impl Fn(f64, f64) -> f64,
+) -> CrossSectionTable {
+    synthetic_table_on(&GRID, axis, rate, row)
 }
