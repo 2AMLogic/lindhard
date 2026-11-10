@@ -2562,6 +2562,44 @@ a stated limitation), and a measured PSF in an
 openable source, cited to its table or figure (digitized values with the
 second-read discipline of the sputter datasets).
 
+### Electron charge tally (#546): balance and cutoff dependence checked, no measurement compared
+
+**Balance (asserted in CI).** `lindhard/tests/electron_charge.rs` checks
+`incident + created = stopped + escaped` in integers (`charge.imbalance == 0`),
+that the layer, Cartesian and cylindrical counts each sum to the totals, and
+the 1, 2 and 4 thread identity, for a multilayer stack, back-face absorption,
+trapped electrons, the collision cap (with and without secondaries), and the
+secondary model with the step barrier and reflections. The tables there are
+synthetic.
+
+**Cutoff dependence (summary metrics, synthetic data).** The gallery resist-on-Si
+example (`examples/electron/e_10keV_resist_on_si.toml`, synthetic ELF, 10 keV,
+Kieft-Bosch secondaries, vacuum-level cutoff, 2000 histories, default seed) at
+three cutoffs. Net electron number per incident electron (stopped minus
+created) by layer, and the electrons that left through the front face:
+
+| `cutoff_ev` | resist layer | Si layer | escaped (primary + secondary) per incident | imbalance |
+|---|---|---|---|---|
+| 1 | -0.594 | +1.103 | 0.490 | 0 |
+| 3 | -0.225 | +0.812 | 0.413 | 0 |
+| 8 | -0.055 | +0.726 | 0.330 | 0 |
+
+The primaries' stops and escapes do not depend on the cutoff (1495/1496/1496
+primaries stopped, 505/504/504 escaped); what changes is how many slow
+secondaries leave the surface layer before being dropped. A higher cutoff drops
+liberated electrons nearer their holes, so the layer that loses electrons to the
+substrate (the resist here) holds less net positive charge. These numbers
+describe the code on made-up optical data, not a material.
+
+**Stopped-charge depth profile vs a published measurement: gap, not compared.**
+The criterion (a thick conductor, two energies, against a measured result or an
+independent code's published result) needs a source read for its numbers. None
+was opened in the #546 session, and no value was entered from memory. The rule
+for when one is chosen: record the source and the digitized or tabulated points
+in [`data-provenance.md`](data-provenance.md) first, commit summary metrics
+only, and do not tune or fit to SRIM-derived values (`CONTRIBUTING.md`, Tier C).
+This line is open; it is tracked on #546.
+
 ### Fluence-dependent targets vs measurement (#437, #448): Cu–Ni compared, not validated
 
 **Status: run, and the engine does not reproduce the measurements.** Criterion
