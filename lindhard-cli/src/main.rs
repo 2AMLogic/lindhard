@@ -243,9 +243,13 @@ fn check(path: &Path) -> Result<()> {
     let r = resolve(path, &input)?;
     let b = &r.input.beam;
     println!("{}: OK", path.display());
+    let energy = match &b.spectrum {
+        Some(lines) => format!("a {}-line energy spectrum", lines.len()),
+        None => format!("{} eV", b.energy_ev.unwrap_or(f64::NAN)),
+    };
     println!(
-        "  beam: {} at {} eV, tilt {} deg, azimuth {} deg; {} ions, seed {}",
-        b.ion, b.energy_ev, b.tilt_deg, b.azimuth_deg, r.input.run.ions, r.input.run.seed
+        "  beam: {} at {}, tilt {} deg, azimuth {} deg; {} ions, seed {}",
+        b.ion, energy, b.tilt_deg, b.azimuth_deg, r.input.run.ions, r.input.run.seed
     );
     for (i, (g, l)) in r.stack.layers().iter().zip(&r.layers).enumerate() {
         let extent = if g.back_m().is_finite() {

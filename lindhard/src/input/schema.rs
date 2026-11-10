@@ -27,8 +27,16 @@ pub struct BeamSpec {
     /// Projectile mass, u. Default: the standard atomic weight.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mass_amu: Option<f64>,
-    /// Incident kinetic energy, eV.
-    pub energy_ev: f64,
+    /// Incident kinetic energy, eV. Exactly one of `energy_ev` and
+    /// [`spectrum`](Self::spectrum) is given.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy_ev: Option<f64>,
+    /// A weighted list of primary energies (a recoil, or PKA, spectrum):
+    /// each history draws its energy from one line, with probability
+    /// proportional to the line's weight. Mutually exclusive with
+    /// `energy_ev`; static ion runs only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spectrum: Option<Vec<SpectrumLine>>,
     /// Polar angle of incidence from the surface normal, degrees, in `[0, 90)`.
     #[serde(default)]
     pub tilt_deg: f64,
@@ -39,6 +47,24 @@ pub struct BeamSpec {
     /// only). Absent: every primary has the nominal direction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub divergence: Option<DivergenceSpec>,
+}
+
+/// One line of a `[beam]` `spectrum`: a primary energy and its weight.
+///
+/// ```toml
+/// [[beam.spectrum]]
+/// energy_ev = 1000.0
+/// weight = 3.0
+/// ```
+///
+/// Weights are relative (normalised over the list when resolved).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpectrumLine {
+    /// Primary kinetic energy, eV.
+    pub energy_ev: f64,
+    /// Relative weight; finite and positive.
+    pub weight: f64,
 }
 
 /// `[beam.divergence]`: the beam's angular spread about its nominal
