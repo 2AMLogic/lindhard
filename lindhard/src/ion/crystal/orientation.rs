@@ -60,7 +60,8 @@
 //! direction can be passed as the reference instead.
 
 use super::lattice::{direction_from_uvtw, plane_from_hkil};
-use super::{add, cross, dot, scale, CrystalError, Lattice};
+use super::{add, CrystalError, Lattice};
+use crate::vec3::{cross, dot, scale};
 
 /// A 3x3 rotation matrix, row-major: `v' = M v` with
 /// `v'_i = sum_j M[i][j] v_j`.
