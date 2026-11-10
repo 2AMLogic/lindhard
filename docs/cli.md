@@ -682,6 +682,7 @@ channel tables are built on every run and are not part of the table cache.
 | `cartesian` | none | Deposition grid `{ x, y, z }`, each `{ lo_nm, hi_nm, bins }` (`x` is depth) |
 | `cylindrical` | none | Deposition grid `{ r, depth }` about the beam axis, each `{ lo_nm, hi_nm, bins }` (`r.lo_nm >= 0`) |
 | `psf` | none | Radial profile of the deposited energy in a depth slab and its point-spread-function fits, see below |
+| `exposure` | none | Distribution of the energy deposited in small volumes by a finite number of electrons, see below |
 
 **`[electron.tally.psf]`** (`lindhard::tally::PsfConfig`, `fit_psf`): the
 energy deposited in the slab `depth_lo_nm <= x < depth_hi_nm`, binned in the
@@ -696,6 +697,33 @@ per-history errors, and double- and triple-Gaussian fits to it.
 | `bins` | required | Log bins between `r_min_nm` and `r_max_nm` (the central disc is one more) |
 | `fits` | `["double", "triple"]` | Forms to fit, any subset of `"double"` and `"triple"` (may be empty) |
 | `normalization` | `"slab-total"` | `"slab-total"` fixes the fit's energy scale to the slab energy; `"free"` fits it |
+
+**`[electron.tally.exposure]`** (`lindhard::tally::exposure`): the energy `X`
+that one primary history (the primary and its secondaries) deposits in each
+target volume, binned into a histogram with an exact bin at `X = 0`, and the
+distribution of `S = X_1 + ... + X_N` for `N ~ Poisson(lambda)` electrons.
+`E[S] = lambda E[X]` and `Var[S] = lambda E[X^2]` use the exact moment sums;
+quantiles and threshold probabilities come from a Poisson-weighted n-fold
+convolution of the binned `X` and are reported as `low` / `central` / `high`:
+the three values with every bin at its lower edge, centre and upper edge (the
+true quantile and `P(S > b)` lie in `[low, high]`, the true `P(S < a)` in
+`[high, low]`; histories above `x_max_ev` are clamped into the last bin and
+counted in `overflow_fraction`). Valid only for a laterally uniform target:
+the landing offset of the beam is drawn per history and the volume shifted by
+it. A volume extending past the film collects only the part inside it. A
+`lambda` too large for the convolution gives the exact moments and a `note`
+instead of the distribution.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `lambda` | required | Mean number of incident electrons |
+| `beam` | required | `{ kind = "point" }`, `{ kind = "gaussian", sigma_nm }` (per axis) or `{ kind = "uniform-disc", radius_nm }` |
+| `volumes` | required | Array of `{ name, shape = "cylinder", radius_nm }` or `{ name, shape = "box", half_y_nm, half_z_nm }`, each with `depth_lo_nm`, `depth_hi_nm` and `offset_y_nm`, `offset_z_nm` (default 0) from the beam axis |
+| `bins` | 200 | Histogram bins on `(0, x_max_ev]` |
+| `x_max_ev` | beam energy | Upper edge of the histogram, eV |
+| `quantiles` | `[0.05, 0.5, 0.95]` | Probabilities whose quantiles of `S` are reported |
+| `below_ev`, `above_ev` | `[]` | Thresholds for `P(S < a)` and `P(S > b)`, eV |
+| `tail_tolerance` | 1e-12 | Poisson tail mass dropped from the convolution |
 
 **`[run]`** of an electron run: `histories` (required), `seed` (required) and
 `threads` (all cores; not echoed, never changes results).
@@ -811,6 +839,7 @@ An electron run writes these instead of the ion files.
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
 | `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
 | `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`; deposits are measured from the band bottom, so with secondaries in a layer with a Fermi energy `deposited_ev` includes the Fermi-sea energy of liberated conduction electrons and can exceed the energy imparted, which is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev - fermi_sea_ev - phonon_absorbed_ev`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
+| `results.deposition.exposure` | Only with `tally.exposure` (else `null`): `lambda`, `beam` and per volume the volume, `mean_ev`, `second_moment_ev2` with standard errors, `zero_fraction`, the histogram sums (`histories`, `zero_count`, `bin_width_ev`, `overflow_count`, `sum_x` to `sum_x4`; the per-bin counts are in `electron_exposure_histogram.csv`) and `compound` (`mean_ev`, `variance_ev2` with errors, `p_zero`, `k_max`, `truncated_mass`, `distribution` with `quantiles`, `below` and `above`, each value a `low` / `central` / `high` bracket). `electron_exposure_histogram.csv`: `volume,bin,lo_ev,hi_ev,count,fraction`, bin 0 being `X = 0` |
 | `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. With `tally.psf` the per-bin profile is not repeated in the summary: the `results.deposition.psf` key is omitted. Without `tally.psf` that key is present and `null`. The per-bin profile (bin edges and centre, area, energy and its error, areal density and its error, and the fitted energy of the bin for each fit that succeeded) is in `electron_psf_profile.csv`; the fitted parameters and the `chi2`, `dof`, `reduced_chi2`, `converged` and `iterations` of each fit are in `electron_psf_parameters.csv`. Residuals are not written; the residual of a bin is `energy_ev - model_<model>_ev` |
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
@@ -1007,7 +1036,7 @@ file the run did not produce is removed if present: `ions.csv` (without
 `tally.per_ion`), and `electron_deposition_cartesian.csv` or
 `electron_deposition_cylindrical.csv` (without the matching deposition grid),
 and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
-`tally.psf`).
+`tally.psf`), and `electron_exposure_histogram.csv` (without `tally.exposure`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
 CSV write leaves no new summary) and lists only files that exist.

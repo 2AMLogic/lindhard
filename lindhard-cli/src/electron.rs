@@ -53,6 +53,7 @@ pub const CARTESIAN_FILE: &str = "electron_deposition_cartesian.csv";
 pub const CYLINDRICAL_FILE: &str = "electron_deposition_cylindrical.csv";
 pub const PSF_PROFILE_FILE: &str = "electron_psf_profile.csv";
 pub const PSF_PARAMETERS_FILE: &str = "electron_psf_parameters.csv";
+pub const EXPOSURE_FILE: &str = "electron_exposure_histogram.csv";
 pub const TABLES_FILE: &str = "electron_tables.csv";
 
 /// Histories per work chunk of the parallel driver. Fixed, so the summation
@@ -405,8 +406,8 @@ pub fn simulate_electron(
                 })?;
         }
     }
-    let proto =
-        FullElectronTally::new(&transport, r.tally).context("setting up the electron tally")?;
+    let proto = FullElectronTally::new(&transport, r.tally.clone())
+        .context("setting up the electron tally")?;
 
     let t1 = Instant::now();
     let run = pool
@@ -532,6 +533,7 @@ struct Files {
     deposition_cylindrical: Option<&'static str>,
     psf_profile: Option<&'static str>,
     psf_parameters: Option<&'static str>,
+    exposure_histogram: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -561,6 +563,15 @@ fn results_json(
     }
     if let (Some(o), Some(p)) = (v.as_object_mut(), psf) {
         o.insert("psf".into(), psf_json(p)?);
+    }
+    // The per-electron histograms go to the CSV; keep the moments and the
+    // compound-Poisson summaries.
+    if let Some(vols) = v["deposition"]["exposure"]["volumes"].as_array_mut() {
+        for vol in vols {
+            if let Some(h) = vol["histogram"].as_object_mut() {
+                h.remove("counts");
+            }
+        }
     }
     for face in ["front", "back"] {
         let f = &mut v[face];
@@ -630,6 +641,15 @@ pub fn psf_profile_csv(sim: &ElectronSimulation) -> Option<String> {
     sim.psf.as_ref().map(|p| p.report.profile_csv())
 }
 
+/// `electron_exposure_histogram.csv` (with `tally.exposure`).
+pub fn exposure_histogram_csv(sim: &ElectronSimulation) -> Option<String> {
+    sim.report
+        .deposition
+        .exposure
+        .as_ref()
+        .map(|e| e.histogram_csv())
+}
+
 /// `electron_psf_parameters.csv` (with `tally.psf`).
 pub fn psf_parameters_csv(sim: &ElectronSimulation) -> Option<String> {
     sim.psf.as_ref().map(|p| p.report.parameters_csv())
@@ -693,6 +713,7 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
         deposition_cylindrical: r.tally.cylindrical.map(|_| CYLINDRICAL_FILE),
         psf_profile: sim.psf.as_ref().map(|_| PSF_PROFILE_FILE),
         psf_parameters: sim.psf.as_ref().map(|_| PSF_PARAMETERS_FILE),
+        exposure_histogram: r.tally.exposure.as_ref().map(|_| EXPOSURE_FILE),
     };
     let summary = Summary {
         format: Format {
