@@ -22,8 +22,9 @@ use crate::input::{divergence_from_spec, invalid, resolve_material, InputError};
 use crate::ion::crystal::Divergence;
 use crate::material::Material;
 use crate::tally::{
-    BeamProfile, Binning, CartesianGrid, CylindricalGrid, ElectronTallyConfig, ExposureConfig,
-    ExposureVolume, LogRadialBinning, PsfConfig, PsfModel, PsfNormalization, VolumeShape,
+    BeamProfile as ExposureBeamProfile, Binning, CartesianGrid, CylindricalGrid,
+    ElectronTallyConfig, ExposureConfig, ExposureVolume, LogRadialBinning, PsfConfig, PsfModel,
+    PsfNormalization, VolumeShape,
 };
 
 use super::resolved::*;
@@ -706,11 +707,11 @@ impl ElectronInput {
                 }
             };
             let beam = match x.beam {
-                ExposureBeamSpec::Point => BeamProfile::Point,
-                ExposureBeamSpec::Gaussian { sigma_nm } => BeamProfile::Gaussian {
+                ExposureBeamSpec::Point => ExposureBeamProfile::Point,
+                ExposureBeamSpec::Gaussian { sigma_nm } => ExposureBeamProfile::Gaussian {
                     sigma_m: nm("beam.sigma_nm", sigma_nm)?,
                 },
-                ExposureBeamSpec::UniformDisc { radius_nm } => BeamProfile::UniformDisc {
+                ExposureBeamSpec::UniformDisc { radius_nm } => ExposureBeamProfile::UniformDisc {
                     radius_m: nm("beam.radius_nm", radius_nm)?,
                 },
             };
