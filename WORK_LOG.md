@@ -4,6 +4,15 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #615**: feat: position-dependent PSF scan over voxel targets
+- **PR #614**: feat: electron voxel damage map table and damage_export for electron runs
+- **PR #612**: feat: report pure-Ni yield against stored Ar -> Ni sets
+- **PR #611**: docs: record SiCOH and SiCN optical ELF as gaps
+- **Issue #597** (closed): Regenerate the #465 Cu-Ni diagnostic now that Ar -> Ni sets are stored
+- **Issue #602** (closed): Electron voxel damage map: input table and Python/CLI export
+- **Issue #572** (closed): [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549)
+- **Issue #568** (closed): Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
+- **Issue #549** (closed): Electron transport on 2-D/3-D voxel targets with a finite beam, and a position-dependent point-spread report
 - **PR #610**: refactor: share Gaussian and disc beam offset helpers across transport and exposure
 - **PR #609**: refactor: unify electron Face with geometry::Face via re-export
 - **PR #607**: docs: record HfO2 optical ELF as a gap with routes tried
