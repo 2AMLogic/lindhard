@@ -21,14 +21,17 @@ use crate::geometry::Stack;
 use crate::input::{invalid, resolve_material, InputError};
 use crate::material::Material;
 use crate::tally::{
-    Binning, CartesianGrid, CylindricalGrid, ElectronTallyConfig, LogRadialBinning, PsfConfig,
-    PsfModel, PsfNormalization,
+    BeamProfile, Binning, CartesianGrid, CylindricalGrid, ElectronTallyConfig, ExposureConfig,
+    ExposureVolume, LogRadialBinning, PsfConfig, PsfModel, PsfNormalization, VolumeShape,
 };
 
 use super::resolved::*;
 use super::schema::*;
 
 const NM: f64 = 1e-9;
+
+/// XORed into the run seed for the exposure tally's landing-offset stream.
+const EXPOSURE_SEED_SALT: u64 = 0x6578_706f_7375_7265;
 
 fn finite_pos(v: f64) -> bool {
     v.is_finite() && v > 0.0
@@ -647,6 +650,77 @@ impl ElectronInput {
                 }
             }
             psf_normalization = p.normalization.into();
+        }
+
+        if let Some(x) = &ts.exposure {
+            let k = format!("{f}.exposure");
+            let nm = |key: &str, v: f64| -> Result<f64, InputError> {
+                if v.is_finite() {
+                    Ok(v * NM)
+                } else {
+                    Err(invalid(format!("{k}.{key}"), "must be finite"))
+                }
+            };
+            let beam = match x.beam {
+                ExposureBeamSpec::Point => BeamProfile::Point,
+                ExposureBeamSpec::Gaussian { sigma_nm } => BeamProfile::Gaussian {
+                    sigma_m: nm("beam.sigma_nm", sigma_nm)?,
+                },
+                ExposureBeamSpec::UniformDisc { radius_nm } => BeamProfile::UniformDisc {
+                    radius_m: nm("beam.radius_nm", radius_nm)?,
+                },
+            };
+            let mut volumes = Vec::new();
+            for (i, v) in x.volumes.iter().enumerate() {
+                let key = format!("volumes[{i}]");
+                if v.name.is_empty() || x.volumes[..i].iter().any(|o| o.name == v.name) {
+                    return Err(invalid(
+                        format!("{k}.{key}.name"),
+                        "must be non-empty and unique",
+                    ));
+                }
+                let need = |name: &str, v: Option<f64>| -> Result<f64, InputError> {
+                    let v = v.ok_or_else(|| {
+                        invalid(format!("{k}.{key}.{name}"), "required for this shape")
+                    })?;
+                    nm(&format!("{key}.{name}"), v)
+                };
+                let shape = match v.shape {
+                    ExposureShapeSpec::Cylinder => VolumeShape::Cylinder {
+                        radius_m: need("radius_nm", v.radius_nm)?,
+                    },
+                    ExposureShapeSpec::Box => VolumeShape::Box {
+                        half_y_m: need("half_y_nm", v.half_y_nm)?,
+                        half_z_m: need("half_z_nm", v.half_z_nm)?,
+                    },
+                };
+                volumes.push(ExposureVolume {
+                    name: v.name.clone(),
+                    shape,
+                    depth_lo_m: nm(&format!("{key}.depth_lo_nm"), v.depth_lo_nm)?,
+                    depth_hi_m: nm(&format!("{key}.depth_hi_nm"), v.depth_hi_nm)?,
+                    offset_y_m: nm(&format!("{key}.offset_y_nm"), v.offset_y_nm)?,
+                    offset_z_m: nm(&format!("{key}.offset_z_nm"), v.offset_z_nm)?,
+                });
+            }
+            let x_max_ev = x.x_max_ev.unwrap_or(b.energy_ev);
+            echo.electron.tally.exposure.as_mut().unwrap().x_max_ev = Some(x_max_ev);
+            let cfg = ExposureConfig {
+                volumes,
+                beam,
+                // A stream independent of the transport's (same run seed).
+                seed: self.run.seed ^ EXPOSURE_SEED_SALT,
+                bins: x.bins,
+                x_max_ev,
+                lambda: x.lambda,
+                quantiles: x.quantiles.clone(),
+                below_ev: x.below_ev.clone(),
+                above_ev: x.above_ev.clone(),
+                tail_tolerance: x.tail_tolerance,
+            };
+            cfg.validate()
+                .map_err(|e| invalid(k.clone(), e.to_string()))?;
+            tally.exposure = Some(cfg);
         }
 
         Ok(ResolvedElectron {

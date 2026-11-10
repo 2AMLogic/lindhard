@@ -353,7 +353,7 @@ pub(crate) fn transport(
             t = t.with_insulator_channels(layer, c.clone())?;
         }
     }
-    let proto = FullElectronTally::new(&t, r.tally)?;
+    let proto = FullElectronTally::new(&t, r.tally.clone())?;
     Ok((t, proto))
 }
 
