@@ -4,54 +4,25 @@
 //! formulas (constant mean free paths, isotropic angles), not measured or
 //! tabulated data.
 
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::{CrossSectionTable, SamplingAxis};
 use lindhard::electron::transport::{
     ElectronState, ElectronTally, EscapeRule, Face, Fate, LayerTables, Primary, SummaryTally,
     Transport, TransportConfig, TransportError,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::rng::{self, uniform};
 
-const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
-
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
-
-fn parts(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: "computed in tests/electron_transport.rs".into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
-}
+mod common;
+use common::{bare_si, synthetic_table};
 
 /// Constant inelastic mean free path, every loss exactly `dw` eV.
 fn inelastic_const(lambda_m: f64, dw: f64) -> CrossSectionTable {
-    parts(SamplingAxis::InelasticEnergyLoss, 1.0 / lambda_m, |_, _| dw)
+    synthetic_table(SamplingAxis::InelasticEnergyLoss, 1.0 / lambda_m, |_, _| dw)
 }
 
 /// Inelastic loss uniform on `[0, frac * E]`.
 fn inelastic_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
-    parts(
+    synthetic_table(
         SamplingAxis::InelasticEnergyLoss,
         1.0 / lambda_m,
         move |e, p| frac * e * p,
@@ -59,12 +30,12 @@ fn inelastic_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
 }
 
 fn elastic_none() -> CrossSectionTable {
-    parts(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
+    synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
 }
 
 /// Isotropic elastic scattering: `cos θ = 1 - 2p`.
 fn elastic_isotropic(lambda_m: f64) -> CrossSectionTable {
-    parts(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_m, |_, p| {
+    synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_m, |_, p| {
         (1.0 - 2.0 * p).acos()
     })
 }
@@ -101,7 +72,7 @@ impl ElectronTally for FirstFlight {
 #[test]
 fn first_flight_distance_is_exponential_by_ks_at_1_percent() {
     let lambda = 3.0e-9;
-    let stack = Stack::semi_infinite(material());
+    let stack = Stack::semi_infinite(bare_si());
     let t = Transport::new(
         stack,
         vec![pair(elastic_none(), inelastic_const(lambda, 1.0))],
@@ -176,7 +147,7 @@ impl ElectronTally for PathLog {
 fn csda_path_length_equals_sum_of_drawn_paths() {
     let (lambda, dw, e0, cutoff) = (2.5e-9, 1.0, 100.0, 10.0);
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(elastic_none(), inelastic_const(lambda, dw))],
         TransportConfig::new(cutoff),
     )
@@ -261,7 +232,7 @@ fn two_layer_attenuation_matches_exp_minus_d_over_lambda() {
     let (d1, l1) = (1.0e-8, 2.0e-8);
     let (d2, l2) = (1.5e-8, 1.0e-8);
     let t = Transport::new(
-        Stack::new(vec![(material(), d1), (material(), d2)], None).unwrap(),
+        Stack::new(vec![(bare_si(), d1), (bare_si(), d2)], None).unwrap(),
         vec![
             pair(elastic_none(), inelastic_const(l1, 1.0)),
             pair(elastic_none(), inelastic_const(l2, 1.0)),
@@ -295,7 +266,7 @@ fn front_only_rule_absorbs_at_the_back_face() {
     let mut cfg = TransportConfig::new(1.0);
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::new(
-        Stack::new(vec![(material(), 1e-9)], None).unwrap(),
+        Stack::new(vec![(bare_si(), 1e-9)], None).unwrap(),
         vec![pair(elastic_none(), inelastic_const(1.0, 1e-3))],
         cfg,
     )
@@ -381,8 +352,8 @@ fn mixed_transport() -> Transport {
     ];
     Transport::new(
         Stack::new(
-            vec![(material(), 8e-9), (material(), 1.2e-8)],
-            Some(material()),
+            vec![(bare_si(), 8e-9), (bare_si(), 1.2e-8)],
+            Some(bare_si()),
         )
         .unwrap(),
         tables,
@@ -445,7 +416,7 @@ fn cutoff_and_escape_rule_are_in_the_run_metadata() {
     cfg.escape_rule = EscapeRule::FrontOnly;
     cfg.max_events = 1234;
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(elastic_none(), inelastic_const(1e-9, 1.0))],
         cfg,
     )
@@ -461,16 +432,14 @@ fn cutoff_and_escape_rule_are_in_the_run_metadata() {
     assert_eq!(m.layers.len(), 1);
     assert_eq!(m.layers[0].back_m, None);
     assert_eq!(m.layers[0].inelastic_model, "synthetic");
-    assert!(m.layers[0]
-        .elastic_provenance
-        .contains("tests/electron_transport.rs"));
+    assert_eq!(m.layers[0].elastic_provenance, "synthetic test table");
     let json = serde_json::to_string(m).unwrap();
     assert!(json.contains("\"cutoff_ev\":12.5") && json.contains("\"front-only\""));
 }
 
 #[test]
 fn rejects_inconsistent_inputs() {
-    let stack = || Stack::semi_infinite(material());
+    let stack = || Stack::semi_infinite(bare_si());
     let ok = || pair(elastic_none(), inelastic_const(1e-9, 1.0));
     assert!(matches!(
         Transport::new(stack(), vec![], TransportConfig::new(1.0)),
@@ -498,10 +467,10 @@ fn rejects_inconsistent_inputs() {
 #[test]
 fn zero_rate_heading_inward_is_trapped_and_outward_escapes() {
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(
             elastic_none(),
-            parts(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
+            synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
         )],
         TransportConfig::new(1.0),
     )

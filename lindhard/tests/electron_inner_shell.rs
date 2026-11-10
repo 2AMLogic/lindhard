@@ -17,17 +17,15 @@ use lindhard::electron::transport::{
     SummaryTally, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::tally::{Binning, ElectronTallyConfig, FullElectronTally};
+
+mod common;
+use common::bare_si;
 
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 const PROVENANCE: &str = "synthetic, tests/electron_inner_shell.rs";
 const MATERIAL: &str = "synthetic";
-
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
 
 /// A table on `GRID` with the given rate per row and `row(e, p)` as the
 /// inverse CDF of every row with a positive rate.
@@ -156,7 +154,7 @@ fn insulator() -> BandStructure {
 }
 
 fn semi_infinite() -> Stack {
-    Stack::new(vec![], Some(material())).unwrap()
+    Stack::new(vec![], Some(bare_si())).unwrap()
 }
 
 fn off(cutoff: f64) -> TransportConfig {
@@ -176,7 +174,7 @@ fn full_physics() -> TransportConfig {
 /// A 6 nm metal on an insulator substrate, valence-only.
 fn metal_on_insulator() -> Transport {
     Transport::with_band_structures(
-        Stack::new(vec![(material(), 6e-9)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 6e-9)], Some(bare_si())).unwrap(),
         vec![
             LayerTables {
                 elastic: elastic_isotropic(3e-9),

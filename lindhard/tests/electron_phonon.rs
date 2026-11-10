@@ -8,7 +8,7 @@
 //! out again here independently of the library code.
 
 use lindhard::constants::{BOHR_RADIUS, BOLTZMANN, ELEMENTARY_CHARGE};
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::{CrossSectionTable, SamplingAxis};
 use lindhard::electron::phonon::{
     cos_theta_cdf, FrohlichPhonon, InsulatorChannels, PolaronTrapping,
 };
@@ -17,11 +17,12 @@ use lindhard::electron::transport::{
     Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::tally::{Binning, ElectronTallyConfig, FullElectronTally};
 
+mod common;
+use common::bare_si;
+
 const GRID: [f64; 5] = [0.01, 1.0, 10.0, 100.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 
 /// Synthetic mode: `ħω = 0.1 eV`, `ε₀ = 4`, `ε∞ = 2`, `T = 600 K`.
 const HW: f64 = 0.1;
@@ -29,32 +30,8 @@ const EPS0: f64 = 4.0;
 const EPSINF: f64 = 2.0;
 const TEMP: f64 = 600.0;
 
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
-
 fn table(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: "computed in tests/electron_phonon.rs".into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
+    common::synthetic_table_on(&GRID, axis, rate, row)
 }
 
 /// No elastic and no inelastic scattering: only the insulator channels act.
@@ -184,7 +161,7 @@ impl ElectronTally for FirstEvent {
 fn first_events(energy_ev: f64, seed: u64, n: u64) -> FirstEvent {
     let mut cfg = TransportConfig::new(0.001);
     cfg.max_events = 1;
-    let t = Transport::new(Stack::semi_infinite(material()), vec![no_tables()], cfg)
+    let t = Transport::new(Stack::semi_infinite(bare_si()), vec![no_tables()], cfg)
         .unwrap()
         .with_insulator_channels(0, phonon_only())
         .unwrap();
@@ -238,7 +215,7 @@ fn no_absorption_at_zero_temperature() {
     let cold = FrohlichPhonon::new(HW, EPS0, EPSINF, 0.0, "synthetic").unwrap();
     let mut cfg = TransportConfig::new(0.05);
     cfg.max_events = 1000;
-    let t = Transport::new(Stack::semi_infinite(material()), vec![no_tables()], cfg)
+    let t = Transport::new(Stack::semi_infinite(bare_si()), vec![no_tables()], cfg)
         .unwrap()
         .with_insulator_channels(
             0,
@@ -288,7 +265,7 @@ fn phonon_deflection_follows_the_frohlich_angular_distribution() {
     let e = 0.5;
     let mut cfg = TransportConfig::new(0.001);
     cfg.max_events = 1;
-    let t = Transport::new(Stack::semi_infinite(material()), vec![no_tables()], cfg)
+    let t = Transport::new(Stack::semi_infinite(bare_si()), vec![no_tables()], cfg)
         .unwrap()
         .with_insulator_channels(0, phonon_only())
         .unwrap();
@@ -344,7 +321,7 @@ impl ElectronTally for TrapLog {
 fn trapping_probability_over_a_fixed_path_is_one_minus_exp() {
     let (c, gamma, e, s) = (1.0e8, 0.5, 2.0, 2.0e-8);
     let t = Transport::new(
-        Stack::new(vec![(material(), s)], None).unwrap(),
+        Stack::new(vec![(bare_si(), s)], None).unwrap(),
         vec![no_tables()],
         TransportConfig::new(0.01),
     )
@@ -377,7 +354,7 @@ fn trapping_probability_over_a_fixed_path_is_one_minus_exp() {
 fn a_trapped_electron_ends_its_history_and_is_tallied() {
     // A trap so likely that every electron is trapped on its first collision.
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![no_tables()],
         TransportConfig::new(0.01),
     )
@@ -417,7 +394,7 @@ fn mixed(channels: bool) -> Transport {
         ),
     };
     let t = Transport::new(
-        Stack::new(vec![(material(), 5e-9)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 5e-9)], Some(bare_si())).unwrap(),
         vec![layer(2e-9, 4e-9, 0.2), layer(1e-9, 3e-9, 0.3)],
         TransportConfig::new(0.3),
     )

@@ -5,7 +5,7 @@
 //! formulas (constant mean free paths, isotropic angles), not measured or
 //! tabulated data.
 
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::transport::{
     BoundaryModel, LayerTables, Primary, Transport, TransportConfig,
 };
@@ -15,8 +15,9 @@ use lindhard::tally::{
     Binning, ElectronReport, ElectronTallyConfig, FullElectronTally, VoxelReport, VoxelTallyGrid,
 };
 
-const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
+mod common;
+use common::synthetic_table;
+
 const NM: f64 = 1e-9;
 const E0: f64 = 500.0;
 
@@ -24,31 +25,13 @@ fn material(z: u8) -> Material {
     Material::from_atom_fractions(&[(z, 1.0)], None).unwrap()
 }
 
-fn table(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| PROB.iter().map(|&p| row(e, p)).collect())
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: "computed in tests/electron_voxel.rs".into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
-}
-
 /// Isotropic elastic scattering and inelastic losses uniform on `[0, frac E]`.
 fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
     LayerTables {
-        elastic: table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
+        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
             (1.0 - 2.0 * p).acos()
         }),
-        inelastic: table(
+        inelastic: synthetic_table(
             SamplingAxis::InelasticEnergyLoss,
             1.0 / lambda_inel,
             move |e, p| frac * e * p,
