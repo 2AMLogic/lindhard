@@ -177,6 +177,14 @@ fn run_electron(
         electron::CYLINDRICAL_FILE,
         electron::cylindrical_csv(&sim.report),
     )?;
+    set.reconcile_optional(
+        electron::CHARGE_CARTESIAN_FILE,
+        electron::charge_cartesian_csv(&sim.report),
+    )?;
+    set.reconcile_optional(
+        electron::CHARGE_CYLINDRICAL_FILE,
+        electron::charge_cylindrical_csv(&sim.report),
+    )?;
     set.reconcile_optional(electron::PSF_PROFILE_FILE, electron::psf_profile_csv(&sim))?;
     set.reconcile_optional(
         electron::PSF_PARAMETERS_FILE,
