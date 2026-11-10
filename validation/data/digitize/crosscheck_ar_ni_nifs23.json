@@ -1,0 +1,143 @@
+{
+  "format": "lindhard-digitize-crosscheck/1",
+  "figure_a": "IPPJ-AM-32 (1983), Ar -> Ni, PDF p. 103 (matsunami1983_ipp_am32.py)",
+  "figure_b": "NIFS-DATA-23 (1995), Fig. 105, PDF p. 45 (yamamura1995_nifs23.py)",
+  "calibration_b_rms_decade": 0.0053,
+  "pairing": "same reference, nearest NIFS symbol within 0.05 decade in E and 0.1 in Y",
+  "criterion": "|ln(Y_b / Y_a)| against the combined digitizing uncertainty (quadrature)",
+  "nifs_reads": [
+    {
+      "letters": "F",
+      "x": 481.4565,
+      "y": 1381.413,
+      "energy_ev": 2915.2005,
+      "yield_": 2.5673,
+      "energy_unc_rel": 0.0257,
+      "yield_unc_rel": 0.028,
+      "legibility": "coincident",
+      "note": "about 3 keV: two F drawn 4-5 px apart in y (two I at one energy in IPPJ-AM-32); the curve crosses the top bar, so the box starts at the curve"
+    },
+    {
+      "letters": "K",
+      "x": 543.0024,
+      "y": 1369.9563,
+      "energy_ev": 9862.604,
+      "yield_": 3.1227,
+      "energy_unc_rel": 0.0252,
+      "yield_unc_rel": 0.021,
+      "legibility": "isolated",
+      "note": "about 10 keV, below the curve"
+    }
+  ],
+  "pairs": [
+    {
+      "id": "ar_ni_sputter_fetz1963",
+      "nifs_letter": "E",
+      "energy_ev": 294.4,
+      "yield_am32": 0.7668,
+      "verdict": "inside an unreadable NIFS stack (0.25-0.4 keV stack of Stuart D, Fetz E, Weijsenfeld H, Laegreid C and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_fetz1963",
+      "nifs_letter": "E",
+      "energy_ev": 737.7,
+      "yield_am32": 1.506,
+      "verdict": "inside an unreadable NIFS stack (0.7-1.1 keV stack of Fetz E, Weijsenfeld H and Oechsner L); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_fetz1963",
+      "nifs_letter": "E",
+      "energy_ev": 886.4,
+      "yield_am32": 1.764,
+      "verdict": "inside an unreadable NIFS stack (0.7-1.1 keV stack of Fetz E, Weijsenfeld H and Oechsner L); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_laegreid1961",
+      "nifs_letter": "C",
+      "energy_ev": 394.1,
+      "yield_am32": 1.225,
+      "verdict": "inside an unreadable NIFS stack (0.25-0.4 keV stack of Stuart D, Fetz E, Weijsenfeld H, Laegreid C and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_oechsner1973",
+      "nifs_letter": "L",
+      "energy_ev": 1049.0,
+      "yield_am32": 2.111,
+      "verdict": "inside an unreadable NIFS stack (0.7-1.1 keV stack of Fetz E, Weijsenfeld H and Oechsner L); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_okajima1981",
+      "nifs_letter": "K",
+      "energy_ev": 10180.0,
+      "yield_am32": 3.106,
+      "energy_nifs_ev": 9862.6,
+      "energy_ratio": 0.9688,
+      "yield_nifs": 3.1227,
+      "yield_ratio": 1.0054,
+      "combined_unc_rel": 0.029,
+      "legibility": "isolated",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_ni_sputter_roth1979",
+      "nifs_letter": "F",
+      "energy_ev": 3036.0,
+      "yield_am32": 2.48,
+      "energy_nifs_ev": 2915.2,
+      "energy_ratio": 0.9602,
+      "yield_nifs": 2.5673,
+      "yield_ratio": 1.0352,
+      "combined_unc_rel": 0.0344,
+      "legibility": "coincident",
+      "verdict": "agree within twice the combined uncertainty"
+    },
+    {
+      "id": "ar_ni_sputter_roth1979",
+      "nifs_letter": "F",
+      "energy_ev": 3037.0,
+      "yield_am32": 2.566,
+      "energy_nifs_ev": 2915.2,
+      "energy_ratio": 0.9599,
+      "yield_nifs": 2.5673,
+      "yield_ratio": 1.0005,
+      "combined_unc_rel": 0.0344,
+      "legibility": "coincident",
+      "verdict": "agree within the combined uncertainty"
+    },
+    {
+      "id": "ar_ni_sputter_stuart1962",
+      "nifs_letter": "D",
+      "energy_ev": 297.1,
+      "yield_am32": 0.9401,
+      "verdict": "inside an unreadable NIFS stack (0.25-0.4 keV stack of Stuart D, Fetz E, Weijsenfeld H, Laegreid C and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "nifs_letter": "H",
+      "energy_ev": 343.9,
+      "yield_am32": 1.092,
+      "verdict": "inside an unreadable NIFS stack (0.25-0.4 keV stack of Stuart D, Fetz E, Weijsenfeld H, Laegreid C and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "nifs_letter": "H",
+      "energy_ev": 344.1,
+      "yield_am32": 0.9301,
+      "verdict": "inside an unreadable NIFS stack (0.25-0.4 keV stack of Stuart D, Fetz E, Weijsenfeld H, Laegreid C and ACAT stars); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "nifs_letter": "H",
+      "energy_ev": 787.6,
+      "yield_am32": 1.88,
+      "verdict": "inside an unreadable NIFS stack (0.7-1.1 keV stack of Fetz E, Weijsenfeld H and Oechsner L); not compared"
+    },
+    {
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "nifs_letter": "H",
+      "energy_ev": 990.4,
+      "yield_am32": 2.185,
+      "verdict": "inside an unreadable NIFS stack (0.7-1.1 keV stack of Fetz E, Weijsenfeld H and Oechsner L); not compared"
+    }
+  ]
+}
