@@ -6,7 +6,7 @@
 //! formulas (constant mean free paths, isotropic angles), as in
 //! `tests/psf.rs`; no measured or tabulated data.
 
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::transport::{LayerTables, Primary, Transport, TransportConfig};
 use lindhard::geometry::Stack;
 use lindhard::material::Material;
@@ -16,37 +16,21 @@ use lindhard::tally::{
     ExposureReport, ExposureVolume, FullElectronTally, VolumeShape,
 };
 
+mod common;
+use common::synthetic_table;
+
 const NM: f64 = 1e-9;
-const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 const ENERGY: f64 = 2_000.0;
 const LAMBDA: f64 = 3.0;
-
-fn table(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: "computed in tests/electron_exposure.rs".into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles: GRID
-            .iter()
-            .map(|&e| PROB.iter().map(|&p| row(e, p)).collect())
-            .collect(),
-    })
-    .unwrap()
-}
 
 fn transport() -> Transport {
     Transport::new(
         Stack::semi_infinite(Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()),
         vec![LayerTables {
-            elastic: table(SamplingAxis::ElasticPolarAngle, 1.0 / (2.0 * NM), |_, p| {
+            elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / (2.0 * NM), |_, p| {
                 (1.0 - 2.0 * p).acos()
             }),
-            inelastic: table(
+            inelastic: synthetic_table(
                 SamplingAxis::InelasticEnergyLoss,
                 1.0 / (3.0 * NM),
                 |e, p| 0.3 * e * p,

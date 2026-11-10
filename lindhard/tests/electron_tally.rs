@@ -5,58 +5,30 @@
 //! from simple formulas (constant mean free paths, isotropic angles), not
 //! measured or tabulated data.
 
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::transport::{
     ElectronState, ElectronTally, EscapeRule, Face, Fate, LayerTables, Primary, Transport,
     TransportConfig,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::tally::{
     Binning, CartesianGrid, CylindricalGrid, ElectronReport, ElectronTallyConfig,
     ElectronTallyError, FullElectronTally, SE_BSE_SPLIT_EV,
 };
 
-const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
+mod common;
+use common::{bare_si, synthetic_table};
+
 const NM: f64 = 1e-9;
-
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
-
-fn table(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: "computed in tests/electron_tally.rs".into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
-}
 
 /// Isotropic elastic scattering (`cos θ = 1 - 2p`) and inelastic losses
 /// uniform on `[0, frac E]`.
 fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
     LayerTables {
-        elastic: table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
+        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
             (1.0 - 2.0 * p).acos()
         }),
-        inelastic: table(
+        inelastic: synthetic_table(
             SamplingAxis::InelasticEnergyLoss,
             1.0 / lambda_inel,
             move |e, p| frac * e * p,
@@ -67,8 +39,8 @@ fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
 /// No interaction at all.
 fn empty() -> LayerTables {
     LayerTables {
-        elastic: table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0),
-        inelastic: table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
+        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0),
+        inelastic: synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
     }
 }
 
@@ -76,7 +48,7 @@ fn finite(thicknesses_nm: &[f64]) -> Stack {
     Stack::new(
         thicknesses_nm
             .iter()
-            .map(|&t| (material(), t * NM))
+            .map(|&t| (bare_si(), t * NM))
             .collect(),
         None,
     )
@@ -213,7 +185,7 @@ fn check_report(r: &ElectronReport) {
 #[test]
 fn balance_closes_with_stopping_and_backscatter_in_a_substrate() {
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![scattering(2.0 * NM, 3.0 * NM, 0.3)],
         TransportConfig::new(10.0),
     )
@@ -272,7 +244,7 @@ fn balance_closes_with_electrons_trapped_in_an_empty_substrate() {
     // Electrons entering the interaction-free substrate heading inward have
     // nothing to hit and no face to reach.
     let t = Transport::new(
-        Stack::new(vec![(material(), 5.0 * NM)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 5.0 * NM)], Some(bare_si())).unwrap(),
         vec![scattering(3.0 * NM, 6.0 * NM, 0.2), empty()],
         TransportConfig::new(10.0),
     )
@@ -288,7 +260,7 @@ fn balance_closes_with_histories_cut_off_by_the_event_cap() {
     let mut cfg = TransportConfig::new(10.0);
     cfg.max_events = 5;
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![scattering(2.0 * NM, 3.0 * NM, 0.05)],
         cfg,
     )
@@ -354,7 +326,7 @@ fn report_is_bit_identical_for_1_2_and_8_threads() {
 
 fn transport() -> Transport {
     Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![scattering(2.0 * NM, 3.0 * NM, 0.3)],
         TransportConfig::new(10.0),
     )

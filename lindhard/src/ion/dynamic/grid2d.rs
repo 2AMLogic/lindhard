@@ -150,9 +150,11 @@ use crate::ion::bca::{Bca, BcaConfig, BcaTally, Beam, Particle};
 use crate::ion::scattering::ScatteringTable;
 use crate::ion::stopping::ElectronicStopping;
 use crate::material::Material;
+use crate::tally::voxel::{VoxelTally, VoxelTallyGrid};
 
 use super::adapter::Yields;
 use super::driver::{DynamicRunError, StepPolicy};
+use super::profiles::{CutThrough, ProfileAccumulator, ProfileSnapshot};
 use super::{CompositionGrid, DynamicError, InventoryDelta};
 
 /// Columns whose relative fluence is below this are not illuminated.
@@ -717,11 +719,15 @@ struct Tally2d<'t> {
     redeposited: BTreeMap<(usize, u8), u64>,
     lateral: u64,
     yields: Yields,
+    /// Voxel tally of all events, and of those in the substrate layer (both
+    /// present only when profiles are on).
+    vox: Option<(VoxelTally, VoxelTally)>,
 }
 
 impl<'t> Tally2d<'t> {
-    fn new(target: &'t ColumnTarget) -> Self {
+    fn new(target: &'t ColumnTarget, proto: Option<&VoxelTally>) -> Self {
         Self {
+            vox: proto.map(|p| (p.clone(), p.clone())),
             target,
             counts: BTreeMap::new(),
             sputtered_from: BTreeMap::new(),
@@ -739,12 +745,32 @@ impl<'t> Tally2d<'t> {
 }
 
 impl BcaTally for Tally2d<'_> {
-    fn begin_history(&mut self, _index: u64) {
+    fn begin_history(&mut self, index: u64) {
         self.yields.histories += 1;
+        if let Some((a, b)) = &mut self.vox {
+            a.begin_history(index);
+            b.begin_history(index);
+        }
+    }
+
+    fn end_history(&mut self, index: u64, budget: &crate::ion::bca::EnergyBudget) {
+        if let Some((a, b)) = &mut self.vox {
+            a.end_history(index, budget);
+            b.end_history(index, budget);
+        }
     }
 
     fn recoil(&mut self, recoil: &Particle) {
         self.yields.displaced += 1;
+        if self.vox.is_some() {
+            let in_substrate = self.slab(recoil.layer).is_none();
+            if let Some((a, b)) = &mut self.vox {
+                a.recoil(recoil);
+                if in_substrate {
+                    b.recoil(recoil);
+                }
+            }
+        }
         if let Some((j, k)) = self.slab(recoil.layer) {
             *self.counts.entry((j, k, recoil.z)).or_insert(0) -= 1;
         }
@@ -752,6 +778,12 @@ impl BcaTally for Tally2d<'_> {
 
     fn stopped(&mut self, p: &Particle) {
         let slab = self.slab(p.layer);
+        if let Some((a, b)) = &mut self.vox {
+            a.stopped(p);
+            if slab.is_none() {
+                b.stopped(p);
+            }
+        }
         if let Some((j, k)) = slab {
             *self.counts.entry((j, k, p.z)).or_insert(0) += 1;
         }
@@ -765,6 +797,10 @@ impl BcaTally for Tally2d<'_> {
     }
 
     fn escaped(&mut self, p: &Particle, face: Face) {
+        if let Some((a, b)) = &mut self.vox {
+            a.escaped(p, face);
+            b.escaped(p, face);
+        }
         match (p.is_primary(), face) {
             (true, Face::Front) => self.yields.backscattered += 1,
             (true, Face::Back) => self.yields.transmitted += 1,
@@ -796,6 +832,10 @@ impl BcaTally for Tally2d<'_> {
         }
         self.lateral += other.lateral;
         self.yields.add(&other.yields);
+        if let (Some((a, b)), Some((oa, ob))) = (&mut self.vox, other.vox) {
+            a.merge(oa);
+            b.merge(ob);
+        }
     }
 }
 
@@ -821,6 +861,16 @@ pub struct DynamicRun2d<'a> {
     cumulative: Yields,
     sputtered_atoms_per_m: f64,
     redeposited_atoms_per_m: f64,
+    profiles: Option<Profiles>,
+}
+
+/// Profile bookkeeping of a run (see [`DynamicRun2d::with_profiles`]).
+struct Profiles {
+    proto: VoxelTally,
+    acc: ProfileAccumulator,
+    /// Primary indices (per column) at which a snapshot is taken, ascending.
+    at: Vec<u64>,
+    snapshots: Vec<ProfileSnapshot>,
 }
 
 impl std::fmt::Debug for DynamicRun2d<'_> {
@@ -929,6 +979,100 @@ impl<'a> DynamicRun2d<'a> {
             cumulative: Yields::default(),
             sputtered_atoms_per_m: 0.0,
             redeposited_atoms_per_m: 0.0,
+            profiles: None,
+        })
+    }
+
+    /// Tally the implanted beam species and the displacement damage on `grid`
+    /// (sample frame, see the `profiles` module docs) and take a snapshot
+    /// when the peak fluence reaches each of `snapshot_fluences_m2` (each in
+    /// `(0, fluence_m2]`, rounded to a whole number of primaries per column).
+    /// Steps are shortened to end on a snapshot, so the step sequence (and
+    /// the random numbers drawn, which are indexed by primary) depends on the
+    /// snapshot list; with the same list a run is bit-identical at any thread
+    /// count. Without this call no profile is tallied and results are
+    /// unchanged.
+    pub fn with_profiles(
+        mut self,
+        grid: VoxelTallyGrid,
+        snapshot_fluences_m2: &[f64],
+    ) -> Result<Self, DynamicRunError> {
+        let mut at = Vec::new();
+        for &f in snapshot_fluences_m2 {
+            if !(f.is_finite() && f > 0.0 && f <= self.cfg.fluence_m2) {
+                return Err(DynamicRunError::Invalid(
+                    "a snapshot fluence must be in (0, the run fluence]".to_string(),
+                ));
+            }
+            let k = (f / self.cfg.fluence_m2 * self.beam.count as f64).round() as u64;
+            at.push(k.clamp(1, self.beam.count));
+        }
+        at.sort_unstable();
+        at.dedup();
+        self.profiles = Some(Profiles {
+            proto: VoxelTally::new(grid),
+            acc: ProfileAccumulator::new(grid),
+            at,
+            snapshots: Vec::new(),
+        });
+        Ok(self)
+    }
+
+    /// Snapshots taken so far at the requested fluences, in order.
+    pub fn snapshots(&self) -> &[ProfileSnapshot] {
+        self.profiles.as_ref().map_or(&[], |p| &p.snapshots)
+    }
+
+    /// The profiles at the current fluence (`None` unless
+    /// [`with_profiles`](Self::with_profiles) was called).
+    pub fn profile_snapshot(&self) -> Option<ProfileSnapshot> {
+        self.profiles.as_ref().map(|p| {
+            p.acc
+                .snapshot(self.beam.ion.z(), self.fluence_done_m2(), self.next_index)
+        })
+    }
+
+    /// Whether an illuminated column has lost all its slabs, i.e. the hole
+    /// has reached the substrate there.
+    fn cut_column(&self) -> Option<usize> {
+        (0..self.grids.len()).find(|&j| self.weights[j] > 0.0 && self.grids[j].n_slabs() == 0)
+    }
+
+    /// Run until the hole first reaches the substrate (an illuminated column
+    /// with no slab left) or the primaries are used up, calling `on_step`
+    /// after each accepted step.
+    ///
+    /// The columns must have a substrate (the layer beneath the film). The
+    /// fluence is resolved to one step: see [`CutThrough`]. With a fixed or
+    /// small adaptive step the bracket is narrow; the damage left in the
+    /// substrate at the stop is in the profiles of the result.
+    pub fn run_until_cut_through(
+        &mut self,
+        mut on_step: impl FnMut(&Step2d, &[CompositionGrid]),
+    ) -> Result<CutThrough, DynamicRunError> {
+        if let Some(j) =
+            (0..self.grids.len()).find(|&j| self.weights[j] > 0.0 && !self.grids[j].has_substrate())
+        {
+            return Err(DynamicRunError::Invalid(format!(
+                "column {j} has no substrate: there is nothing to cut through to"
+            )));
+        }
+        let mut before = self.fluence_done_m2();
+        while self.cut_column().is_none() {
+            before = self.fluence_done_m2();
+            let Some(rec) = self.step()? else {
+                break;
+            };
+            on_step(&rec, &self.grids);
+        }
+        let column = self.cut_column();
+        Ok(CutThrough {
+            reached: column.is_some(),
+            column,
+            fluence_before_m2: before,
+            fluence_m2: self.fluence_done_m2(),
+            ions_done: self.next_index,
+            profiles: self.profile_snapshot(),
         })
     }
 
@@ -945,6 +1089,11 @@ impl<'a> DynamicRun2d<'a> {
     /// Relative fluence per column (0 where not illuminated).
     pub fn profile_weights(&self) -> &[f64] {
         &self.weights
+    }
+
+    /// Primaries per column of the whole run.
+    pub fn ions_total_per_column(&self) -> u64 {
+        self.beam.count
     }
 
     /// Primaries per column used so far.
@@ -1060,6 +1209,11 @@ impl<'a> DynamicRun2d<'a> {
         }
         let first = self.next_index;
         let mut n = self.current_n.min(remaining);
+        if let Some(p) = &self.profiles {
+            if let Some(&next) = p.at.iter().find(|&&k| k > first) {
+                n = n.min(next - first);
+            }
+        }
         let mut attempts = 0u32;
         let incidence = self.incidence_rad();
         let n_cols = self.grids.len();
@@ -1074,6 +1228,10 @@ impl<'a> DynamicRun2d<'a> {
             let mut column_yield = vec![0.0; n_cols];
             let mut lateral = 0u64;
             let mut implanted = 0.0;
+            let mut step_profiles = self
+                .profiles
+                .as_ref()
+                .map(|p| ProfileAccumulator::new(*p.proto.grid()));
             #[allow(clippy::needless_range_loop)]
             for c in 0..n_cols {
                 if self.weights[c] == 0.0 {
@@ -1092,10 +1250,13 @@ impl<'a> DynamicRun2d<'a> {
                     .with_entry_point(entry)?;
                 let tally: Tally2d<'_> =
                     bca.run_range(c as u64 * self.beam.count + first, n, || {
-                        Tally2d::new(&target)
+                        Tally2d::new(&target, self.profiles.as_ref().map(|p| &p.proto))
                     })?;
                 // Ions/m² one primary of this column stands for.
                 let w = self.cfg.fluence_m2 * self.weights[c] / self.beam.count as f64;
+                if let (Some(acc), Some((all, sub))) = (&mut step_profiles, &tally.vox) {
+                    acc.add_counts(&all.report(), &sub.report(), w * self.h);
+                }
                 for (&k, &cnt) in &tally.counts {
                     if cnt != 0 {
                         *delta.entry(k).or_insert(0.0) += cnt as f64 * w;
@@ -1214,6 +1375,9 @@ impl<'a> DynamicRun2d<'a> {
             self.steps += 1;
             self.next_index += n;
             self.cumulative.add(&yields);
+            if let (Some(p), Some(acc)) = (&mut self.profiles, &step_profiles) {
+                p.acc.merge(acc);
+            }
             let per_m = |m: &BTreeMap<(usize, u8), f64>| (0.0 + m.values().sum::<f64>()) * self.h;
             let sputtered_apm = per_m(&sputtered);
             let redeposited_apm = per_m(&deposited);
@@ -1230,6 +1394,13 @@ impl<'a> DynamicRun2d<'a> {
                 } else {
                     n
                 };
+            }
+            if let Some(p) = &mut self.profiles {
+                if p.at.binary_search(&self.next_index).is_ok() {
+                    let f = self.cfg.fluence_m2 * self.next_index as f64 / self.beam.count as f64;
+                    p.snapshots
+                        .push(p.acc.snapshot(self.beam.ion.z(), f, self.next_index));
+                }
             }
             return Ok(Some(Step2d {
                 step: self.steps,
