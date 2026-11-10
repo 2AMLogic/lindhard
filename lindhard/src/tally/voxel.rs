@@ -25,6 +25,18 @@
 //!   [`crate::ion::damage`] for the convention and its sources, Norgett,
 //!   Robinson and Torrens, Nucl. Eng. Des. 33 (1975) 50, and Lindhard et al.,
 //!   Mat. Fys. Medd. Dan. Vid. Selsk. 33 (1963) no. 10).
+//! * Per-element defects, when the tally knows the species of the run (see
+//!   [`VoxelTally::with_species`]): for every species index of the engine
+//!   ([`crate::ion::bca::Bca::species_z`]), the `vacancies` at the
+//!   displacement site, the `interstitials` where a displaced atom came to
+//!   rest without filling a site, and the `replacements`. These use the
+//!   definitions of [`crate::tally::ion::CascadeDefects`] and its
+//!   replacement rule (one shared implementation), so summed over voxels
+//!   (and [`VoxelReport::outside`]) and species they equal that struct's
+//!   totals exactly. A replacement is attributed to the species of the atom
+//!   it replaced, at the site of that atom, so `vacancies = displacements -
+//!   replacements` holds per species and voxel. Beam particles are not
+//!   interstitials here (they are `implanted`).
 //! * Deposited energy, split by channel so each can be checked against the
 //!   engine's [`crate::ion::bca::EnergyBudget`]:
 //!   `electronic_ev` (nonlocal and local electronic loss),
@@ -66,6 +78,11 @@
 //! occupied voxel (so the file is as sparse as the tally), with the tallies
 //! as cell scalars; format: Kitware, *The VTK User's Guide*, 11th ed. (2006),
 //! "VTK File Formats". The VTK file does not carry the `outside` sums.
+//! A tally built with [`VoxelTally::with_species`] writes format version 2:
+//! the species are named in the header and each adds `vacancies`,
+//! `interstitials` and `replacements` columns (scalars). A tally without
+//! species writes version 1 exactly as before, and both readers accept both
+//! versions.
 //! [`VoxelReport::read_vtk`] reads back what `write_vtk` writes.
 
 use std::collections::BTreeMap;
@@ -73,6 +90,8 @@ use std::io::{self, Write};
 
 use serde::{Deserialize, Serialize};
 
+use super::ion::ReplacementTracker;
+use crate::elements::{element, element_by_symbol};
 use crate::geometry::VoxelGrid;
 use crate::ion::bca::{BcaTally, ElectronicChannel, Face, LatticeDeposit, Particle};
 
@@ -245,6 +264,55 @@ impl VoxelTallyGrid {
     }
 }
 
+/// Defects of one species in one voxel (or summed), as defined by
+/// [`crate::tally::ion::CascadeDefects`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct SpeciesDefects {
+    /// Atoms displaced here and not replaced.
+    pub vacancies: u64,
+    /// Displaced atoms that came to rest here and did not fill a site.
+    pub interstitials: u64,
+    /// Replacement events here.
+    pub replacements: u64,
+}
+
+impl SpeciesDefects {
+    /// Field-wise sum.
+    pub fn add(&mut self, o: &SpeciesDefects) {
+        self.vacancies += o.vacancies;
+        self.interstitials += o.interstitials;
+        self.replacements += o.replacements;
+    }
+}
+
+/// Raw per-species counts; `vacancies = displacements - replacements`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct DefectAcc {
+    displacements: u64,
+    replacements: u64,
+    interstitials: u64,
+}
+
+impl DefectAcc {
+    fn add(&mut self, o: &DefectAcc) {
+        self.displacements += o.displacements;
+        self.replacements += o.replacements;
+        self.interstitials += o.interstitials;
+    }
+
+    fn report(&self) -> SpeciesDefects {
+        SpeciesDefects {
+            vacancies: self.displacements - self.replacements,
+            interstitials: self.interstitials,
+            replacements: self.replacements,
+        }
+    }
+}
+
+fn report_defects(acc: &[DefectAcc]) -> Vec<SpeciesDefects> {
+    acc.iter().map(DefectAcc::report).collect()
+}
+
 /// The tallies of one voxel (or of the whole grid, for totals).
 #[derive(Debug, Clone, Copy, PartialEq, Default, Serialize, Deserialize)]
 pub struct VoxelCell {
@@ -284,6 +352,12 @@ pub struct VoxelTally {
     histories: u64,
     cells: BTreeMap<u64, VoxelCell>,
     outside: VoxelCell,
+    /// `Z` of each species index; empty when defects are not tallied.
+    species_z: Vec<u8>,
+    /// Per-species defects of the voxels that have any (a subset of `cells`).
+    defects: BTreeMap<u64, Vec<DefectAcc>>,
+    outside_defects: Vec<DefectAcc>,
+    tracker: ReplacementTracker,
     /// Scratch for splitting a flight segment (not merged).
     cuts: Vec<f64>,
 }
@@ -296,7 +370,36 @@ impl VoxelTally {
             histories: 0,
             cells: BTreeMap::new(),
             outside: VoxelCell::default(),
+            species_z: Vec::new(),
+            defects: BTreeMap::new(),
+            outside_defects: Vec::new(),
+            tracker: ReplacementTracker::default(),
             cuts: Vec::new(),
+        }
+    }
+
+    /// Also tally vacancies, interstitials and replacements per species.
+    /// `species_z` is [`crate::ion::bca::Bca::species_z`] of the run: entry
+    /// `s` is the atomic number of species index `s`.
+    pub fn with_species(mut self, species_z: &[u8]) -> Self {
+        self.species_z = species_z.to_vec();
+        self.outside_defects = vec![DefectAcc::default(); species_z.len()];
+        self
+    }
+
+    /// The species `Z` this tally keeps defects for (empty: none).
+    pub fn species_z(&self) -> &[u8] {
+        &self.species_z
+    }
+
+    fn defect_at(&mut self, pos: [f64; 3], species: usize) -> &mut DefectAcc {
+        let n = self.species_z.len();
+        match self.grid.locate(pos) {
+            Some(ijk) => &mut self
+                .defects
+                .entry(self.grid.flat_index(ijk))
+                .or_insert_with(|| vec![DefectAcc::default(); n])[species],
+            None => &mut self.outside_defects[species],
         }
     }
 
@@ -370,6 +473,7 @@ impl VoxelTally {
 
     /// The merged tally as plain data: occupied voxels in flat-index order.
     pub fn report(&self) -> VoxelReport {
+        let n = self.species_z.len();
         VoxelReport {
             grid: self.grid,
             histories: self.histories,
@@ -379,9 +483,15 @@ impl VoxelTally {
                 .map(|(&flat, &cell)| VoxelRecord {
                     index: self.grid.unflatten(flat),
                     cell,
+                    defects: match self.defects.get(&flat) {
+                        Some(acc) => report_defects(acc),
+                        None => vec![SpeciesDefects::default(); n],
+                    },
                 })
                 .collect(),
             outside: self.outside,
+            species_z: self.species_z.clone(),
+            outside_defects: report_defects(&self.outside_defects),
         }
     }
 }
@@ -401,16 +511,35 @@ impl BcaTally for VoxelTally {
         }
     }
 
-    fn lattice(&mut self, at: [f64; 3], _layer: usize, _kind: LatticeDeposit, energy_ev: f64) {
+    fn begin_history(&mut self, _index: u64) {
+        self.tracker.clear();
+    }
+
+    fn lattice(&mut self, at: [f64; 3], _layer: usize, kind: LatticeDeposit, energy_ev: f64) {
+        if kind == LatticeDeposit::Subthreshold {
+            self.tracker.clear();
+        }
         self.cell_at(at).lattice_ev += energy_ev;
     }
 
     fn recoil(&mut self, r: &Particle) {
         self.cell_at(r.pos).displacements += 1;
+        self.tracker.recoil(r);
+        if !self.species_z.is_empty() {
+            self.defect_at(r.pos, r.species).displacements += 1;
+        }
     }
 
     fn stopped(&mut self, p: &Particle) {
         let primary = p.is_primary();
+        let replaced = self.tracker.stopped(p);
+        if !self.species_z.is_empty() {
+            if let Some(species) = replaced {
+                self.defect_at(p.pos, species).replacements += 1;
+            } else if !primary {
+                self.defect_at(p.pos, p.species).interstitials += 1;
+            }
+        }
         let cell = self.cell_at(p.pos);
         cell.rest_ev += p.energy_ev;
         if primary {
@@ -418,21 +547,40 @@ impl BcaTally for VoxelTally {
         }
     }
 
-    fn escaped(&mut self, _p: &Particle, _face: Face) {}
+    fn escaped(&mut self, _p: &Particle, _face: Face) {
+        self.tracker.clear();
+    }
 
     fn end_history(&mut self, _index: u64, _budget: &crate::ion::bca::EnergyBudget) {
+        self.tracker.clear();
         self.histories += 1;
     }
 
     /// Voxel-by-voxel merge.
     ///
     /// # Panics
-    /// If `other` was built on a different grid.
+    /// If `other` was built on a different grid or for different species.
     fn merge(&mut self, o: Self) {
         assert!(
             self.grid == o.grid,
             "merging voxel tallies built on different grids"
         );
+        assert!(
+            self.species_z == o.species_z,
+            "merging voxel tallies built for different species"
+        );
+        for (a, b) in self.outside_defects.iter_mut().zip(&o.outside_defects) {
+            a.add(b);
+        }
+        for (flat, acc) in o.defects {
+            let mine = self
+                .defects
+                .entry(flat)
+                .or_insert_with(|| vec![DefectAcc::default(); acc.len()]);
+            for (a, b) in mine.iter_mut().zip(&acc) {
+                a.add(b);
+            }
+        }
         self.histories += o.histories;
         self.outside.add(&o.outside);
         for (flat, cell) in o.cells {
@@ -442,12 +590,16 @@ impl BcaTally for VoxelTally {
 }
 
 /// One occupied voxel of a [`VoxelReport`].
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct VoxelRecord {
     /// Voxel indices `[i, j, k]`.
     pub index: [usize; 3],
     /// Its tallies.
     pub cell: VoxelCell,
+    /// Defects per species index (same length as [`VoxelReport::species_z`];
+    /// empty when the tally had no species).
+    #[serde(default)]
+    pub defects: Vec<SpeciesDefects>,
 }
 
 /// A [`VoxelTally`] as plain data. Voxels are in increasing flat-index order
@@ -462,6 +614,13 @@ pub struct VoxelReport {
     pub voxels: Vec<VoxelRecord>,
     /// Sum of the events outside the grid.
     pub outside: VoxelCell,
+    /// Atomic number of each species index; empty when defects were not
+    /// tallied ([`VoxelTally::with_species`]).
+    #[serde(default)]
+    pub species_z: Vec<u8>,
+    /// Defects outside the grid, per species index.
+    #[serde(default)]
+    pub outside_defects: Vec<SpeciesDefects>,
 }
 
 const CSV_COLUMNS: [&str; 12] = [
@@ -545,7 +704,122 @@ impl<'a> Tokens<'a> {
     }
 }
 
+fn symbol(z: u8) -> &'static str {
+    element(z).map_or("?", |e| e.symbol)
+}
+
+/// `0:Ar,1:Si`: the species of a v2 file, named by element symbol.
+fn species_list(species_z: &[u8]) -> String {
+    let v: Vec<String> = species_z
+        .iter()
+        .enumerate()
+        .map(|(i, &z)| format!("{i}:{}", symbol(z)))
+        .collect();
+    v.join(",")
+}
+
+fn parse_species(s: &str, line: usize) -> Result<Vec<u8>, VoxelTallyError> {
+    let mut out = Vec::new();
+    for (i, item) in s.split(',').enumerate() {
+        let item = item.trim();
+        let z = item
+            .split_once(':')
+            .filter(|(idx, _)| idx.parse::<usize>() == Ok(i))
+            .and_then(|(_, sym)| element_by_symbol(sym))
+            .ok_or_else(|| parse_err(line, format!("cannot parse the species {item:?}")))?
+            .z;
+        out.push(z);
+    }
+    Ok(out)
+}
+
+/// Names of the defect columns: per species `vacancies_<i>_<symbol>`,
+/// `interstitials_<i>_<symbol>`, `replacements_<i>_<symbol>`.
+fn defect_columns(species_z: &[u8]) -> Vec<String> {
+    let mut out = Vec::new();
+    for (i, &z) in species_z.iter().enumerate() {
+        for kind in ["vacancies", "interstitials", "replacements"] {
+            out.push(format!("{kind}_{i}_{}", symbol(z)));
+        }
+    }
+    out
+}
+
+fn defect_values(d: &[SpeciesDefects]) -> impl Iterator<Item = u64> + '_ {
+    d.iter()
+        .flat_map(|s| [s.vacancies, s.interstitials, s.replacements])
+}
+
+fn defects_from_values(v: &[u64]) -> Vec<SpeciesDefects> {
+    v.chunks(3)
+        .map(|c| SpeciesDefects {
+            vacancies: c[0],
+            interstitials: c[1],
+            replacements: c[2],
+        })
+        .collect()
+}
+
+/// The banner line of a damage-export file (see `docs/damage-export-format.md`).
+pub const EXPORT_BANNER: &str = "# lindhard damage export v1";
+
+/// Version of the damage-export format, the `format_version` header key.
+pub const EXPORT_FORMAT_VERSION: u32 = 1;
+
+/// Units statement written into every damage-export header.
+const EXPORT_UNITS: &str = "length=m; energy=eV; counts=1";
+
+/// Where a damage-export file came from: the header keys beyond the grid and
+/// the tallies. The CSV is an exchange format; these fields let a reader tie
+/// a file to the run that made it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportProvenance {
+    /// The engine that produced the map: `"ion"` or `"electron"`.
+    pub engine: String,
+    /// `lindhard` version that wrote the file ([`crate::VERSION`]).
+    pub lindhard_version: String,
+    /// Root seed of the run.
+    pub seed: u64,
+    /// SHA-256 (lower-case hex) of the resolved input echo, or of whatever
+    /// canonical input the caller defines; it must not be empty.
+    pub input_sha256: String,
+}
+
+impl ExportProvenance {
+    /// Provenance for a run of `engine` with the given seed and input hash,
+    /// stamped with this library's version.
+    pub fn new(engine: &str, seed: u64, input_sha256: &str) -> Self {
+        Self {
+            engine: engine.to_string(),
+            lindhard_version: crate::VERSION.to_string(),
+            seed,
+            input_sha256: input_sha256.to_string(),
+        }
+    }
+}
+
 impl VoxelReport {
+    /// Per-species defects summed over the occupied voxels (not including
+    /// [`Self::outside_defects`]); empty without species.
+    pub fn defect_totals(&self) -> Vec<SpeciesDefects> {
+        let mut t = vec![SpeciesDefects::default(); self.species_z.len()];
+        for v in &self.voxels {
+            for (a, b) in t.iter_mut().zip(&v.defects) {
+                a.add(b);
+            }
+        }
+        t
+    }
+
+    /// Per-species defects over the grid and the outside.
+    pub fn grand_defect_totals(&self) -> Vec<SpeciesDefects> {
+        let mut t = self.defect_totals();
+        for (a, b) in t.iter_mut().zip(&self.outside_defects) {
+            a.add(b);
+        }
+        t
+    }
+
     /// Sum over the occupied voxels (not including [`Self::outside`]), added
     /// in flat-index order.
     pub fn totals(&self) -> VoxelCell {
@@ -577,10 +851,46 @@ impl VoxelReport {
     /// Write the CSV export: a `# key = value` header, a column row, then one
     /// row per occupied voxel (indices, centre in m, tallies; energies in
     /// eV). See the [module docs](self).
-    pub fn write_csv<W: Write>(&self, mut w: W) -> io::Result<()> {
+    pub fn write_csv<W: Write>(&self, w: W) -> io::Result<()> {
+        self.write_csv_inner(w, None)
+    }
+
+    /// Write the damage-export file: the [`Self::write_csv`] layout under the
+    /// [`EXPORT_BANNER`], with the provenance and units keys in the header
+    /// (`docs/damage-export-format.md`). Floats are the shortest text that
+    /// reads back to the same bits, so [`Self::read_export_csv`] returns the
+    /// report unchanged.
+    pub fn write_export_csv<W: Write>(&self, w: W, p: &ExportProvenance) -> io::Result<()> {
+        self.write_csv_inner(w, Some(p))
+    }
+
+    /// The damage-export file as a string.
+    pub fn to_export_csv(&self, p: &ExportProvenance) -> String {
+        let mut buf = Vec::new();
+        self.write_export_csv(&mut buf, p)
+            .expect("writing to a Vec");
+        String::from_utf8(buf).expect("the CSV is ASCII")
+    }
+
+    fn write_csv_inner<W: Write>(
+        &self,
+        mut w: W,
+        export: Option<&ExportProvenance>,
+    ) -> io::Result<()> {
         let g = &self.grid;
         let o = &self.outside;
-        writeln!(w, "# lindhard voxel tally v1")?;
+        let v2 = !self.species_z.is_empty();
+        if let Some(p) = export {
+            writeln!(w, "{EXPORT_BANNER}")?;
+            writeln!(w, "# format_version = {EXPORT_FORMAT_VERSION}")?;
+            writeln!(w, "# engine = {}", p.engine)?;
+            writeln!(w, "# lindhard_version = {}", p.lindhard_version)?;
+            writeln!(w, "# seed = {}", p.seed)?;
+            writeln!(w, "# input_sha256 = {}", p.input_sha256)?;
+            writeln!(w, "# units = {EXPORT_UNITS}")?;
+        } else {
+            writeln!(w, "# lindhard voxel tally v{}", if v2 { 2 } else { 1 })?;
+        }
         writeln!(w, "# origin_m = {}", join3(g.origin_m))?;
         writeln!(w, "# spacing_m = {}", join3(g.spacing_m))?;
         writeln!(w, "# dims = {},{},{}", g.dims[0], g.dims[1], g.dims[2])?;
@@ -590,11 +900,20 @@ impl VoxelReport {
             "# outside = {},{},{:e},{:e},{:e}",
             o.implanted, o.displacements, o.electronic_ev, o.lattice_ev, o.rest_ev
         )?;
-        writeln!(w, "{}", CSV_COLUMNS.join(","))?;
+        let mut columns: Vec<String> = CSV_COLUMNS.iter().map(|c| (*c).to_string()).collect();
+        if v2 {
+            writeln!(w, "# species = {}", species_list(&self.species_z))?;
+            let od: Vec<String> = defect_values(&self.outside_defects)
+                .map(|n| n.to_string())
+                .collect();
+            writeln!(w, "# outside_defects = {}", od.join(","))?;
+            columns.extend(defect_columns(&self.species_z));
+        }
+        writeln!(w, "{}", columns.join(","))?;
         for v in &self.voxels {
             let c = g.center_m(v.index);
             let t = &v.cell;
-            writeln!(
+            write!(
                 w,
                 "{},{},{},{:e},{:e},{:e},{},{},{:e},{:e},{:e},{:e}",
                 v.index[0],
@@ -610,6 +929,10 @@ impl VoxelReport {
                 t.rest_ev,
                 t.deposited_ev()
             )?;
+            for n in defect_values(&v.defects) {
+                write!(w, ",{n}")?;
+            }
+            writeln!(w)?;
         }
         Ok(())
     }
@@ -623,11 +946,50 @@ impl VoxelReport {
 
     /// Read back a file written by [`Self::write_csv`].
     pub fn read_csv(text: &str) -> Result<Self, VoxelTallyError> {
+        Self::parse_csv(text).map(|(r, _)| r)
+    }
+
+    /// Read back a file written by [`Self::write_export_csv`], with its
+    /// provenance. Errors if the banner, the format version or any
+    /// provenance key is missing.
+    pub fn read_export_csv(text: &str) -> Result<(Self, ExportProvenance), VoxelTallyError> {
+        let first = text.lines().map(str::trim).find(|l| !l.is_empty());
+        if first != Some(EXPORT_BANNER) {
+            return Err(parse_err(1, "not a damage-export file (banner missing)"));
+        }
+        let (report, keys) = Self::parse_csv(text)?;
+        let get = |k: &str| {
+            keys.get(k)
+                .cloned()
+                .ok_or_else(|| parse_err(1, format!("header is missing `{k}`")))
+        };
+        if get("format_version")? != EXPORT_FORMAT_VERSION.to_string() {
+            return Err(parse_err(1, "unsupported damage-export format_version"));
+        }
+        let seed = get("seed")?;
+        let prov = ExportProvenance {
+            engine: get("engine")?,
+            lindhard_version: get("lindhard_version")?,
+            seed: seed
+                .parse()
+                .map_err(|_| parse_err(1, format!("cannot parse the seed {seed:?}")))?,
+            input_sha256: get("input_sha256")?,
+        };
+        get("units")?;
+        Ok((report, prov))
+    }
+
+    fn parse_csv(
+        text: &str,
+    ) -> Result<(Self, std::collections::BTreeMap<String, String>), VoxelTallyError> {
+        let mut extra = std::collections::BTreeMap::new();
         let mut origin = None;
         let mut spacing = None;
         let mut dims = None;
         let mut histories = None;
         let mut outside = None;
+        let mut species_z: Vec<u8> = Vec::new();
+        let mut outside_defects: Option<Vec<u64>> = None;
         let mut lines = text.lines().enumerate().map(|(i, l)| (i + 1, l.trim()));
         let mut header_row = None;
         for (n, line) in lines.by_ref() {
@@ -659,6 +1021,19 @@ impl VoxelReport {
                         rest_ev: num(f[4], n)?,
                     });
                 }
+                "species" => species_z = parse_species(value, n)?,
+                "outside_defects" => {
+                    outside_defects = Some(
+                        value
+                            .split(',')
+                            .map(|t| num::<u64>(t, n))
+                            .collect::<Result<_, _>>()?,
+                    );
+                }
+                k @ ("format_version" | "engine" | "lindhard_version" | "seed" | "input_sha256"
+                | "units") => {
+                    extra.insert(k.to_string(), value.trim().to_string());
+                }
                 other => return Err(parse_err(n, format!("unknown header key {other:?}"))),
             }
         }
@@ -669,16 +1044,29 @@ impl VoxelReport {
             dims.ok_or_else(|| missing("dims"))?,
         )?;
         let (hn, header_row) = header_row.ok_or_else(|| parse_err(1, "no column row"))?;
-        if header_row != CSV_COLUMNS.join(",") {
+        let mut expected: Vec<String> = CSV_COLUMNS.iter().map(|c| (*c).to_string()).collect();
+        expected.extend(defect_columns(&species_z));
+        if header_row != expected.join(",") {
             return Err(parse_err(hn, "unexpected column row"));
         }
+        let outside_defects = match outside_defects {
+            Some(v) if v.len() == 3 * species_z.len() => defects_from_values(&v),
+            Some(_) => {
+                return Err(parse_err(
+                    1,
+                    "outside_defects needs three values per species",
+                ))
+            }
+            None if species_z.is_empty() => Vec::new(),
+            None => return Err(parse_err(1, "header is missing `outside_defects`")),
+        };
         let mut voxels: Vec<VoxelRecord> = Vec::new();
         for (n, line) in lines {
             if line.is_empty() {
                 continue;
             }
             let f: Vec<&str> = line.split(',').collect();
-            if f.len() != CSV_COLUMNS.len() {
+            if f.len() != expected.len() {
                 return Err(parse_err(n, "wrong number of columns"));
             }
             let index = [num(f[0], n)?, num(f[1], n)?, num(f[2], n)?];
@@ -694,6 +1082,12 @@ impl VoxelReport {
                     lattice_ev: num(f[9], n)?,
                     rest_ev: num(f[10], n)?,
                 },
+                defects: defects_from_values(
+                    &f[CSV_COLUMNS.len()..]
+                        .iter()
+                        .map(|t| num::<u64>(t, n))
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
             };
             if let Some(last) = voxels.last() {
                 if grid.flat_index(last.index) >= grid.flat_index(index) {
@@ -705,12 +1099,15 @@ impl VoxelReport {
             }
             voxels.push(record);
         }
-        Ok(Self {
+        let report = Self {
             grid,
             histories: histories.ok_or_else(|| missing("histories"))?,
             voxels,
             outside: outside.ok_or_else(|| missing("outside"))?,
-        })
+            species_z,
+            outside_defects,
+        };
+        Ok((report, extra))
     }
 
     /// Write the legacy ASCII VTK export: an `UNSTRUCTURED_GRID` with one
@@ -719,8 +1116,10 @@ impl VoxelReport {
     /// [module docs](self).
     pub fn write_vtk<W: Write>(&self, mut w: W) -> io::Result<()> {
         let g = &self.grid;
-        let title = format!(
-            "lindhard voxel tally v1 origin={} spacing={} dims={},{},{} histories={}",
+        let v2 = !self.species_z.is_empty();
+        let mut title = format!(
+            "lindhard voxel tally v{} origin={} spacing={} dims={},{},{} histories={}",
+            if v2 { 2 } else { 1 },
             join3(g.origin_m),
             join3(g.spacing_m),
             g.dims[0],
@@ -728,6 +1127,9 @@ impl VoxelReport {
             g.dims[2],
             self.histories
         );
+        if v2 {
+            title.push_str(&format!(" species={}", species_list(&self.species_z)));
+        }
         if title.len() > 255 {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
@@ -782,6 +1184,13 @@ impl VoxelReport {
                 }
             }
         }
+        for (col, name) in defect_columns(&self.species_z).iter().enumerate() {
+            writeln!(w, "SCALARS {name} unsigned_long 1")?;
+            writeln!(w, "LOOKUP_TABLE default")?;
+            for v in &self.voxels {
+                writeln!(w, "{}", defect_values(&v.defects).nth(col).unwrap_or(0))?;
+            }
+        }
         Ok(())
     }
 
@@ -801,16 +1210,21 @@ impl VoxelReport {
         }
         let title = lines.next().ok_or_else(|| parse_err(2, "no title line"))?;
         let mut fields = title.split_whitespace();
-        if fields.by_ref().take(4).collect::<Vec<_>>() != ["lindhard", "voxel", "tally", "v1"] {
+        let head = fields.by_ref().take(4).collect::<Vec<_>>();
+        if head[..head.len().min(3)] != ["lindhard", "voxel", "tally"]
+            || !matches!(head.get(3), Some(&"v1" | &"v2"))
+        {
             return Err(parse_err(2, "not a lindhard voxel tally"));
         }
         let (mut origin, mut spacing, mut dims, mut histories) = (None, None, None, None);
+        let mut species_z: Vec<u8> = Vec::new();
         for f in fields {
             match f.split_once('=') {
                 Some(("origin", v)) => origin = Some(parse3::<f64>(v, 2)?),
                 Some(("spacing", v)) => spacing = Some(parse3::<f64>(v, 2)?),
                 Some(("dims", v)) => dims = Some(parse3::<usize>(v, 2)?),
                 Some(("histories", v)) => histories = Some(num::<u64>(v, 2)?),
+                Some(("species", v)) => species_z = parse_species(v, 2)?,
                 _ => return Err(parse_err(2, format!("unexpected title field {f:?}"))),
             }
         }
@@ -903,10 +1317,24 @@ impl VoxelReport {
                 }
             }
         }
+        let mut counts = vec![vec![0u64; n_cells]; 3 * species_z.len()];
+        for (name, col) in defect_columns(&species_z).iter().zip(&mut counts) {
+            tk.expect("SCALARS")?;
+            tk.expect(name)?;
+            tk.expect("unsigned_long")?;
+            tk.expect("1")?;
+            tk.expect("LOOKUP_TABLE")?;
+            tk.expect("default")?;
+            for slot in col.iter_mut() {
+                let (n, t) = tk.next("a scalar")?;
+                *slot = num(t, n)?;
+            }
+        }
         let voxels = corners
             .iter()
             .zip(cells)
-            .map(|(lo, cell)| {
+            .enumerate()
+            .map(|(vi, (lo, cell))| {
                 let mut index = [0usize; 3];
                 for a in 0..3 {
                     let s = ((lo[a] - grid.origin_m[a]) / grid.spacing_m[a]).round();
@@ -915,7 +1343,12 @@ impl VoxelReport {
                     }
                     index[a] = s as usize;
                 }
-                Ok(VoxelRecord { index, cell })
+                let row: Vec<u64> = counts.iter().map(|c| c[vi]).collect();
+                Ok(VoxelRecord {
+                    index,
+                    cell,
+                    defects: defects_from_values(&row),
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
         Ok(Self {
@@ -923,6 +1356,8 @@ impl VoxelReport {
             histories,
             voxels,
             outside: VoxelCell::default(),
+            outside_defects: vec![SpeciesDefects::default(); species_z.len()],
+            species_z,
         })
     }
 }

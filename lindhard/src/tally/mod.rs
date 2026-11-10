@@ -14,6 +14,8 @@
 //!   backscatter and secondary yields split at a configurable energy
 //!   (50 eV by default), escape spectra, generation-volume moments and the
 //!   energy balance, and its plain-data [`ElectronReport`].
+//! * [`exposure`]: per-electron energy deposited in small target volumes and the
+//!   compound-Poisson distribution of the energy of a finite exposure.
 //! * [`psf`]: the radial point-spread function of a pencil beam in a depth
 //!   slab (log radial bins, per-history errors) and its double- and
 //!   triple-Gaussian fits, with CSV export and serde derives.
@@ -35,11 +37,13 @@
 
 pub mod dose;
 pub mod electron;
+pub mod exposure;
 pub mod hist;
 pub mod ion;
 pub mod moments;
 pub mod pearson;
 pub mod psf;
+pub mod psf_scan;
 pub mod table_coverage;
 pub mod trajectory;
 pub mod voxel;
@@ -56,6 +60,11 @@ pub use electron::{
     FullElectronTally, GenerationVolume, PrimaryStoppingPoints, StoppingPoints, Yields,
     SE_BSE_SPLIT_EV,
 };
+pub use exposure::{
+    BeamProfile, Bracket, CompoundDistribution, CompoundPoisson, CompoundRequest,
+    ExposureAccumulator, ExposureConfig, ExposureError, ExposureHistogram, ExposureReport,
+    ExposureVolume, ExposureVolumeReport, QuantileResult, ThresholdResult, VolumeShape,
+};
 pub use hist::{Binning, BinningError, Histogram};
 pub use ion::{
     CascadeDefects, DamageReport, EscapeReport, FaceEscape, IonReport, IonTally, IonTallyConfig,
@@ -67,8 +76,14 @@ pub use psf::{
     fit_psf, GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
     PsfNormalization, PsfReport, PsfResidual, RadialAccumulator, RadialProfile,
 };
+pub use psf_scan::{
+    point_seed, scan_landing_points, PsfScanConfig, PsfScanError, PsfScanPoint, PsfScanReport,
+};
 pub use table_coverage::{LayerTableCoverage, TableCoverageCounts, TableCoverageTally};
 pub use trajectory::{
     History, Recorded, Track, TrackEnd, TrajectoryConfig, TrajectoryPoint, TrajectoryRecorder,
 };
-pub use voxel::{VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError, VoxelTallyGrid};
+pub use voxel::{
+    ExportProvenance, SpeciesDefects, VoxelCell, VoxelRecord, VoxelReport, VoxelTally,
+    VoxelTallyError, VoxelTallyGrid, EXPORT_FORMAT_VERSION,
+};

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Digitize the measured Ar -> Cu, Si, Ag and Au sputtering yields of the
+"""Digitize the measured Ar -> Cu, Si, Ag, Au and Ni sputtering yields of the
 compilation N. Matsunami, Y. Yamamura, Y. Itikawa, N. Itoh, Y. Kazumata,
 S. Miyagawa, K. Morita, R. Shimizu and H. Tawara, "Energy dependence of the
 yields of ion-induced sputtering of monatomic solids", report IPPJ-AM-32,
@@ -8,11 +8,11 @@ Nucl. Data Tables 31, 1 (1984), doi:10.1016/0092-640X(84)90016-0.
 
 This is the extraction behind `validation/data/sputtering/ar_<target>_sputter_*.json`
 (provenance: docs/data-provenance.md, operator decision #69; Cu in #69, Si, Ag
-and Au in #70). It is not part of the harness and needs numpy, scipy and
+and Au in #70, Ni in #543). It is not part of the harness and needs numpy, scipy and
 Pillow, which the harness does not. Neither the report nor any page image is
 in this tree: fetch the report yourself and extract the page raster of the
 figure with poppler (PDF p. 118 Ar -> Cu, p. 47 Ar -> Si, p. 191 Ar -> Ag,
-p. 262 Ar -> Au):
+p. 262 Ar -> Au, p. 103 Ar -> Ni):
 
     curl -O http://dpc.nifs.ac.jp/IPPJ-AM/IPPJ-AM-32.pdf
     pdfimages -f 118 -l 118 -png IPPJ-AM-32.pdf am32
@@ -31,7 +31,7 @@ solid line. Only the letters are read; the fitted line is never digitized or
 stored (it is masked out, step 3). Everything that depends on the figure
 (frame threshold, legend box, template scale, curve anchors, symbols,
 dropped symbols, references) is in that figure's table below (CU_*, SI_*,
-AG_*, AU_*, collected in FIGURES); the method is shared.
+AG_*, AU_*, NI_*, collected in FIGURES); the method is shared.
 
 Method (also summarized in each dataset's `extraction`):
 
@@ -580,7 +580,83 @@ AU = {
                           "targets)"},
 }
 
-FIGURES = {"Cu": CU, "Si": SI, "Ag": AG, "Au": AU}
+# ======================================================================
+# Ar -> Ni, PDF p. 103 (printed p. 98; text layer "RR+NI"); issue #543. Legend A-J.
+# ======================================================================
+NI_CURVE_ANCHORS = [
+    (1085, 1882), (1151, 1820), (1211, 1770), (1276, 1722), (1342, 1679), (1408, 1639), (1468, 1608), (1528, 1578),
+    (1588, 1552), (1648, 1528), (1720, 1503), (1780, 1482), (1840, 1465), (1900, 1450),
+]
+# Plotted glyphs are drawn at about the legend size here (isolated D, C, F, F, J:
+# width ratios 0.97, 1.00, 0.89, 0.96, 1.07, median 0.967; height ratios 1.02,
+# 1.04, 1.00, 1.00, 0.93, median 1.00). The glyph stems are about 5-6 px wide.
+NI_SEEDS = [
+    ("E", 1142, 1823, "keep", "three bars (top, middle under the curve, bottom bar at y 1843-1847 clear of the curve)",
+     (1129, 1799, 1156, 1848)),
+    ("D", 1142, 1770, "keep", "isolated; one rounded bowl on a straight stem, not B (no middle bar) and not P",
+     (1128, 1746, 1157, 1795)),
+    ("F", 1177, 1734, "keep", "top and middle bars, stem ends with no bottom bar; the stem continues into the glyph "
+     "below", (1164, 1712, 1191, 1757)),
+    ("F", 1177, 1774, "keep", "top bar at y 1752, middle bar at y 1769, no bottom bar; two F drawn 40 px apart in y",
+     (1164, 1752, 1191, 1796)),
+    ("C", 1209, 1707, "keep", "isolated; open right side, no inner bar (not G or O)", (1195, 1684, 1224, 1730)),
+    ("E", 1358, 1659, "keep", "top bar, middle bar, bottom bar at y 1674-1680 clear of the curve", (1346, 1636, 1371, 1683)),
+    ("F", 1373, 1603, "keep", "isolated; top and middle bars and no bottom bar", (1361, 1580, 1386, 1627)),
+    ("E", 1402, 1621, "keep", "three bars; bottom bar at y 1639-1643", (1388, 1597, 1416, 1645)),
+    ("F", 1428, 1568, "keep", "top bar, middle bar at y 1561-1567, no bottom bar; overlapped on the right by the G",
+     (1414, 1544, 1442, 1591)),
+    ("G", 1441, 1575, "keep", "inner bar at y 1575-1580 on the right; overlaps the F on its left", (1426, 1552, 1455, 1598)),
+    ("I", 1689, 1528, "infer", "narrow stem with serifs; two I drawn on one spot, offset 9 px in y (the stem has two "
+     "bottom serifs, at y 1543-1550 and 1553-1559, and their top serifs merge with each other and the curve at "
+     "y 1505-1522); upper glyph", (1681, 1505, 1698, 1551)),
+    ("I", 1689, 1537, "infer", "lower glyph of the pair of I described under the upper one", (1681, 1513, 1698, 1560)),
+    ("J", 1975, 1482, "keep", "isolated; hook at the lower left", (1960, 1460, 1990, 1504)),
+]
+NI_DROPPED = [
+    (1096, 1818, "about 240 eV: a pile of at least two letters with closed loops (B, D, P or R shapes) on a common "
+     "stem; the strokes that tell them apart are merged; not resolved"),
+    (1236, 1733, "about 440 eV: top and middle bars of an E or an F whose bottom bar, the only stroke that tells E from "
+     "F, would lie under the fitted curve; not resolved"),
+    (1262, 1675, "about 490 eV: a pile of two or three letters (a C-like top arc, bars at y 1664-1672 and 1678-1690 and a "
+     "bottom bar at y 1698-1705, with an upturned right end) on one stem; not resolved"),
+    (1303, 1655, "about 590 eV: a pile of three or more letters (an E or F top, a C-like arc at y 1632-1646, a bar at "
+     "y 1652-1658 and loops at y 1660-1700); not resolved"),
+]
+NI_REFERENCES = {
+    "C": ("ar_ni_sputter_laegreid1961", *LAEGREID, "C"),
+    "D": ("ar_ni_sputter_stuart1962", "R. V. Stuart and G. K. Wehner, J. Appl. Phys. 33, 2345 (1962) (year and volume as "
+          "read from the report's text layer, which misreads digits)", None, "D"),
+    "E": ("ar_ni_sputter_fetz1963", "H. Fetz and H. Oechsner, Proc. 6th Int. Conf. Ionization Phenomena in Gases (Paris, "
+          "1963), Vol. II, p. 39 (volume and page as read from the report's text layer, not verified)", None, "E"),
+    "F": ("ar_ni_sputter_weijsenfeld1967", "C. H. Weijsenfeld, Philips Res. Rep. Suppl. No. 2 (1967)", None, "F"),
+    "G": ("ar_ni_sputter_oechsner1973", "H. Oechsner, Z. Phys. 261, 37 (1973)", "10.1007/BF01402280", "G"),
+    "I": ("ar_ni_sputter_roth1979", "J. Roth, J. Bohdansky and W. Ottenberger, IPP-Report 9/28 (Max-Planck-Institut fuer "
+          "Plasmaphysik, 1979) (report number as read from the text layer, not verified)", None, "I"),
+    "J": ("ar_ni_sputter_okajima1981", "Y. Okajima, Jpn. J. Appl. Phys. 20, 2313 (1981)", "10.1143/JJAP.20.2313", "J"),
+}
+NI_LEGEND_NAMES = {
+    "A": "ALMEN, BRUCE (1961A)", "B": "FERT, COLOMBIE, FAGOT (1961)", "C": "LAEGREID, WEHNER (1959, 1961)",
+    "D": "STUART, WEHNER (1962)", "E": "FETZ, OECHSNER (1963)", "F": "WEIJSENFELD (1967)", "G": "OECHSNER (1973)",
+    "H": "POATE, BROWN, HOMER (1976)", "I": "ROTH, BOHDANSKY, OTTENBERGER (1979)", "J": "OKAJIMA (1981)",
+}
+NI = {
+    "page": 103,
+    "frame_col_frac": 0.2,
+    "min_ticks": 30,
+    "legend_letters": "ABCDEFGHIJ",
+    "legend_box": (1150, 1230, 2350, 3200),
+    "legend_mask": (2350, 1100),
+    "scale": (0.967, 1.0),
+    "isolated_check": [("D", 1142, 1770), ("C", 1209, 1707), ("F", 1373, 1603), ("J", 1975, 1482)],
+    "curve_anchors": NI_CURVE_ANCHORS,
+    "seeds": NI_SEEDS,
+    "dropped": NI_DROPPED,
+    "references": NI_REFERENCES,
+    "legend_names": NI_LEGEND_NAMES,
+    "target_state": NOT_STATED,
+}
+
+FIGURES = {"Cu": CU, "Si": SI, "Ag": AG, "Au": AU, "Ni": NI}
 
 
 GRID = np.log10(np.array([k * 10.0**n for n in range(-4, 8) for k in range(1, 10)]))

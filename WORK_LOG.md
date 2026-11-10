@@ -2,6 +2,61 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-10
+
+- **PR #615**: feat: position-dependent PSF scan over voxel targets
+- **PR #614**: feat: electron voxel damage map table and damage_export for electron runs
+- **PR #612**: feat: report pure-Ni yield against stored Ar -> Ni sets
+- **PR #611**: docs: record SiCOH and SiCN optical ELF as gaps
+- **PR #610**: refactor: share Gaussian and disc beam offset helpers across transport and exposure
+- **PR #609**: refactor: unify electron Face with geometry::Face via re-export
+- **PR #607**: docs: record HfO2 optical ELF as a gap with routes tried
+- **PR #604**: docs: record Si3N4 optical ELF as a gap with routes tried
+- **PR #603**: test: per-species (He, Ne, Ga, Xe) 2-D dynamic profile runs
+- **PR #601**: feat: versioned damage-export file with provenance header and NumPy round trip
+- **PR #600**: docs: record SiO2 optical ELF as a gap with routes tried
+- **PR #599**: docs: record full Al2O3 Table 9 second read against the scan
+- **PR #596**: test: share synthetic table builder and bare-Si helper across electron tests
+- **PR #595**: feat: lateral implant/damage profiles and film cut-through for the 2-D dynamic run
+- **PR #593**: data: add measured Ar -> Ni sputter yields (IPPJ-AM-32 p. 103) with NIFS cross-check
+- **PR #592**: docs: new fronts run alongside the 0.1.0 close-out; close-out step 2 done
+- **PR #591**: fix: set empty species/defect fields in electron voxel_report
+- **PR #586**: feat: split electron deposition into ionisation and lattice, add pairs and knock-on report
+- **PR #579**: feat: electron beam landing point, lateral profile and divergence
+- **PR #577**: data: add amorphous Al2O3 optical ELF (Hagemann 1975, Table 9)
+- **Issue #602** (closed): Electron voxel damage map: input table and Python/CLI export
+- **Issue #597** (closed): Regenerate the #465 Cu-Ni diagnostic now that Ar -> Ni sets are stored
+- **Issue #572** (closed): [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549)
+- **Issue #568** (closed): Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
+- **Issue #549** (closed): Electron transport on 2-D/3-D voxel targets with a finite beam, and a position-dependent point-spread report
+- **Issue #606** (closed): Collapse duplicate BeamProfile in tally::exposure into electron::transport::BeamProfile
+- **Issue #605** (closed): Unify duplicate Face enum: electron::transport re-exports geometry::Face
+- **Issue #598** (closed): data: second read of Al2O3 optical ELF rows above 20.5 eV against the DESY SR-74/7 scan
+- **Issue #590** (closed): main does not compile: tally/electron.rs VoxelReport/VoxelRecord missing fields after #560/#570 merge
+- **Issue #589** (closed): Consolidate duplicated synthetic-table and bare-Si helpers in electron tests
+- **Issue #571** (closed): [Epic #25] Electron beam with a finite lateral profile, landing position and divergence (part of #549)
+- **Issue #563** (closed): [Part of #553] Versioned damage-map export (ion and electron) with provenance header and Python round trip
+- **Issue #558** (closed): [Part of #553] Electron runs: ionisation vs lattice energy, e-h pairs, and knock-on threshold report
+- **Issue #553** (closed): Damage outputs: ionisation dose and knock-on threshold for electrons, per-species defect maps for ions, and a documented export
+- **Issue #543** (closed): [Epic #22] Store Ar → Ni sputter-yield datasets from IPPJ-AM-32 (split from #511, part 1)
+- **PR #583**: feat: add a 2-D dynamic run with finite beam, height-field surface and redeposition
+- **PR #582**: feat: run electron transport on any Geometry with a per-voxel deposition tally
+- **PR #581**: feat: per-element defect maps in the voxel tally, written by the CLI
+- **PR #575**: docs: record TiN and TaN optical-data gaps in the provenance inventory
+- **PR #573**: docs: record W, Ta, Ti, Co and Ru optical-data sources as gaps
+- **Issue #588** (closed): CI flake: Wheel and CLI (linux-x86_64) fails pulling manylinux image from quay.io (504)
+- **Issue #570** (closed): [Epic #25] Electron transport on any Geometry (voxel targets) with a 3-D energy-deposition tally (part of #549)
+- **Issue #564** (closed): Sourced optical ELFs: TaN and TiN
+- **Issue #560** (closed): [Part of #553] Ion runs: per-element vacancy, interstitial and replacement maps per voxel, written by the CLI
+- **Issue #559** (closed): [Epic #22] Focused ion beams, part 1: 2-D dynamic voxel target with finite beam, local-angle yield and redeposition
+- **Issue #556** (closed): Sourced optical ELFs: metals Co, Ru, W, Ta, Ti
+- **Issue #10** (closed): Epic: M0, amorphous ion core, validated
+- **PR #580**: feat: exposure statistics for small volumes via compound-Poisson tally
+- **PR #578**: feat: tally stopped electrons and holes per layer and cell with an exact charge balance
+- **PR #574**: docs: record HSQ as a sourced-ELF gap in the optical inventory
+- **Issue #569** (closed): Sourced optical ELFs: PMMA and hydrogen silsesquioxane (HSQ)
+- **Issue #550** (closed): Exposure statistics: distribution of energy deposited in a small volume by a finite number of electrons
+
 ### 2026-11-09
 
 - **PR #542**: docs: record operator rulings on 0.1.0 scope and publishing

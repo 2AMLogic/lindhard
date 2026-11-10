@@ -481,6 +481,55 @@ fn optical_elf_datasets_load_and_cite_their_source() {
     }
 }
 
+/// Amorphous Al2O3 (issue #568), Hagemann, Gudat and Kunz, DESY report SR-74/7,
+/// Table 9. No density-gated sum-rule case: the report gives no density for the
+/// film and none is assumed (docs/data-provenance.md, Al2O3 row); see
+/// `al2o3_density_free_sum_rule_integrals`.
+#[test]
+fn al2o3_elf_loads_and_cites_its_source() {
+    if !data_dir().is_dir() {
+        return;
+    }
+    let t = OpticalElf::from_toml_file(data_dir().join("al2o3_elf_hagemann1975.toml")).unwrap();
+    for cite in HAGEMANN {
+        assert!(t.provenance().contains(cite), "{cite}");
+    }
+    assert!(t.provenance().contains("Table 9"));
+    assert_eq!(t.energy_ev().len(), 100);
+    let (lo, hi) = t.energy_range_ev();
+    assert!(
+        (lo - 6.0).abs() < 0.01 && (hi - 1600.0).abs() < 0.5,
+        "{lo} {hi}"
+    );
+}
+
+/// Density-free Al2O3 sum-rule quantities (issue #618). The film's density is
+/// not given by the report and no read source exists (docs/data-provenance.md,
+/// Al2O3 row), so none is assumed: the f-sum rule is not gated. Not
+/// extrapolated: the integrals cover the 100 knots, 6 eV to 1.6 keV, nothing
+/// below 6 eV (band-gap region taken as zero) and nothing above 1.6 keV.
+/// The perfect-screening integral needs no density; its target
+/// `1 - 1/eps1(0)` is unknown (no n(0) read), so it is bounded: `P_eff` must lie
+/// in (0, 1) for a nonconductor (eps1(0) > 1).
+#[test]
+fn al2o3_density_free_sum_rule_integrals() {
+    if !data_dir().is_dir() {
+        return;
+    }
+    let t = OpticalElf::from_toml_file(data_dir().join("al2o3_elf_hagemann1975.toml")).unwrap();
+    let (e, y) = (t.energy_ev(), t.elf_values());
+    for (name, seg) in [
+        (LIBRARY, linear_elf as Rule),
+        (POWER_LAW, power_law_elf),
+        ("trapezoid", trapezoid_elf),
+    ] {
+        let (f, p) = integrals(e, y, seg);
+        let p_eff = 2.0 / std::f64::consts::PI * p;
+        println!("Al2O3 {name}: Int E ELF dE = {f:.4e} eV^2, P_eff = {p_eff:.4}");
+        assert!(p_eff > 0.0 && p_eff < 1.0, "{name}: P_eff = {p_eff}");
+    }
+}
+
 /// The Table 6 composite (issue #314) equals Table 5 outside Table 6's span
 /// (1.5 to 350 eV), shares every energy with it, and is not smoothed at the
 /// seams: the steps there are pinned, measured, so a later change to the join

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Convert a refractiveindex.info `tabulated nk` file of Hagemann, Gudat and
 Kunz, J. Opt. Soc. Am. 65, 742 (1975) into an `OpticalElf` TOML (Al, Cu, C,
-Au).
+Au, Al2O3).
 
 Usage: ingest_hagemann.py INPUT.yml MATERIAL OUTPUT.toml
        ingest_hagemann.py --patch BASE.yml PATCH.yml KEY OUTPUT.toml
@@ -109,6 +109,27 @@ PROVENANCE = {
         "Im[-1/eps] = eps2/(eps1^2+eps2^2) with eps1 = n^2-k^2, eps2 = 2nk. No "
         "smoothing, joining or extrapolation by lindhard. Operator ruling #34: "
         "committed as cited facts. Issue #148."
+    ),
+    "Al2O3": (
+        "Measured optical constants n, k of evaporated amorphous Al2O3, 6 eV to 1.6 keV: "
+        "H.-J. Hagemann, W. Gudat and C. Kunz, J. Opt. Soc. Am. 65, 742 (1975), "
+        "doi:10.1364/JOSA.65.000742; full tables in DESY report SR-74/7 (1974), Table 9 "
+        "(PDF pp. 60-62 of the open scan linked from the transcription, SHA-256 "
+        "f2643a91539506dd6794dde3b4810b91c3c7a24a57f98cf8b8b810e8e0931ed9), seen "
+        "2026-11-10; the JOSA paper itself (closed access) was not seen. The report (p. 21) "
+        "says these are the constants of evaporated amorphous Al2O3, not sapphire. The "
+        "authors' joins (report Section 4, p. 21): k from reflectance, interpolated between "
+        "2 experimental points, 5.5 to 10 eV; k from reflectance with the shape interpolated "
+        "by means of their transmission measurements to about 20 eV; their own transmission "
+        "to 150 eV; the transmission of Fomichev and Parobets (12 measured points) to 500 eV; "
+        "above that a superposition of Al and O data (Hubbell); n then by Kramers-Kronig. "
+        "The table has no rows below 6 eV. Rows read from the transcription "
+        "Al2O3/nk/Hagemann.yml of the CC0 refractiveindex.info database "
+        "(https://github.com/polyanskiy/refractiveindex.info-database, commit c5c2f18), "
+        "fetched 2026-11-10; n, k and the ENERGYLOSS column at 20 energies from 6 to 20.5 eV checked against "
+        "the scan. Converted here: E = hc/lambda, ELF = Im[-1/eps] = eps2/(eps1^2+eps2^2) "
+        "with eps1 = n^2-k^2, eps2 = 2nk. No smoothing, joining or extrapolation by "
+        "lindhard. Operator ruling #34: committed as cited facts. Issue #568."
     ),
 }
 

@@ -28,6 +28,12 @@ __all__ = [
     "Tally",
     "Target",
     "__version__",
+    "area_dose",
+    "exposure_dose",
+    "exposure_direct",
+    "exposure_dose_grid",
+    "iso_contours",
+    "read_damage_export",
 ]
 
 FATE_NAMES: list[str]
@@ -207,6 +213,8 @@ class Histogram:
     def unit(self) -> str: ...
     def __len__(self) -> int: ...
 
+def read_damage_export(path: str | os.PathLike[str]) -> dict[str, Any]: ...
+
 @final
 class RunResult:
     """The tallies of a finished run."""
@@ -231,6 +239,7 @@ class RunResult:
     def escapes(self) -> list[dict[str, Any]]: ...
     @property
     def ions(self) -> dict[str, npt.NDArray[Any]] | None: ...
+    def damage_export(self) -> dict[str, Any] | None: ...
     def summary(self) -> dict[str, Any]: ...
     def summary_json(self) -> str: ...
     def write(self, out_dir: str | os.PathLike[str]) -> None: ...
@@ -381,5 +390,102 @@ class ElectronRunResult:
     def transmission(self) -> list[dict[str, Any]] | None:
         """Interface crossings, four per interface (forward/back, primary/
         secondary), or ``None``."""
+    def damage_export(self) -> dict[str, Any] | None:
+        """The ``[electron.tally.voxel]`` tally in the damage-export layout
+        (as ``read_damage_export``), or ``None`` without the table."""
     def summary(self) -> dict[str, Any]: ...
     def summary_json(self) -> str: ...
+
+
+def exposure_dose(
+    shots: str | npt.NDArray[np.float64],
+    x_m: npt.NDArray[np.float64],
+    y_m: npt.NDArray[np.float64],
+    *,
+    total_ev: float,
+    alpha_m: float,
+    beta_m: float,
+    eta: float,
+    gamma_m: float | None = None,
+    nu: float | None = None,
+    blur_m: float = 0.0,
+    subsamples: int = 16,
+    threads: int | None = None,
+) -> npt.NDArray[np.float64]:
+    """Dose (eV/m^2) at the points ``(x_m[i], y_m[i])`` of a shot list.
+
+    ``shots`` is a CSV string or an ``(n, 3)`` array of ``x_m, y_m, weight``.
+    """
+
+def exposure_dose_grid(
+    shots: str | npt.NDArray[np.float64],
+    x0_m: float,
+    y0_m: float,
+    dx_m: float,
+    dy_m: float,
+    nx: int,
+    ny: int,
+    *,
+    total_ev: float,
+    alpha_m: float,
+    beta_m: float,
+    eta: float,
+    gamma_m: float | None = None,
+    nu: float | None = None,
+    blur_m: float = 0.0,
+    subsamples: int = 16,
+    threads: int | None = None,
+) -> npt.NDArray[np.float64]:
+    """Dose (eV/m^2) on a grid, shape ``(ny, nx)``."""
+
+def exposure_direct(
+    shots: str | npt.NDArray[np.float64],
+    run: ElectronRun,
+    x0_m: float,
+    y0_m: float,
+    dx_m: float,
+    dy_m: float,
+    nx: int,
+    ny: int,
+    *,
+    total_ev: float,
+    alpha_m: float,
+    beta_m: float,
+    eta: float,
+    slab_hi_m: float,
+    histories_per_shot: int,
+    gamma_m: float | None = None,
+    nu: float | None = None,
+    blur_m: float = 0.0,
+    subsamples: int = 16,
+    replicas: int = 8,
+    seed: int = 1,
+    slab_lo_m: float = 0.0,
+    tolerance_sigmas: float = 5.0,
+    conv_rel_err: float = 0.0,
+    floor_fraction: float = 0.01,
+    threads: int | None = None,
+) -> dict[str, npt.NDArray[np.float64] | npt.NDArray[np.bool_]]:
+    """Direct Monte Carlo exposure compared with the convolution (``(ny, nx)`` arrays)."""
+
+def area_dose(
+    *,
+    total_ev: float,
+    alpha_m: float,
+    beta_m: float,
+    eta: float,
+    gamma_m: float | None = None,
+    nu: float | None = None,
+    weight_per_m2: float = 1.0,
+) -> dict[str, float]:
+    """Large-area dose: total, forward-only and long-range (backscatter) parts."""
+
+def iso_contours(
+    dose: npt.NDArray[np.float64],
+    x0_m: float,
+    y0_m: float,
+    dx_m: float,
+    dy_m: float,
+    threshold: float,
+) -> list[dict[str, Any]]:
+    """Iso-dose contours with ``points``, ``closed``, ``area_m2``, ``centroid_m``."""

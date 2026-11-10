@@ -35,6 +35,10 @@ pub const IONS_FILE: &str = "ions.csv";
 pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
+pub const VOXEL_CSV_FILE: &str = "voxel_tally.csv";
+pub const VOXEL_VTK_FILE: &str = "voxel_tally.vtk";
+/// The versioned damage-map exchange file (`docs/damage-export-format.md`).
+pub const DAMAGE_EXPORT_FILE: &str = "damage_export.csv";
 
 pub const DYNAMIC_SUMMARY_FILE: &str = "dynamic_summary.json";
 pub const DYNAMIC_STEPS_FILE: &str = "dynamic_steps.csv";
@@ -484,6 +488,12 @@ struct Files {
     lateral_profile: &'static str,
     damage_profile: &'static str,
     escape_spectra: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    voxel_tally_csv: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    voxel_tally_vtk: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    damage_export: Option<&'static str>,
 }
 
 /// The only nondeterministic part of the summary.
@@ -657,12 +667,43 @@ pub fn summary_json(
             lateral_profile: LATERAL_FILE,
             damage_profile: DAMAGE_FILE,
             escape_spectra: ESCAPES_FILE,
+            voxel_tally_csv: t.voxel.is_some().then_some(VOXEL_CSV_FILE),
+            voxel_tally_vtk: t.voxel.is_some().then_some(VOXEL_VTK_FILE),
+            damage_export: t.voxel.is_some().then_some(DAMAGE_EXPORT_FILE),
         },
         run,
     };
     let mut text = serde_json::to_string_pretty(&summary)?;
     text.push('\n');
     Ok(text)
+}
+
+/// `damage_export.csv`: the ion voxel tally in the versioned exchange format,
+/// or `None` without `[tally.voxel]`. The header carries the engine, the
+/// `lindhard` version, the seed and the SHA-256 of the resolved-input echo
+/// (the `input` block of `summary.json`'s source, serialized compactly).
+pub fn damage_export_csv(r: &Resolved, t: &CliTally) -> Option<String> {
+    let report = t.voxel.as_ref()?.report();
+    Some(export_csv(&report, "ion", r.config.seed, &r.input))
+}
+
+/// The versioned damage-export text of `report` for either engine: the
+/// header carries `engine`, the `lindhard` version, the `seed` and the
+/// SHA-256 of `input` (the resolved-input echo, serialized compactly).
+pub fn export_csv<T: serde::Serialize>(
+    report: &lindhard::tally::VoxelReport,
+    engine: &str,
+    seed: u64,
+    input: &T,
+) -> String {
+    use sha2::{Digest, Sha256};
+    let echo = serde_json::to_vec(input).expect("the input serializes");
+    let hash: String = Sha256::digest(&echo)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    let p = lindhard::tally::ExportProvenance::new(engine, seed, &hash);
+    report.to_export_csv(&p)
 }
 
 /// `depth_profile.csv`: stopped primaries per depth bin. The last bin also

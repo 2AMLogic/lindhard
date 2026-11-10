@@ -171,13 +171,20 @@ class Diagnostics(unittest.TestCase):
         self.assertEqual(t["physics"]["energies"]["Ni"]["e_s_ev"], 3.49)
         self.assertEqual(t["physics"]["energies"]["Cu"]["e_s_ev"], cd.ELEMENTS["Cu"]["e_s_ev"])
 
-    def test_stored_cu_band_and_the_missing_ni_data(self):
+    def test_stored_cu_band_and_the_stored_ni_sets(self):
         band = cd.stored_cu_band(2000.0, 0.02)
         self.assertGreater(band["points"], 0)
         self.assertLessEqual(band["min"], band["median"])
         self.assertLessEqual(band["median"], band["max"])
-        self.assertEqual(cd.count_stored_sets("ar_ni"), 0)
+        # Ar -> Ni sets were added after the #465 diagnosis (which committed
+        # "0 stored"); the committed snapshot is checked separately below.
+        self.assertGreater(cd.count_stored_sets("ar_ni"), 0)
         self.assertGreater(cd.count_stored_sets("ar_cu"), 0)
+
+    def test_empty_stored_band_is_reported_not_crashed(self):
+        band = cd.stored_band("ar_ni", 2000.0, 0.02)
+        self.assertEqual(band["points"], 0)
+        self.assertIsNone(band["median"])
 
     def test_betz_interpolation_stays_between_the_bracketing_markers(self):
         r = cd.betz_interpolated_yield(38.4, cd.load_betz())
@@ -195,8 +202,9 @@ class Diagnostics(unittest.TestCase):
     def test_committed_findings_are_reported_not_tuned(self):
         r = json.loads(cd.RESULTS.read_text())
         d = r["diagnostics"]
-        self.assertEqual(d["stored_data"]["ar_ni_sets"], 0)
-        self.assertIsNone(d["pure_ni_over_stored"])
+        self.assertEqual(d["stored_data"]["ar_ni_sets"], 7)
+        self.assertIsNotNone(d["pure_ni_over_stored"])
+        self.assertGreater(d["pure_ni_over_stored"]["ratio_to_median"], 0)
         self.assertEqual(r["settings"]["surface_binding_ev"], {s: e["e_s_ev"] for s, e in cd.ELEMENTS.items()})
         for tag in ("ho_20deg", "betz_0deg"):
             self.assertEqual(len(d[tag]["grid"]), len(cd.DIAG_COMPOSITIONS))

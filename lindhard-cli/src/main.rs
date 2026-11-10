@@ -9,7 +9,7 @@ use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
 use lindhard_cli::publish::{self, OutputSet};
 use lindhard_cli::table_cache::TableCache;
-use lindhard_cli::{dynamic, electron, output, sim};
+use lindhard_cli::{dynamic, electron, exposure, output, sim};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -58,6 +58,9 @@ enum Command {
         #[arg(long, value_name = "DIR")]
         table_cache: Option<PathBuf>,
     },
+    /// Dose of a multi-shot exposure from a Gaussian-sum PSF, on a grid, with
+    /// optional iso-dose contours (exposure_*.csv, exposure_summary.json).
+    Exposure(Box<exposure::ExposureArgs>),
 }
 
 fn read(path: &Path) -> Result<String> {
@@ -197,6 +200,14 @@ fn run_electron(
     set.reconcile_optional(
         electron::PSF_PARAMETERS_FILE,
         electron::psf_parameters_csv(&sim),
+    )?;
+    set.reconcile_optional(
+        electron::EXPOSURE_FILE,
+        electron::exposure_histogram_csv(&sim),
+    )?;
+    set.reconcile_optional(
+        electron::DAMAGE_EXPORT_FILE,
+        electron::damage_export_csv(&r, &sim),
     )?;
     // Last, so the summary describes the completed output set.
     set.publish()?;
@@ -344,7 +355,8 @@ fn run(
 
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
-    publish::publish_static_ion(out, summary, &tally, &report)?;
+    let export = output::damage_export_csv(&r, &tally);
+    publish::publish_static_ion(out, summary, &tally, &report, export)?;
     let s = &tally.summary;
     eprintln!(
         "{} ions: {} stopped, {} backscattered, {} transmitted, {} sputtered atoms; wrote {}",
@@ -381,6 +393,7 @@ fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
 fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Check { input } => check(&input),
+        Command::Exposure(a) => exposure::run(&a),
         Command::Run {
             input,
             out,

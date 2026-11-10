@@ -7,7 +7,7 @@
 //! balance of `tally::electron` with both models on.
 
 use lindhard::electron::boundary::{BandModel, BandStructure};
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::{CrossSectionTable, SamplingAxis};
 use lindhard::electron::elastic::table::log_energy_grid;
 use lindhard::electron::inelastic::table::{
     build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
@@ -21,46 +21,18 @@ use lindhard::electron::transport::{
     LayerTables, Primary, SummaryTally, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::tally::{
     Binning, CartesianGrid, CylindricalGrid, ElectronReport, ElectronTallyConfig, FullElectronTally,
 };
 
-const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
+mod common;
+use common::{bare_si, synthetic_table};
+
 const PROVENANCE: &str = "synthetic, tests/electron_secondaries.rs";
-
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
-
-fn parts(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: PROVENANCE.into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
-}
 
 /// Inelastic loss uniform on `[0, frac * E]`.
 fn inelastic_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
-    parts(
+    synthetic_table(
         SamplingAxis::InelasticEnergyLoss,
         1.0 / lambda_m,
         move |e, p| frac * e * p,
@@ -68,16 +40,16 @@ fn inelastic_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
 }
 
 fn inelastic_none() -> CrossSectionTable {
-    parts(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0)
+    synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0)
 }
 
 fn elastic_none() -> CrossSectionTable {
-    parts(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
+    synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
 }
 
 /// Isotropic elastic scattering: `cos θ = 1 - 2p`.
 fn elastic_isotropic(lambda_m: f64) -> CrossSectionTable {
-    parts(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_m, |_, p| {
+    synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_m, |_, p| {
         (1.0 - 2.0 * p).acos()
     })
 }
@@ -225,7 +197,7 @@ impl ElectronTally for EventCheck {
 
 fn metal_on_insulator(config: TransportConfig) -> Transport {
     Transport::with_band_structures(
-        Stack::new(vec![(material(), 6e-9)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 6e-9)], Some(bare_si())).unwrap(),
         vec![
             pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
@@ -286,6 +258,43 @@ fn run_energy_balances_with_secondaries_and_barriers() {
     // The per-event identity, summed.
     let events = s.secondary_energy_ev + s.binding_ev + s.deposited_ev;
     assert!((events - s.inelastic_loss_ev).abs() < 1e-9 * s.inelastic_loss_ev);
+}
+
+#[test]
+fn channel_split_closes_through_the_secondary_hook() {
+    // With secondaries the `secondary` hook, not `inelastic`, books the
+    // energy left in the solid; the ionisation and lattice maps must still
+    // add up to the total, per layer and per grid cell.
+    let t = metal_on_insulator(full_physics());
+    let (n, e0) = (200u64, 300.0);
+    let mut cfg = ElectronTallyConfig::new(
+        Binning::new(0.0, e0, 30).unwrap(),
+        Binning::new(0.0, std::f64::consts::FRAC_PI_2, 9).unwrap(),
+    );
+    cfg.cartesian = Some(CartesianGrid {
+        x: Binning::new(0.0, 40e-9, 8).unwrap(),
+        y: Binning::new(-20e-9, 20e-9, 6).unwrap(),
+        z: Binning::new(-20e-9, 20e-9, 6).unwrap(),
+    });
+    let proto = FullElectronTally::new(&t, cfg).unwrap();
+    let r = t
+        .run(5, n, 32, &Primary::normal(e0), || proto.clone())
+        .unwrap()
+        .tally
+        .report();
+    let b = &r.budget;
+    assert!(b.deposited_ev > 0.0);
+    let close = |a: f64, c: f64| (a - c).abs() <= 1e-9 * c.abs().max(1.0);
+    assert!(close(b.ionisation_ev + b.lattice_ev, b.deposited_ev));
+    let d = &r.deposition;
+    let ion: f64 = d.per_layer_ionisation_ev.iter().sum();
+    let lat: f64 = d.per_layer_lattice_ev.iter().sum();
+    assert!(close(ion + lat, d.per_layer_ev.iter().sum()));
+    assert!(close(ion, b.ionisation_ev) && close(lat, b.lattice_ev));
+    let g = d.cartesian.as_ref().unwrap();
+    let cell_ion: f64 = g.ionisation_ev.iter().sum::<f64>() + g.outside_ionisation_ev;
+    let cell_lat: f64 = g.lattice_ev.iter().sum::<f64>() + g.outside_lattice_ev;
+    assert!(close(cell_ion, b.ionisation_ev) && close(cell_lat, b.lattice_ev));
 }
 
 // ---------------------------------------------------------------------------
@@ -352,7 +361,7 @@ fn secondary_direction_follows_the_binary_collision_angle() {
             momentum_conservation: true,
         };
         let t = Transport::with_band_structures(
-            Stack::semi_infinite(material()),
+            Stack::semi_infinite(bare_si()),
             vec![pair(elastic_isotropic(5e-9), inelastic_frac(4e-9, 0.3))],
             vec![band.clone()],
             cfg,
@@ -404,7 +413,7 @@ fn instantaneous_momentum_keeps_directions_unit_and_spreads_the_angle() {
     let mut cfg = TransportConfig::new(8.0);
     cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
     let t = Transport::with_band_structures(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(elastic_none(), inelastic_frac(4e-9, 0.3))],
         vec![insulator()],
         cfg,
@@ -441,7 +450,7 @@ fn entry_transmission_versus_normal_energy_matches_the_step_formula() {
     cfg.boundary = BoundaryModel::STEP_BARRIER;
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::with_band_structures(
-        Stack::new(vec![(material(), 1e-8)], None).unwrap(),
+        Stack::new(vec![(bare_si(), 1e-8)], None).unwrap(),
         vec![pair(elastic_none(), inelastic_none())],
         vec![metal()],
         cfg,
@@ -526,7 +535,7 @@ fn an_electron_below_the_barrier_is_always_reflected() {
     cfg.boundary = BoundaryModel::STEP_BARRIER;
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::with_band_structures(
-        Stack::new(vec![(material(), 4e-9)], None).unwrap(),
+        Stack::new(vec![(bare_si(), 4e-9)], None).unwrap(),
         vec![pair(elastic_isotropic(1e-9), inelastic_none())],
         vec![metal()],
         cfg,
@@ -614,7 +623,7 @@ fn vacuum_cutoff_stops_electrons_below_the_inner_potential_plus_cutoff() {
     cfg.boundary = BoundaryModel::STEP_BARRIER;
     cfg.cutoff_reference = CutoffReference::VacuumLevel;
     let t = Transport::with_band_structures(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
         vec![metal()],
         cfg,
@@ -647,7 +656,7 @@ fn vacuum_cutoff_stops_electrons_below_the_inner_potential_plus_cutoff() {
 
 /// Inelastic loss `W = frac * E` at every probability (a deterministic loss).
 fn inelastic_fixed_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
-    parts(
+    synthetic_table(
         SamplingAxis::InelasticEnergyLoss,
         1.0 / lambda_m,
         move |e, _p| frac * e,
@@ -686,7 +695,7 @@ fn losses_in_metal(frac: f64, cutoff: f64) -> Losses {
     cfg.boundary = BoundaryModel::STEP_BARRIER;
     cfg.cutoff_reference = CutoffReference::VacuumLevel;
     let t = Transport::with_band_structures(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(
             elastic_isotropic(3e-9),
             inelastic_fixed_frac(4e-9, frac),
@@ -761,7 +770,7 @@ fn penn_table(fermi_ev: f64, axis: EnergyAxis) -> CrossSectionTable {
     let grid = log_energy_grid(5.0, 400.0, 12.0).unwrap();
     build_inelastic_table_for_model(
         &model,
-        &material(),
+        &bare_si(),
         &InelasticTableOptions::new(grid).with_axis(axis),
     )
     .unwrap()
@@ -775,7 +784,7 @@ fn penn_losses_in_metal(inelastic: CrossSectionTable) -> Losses {
     cfg.boundary = BoundaryModel::STEP_BARRIER;
     cfg.cutoff_reference = CutoffReference::VacuumLevel;
     let t = Transport::with_band_structures(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(elastic_isotropic(3e-9), inelastic)],
         vec![metal()],
         cfg,
@@ -857,7 +866,7 @@ fn band_parameters_change_nothing_while_the_models_are_off() {
     assert_eq!(cfg.secondaries, SecondaryModel::Off);
     assert_eq!(cfg.boundary, BoundaryModel::Transparent);
     assert_eq!(cfg.cutoff_reference, CutoffReference::BandBottom);
-    let stack = || Stack::new(vec![(material(), 6e-9)], Some(material())).unwrap();
+    let stack = || Stack::new(vec![(bare_si(), 6e-9)], Some(bare_si())).unwrap();
     let tables = || {
         vec![
             pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
@@ -878,7 +887,7 @@ fn band_parameters_change_nothing_while_the_models_are_off() {
 
 #[test]
 fn models_that_need_band_parameters_refuse_to_run_without_them() {
-    let stack = || Stack::semi_infinite(material());
+    let stack = || Stack::semi_infinite(bare_si());
     let tables = || vec![pair(elastic_none(), inelastic_frac(1e-9, 0.1))];
     let mut se = TransportConfig::new(1.0);
     se.secondaries = SecondaryModel::KIEFT_BOSCH;
@@ -943,7 +952,7 @@ fn models_and_band_parameters_are_in_the_run_metadata() {
 
 #[test]
 fn free_electron_metal_uses_the_layer_density() {
-    let m = material();
+    let m = bare_si();
     let b = BandStructure::free_electron_metal(&m, 2.0, 4.0, PROVENANCE).unwrap();
     let n = 2.0 * m.atom_number_density();
     let ef = lindhard::electron::boundary::free_electron_fermi_energy_ev(n);
@@ -1047,11 +1056,7 @@ fn run_threads(threads: usize) -> EventLog {
 fn run_threads_with(threads: usize, metal: BandStructure) -> EventLog {
     let cfg = full_physics();
     let t = Transport::with_band_structures(
-        Stack::new(
-            vec![(material(), 5e-9), (material(), 8e-9)],
-            Some(material()),
-        )
-        .unwrap(),
+        Stack::new(vec![(bare_si(), 5e-9), (bare_si(), 8e-9)], Some(bare_si())).unwrap(),
         vec![
             pair(elastic_isotropic(3e-9), inelastic_frac(5e-9, 0.25)),
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
@@ -1115,7 +1120,7 @@ fn bound_metal() -> BandStructure {
 fn valence_binding_conserves_energy_and_frees_nothing_at_or_below_it() {
     let cfg = full_physics();
     let t = Transport::with_band_structures(
-        Stack::new(vec![(material(), 6e-9)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 6e-9)], Some(bare_si())).unwrap(),
         vec![
             pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
@@ -1318,7 +1323,7 @@ fn full_tally_balances_when_primaries_and_secondaries_hit_the_event_cap() {
     cfg.max_events = 6;
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::with_band_structures(
-        Stack::new(vec![(material(), 6e-9), (material(), 4e-9)], None).unwrap(),
+        Stack::new(vec![(bare_si(), 6e-9), (bare_si(), 4e-9)], None).unwrap(),
         vec![
             pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
@@ -1338,7 +1343,7 @@ fn capped_transport() -> Transport {
     let mut cfg = full_physics();
     cfg.max_events = 6;
     Transport::with_band_structures(
-        Stack::new(vec![(material(), 6e-9), (material(), 4e-9)], None).unwrap(),
+        Stack::new(vec![(bare_si(), 6e-9), (bare_si(), 4e-9)], None).unwrap(),
         vec![
             pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
@@ -1404,7 +1409,7 @@ fn full_tally_balances_with_a_binding_below_the_band_bottom() {
     let mut cfg = TransportConfig::new(4.0);
     cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
     let t = Transport::with_band_structures(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
         vec![deep],
         cfg,
@@ -1424,7 +1429,7 @@ fn full_tally_balances_with_a_metal_valence_binding() {
     let mut cfg = TransportConfig::new(8.0);
     cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
     let t = Transport::with_band_structures(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
         vec![bound_metal()],
         cfg,
@@ -1617,11 +1622,7 @@ fn full_tally_counts_each_capped_track_but_each_history_once() {
 
 fn tally_threaded(threads: usize) -> ElectronReport {
     let t = Transport::with_band_structures(
-        Stack::new(
-            vec![(material(), 5e-9), (material(), 8e-9)],
-            Some(material()),
-        )
-        .unwrap(),
+        Stack::new(vec![(bare_si(), 5e-9), (bare_si(), 8e-9)], Some(bare_si())).unwrap(),
         vec![
             pair(elastic_isotropic(3e-9), inelastic_frac(5e-9, 0.25)),
             pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),

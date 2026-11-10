@@ -170,6 +170,11 @@ impl ElectronRun {
 }
 
 impl ElectronRun {
+    /// The input resolved as `run()` does (for the direct exposure mode).
+    pub(crate) fn resolve_input(&self) -> PyResult<ResolvedElectron> {
+        self.resolve(&self.input)
+    }
+
     fn resolve(&self, input: &ElectronInput) -> PyResult<ResolvedElectron> {
         let base = self
             .base_dir
@@ -426,6 +431,19 @@ impl ElectronRunResult {
             out.append(e)?;
         }
         Ok(Some(out))
+    }
+
+    /// The voxel tally (`[electron.tally.voxel]`) in the damage-export layout
+    /// as a dict of NumPy arrays, or `None` without the table. The arrays
+    /// equal what `read_damage_export` returns for the written
+    /// `damage_export.csv`. See "Damage export" in `docs/python.md`.
+    fn damage_export<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        let Some(text) = electron::damage_export_csv(&self.resolved, &self.sim) else {
+            return Ok(None);
+        };
+        let (r, p) =
+            lindhard::tally::VoxelReport::read_export_csv(&text).map_err(|e| errors::run(&e))?;
+        crate::damage::to_dict(py, &r, &p).map(Some)
     }
 
     /// The command's `electron_summary.json` as a dict. Everything except the

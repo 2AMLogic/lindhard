@@ -13,8 +13,8 @@ use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::tally::Binning;
 use lindhard::tally::{
-    IonTally, IonTallyConfig, VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError,
-    VoxelTallyGrid,
+    ExportProvenance, IonTally, IonTallyConfig, SpeciesDefects, VoxelCell, VoxelRecord,
+    VoxelReport, VoxelTally, VoxelTallyError, VoxelTallyGrid,
 };
 
 const NM: f64 = 1e-9;
@@ -342,6 +342,7 @@ fn fixture() -> VoxelReport {
             lattice_ev: l,
             rest_ev: r,
         },
+        defects: Vec::new(),
     };
     VoxelReport {
         grid,
@@ -360,6 +361,8 @@ fn fixture() -> VoxelReport {
             lattice_ev: 0.0,
             rest_ev: 0.0,
         },
+        species_z: Vec::new(),
+        outside_defects: Vec::new(),
     }
 }
 
@@ -441,4 +444,209 @@ fn malformed_files_are_rejected_with_a_line() {
     let vtk = fixture().to_vtk();
     assert!(VoxelReport::read_vtk("not vtk").is_err());
     assert!(VoxelReport::read_vtk(&vtk[..vtk.len() / 2]).is_err());
+}
+
+// ---- per-element defects (vacancies, interstitials, replacements) ----
+
+/// An ion tally and a species-aware voxel tally fed by the same events.
+#[derive(Clone)]
+struct IonAndVoxel {
+    ion: IonTally,
+    voxel: VoxelTally,
+}
+
+impl BcaTally for IonAndVoxel {
+    fn begin_history(&mut self, i: u64) {
+        self.ion.begin_history(i);
+        self.voxel.begin_history(i);
+    }
+    fn lattice(&mut self, at: [f64; 3], l: usize, k: lindhard::ion::bca::LatticeDeposit, e: f64) {
+        self.ion.lattice(at, l, k, e);
+        self.voxel.lattice(at, l, k, e);
+    }
+    fn recoil(&mut self, r: &Particle) {
+        self.ion.recoil(r);
+        self.voxel.recoil(r);
+    }
+    fn stopped(&mut self, p: &Particle) {
+        self.ion.stopped(p);
+        self.voxel.stopped(p);
+    }
+    fn escaped(&mut self, p: &Particle, f: lindhard::ion::bca::Face) {
+        self.ion.escaped(p, f);
+        self.voxel.escaped(p, f);
+    }
+    fn end_history(&mut self, i: u64, b: &EnergyBudget) {
+        self.ion.end_history(i, b);
+        self.voxel.end_history(i, b);
+    }
+    fn merge(&mut self, o: Self) {
+        self.ion.merge(o.ion);
+        self.voxel.merge(o.voxel);
+    }
+}
+
+/// A SiO2 film on Si (several species), tallied on a grid that covers only
+/// part of the target so that some events fall outside it.
+fn run_defects(
+    follow_recoils: bool,
+    count: u64,
+    chunk: u64,
+) -> (VoxelReport, lindhard::tally::IonReport) {
+    let ls = LindhardScharff::new();
+    let mut cfg = BcaConfig::new(5.0, 2.0);
+    cfg.seed = 55;
+    cfg.chunk_size = chunk;
+    cfg.follow_recoils = follow_recoils;
+    let stack = Stack::new(vec![(common::sio2(), 30.0 * NM)], Some(si())).unwrap();
+    let ion_cfg = IonTallyConfig {
+        depth: Binning::new(0.0, 200.0 * NM, 40).unwrap(),
+        lateral: Binning::new(-100.0 * NM, 100.0 * NM, 20).unwrap(),
+        radial: Binning::new(0.0, 100.0 * NM, 20).unwrap(),
+        escape_energy: Binning::new(0.0, 2.0e3, 20).unwrap(),
+        escape_polar: Binning::new(0.0, 1.6, 8).unwrap(),
+    };
+    let bca = Bca::new(beam(count), &stack, cfg, &ls, table()).unwrap();
+    let z = bca.species_z();
+    let ion = IonTally::new(&stack, &z, ion_cfg).unwrap();
+    let grid = VoxelTallyGrid::new([0.0, -4.0 * NM, -4.0 * NM], [2.0 * NM; 3], [15, 4, 4]).unwrap();
+    let voxel = VoxelTally::new(grid).with_species(&z);
+    let t = bca
+        .run(|| IonAndVoxel {
+            ion: ion.clone(),
+            voxel: voxel.clone(),
+        })
+        .unwrap();
+    (t.voxel.report(), t.ion.report(false))
+}
+
+fn assert_matches_cascade(r: &VoxelReport, ion: &lindhard::tally::IonReport) {
+    let c = ion.damage.cascade;
+    let mut sum = SpeciesDefects::default();
+    for d in r.grand_defect_totals() {
+        sum.add(&d);
+    }
+    assert_eq!(sum.vacancies, c.vacancies);
+    assert_eq!(sum.interstitials, c.interstitials);
+    assert_eq!(sum.replacements, c.replacements);
+    // The aggregate column keeps its meaning.
+    assert_eq!(r.grand_totals().displacements, c.displacements);
+    assert_eq!(sum.vacancies + sum.replacements, c.displacements);
+}
+
+#[test]
+fn per_element_defects_sum_to_the_cascade_totals() {
+    let (r, ion) = run_defects(true, 1500, 64);
+    assert_eq!(r.species_z, vec![5, 14, 8]);
+    assert!(ion.damage.cascade.replacements > 0 && ion.damage.cascade.interstitials > 0);
+    assert_matches_cascade(&r, &ion);
+    // Several species carry defects, and some events fall outside the grid.
+    let per = r.grand_defect_totals();
+    assert!(per[1].vacancies > 0 && per[2].vacancies > 0);
+    assert!(r.outside_defects.iter().any(|d| d.vacancies > 0));
+    assert!(r.defect_totals().iter().any(|d| d.vacancies > 0));
+    // Per voxel: vacancies + replacements = displacements.
+    for v in &r.voxels {
+        let n: u64 = v.defects.iter().map(|d| d.vacancies + d.replacements).sum();
+        assert_eq!(n, v.cell.displacements);
+    }
+}
+
+#[test]
+fn without_following_recoils_there_are_no_replacements() {
+    let (r, ion) = run_defects(false, 800, 64);
+    assert_eq!(ion.damage.cascade.replacements, 0);
+    assert!(r.grand_defect_totals().iter().all(|d| d.replacements == 0));
+    assert_matches_cascade(&r, &ion);
+}
+
+#[test]
+fn per_element_defects_are_identical_across_thread_counts() {
+    let run = |threads: usize| {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(threads)
+            .build()
+            .unwrap()
+            .install(|| run_defects(true, 300, 16).0)
+    };
+    let r1 = run(1);
+    assert!(r1.grand_defect_totals().iter().any(|d| d.vacancies > 0));
+    for n in [2, 8] {
+        assert_eq!(r1, run(n));
+    }
+}
+
+#[test]
+fn v2_files_round_trip_and_v1_files_still_read() {
+    let (r, _) = run_defects(true, 300, 64);
+    let csv = r.to_csv();
+    assert!(csv.starts_with("# lindhard voxel tally v2\n"));
+    assert!(csv.contains("# species = 0:B,1:Si,2:O"));
+    assert!(csv.contains("vacancies_1_Si,interstitials_1_Si,replacements_1_Si"));
+    assert_eq!(VoxelReport::read_csv(&csv).unwrap(), r);
+
+    // VTK drops the outside sums only.
+    let back = VoxelReport::read_vtk(&r.to_vtk()).unwrap();
+    assert_eq!(back.species_z, r.species_z);
+    assert_eq!(back.voxels, r.voxels);
+
+    // A tally without species still writes the v1 files byte for byte.
+    let v1 = fixture();
+    assert!(v1.to_csv().starts_with("# lindhard voxel tally v1\n"));
+    assert_eq!(VoxelReport::read_csv(&v1.to_csv()).unwrap(), v1);
+    assert!(v1
+        .to_vtk()
+        .lines()
+        .nth(1)
+        .unwrap()
+        .starts_with("lindhard voxel tally v1 "));
+}
+
+fn provenance(engine: &str) -> ExportProvenance {
+    ExportProvenance::new(engine, 0xD0C, &"ab".repeat(32))
+}
+
+#[test]
+fn damage_export_round_trips_with_provenance_for_species_and_plain_reports() {
+    // Per-species ion map, a species-free map (the electron layout) and an
+    // empty one: each reads back unchanged, bit for bit, with its provenance.
+    let (species, _) = run_defects(true, 300, 64);
+    let plain = fixture();
+    let mut empty = fixture();
+    empty.voxels.clear();
+    empty.outside = VoxelCell::default();
+    for (engine, r) in [("ion", species), ("electron", plain), ("ion", empty)] {
+        let p = provenance(engine);
+        let text = r.to_export_csv(&p);
+        assert!(text.starts_with("# lindhard damage export v1\n"));
+        for key in [
+            "# format_version = 1",
+            "# engine = ",
+            "# lindhard_version = ",
+            "# seed = 3340",
+            "# input_sha256 = ",
+            "# units = length=m; energy=eV; counts=1",
+        ] {
+            assert!(text.contains(key), "{key}");
+        }
+        let (back, p2) = VoxelReport::read_export_csv(&text).unwrap();
+        assert_eq!(back, r);
+        assert_eq!(p2, p);
+        // The plain reader accepts the same file.
+        assert_eq!(VoxelReport::read_csv(&text).unwrap(), r);
+        // Deterministic.
+        assert_eq!(text, r.to_export_csv(&p));
+    }
+}
+
+#[test]
+fn damage_export_reader_refuses_files_without_provenance() {
+    let r = fixture();
+    // A plain voxel CSV is not an export file.
+    assert!(VoxelReport::read_export_csv(&r.to_csv()).is_err());
+    let text = r.to_export_csv(&provenance("ion"));
+    let no_seed = text.replace("# seed = 3340\n", "");
+    assert!(VoxelReport::read_export_csv(&no_seed).is_err());
+    let v9 = text.replace("format_version = 1", "format_version = 9");
+    assert!(VoxelReport::read_export_csv(&v9).is_err());
 }

@@ -1,0 +1,282 @@
+{
+  "format": "lindhard-digitize-secondread/1",
+  "figure": "IPPJ-AM-32 (1983), Ar -> Ni, PDF p. 103 (matsunami1983_ipp_am32.py)",
+  "automatic": "template-coverage centre (mean of the scaled and the legend-size template), as stored",
+  "manual": "centre of the bounding box of the ink inside a glyph box read by eye from zoomed rasters (no template, same axis calibration)",
+  "criterion": "|ln(manual / automatic)| in E and in Y against the stored digitizing uncertainty u (within u) and against sqrt(2) u (within the combined uncertainty)",
+  "points": [
+    {
+      "letter": "C",
+      "id": "ar_ni_sputter_laegreid1961",
+      "energy_ev": 394.1,
+      "yield": 1.225,
+      "box_px": [
+        1195,
+        1684,
+        1224,
+        1730
+      ],
+      "energy_manual_ev": 393.7,
+      "yield_manual": 1.224,
+      "energy_ratio": 0.9989,
+      "yield_ratio": 0.999,
+      "unc_rel": [
+        0.021,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "D",
+      "id": "ar_ni_sputter_stuart1962",
+      "energy_ev": 297.1,
+      "yield": 0.9401,
+      "box_px": [
+        1128,
+        1746,
+        1157,
+        1795
+      ],
+      "energy_manual_ev": 295.8,
+      "yield_manual": 0.9432,
+      "energy_ratio": 0.9955,
+      "yield_ratio": 1.0033,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_ni_sputter_fetz1963",
+      "energy_ev": 294.4,
+      "yield": 0.7668,
+      "box_px": [
+        1129,
+        1799,
+        1156,
+        1848
+      ],
+      "energy_manual_ev": 296.7,
+      "yield_manual": 0.7609,
+      "energy_ratio": 1.0078,
+      "yield_ratio": 0.9923,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_ni_sputter_fetz1963",
+      "energy_ev": 737.7,
+      "yield": 1.506,
+      "box_px": [
+        1346,
+        1636,
+        1371,
+        1683
+      ],
+      "energy_manual_ev": 741.1,
+      "yield_manual": 1.495,
+      "energy_ratio": 1.0046,
+      "yield_ratio": 0.9925,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "E",
+      "id": "ar_ni_sputter_fetz1963",
+      "energy_ev": 886.4,
+      "yield": 1.764,
+      "box_px": [
+        1388,
+        1597,
+        1416,
+        1645
+      ],
+      "energy_manual_ev": 891.2,
+      "yield_manual": 1.742,
+      "energy_ratio": 1.0054,
+      "yield_ratio": 0.9877,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "energy_ev": 343.9,
+      "yield": 1.092,
+      "box_px": [
+        1164,
+        1712,
+        1191,
+        1757
+      ],
+      "energy_manual_ev": 343.8,
+      "yield_manual": 1.092,
+      "energy_ratio": 0.9995,
+      "yield_ratio": 1.0,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "energy_ev": 344.1,
+      "yield": 0.9301,
+      "box_px": [
+        1164,
+        1752,
+        1191,
+        1796
+      ],
+      "energy_manual_ev": 345.5,
+      "yield_manual": 0.9278,
+      "energy_ratio": 1.0041,
+      "yield_ratio": 0.9975,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "energy_ev": 787.6,
+      "yield": 1.88,
+      "box_px": [
+        1361,
+        1580,
+        1386,
+        1627
+      ],
+      "energy_manual_ev": 785.9,
+      "yield_manual": 1.884,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 1.0021,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "F",
+      "id": "ar_ni_sputter_weijsenfeld1967",
+      "energy_ev": 990.4,
+      "yield": 2.185,
+      "box_px": [
+        1414,
+        1544,
+        1442,
+        1591
+      ],
+      "energy_manual_ev": 994.5,
+      "yield_manual": 2.173,
+      "energy_ratio": 1.0041,
+      "yield_ratio": 0.9945,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "G",
+      "id": "ar_ni_sputter_oechsner1973",
+      "energy_ev": 1049.0,
+      "yield": 2.111,
+      "box_px": [
+        1426,
+        1552,
+        1455,
+        1598
+      ],
+      "energy_manual_ev": 1047.0,
+      "yield_manual": 2.115,
+      "energy_ratio": 0.9979,
+      "yield_ratio": 1.0021,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "I",
+      "id": "ar_ni_sputter_roth1979",
+      "energy_ev": 3036.0,
+      "yield": 2.48,
+      "box_px": [
+        1681,
+        1513,
+        1698,
+        1560
+      ],
+      "energy_manual_ev": 3014.0,
+      "yield_manual": 2.479,
+      "energy_ratio": 0.9928,
+      "yield_ratio": 0.9998,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "I",
+      "id": "ar_ni_sputter_roth1979",
+      "energy_ev": 3037.0,
+      "yield": 2.566,
+      "box_px": [
+        1681,
+        1505,
+        1698,
+        1551
+      ],
+      "energy_manual_ev": 3020.0,
+      "yield_manual": 2.563,
+      "energy_ratio": 0.9946,
+      "yield_ratio": 0.9989,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    },
+    {
+      "letter": "J",
+      "id": "ar_ni_sputter_okajima1981",
+      "energy_ev": 10180.0,
+      "yield": 3.106,
+      "box_px": [
+        1960,
+        1460,
+        1990,
+        1504
+      ],
+      "energy_manual_ev": 10130.0,
+      "yield_manual": 3.105,
+      "energy_ratio": 0.9958,
+      "yield_ratio": 0.9999,
+      "unc_rel": [
+        0.02,
+        0.02
+      ],
+      "verdict": "within the digitizing uncertainty"
+    }
+  ]
+}

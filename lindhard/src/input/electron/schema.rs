@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
 use crate::electron::transport::TransportConfig;
-use crate::input::TargetSpec;
+use crate::input::{DivergenceSpec, TargetSpec, VoxelTallySpec};
 use crate::material::MaterialSpec;
 use crate::tally::{PsfModel, PsfNormalization, SE_BSE_SPLIT_EV};
 
@@ -75,6 +75,58 @@ pub struct ElectronBeamSpec {
     /// Azimuth of the incidence plane, degrees.
     #[serde(default)]
     pub azimuth_deg: f64,
+    /// Landing point `[y, z]` of the beam centre on the front face, nm
+    /// (default `[0, 0]`).
+    #[serde(default, skip_serializing_if = "is_origin")]
+    pub landing_nm: [f64; 2],
+    /// Lateral profile about the landing point (default: a point).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<BeamProfileSpec>,
+    /// Angular spread about the nominal direction; the ion beam's
+    /// `[beam.divergence]` laws ([`DivergenceSpec`]), with the same inward
+    /// conditioning and width limit (default: none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub divergence: Option<DivergenceSpec>,
+}
+
+fn is_origin(v: &[f64; 2]) -> bool {
+    *v == [0.0; 2]
+}
+
+/// `[electron.beam.profile]`: the lateral profile of the beam on the front
+/// face, selected by `model`; lengths in nm.
+///
+/// ```toml
+/// [electron.beam.profile]
+/// model = "gaussian"   # sigma_nm: standard deviation of each of y and z
+/// sigma_nm = 5.0
+/// # model = "disc"      # radius_nm: uniform in area
+/// # model = "rectangle" # width_y_nm, width_z_nm: full widths, uniform
+/// ```
+///
+/// See [`BeamProfile`](crate::electron::transport::BeamProfile) for the laws.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "model", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum BeamProfileSpec {
+    /// Every primary lands at the landing point.
+    Point,
+    /// Gaussian spot.
+    Gaussian {
+        /// Standard deviation of each of `y` and `z`, nm, `> 0`.
+        sigma_nm: f64,
+    },
+    /// Uniform disc.
+    Disc {
+        /// Radius, nm, `> 0`.
+        radius_nm: f64,
+    },
+    /// Uniform rectangle centred on the landing point.
+    Rectangle {
+        /// Full width along `y`, nm, `> 0`.
+        width_y_nm: f64,
+        /// Full width along `z`, nm, `> 0`.
+        width_z_nm: f64,
+    },
 }
 
 /// Where the cutoff is measured from.
@@ -483,6 +535,25 @@ pub struct ElectronMaterialSpec {
     /// Inner-shell ionisation channels (`single-pole` only); absent: none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inner_shells: Option<InnerShellsSpec>,
+    /// Mean energy per electron-hole pair `E_pair`, with its source. Absent:
+    /// the report gives the ionisation energy of the material's layers only
+    /// and no pair count; no default is supplied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub e_pair: Option<EPairSpec>,
+}
+
+/// `[electron.materials.<name>.e_pair]`: the energy needed per electron-hole
+/// pair, a per-material input that must carry its citation (for example the
+/// Klein 1968 rule for a semiconductor, or a measured value for SiO2). Pairs
+/// per incident electron are the ionisation energy divided by it, a
+/// post-processing step; nothing in transport depends on it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EPairSpec {
+    /// `E_pair`, eV (positive).
+    pub ev: f64,
+    /// Where the value comes from (required, non-blank).
+    pub source: String,
 }
 
 /// A uniform binning in nm.
@@ -586,6 +657,105 @@ pub struct PsfSpec {
     pub normalization: PsfNormalizationSpec,
 }
 
+fn default_exposure_bins() -> usize {
+    200
+}
+fn default_exposure_quantiles() -> Vec<f64> {
+    vec![0.05, 0.5, 0.95]
+}
+fn default_exposure_tail() -> f64 {
+    1e-12
+}
+
+/// Beam profile of `[electron.tally.exposure]`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum ExposureBeamSpec {
+    /// All electrons land on the axis.
+    Point,
+    /// Gaussian landing offset, `sigma_nm` per lateral axis.
+    Gaussian {
+        /// Standard deviation per axis, nm.
+        sigma_nm: f64,
+    },
+    /// Uniform disc.
+    UniformDisc {
+        /// Radius, nm.
+        radius_nm: f64,
+    },
+}
+
+/// Shape of a volume of `[electron.tally.exposure]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExposureShapeSpec {
+    /// Cylinder along the depth axis (needs `radius_nm`).
+    Cylinder,
+    /// Box centred on the offset (needs `half_y_nm` and `half_z_nm`).
+    Box,
+}
+
+/// One `[[electron.tally.exposure.volumes]]` entry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExposureVolumeSpec {
+    /// Label in the outputs (unique).
+    pub name: String,
+    /// Shape.
+    pub shape: ExposureShapeSpec,
+    /// Cylinder radius, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius_nm: Option<f64>,
+    /// Box half width along `y`, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub half_y_nm: Option<f64>,
+    /// Box half width along `z`, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub half_z_nm: Option<f64>,
+    /// Lower depth, nm.
+    pub depth_lo_nm: f64,
+    /// Upper depth (excluded), nm.
+    pub depth_hi_nm: f64,
+    /// Lateral centre `y`, nm.
+    #[serde(default)]
+    pub offset_y_nm: f64,
+    /// Lateral centre `z`, nm.
+    #[serde(default)]
+    pub offset_z_nm: f64,
+}
+
+/// `[electron.tally.exposure]`: the per-electron deposit in target volumes
+/// and the compound-Poisson distribution of a finite exposure
+/// ([`crate::tally::exposure`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExposureSpec {
+    /// Mean number of incident electrons.
+    pub lambda: f64,
+    /// Beam profile.
+    pub beam: ExposureBeamSpec,
+    /// Target volumes (a neighbour is another volume at its offset).
+    pub volumes: Vec<ExposureVolumeSpec>,
+    /// Histogram bins of the per-electron deposit.
+    #[serde(default = "default_exposure_bins")]
+    pub bins: usize,
+    /// Upper edge of the histogram, eV. Default: the beam energy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x_max_ev: Option<f64>,
+    /// Probabilities whose quantiles of the exposure energy are reported.
+    #[serde(default = "default_exposure_quantiles")]
+    pub quantiles: Vec<f64>,
+    /// Thresholds `a`, eV, for `P(S < a)`.
+    #[serde(default)]
+    pub below_ev: Vec<f64>,
+    /// Thresholds `b`, eV, for `P(S > b)`.
+    #[serde(default)]
+    pub above_ev: Vec<f64>,
+    /// Poisson tail mass dropped from the convolution.
+    #[serde(default = "default_exposure_tail")]
+    pub tail_tolerance: f64,
+}
+
 fn default_split() -> f64 {
     SE_BSE_SPLIT_EV
 }
@@ -632,6 +802,14 @@ pub struct ElectronTallySpec {
     /// Dose per layer, depth-dose profile and interface transmission.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dose: Option<DoseSpec>,
+    /// Exposure statistics of small volumes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposure: Option<ExposureSpec>,
+    /// Voxel energy-deposition grid, written as `damage_export.csv` (the
+    /// ion `[tally.voxel]` table, same fields). The electron tally has no
+    /// species axis, so the per-species defect columns are empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub voxel: Option<VoxelTallySpec>,
 }
 
 /// `[electron.tally.dose]`: dose in each layer per unit incident fluence
@@ -669,6 +847,8 @@ impl Default for ElectronTallySpec {
             cylindrical: None,
             psf: None,
             dose: None,
+            exposure: None,
+            voxel: None,
         }
     }
 }

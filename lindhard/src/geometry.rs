@@ -243,6 +243,8 @@ pub enum Face {
     Back,
     /// A lateral face of a voxel grid, `y = 0`, `y = Ly`, `z = 0` or
     /// `z = Lz` (only reachable with a [`Boundary::Vacuum`] lateral axis).
+    /// For electrons it releases the particle whatever the `EscapeRule`,
+    /// which only governs the back face.
     Side,
 }
 
@@ -347,4 +349,10 @@ pub trait Geometry: Sync {
     /// collision partners that would lie beyond a surface. For a [`Stack`]
     /// this is in front of the front face only (as in the M0 engine).
     fn in_vacuum(&self, pos: [f64; 3]) -> bool;
+
+    /// This geometry as a layered [`Stack`], if it is one. Tallies defined
+    /// per layer (dose, depth-dose, interface transmission) need it.
+    fn as_stack(&self) -> Option<&Stack> {
+        None
+    }
 }

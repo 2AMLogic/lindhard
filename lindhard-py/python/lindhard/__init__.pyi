@@ -17,6 +17,12 @@ from ._lindhard import (
     Tally as Tally,
     Target as Target,
     __version__ as __version__,
+    area_dose as area_dose,
+    exposure_dose as exposure_dose,
+    exposure_direct as exposure_direct,
+    exposure_dose_grid as exposure_dose_grid,
+    iso_contours as iso_contours,
+    read_damage_export as read_damage_export,
 )
 
 __all__ = [
@@ -38,4 +44,10 @@ __all__ = [
     "Tally",
     "Target",
     "__version__",
+    "area_dose",
+    "exposure_dose",
+    "exposure_direct",
+    "exposure_dose_grid",
+    "iso_contours",
+    "read_damage_export",
 ]

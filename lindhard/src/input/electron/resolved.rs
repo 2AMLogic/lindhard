@@ -15,12 +15,12 @@ use crate::electron::elastic::corrections::{
 use crate::electron::inelastic::{MerminFitOptions, PennAlgorithm};
 use crate::electron::phonon::InsulatorChannels;
 use crate::electron::secondary::SecondaryModel;
-use crate::electron::transport::{BoundaryModel, Primary, TransportConfig};
+use crate::electron::transport::{BeamSpread, BoundaryModel, Primary, TransportConfig};
 use crate::geometry::Stack;
 use crate::input::{ModelInfo, ResolvedLayer};
 use crate::material::Material;
 use crate::tally::electron::SE_BSE_SPLIT_SOURCE;
-use crate::tally::{ElectronTallyConfig, PsfModel, PsfNormalization};
+use crate::tally::{ElectronTallyConfig, PsfModel, PsfNormalization, VoxelTallyGrid};
 
 use super::schema::*;
 
@@ -131,6 +131,18 @@ pub struct ResolvedElectronMaterial {
     pub mermin_fit: MerminFitOptions,
     /// Inner-shell channels, if given.
     pub inner_shells: Option<ResolvedInnerShells>,
+    /// Energy per electron-hole pair, eV, and its source; `None` when the
+    /// input gives none (no pair count is then reported).
+    pub e_pair: Option<ResolvedEPair>,
+}
+
+/// `E_pair` of a material, validated.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolvedEPair {
+    /// Energy per electron-hole pair, eV.
+    pub ev: f64,
+    /// The citation, trimmed.
+    pub source: String,
 }
 
 /// A validated electron input, in the engine's types.
@@ -150,6 +162,9 @@ pub struct ResolvedElectron {
     pub config: TransportConfig,
     /// The primary electron.
     pub primary: Primary,
+    /// Landing profile and divergence of the beam (a point beam by default);
+    /// run with [`Transport::run_beam`](crate::electron::transport::Transport::run_beam).
+    pub beam: BeamSpread,
     /// Elastic choices.
     pub elastic: ElasticChoice,
     /// Inelastic model.
@@ -161,6 +176,8 @@ pub struct ResolvedElectron {
     pub table_energy_ev: Vec<f64>,
     /// Tally configuration (SI units).
     pub tally: ElectronTallyConfig,
+    /// The grid of `electron.tally.voxel` (SI units), if configured.
+    pub voxel_grid: Option<VoxelTallyGrid>,
     /// The PSF forms to fit to the profile of `tally.psf`, in input order
     /// (duplicates removed).
     pub psf_fits: Vec<PsfModel>,

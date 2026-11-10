@@ -8,7 +8,7 @@
 //! out again here independently of the library code.
 
 use lindhard::constants::{BOHR_RADIUS, BOLTZMANN, ELEMENTARY_CHARGE};
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::{CrossSectionTable, SamplingAxis};
 use lindhard::electron::phonon::{
     cos_theta_cdf, FrohlichPhonon, InsulatorChannels, PolaronTrapping,
 };
@@ -17,11 +17,12 @@ use lindhard::electron::transport::{
     Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::tally::{Binning, ElectronTallyConfig, FullElectronTally};
 
+mod common;
+use common::bare_si;
+
 const GRID: [f64; 5] = [0.01, 1.0, 10.0, 100.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 
 /// Synthetic mode: `ħω = 0.1 eV`, `ε₀ = 4`, `ε∞ = 2`, `T = 600 K`.
 const HW: f64 = 0.1;
@@ -29,32 +30,8 @@ const EPS0: f64 = 4.0;
 const EPSINF: f64 = 2.0;
 const TEMP: f64 = 600.0;
 
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
-
 fn table(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: "computed in tests/electron_phonon.rs".into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
+    common::synthetic_table_on(&GRID, axis, rate, row)
 }
 
 /// No elastic and no inelastic scattering: only the insulator channels act.
@@ -184,7 +161,7 @@ impl ElectronTally for FirstEvent {
 fn first_events(energy_ev: f64, seed: u64, n: u64) -> FirstEvent {
     let mut cfg = TransportConfig::new(0.001);
     cfg.max_events = 1;
-    let t = Transport::new(Stack::semi_infinite(material()), vec![no_tables()], cfg)
+    let t = Transport::new(Stack::semi_infinite(bare_si()), vec![no_tables()], cfg)
         .unwrap()
         .with_insulator_channels(0, phonon_only())
         .unwrap();
@@ -238,7 +215,7 @@ fn no_absorption_at_zero_temperature() {
     let cold = FrohlichPhonon::new(HW, EPS0, EPSINF, 0.0, "synthetic").unwrap();
     let mut cfg = TransportConfig::new(0.05);
     cfg.max_events = 1000;
-    let t = Transport::new(Stack::semi_infinite(material()), vec![no_tables()], cfg)
+    let t = Transport::new(Stack::semi_infinite(bare_si()), vec![no_tables()], cfg)
         .unwrap()
         .with_insulator_channels(
             0,
@@ -288,7 +265,7 @@ fn phonon_deflection_follows_the_frohlich_angular_distribution() {
     let e = 0.5;
     let mut cfg = TransportConfig::new(0.001);
     cfg.max_events = 1;
-    let t = Transport::new(Stack::semi_infinite(material()), vec![no_tables()], cfg)
+    let t = Transport::new(Stack::semi_infinite(bare_si()), vec![no_tables()], cfg)
         .unwrap()
         .with_insulator_channels(0, phonon_only())
         .unwrap();
@@ -344,7 +321,7 @@ impl ElectronTally for TrapLog {
 fn trapping_probability_over_a_fixed_path_is_one_minus_exp() {
     let (c, gamma, e, s) = (1.0e8, 0.5, 2.0, 2.0e-8);
     let t = Transport::new(
-        Stack::new(vec![(material(), s)], None).unwrap(),
+        Stack::new(vec![(bare_si(), s)], None).unwrap(),
         vec![no_tables()],
         TransportConfig::new(0.01),
     )
@@ -377,7 +354,7 @@ fn trapping_probability_over_a_fixed_path_is_one_minus_exp() {
 fn a_trapped_electron_ends_its_history_and_is_tallied() {
     // A trap so likely that every electron is trapped on its first collision.
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![no_tables()],
         TransportConfig::new(0.01),
     )
@@ -417,7 +394,7 @@ fn mixed(channels: bool) -> Transport {
         ),
     };
     let t = Transport::new(
-        Stack::new(vec![(material(), 5e-9)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 5e-9)], Some(bare_si())).unwrap(),
         vec![layer(2e-9, 4e-9, 0.2), layer(1e-9, 3e-9, 0.3)],
         TransportConfig::new(0.3),
     )
@@ -514,6 +491,103 @@ fn full_tally_balances_energy_with_phonon_and_polaron_channels() {
     let s = mixed_run(2, true);
     assert_eq!(r.fates.polaron_trapped, s.polaron_trapped);
     assert!((b.polaron_ev - s.polaron_deposited_ev).abs() < 1e-9 * b.polaron_ev);
+}
+
+/// The grid and layer maps of an insulator run, from `threads` threads.
+fn channel_report(threads: usize, channels: bool) -> lindhard::tally::ElectronReport {
+    use lindhard::tally::{CartesianGrid, CylindricalGrid};
+    let t = mixed(channels);
+    let nm = 1e-9;
+    let mut config = ElectronTallyConfig::new(
+        Binning::new(0.0, 60.0, 30).unwrap(),
+        Binning::new(0.0, std::f64::consts::FRAC_PI_2, 9).unwrap(),
+    );
+    config.cartesian = Some(CartesianGrid {
+        x: Binning::new(0.0, 10.0 * nm, 5).unwrap(),
+        y: Binning::new(-5.0 * nm, 5.0 * nm, 3).unwrap(),
+        z: Binning::new(-5.0 * nm, 5.0 * nm, 3).unwrap(),
+    });
+    config.cylindrical = Some(CylindricalGrid {
+        r: Binning::new(0.0, 5.0 * nm, 4).unwrap(),
+        depth: Binning::new(0.0, 10.0 * nm, 5).unwrap(),
+    });
+    let proto = FullElectronTally::new(&t, config).unwrap();
+    let primary = Primary {
+        energy_ev: 60.0,
+        direction: [1.0, 0.2, 0.0],
+    };
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap();
+    pool.install(|| {
+        t.run(0xC0DE, 800, 9, &primary, || proto.clone())
+            .unwrap()
+            .tally
+            .report()
+    })
+}
+
+fn near(a: f64, b: f64) -> bool {
+    (a - b).abs() <= 1e-12 * a.abs().max(b.abs())
+}
+
+#[test]
+fn ionisation_plus_lattice_is_deposited_per_layer_and_cell() {
+    for channels in [false, true] {
+        let r = channel_report(2, channels);
+        let (b, d) = (&r.budget, &r.deposition);
+        assert!(near(b.ionisation_ev + b.lattice_ev, b.deposited_ev));
+        assert!(near(b.ionisation_ev, b.inelastic_ev + b.residual_ev));
+        assert!(near(b.lattice_ev, b.phonon_emitted_ev + b.polaron_ev));
+        if channels {
+            assert!(b.lattice_ev > 0.0);
+            // Only the first layer has the channels, so only it has lattice.
+            assert!(d.per_layer_lattice_ev[0] > 0.0);
+            assert_eq!(d.per_layer_lattice_ev[1], 0.0);
+        } else {
+            assert_eq!(b.lattice_ev, 0.0);
+            assert!(d.per_layer_lattice_ev.iter().all(|&e| e == 0.0));
+        }
+        for i in 0..2 {
+            assert!(near(
+                d.per_layer_ionisation_ev[i] + d.per_layer_lattice_ev[i],
+                d.per_layer_ev[i]
+            ));
+        }
+        let c = d.cartesian.as_ref().unwrap();
+        let y = d.cylindrical.as_ref().unwrap();
+        for (e, ion, lat) in [
+            (&c.energy_ev, &c.ionisation_ev, &c.lattice_ev),
+            (&y.energy_ev, &y.ionisation_ev, &y.lattice_ev),
+        ] {
+            for i in 0..e.len() {
+                assert!(near(ion[i] + lat[i], e[i]), "cell {i}");
+            }
+        }
+        assert!(near(
+            c.outside_ionisation_ev + c.outside_lattice_ev,
+            c.outside_ev
+        ));
+        assert!(near(
+            y.outside_ionisation_ev + y.outside_lattice_ev,
+            y.outside_ev
+        ));
+    }
+}
+
+#[test]
+fn channel_maps_are_bit_identical_across_thread_counts() {
+    let a = channel_report(1, true);
+    for n in [2, 8] {
+        let b = channel_report(n, true);
+        assert_eq!(a.deposition, b.deposition, "{n} threads");
+        assert_eq!(
+            a.budget.ionisation_ev.to_bits(),
+            b.budget.ionisation_ev.to_bits()
+        );
+        assert_eq!(a.budget.lattice_ev.to_bits(), b.budget.lattice_ev.to_bits());
+    }
 }
 
 #[test]
