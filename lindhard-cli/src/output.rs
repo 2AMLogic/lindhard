@@ -35,6 +35,8 @@ pub const IONS_FILE: &str = "ions.csv";
 pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
+pub const VOXEL_CSV_FILE: &str = "voxel_tally.csv";
+pub const VOXEL_VTK_FILE: &str = "voxel_tally.vtk";
 
 pub const DYNAMIC_SUMMARY_FILE: &str = "dynamic_summary.json";
 pub const DYNAMIC_STEPS_FILE: &str = "dynamic_steps.csv";
@@ -484,6 +486,10 @@ struct Files {
     lateral_profile: &'static str,
     damage_profile: &'static str,
     escape_spectra: &'static str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    voxel_tally_csv: Option<&'static str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    voxel_tally_vtk: Option<&'static str>,
 }
 
 /// The only nondeterministic part of the summary.
@@ -657,6 +663,8 @@ pub fn summary_json(
             lateral_profile: LATERAL_FILE,
             damage_profile: DAMAGE_FILE,
             escape_spectra: ESCAPES_FILE,
+            voxel_tally_csv: t.voxel.is_some().then_some(VOXEL_CSV_FILE),
+            voxel_tally_vtk: t.voxel.is_some().then_some(VOXEL_VTK_FILE),
         },
         run,
     };

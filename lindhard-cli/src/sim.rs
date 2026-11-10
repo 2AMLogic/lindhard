@@ -9,7 +9,7 @@ use lindhard::input::Resolved;
 use lindhard::ion::bca::{Bca, CrystalMetadata};
 use lindhard::ion::potential::Potential;
 use lindhard::ion::scattering::ScatteringTable;
-use lindhard::tally::{IonReport, IonTally};
+use lindhard::tally::{IonReport, IonTally, VoxelTally, VoxelTallyGrid};
 
 use crate::output::RunInfo;
 use crate::tally::{ion_tally_config, CliTally};
@@ -71,6 +71,20 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
     let tally_spec = &r.input.tally;
     let ion_proto = IonTally::new(&r.stack, &bca.species_z(), ion_tally_config(r)?)
         .context("setting up the ion tally")?;
+    let voxel_proto = tally_spec
+        .voxel
+        .as_ref()
+        .map(|v| {
+            const NM: f64 = 1e-9;
+            let grid = VoxelTallyGrid::new(
+                v.origin_nm.map(|x| x * NM),
+                v.spacing_nm.map(|x| x * NM),
+                v.dims,
+            )
+            .context("setting up [tally.voxel]")?;
+            Ok::<_, anyhow::Error>(VoxelTally::new(grid).with_species(&bca.species_z()))
+        })
+        .transpose()?;
     let t1 = Instant::now();
     let tally = pool
         .install(|| {
@@ -81,6 +95,7 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
                     tally_spec.per_ion,
                     ion_proto.clone(),
                 )
+                .with_voxel(voxel_proto.clone())
             })
         })
         .context("transport failed")?;

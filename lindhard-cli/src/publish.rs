@@ -146,6 +146,9 @@ pub fn publish_static_ion(
         output::IONS_FILE,
         tally.per_ion.then(|| output::ions_csv(tally)),
     )?;
+    let voxel = tally.voxel.as_ref().map(|v| v.report());
+    set.reconcile_optional(output::VOXEL_CSV_FILE, voxel.as_ref().map(|r| r.to_csv()))?;
+    set.reconcile_optional(output::VOXEL_VTK_FILE, voxel.as_ref().map(|r| r.to_vtk()))?;
     // Last, so the summary describes the completed output set.
     set.publish()
 }
