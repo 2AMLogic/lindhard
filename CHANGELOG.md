@@ -7,6 +7,10 @@ one version).
 
 ## [Unreleased]
 
+### Added
+
+- 2-D dynamic run: lateral implanted-species and displacement-damage profiles on a `VoxelTallyGrid` at chosen fluences (`DynamicRun2d::with_profiles`, `ProfileSnapshot` CSV export), a film cut-through run mode (`run_until_cut_through`) that reports the fluence bracket and the damage left in the substrate, and `compare_profile` for comparing a milled profile with published points (RMS depth difference, tolerance, per-point discrepancies). No published trench cross-section is committed yet (#561).
+
 ### Changed
 
 - The universal screening length uses the Thomas-Fermi constant 0.88534 (the SRIM book, 2015, Eq. 2-73, prints 0.8853) instead of 0.8854, a 1e-4 relative shift in `a_U`; golden values regenerated.
