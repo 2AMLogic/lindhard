@@ -416,6 +416,13 @@ needs `E_d` for every element that can occur, including the beam species. The Py
 | `escape_energy_bins` | 100 | Escape-energy bins |
 | `escape_polar_bins` | 30 | Polar-angle bins over `[0, 90)` degrees from the outward surface normal |
 | `dual_pearson` | `false` | Also fit a dual-Pearson profile to the depth histogram |
+| `voxel` | absent | A `[tally.voxel]` table: also write the per-element 3D voxel tally (below) |
+
+`[tally.voxel]` takes `origin_nm` (corner of the first voxel, `[x, y, z]`),
+`spacing_nm` (voxel edge lengths) and `dims` (voxel counts), all three-element
+arrays; `x` is the depth and the beam starts at `y = z = 0`. It is accepted for
+static ion runs only. Events outside the grid are summed in the file header,
+never dropped.
 
 The depth grid (`depth_bin_nm`, `depth_bins`, from the front face) is shared by
 the range histogram, the dual-Pearson fit and the defect profiles. Particles
@@ -761,6 +768,23 @@ from the outward normal) spectra of every species leaving each face (`front`
 or `back`). Each spectrum ends with `-inf` and `inf` rows for entries outside
 the grid, with empty densities. The density is per incident ion per eV or per
 degree.
+
+### `voxel_tally.csv` and `voxel_tally.vtk`
+
+Written only with a `[tally.voxel]` table (and removed from a reused output
+directory when the table is absent); `summary.json` lists them under `files`.
+They are the library's `VoxelReport` exports (format version 2, see
+[Voxel tallies](../book/src/guide/voxel-tallies.md)): per occupied voxel, the
+beam atoms `implanted`, the aggregate `displacements`, the energy deposited
+by channel, and for every species index of the run (0 is the beam, then the
+target elements in order of first appearance) `vacancies_<i>_<symbol>`,
+`interstitials_<i>_<symbol>` and `replacements_<i>_<symbol>`. The header
+`# species = 0:B,1:Si,2:O` names the species. Vacancies are placed at the
+displacement site and interstitials where the displaced atom stopped; the
+definitions and the cutoff dependence of replacements are those of
+[Displacement damage](../book/src/models/damage.md#cascade-counts). Summed over
+all voxels, the header's `outside` sums and all species they equal the
+`results.damage.cascade` totals exactly.
 
 ### `ions.csv`
 

@@ -708,6 +708,26 @@ pub struct TallySpec {
     /// `false`.
     #[serde(default)]
     pub dual_pearson: bool,
+    /// Also write the 3D voxel tally with per-element vacancy, interstitial
+    /// and replacement maps (`[tally.voxel]`). Default: not written. Static
+    /// ion runs only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub voxel: Option<VoxelTallySpec>,
+}
+
+/// `[tally.voxel]`: the regular grid of the voxel tally
+/// ([`lindhard::tally::VoxelTallyGrid`]). `x` is the depth; the beam is along
+/// `+x` from `y = z = 0`. Voxel `i` owns `[origin + i * spacing, origin + (i +
+/// 1) * spacing)` on each axis.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct VoxelTallySpec {
+    /// Corner of the first voxel `[x, y, z]`, nm.
+    pub origin_nm: [f64; 3],
+    /// Voxel edge lengths `[x, y, z]`, nm.
+    pub spacing_nm: [f64; 3],
+    /// Voxel counts `[nx, ny, nz]`.
+    pub dims: [usize; 3],
 }
 
 impl Default for TallySpec {
@@ -722,6 +742,7 @@ impl Default for TallySpec {
             escape_energy_bins: default_escape_energy_bins(),
             escape_polar_bins: default_escape_polar_bins(),
             dual_pearson: false,
+            voxel: None,
         }
     }
 }

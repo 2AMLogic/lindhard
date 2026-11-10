@@ -627,6 +627,7 @@ impl Tally {
             escape_energy_bins: self.escape_energy_bins,
             escape_polar_bins: self.escape_polar_bins,
             dual_pearson: self.dual_pearson,
+            voxel: None,
         }
     }
 
