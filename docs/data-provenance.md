@@ -14,18 +14,22 @@ The allowed origins are:
 4. **A measured point digitized from the srim.org compilation plots**, under
    the conditions in [`../CONTRIBUTING.md`](../CONTRIBUTING.md), Tier C (operator
    ruling, 2026-10-28). Cite the original paper, flag the point as digitized
-   from the compilation, and record its digitization uncertainty. SRIM's
-   fitted curves and tables remain excluded (below); the curve may be read
-   only as an intermediate to recover a hidden measured point from the
-   Experiment/Theory panel, and such a point is flagged.
+   from the compilation, and record its digitization uncertainty. A point
+   recovered through SRIM's curve, ratio panel or normalization records the
+   ratio used and is flagged as reconstructed.
+5. **A published table or a code's output** from a named source: the SRIM
+   book's tables, SRIM/TRIM runs, srim.org curves and normalizations, ICRU
+   reports, NIST SRD databases, other codes' data files ([operator ruling, 2026-11-10](https://github.com/2AMLogic/lindhard/issues/629): data is not
+   licensed; code is). Cite the edition, table and page, or the program,
+   version, file and SHA-256, and label the origin, so that reports can tell
+   a consistency check from independent validation. Values typed from print
+   are entered twice independently and diffed.
 
 The following are **never allowed**:
 
-- SRIM tables and SRIM-fitted curves, including any that other projects pass
-  along. (Measured points from the srim.org compilation are origin 4, not this.)
-- ICRU report tables.
-- NIST SRD tables, until their terms have been reviewed and recorded here. The only exception is the scoped, operator-approved one below: the 16 NIST SRD 64 v5.0 values in `lindhard/tests/data/elastic_reference.toml` (#93). It covers no other SRD 64 output and no other NIST database; other unreviewed SRD sources stay excluded.
 - Anything whose origin is not known.
+- Code from Tier B or Tier C programs (program listings, source files), which
+  is not data; see [`../CONTRIBUTING.md`](../CONTRIBUTING.md).
 
 **Printed sources and scans.** Cite the printed edition (author, title,
 edition, publisher, year, ISBN, table and page). A scan may be used to read
@@ -588,8 +592,9 @@ phenomenological calibration, not a published model value. Every shipped set
 must get a row here giving its name and version, each factor, the measured
 datasets (ids in `validation/data/sputtering/`) it was fitted to, the
 training/holdout split, the fit recipe (objective, grid, ion count, seed,
-revision) and the held-out error next to the untuned control. Fitting to
-SRIM-derived tables or to another code's output is not allowed.
+revision) and the held-out error next to the untuned control. A set fitted to
+SRIM or to another code's output says so in its row; it is then a calibration
+to that code, not to measurement.
 
 ### `es-sputter-ar-v1` (version 1, #80)
 

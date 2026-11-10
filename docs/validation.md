@@ -589,7 +589,7 @@ Programs are run unmodified on matched problems, under the rules in
 | RustBCA | Amorphous ranges, sputter yields, reflection coefficients, ions/s |
 | OpenTRIM | Ranges, damage profiles, ions/s |
 | iradina / IM3D | 3D geometry cases (M3) |
-| SRIM (via Wine, local only; or the SRIM book's printed tables) | Ranges, straggling and stopping as a reference; summary metrics only, never a fixture, never a tuning target |
+| SRIM (via Wine, local only; or the SRIM book's printed tables) | Ranges, straggling and stopping as a reference; summary metrics committed, and its tables admissible as labelled data (a comparison against SRIM-sourced data is consistency, not validation) |
 | Nebula | Electron PSFs, SE/BSE yields (M1) |
 | Geant4 MicroElec | Electron energy deposition in Si/SiO₂ (M1) |
 | PENELOPE / penEasy | Electron depth–dose above ~1 keV (M1) |
@@ -2597,7 +2597,7 @@ independent code's published result) needs a source read for its numbers. None
 was opened in the #546 session, and no value was entered from memory. The rule
 for when one is chosen: record the source and the digitized or tabulated points
 in [`data-provenance.md`](data-provenance.md) first, commit summary metrics
-only, and do not tune or fit to SRIM-derived values (`CONTRIBUTING.md`, Tier C).
+only, and label any SRIM-derived values as such (`CONTRIBUTING.md`, Tier C).
 This line is open; it is tracked on #546.
 
 ### Fluence-dependent targets vs measurement (#437, #448): Cu–Ni compared, not validated

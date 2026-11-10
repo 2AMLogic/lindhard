@@ -14,24 +14,23 @@ concurrency:
 
 jobs:
   clean-room:
-    name: Clean-room check (no copyleft or SRIM-derived text)
+    name: Clean-room check (no copyleft code)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
-      - name: Fail if a copyleft notice or a SRIM output header appears
+      - name: Fail if a copyleft notice appears
         run: |
           set -euo pipefail
-          # Fingerprints of copied files: the GNU license preambles that every
-          # GPL/LGPL/AGPL source file carries, and the header lines SRIM writes
-          # into its stopping/range tables. CONTRIBUTING.md names these codes
+          # Fingerprints of copied code: the GNU license preambles that every
+          # GPL/LGPL/AGPL source file carries. CONTRIBUTING.md names these codes
           # in prose but never quotes the fingerprints; .github/ carries them
-          # here, so it is excluded.
+          # here, so it is excluded. SRIM output is data and is admissible with
+          # provenance (operator ruling 2026-11-10, #629), so it is not checked.
           if grep -rIl --exclude-dir=.git --exclude-dir=.github --exclude-dir=target \
                -e 'GNU General Public License' -e 'GNU Lesser General Public License' \
-               -e 'GNU Affero General Public License' \
-               -e 'SRIM version --->' -e 'Calculation using SRIM' . ; then
-            echo '::error::copyleft or SRIM-derived text found; this project is clean-room, see CONTRIBUTING.md'
+               -e 'GNU Affero General Public License' . ; then
+            echo '::error::copyleft notice found; the clean room covers code, see CONTRIBUTING.md'
             exit 1
           fi
           echo "clean"

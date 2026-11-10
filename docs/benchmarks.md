@@ -117,7 +117,7 @@ indicative; absolute rates are not quotable. A quiet-machine re-measure
 (`run.py --timing-factor` sets N2/N1) is still outstanding (#76).
 
 **OpenTRIM runs with electronic loss off.** Its electronic stopping choices
-are SRIM tables or DPASS, both excluded from this project, so every
+are SRIM tables or DPASS, which these runs do not select, so every
 `opentrim-*.json` summary records `"electronic_stopping": "Off"` and lists it
 as the first mismatch (see also [`validation.md`](validation.md)). lindhard
 and RustBCA run Lindhard-Scharff. **None of the OpenTRIM speed ratios is

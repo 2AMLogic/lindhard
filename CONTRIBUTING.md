@@ -1,11 +1,15 @@
 # Contributing
 
-## The one hard rule: clean room
+## The one hard rule: clean room for code
 
-lindhard is released under MIT. So the code, comments, data tables and test
-fixtures in this tree must be either our own work from published methods, or
+lindhard is released under MIT. **Software code is licensed; data is not**
+([operator ruling, 2026-11-10](https://github.com/2AMLogic/lindhard/issues/629)). So the clean room governs code: the code, comments and test
+harnesses in this tree must be either our own work from published methods, or
 ported from a permissively licensed source with its notice kept. We learn from
-other codes, but **how** we may learn depends on each code's license.
+other codes, but **how** we may learn from their code depends on each code's
+license. Data (measured or computed numbers, from any source) may enter the
+tree with provenance; see "Data" below. The goal is to add to the digital
+commons, and lindhard aims to be a complete open replacement for SRIM/TRIM.
 
 ### Tier A: permissive. Read, learn, and port with attribution
 
@@ -19,8 +23,9 @@ other codes, but **how** we may learn depends on each code's license.
 
 Porting from a Tier A source is allowed. Keep the upstream copyright notice,
 add the source to `THIRD_PARTY_LICENSES.md`, and put a comment at the port
-site naming the upstream file and commit. **Exception:** OpenTRIM's electronic
-stopping tables come from SRIM-2013, which is Tier C data. Do not port them.
+site naming the upstream file and commit. OpenTRIM's electronic stopping
+tables come from SRIM-2013; as data they are admissible like any SRIM table
+(see "Data"), cited to SRIM-2013.
 
 ### Tier B: copyleft (GPL, LGPL, AGPL). Papers, manuals and outputs only
 
@@ -35,27 +40,29 @@ Code derived from these could never ship under MIT. You may use:
 - **The programs themselves as oracles.** Run them unmodified on your own
   machine and compare our results against theirs (see "Oracles" below).
 
-You may not have their source open while writing code here, transcribe it from
-memory, or copy their tables, constants files or test fixtures.
+You may not have their source open while writing code here, or transcribe it
+from memory. Numbers they publish or ship (tables, constants) are data: they
+may enter under "Data", cited to the program, version and file.
 
-### Tier C: closed or non-commercial. Published literature only
+### Tier C: closed or non-commercial. Literature and data; never code
 
 SRIM/TRIM (and every table SRIM produces), SDTrimSP, TRIDYN/TRI3DYN, IMSIL,
 Crystal-TRIM, MARLOWE, IIS, CASINO, PHITS, FLUKA, MCNP, ELSEPA, DPASS/PASS,
 CasP.
 
-Use only their published papers and manuals. Their output must not be
-committed as reference data. In particular, **no SRIM stopping table, and
-nothing interpolated or fitted from one, may enter this tree**, and that
-includes tables passed along through other projects.
+Use their published papers and manuals; never their code. Their output and
+their printed tables are data, and may be committed with provenance (see
+"Data"). That includes SRIM's stopping, range and straggling tables, the
+tables printed in the SRIM book, and the curves on the srim.org plots.
 
-**Reference, never input.** A Tier C code's output (a local run, or a table
-printed in its book or manual) may be used to *check* our results, under
-"Oracles" below. It may never be used to *make* them. Our models are
-generated independently from published physics. So do not tune, fit or
-calibrate any parameter of ours against SRIM values, or choose between
-models because one lands closer to SRIM. If a comparison shows a gap,
-explain it from the physics, or record it as a known difference.
+**Label what came from where.** A dataset taken from a code's output names
+the code and its version. When lindhard uses such a dataset as model input
+(for example a SRIM stopping table selected as the stopping model), a
+comparison against that same code is a consistency check, not independent
+validation, and the report says so. Our physics models stay implementations
+of the published physics: if one is fitted or tuned to a code's output, it
+becomes a named, versioned calibration with its fit recorded (as for the
+sputtering tuning sets in `docs/data-provenance.md`), never a silent change.
 
 **The SRIM book.** J. F. Ziegler, J. P. Biersack and M. D. Ziegler, *SRIM:
 The Stopping and Range of Ions in Matter* (SRIM Co., 2015; ISBN
@@ -67,15 +74,16 @@ literature:
   constants (for example the universal screening function and the
   magic-formula constants). Cite them by edition, page and equation, and
   check every digit against the page itself, not against memory.
-- **Reference only:** the printed stopping, range and straggling tables, the
-  SRIM curves on its plots, and fitted electronic-stopping coefficient sets. These may be
-  compared against locally, like any oracle output, but never transcribed
-  into the tree or used as model input.
+- **Data:** the printed stopping, range and straggling tables, the SRIM
+  curves on its plots, and the fitted electronic-stopping coefficient sets.
+  These may be entered into the tree as data and used as model input. Enter
+  each value twice, independently, and diff the two entries; cite edition,
+  table and page.
 - **Never:** the bundled software and any program listing (see "Mixed
   sources").
-- **Page images stay out of the tree.** The book is copyrighted. Keep scans
-  or photos locally (for example under the gitignored
-  `validation/oracle-runs/`), and commit only citations.
+- **Page images stay out of the tree.** Commit the numbers and their
+  citations; keep scans or photos locally (for example under the gitignored
+  `validation/oracle-runs/`).
 
 **The srim.org experimental-data compilation** (operator ruling, 2026-10-28).
 srim.org publishes plots of measured stopping powers (about 22,000 points)
@@ -88,22 +96,18 @@ the tree under these conditions:
   legend names) and flagged as *digitized from the srim.org compilation plot*.
   It carries a digitization uncertainty, and it is replaced by the paper's own
   value once the paper has been read.
-- SRIM's own computed values are not measurements: the fitted curve on every
-  plot is never stored, as for any SRIM table. A digitizer may read the curve
-  and the Experiment/Theory panel under it only as an intermediate, to recover
-  a measured point hidden under other markers on top (its ratio times the
-  curve). Such a point is flagged as reconstructed from the ratio panel, and
-  no point is made from the curve alone (operator ruling, 2026-10-28,
-  [recorded on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)).
+- SRIM's own computed values on the plots (the fitted curve, the
+  Experiment/Theory ratio panel, and the normalizations of the heavy-ion
+  aggregate plots) are data too ([operator ruling, 2026-11-10](https://github.com/2AMLogic/lindhard/issues/629), superseding the 2026-10-28
+  intermediate-only restriction recorded on #486). A digitized curve is
+  labelled as SRIM output, never as a measurement. A measured point recovered
+  through a SRIM ratio or normalization records the ratio used and is flagged
+  as reconstructed.
 - The site's history and commentary are welcome too, as facts restated in our
   own words with citations. The site's files (images, PDFs, page text) stay in
   the operator's archive rather than being copied into the tree.
 - This data is released under CC0 (`validation/data/stopping/compilation/LICENSE`),
   separate from the MIT code. Every point keeps its citation regardless.
-
-The rest of this tier is unchanged. In particular, a stopping value computed by
-SRIM is still never committed or used as reference data in the tree; comparison
-use is governed by "Reference, never input" and "Oracles".
 
 **Mixed sources.** Some published reports bundle a program listing with the
 paper. The listing is Tier C even though the report is citable. Exclude the
@@ -117,25 +121,28 @@ listing pages before any OCR or text extraction, not after.
 
 Comparing against third-party programs is encouraged, and the harness under
 `validation/` drives them. Their raw outputs are regenerated locally into
-`validation/oracle-runs/`, which is gitignored. Commit only our own **summary
-metrics** of a comparison (for example "Rp within 3% of oracle X at version
-Y"), never their tables or curves. This includes SRIM: run it locally, or
-compare against the tables in its book, as a full reference. Its numbers stay
-in `oracle-runs/`, and only the summary metrics are committed, naming the
-SRIM version or the book's edition and page.
+`validation/oracle-runs/`, which is gitignored, to keep the tree small. Commit
+our own **summary metrics** of a comparison (for example "Rp within 3% of
+oracle X at version Y"). When an oracle's output is wanted as data (a fixture,
+a selectable table), commit it as a dataset with a provenance row naming the
+program and version. This includes SRIM: run it locally, or use the tables in
+its book, naming the SRIM version or the book's edition and page.
 
 ### Data
 
 Every number that enters the tree as data needs a provenance entry in
-[`docs/data-provenance.md`](docs/data-provenance.md). It must be either
-computed from a published formula, or an experimental measurement cited to its
-paper. "It came from a well-known table" is not provenance.
+[`docs/data-provenance.md`](docs/data-provenance.md). Its origin must be
+stated and cited: computed from a published formula, an experimental
+measurement cited to its paper, or a table or output from a named source (book
+edition, table and page; database and version; program, version and file).
+"It came from a well-known table" is not provenance; "SRIM book, 2015
+printing, table and page" is.
 
 ### CI enforces part of this
 
-The `clean-room` job greps every file for copyleft license notices and SRIM
-output headers, and fails the build if it finds one. It catches copied files,
-not paraphrase. Paraphrase is on you.
+The `clean-room` job greps every file for copyleft license notices and fails
+the build if it finds one. It catches copied code files, not paraphrase.
+Paraphrase is on you.
 
 ## Disclosure
 
