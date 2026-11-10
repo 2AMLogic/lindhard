@@ -9,7 +9,7 @@ use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
 use lindhard_cli::publish::{self, OutputSet};
 use lindhard_cli::table_cache::TableCache;
-use lindhard_cli::{dynamic, electron, exposure, output, sim};
+use lindhard_cli::{dynamic, electron, exposure, output, sim, stopping_table};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -61,6 +61,9 @@ enum Command {
     /// Dose of a multi-shot exposure from a Gaussian-sum PSF, on a grid, with
     /// optional iso-dose contours (exposure_*.csv, exposure_summary.json).
     Exposure(Box<exposure::ExposureArgs>),
+    /// Electronic and nuclear stopping and the CSDA range of ions in targets
+    /// over an energy grid (stopping_table.csv, stopping_table.json).
+    StoppingTable(stopping_table::StoppingTableArgs),
 }
 
 fn read(path: &Path) -> Result<String> {
@@ -394,6 +397,7 @@ fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Check { input } => check(&input),
         Command::Exposure(a) => exposure::run(&a),
+        Command::StoppingTable(a) => stopping_table::run(&a),
         Command::Run {
             input,
             out,
