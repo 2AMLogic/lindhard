@@ -4,6 +4,7 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-09
 
+- **PR #542**: docs: record operator rulings on 0.1.0 scope and publishing
 - **PR #539**: chore(deps): bump rizzma from 1.13.7 to 1.14.1 in the cargo-minor-patch group across 1 directory
 - **Issue #536** (closed): Universal screening length: use the 0.8853 prefactor printed in the SRIM book's Eq. 2-73
 - **PR #538**: fix: use the Thomas-Fermi constant for the universal screening length

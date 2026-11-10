@@ -874,6 +874,42 @@ Energy deposited outside a grid is `outside_ev` in the summary. Like `budget.dep
 measured from the band bottom and, with secondaries, include Fermi-sea energy
 the beam did not supply.
 
+**Charge** (`results.charge`, and with a grid `electron_charge_cylindrical.csv`
+/ `electron_charge_cartesian.csv`). Electron number, not energy, counted as
+integers per incident electron:
+
+- every electron that ends inside the target counts `+1` (*stopped*) where it
+  ends, whatever the fate except escape: below the stopping threshold, trapped
+  without an interaction, absorbed at the back face, polaron-trapped, or cut
+  off by the collision cap;
+- every liberated electron counts `-1` (*created*, the hole it leaves) at the
+  collision, followed or not. One below the stopping threshold is not followed:
+  it is dropped where it was made and counted `+1` there, so the two cancel.
+  The stopping threshold follows `electron.transport.cutoff_ev` and
+  `cutoff_reference`, so the cutoff decides how much of the creation and
+  stopping is attributed to followed secondaries and where;
+- an electron leaving through a face carries its charge out
+  (`escaped_front`, `escaped_back`, by generation).
+
+`primary` is the incident electron, `secondary` any electron the secondary
+model created. A `created_by_*` count is attributed to the generation of the
+electron whose collision made the hole. The balance is exact:
+`incident + created = stopped + escaped`, `results.charge.imbalance` is `0` on
+every run, and the net electron number left in the target, `stopped - created`,
+equals `incident - escaped`. `results.charge.per_layer` has the counts and the
+squared per-history net charge for each layer; with a grid, `results.charge.cylindrical`
+and `.cartesian` keep the grid and the totals `inside_stopped`,
+`inside_created`, and `cells.outside` for positions outside it.
+
+The CSV columns after the cell edges (same cells and order as the deposition
+files) are `stopped_primary,stopped_secondary,created_by_primary,created_by_secondary,net,net_per_primary,net_per_primary_se`.
+`net_per_primary` is `net` per incident electron (an excess of electrons is
+positive); its standard error uses the net charge each history left in the
+cell, so correlated stops in one cell are not treated as independent. Summing
+the cylindrical rows over `ir` gives the depth profile. Counts are integers, so
+the files are identical on any thread count. Summaries written before the key
+existed read back with an empty charge report.
+
 `electron_psf_profile.csv` (with `tally.psf`): one row per radial bin (the
 central disc first), `r_lo_m,r_hi_m,r_center_m,area_m2,energy_ev,std_err_ev,density_ev_per_m2,density_std_err_ev_per_m2`,
 then a `model_<model>_ev` column (the fitted energy of the bin) for each
