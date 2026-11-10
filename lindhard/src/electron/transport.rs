@@ -14,6 +14,26 @@
 //! electron kinematics ([`crate::electron::secondary`]) and the potential step
 //! ([`crate::electron::boundary`]) are ported from Nebula with attribution.
 //!
+//! # Targets other than a stack
+//!
+//! [`Transport<G>`] is generic over [`Geometry`]; [`Transport::new`] and
+//! [`Transport::with_band_structures`] build the layered `Transport<Stack>`,
+//! [`Transport::on_geometry`] and
+//! [`Transport::on_geometry_with_band_structures`] any other geometry (for
+//! example a [`crate::geometry::VoxelGrid`]). Tables, band parameters,
+//! channels and thresholds are indexed by **material**
+//! ([`Geometry::material_index`]), and [`ElectronState::layer`] is the
+//! electron's material index (the layer index, for a stack). The flight uses
+//! [`Geometry::flight`]: a face between two regions of one material is not an
+//! event and the free path is not redrawn there. A primary starts at
+//! [`Geometry::entry_point`]. An electron leaving through a lateral face of a
+//! voxel grid ends with [`Fate::Escaped`]`(`[`Face::Side`]`)`, whatever the
+//! [`EscapeRule`]. The [`Boundary::Interface`] indices are region indices.
+//! The step barrier is applied to the `x` component of the direction, the
+//! face normal of a stack only, so the `on_geometry` constructors accept
+//! [`BoundaryModel::Transparent`] only. For a stack the results are those of
+//! before the generalisation, bit for bit.
+//!
 //! # Model
 //!
 //! - **Free flight.** `s = -ln(1 - u) / (λ_el⁻¹ + λ_inel⁻¹)`, `u` uniform in
@@ -253,7 +273,7 @@ use crate::electron::phonon::{
     sample_cos_theta, FrohlichPhonon, InsulatorChannels, PolaronTrapping,
 };
 use crate::electron::secondary::{kieft_bosch, kieft_bosch_shell, SecondaryEvent, SecondaryModel};
-use crate::geometry::Stack;
+use crate::geometry::{ExitOutcome, Face as GeoFace, Flight, Geometry, Stack};
 use crate::ion::crystal::Divergence;
 use crate::rng::{run_particles, uniform};
 
@@ -317,8 +337,12 @@ pub enum EscapeRule {
 pub enum Face {
     /// The front surface, `x = 0`.
     Front,
-    /// The back face of a finite stack.
+    /// The back face of a finite stack or voxel grid.
     Back,
+    /// A lateral face of a voxel grid (`y` or `z` at an end of the grid, with
+    /// a vacuum boundary on that axis). It releases the electron whatever
+    /// the [`EscapeRule`], which only governs the back face.
+    Side,
 }
 
 /// A face an electron met: between two layers, or a face of the target.
@@ -839,6 +863,8 @@ pub struct SummaryTally {
     pub escaped_front: u64,
     /// Primaries that left through the back face.
     pub escaped_back: u64,
+    /// Primaries that left through a lateral face of a voxel grid.
+    pub escaped_side: u64,
     /// Primaries absorbed at the back face.
     pub absorbed: u64,
     /// Trapped primaries.
@@ -970,6 +996,7 @@ impl ElectronTally for SummaryTally {
             Fate::Stopped => self.stopped += 1,
             Fate::Escaped(Face::Front) => self.escaped_front += 1,
             Fate::Escaped(Face::Back) => self.escaped_back += 1,
+            Fate::Escaped(Face::Side) => self.escaped_side += 1,
             Fate::Absorbed => self.absorbed += 1,
             Fate::Trapped => self.trapped += 1,
             Fate::EventCap => self.event_capped += 1,
@@ -981,6 +1008,7 @@ impl ElectronTally for SummaryTally {
         self.stopped += o.stopped;
         self.escaped_front += o.escaped_front;
         self.escaped_back += o.escaped_back;
+        self.escaped_side += o.escaped_side;
         self.absorbed += o.absorbed;
         self.trapped += o.trapped;
         self.event_capped += o.event_capped;
@@ -1015,9 +1043,11 @@ impl ElectronTally for SummaryTally {
 pub struct LayerMetadata {
     /// Layer index (0 = front).
     pub index: usize,
-    /// Depth of the front face, m.
-    pub front_m: f64,
-    /// Depth of the back face, m; `None` for a semi-infinite substrate.
+    /// Depth of the front face, m; `None` for a material of a geometry other
+    /// than a [`Stack`] (a voxel grid has no layer extent).
+    pub front_m: Option<f64>,
+    /// Depth of the back face, m; `None` for a semi-infinite substrate (or
+    /// for a geometry other than a [`Stack`]).
     pub back_m: Option<f64>,
     /// Elastic table model identity.
     pub elastic_model: String,
@@ -1102,8 +1132,11 @@ pub struct TransportRun<T> {
 /// The electron transport engine: a stack, the tables of each layer, their
 /// band parameters (optional) and a configuration.
 #[derive(Debug, Clone)]
-pub struct Transport {
-    stack: Stack,
+pub struct Transport<G = Stack> {
+    geometry: G,
+    /// `(front, back)` depth of each material's layer, for the metadata of a
+    /// stack run (`None` for other geometries).
+    extents: Vec<(Option<f64>, Option<f64>)>,
     tables: Vec<LayerTables>,
     channels: Vec<InsulatorChannels>,
     /// Inner-shell channel tables per layer (empty by default).
@@ -1116,10 +1149,10 @@ pub struct Transport {
     config: TransportConfig,
 }
 
-/// An electron waiting on the history's stack, with its generation.
-type Pending = (ElectronState, u32);
+/// An electron waiting on the history's stack, with its region and generation.
+type Pending = (ElectronState, usize, u32);
 
-impl Transport {
+impl Transport<Stack> {
     /// Check and assemble, without band parameters. `tables[i]` belongs to
     /// `stack.layers()[i]`. Fails if the configuration needs band parameters
     /// (a [`SecondaryModel`] other than `Off`, or the step barrier); use
@@ -1129,7 +1162,8 @@ impl Transport {
         tables: Vec<LayerTables>,
         config: TransportConfig,
     ) -> Result<Self, TransportError> {
-        Self::build(stack, tables, None, config)
+        let extents = stack_extents(&stack);
+        Self::build(stack, extents, tables, None, config)
     }
 
     /// Check and assemble with band parameters: `bands[i]` belongs to
@@ -1142,18 +1176,97 @@ impl Transport {
         bands: Vec<BandStructure>,
         config: TransportConfig,
     ) -> Result<Self, TransportError> {
-        Self::build(stack, tables, Some(bands), config)
+        let extents = stack_extents(&stack);
+        Self::build(stack, extents, tables, Some(bands), config)
     }
 
-    fn build(
-        stack: Stack,
+    /// The target.
+    pub fn stack(&self) -> &Stack {
+        &self.geometry
+    }
+}
+
+/// `(front, back)` depth of each layer of `stack`, for [`LayerMetadata`].
+fn stack_extents(stack: &Stack) -> Vec<(Option<f64>, Option<f64>)> {
+    stack
+        .layers()
+        .iter()
+        .map(|l| {
+            (
+                Some(l.front_m()),
+                l.back_m().is_finite().then_some(l.back_m()),
+            )
+        })
+        .collect()
+}
+
+impl<G: Geometry> Transport<G> {
+    /// [`Transport::new`] on any [`Geometry`] (a [`crate::geometry::VoxelGrid`],
+    /// a mesh, a CSG solid): `tables[m]` belongs to material `m` of the
+    /// geometry ([`Geometry::material`]), whatever the regions that hold it.
+    /// Everything per material (tables, band parameters, insulator and
+    /// inner-shell channels, stopping thresholds) is indexed by material; the
+    /// electron's [`ElectronState::layer`] is then its material index.
+    ///
+    /// The primary starts at [`Geometry::entry_point`].
+    pub fn on_geometry(
+        geometry: G,
+        tables: Vec<LayerTables>,
+        config: TransportConfig,
+    ) -> Result<Self, TransportError> {
+        Self::on_geometry_checked(geometry, tables, None, config)
+    }
+
+    /// [`Transport::with_band_structures`] on any [`Geometry`]; `bands[m]`
+    /// belongs to material `m`.
+    pub fn on_geometry_with_band_structures(
+        geometry: G,
+        tables: Vec<LayerTables>,
+        bands: Vec<BandStructure>,
+        config: TransportConfig,
+    ) -> Result<Self, TransportError> {
+        Self::on_geometry_checked(geometry, tables, Some(bands), config)
+    }
+
+    fn on_geometry_checked(
+        geometry: G,
         tables: Vec<LayerTables>,
         bands: Option<Vec<BandStructure>>,
         config: TransportConfig,
     ) -> Result<Self, TransportError> {
-        if tables.len() != stack.layers().len() {
+        if config.boundary != BoundaryModel::Transparent {
+            // The step is applied to the normal component along x
+            // (`cross_step`), which is the face normal of a stack only.
+            return invalid(
+                "boundary",
+                "the step barrier is implemented for the layered Stack only; \
+                 use BoundaryModel::Transparent on other geometries",
+            );
+        }
+        let extents = vec![(None, None); geometry.n_materials()];
+        Self::build(geometry, extents, tables, bands, config)
+    }
+
+    /// The target geometry.
+    pub fn geometry(&self) -> &G {
+        &self.geometry
+    }
+
+    /// Number of materials, which is the number of table pairs.
+    pub fn n_materials(&self) -> usize {
+        self.tables.len()
+    }
+
+    fn build(
+        geometry: G,
+        extents: Vec<(Option<f64>, Option<f64>)>,
+        tables: Vec<LayerTables>,
+        bands: Option<Vec<BandStructure>>,
+        config: TransportConfig,
+    ) -> Result<Self, TransportError> {
+        if tables.len() != geometry.n_materials() {
             return Err(TransportError::LayerCount {
-                layers: stack.layers().len(),
+                layers: geometry.n_materials(),
                 tables: tables.len(),
             });
         }
@@ -1179,12 +1292,12 @@ impl Transport {
             return invalid("max_events", "must be at least 1");
         }
         match &bands {
-            Some(b) if b.len() != stack.layers().len() => {
+            Some(b) if b.len() != geometry.n_materials() => {
                 return invalid(
                     "band structures",
                     format!(
                         "the stack has {} layers but {} band structures were given",
-                        stack.layers().len(),
+                        geometry.n_materials(),
                         b.len()
                     ),
                 );
@@ -1231,7 +1344,8 @@ impl Transport {
         let channels = vec![InsulatorChannels::none(); tables.len()];
         let shells = vec![Vec::new(); tables.len()];
         Ok(Self {
-            stack,
+            geometry,
+            extents,
             tables,
             channels,
             shells,
@@ -1349,11 +1463,6 @@ impl Transport {
         &self.config
     }
 
-    /// The target.
-    pub fn stack(&self) -> &Stack {
-        &self.stack
-    }
-
     /// The tables of each layer.
     pub fn layer_tables(&self) -> &[LayerTables] {
         &self.tables
@@ -1393,7 +1502,17 @@ impl Transport {
         }
     }
 
+    /// The region and material a primary starts in: at the geometry's
+    /// [`Geometry::entry_point`].
+    fn start(&self) -> Result<(usize, usize), TransportError> {
+        match self.geometry.locate(self.geometry.entry_point()) {
+            Some(region) => Ok((region, self.geometry.material_index(region))),
+            None => invalid("entry point", "lies outside the target"),
+        }
+    }
+
     fn check_primary(&self, p: &Primary) -> Result<[f64; 3], TransportError> {
+        let (_, m0) = self.start()?;
         if !(p.energy_ev.is_finite() && p.energy_ev > self.config.cutoff_ev) {
             return invalid(
                 "primary energy",
@@ -1412,16 +1531,16 @@ impl Transport {
                     "must point into the target (positive x) with the step barrier",
                 );
             }
-            p.energy_ev + self.inner[0]
+            p.energy_ev + self.inner[m0]
         } else {
             p.energy_ev
         };
-        if inside <= self.threshold[0] {
+        if inside <= self.threshold[m0] {
             return invalid(
                 "primary energy",
                 format!(
                     "{inside} eV inside the first layer must exceed its stopping threshold {} eV",
-                    self.threshold[0]
+                    self.threshold[m0]
                 ),
             );
         }
@@ -1449,16 +1568,15 @@ impl Transport {
             primary: *primary,
             beam: BeamSpread::default(),
             layers: self
-                .stack
-                .layers()
+                .extents
                 .iter()
                 .zip(&self.tables)
                 .zip(&self.channels)
                 .enumerate()
-                .map(|(index, ((l, t), c))| LayerMetadata {
+                .map(|(index, ((&(front_m, back_m), t), c))| LayerMetadata {
                     index,
-                    front_m: l.front_m(),
-                    back_m: l.back_m().is_finite().then_some(l.back_m()),
+                    front_m,
+                    back_m,
                     elastic_model: t.elastic.model().to_string(),
                     elastic_provenance: t.elastic.provenance().to_string(),
                     inelastic_model: t.inelastic.model().to_string(),
@@ -1574,21 +1692,30 @@ impl Transport {
         let dir = self.check_primary(primary)?;
         let [y, z] = beam.sample_position(rng);
         let dir = beam.sample_direction(dir, rng)?;
+        // The beam's lateral landing point is an offset from the
+        // geometry's entry point, and the start region is the one
+        // containing the landing point itself.
+        let entry = self.geometry.entry_point();
+        let pos = [entry[0], entry[1] + y, entry[2] + z];
+        let Some(region) = self.geometry.locate(pos) else {
+            return invalid("beam landing point", "lies outside the target");
+        };
+        let material = self.geometry.material_index(region);
         let mut st = ElectronState {
-            pos: [0.0, y, z],
+            pos,
             dir,
             energy_ev: primary.energy_ev,
-            layer: 0,
+            layer: material,
         };
         tally.begin_history(index, &st);
         let mut pending: Vec<Pending> = Vec::new();
         let fate = match self.enter(tally, rng, &mut st) {
             Some(f) => f,
-            None => self.follow(tally, rng, &mut st, 0, &mut pending),
+            None => self.follow(tally, rng, &mut st, region, 0, &mut pending),
         };
-        while let Some((mut s, generation)) = pending.pop() {
+        while let Some((mut s, region, generation)) = pending.pop() {
             tally.begin_secondary(&s, generation);
-            let f = self.follow(tally, rng, &mut s, generation, &mut pending);
+            let f = self.follow(tally, rng, &mut s, region, generation, &mut pending);
             tally.end_secondary(f);
         }
         tally.end_history(index, fate);
@@ -1604,7 +1731,7 @@ impl Transport {
         st: &mut ElectronState,
     ) -> Option<Fate> {
         let (quantum, refraction) = self.step_barrier()?;
-        let du = self.inner[0];
+        let du = self.inner[st.layer];
         let boundary = Boundary::Surface(Face::Front);
         // The normal energy is positive and the step is up, so the electron
         // can always get over: one draw.
@@ -1630,10 +1757,10 @@ impl Transport {
         tally: &mut T,
         rng: &mut R,
         st: &mut ElectronState,
+        mut region: usize,
         generation: u32,
         pending: &mut Vec<Pending>,
     ) -> Fate {
-        let layers = self.stack.layers();
         let mut events = 0u64;
         // Rates and grid positions of the layer's inner-shell channels (an
         // empty Vec does not allocate, so a valence-only run pays nothing).
@@ -1678,26 +1805,32 @@ impl Transport {
                     shell_rates.push((r, at));
                 }
             }
-            let layer = &layers[st.layer];
             let mu = st.dir[0];
-            let to_face = if mu > 0.0 {
-                ((layer.back_m() - st.pos[0]) / mu).max(0.0)
-            } else if mu < 0.0 {
-                ((layer.front_m() - st.pos[0]) / mu).max(0.0)
-            } else {
-                f64::INFINITY
-            };
             let free = if total > 0.0 {
                 -(1.0 - uniform(rng)).ln() / total
             } else {
                 f64::INFINITY
             };
-            if free.is_infinite() && to_face.is_infinite() {
-                tally.stopped(st);
-                return Fate::Trapped;
-            }
+            // The first event of the flight within the free path (a face
+            // reached exactly at the free path counts as reached). With an
+            // unbounded free path the limit is the largest finite length, so
+            // a face at infinity (the back of a substrate) is no event.
+            let flight = self
+                .geometry
+                .flight(region, st.pos, st.dir, free.min(f64::MAX));
+            let exit = match flight {
+                Flight::Event(e) => Some(e),
+                Flight::Clear { .. } if free.is_infinite() => {
+                    tally.stopped(st);
+                    return Fate::Trapped;
+                }
+                Flight::Clear { region: end } => {
+                    region = end;
+                    None
+                }
+            };
             let from = st.pos;
-            if free < to_face {
+            let Some(exit) = exit else {
                 for k in 0..3 {
                     st.pos[k] += free * st.dir[k];
                 }
@@ -1756,7 +1889,7 @@ impl Transport {
                                 });
                                 tally.secondary(st, &out.event, created.as_ref());
                                 if let Some(s) = created {
-                                    pending.push((s, generation + 1));
+                                    pending.push((s, region, generation + 1));
                                 }
                             }
                         }
@@ -1838,7 +1971,7 @@ impl Transport {
                                 });
                                 tally.secondary(st, &out.event, created.as_ref());
                                 if let Some(s) = created {
-                                    pending.push((s, generation + 1));
+                                    pending.push((s, region, generation + 1));
                                 }
                             }
                         }
@@ -1849,38 +1982,31 @@ impl Transport {
                     }
                 }
                 continue;
-            }
+            };
             // Reach the face exactly; the path is redrawn afterwards.
-            let face_x = if mu > 0.0 {
-                layer.back_m()
-            } else {
-                layer.front_m()
-            };
-            for k in 0..3 {
-                st.pos[k] += to_face * st.dir[k];
-            }
-            st.pos[0] = face_x;
+            let to_face = exit.distance.max(0.0);
+            st.pos = exit.at;
             tally.step(from, st, to_face);
-            let last = layers.len() - 1;
-            let (to, boundary) = if mu > 0.0 {
-                if st.layer < last {
-                    let to = st.layer + 1;
-                    (Some(to), Boundary::Interface { from: st.layer, to })
-                } else if self.config.escape_rule == EscapeRule::BothFaces {
-                    (None, Boundary::Surface(Face::Back))
-                } else {
-                    tally.absorbed(st);
-                    return Fate::Absorbed;
+            let (to, boundary) = match exit.outcome {
+                ExitOutcome::Enter { region: to, .. } => {
+                    (Some(to), Boundary::Interface { from: region, to })
                 }
-            } else if st.layer > 0 {
-                let to = st.layer - 1;
-                (Some(to), Boundary::Interface { from: st.layer, to })
-            } else {
-                (None, Boundary::Surface(Face::Front))
+                ExitOutcome::Escape { face, .. } => match face {
+                    GeoFace::Front => (None, Boundary::Surface(Face::Front)),
+                    GeoFace::Side => (None, Boundary::Surface(Face::Side)),
+                    GeoFace::Back if self.config.escape_rule == EscapeRule::BothFaces => {
+                        (None, Boundary::Surface(Face::Back))
+                    }
+                    GeoFace::Back => {
+                        tally.absorbed(st);
+                        return Fate::Absorbed;
+                    }
+                },
             };
-            let from_layer = st.layer;
+            let from_material = st.layer;
             if let Some((quantum, refraction)) = self.step_barrier() {
-                let du = to.map_or(0.0, |t| self.inner[t]) - self.inner[from_layer];
+                let du = to.map_or(0.0, |t| self.inner[self.geometry.material_index(t)])
+                    - self.inner[from_material];
                 // A draw only if the electron has the normal energy to get
                 // over (cross_step ignores it otherwise).
                 let can = st.energy_ev * mu * mu + du > 0.0;
@@ -1890,7 +2016,8 @@ impl Transport {
                         st.dir = dir;
                         st.energy_ev = energy_ev;
                         if let Some(t) = to {
-                            st.layer = t;
+                            region = t;
+                            st.layer = self.geometry.material_index(t);
                         }
                         tally.barrier(st, boundary, du);
                     }
@@ -1902,12 +2029,18 @@ impl Transport {
                     }
                 }
             } else if let Some(t) = to {
-                st.layer = t;
+                region = t;
+                st.layer = self.geometry.material_index(t);
+            }
+            // A periodic crossing re-enters at the opposite face; the
+            // segment above ended on the face it left through.
+            if let ExitOutcome::Enter { pos, .. } = exit.outcome {
+                st.pos = pos;
             }
             match boundary {
                 Boundary::Interface { from, to } => {
                     tally.interface(st, from, to);
-                    if st.energy_ev < self.threshold[to] {
+                    if st.energy_ev < self.threshold[st.layer] {
                         tally.stopped(st);
                         return Fate::Stopped;
                     }

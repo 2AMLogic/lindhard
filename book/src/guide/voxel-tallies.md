@@ -4,8 +4,10 @@ The 1D tallies of [Output files](output.md) report results against depth. For
 a target that is not laterally uniform (a voxel grid, a triangle mesh or a CSG
 solid), the library's `lindhard::tally::VoxelTally` bins the same events in
 3D. It is a library tally: attach it to a run through
-`Bca::run(|| VoxelTally::new(grid))` and read it with `VoxelTally::report()`;
-the command-line driver does not write it yet.
+`Bca::run(|| VoxelTally::new(grid))` and read it with `VoxelTally::report()`.
+The command-line driver writes it when the input has a `[tally.voxel]` table
+([CLI reference](https://github.com/2AMLogic/lindhard/blob/main/docs/cli.md)):
+`voxel_tally.csv` and `voxel_tally.vtk` in the output directory.
 
 ## What is tallied
 
@@ -24,6 +26,21 @@ Each voxel owns the half-open box `[o + i h, o + (i + 1) h)` on every axis, and
 | `rest_ev` | Kinetic energy of particles when they stop below their cutoff |
 | `deposited_ev` | `electronic_ev + lattice_ev + rest_ev` |
 
+* **Per-element defects.** A tally built with
+  `VoxelTally::with_species(&bca.species_z())` (the driver does this) also
+  counts, for each species index of the run, the `vacancies_<i>_<symbol>` at
+  the displacement site, the `interstitials_<i>_<symbol>` where the displaced
+  atom came to rest without filling a site, and the
+  `replacements_<i>_<symbol>`, with the definitions of
+  [Displacement damage](../models/damage.md#cascade-counts) and the same
+  replacement rule as the 1D tally. A replacement is credited to the species
+  of the atom it replaced, so `vacancies + replacements = displacements` per
+  species and voxel. Beam atoms are `implanted`, not interstitials, and a
+  displaced atom that leaves the target leaves a vacancy and no interstitial.
+  Summed over voxels, `outside` and species the counts equal the run's
+  cascade totals exactly (integer equality, `lindhard/tests/voxel_tally.rs`).
+  With `follow_recoils = false` there are no replacements. The aggregate
+  `displacements` column is unchanged.
 * **Damage** is the simulated cascade displacement count, the voxel version of
   the cascade counts in [Displacement damage](../models/damage.md). The
   NRT / Kinchin-Pease model estimate is not tallied per voxel, because it needs
@@ -56,7 +73,15 @@ own 1D tallies of the same run for a laterally uniform target
 then one row per occupied voxel in flat-index order, with the voxel centre in
 metres and the energies in eV. Floats are written in the shortest form that
 reads back to the same bits, and `VoxelReport::read_csv` returns the report
-unchanged. The file
+unchanged.
+
+The format is version 1 (the banner `# lindhard voxel tally v1`) for a tally
+without species and version 2 with them: v2 adds the header lines
+`# species = 0:B,1:Si,2:O` and `# outside_defects = ...` (vacancies,
+interstitials, replacements per species) and the per-species columns after
+`deposited_ev`. The VTK title line carries `species=` and the same columns
+become cell scalars. Both readers accept both versions; v1 files and the
+checked-in examples below are unchanged. The file
 [`examples/voxel-tally/example.csv`](https://github.com/2AMLogic/lindhard/blob/main/examples/voxel-tally/example.csv)
 is a small synthetic report (made-up numbers, not a run):
 

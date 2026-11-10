@@ -208,7 +208,50 @@ fn per(x: f64, histories: u64) -> f64 {
 struct Site {
     pos: [f64; 3],
     z: u8,
+    species: usize,
     displacer_generation: u32,
+}
+
+/// The replacement rule of [`CascadeDefects`], shared with the per-element
+/// voxel tally ([`crate::tally::VoxelTally`]) so both count the same events.
+///
+/// Feed it the engine's hooks: [`Self::recoil`] on every `recoil`,
+/// [`Self::clear`] on `begin_history`, `escaped`, `end_history` and on a
+/// `lattice` deposit of kind [`LatticeDeposit::Subthreshold`], and
+/// [`Self::stopped`] on every `stopped`.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub(crate) struct ReplacementTracker {
+    site: Option<Site>,
+}
+
+impl ReplacementTracker {
+    /// Forget the pending displacement site.
+    pub(crate) fn clear(&mut self) {
+        self.site = None;
+    }
+
+    /// A target atom was displaced: remember its site.
+    pub(crate) fn recoil(&mut self, r: &Particle) {
+        self.site = Some(Site {
+            pos: r.pos,
+            z: r.z,
+            species: r.species,
+            displacer_generation: r.generation.saturating_sub(1),
+        });
+    }
+
+    /// A particle stopped. If it fills the pending site, returns the species
+    /// of the displaced atom; either way the pending site is cleared.
+    pub(crate) fn stopped(&mut self, p: &Particle) -> Option<usize> {
+        let hit = match self.site {
+            Some(s) if s.pos == p.pos && s.z == p.z && s.displacer_generation == p.generation => {
+                Some(s.species)
+            }
+            _ => None,
+        };
+        self.site = None;
+        hit
+    }
 }
 
 /// Range, damage and escape tally for the BCA engine. See the module docs.
@@ -234,7 +277,7 @@ pub struct IonTally {
     /// `[species] -> (front, back)`.
     escapes: Vec<(FaceAcc, FaceAcc)>,
     /// Per-history scratch: not part of the result, reset every history.
-    last_site: Option<Site>,
+    last_site: ReplacementTracker,
 }
 
 impl IonTally {
@@ -298,7 +341,7 @@ impl IonTally {
                 .iter()
                 .map(|_| (FaceAcc::new(&config), FaceAcc::new(&config)))
                 .collect(),
-            last_site: None,
+            last_site: ReplacementTracker::default(),
         })
     }
 
@@ -434,12 +477,12 @@ impl IonTally {
 
 impl BcaTally for IonTally {
     fn begin_history(&mut self, _index: u64) {
-        self.last_site = None;
+        self.last_site.clear();
     }
 
     fn lattice(&mut self, _at: [f64; 3], _layer: usize, kind: LatticeDeposit, _energy_ev: f64) {
         if kind == LatticeDeposit::Subthreshold {
-            self.last_site = None;
+            self.last_site.clear();
         }
     }
 
@@ -461,17 +504,11 @@ impl BcaTally for IonTally {
             acc.nrt.nrt_displacements += nrt_displacements(t_dam, e_d);
             acc.nrt.kinchin_pease_displacements += kinchin_pease(t_dam, e_d);
         }
-        self.last_site = Some(Site {
-            pos: r.pos,
-            z: r.z,
-            displacer_generation: r.generation.saturating_sub(1),
-        });
+        self.last_site.recoil(r);
     }
 
     fn stopped(&mut self, p: &Particle) {
-        let replaced = matches!(self.last_site, Some(s)
-            if s.pos == p.pos && s.z == p.z && s.displacer_generation == p.generation);
-        self.last_site = None;
+        let replaced = self.last_site.stopped(p).is_some();
         let x = p.pos[0];
         if replaced {
             self.layers[p.layer].defects.replacements += 1;
@@ -498,7 +535,7 @@ impl BcaTally for IonTally {
     }
 
     fn escaped(&mut self, p: &Particle, face: Face) {
-        self.last_site = None;
+        self.last_site.clear();
         let polar = p.dir[0].abs().min(1.0).acos();
         let pair = &mut self.escapes[p.species];
         let acc = match face {
@@ -517,7 +554,7 @@ impl BcaTally for IonTally {
     fn end_history(&mut self, _index: u64, budget: &EnergyBudget) {
         self.histories += 1;
         self.budget.add(budget);
-        self.last_site = None;
+        self.last_site.clear();
     }
 
     /// Field-wise merge.

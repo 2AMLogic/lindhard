@@ -633,6 +633,28 @@ impl Input {
                 return Err(invalid(format!("tally.{key}"), "must be at least 1"));
             }
         }
+        if let Some(v) = &self.tally.voxel {
+            if self.dynamic.is_some() {
+                return Err(invalid(
+                    "tally.voxel",
+                    "not supported with a [dynamic] target; use a static run",
+                ));
+            }
+            for a in 0..3 {
+                if !v.origin_nm[a].is_finite() {
+                    return Err(invalid("tally.voxel.origin_nm", "must be finite"));
+                }
+                if !finite_pos(v.spacing_nm[a]) {
+                    return Err(invalid(
+                        "tally.voxel.spacing_nm",
+                        "must be finite and positive",
+                    ));
+                }
+                if v.dims[a] == 0 {
+                    return Err(invalid("tally.voxel.dims", "must be at least 1"));
+                }
+            }
+        }
         if let Some(e) = self.tally.escape_energy_max_ev {
             if !finite_pos(e) {
                 return Err(invalid(

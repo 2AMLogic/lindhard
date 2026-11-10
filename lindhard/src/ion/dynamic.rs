@@ -7,7 +7,9 @@
 //! it: [`InventoryTally`] turns the transport events of a block of primaries
 //! into those deltas (it is a [`BcaTally`](crate::ion::bca::BcaTally)), and
 //! [`DynamicRun`] is the fluence stepping loop (fixed or adaptive steps,
-//! deterministic at any thread count; see its module docs).
+//! deterministic at any thread count; see its module docs). [`DynamicRun2d`]
+//! is the two-dimensional variant (a laterally finite beam on a surface that
+//! recedes non-uniformly, with redeposition); see its module docs.
 //!
 //! # Inventory and units
 //!
@@ -110,9 +112,11 @@
 
 mod adapter;
 mod driver;
+mod grid2d;
 
 pub use adapter::{InventoryTally, Yields};
 pub use driver::{DynamicConfig, DynamicRun, DynamicRunError, StepPolicy, StepRecord};
+pub use grid2d::{BeamProfile, Dynamic2dConfig, DynamicRun2d, Step2d, PROFILE_CUTOFF};
 
 use std::collections::BTreeMap;
 

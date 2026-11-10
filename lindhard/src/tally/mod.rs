@@ -74,4 +74,7 @@ pub use table_coverage::{LayerTableCoverage, TableCoverageCounts, TableCoverageT
 pub use trajectory::{
     History, Recorded, Track, TrackEnd, TrajectoryConfig, TrajectoryPoint, TrajectoryRecorder,
 };
-pub use voxel::{VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError, VoxelTallyGrid};
+pub use voxel::{
+    SpeciesDefects, VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError,
+    VoxelTallyGrid,
+};
