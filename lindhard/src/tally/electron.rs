@@ -197,17 +197,21 @@
 //! fixed `chunk_size` the report is bit-identical at any thread count
 //! (`lindhard/tests/electron_tally.rs`). Nothing is stored in a hash map.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
 use super::psf::{PsfConfig, PsfError, RadialAccumulator, RadialProfile};
 use super::table_coverage::{LayerTableCoverage, TableCoverageTally};
+use super::voxel::{VoxelCell, VoxelRecord, VoxelReport, VoxelTallyGrid};
 use crate::electron::secondary::{SecondaryEvent, SecondaryModel};
 use crate::electron::transport::{
     Boundary, ElectronState, ElectronTally, Face, Fate, GridCoverage, PhononEvent, TableChannel,
     Transport,
 };
+use crate::geometry::Geometry;
 
 /// Default SE/BSE energy split, eV: an escaping electron below this energy is
 /// in the secondary (slow) class, at or above it in the backscattered (fast)
@@ -422,6 +426,7 @@ struct Budget {
     residual: f64,
     escaped_front: f64,
     escaped_back: f64,
+    escaped_side: f64,
     no_interaction: f64,
     absorbed: f64,
     event_cap: f64,
@@ -439,6 +444,7 @@ impl Budget {
         self.residual += o.residual;
         self.escaped_front += o.escaped_front;
         self.escaped_back += o.escaped_back;
+        self.escaped_side += o.escaped_side;
         self.no_interaction += o.no_interaction;
         self.absorbed += o.absorbed;
         self.event_cap += o.event_cap;
@@ -451,7 +457,7 @@ impl Budget {
 
     fn report(&self) -> ElectronEnergyBudget {
         let deposited = self.inelastic + self.residual + self.phonon_emitted + self.polaron;
-        let escaped = self.escaped_front + self.escaped_back;
+        let escaped = self.escaped_front + self.escaped_back + self.escaped_side;
         let trapped = self.no_interaction + self.absorbed + self.event_cap;
         let source = self.incident + self.fermi_sea + self.phonon_absorbed;
         let sink = deposited + escaped + trapped + self.barrier;
@@ -469,6 +475,7 @@ impl Budget {
             residual_ev: self.residual,
             escaped_front_ev: self.escaped_front,
             escaped_back_ev: self.escaped_back,
+            escaped_side_ev: self.escaped_side,
             no_interaction_ev: self.no_interaction,
             absorbed_ev: self.absorbed,
             event_cap_ev: self.event_cap,
@@ -579,6 +586,62 @@ impl FaceAcc {
     }
 }
 
+/// Which [`VoxelCell`] field a deposit goes to.
+#[derive(Debug, Clone, Copy)]
+enum DepositKind {
+    /// Left at an inelastic event: `electronic_ev`.
+    Electronic,
+    /// Given to the lattice (LO-phonon emission, polaron trapping):
+    /// `lattice_ev`.
+    Lattice,
+    /// The energy of an electron that fell below the stopping threshold:
+    /// `rest_ev`.
+    Rest,
+}
+
+/// Sparse per-voxel energy deposition on a [`VoxelTallyGrid`], keyed on the
+/// flat voxel index (`BTreeMap`, so merging and export follow one fixed
+/// order).
+#[derive(Debug, Clone, PartialEq)]
+struct VoxelAcc {
+    grid: VoxelTallyGrid,
+    cells: BTreeMap<u64, VoxelCell>,
+    outside: VoxelCell,
+}
+
+impl VoxelAcc {
+    fn new(grid: VoxelTallyGrid) -> Self {
+        Self {
+            grid,
+            cells: BTreeMap::new(),
+            outside: VoxelCell::default(),
+        }
+    }
+
+    fn add(&mut self, pos: [f64; 3], e: f64, kind: DepositKind) {
+        let cell = match self.grid.locate(pos) {
+            Some(ijk) => self.cells.entry(self.grid.flat_index(ijk)).or_default(),
+            None => &mut self.outside,
+        };
+        match kind {
+            DepositKind::Electronic => cell.electronic_ev += e,
+            DepositKind::Lattice => cell.lattice_ev += e,
+            DepositKind::Rest => cell.rest_ev += e,
+        }
+    }
+
+    fn merge(&mut self, o: &VoxelAcc) {
+        assert!(
+            self.grid == o.grid,
+            "merging electron tallies built on different voxel grids"
+        );
+        self.outside.add(&o.outside);
+        for (&flat, cell) in &o.cells {
+            self.cells.entry(flat).or_default().add(cell);
+        }
+    }
+}
+
 fn per(x: f64, n: u64) -> f64 {
     if n == 0 {
         0.0
@@ -616,6 +679,9 @@ pub struct FullElectronTally {
     primary_stop_radial: Moments,
     front: FaceAcc,
     back: FaceAcc,
+    side: FaceAcc,
+    /// Energy deposited per voxel of the optional voxel grid.
+    voxel: Option<VoxelAcc>,
     /// Rate evaluations against each table's energy grid.
     table_coverage: TableCoverageTally,
     /// Per-history scratch, not part of the result and cleared at every
@@ -636,8 +702,8 @@ impl FullElectronTally {
     /// Empty tally for runs of `transport` (its per-layer stopping thresholds
     /// classify `stopped` events, its secondary model decides which hook
     /// carries an inelastic deposit, its stack sets the number of layers).
-    pub fn new(
-        transport: &Transport,
+    pub fn new<G: Geometry>(
+        transport: &Transport<G>,
         config: ElectronTallyConfig,
     ) -> Result<Self, ElectronTallyError> {
         if !(config.se_bse_split_ev.is_finite() && config.se_bse_split_ev >= 0.0) {
@@ -676,7 +742,7 @@ impl FullElectronTally {
             fates: FateCounts::default(),
             event_caps: EventCapCounts::default(),
             budget: Budget::default(),
-            layer_deposit_ev: vec![0.0; transport.stack().layers().len()],
+            layer_deposit_ev: vec![0.0; transport.n_materials()],
             cartesian,
             cylindrical,
             psf,
@@ -687,6 +753,8 @@ impl FullElectronTally {
             primary_stop_radial: Moments::new(),
             front: FaceAcc::new(&config),
             back: FaceAcc::new(&config),
+            side: FaceAcc::new(&config),
+            voxel: None,
             table_coverage: TableCoverageTally::new(transport),
             last: None,
             primary_last: None,
@@ -705,12 +773,54 @@ impl FullElectronTally {
         self.histories
     }
 
+    /// Also tally the deposited energy per voxel of `grid`, for
+    /// [`FullElectronTally::voxel_report`]. The grid is independent of the
+    /// target: use [`VoxelTallyGrid::from_voxel_grid`] to tally on the voxels
+    /// of a [`crate::geometry::VoxelGrid`] target.
+    pub fn with_voxel_grid(mut self, grid: VoxelTallyGrid) -> Self {
+        self.voxel = Some(VoxelAcc::new(grid));
+        self
+    }
+
+    /// The per-voxel deposition as a [`VoxelReport`] (CSV and VTK export of
+    /// [`crate::tally::voxel`]), or `None` without
+    /// [`FullElectronTally::with_voxel_grid`].
+    ///
+    /// Each voxel's energy is split by how it was deposited: `electronic_ev`
+    /// is the energy left at inelastic events (the
+    /// [`ElectronEnergyBudget::inelastic_ev`] channel), `lattice_ev` the
+    /// LO-phonon emission and polaron-trapping energy, and `rest_ev` the
+    /// energy of electrons that fell below the stopping threshold
+    /// ([`ElectronEnergyBudget::residual_ev`]); their sum over all voxels
+    /// and `outside` is [`ElectronEnergyBudget::deposited_ev`].
+    /// `implanted` and `displacements` are zero: the electron tally records
+    /// neither. Deposits are point events at the collision (as for
+    /// [`CartesianGrid`]), so a flight crossing voxel faces is not split.
+    pub fn voxel_report(&self) -> Option<VoxelReport> {
+        self.voxel.as_ref().map(|v| VoxelReport {
+            grid: v.grid,
+            histories: self.histories,
+            voxels: v
+                .cells
+                .iter()
+                .map(|(&flat, &cell)| VoxelRecord {
+                    index: v.grid.unflatten(flat),
+                    cell,
+                })
+                .collect(),
+            outside: v.outside,
+        })
+    }
+
     /// Every energy deposit goes through here.
-    fn deposit(&mut self, at: &ElectronState, e: f64) {
+    fn deposit(&mut self, at: &ElectronState, e: f64, kind: DepositKind) {
         if e <= 0.0 {
             return;
         }
         let pos = at.pos;
+        if let Some(v) = &mut self.voxel {
+            v.add(pos, e, kind);
+        }
         self.layer_deposit_ev[at.layer] += e;
         if let (Some(acc), Some(g)) = (&mut self.cartesian, &self.config.cartesian) {
             acc.add(g.locate(pos), e);
@@ -791,6 +901,7 @@ impl FullElectronTally {
             yields,
             front,
             back,
+            side: (self.side.slow.count + self.side.fast.count > 0).then(|| self.side.report(h)),
             deposition,
             generation_volume,
             stopping_points: StoppingPoints {
@@ -835,7 +946,7 @@ impl ElectronTally for FullElectronTally {
         // the part of `w_ev` left in the solid.
         if !self.secondaries {
             self.budget.inelastic += w_ev;
-            self.deposit(after, w_ev);
+            self.deposit(after, w_ev, DepositKind::Electronic);
         }
     }
 
@@ -852,7 +963,7 @@ impl ElectronTally for FullElectronTally {
         let local = event.deposited_ev + event.binding_ev.max(0.0);
         self.budget.inelastic += local;
         self.budget.fermi_sea += (-event.binding_ev).max(0.0);
-        self.deposit(primary, local);
+        self.deposit(primary, local, DepositKind::Electronic);
     }
 
     fn phonon(
@@ -866,7 +977,7 @@ impl ElectronTally for FullElectronTally {
         match kind {
             PhononEvent::Emission => {
                 self.budget.phonon_emitted += hbar_omega_ev;
-                self.deposit(after, hbar_omega_ev);
+                self.deposit(after, hbar_omega_ev, DepositKind::Lattice);
             }
             PhononEvent::Absorption => self.budget.phonon_absorbed += hbar_omega_ev,
         }
@@ -875,7 +986,7 @@ impl ElectronTally for FullElectronTally {
     fn polaron_trapped(&mut self, at: &ElectronState) {
         self.last = None;
         self.budget.polaron += at.energy_ev;
-        self.deposit(at, at.energy_ev);
+        self.deposit(at, at.energy_ev, DepositKind::Lattice);
     }
 
     fn interface(&mut self, at: &ElectronState, _from_layer: usize, _to_layer: usize) {
@@ -916,7 +1027,7 @@ impl ElectronTally for FullElectronTally {
         let e = at.energy_ev;
         if e < self.thresholds[at.layer] {
             self.budget.residual += e;
-            self.deposit(at, e);
+            self.deposit(at, e, DepositKind::Rest);
             let r = at.pos[1].hypot(at.pos[2]);
             self.stop_depth.push(at.pos[0]);
             self.stop_radial.push(r);
@@ -944,6 +1055,10 @@ impl ElectronTally for FullElectronTally {
                 self.budget.escaped_back += e;
                 &mut self.back
             }
+            Face::Side => {
+                self.budget.escaped_side += e;
+                &mut self.side
+            }
         };
         acc.energy_hist.fill(e);
         let class = if e < self.config.se_bse_split_ev {
@@ -970,6 +1085,7 @@ impl ElectronTally for FullElectronTally {
             Fate::Stopped => self.fates.stopped += 1,
             Fate::Escaped(Face::Front) => self.fates.escaped_front += 1,
             Fate::Escaped(Face::Back) => self.fates.escaped_back += 1,
+            Fate::Escaped(Face::Side) => self.fates.escaped_side += 1,
             Fate::Absorbed => self.fates.absorbed += 1,
             Fate::Trapped => self.fates.trapped += 1,
             Fate::PolaronTrapped => self.fates.polaron_trapped += 1,
@@ -1034,6 +1150,12 @@ impl ElectronTally for FullElectronTally {
         self.primary_stop_radial.merge(&o.primary_stop_radial);
         self.front.merge(&o.front);
         self.back.merge(&o.back);
+        self.side.merge(&o.side);
+        match (&mut self.voxel, &o.voxel) {
+            (Some(a), Some(b)) => a.merge(b),
+            (None, None) => {}
+            _ => panic!("merging electron tallies built for different runs"),
+        }
         self.table_coverage.merge_from(&o.table_coverage);
     }
 }
@@ -1060,6 +1182,10 @@ pub struct ElectronReport {
     pub front: FaceEmission,
     /// Electrons leaving the back face of a finite stack.
     pub back: FaceEmission,
+    /// Electrons leaving through a lateral face of a voxel target; `None`
+    /// when none did (always, for a stack).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub side: Option<FaceEmission>,
     /// Where the energy was deposited.
     pub deposition: DepositionReport,
     /// Energy-weighted moments of the deposition position; `None` if nothing
@@ -1108,6 +1234,9 @@ pub struct FateCounts {
     pub escaped_front: u64,
     /// Left through the back face.
     pub escaped_back: u64,
+    /// Left through a lateral face of a voxel target.
+    #[serde(default)]
+    pub escaped_side: u64,
     /// Absorbed at the back face.
     pub absorbed: u64,
     /// No interaction available and no face to reach.
@@ -1124,6 +1253,7 @@ impl FateCounts {
         self.stopped += o.stopped;
         self.escaped_front += o.escaped_front;
         self.escaped_back += o.escaped_back;
+        self.escaped_side += o.escaped_side;
         self.absorbed += o.absorbed;
         self.trapped += o.trapped;
         self.event_capped += o.event_capped;
@@ -1167,7 +1297,7 @@ impl EventCapCounts {
 ///   electrons trapped as polarons;
 /// - `phonon_absorbed`: the `ħω` electrons took from the lattice at LO-phonon
 ///   absorptions (a source; zero without the insulator channels);
-/// - `escaped = escaped_front + escaped_back`;
+/// - `escaped = escaped_front + escaped_back + escaped_side`;
 /// - `trapped = no_interaction + absorbed + event_cap`: energy still carried
 ///   by electrons that ended in the target without falling below the
 ///   threshold (no interaction available, absorbed at the back face, or cut
@@ -1205,6 +1335,10 @@ pub struct ElectronEnergyBudget {
     pub escaped_front_ev: f64,
     /// Out of the back face (part of `escaped_ev`).
     pub escaped_back_ev: f64,
+    /// Out of a lateral face of a voxel target (part of `escaped_ev`); zero
+    /// for a stack.
+    #[serde(default)]
+    pub escaped_side_ev: f64,
     /// Electrons with no interaction and no face to reach (part of
     /// `trapped_ev`).
     pub no_interaction_ev: f64,

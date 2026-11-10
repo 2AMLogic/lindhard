@@ -117,7 +117,7 @@ pub struct TableCoverageTally {
 
 impl TableCoverageTally {
     /// Empty counts for the tables of `transport`, one entry per layer.
-    pub fn new(transport: &Transport) -> Self {
+    pub fn new<G: crate::geometry::Geometry>(transport: &Transport<G>) -> Self {
         Self {
             layers: transport
                 .layer_tables()
