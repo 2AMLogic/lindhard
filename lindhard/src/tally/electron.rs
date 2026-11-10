@@ -980,7 +980,9 @@ impl FullElectronTally {
     /// ([`ElectronEnergyBudget::residual_ev`]); their sum over all voxels
     /// and `outside` is [`ElectronEnergyBudget::deposited_ev`].
     /// `implanted` and `displacements` are zero: the electron tally records
-    /// neither. Deposits are point events at the collision (as for
+    /// neither, and the per-species defect fields (`species_z`, `defects`,
+    /// `outside_defects`) are empty: the electron tally has no species axis.
+    /// Deposits are point events at the collision (as for
     /// [`CartesianGrid`]), so a flight crossing voxel faces is not split.
     pub fn voxel_report(&self) -> Option<VoxelReport> {
         self.voxel.as_ref().map(|v| VoxelReport {
@@ -992,9 +994,12 @@ impl FullElectronTally {
                 .map(|(&flat, &cell)| VoxelRecord {
                     index: v.grid.unflatten(flat),
                     cell,
+                    defects: Vec::new(),
                 })
                 .collect(),
             outside: v.outside,
+            species_z: Vec::new(),
+            outside_defects: Vec::new(),
         })
     }
 
