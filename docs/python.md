@@ -115,6 +115,29 @@ seed at any thread count (`tests/test_electron.py` compares against the
 built binary). A walk-through is in
 [`../examples/python/electron_run.py`](../examples/python/electron_run.py).
 
+## Exposure dose and contours
+
+The dose of a shot list from a fitted Gaussian-sum point-spread function is
+available without a run; the functions are the ones behind `lindhard
+exposure` (`cli.md`, "Exposure"), so the arrays equal its CSV values bit for
+bit at any thread count (`tests/test_exposure.py`).
+
+- `exposure_dose(shots, x_m, y_m, *, total_ev, alpha_m, beta_m, eta,
+  gamma_m=None, nu=None, blur_m=0.0, subsamples=16, threads=None)`: dose in
+  eV/m^2 at the points. `shots` is the CSV text of `cli.md` or an `(n, 3)`
+  array of `x_m, y_m, weight`.
+- `exposure_dose_grid(shots, x0_m, y0_m, dx_m, dy_m, nx, ny, *, ...)`: the
+  dose on a grid, shape `(ny, nx)`, element `[j, i]` at `(x0_m + i dx_m,
+  y0_m + j dy_m)`.
+- `area_dose(*, total_ev, alpha_m, beta_m, eta, gamma_m=None, nu=None,
+  weight_per_m2=1.0)`: the large-area dose with its forward-only and
+  long-range parts.
+- `iso_contours(dose, x0_m, y0_m, dx_m, dy_m, threshold)`: a list of dicts
+  with `points` (`(n, 2)`, m), `closed`, signed `area_m2` and `centroid_m`
+  (`None` for a contour that leaves the grid).
+
+Invalid values raise `InputError`.
+
 ## Damage export
 
 An input with a `[tally.voxel]` table gives `res.damage_export()`: a dict of

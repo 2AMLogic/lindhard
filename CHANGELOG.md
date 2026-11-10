@@ -17,6 +17,11 @@ one version).
 
 ### Added
 
+- `lindhard exposure`, `lindhard::exposure`, `lindhard::contour` and the Python
+  functions `exposure_dose`, `exposure_dose_grid`, `area_dose` and `iso_contours`:
+  the dose of a multi-shot exposure from a fitted Gaussian-sum point-spread
+  function (analytic, with beam blur and shaped spots), iso-dose contours and
+  the area and centroid of each exposed feature (#551).
 - A versioned **damage export** file (`docs/damage-export-format.md`): the voxel
   map of either engine with a provenance header (engine, version, seed,
   input hash, units). `lindhard run` writes `damage_export.csv` for ion runs

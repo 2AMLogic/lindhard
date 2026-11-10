@@ -1157,6 +1157,64 @@ the concurrency contract above (threads and processes on one cold entry
 build once, different entries build at the same time, a killed holder does
 not block, a read-only cache serves its entries and refuses a miss). Remove the directory to reclaim space; nothing else prunes it.
 
+## Exposure: `lindhard exposure`
+
+Turns a fitted point-spread function into the dose of a list of shots (a
+pattern exposure). It does not transport anything: the dose is the analytic
+sum of Gaussians described in the module documentation of
+`lindhard::exposure`, so it is fast and exact for point shots.
+
+```text
+lindhard exposure --shots shots.csv \
+    --psf-parameters out/electron_psf_parameters.csv \
+    --blur-m 1e-8 --x0-m -5e-7 --y0-m -5e-7 --dx-m 1e-8 --dy-m 1e-8 \
+    --nx 100 --ny 100 --threshold-fraction 0.5 -o exposure/
+```
+
+**PSF.** Either a parameters file written by an electron run with
+`tally.psf` (`--psf-parameters`; `--model double_gaussian|triple_gaussian`
+picks a fit, default the triple fit if present), or typed in: `--total-ev`,
+`--alpha-m`, `--beta-m`, `--eta` and, for the triple form, `--gamma-m` and
+`--nu`. The dose is only as good as the fit; check its reduced chi-squared in
+`electron_summary.json` first. The film is assumed laterally uniform.
+
+**Shot list** (`--shots`): CSV with a header; required columns `x_m`, `y_m`,
+`weight` (number of primaries, or a relative dwell); optional `blur_m` (extra
+beam width of this shot), `shape` (`point`, `disc`, `rect`), `size_m` (disc
+radius, or rectangle width) and `size2_m` (rectangle height, default
+`size_m`). Blank lines and `#` lines are skipped. Lengths are in metres.
+
+**Beam blur** (`--blur-m`, `b` in `exp(-r^2/b^2)`) adds in quadrature to every
+width of the PSF (`w^2 -> w^2 + b^2`, exact for Gaussians; derivation in the
+module docs), together with each shot's `blur_m`. **Shaped spots** are a fixed
+`--subsamples` x `--subsamples` midpoint sub-sampling of the spot (default
+16); the error is stated in the module docs.
+
+**Grid**: `--x0-m --y0-m --dx-m --dy-m --nx --ny`; the dose is evaluated at
+the grid points. `--threads` never changes the results (each grid point sums
+the shots in list order).
+
+**Contours.** With `--threshold` (eV/m^2) or `--threshold-fraction` (of the
+largest grid dose), iso-dose contours are found by marching squares. A grid
+point is inside when its dose is at or above the threshold; each contour has
+the inside on its left, so outer boundaries have positive area and holes
+negative. A contour that leaves the grid is open and has no area or centroid
+(enlarge the grid). The area is the polygon area, so it differs from the
+smooth contour's by `O(h^2)` in the grid spacing.
+
+Files written to the output directory:
+
+| File | Contents |
+|---|---|
+| `exposure_dose.csv` | `x_m,y_m,dose_ev_per_m2`, one row per grid point, rows in grid order (x fastest) |
+| `exposure_contours.csv` | with a threshold: one row per contour vertex, with the contour's index, `closed`, area and centroid |
+| `exposure_features.csv` | with a threshold: one row per contour: `contour,closed,vertices,signed_area_m2,centroid_x_m,centroid_y_m` |
+| `exposure_summary.json` | shot count, the PSF, blur, grid, largest dose, the large-area dose per unit weight density split into the forward (`alpha`) part and the long-range (backscatter) part, and the contour count |
+
+The large-area dose of a uniform exposure of `w` primaries per m^2 is `w E`
+(the PSF integrates to `E`), of which the forward term gives the share
+`1 / (1 + eta [+ nu])`.
+
 ## Reusing an output directory
 
 `--out` may name an existing directory; the run overwrites the files it
