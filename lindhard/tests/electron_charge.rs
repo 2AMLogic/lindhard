@@ -6,58 +6,30 @@
 //! data).
 
 use lindhard::electron::boundary::{BandModel, BandStructure};
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::secondary::SecondaryModel;
 use lindhard::electron::transport::{
     BoundaryModel, CutoffReference, EscapeRule, LayerTables, Primary, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::tally::{
     Binning, CartesianGrid, ChargeCells, CylindricalGrid, ElectronReport, ElectronTallyConfig,
     FullElectronTally,
 };
 
-const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
+mod common;
+use common::{bare_si, synthetic_table};
+
 const NM: f64 = 1e-9;
 const PROVENANCE: &str = "synthetic, tests/electron_charge.rs";
-
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
-
-fn parts(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: PROVENANCE.into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
-}
 
 /// Isotropic elastic scattering and inelastic losses uniform on `[0, frac E]`.
 fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
     LayerTables {
-        elastic: parts(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
+        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
             (1.0 - 2.0 * p).acos()
         }),
-        inelastic: parts(
+        inelastic: synthetic_table(
             SamplingAxis::InelasticEnergyLoss,
             1.0 / lambda_inel,
             move |e, p| frac * e * p,
@@ -67,8 +39,8 @@ fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
 
 fn empty() -> LayerTables {
     LayerTables {
-        elastic: parts(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0),
-        inelastic: parts(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
+        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0),
+        inelastic: synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
     }
 }
 
@@ -177,7 +149,7 @@ fn check(r: &ElectronReport) {
 #[test]
 fn closes_without_secondaries_in_a_multilayer_with_both_faces() {
     let t = Transport::new(
-        Stack::new(vec![(material(), 3.0 * NM), (material(), 6.0 * NM)], None).unwrap(),
+        Stack::new(vec![(bare_si(), 3.0 * NM), (bare_si(), 6.0 * NM)], None).unwrap(),
         vec![
             scattering(2.0 * NM, 3.0 * NM, 0.3),
             scattering(2.0 * NM, 4.0 * NM, 0.3),
@@ -202,7 +174,7 @@ fn closes_for_each_terminal_fate_without_secondaries() {
     let mut cfg = TransportConfig::new(10.0);
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::new(
-        Stack::new(vec![(material(), 6.0 * NM)], None).unwrap(),
+        Stack::new(vec![(bare_si(), 6.0 * NM)], None).unwrap(),
         vec![scattering(3.0 * NM, 6.0 * NM, 0.2)],
         cfg,
     )
@@ -217,7 +189,7 @@ fn closes_for_each_terminal_fate_without_secondaries() {
 
     // Trapped in an interaction-free substrate.
     let t = Transport::new(
-        Stack::new(vec![(material(), 5.0 * NM)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 5.0 * NM)], Some(bare_si())).unwrap(),
         vec![scattering(3.0 * NM, 6.0 * NM, 0.2), empty()],
         TransportConfig::new(10.0),
     )
@@ -230,7 +202,7 @@ fn closes_for_each_terminal_fate_without_secondaries() {
     let mut cfg = TransportConfig::new(10.0);
     cfg.max_events = 4;
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![scattering(2.0 * NM, 3.0 * NM, 0.05)],
         cfg,
     )
@@ -251,7 +223,7 @@ fn with_secondaries(cutoff_ev: f64, max_events: u64) -> Transport {
     cfg.cutoff_reference = CutoffReference::VacuumLevel;
     cfg.max_events = max_events;
     Transport::with_band_structures(
-        Stack::new(vec![(material(), 6.0 * NM)], Some(material())).unwrap(),
+        Stack::new(vec![(bare_si(), 6.0 * NM)], Some(bare_si())).unwrap(),
         vec![
             scattering(3.0 * NM, 4.0 * NM, 0.3),
             scattering(2.0 * NM, 3.0 * NM, 0.25),
