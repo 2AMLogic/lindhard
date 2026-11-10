@@ -75,6 +75,6 @@ pub use trajectory::{
     History, Recorded, Track, TrackEnd, TrajectoryConfig, TrajectoryPoint, TrajectoryRecorder,
 };
 pub use voxel::{
-    SpeciesDefects, VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError,
-    VoxelTallyGrid,
+    ExportProvenance, SpeciesDefects, VoxelCell, VoxelRecord, VoxelReport, VoxelTally,
+    VoxelTallyError, VoxelTallyGrid, EXPORT_FORMAT_VERSION,
 };

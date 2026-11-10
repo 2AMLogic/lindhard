@@ -815,6 +815,14 @@ definitions and the cutoff dependence of replacements are those of
 all voxels, the header's `outside` sums and all species they equal the
 `results.damage.cascade` totals exactly.
 
+### `damage_export.csv`
+
+Written with a `[tally.voxel]` table, removed from a reused output directory
+without it, and listed under `files` in `summary.json`. The same voxel map as
+`voxel_tally.csv` under the versioned exchange header (engine, version, seed,
+SHA-256 of the input echo, units); see
+[Damage export format](damage-export-format.md).
+
 ### `ions.csv`
 
 `index,fate,x_nm,y_nm,z_nm,energy_ev,dir_x,dir_y,dir_z,layer`: the final

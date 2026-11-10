@@ -340,7 +340,8 @@ fn run(
 
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
-    publish::publish_static_ion(out, summary, &tally, &report)?;
+    let export = output::damage_export_csv(&r, &tally);
+    publish::publish_static_ion(out, summary, &tally, &report, export)?;
     let s = &tally.summary;
     eprintln!(
         "{} ions: {} stopped, {} backscattered, {} transmitted, {} sputtered atoms; wrote {}",

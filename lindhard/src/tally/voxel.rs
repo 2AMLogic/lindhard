@@ -760,6 +760,44 @@ fn defects_from_values(v: &[u64]) -> Vec<SpeciesDefects> {
         .collect()
 }
 
+/// The banner line of a damage-export file (see `docs/damage-export-format.md`).
+pub const EXPORT_BANNER: &str = "# lindhard damage export v1";
+
+/// Version of the damage-export format, the `format_version` header key.
+pub const EXPORT_FORMAT_VERSION: u32 = 1;
+
+/// Units statement written into every damage-export header.
+const EXPORT_UNITS: &str = "length=m; energy=eV; counts=1";
+
+/// Where a damage-export file came from: the header keys beyond the grid and
+/// the tallies. The CSV is an exchange format; these fields let a reader tie
+/// a file to the run that made it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExportProvenance {
+    /// The engine that produced the map: `"ion"` or `"electron"`.
+    pub engine: String,
+    /// `lindhard` version that wrote the file ([`crate::VERSION`]).
+    pub lindhard_version: String,
+    /// Root seed of the run.
+    pub seed: u64,
+    /// SHA-256 (lower-case hex) of the resolved input echo, or of whatever
+    /// canonical input the caller defines; it must not be empty.
+    pub input_sha256: String,
+}
+
+impl ExportProvenance {
+    /// Provenance for a run of `engine` with the given seed and input hash,
+    /// stamped with this library's version.
+    pub fn new(engine: &str, seed: u64, input_sha256: &str) -> Self {
+        Self {
+            engine: engine.to_string(),
+            lindhard_version: crate::VERSION.to_string(),
+            seed,
+            input_sha256: input_sha256.to_string(),
+        }
+    }
+}
+
 impl VoxelReport {
     /// Per-species defects summed over the occupied voxels (not including
     /// [`Self::outside_defects`]); empty without species.
@@ -813,11 +851,46 @@ impl VoxelReport {
     /// Write the CSV export: a `# key = value` header, a column row, then one
     /// row per occupied voxel (indices, centre in m, tallies; energies in
     /// eV). See the [module docs](self).
-    pub fn write_csv<W: Write>(&self, mut w: W) -> io::Result<()> {
+    pub fn write_csv<W: Write>(&self, w: W) -> io::Result<()> {
+        self.write_csv_inner(w, None)
+    }
+
+    /// Write the damage-export file: the [`Self::write_csv`] layout under the
+    /// [`EXPORT_BANNER`], with the provenance and units keys in the header
+    /// (`docs/damage-export-format.md`). Floats are the shortest text that
+    /// reads back to the same bits, so [`Self::read_export_csv`] returns the
+    /// report unchanged.
+    pub fn write_export_csv<W: Write>(&self, w: W, p: &ExportProvenance) -> io::Result<()> {
+        self.write_csv_inner(w, Some(p))
+    }
+
+    /// The damage-export file as a string.
+    pub fn to_export_csv(&self, p: &ExportProvenance) -> String {
+        let mut buf = Vec::new();
+        self.write_export_csv(&mut buf, p)
+            .expect("writing to a Vec");
+        String::from_utf8(buf).expect("the CSV is ASCII")
+    }
+
+    fn write_csv_inner<W: Write>(
+        &self,
+        mut w: W,
+        export: Option<&ExportProvenance>,
+    ) -> io::Result<()> {
         let g = &self.grid;
         let o = &self.outside;
         let v2 = !self.species_z.is_empty();
-        writeln!(w, "# lindhard voxel tally v{}", if v2 { 2 } else { 1 })?;
+        if let Some(p) = export {
+            writeln!(w, "{EXPORT_BANNER}")?;
+            writeln!(w, "# format_version = {EXPORT_FORMAT_VERSION}")?;
+            writeln!(w, "# engine = {}", p.engine)?;
+            writeln!(w, "# lindhard_version = {}", p.lindhard_version)?;
+            writeln!(w, "# seed = {}", p.seed)?;
+            writeln!(w, "# input_sha256 = {}", p.input_sha256)?;
+            writeln!(w, "# units = {EXPORT_UNITS}")?;
+        } else {
+            writeln!(w, "# lindhard voxel tally v{}", if v2 { 2 } else { 1 })?;
+        }
         writeln!(w, "# origin_m = {}", join3(g.origin_m))?;
         writeln!(w, "# spacing_m = {}", join3(g.spacing_m))?;
         writeln!(w, "# dims = {},{},{}", g.dims[0], g.dims[1], g.dims[2])?;
@@ -873,6 +946,43 @@ impl VoxelReport {
 
     /// Read back a file written by [`Self::write_csv`].
     pub fn read_csv(text: &str) -> Result<Self, VoxelTallyError> {
+        Self::parse_csv(text).map(|(r, _)| r)
+    }
+
+    /// Read back a file written by [`Self::write_export_csv`], with its
+    /// provenance. Errors if the banner, the format version or any
+    /// provenance key is missing.
+    pub fn read_export_csv(text: &str) -> Result<(Self, ExportProvenance), VoxelTallyError> {
+        let first = text.lines().map(str::trim).find(|l| !l.is_empty());
+        if first != Some(EXPORT_BANNER) {
+            return Err(parse_err(1, "not a damage-export file (banner missing)"));
+        }
+        let (report, keys) = Self::parse_csv(text)?;
+        let get = |k: &str| {
+            keys.get(k)
+                .cloned()
+                .ok_or_else(|| parse_err(1, format!("header is missing `{k}`")))
+        };
+        if get("format_version")? != EXPORT_FORMAT_VERSION.to_string() {
+            return Err(parse_err(1, "unsupported damage-export format_version"));
+        }
+        let seed = get("seed")?;
+        let prov = ExportProvenance {
+            engine: get("engine")?,
+            lindhard_version: get("lindhard_version")?,
+            seed: seed
+                .parse()
+                .map_err(|_| parse_err(1, format!("cannot parse the seed {seed:?}")))?,
+            input_sha256: get("input_sha256")?,
+        };
+        get("units")?;
+        Ok((report, prov))
+    }
+
+    fn parse_csv(
+        text: &str,
+    ) -> Result<(Self, std::collections::BTreeMap<String, String>), VoxelTallyError> {
+        let mut extra = std::collections::BTreeMap::new();
         let mut origin = None;
         let mut spacing = None;
         let mut dims = None;
@@ -919,6 +1029,10 @@ impl VoxelReport {
                             .map(|t| num::<u64>(t, n))
                             .collect::<Result<_, _>>()?,
                     );
+                }
+                k @ ("format_version" | "engine" | "lindhard_version" | "seed" | "input_sha256"
+                | "units") => {
+                    extra.insert(k.to_string(), value.trim().to_string());
                 }
                 other => return Err(parse_err(n, format!("unknown header key {other:?}"))),
             }
@@ -985,14 +1099,15 @@ impl VoxelReport {
             }
             voxels.push(record);
         }
-        Ok(Self {
+        let report = Self {
             grid,
             histories: histories.ok_or_else(|| missing("histories"))?,
             voxels,
             outside: outside.ok_or_else(|| missing("outside"))?,
             species_z,
             outside_defects,
-        })
+        };
+        Ok((report, extra))
     }
 
     /// Write the legacy ASCII VTK export: an `UNSTRUCTURED_GRID` with one

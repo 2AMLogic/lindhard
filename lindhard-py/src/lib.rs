@@ -7,6 +7,7 @@
 //! schema is duplicated here, so a configuration can go to the command line
 //! and back, and a result matches the command's for the same input and seed.
 
+mod damage;
 mod dynamic_result;
 mod electron;
 mod errors;
@@ -33,6 +34,7 @@ fn _lindhard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<run::Run>()?;
     m.add_class::<electron::ElectronRun>()?;
     m.add_class::<electron::ElectronRunResult>()?;
+    m.add_function(wrap_pyfunction!(damage::read_damage_export, m)?)?;
     m.add_class::<result::Histogram>()?;
     m.add_class::<result::RunResult>()?;
     m.add_class::<dynamic_result::DynamicRunResult>()?;
