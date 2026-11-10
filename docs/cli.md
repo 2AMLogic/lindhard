@@ -589,6 +589,7 @@ Every name the target uses needs an entry; an unused entry warns.
 | `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
 | `mermin_fit` | none (the default fit) | Options of this material's Mermin oscillator fit, `mermin-melf` only: see below |
 | `inner_shells` | none (valence only) | Inner-shell ionisation channels of this material, `penn-single-pole` only: see below |
+| `e_pair` | none | Mean energy per electron-hole pair, `{ ev, source }`: `ev` positive, `source` a required non-blank citation (for example the Klein 1968 rule for a semiconductor, or a measured SiO₂ value). **No default is supplied.** Without it the summary reports the ionisation energy of the material's layers and no pair count. Post-processing only: transport does not read it |
 
 **`[electron.materials.<name>.mermin_fit]`** (`lindhard::electron::inelastic::MerminFitOptions`):
 the `mermin-melf` model fits Drude-Lorentz oscillators to each material's
@@ -868,6 +869,39 @@ An electron run writes these instead of the ion files.
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
 
+`results.damage` (electron runs; an ion run's `results.damage` is the NRT
+block above) splits the deposited energy into **ionisation** (electronic
+excitation, the source of electron-hole pairs) and **lattice** heating, and
+tests the beam against the displacement threshold. `beam_energy_ev` is the
+beam energy of the input and `residual_channel` is `"ionisation"`. Per entry of
+`layers`: `layer`, `material`, `ionisation_ev` and `lattice_ev` (summed over
+histories) and the same `_per_primary`; with an `e_pair` for the layer's
+material also `e_pair_ev`, `e_pair_source` and `pairs_per_primary =
+ionisation_ev_per_primary / e_pair_ev` (the keys are absent without `e_pair`;
+the top-level `pairs_per_primary`, the sum over layers, is present only when
+every layer that has ionisation energy has an `e_pair`); and `knock_on`, one
+object per element: `element`, `z`, `t_max_ev = 2E(E + 2mc²)/(Mc²)` (relativistic,
+free atom at rest, head-on, `M` the atomic weight times the atomic mass unit),
+`e_d_ev`, `can_displace` (`T_max >= E_d`) and `threshold_beam_ev` (the beam
+energy at which `T_max = E_d`). An element without `E_d` shows `"not set"` in
+those three fields. `E_d` is the material's value (`[materials]` `e_d_ev`, or
+the element default where the element table has one). It is a threshold test
+only: no displacement cross section or dpa. For a step-barrier run `E` is the
+vacuum energy of the beam.
+
+Conventions of the split (`lindhard::tally::electron`, "The ionisation and
+lattice channels"). Ionisation is the energy left in the solid at inelastic
+events plus the **residual** energy of electrons that fell below the cutoff
+(`budget.residual_ev`, the cutoff-dependent term; placed here by convention).
+Lattice is LO-phonon emission plus polaron traps (`budget.phonon_emitted_ev +
+budget.polaron_ev`; both are zero without the insulator channels). Ionisation
+plus lattice equals `deposited_ev` in the budget, per layer
+(`deposition.per_layer_ionisation_ev`, `per_layer_lattice_ev`) and per cell, to
+floating-point rounding, and like all deposits includes Fermi-sea energy with
+secondaries. Elastic nuclear recoil energy is not tallied by the electron
+engine and is in neither channel. `budget.ionisation_ev` and `budget.lattice_ev`
+are the totals.
+
 `results.table_coverage` is a numerical diagnostic: one entry per layer
 (`layer`), and for its `elastic` and `inelastic` table the grid bounds
 `energy_min_ev` and `energy_max_ev` and the counts `below` (`E <
@@ -906,10 +940,13 @@ Each spectrum ends with `-inf` and `inf` rows for entries outside the grid,
 with empty densities. The density is per primary per eV or per degree.
 
 `electron_deposition_cylindrical.csv` (with `tally.cylindrical`):
-`ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,energy_ev,ev_per_primary_per_nm3`,
+`ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,energy_ev,ev_per_primary_per_nm3,ionisation_ev,lattice_ev`,
 one row per cell. `electron_deposition_cartesian.csv` (with
-`tally.cartesian`): `ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,energy_ev,ev_per_primary_per_nm3`.
-Energy deposited outside a grid is `outside_ev` in the summary. Like `budget.deposited_ev`, the cell energies are
+`tally.cartesian`): `ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,energy_ev,ev_per_primary_per_nm3,ionisation_ev,lattice_ev`.
+`ionisation_ev + lattice_ev = energy_ev` per cell (the two columns are new and
+last, in eV summed over histories).
+Energy deposited outside a grid is `outside_ev` in the summary (with
+`outside_ionisation_ev` and `outside_lattice_ev`). Like `budget.deposited_ev`, the cell energies are
 measured from the band bottom and, with secondaries, include Fermi-sea energy
 the beam did not supply.
 
