@@ -4,6 +4,18 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #583**: feat: add a 2-D dynamic run with finite beam, height-field surface and redeposition
+- **PR #582**: feat: run electron transport on any Geometry with a per-voxel deposition tally
+- **PR #581**: feat: per-element defect maps in the voxel tally, written by the CLI
+- **PR #575**: docs: record TiN and TaN optical-data gaps in the provenance inventory
+- **PR #573**: docs: record W, Ta, Ti, Co and Ru optical-data sources as gaps
+- **Issue #588** (closed): CI flake: Wheel and CLI (linux-x86_64) fails pulling manylinux image from quay.io (504)
+- **Issue #570** (closed): [Epic #25] Electron transport on any Geometry (voxel targets) with a 3-D energy-deposition tally (part of #549)
+- **Issue #564** (closed): Sourced optical ELFs: TaN and TiN
+- **Issue #560** (closed): [Part of #553] Ion runs: per-element vacancy, interstitial and replacement maps per voxel, written by the CLI
+- **Issue #559** (closed): [Epic #22] Focused ion beams, part 1: 2-D dynamic voxel target with finite beam, local-angle yield and redeposition
+- **Issue #556** (closed): Sourced optical ELFs: metals Co, Ru, W, Ta, Ti
+- **Issue #10** (closed): Epic: M0, amorphous ion core, validated
 - **PR #580**: feat: exposure statistics for small volumes via compound-Poisson tally
 - **PR #578**: feat: tally stopped electrons and holes per layer and cell with an exact charge balance
 - **PR #574**: docs: record HSQ as a sourced-ELF gap in the optical inventory
