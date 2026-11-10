@@ -26,6 +26,28 @@ const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 export class ModelError extends Error {}
 
+// Presets. SiO2 density: the usual handbook density of vitreous silica (CRC
+// Handbook; docs/data-provenance.md, example inputs). GaAs: 5.321 g/cm^3,
+// NBS Monograph 25 sec. 3 (docs/data-provenance.md, lattice constants). Si,
+// Cu, Au: the element table's densities. The Si displacement energy (15 eV)
+// and the O energies are the illustrative model parameters of
+// examples/as_50keV_si_sio2.toml, not recommendations. Ga and As have no
+// tabulated displacement energy and no value is invented for them.
+const el = (symbol, fraction = 1, eDEv = null, eSEv = null) => ({ symbol, fraction, eDEv, eBEv: null, eSEv });
+export const PRESETS = {
+  Si: { density: null, elements: [el("Si", 1, 15)], note: "The Si displacement energy (15 eV) is an illustrative model parameter, not a recommendation" },
+  Cu: { density: null, elements: [el("Cu")] },
+  Au: { density: null, elements: [el("Au")] },
+  SiO2: {
+    density: 2.2, elements: [el("Si", 1, 15), el("O", 2, 20, 2)],
+    note: "The Si (15 eV) and O (20 eV, surface 2 eV) energies are illustrative model parameters, not recommendations",
+  },
+  GaAs: {
+    density: 5.321, elements: [el("Ga"), el("As")],
+    note: "Ga and As have no tabulated displacement energy: enter one for each",
+  },
+};
+
 export function defaultSetup() {
   return {
     beam: { ion: "B", massAmu: null, energyEv: 10000, tiltDeg: 7 },

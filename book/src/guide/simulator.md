@@ -50,8 +50,10 @@ downloads.
   Layers can be added, deleted and reordered, and a preset fills one layer
   (Si, Cu, Au, SiO₂, GaAs). The preset densities are the ones recorded in
   [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md);
-  the O energies of the SiO₂ preset are the illustrative model parameters of
-  `examples/as_50keV_si_sio2.toml`, not recommendations.
+  the Si (15 eV) and O (20 eV) displacement energies of the Si and SiO₂ presets
+  are the illustrative model parameters of `examples/as_50keV_si_sio2.toml`,
+  not recommendations. The GaAs preset leaves the Ga and As displacement
+  energies blank, because the element table has none: enter them before running.
 - **Calculation**: "ion distribution, quick damage" (`follow_recoils = false`)
   or "full cascades" (`follow_recoils = true`), the ion count and the seed.
 - **Physics**: the potential and the electronic-stopping model, each with its
