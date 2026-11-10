@@ -363,7 +363,7 @@ runs, never oracle tables or raw output; their row is in the table above.
 facts**, as the measured sputter yields are. Committed so far: Al and Cu (#98),
 and glassy carbon and Au (#148), all from Hagemann, Gudat and Kunz (1975), and Si
 (#125), digitized from Yang et al. (2019) for 0.5 to 199 eV (no core tail), in
-`validation/data/optical/` (rows in the table above). **Still not committed:** SiO₂, PMMA (attempted in #147, source could not be opened; see the PMMA row below) W, Ta, Ti, Co and Ru (all five gaps with routes tried, #556; see the rows below). The Nebula/cstool
+`validation/data/optical/` (rows in the table above). **Still not committed:** SiO₂, PMMA (attempted in #147, source could not be opened; see the PMMA row below), W, Ta, Ti, Co and Ru (all five gaps with routes tried, #556; see the rows below). The Nebula/cstool
 `.dat` files stay unusable regardless of the ruling (unknown origin).
 
 The table records candidates, not choices. "Confirmed" means the terms were
