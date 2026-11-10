@@ -14,6 +14,8 @@
 //!   backscatter and secondary yields split at a configurable energy
 //!   (50 eV by default), escape spectra, generation-volume moments and the
 //!   energy balance, and its plain-data [`ElectronReport`].
+//! * [`exposure`]: per-electron energy deposited in small target volumes and the
+//!   compound-Poisson distribution of the energy of a finite exposure.
 //! * [`psf`]: the radial point-spread function of a pencil beam in a depth
 //!   slab (log radial bins, per-history errors) and its double- and
 //!   triple-Gaussian fits, with CSV export and serde derives.
@@ -34,6 +36,7 @@
 //! (SI lengths in metres, energies in eV, angles in radians).
 
 pub mod electron;
+pub mod exposure;
 pub mod hist;
 pub mod ion;
 pub mod moments;
@@ -50,6 +53,11 @@ pub use electron::{
     ElectronTallyMetadata, EmissionClass, EscapedCharge, EventCapCounts, FaceEmission, FateCounts,
     FullElectronTally, GenerationVolume, PrimaryStoppingPoints, StoppingPoints, Yields,
     SE_BSE_SPLIT_EV,
+};
+pub use exposure::{
+    BeamProfile, Bracket, CompoundDistribution, CompoundPoisson, CompoundRequest,
+    ExposureAccumulator, ExposureConfig, ExposureError, ExposureHistogram, ExposureReport,
+    ExposureVolume, ExposureVolumeReport, QuantileResult, ThresholdResult, VolumeShape,
 };
 pub use hist::{Binning, BinningError, Histogram};
 pub use ion::{

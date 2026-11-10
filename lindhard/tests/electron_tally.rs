@@ -555,7 +555,7 @@ fn bad_configurations_are_rejected() {
     let mut c = config(1_000.0);
     c.se_bse_split_ev = -1.0;
     assert_eq!(
-        FullElectronTally::new(&t, c).unwrap_err(),
+        FullElectronTally::new(&t, c.clone()).unwrap_err(),
         ElectronTallyError::Split(-1.0)
     );
     c.se_bse_split_ev = f64::NAN;
