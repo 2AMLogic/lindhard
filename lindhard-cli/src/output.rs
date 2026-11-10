@@ -683,15 +683,27 @@ pub fn summary_json(
 /// `lindhard` version, the seed and the SHA-256 of the resolved-input echo
 /// (the `input` block of `summary.json`'s source, serialized compactly).
 pub fn damage_export_csv(r: &Resolved, t: &CliTally) -> Option<String> {
-    use sha2::{Digest, Sha256};
     let report = t.voxel.as_ref()?.report();
-    let echo = serde_json::to_vec(&r.input).expect("the input serializes");
+    Some(export_csv(&report, "ion", r.config.seed, &r.input))
+}
+
+/// The versioned damage-export text of `report` for either engine: the
+/// header carries `engine`, the `lindhard` version, the `seed` and the
+/// SHA-256 of `input` (the resolved-input echo, serialized compactly).
+pub fn export_csv<T: serde::Serialize>(
+    report: &lindhard::tally::VoxelReport,
+    engine: &str,
+    seed: u64,
+    input: &T,
+) -> String {
+    use sha2::{Digest, Sha256};
+    let echo = serde_json::to_vec(input).expect("the input serializes");
     let hash: String = Sha256::digest(&echo)
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect();
-    let p = lindhard::tally::ExportProvenance::new("ion", r.config.seed, &hash);
-    Some(report.to_export_csv(&p))
+    let p = lindhard::tally::ExportProvenance::new(engine, seed, &hash);
+    report.to_export_csv(&p)
 }
 
 /// `depth_profile.csv`: stopped primaries per depth bin. The last bin also

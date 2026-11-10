@@ -75,8 +75,9 @@ defect columns. An empty tally is a header and a column row only.
   the provenance, and refuses a missing banner, version or provenance key.
   `FullElectronTally::voxel_report` gives the electron map to write.
 - CLI: `lindhard run` writes `damage_export.csv` next to the other outputs
-  when the input has a `[tally.voxel]` table (ion runs).
-- Python: `RunResult.damage_export()` and `lindhard.read_damage_export(path)`
+  when the input has a `[tally.voxel]` table (ion runs) or an
+  `[electron.tally.voxel]` table (electron runs, `engine = electron`).
+- Python: `RunResult.damage_export()`, `ElectronRunResult.damage_export()` and `lindhard.read_damage_export(path)`
   return the same dict of NumPy arrays ([`python.md`](python.md#damage-export)).
 
 Not in this format: any cylindrical electron grid, and the NRT model damage

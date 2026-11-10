@@ -194,6 +194,10 @@ fn run_electron(
         electron::EXPOSURE_FILE,
         electron::exposure_histogram_csv(&sim),
     )?;
+    set.reconcile_optional(
+        electron::DAMAGE_EXPORT_FILE,
+        electron::damage_export_csv(&r, &sim),
+    )?;
     // Last, so the summary describes the completed output set.
     set.publish()?;
     let y = &sim.report.yields;

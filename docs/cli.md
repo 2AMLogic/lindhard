@@ -720,6 +720,17 @@ per-history errors, and double- and triple-Gaussian fits to it.
 | `fits` | `["double", "triple"]` | Forms to fit, any subset of `"double"` and `"triple"` (may be empty) |
 | `normalization` | `"slab-total"` | `"slab-total"` fixes the fit's energy scale to the slab energy; `"free"` fits it |
 
+**`[electron.tally.voxel]`**: the same fields as the ion `[tally.voxel]`
+(`origin_nm`, `spacing_nm`, `dims`; same validation). Tallies the deposited
+energy per voxel, by channel (`electronic_ev`, `lattice_ev`, `rest_ev`), and
+writes it as `damage_export.csv` with `engine = electron` (see
+[Damage export format](damage-export-format.md)). The voxel energies plus
+`outside` sum to `results.budget.deposited_ev`. The species, defect and
+displacement columns are empty or zero: the electron tally has no species
+axis. Deposits are point events, so a flight is not split across voxel faces.
+Without the table no file is written, and one left in a reused output
+directory is removed.
+
 **`[electron.tally.exposure]`** (`lindhard::tally::exposure`): the energy `X`
 that one primary history (the primary and its secondaries) deposits in each
 target volume, binned into a histogram with an exact bin at `X = 0`, and the
@@ -1155,7 +1166,7 @@ file the run did not produce is removed if present: `ions.csv` (without
 `tally.per_ion`), and `electron_deposition_cartesian.csv` or
 `electron_deposition_cylindrical.csv` (without the matching deposition grid),
 and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
-`tally.psf`), and `electron_exposure_histogram.csv` (without `tally.exposure`).
+`tally.psf`), and `electron_exposure_histogram.csv` (without `tally.exposure`), and `damage_export.csv` (without `electron.tally.voxel`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
 CSV write leaves no new summary) and lists only files that exist.

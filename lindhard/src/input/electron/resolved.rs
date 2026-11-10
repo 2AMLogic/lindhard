@@ -20,7 +20,7 @@ use crate::geometry::Stack;
 use crate::input::{ModelInfo, ResolvedLayer};
 use crate::material::Material;
 use crate::tally::electron::SE_BSE_SPLIT_SOURCE;
-use crate::tally::{ElectronTallyConfig, PsfModel, PsfNormalization};
+use crate::tally::{ElectronTallyConfig, PsfModel, PsfNormalization, VoxelTallyGrid};
 
 use super::schema::*;
 
@@ -176,6 +176,8 @@ pub struct ResolvedElectron {
     pub table_energy_ev: Vec<f64>,
     /// Tally configuration (SI units).
     pub tally: ElectronTallyConfig,
+    /// The grid of `electron.tally.voxel` (SI units), if configured.
+    pub voxel_grid: Option<VoxelTallyGrid>,
     /// The PSF forms to fit to the profile of `tally.psf`, in input order
     /// (duplicates removed).
     pub psf_fits: Vec<PsfModel>,
