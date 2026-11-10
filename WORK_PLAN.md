@@ -175,20 +175,15 @@ _None._
 Issues currently being built (`loom:building`).
 
 - **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2)
-- **#547**: Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack
-- **#551**: Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check
-- **#568**: Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
-- **#572**: [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549)
-- **#602**: Electron voxel damage map: input table and Python/CLI export
+- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
+- **#629**: Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#585**: feat: add multi-shot exposure dose, iso-dose contours and lindhard exposure command
-- **#611**: docs: record SiCOH and SiCN optical ELF as gaps
-- **#614**: feat: electron voxel damage map table and damage_export for electron runs
-- **#615**: feat: position-dependent PSF scan over voxel targets
+- **#631**: feat: add photon transport with EPDL2017 cross sections and per-region photon dose
+- **#635**: docs: data is not licensed, code is; admit cited data from any source (#629)
 
 ## Approved (Awaiting Merge)
 
@@ -216,14 +211,11 @@ Issues carrying `loom:curated`.
 - **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
 - **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2) *(curated)*
 - **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)*
-- **#547**: Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack *(curated)*
-- **#551**: Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check *(curated)*
+- **#557**: Electron depth-dose and interface-enhancement validation against published measurements *(curated)*
 - **#561**: [Epic #22] Focused ion beams, part 3: lateral implant and damage profiles, film cut-through fluence, trench comparison *(curated)*
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose *(curated)*
 - **#565**: [Epic #22] Focused ion beams, part 2: validate sputter yield against incidence angle for one ion-target pair *(curated)*
-- **#568**: Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3 *(curated)*
-- **#572**: [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549) *(curated)*
-- **#602**: Electron voxel damage map: input table and Python/CLI export *(curated)*
+- **#629**: Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -247,10 +239,10 @@ _None._
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 6 |
-| PRs awaiting review | 4 |
+| In Progress (`loom:building`) | 3 |
+| PRs awaiting review | 2 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 24 |
+| Curated | 21 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 7 |
 <!-- guide:plan-body:end -->
