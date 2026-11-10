@@ -568,7 +568,7 @@ pub enum BeamProfile {
 /// Per history the position is sampled first, then the direction, both from
 /// that history's own stream, so a run is identical at any thread count. The
 /// divergence is the ion beam's
-/// ([`Divergence`](crate::ion::crystal::Divergence): Gaussian per-plane
+/// ([`Divergence`]: Gaussian per-plane
 /// angles, or uniform in solid angle within a cone). Where the nominal
 /// direction points into the target (`x > 0`), deflections that would send
 /// the primary out of it are rejected and redrawn (the inward conditioning of
