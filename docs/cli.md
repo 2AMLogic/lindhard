@@ -215,9 +215,9 @@ stopping_ev_1e15_cm2 = [10.0, 30.0, 60.0]         # eV 1e-15 cm^2 per atom
 ```
 
 Interpolation is piecewise linear in ln S versus ln E. `provenance` is
-mandatory (data without an origin is not admitted). Do not use SRIM- or
-ICRU-derived tables in anything committed to a repository; a table is the
-user's own data and its terms are the user's concern.
+mandatory (data without an origin is not admitted). Tables from any source,
+SRIM and ICRU included, are admissible; the provenance names the source (book
+edition, table and page, or program, version and file).
 
 **Paths.** A relative path resolves against the directory of the input file
 (not the current directory). The echoed input keeps the path as written.

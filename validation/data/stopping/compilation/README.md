@@ -10,8 +10,10 @@ rules in [`CONTRIBUTING.md`](../../../../CONTRIBUTING.md) ("The srim.org
 experimental-data compilation") and origin 4 of
 [`docs/data-provenance.md`](../../../../docs/data-provenance.md).
 
-These are measurements, not SRIM output. SRIM's fitted curve is never stored.
-It is read only as an intermediate: the Experiment/Theory panel under each
+These are measurements, not SRIM output. SRIM's fitted curve is not stored
+in this directory, which holds measurements only (the curve is admissible as
+labelled data elsewhere since 2026-11-10, #629). Here it is read as an
+intermediate: the Experiment/Theory panel under each
 plot shows the same points divided by that curve, and a point hidden under
 other markers on top is recovered there as ratio × curve and flagged
 (`panel` = `lower`; operator ruling of 2026-10-28,
@@ -127,13 +129,16 @@ of them in the legend ("Not All Data Shown").
 Every value here is a stand-in until the paper itself is read: a point read
 from its paper replaces the digitized one (issue #483).
 
-**Not digitized, by design:** ions heavier than lithium. srim.org has no
+**Not digitized yet:** ions heavier than lithium (#497 now admits them, see
+below). srim.org has no
 per-target plot for them, only the aggregate plots `STOPZZxx` (one ion into
 all targets) and `STOPxxZZ` (all ions into one target). Those plot every
 point scaled to a reference target or ion ("Normalized Tgt = Cu",
 "Normalized Ion = Al") by SRIM's own ratio between the two, so the value
-printed is not the measurement, and undoing the scaling would need SRIM's
-tables.
+printed is not the measurement, and undoing the scaling needs SRIM's
+tables. Since 2026-11-10 SRIM's tables are admissible data (#629), so #497
+recovers these points by inverting the normalization, recording the ratio
+used and flagging each point as reconstructed.
 
 Also not digitized, from the rest of the site:
 

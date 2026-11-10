@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #627**: refactor: consolidate duplicated [f64; 3] helpers into a vec3 module
+- **Issue #625** (closed): Simplify: consolidate duplicated 3-vector helpers (dot/cross/norm/normalize) into one module
 - **PR #584**: feat: add per-layer dose, depth-dose and interface transmission tallies for electrons
 - **Issue #547** (closed): Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack
 - **PR #624**: refactor: split ElectronInput::resolve_in into per-stage helpers
