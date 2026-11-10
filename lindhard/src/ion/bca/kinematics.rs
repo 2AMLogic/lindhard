@@ -3,6 +3,8 @@
 
 use std::f64::consts::PI;
 
+use crate::vec3::cross;
+
 /// Laboratory deflection of projectile and recoil for a centre-of-mass
 /// scattering angle `theta` and mass ratio `mu = M1 / M2`.
 ///
@@ -26,18 +28,9 @@ pub fn gamma(m1: f64, m2: f64) -> f64 {
     4.0 * m1 * m2 / ((m1 + m2) * (m1 + m2))
 }
 
-fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
-}
-
 /// Normalise a vector to unit length.
 pub fn normalize(v: [f64; 3]) -> [f64; 3] {
-    let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-    [v[0] / n, v[1] / n, v[2] / n]
+    crate::vec3::normalize(v)
 }
 
 /// Rotate unit vector `u` by polar angle `polar` (from `u`) at azimuth
@@ -200,10 +193,7 @@ pub fn refract_out_normal(
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
-        a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-    }
+    use crate::vec3::dot;
 
     #[test]
     fn momentum_and_energy_are_conserved() {

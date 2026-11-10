@@ -63,6 +63,8 @@ pub use lattice::{HexagonalConstants, Lattice, LatticeConstant, Site, Structure}
 pub use orientation::Orientation;
 pub use search::{Candidate, LatticeSearch};
 
+use crate::vec3::{dot, scale};
+
 /// Errors from building lattices, orientations and divergence models.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
 pub enum CrystalError {
@@ -133,22 +135,6 @@ pub enum CrystalError {
         /// The rule it broke.
         why: &'static str,
     },
-}
-
-pub(crate) fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-pub(crate) fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
-}
-
-pub(crate) fn scale(v: [f64; 3], s: f64) -> [f64; 3] {
-    [v[0] * s, v[1] * s, v[2] * s]
 }
 
 pub(crate) fn add(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {

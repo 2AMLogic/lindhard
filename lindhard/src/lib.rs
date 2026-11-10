@@ -31,6 +31,7 @@ pub mod material;
 pub mod rng;
 pub mod tally;
 pub mod units;
+mod vec3;
 
 /// Crate version, as stamped by Cargo.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

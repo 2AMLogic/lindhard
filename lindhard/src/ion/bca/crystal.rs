@@ -588,6 +588,7 @@ use crate::ion::stopping::oen_robinson::OR_CONSTANTS_UNVERIFIED;
 use crate::ion::stopping::Ion;
 use crate::rng::ParticleRng;
 use crate::units::J_PER_EV;
+use crate::vec3::dot;
 
 use super::{
     kinematics, Bca, BcaError, BcaTally, ElectronicChannel, EnergyBudget, MeanFreePath, Particle,
@@ -878,10 +879,6 @@ fn nearest_neighbour(lattice: &Lattice) -> f64 {
         }
     }
     best
-}
-
-fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
 }
 
 impl<'a> Bca<'a> {

@@ -276,6 +276,7 @@ use crate::electron::secondary::{kieft_bosch, kieft_bosch_shell, SecondaryEvent,
 use crate::geometry::{ExitOutcome, Flight, Geometry, Stack};
 use crate::ion::crystal::Divergence;
 use crate::rng::{run_particles, uniform};
+use crate::vec3::{cross, normalize};
 
 /// Errors from building a [`Transport`] or starting a run.
 #[derive(Debug, Clone, PartialEq, thiserror::Error)]
@@ -2159,19 +2160,6 @@ pub(crate) fn deflect_cs(d: [f64; 3], ct: f64, st: f64, phi: f64) -> [f64; 3] {
         ct * d[1] + st * (cp * e1[1] + sp * e2[1]),
         ct * d[2] + st * (cp * e1[2] + sp * e2[2]),
     ])
-}
-
-fn cross(a: [f64; 3], b: [f64; 3]) -> [f64; 3] {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
-}
-
-pub(crate) fn normalize(v: [f64; 3]) -> [f64; 3] {
-    let n = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
-    [v[0] / n, v[1] / n, v[2] / n]
 }
 
 #[cfg(test)]
