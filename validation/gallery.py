@@ -15,6 +15,10 @@ scenarios and rewrites those files.
      changes) and runs it with `--seed` for several seeds.
   3. examples/electron/e_10keV_resist_on_si.toml: energy deposited by 10 keV
      electrons in a 100 nm layer on Si (SYNTHETIC electron data).
+  4. examples/electron/e_dose_buried_oxide.toml: dose in a thin oxide under
+     alternating metal and dielectric layers against the beam energy, 1-30
+     keV (SYNTHETIC electron data). The script writes one copy of the input
+     per energy (only `electron.beam.energy_ev` changes).
 
 The results do not depend on the thread count, so --threads only sets the
 speed. The whole script takes well under a minute in a release build. The
@@ -45,6 +49,8 @@ OUT_DIR = ROOT / "book" / "src" / "gallery" / "generated"
 SCREEN_INPUT = "examples/as_50keV_si_sio2.toml"
 SPUTTER_INPUT = "examples/sputtering_ar_cu_angle.toml"
 RESIST_INPUT = "examples/electron/e_10keV_resist_on_si.toml"
+DOSE_INPUT = "examples/electron/e_dose_buried_oxide.toml"
+DOSE_ENERGIES_KEV = [1, 2, 3, 5, 10, 20, 30]
 
 ANGLES_DEG = [0, 15, 30, 45, 60, 70, 80]
 SEEDS = [1, 2, 3, 4]
@@ -395,6 +401,69 @@ def resist_on_si(lindhard: Path, threads: int | None, work: Path) -> dict[str, s
     return {"resist_on_si.svg": svg, "resist_on_si.md": table}
 
 
+def dose_buried_oxide(lindhard: Path, threads: int | None, work: Path) -> dict[str, str]:
+    src = ROOT / DOSE_INPUT
+    text = src.read_text(encoding="utf-8")
+    # The data files are named relative to the input, so the copies sit next
+    # to it, in the work directory, with the ELF alongside.
+    (work / "synthetic_plasmon_elf.toml").write_text(
+        (src.parent / "synthetic_plasmon_elf.toml").read_text(encoding="utf-8"),
+        encoding="utf-8",
+    )
+    # Dose per unit fluence, reported for a fluence of 1e12 electrons/cm^2.
+    fluence_m2 = 1e12 * 1e4
+    energies: list[float] = []
+    dose: list[float] = []
+    err: list[float] = []
+    rows_md = []
+    n = None
+    for kev in DOSE_ENERGIES_KEV:
+        new, count = re.subn(
+            r"^energy_ev = [0-9.eE+-]+$", f"energy_ev = {kev * 1000.0}", text, flags=re.M
+        )
+        assert count == 1, "beam energy line not found"
+        inp = work / f"dose_{kev}keV.toml"
+        inp.write_text(new, encoding="utf-8")
+        out = work / f"dose_{kev}keV"
+        cmd = [str(lindhard), "run", str(inp), "--out", str(out)]
+        if threads:
+            cmd += ["--threads", str(threads)]
+        run(cmd, ROOT)
+        s = json.loads((out / "electron_summary.json").read_text(encoding="utf-8"))
+        n = s["results"]["histories"]
+        layers = s["results"]["dose"]["layers"]
+        ox = next(l for l in layers if l["name"] == "Oxide")
+        d, e = ox["dose_gy_m2"]["mean"] * fluence_m2, ox["dose_gy_m2"]["std_err"] * fluence_m2
+        energies.append(float(kev))
+        dose.append(d)
+        err.append(e)
+        rows_md.append(f"| {kev} | {d:.3g} ± {e:.2g} |")
+    top = max(d + e for d, e in zip(dose, err))
+    svg = chart(
+        "Dose in the buried oxide against beam energy (synthetic data)",
+        "beam energy (keV)",
+        "dose in the oxide (Gy) at 1e12 electrons/cm²",
+        [
+            {
+                "x": energies,
+                "y": dose,
+                "err": err,
+                "label": f"lindhard, {n} histories per point",
+                "color": BLUE,
+                "kind": "line",
+            }
+        ],
+        max(energies),
+        nice_ceiling(top * 1.1),
+    )
+    table = (
+        "| Beam energy (keV) | Dose in the oxide (Gy), mean ± standard error |\n|---|---|\n"
+        + "\n".join(rows_md)
+        + "\n"
+    )
+    return {"dose_buried_oxide.svg": svg, "dose_buried_oxide.md": table}
+
+
 def generate(lindhard: Path, threads: int | None) -> dict[str, str]:
     files: dict[str, str] = {}
     with tempfile.TemporaryDirectory(prefix="lindhard-gallery-") as tmp:
@@ -402,6 +471,7 @@ def generate(lindhard: Path, threads: int | None) -> dict[str, str]:
         files.update(screen_oxide(lindhard, threads, work))
         files.update(sputter_angle(lindhard, threads, work))
         files.update(resist_on_si(lindhard, threads, work))
+        files.update(dose_buried_oxide(lindhard, threads, work))
     return files
 
 

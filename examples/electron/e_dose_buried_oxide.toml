@@ -1,0 +1,124 @@
+# Dose in a thin buried oxide under alternating metal and dielectric layers
+# (an electron run with the dose tallies of #547).
+#
+# Run:   lindhard run examples/electron/e_dose_buried_oxide.toml --out out/e_dose_buried_oxide
+# Check: lindhard check examples/electron/e_dose_buried_oxide.toml
+#
+# Schema: docs/cli.md, "Electron runs" (`[electron.tally.dose]`). Energies are
+# in eV, lengths in nm.
+#
+# To sweep the beam energy (the 1-30 keV scan of the gallery page), change
+# `electron.beam.energy_ev` and rerun; the gallery script does this
+# (validation/gallery.py).
+#
+# SYNTHETIC DATA, as in e_10keV_si.toml and e_10keV_resist_on_si.toml. Every
+# material uses the same synthetic Drude-Lorentz plasmon ELF
+# (synthetic_plasmon_elf.toml) and round-number band parameters. "Metal",
+# "Dielectric" and "Oxide" carry the composition and density of Al, a
+# PMMA-class polymer and SiO2 only to set their masses and elastic scattering;
+# their electron data are not those materials'. No optical or band data of
+# real materials is committed (docs/data-provenance.md). The output shows how
+# the tallies work on a stack, not what a real stack does, and it is not
+# compared with any measurement.
+
+[electron.beam]
+energy_ev = 10000.0
+tilt_deg = 0.0
+
+[electron.transport]
+cutoff_ev = 1.0
+cutoff_reference = "vacuum-level"
+secondaries = "kieft-bosch"
+boundary = "step-barrier"
+
+[electron.elastic]
+model = "mott"
+# The only potential that runs today is a stand-in (docs/data-provenance.md).
+potential = "thomas-fermi-yukawa"
+exchange = false
+
+[electron.inelastic]
+model = "penn-single-pole"
+
+[electron.tables]
+# A coarse grid keeps the example quick.
+min_energy_ev = 10.0
+points_per_decade = 8.0
+
+[electron.materials.Metal]
+optical_elf = "synthetic_plasmon_elf.toml"
+band = { kind = "metal", fermi_ev = 5.0, work_function_ev = 4.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of any metal" }
+
+[electron.materials.Dielectric]
+optical_elf = "synthetic_plasmon_elf.toml"
+band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 4.0, affinity_ev = 1.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of any dielectric" }
+
+[electron.materials.Oxide]
+optical_elf = "synthetic_plasmon_elf.toml"
+band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 8.0, affinity_ev = 1.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of SiO2" }
+
+[electron.materials.Si]
+optical_elf = "synthetic_plasmon_elf.toml"
+band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of Si" }
+
+[electron.tally]
+escape_energy_bins = 50
+escape_polar_bins = 9
+
+# Dose per unit incident fluence in each layer (always, with this table), a
+# depth-dose profile through the stack with a refined band of 2 nm on each
+# side of every interface, and the electrons crossing each interface. The
+# substrate is binned to 400 nm.
+[electron.tally.dose]
+depth_bins_per_layer = 10
+refine_width_nm = 2.0
+refine_bins = 8
+substrate_depth_nm = 400.0
+transmission = true
+
+[materials.Metal]
+density_g_cm3 = 2.70
+elements = [{ symbol = "Al", atom_fraction = 1.0 }]
+
+[materials.Dielectric]
+density_g_cm3 = 1.19
+elements = [
+  { symbol = "C", atom_fraction = 5.0 },
+  { symbol = "H", atom_fraction = 8.0 },
+  { symbol = "O", atom_fraction = 2.0 },
+]
+
+[materials.Oxide]
+density_g_cm3 = 2.20
+elements = [
+  { symbol = "Si", atom_fraction = 1.0 },
+  { symbol = "O", atom_fraction = 2.0 },
+]
+
+[target]
+substrate = "Si"
+
+# Front to back: two metal/dielectric pairs over the buried oxide.
+[[target.layers]]
+material = "Metal"
+thickness_nm = 40.0
+
+[[target.layers]]
+material = "Dielectric"
+thickness_nm = 60.0
+
+[[target.layers]]
+material = "Metal"
+thickness_nm = 40.0
+
+[[target.layers]]
+material = "Dielectric"
+thickness_nm = 60.0
+
+[[target.layers]]
+material = "Oxide"
+thickness_nm = 10.0
+
+[run]
+histories = 1000
+seed = 1
