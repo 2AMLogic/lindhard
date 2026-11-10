@@ -242,6 +242,19 @@ def voxel_case(case):
     return p
 
 
+def same(a, b):
+    """Compare two damage-export dicts: arrays bit for bit, nested dicts recursively."""
+    assert a.keys() == b.keys()
+    for k in a:
+        if isinstance(a[k], np.ndarray):
+            assert a[k].dtype == b[k].dtype and a[k].shape == b[k].shape, k
+            assert a[k].tobytes() == b[k].tobytes(), k
+        elif isinstance(a[k], dict):
+            same(a[k], b[k])
+        else:
+            assert a[k] == b[k], k
+
+
 def test_damage_export_matches_the_cli_file(cli, voxel_case, tmp_path):
     subprocess.run(
         [str(cli), "run", str(voxel_case), "--out", str(tmp_path), "--histories", str(HISTORIES),
@@ -254,12 +267,7 @@ def test_damage_export_matches_the_cli_file(cli, voxel_case, tmp_path):
     live = res.damage_export()
     assert live is not None
     back = lh.read_damage_export(tmp_path / "damage_export.csv")
-    assert live.keys() == back.keys()
-    for k, v in live.items():
-        if isinstance(v, np.ndarray):
-            assert v.tobytes() == back[k].tobytes(), k
-        else:
-            assert v == back[k], k
+    same(live, back)
     assert back["provenance"]["engine"] == "electron"
     assert back["dims"] == (5, 2, 2)
     # voxels plus outside carry the energy budget's deposited energy
@@ -272,7 +280,5 @@ def test_damage_export_is_thread_invariant_and_optional(voxel_case, res1):
     run = lh.ElectronRun.from_toml_file(voxel_case)
     a = run.run(histories=HISTORIES, seed=SEED, threads=1).damage_export()
     b = run.run(histories=HISTORIES, seed=SEED, threads=4).damage_export()
-    for k in a:
-        if isinstance(a[k], np.ndarray):
-            assert a[k].tobytes() == b[k].tobytes(), k
+    same(a, b)
     assert res1.damage_export() is None
