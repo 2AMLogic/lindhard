@@ -17,6 +17,13 @@ one version).
 
 ### Added
 
+- A versioned **damage export** file (`docs/damage-export-format.md`): the voxel
+  map of either engine with a provenance header (engine, version, seed,
+  input hash, units). `lindhard run` writes `damage_export.csv` for ion runs
+  with `[tally.voxel]`; the library has `VoxelReport::write_export_csv` /
+  `read_export_csv`; Python has `RunResult.damage_export()` and
+  `lindhard.read_damage_export()`, returning NumPy arrays that equal the run's
+  bit for bit.
 - Electron runs report the deposited energy split into **ionisation** and
   **lattice** channels, per layer and per cell of both deposition grids
   (`ionisation + lattice = deposited_ev`; the residual of sub-cutoff electrons

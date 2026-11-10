@@ -17,6 +17,7 @@ from ._lindhard import (
     Tally as Tally,
     Target as Target,
     __version__ as __version__,
+    read_damage_export as read_damage_export,
 )
 
 __all__ = [
@@ -38,4 +39,5 @@ __all__ = [
     "Tally",
     "Target",
     "__version__",
+    "read_damage_export",
 ]

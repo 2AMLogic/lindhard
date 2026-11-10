@@ -127,7 +127,8 @@ impl OutputSet {
 
 /// Publishes a static ion run's outputs into the existing directory `out`:
 /// invalidates the previous `summary.json`, replaces the four required CSVs,
-/// writes or removes the optional `ions.csv` (per `tally.per_ion`), and
+/// writes or removes the optional `ions.csv` (per `tally.per_ion`) and the
+/// voxel files and `damage_export` (from [`output::damage_export_csv`]), and
 /// publishes `summary` last. `summary` is serialized by the caller before any
 /// output is touched. Shared by the `lindhard run` command and the Python
 /// bindings so both follow one directory-reuse policy.
@@ -136,6 +137,7 @@ pub fn publish_static_ion(
     summary: String,
     tally: &CliTally,
     report: &IonReport,
+    damage_export: Option<String>,
 ) -> Result<()> {
     let set = OutputSet::begin(out, output::SUMMARY_FILE, summary)?;
     set.write(output::DEPTH_FILE, output::depth_csv(tally))?;
@@ -149,6 +151,7 @@ pub fn publish_static_ion(
     let voxel = tally.voxel.as_ref().map(|v| v.report());
     set.reconcile_optional(output::VOXEL_CSV_FILE, voxel.as_ref().map(|r| r.to_csv()))?;
     set.reconcile_optional(output::VOXEL_VTK_FILE, voxel.as_ref().map(|r| r.to_vtk()))?;
+    set.reconcile_optional(output::DAMAGE_EXPORT_FILE, damage_export)?;
     // Last, so the summary describes the completed output set.
     set.publish()
 }
@@ -311,7 +314,7 @@ seed = 1
     fn static_ion_writes_all_files_and_summary_last() {
         let d = dir("static-ok");
         let (summary, s) = sim(true);
-        publish_static_ion(&d, summary.clone(), &s.tally, &s.report).unwrap();
+        publish_static_ion(&d, summary.clone(), &s.tally, &s.report, None).unwrap();
         for n in CSVS.iter().chain(&[output::IONS_FILE]) {
             assert!(d.join(n).is_file(), "{n}");
         }
@@ -325,10 +328,10 @@ seed = 1
     fn static_ion_removes_stale_ions_csv_and_keeps_unrelated_files() {
         let d = dir("static-stale");
         let (sum1, s1) = sim(true);
-        publish_static_ion(&d, sum1, &s1.tally, &s1.report).unwrap();
+        publish_static_ion(&d, sum1, &s1.tally, &s1.report, None).unwrap();
         std::fs::write(d.join("notes.txt"), "mine").unwrap();
         let (sum2, s2) = sim(false);
-        publish_static_ion(&d, sum2, &s2.tally, &s2.report).unwrap();
+        publish_static_ion(&d, sum2, &s2.tally, &s2.report, None).unwrap();
         assert!(!d.join(output::IONS_FILE).exists());
         assert!(d.join(output::SUMMARY_FILE).is_file());
         assert_eq!(
@@ -341,11 +344,11 @@ seed = 1
     fn static_ion_failed_csv_leaves_no_summary_on_reused_dir() {
         let d = dir("static-fail");
         let (sum, s) = sim(true);
-        publish_static_ion(&d, sum.clone(), &s.tally, &s.report).unwrap();
+        publish_static_ion(&d, sum.clone(), &s.tally, &s.report, None).unwrap();
         // Obstruct a later required CSV with a directory.
         std::fs::remove_file(d.join(output::DAMAGE_FILE)).unwrap();
         std::fs::create_dir(d.join(output::DAMAGE_FILE)).unwrap();
-        let e = publish_static_ion(&d, sum, &s.tally, &s.report).unwrap_err();
+        let e = publish_static_ion(&d, sum, &s.tally, &s.report, None).unwrap_err();
         assert!(format!("{e:#}").contains(output::DAMAGE_FILE));
         assert!(!d.join(output::SUMMARY_FILE).exists());
     }
@@ -358,7 +361,7 @@ seed = 1
             std::fs::write(d.join(n), "old").unwrap();
         }
         std::fs::create_dir_all(d.join(output::SUMMARY_FILE).join("inner")).unwrap();
-        let e = publish_static_ion(&d, sum, &s.tally, &s.report).unwrap_err();
+        let e = publish_static_ion(&d, sum, &s.tally, &s.report, None).unwrap_err();
         assert!(format!("{e:#}").contains(output::SUMMARY_FILE));
         for n in CSVS {
             assert_eq!(std::fs::read_to_string(d.join(n)).unwrap(), "old", "{n}");

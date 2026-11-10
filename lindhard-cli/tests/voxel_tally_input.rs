@@ -80,7 +80,16 @@ fn voxel_tally_matches_the_cascade_totals_and_is_published() {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).unwrap();
     let summary = "{}".to_string();
-    publish_static_ion(&dir, summary, &s1.tally, &s1.report).unwrap();
+    let export = output::damage_export_csv(&r, &s1.tally).expect("export text");
+    publish_static_ion(&dir, summary, &s1.tally, &s1.report, Some(export.clone())).unwrap();
+    let on_disk = std::fs::read_to_string(dir.join(output::DAMAGE_EXPORT_FILE)).unwrap();
+    assert_eq!(on_disk, export);
+    let (back, prov) = VoxelReport::read_export_csv(&on_disk).unwrap();
+    assert_eq!(back, report);
+    assert_eq!((prov.engine.as_str(), prov.seed), ("ion", r.config.seed));
+    assert_eq!(prov.input_sha256.len(), 64);
+    // The export is a function of the input: other thread counts give the same bytes.
+    assert_eq!(output::damage_export_csv(&r, &s4.tally).unwrap(), export);
     let csv = std::fs::read_to_string(dir.join(output::VOXEL_CSV_FILE)).unwrap();
     assert_eq!(VoxelReport::read_csv(&csv).unwrap(), report);
     VoxelReport::read_vtk(&std::fs::read_to_string(dir.join(output::VOXEL_VTK_FILE)).unwrap())
@@ -89,9 +98,10 @@ fn voxel_tally_matches_the_cascade_totals_and_is_published() {
     // A rerun without the table removes the stale files.
     let plain = simulate(&resolve(BASE), Some(1)).unwrap();
     assert!(plain.tally.voxel.is_none());
-    publish_static_ion(&dir, "{}".into(), &plain.tally, &plain.report).unwrap();
+    publish_static_ion(&dir, "{}".into(), &plain.tally, &plain.report, None).unwrap();
     assert!(!dir.join(output::VOXEL_CSV_FILE).exists());
     assert!(!dir.join(output::VOXEL_VTK_FILE).exists());
+    assert!(!dir.join(output::DAMAGE_EXPORT_FILE).exists());
     std::fs::remove_dir_all(&dir).unwrap();
 }
 

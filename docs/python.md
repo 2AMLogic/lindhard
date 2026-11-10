@@ -115,6 +115,25 @@ seed at any thread count (`tests/test_electron.py` compares against the
 built binary). A walk-through is in
 [`../examples/python/electron_run.py`](../examples/python/electron_run.py).
 
+## Damage export
+
+An input with a `[tally.voxel]` table gives `res.damage_export()`: a dict of
+NumPy arrays in the [damage export format](damage-export-format.md), also
+written by `res.write(dir)` as `damage_export.csv`. `lindhard.read_damage_export(path)`
+reads such a file back into the same dict; the arrays are equal to the run's
+bit for bit. `res.damage_export()` is `None` without the table.
+
+Keys: `origin_m`, `spacing_m` (3-vectors, m), `dims`, `histories`,
+`species_z` (list), the `(nx, ny, nz)` arrays `implanted`, `displacements`
+(integer counts) and `electronic_ev`, `lattice_ev`, `rest_ev`, `deposited_ev`
+(eV), the `(nspecies, nx, ny, nz)` integer arrays `vacancies`, `interstitials`,
+`replacements`, `outside` (the same fields summed outside the grid, plus
+`defects` of shape `(nspecies, 3)`) and `provenance` (`engine`, `seed`,
+`lindhard_version`, `input_sha256`, `format_version`). Unoccupied voxels are 0.
+Electron voxel maps use the same file format (`species_z` empty); the electron
+Python run does not yet configure a voxel grid, so only the reader applies to
+them there.
+
 ## Errors
 
 | Exception | Base classes | Raised for |

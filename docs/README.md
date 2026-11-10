@@ -12,6 +12,7 @@ from this directory rather than copying them, so edit them here.
 | [`architecture.md`](architecture.md) | Design intent: crate shape, module plan, and which milestone delivers each part |
 | [`cli.md`](cli.md) | The `lindhard` command: subcommands, TOML input schema, output files, reproducibility |
 | [`python.md`](python.md) | The `lindhard` Python package: classes, NumPy outputs, TOML round trip, error mapping |
+| [`damage-export-format.md`](damage-export-format.md) | The versioned damage-map exchange file: header keys, columns, units |
 | [`stopping-models.md`](stopping-models.md) | Electronic stopping models, their validity ranges, sources, and the terms declined or deferred |
 | [`stopping-data-format.md`](stopping-data-format.md) | The CSV format for measured stopping points (per-point citation and uncertainty), its validation rules, and the model comparison |
 | [`crystal-orientation.md`](crystal-orientation.md) | Crystal targets: the cubic lattice model, the tilt/twist/wafer-rotation conventions (with a figure) and beam divergence sampling |

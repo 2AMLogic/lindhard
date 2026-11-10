@@ -229,6 +229,9 @@ fn voxel_deposition_sums_to_the_energy_budget() {
     // The shared export formats round-trip the electron deposition.
     let csv = v.to_csv();
     assert_eq!(VoxelReport::read_csv(&csv).unwrap(), v);
+    let prov = lindhard::tally::ExportProvenance::new("electron", 11, &"0".repeat(64));
+    let (back, p) = VoxelReport::read_export_csv(&v.to_export_csv(&prov)).unwrap();
+    assert_eq!((back, p), (v.clone(), prov));
     let vtk = v.to_vtk();
     assert_eq!(VoxelReport::read_vtk(&vtk).unwrap(), v);
 }

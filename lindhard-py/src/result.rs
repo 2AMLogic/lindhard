@@ -334,6 +334,19 @@ impl RunResult {
         Ok(Some(d))
     }
 
+    /// The per-element voxel tally (`Tally.voxel`) in the damage-export
+    /// layout as a dict of NumPy arrays, or `None` without a voxel tally.
+    /// See "Damage export" in `docs/python.md`. The arrays equal what
+    /// `read_damage_export` returns for the written `damage_export.csv`.
+    fn damage_export<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        let Some(text) = output::damage_export_csv(&self.resolved, &self.sim.tally) else {
+            return Ok(None);
+        };
+        let (r, p) =
+            lindhard::tally::VoxelReport::read_export_csv(&text).map_err(|e| errors::run(&e))?;
+        crate::damage::to_dict(py, &r, &p).map(Some)
+    }
+
     /// The command's `summary.json` as a dict: counts, yields, energy budget,
     /// range moments and Pearson fits, damage, sputtering, escapes and the
     /// models in use. Everything except the `run` block (thread count and
@@ -372,7 +385,8 @@ impl RunResult {
         // summary is removed before any CSV changes, `ions.csv` is reconciled
         // with `per_ion`, and the new summary is published last.
         let summary = self.summary_json()?;
-        lindhard_cli::publish::publish_static_ion(&out_dir, summary, &s.tally, &s.report)
+        let export = output::damage_export_csv(&self.resolved, &s.tally);
+        lindhard_cli::publish::publish_static_ion(&out_dir, summary, &s.tally, &s.report, export)
             .map_err(|e| pyo3::exceptions::PyOSError::new_err(format!("{e:#}")))?;
         Ok(())
     }
