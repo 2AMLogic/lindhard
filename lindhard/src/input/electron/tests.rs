@@ -632,3 +632,39 @@ fn beam_profile_defaults_round_trip_and_errors_name_fields() {
     let e = bad("landing_nm = [nan, 0.0]");
     assert!(e.contains("electron.beam.landing_nm"), "{e}");
 }
+
+#[test]
+fn exposure_section_resolves_echoes_and_names_bad_fields() {
+    let d = dir("exposure");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let sec = "\n[electron.tally.exposure]\nlambda = 5.0\nbeam = { kind = \"gaussian\", sigma_nm = 2.0 }\n\
+[[electron.tally.exposure.volumes]]\nname = \"a\"\nshape = \"cylinder\"\nradius_nm = 10.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\n\
+[[electron.tally.exposure.volumes]]\nname = \"n\"\nshape = \"box\"\nhalf_y_nm = 5.0\nhalf_z_nm = 5.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\noffset_y_nm = 30.0\n";
+    let r = ElectronInput::from_toml_str(&format!("{GOOD}{sec}"))
+        .unwrap()
+        .resolve_in(&d)
+        .unwrap();
+    let x = r.tally.exposure.clone().unwrap();
+    assert_eq!(x.volumes.len(), 2);
+    assert_eq!(x.bins, 200);
+    assert!((x.volumes[1].offset_y_m - 30e-9).abs() < 1e-18);
+    assert!(r.input.electron.tally.exposure.unwrap().x_max_ev.is_some());
+    let e = ElectronInput::from_toml_str(&format!(
+        "{GOOD}{}",
+        sec.replace("lambda = 5.0", "lambda = -1.0")
+    ))
+    .unwrap()
+    .resolve_in(&d)
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("electron.tally.exposure"), "{e}");
+    let e = ElectronInput::from_toml_str(&format!(
+        "{GOOD}{}",
+        sec.replace("name = \"n\"", "name = \"a\"")
+    ))
+    .unwrap()
+    .resolve_in(&d)
+    .unwrap_err()
+    .to_string();
+    assert!(e.contains("volumes[1].name"), "{e}");
+}

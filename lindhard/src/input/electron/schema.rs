@@ -638,6 +638,105 @@ pub struct PsfSpec {
     pub normalization: PsfNormalizationSpec,
 }
 
+fn default_exposure_bins() -> usize {
+    200
+}
+fn default_exposure_quantiles() -> Vec<f64> {
+    vec![0.05, 0.5, 0.95]
+}
+fn default_exposure_tail() -> f64 {
+    1e-12
+}
+
+/// Beam profile of `[electron.tally.exposure]`.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum ExposureBeamSpec {
+    /// All electrons land on the axis.
+    Point,
+    /// Gaussian landing offset, `sigma_nm` per lateral axis.
+    Gaussian {
+        /// Standard deviation per axis, nm.
+        sigma_nm: f64,
+    },
+    /// Uniform disc.
+    UniformDisc {
+        /// Radius, nm.
+        radius_nm: f64,
+    },
+}
+
+/// Shape of a volume of `[electron.tally.exposure]`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExposureShapeSpec {
+    /// Cylinder along the depth axis (needs `radius_nm`).
+    Cylinder,
+    /// Box centred on the offset (needs `half_y_nm` and `half_z_nm`).
+    Box,
+}
+
+/// One `[[electron.tally.exposure.volumes]]` entry.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExposureVolumeSpec {
+    /// Label in the outputs (unique).
+    pub name: String,
+    /// Shape.
+    pub shape: ExposureShapeSpec,
+    /// Cylinder radius, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub radius_nm: Option<f64>,
+    /// Box half width along `y`, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub half_y_nm: Option<f64>,
+    /// Box half width along `z`, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub half_z_nm: Option<f64>,
+    /// Lower depth, nm.
+    pub depth_lo_nm: f64,
+    /// Upper depth (excluded), nm.
+    pub depth_hi_nm: f64,
+    /// Lateral centre `y`, nm.
+    #[serde(default)]
+    pub offset_y_nm: f64,
+    /// Lateral centre `z`, nm.
+    #[serde(default)]
+    pub offset_z_nm: f64,
+}
+
+/// `[electron.tally.exposure]`: the per-electron deposit in target volumes
+/// and the compound-Poisson distribution of a finite exposure
+/// ([`crate::tally::exposure`]).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExposureSpec {
+    /// Mean number of incident electrons.
+    pub lambda: f64,
+    /// Beam profile.
+    pub beam: ExposureBeamSpec,
+    /// Target volumes (a neighbour is another volume at its offset).
+    pub volumes: Vec<ExposureVolumeSpec>,
+    /// Histogram bins of the per-electron deposit.
+    #[serde(default = "default_exposure_bins")]
+    pub bins: usize,
+    /// Upper edge of the histogram, eV. Default: the beam energy.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub x_max_ev: Option<f64>,
+    /// Probabilities whose quantiles of the exposure energy are reported.
+    #[serde(default = "default_exposure_quantiles")]
+    pub quantiles: Vec<f64>,
+    /// Thresholds `a`, eV, for `P(S < a)`.
+    #[serde(default)]
+    pub below_ev: Vec<f64>,
+    /// Thresholds `b`, eV, for `P(S > b)`.
+    #[serde(default)]
+    pub above_ev: Vec<f64>,
+    /// Poisson tail mass dropped from the convolution.
+    #[serde(default = "default_exposure_tail")]
+    pub tail_tolerance: f64,
+}
+
 fn default_split() -> f64 {
     SE_BSE_SPLIT_EV
 }
@@ -681,6 +780,9 @@ pub struct ElectronTallySpec {
     /// Radial profile of a depth slab and its PSF fits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub psf: Option<PsfSpec>,
+    /// Exposure statistics of small volumes.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub exposure: Option<ExposureSpec>,
 }
 
 impl Default for ElectronTallySpec {
@@ -694,6 +796,7 @@ impl Default for ElectronTallySpec {
             cartesian: None,
             cylindrical: None,
             psf: None,
+            exposure: None,
         }
     }
 }
