@@ -35,7 +35,8 @@ use lindhard::input::electron::{
 use lindhard::input::ModelInfo;
 use lindhard::material::{Material, MaterialSpec};
 use lindhard::tally::{
-    fit_psf, ElectronReport, FullElectronTally, Histogram, PsfFitOptions, PsfModel, PsfReport,
+    fit_psf, ChargeCells, ElectronReport, FullElectronTally, Histogram, PsfFitOptions, PsfModel,
+    PsfReport,
 };
 use serde::Serialize;
 
@@ -51,6 +52,8 @@ pub const SUMMARY_FILE: &str = "electron_summary.json";
 pub const SPECTRA_FILE: &str = "electron_escape_spectra.csv";
 pub const CARTESIAN_FILE: &str = "electron_deposition_cartesian.csv";
 pub const CYLINDRICAL_FILE: &str = "electron_deposition_cylindrical.csv";
+pub const CHARGE_CARTESIAN_FILE: &str = "electron_charge_cartesian.csv";
+pub const CHARGE_CYLINDRICAL_FILE: &str = "electron_charge_cylindrical.csv";
 pub const PSF_PROFILE_FILE: &str = "electron_psf_profile.csv";
 pub const PSF_PARAMETERS_FILE: &str = "electron_psf_parameters.csv";
 pub const TABLES_FILE: &str = "electron_tables.csv";
@@ -530,6 +533,8 @@ struct Files {
     tables: &'static str,
     deposition_cartesian: Option<&'static str>,
     deposition_cylindrical: Option<&'static str>,
+    charge_cartesian: Option<&'static str>,
+    charge_cylindrical: Option<&'static str>,
     psf_profile: Option<&'static str>,
     psf_parameters: Option<&'static str>,
 }
@@ -588,6 +593,29 @@ fn results_json(
             o.remove("ionisation_ev");
             o.remove("lattice_ev");
         }
+    }
+    // The per-cell charge goes to the CSV files; keep the totals inside the
+    // grid and outside it.
+    for grid in ["cartesian", "cylindrical"] {
+        let Some(cells) = v["charge"][grid]["cells"].as_object_mut() else {
+            continue;
+        };
+        let (mut stopped, mut created) = (0u64, 0u64);
+        for c in cells
+            .remove("counts")
+            .and_then(|a| a.as_array().cloned())
+            .unwrap_or_default()
+        {
+            for k in ["stopped_primary", "stopped_secondary"] {
+                stopped += c[k].as_u64().unwrap_or(0);
+            }
+            for k in ["created_by_primary", "created_by_secondary"] {
+                created += c[k].as_u64().unwrap_or(0);
+            }
+        }
+        cells.remove("net_sum_sq");
+        cells.insert("inside_stopped".into(), serde_json::json!(stopped));
+        cells.insert("inside_created".into(), serde_json::json!(created));
     }
     Ok(v)
 }
@@ -773,6 +801,8 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
         tables: TABLES_FILE,
         deposition_cartesian: r.tally.cartesian.map(|_| CARTESIAN_FILE),
         deposition_cylindrical: r.tally.cylindrical.map(|_| CYLINDRICAL_FILE),
+        charge_cartesian: r.tally.cartesian.map(|_| CHARGE_CARTESIAN_FILE),
+        charge_cylindrical: r.tally.cylindrical.map(|_| CHARGE_CYLINDRICAL_FILE),
         psf_profile: sim.psf.as_ref().map(|_| PSF_PROFILE_FILE),
         psf_parameters: sim.psf.as_ref().map(|_| PSF_PARAMETERS_FILE),
     };
@@ -915,6 +945,80 @@ pub fn cylindrical_csv(report: &ElectronReport) -> Option<String> {
                 d.lattice_ev.get(k).copied().unwrap_or(0.0)
             )
             .unwrap();
+        }
+    }
+    Some(out)
+}
+
+/// The charge columns shared by both charge CSV files: the four counts, the
+/// net electron number (stopped minus created), and the net per incident
+/// electron with its standard error.
+const CHARGE_COLUMNS: &str = "stopped_primary,stopped_secondary,created_by_primary,created_by_secondary,net,net_per_primary,net_per_primary_se";
+
+fn charge_row(out: &mut String, cells: &ChargeCells, i: usize, histories: u64) {
+    let c = &cells.counts[i];
+    let (mean, se) = cells.net_per_primary(i, histories);
+    write!(
+        out,
+        "{},{},{},{},{},{mean:?},{se:?}",
+        c.stopped_primary,
+        c.stopped_secondary,
+        c.created_by_primary,
+        c.created_by_secondary,
+        c.net()
+    )
+    .unwrap();
+}
+
+/// `electron_charge_cartesian.csv`: electrons stopped and holes created per
+/// voxel, by generation (see [`lindhard::tally::ChargeReport`] for the
+/// convention), in [`lindhard::tally::CartesianGrid::index`] order.
+pub fn charge_cartesian_csv(report: &ElectronReport) -> Option<String> {
+    let d = report.charge.cartesian.as_ref()?;
+    let g = &d.grid;
+    let mut out =
+        format!("ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,{CHARGE_COLUMNS}\n");
+    for ix in 0..g.x.bins {
+        for iy in 0..g.y.bins {
+            for iz in 0..g.z.bins {
+                write!(
+                    out,
+                    "{ix},{iy},{iz},{:?},{:?},{:?},{:?},{:?},{:?},",
+                    g.x.edge(ix) / NM,
+                    g.x.edge(ix + 1) / NM,
+                    g.y.edge(iy) / NM,
+                    g.y.edge(iy + 1) / NM,
+                    g.z.edge(iz) / NM,
+                    g.z.edge(iz + 1) / NM,
+                )
+                .unwrap();
+                charge_row(&mut out, &d.cells, g.index(ix, iy, iz), report.histories);
+                out.push('\n');
+            }
+        }
+    }
+    Some(out)
+}
+
+/// `electron_charge_cylindrical.csv`: electrons stopped and holes created per
+/// `(r, depth)` cell. Summed over `ir`, the rows give the depth profile.
+pub fn charge_cylindrical_csv(report: &ElectronReport) -> Option<String> {
+    let d = report.charge.cylindrical.as_ref()?;
+    let g = &d.grid;
+    let mut out = format!("ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,{CHARGE_COLUMNS}\n");
+    for ir in 0..g.r.bins {
+        for ix in 0..g.depth.bins {
+            write!(
+                out,
+                "{ir},{ix},{:?},{:?},{:?},{:?},",
+                g.r.edge(ir) / NM,
+                g.r.edge(ir + 1) / NM,
+                g.depth.edge(ix) / NM,
+                g.depth.edge(ix + 1) / NM,
+            )
+            .unwrap();
+            charge_row(&mut out, &d.cells, g.index(ir, ix), report.histories);
+            out.push('\n');
         }
     }
     Some(out)
