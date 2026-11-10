@@ -4,8 +4,10 @@
 //! primary. Every event goes to all of them.
 
 use lindhard::input::Resolved;
-use lindhard::ion::bca::{BcaTally, EnergyBudget, Face, LatticeDeposit, Particle, SummaryTally};
-use lindhard::tally::{Binning, IonTally, IonTallyConfig};
+use lindhard::ion::bca::{
+    BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, Particle, SummaryTally,
+};
+use lindhard::tally::{Binning, IonTally, IonTallyConfig, VoxelTally};
 
 /// How a primary history ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,6 +70,8 @@ pub struct FinalState {
 pub struct CliTally {
     pub summary: SummaryTally,
     pub ion: IonTally,
+    /// The per-element voxel tally, when `[tally.voxel]` asks for it.
+    pub voxel: Option<VoxelTally>,
     pub per_ion: bool,
     pub finals: Vec<FinalState>,
     current: u64,
@@ -80,10 +84,17 @@ impl CliTally {
         Self {
             summary: SummaryTally::new(bin_width_m, n_bins),
             ion,
+            voxel: None,
             per_ion,
             finals: Vec::new(),
             current: 0,
         }
+    }
+
+    /// Also feed every event to `voxel` (an empty, species-aware tally).
+    pub fn with_voxel(mut self, voxel: Option<VoxelTally>) -> Self {
+        self.voxel = voxel;
+        self
     }
 
     fn record(&mut self, p: &Particle, fate: Fate) {
@@ -105,27 +116,54 @@ impl BcaTally for CliTally {
         self.current = index;
         self.summary.begin_history(index);
         self.ion.begin_history(index);
+        if let Some(v) = &mut self.voxel {
+            v.begin_history(index);
+        }
+    }
+
+    fn electronic(
+        &mut self,
+        p: &Particle,
+        from: [f64; 3],
+        channel: ElectronicChannel,
+        energy_ev: f64,
+    ) {
+        if let Some(v) = &mut self.voxel {
+            v.electronic(p, from, channel, energy_ev);
+        }
     }
 
     fn lattice(&mut self, at: [f64; 3], layer: usize, kind: LatticeDeposit, energy_ev: f64) {
         self.summary.lattice(at, layer, kind, energy_ev);
         self.ion.lattice(at, layer, kind, energy_ev);
+        if let Some(v) = &mut self.voxel {
+            v.lattice(at, layer, kind, energy_ev);
+        }
     }
 
     fn recoil(&mut self, r: &Particle) {
         self.summary.recoil(r);
         self.ion.recoil(r);
+        if let Some(v) = &mut self.voxel {
+            v.recoil(r);
+        }
     }
 
     fn stopped(&mut self, p: &Particle) {
         self.summary.stopped(p);
         self.ion.stopped(p);
+        if let Some(v) = &mut self.voxel {
+            v.stopped(p);
+        }
         self.record(p, Fate::Stopped);
     }
 
     fn escaped(&mut self, p: &Particle, face: Face) {
         self.summary.escaped(p, face);
         self.ion.escaped(p, face);
+        if let Some(v) = &mut self.voxel {
+            v.escaped(p, face);
+        }
         let fate = match face {
             Face::Front => Fate::Backscattered,
             Face::Back => Fate::Transmitted,
@@ -137,11 +175,17 @@ impl BcaTally for CliTally {
     fn end_history(&mut self, index: u64, budget: &EnergyBudget) {
         self.summary.end_history(index, budget);
         self.ion.end_history(index, budget);
+        if let Some(v) = &mut self.voxel {
+            v.end_history(index, budget);
+        }
     }
 
     fn merge(&mut self, other: Self) {
         self.summary.merge(other.summary);
         self.ion.merge(other.ion);
+        if let (Some(a), Some(b)) = (&mut self.voxel, other.voxel) {
+            a.merge(b);
+        }
         self.finals.extend(other.finals);
     }
 }
