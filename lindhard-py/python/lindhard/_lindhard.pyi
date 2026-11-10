@@ -231,20 +231,6 @@ class RunResult:
     def escapes(self) -> list[dict[str, Any]]: ...
     @property
     def ions(self) -> dict[str, npt.NDArray[Any]] | None: ...
-    @property
-    def layer_dose(self) -> list[dict[str, Any]] | None:
-        """Per layer: ``index``, ``name``, ``thickness_m``, ``areal_mass_kg_m2``,
-        ``energy_ev`` and ``dose_gy_m2`` (``(mean, std_err)`` per primary; the
-        dose is per unit incident fluence and ``None`` for a semi-infinite
-        layer). ``None`` without ``[electron.tally.dose]``."""
-    @property
-    def depth_dose(self) -> dict[str, Any] | None:
-        """``x_edges_nm``, ``layer``, ``energy_ev``, ``ev_per_nm``,
-        ``dose_gy_m2`` (each with ``_std_err``) and ``outside_ev``, or ``None``."""
-    @property
-    def transmission(self) -> list[dict[str, Any]] | None:
-        """Interface crossings, four per interface (forward/back, primary/
-        secondary), or ``None``."""
     def summary(self) -> dict[str, Any]: ...
     def summary_json(self) -> str: ...
     def write(self, out_dir: str | os.PathLike[str]) -> None: ...
@@ -381,5 +367,19 @@ class ElectronRunResult:
         """``r_edges_nm``, ``depth_edges_nm``; ``energy_ev`` and
         ``ev_per_primary_per_nm3`` of shape ``(nr, ndepth)``; ``outside_ev``.
         ``None`` if the grid is not configured."""
+    @property
+    def layer_dose(self) -> list[dict[str, Any]] | None:
+        """Per layer: ``index``, ``name``, ``thickness_m``, ``areal_mass_kg_m2``,
+        ``energy_ev`` and ``dose_gy_m2`` (``(mean, std_err)`` per primary; the
+        dose is per unit incident fluence and ``None`` for a semi-infinite
+        layer). ``None`` without ``[electron.tally.dose]``."""
+    @property
+    def depth_dose(self) -> dict[str, Any] | None:
+        """``x_edges_nm``, ``layer``, ``energy_ev``, ``ev_per_nm``,
+        ``dose_gy_m2`` (each with ``_std_err``) and ``outside_ev``, or ``None``."""
+    @property
+    def transmission(self) -> list[dict[str, Any]] | None:
+        """Interface crossings, four per interface (forward/back, primary/
+        secondary), or ``None``."""
     def summary(self) -> dict[str, Any]: ...
     def summary_json(self) -> str: ...
