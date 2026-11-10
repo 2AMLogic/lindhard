@@ -516,6 +516,103 @@ fn full_tally_balances_energy_with_phonon_and_polaron_channels() {
     assert!((b.polaron_ev - s.polaron_deposited_ev).abs() < 1e-9 * b.polaron_ev);
 }
 
+/// The grid and layer maps of an insulator run, from `threads` threads.
+fn channel_report(threads: usize, channels: bool) -> lindhard::tally::ElectronReport {
+    use lindhard::tally::{CartesianGrid, CylindricalGrid};
+    let t = mixed(channels);
+    let nm = 1e-9;
+    let mut config = ElectronTallyConfig::new(
+        Binning::new(0.0, 60.0, 30).unwrap(),
+        Binning::new(0.0, std::f64::consts::FRAC_PI_2, 9).unwrap(),
+    );
+    config.cartesian = Some(CartesianGrid {
+        x: Binning::new(0.0, 10.0 * nm, 5).unwrap(),
+        y: Binning::new(-5.0 * nm, 5.0 * nm, 3).unwrap(),
+        z: Binning::new(-5.0 * nm, 5.0 * nm, 3).unwrap(),
+    });
+    config.cylindrical = Some(CylindricalGrid {
+        r: Binning::new(0.0, 5.0 * nm, 4).unwrap(),
+        depth: Binning::new(0.0, 10.0 * nm, 5).unwrap(),
+    });
+    let proto = FullElectronTally::new(&t, config).unwrap();
+    let primary = Primary {
+        energy_ev: 60.0,
+        direction: [1.0, 0.2, 0.0],
+    };
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build()
+        .unwrap();
+    pool.install(|| {
+        t.run(0xC0DE, 800, 9, &primary, || proto.clone())
+            .unwrap()
+            .tally
+            .report()
+    })
+}
+
+fn near(a: f64, b: f64) -> bool {
+    (a - b).abs() <= 1e-12 * a.abs().max(b.abs())
+}
+
+#[test]
+fn ionisation_plus_lattice_is_deposited_per_layer_and_cell() {
+    for channels in [false, true] {
+        let r = channel_report(2, channels);
+        let (b, d) = (&r.budget, &r.deposition);
+        assert!(near(b.ionisation_ev + b.lattice_ev, b.deposited_ev));
+        assert!(near(b.ionisation_ev, b.inelastic_ev + b.residual_ev));
+        assert!(near(b.lattice_ev, b.phonon_emitted_ev + b.polaron_ev));
+        if channels {
+            assert!(b.lattice_ev > 0.0);
+            // Only the first layer has the channels, so only it has lattice.
+            assert!(d.per_layer_lattice_ev[0] > 0.0);
+            assert_eq!(d.per_layer_lattice_ev[1], 0.0);
+        } else {
+            assert_eq!(b.lattice_ev, 0.0);
+            assert!(d.per_layer_lattice_ev.iter().all(|&e| e == 0.0));
+        }
+        for i in 0..2 {
+            assert!(near(
+                d.per_layer_ionisation_ev[i] + d.per_layer_lattice_ev[i],
+                d.per_layer_ev[i]
+            ));
+        }
+        let c = d.cartesian.as_ref().unwrap();
+        let y = d.cylindrical.as_ref().unwrap();
+        for (e, ion, lat) in [
+            (&c.energy_ev, &c.ionisation_ev, &c.lattice_ev),
+            (&y.energy_ev, &y.ionisation_ev, &y.lattice_ev),
+        ] {
+            for i in 0..e.len() {
+                assert!(near(ion[i] + lat[i], e[i]), "cell {i}");
+            }
+        }
+        assert!(near(
+            c.outside_ionisation_ev + c.outside_lattice_ev,
+            c.outside_ev
+        ));
+        assert!(near(
+            y.outside_ionisation_ev + y.outside_lattice_ev,
+            y.outside_ev
+        ));
+    }
+}
+
+#[test]
+fn channel_maps_are_bit_identical_across_thread_counts() {
+    let a = channel_report(1, true);
+    for n in [2, 8] {
+        let b = channel_report(n, true);
+        assert_eq!(a.deposition, b.deposition, "{n} threads");
+        assert_eq!(
+            a.budget.ionisation_ev.to_bits(),
+            b.budget.ionisation_ev.to_bits()
+        );
+        assert_eq!(a.budget.lattice_ev.to_bits(), b.budget.lattice_ev.to_bits());
+    }
+}
+
 #[test]
 fn channels_are_off_by_default_and_the_choice_is_in_the_metadata() {
     let off = mixed(false);

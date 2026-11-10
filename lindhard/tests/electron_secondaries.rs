@@ -288,6 +288,43 @@ fn run_energy_balances_with_secondaries_and_barriers() {
     assert!((events - s.inelastic_loss_ev).abs() < 1e-9 * s.inelastic_loss_ev);
 }
 
+#[test]
+fn channel_split_closes_through_the_secondary_hook() {
+    // With secondaries the `secondary` hook, not `inelastic`, books the
+    // energy left in the solid; the ionisation and lattice maps must still
+    // add up to the total, per layer and per grid cell.
+    let t = metal_on_insulator(full_physics());
+    let (n, e0) = (200u64, 300.0);
+    let mut cfg = ElectronTallyConfig::new(
+        Binning::new(0.0, e0, 30).unwrap(),
+        Binning::new(0.0, std::f64::consts::FRAC_PI_2, 9).unwrap(),
+    );
+    cfg.cartesian = Some(CartesianGrid {
+        x: Binning::new(0.0, 40e-9, 8).unwrap(),
+        y: Binning::new(-20e-9, 20e-9, 6).unwrap(),
+        z: Binning::new(-20e-9, 20e-9, 6).unwrap(),
+    });
+    let proto = FullElectronTally::new(&t, cfg).unwrap();
+    let r = t
+        .run(5, n, 32, &Primary::normal(e0), || proto.clone())
+        .unwrap()
+        .tally
+        .report();
+    let b = &r.budget;
+    assert!(b.deposited_ev > 0.0);
+    let close = |a: f64, c: f64| (a - c).abs() <= 1e-9 * c.abs().max(1.0);
+    assert!(close(b.ionisation_ev + b.lattice_ev, b.deposited_ev));
+    let d = &r.deposition;
+    let ion: f64 = d.per_layer_ionisation_ev.iter().sum();
+    let lat: f64 = d.per_layer_lattice_ev.iter().sum();
+    assert!(close(ion + lat, d.per_layer_ev.iter().sum()));
+    assert!(close(ion, b.ionisation_ev) && close(lat, b.lattice_ev));
+    let g = d.cartesian.as_ref().unwrap();
+    let cell_ion: f64 = g.ionisation_ev.iter().sum::<f64>() + g.outside_ionisation_ev;
+    let cell_lat: f64 = g.lattice_ev.iter().sum::<f64>() + g.outside_lattice_ev;
+    assert!(close(cell_ion, b.ionisation_ev) && close(cell_lat, b.lattice_ev));
+}
+
 // ---------------------------------------------------------------------------
 // Direction model
 // ---------------------------------------------------------------------------

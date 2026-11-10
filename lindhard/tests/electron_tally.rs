@@ -145,6 +145,49 @@ fn check_report(r: &ElectronReport) {
         b.deposited_ev,
         1e-9
     ));
+    // Ionisation + lattice = deposited, per layer, per cell and in the budget.
+    assert!(close(b.ionisation_ev + b.lattice_ev, b.deposited_ev, 1e-12));
+    assert!(close(
+        b.ionisation_ev,
+        b.inelastic_ev + b.residual_ev,
+        1e-12
+    ));
+    assert!(close(
+        b.lattice_ev,
+        b.phonon_emitted_ev + b.polaron_ev,
+        1e-12
+    ));
+    for (i, &total) in d.per_layer_ev.iter().enumerate() {
+        assert!(close(
+            d.per_layer_ionisation_ev[i] + d.per_layer_lattice_ev[i],
+            total,
+            1e-12
+        ));
+    }
+    for (e, ion, lat, out, out_ion, out_lat) in [
+        (
+            &cart.energy_ev,
+            &cart.ionisation_ev,
+            &cart.lattice_ev,
+            cart.outside_ev,
+            cart.outside_ionisation_ev,
+            cart.outside_lattice_ev,
+        ),
+        (
+            &cyl.energy_ev,
+            &cyl.ionisation_ev,
+            &cyl.lattice_ev,
+            cyl.outside_ev,
+            cyl.outside_ionisation_ev,
+            cyl.outside_lattice_ev,
+        ),
+    ] {
+        assert_eq!((e.len(), e.len()), (ion.len(), lat.len()));
+        for i in 0..e.len() {
+            assert!(close(ion[i] + lat[i], e[i], 1e-12), "cell {i}");
+        }
+        assert!(close(out_ion + out_lat, out, 1e-12));
+    }
     if let Some(g) = &r.generation_volume {
         assert!(close(g.energy_ev, b.deposited_ev, 1e-9));
     }

@@ -16,12 +16,15 @@
 //! per-layer band parameters and the potential step at faces. [`phonon`] holds
 //! the opt-in insulator channels the loop can add per layer (Fröhlich
 //! LO-phonon scattering, polaron trapping). The models that fill the tables
-//! from first principles are later work.
+//! from first principles are later work. [`knock_on`] is the displacement
+//! threshold test of a beam energy against each element's `E_d` (pure
+//! kinematics, no transport).
 
 pub mod boundary;
 pub mod data;
 pub mod elastic;
 pub mod inelastic;
+pub mod knock_on;
 pub mod phonon;
 pub mod secondary;
 pub mod transport;
