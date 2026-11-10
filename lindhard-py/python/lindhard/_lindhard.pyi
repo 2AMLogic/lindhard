@@ -28,6 +28,7 @@ __all__ = [
     "Tally",
     "Target",
     "__version__",
+    "read_damage_export",
 ]
 
 FATE_NAMES: list[str]
