@@ -716,7 +716,7 @@ pub struct TallySpec {
 }
 
 /// `[tally.voxel]`: the regular grid of the voxel tally
-/// ([`lindhard::tally::VoxelTallyGrid`]). `x` is the depth; the beam is along
+/// ([`crate::tally::VoxelTallyGrid`]). `x` is the depth; the beam is along
 /// `+x` from `y = z = 0`. Voxel `i` owns `[origin + i * spacing, origin + (i +
 /// 1) * spacing)` on each axis.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
