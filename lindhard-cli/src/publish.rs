@@ -144,6 +144,7 @@ pub fn publish_static_ion(
     set.write(output::LATERAL_FILE, output::lateral_csv(report))?;
     set.write(output::DAMAGE_FILE, output::damage_csv(report))?;
     set.write(output::ENERGY_FILE, output::energy_csv(report))?;
+    set.write(output::NRT_FILE, output::nrt_csv(report))?;
     set.write(output::ESCAPES_FILE, output::escapes_csv(report))?;
     set.reconcile_optional(
         output::IONS_FILE,

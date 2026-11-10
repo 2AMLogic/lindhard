@@ -35,6 +35,7 @@ pub const IONS_FILE: &str = "ions.csv";
 pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
 pub const ENERGY_FILE: &str = "energy_profile.csv";
+pub const NRT_FILE: &str = "nrt_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
 pub const VOXEL_CSV_FILE: &str = "voxel_tally.csv";
 pub const VOXEL_VTK_FILE: &str = "voxel_tally.vtk";
@@ -489,6 +490,7 @@ struct Files {
     lateral_profile: &'static str,
     damage_profile: &'static str,
     energy_profile: &'static str,
+    nrt_profile: &'static str,
     escape_spectra: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     voxel_tally_csv: Option<&'static str>,
@@ -669,6 +671,7 @@ pub fn summary_json(
             lateral_profile: LATERAL_FILE,
             damage_profile: DAMAGE_FILE,
             energy_profile: ENERGY_FILE,
+            nrt_profile: NRT_FILE,
             escape_spectra: ESCAPES_FILE,
             voxel_tally_csv: t.voxel.is_some().then_some(VOXEL_CSV_FILE),
             voxel_tally_vtk: t.voxel.is_some().then_some(VOXEL_VTK_FILE),
@@ -897,6 +900,54 @@ pub fn energy_csv(r: &IonReport) -> String {
         e.electronic.overflow,
         e.lattice.overflow,
         e.recoil.overflow
+    )
+    .unwrap();
+    out
+}
+
+/// `nrt_profile.csv`: NRT and Kinchin-Pease displacement estimates by depth of
+/// the primary knock-on atom. These are model estimates (damage-energy based,
+/// no cascade spread), not the event counts of `damage_profile.csv`.
+/// Densities are per incident ion per nm. The last row is everything deeper
+/// than the grid, the first row everything shallower; the column sums over
+/// all rows equal
+/// `results.damage.nrt`.
+pub fn nrt_csv(r: &IonReport) -> String {
+    let d = &r.damage;
+    let n = r.histories.max(1) as f64;
+    let (h, k) = (&d.nrt_histogram, &d.kinchin_pease_histogram);
+    let b = &h.binning;
+    let w = b.width() / NM;
+    let mut out = String::from(
+        "depth_lo_nm,depth_hi_nm,nrt_displacements,kinchin_pease_displacements,\
+         nrt_per_ion_per_nm,kinchin_pease_per_ion_per_nm\n",
+    );
+    writeln!(
+        out,
+        "-inf,{:?},{:?},{:?},,",
+        b.lo / NM,
+        h.underflow,
+        k.underflow
+    )
+    .unwrap();
+    for i in 0..b.bins {
+        let (a, c) = (h.sums[i], k.sums[i]);
+        writeln!(
+            out,
+            "{:?},{:?},{a:?},{c:?},{:?},{:?}",
+            b.edge(i) / NM,
+            b.edge(i + 1) / NM,
+            a / (n * w),
+            c / (n * w)
+        )
+        .unwrap();
+    }
+    writeln!(
+        out,
+        "{:?},inf,{:?},{:?},,",
+        b.hi / NM,
+        h.overflow,
+        k.overflow
     )
     .unwrap();
     out
