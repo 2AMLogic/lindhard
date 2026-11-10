@@ -10,6 +10,7 @@
 mod dynamic_result;
 mod electron;
 mod errors;
+mod exposure;
 mod result;
 mod run;
 mod spec;
@@ -36,6 +37,10 @@ fn _lindhard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<result::Histogram>()?;
     m.add_class::<result::RunResult>()?;
     m.add_class::<dynamic_result::DynamicRunResult>()?;
+    m.add_function(wrap_pyfunction!(exposure::exposure_dose, m)?)?;
+    m.add_function(wrap_pyfunction!(exposure::exposure_dose_grid, m)?)?;
+    m.add_function(wrap_pyfunction!(exposure::area_dose, m)?)?;
+    m.add_function(wrap_pyfunction!(exposure::iso_contours, m)?)?;
     m.add(
         "FATE_NAMES",
         lindhard_cli::tally::Fate::ALL.map(|f| f.as_str()),

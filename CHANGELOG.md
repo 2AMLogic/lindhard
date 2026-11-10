@@ -13,6 +13,11 @@ one version).
 
 ### Added
 
+- `lindhard exposure`, `lindhard::exposure`, `lindhard::contour` and the Python
+  functions `exposure_dose`, `exposure_dose_grid`, `area_dose` and `iso_contours`:
+  the dose of a multi-shot exposure from a fitted Gaussian-sum point-spread
+  function (analytic, with beam blur and shaped spots), iso-dose contours and
+  the area and centroid of each exposed feature (#551).
 - `lindhard-wasm`: the simulator's Run view gains live distribution plots (ion
   range with the Pearson IV overlay, lateral and radial, damage versus depth,
   escapes by species with energy and polar-angle spectra), CSV per plot, the full
