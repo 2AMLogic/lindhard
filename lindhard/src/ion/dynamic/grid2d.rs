@@ -803,7 +803,7 @@ impl BcaTally for Tally2d<'_> {
 // The run
 // ---------------------------------------------------------------------------
 
-/// A fluence-stepped 2-D run. See the [module docs](self).
+/// A fluence-stepped 2-D run. See the module documentation.
 pub struct DynamicRun2d<'a> {
     grids: Vec<CompositionGrid>,
     surface: Vec<f64>,
