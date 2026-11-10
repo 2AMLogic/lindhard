@@ -843,6 +843,41 @@ depth grid. `vacancies` is displacements minus replacements. The last row,
 with `depth_hi_nm = inf`, holds everything deeper than the grid (empty
 densities). The totals equal `results.damage.cascade`.
 
+### `energy_profile.csv`
+
+`depth_lo_nm,depth_hi_nm,electronic_ev,lattice_ev,recoil_ev,` then the same
+three per incident ion per nm (`*_ev_per_ion_per_nm`): where the beam's
+energy goes, by depth, on the depth grid of `damage_profile.csv`. The `*_ev`
+columns are summed over all histories. The body is followed by an `underflow`
+row (`depth_lo_nm = -inf`) and an `overflow` row (`depth_hi_nm = inf`), with
+empty densities. Summed over all rows, each column equals the matching energy
+budget total times the histories:
+
+| Column | Meaning | Equals |
+|---|---|---|
+| `electronic_ev` | Electronic loss of all particles: the nonlocal loss spread uniformly along each flight segment (by the length of the segment in each bin) plus the local loss at the collision | `electronic_nonlocal + electronic_local` |
+| `lattice_ev` | Energy left in the lattice: subthreshold, weak-collision and binding-energy deposits at the collision, and the energy of each particle where it stopped | `lattice + rest` |
+| `recoil_ev` | Transfer `T` to primary knock-on atoms (generation 1) at the recoil depth | `results.damage.nrt.pka_energy_ev` |
+
+`recoil_ev` is energy the recoils later lose as electronic and lattice
+energy, so it is already inside the other two columns: do not add it to them.
+Energy that leaves the target (backscattered, sputtered, transmitted, surface
+barrier) has no depth and is in none of the columns. The energy budget
+(`results.energy_budget_ev_per_ion`) still closes: its `incident` equals the
+sum of all its other terms.
+
+Which energy-by-depth quantities the ion tally reports (traced at `355ca35`,
+2026-11-10, before this file existed):
+
+| Quantity, by depth | Reported before | Reported now |
+|---|---|---|
+| Electronic loss | no: run totals only (`results.energy_budget_ev_per_ion`) | yes: `electronic_ev` |
+| Energy to the lattice | no: run totals only (`lattice`, `rest`) | yes: `lattice_ev` |
+| Energy to recoils | no: a total over PKAs (`pka_energy_ev`) | yes: `recoil_ev` |
+
+The Python `RunResult.energy_profile` holds the same three profiles as
+arrays.
+
 ### `escape_spectra.csv`
 
 `species_z,symbol,beam,face,spectrum,lo,hi,count,per_ion_per_unit`: the energy

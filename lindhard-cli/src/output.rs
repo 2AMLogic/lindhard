@@ -34,6 +34,7 @@ pub const DEPTH_FILE: &str = "depth_profile.csv";
 pub const IONS_FILE: &str = "ions.csv";
 pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
+pub const ENERGY_FILE: &str = "energy_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
 pub const VOXEL_CSV_FILE: &str = "voxel_tally.csv";
 pub const VOXEL_VTK_FILE: &str = "voxel_tally.vtk";
@@ -487,6 +488,7 @@ struct Files {
     ions: Option<&'static str>,
     lateral_profile: &'static str,
     damage_profile: &'static str,
+    energy_profile: &'static str,
     escape_spectra: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     voxel_tally_csv: Option<&'static str>,
@@ -666,6 +668,7 @@ pub fn summary_json(
             ions: t.per_ion.then_some(IONS_FILE),
             lateral_profile: LATERAL_FILE,
             damage_profile: DAMAGE_FILE,
+            energy_profile: ENERGY_FILE,
             escape_spectra: ESCAPES_FILE,
             voxel_tally_csv: t.voxel.is_some().then_some(VOXEL_CSV_FILE),
             voxel_tally_vtk: t.voxel.is_some().then_some(VOXEL_VTK_FILE),
@@ -756,6 +759,12 @@ pub fn density(count: u64, histories: u64, width_nm: f64) -> f64 {
     count as f64 / (histories.max(1) as f64 * width_nm)
 }
 
+/// Per-ion, per-nm density of the energy `sum_ev` (summed over all
+/// histories) in a depth bin.
+pub fn energy_density(sum_ev: f64, histories: u64, width_nm: f64) -> f64 {
+    sum_ev / (histories.max(1) as f64 * width_nm)
+}
+
 /// `lateral_profile.csv`: stopped primaries by lateral position `y`, `z` and
 /// radial distance (long format). Rows of each quantity are in bin order,
 /// followed by its `underflow` and `overflow` rows (edges `-inf`/`inf`).
@@ -832,6 +841,62 @@ pub fn damage_csv(r: &IonReport) -> String {
         d.vacancy_histogram.overflow,
         d.interstitial_histogram.overflow,
         d.replacement_histogram.overflow
+    )
+    .unwrap();
+    out
+}
+
+/// `energy_profile.csv`: where the beam's energy went, by depth, on the depth
+/// grid of `damage_profile.csv`. `*_ev` columns are summed over all
+/// histories, eV; the `*_ev_per_ion_per_nm` columns divide by the histories
+/// and the bin width. `electronic` is the electronic loss of all particles,
+/// `lattice` the energy left in the lattice (subthreshold, weak-collision and
+/// binding deposits, and the energy of every particle where it stopped) and
+/// `recoil` the transfer `T` to primary knock-on atoms, which is later lost
+/// by the recoils and so already inside the other two. The body is followed
+/// by an `underflow` row (`depth_lo_nm = -inf`) and an `overflow` row
+/// (`depth_hi_nm = inf`) with empty densities; the sum of each `*_ev` column
+/// over all rows equals the matching `results.energy_budget_ev_per_ion`
+/// total times the histories (`electronic`: nonlocal plus local; `lattice`:
+/// lattice plus rest; `recoil`: `results.damage.nrt.pka_energy_ev`).
+pub fn energy_csv(r: &IonReport) -> String {
+    let e = &r.energy;
+    let n = r.histories;
+    let b = &e.electronic.binning;
+    let w = b.width() / NM;
+    let mut out = String::from(
+        "depth_lo_nm,depth_hi_nm,electronic_ev,lattice_ev,recoil_ev,\
+         electronic_ev_per_ion_per_nm,lattice_ev_per_ion_per_nm,recoil_ev_per_ion_per_nm\n",
+    );
+    for i in 0..b.bins {
+        let (el, la, rc) = (e.electronic.sums[i], e.lattice.sums[i], e.recoil.sums[i]);
+        writeln!(
+            out,
+            "{:?},{:?},{el:?},{la:?},{rc:?},{:?},{:?},{:?}",
+            b.edge(i) / NM,
+            b.edge(i + 1) / NM,
+            energy_density(el, n, w),
+            energy_density(la, n, w),
+            energy_density(rc, n, w)
+        )
+        .unwrap();
+    }
+    writeln!(
+        out,
+        "-inf,{:?},{:?},{:?},{:?},,,",
+        b.lo / NM,
+        e.electronic.underflow,
+        e.lattice.underflow,
+        e.recoil.underflow
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "{:?},inf,{:?},{:?},{:?},,,",
+        b.hi / NM,
+        e.electronic.overflow,
+        e.lattice.overflow,
+        e.recoil.overflow
     )
     .unwrap();
     out
