@@ -42,4 +42,8 @@ __all__ = [
     "Tally",
     "Target",
     "__version__",
+    "area_dose",
+    "exposure_dose",
+    "exposure_dose_grid",
+    "iso_contours",
 ]

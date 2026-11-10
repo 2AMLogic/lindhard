@@ -15,6 +15,11 @@ use pyo3::types::{PyDict, PyList};
 
 use crate::errors;
 
+// The pyo3 signatures spell the default `subsamples=16` as a literal (a named
+// constant renders as `Ellipsis` in the runtime signature, which stubtest
+// rejects against the stub's `= 16`). Keep the literal in step with the core.
+const _: () = assert!(DEFAULT_SUBSAMPLES == 16);
+
 /// The PSF from keyword values; `gamma_m` and `nu` give the triple form.
 fn psf(
     total_ev: f64,
@@ -38,7 +43,7 @@ fn psf(
 
 /// Shots from a CSV string (see `lindhard exposure`) or an `(n, 3)` array of
 /// `x_m, y_m, weight` point shots.
-fn shots(obj: &Bound<'_, PyAny>) -> PyResult<Vec<Shot>> {
+fn parse_shots(obj: &Bound<'_, PyAny>) -> PyResult<Vec<Shot>> {
     if let Ok(text) = obj.extract::<String>() {
         return parse_shots_csv(&text).map_err(errors::input);
     }
@@ -78,12 +83,12 @@ fn with_threads<T: Send>(threads: Option<usize>, f: impl FnOnce() -> T + Send) -
 /// with `gamma_m` and `nu`. `blur_m` is the beam width `b` of `exp(-r²/b²)`.
 /// Raises `InputError` for an invalid value.
 #[pyfunction]
-#[pyo3(signature = (shots_, x_m, y_m, *, total_ev, alpha_m, beta_m, eta, gamma_m=None, nu=None,
-                    blur_m=0.0, subsamples=DEFAULT_SUBSAMPLES, threads=None))]
+#[pyo3(signature = (shots, x_m, y_m, *, total_ev, alpha_m, beta_m, eta, gamma_m=None, nu=None,
+                    blur_m=0.0, subsamples=16, threads=None))]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn exposure_dose<'py>(
     py: Python<'py>,
-    shots_: &Bound<'py, PyAny>,
+    shots: &Bound<'py, PyAny>,
     x_m: PyReadonlyArray1<'py, f64>,
     y_m: PyReadonlyArray1<'py, f64>,
     total_ev: f64,
@@ -103,7 +108,7 @@ pub(crate) fn exposure_dose<'py>(
     let points: Vec<[f64; 2]> = x.iter().zip(y.iter()).map(|(a, b)| [*a, *b]).collect();
     let e = Exposure::with_subsamples(
         psf(total_ev, alpha_m, beta_m, eta, gamma_m, nu)?,
-        shots(shots_)?,
+        parse_shots(shots)?,
         blur_m,
         subsamples,
     )
@@ -116,13 +121,13 @@ pub(crate) fn exposure_dose<'py>(
 /// `[j, i]` is at `(x0_m + i dx_m, y0_m + j dy_m)`. Arguments as for
 /// `exposure_dose`.
 #[pyfunction]
-#[pyo3(signature = (shots_, x0_m, y0_m, dx_m, dy_m, nx, ny, *, total_ev, alpha_m, beta_m, eta,
-                    gamma_m=None, nu=None, blur_m=0.0, subsamples=DEFAULT_SUBSAMPLES,
+#[pyo3(signature = (shots, x0_m, y0_m, dx_m, dy_m, nx, ny, *, total_ev, alpha_m, beta_m, eta,
+                    gamma_m=None, nu=None, blur_m=0.0, subsamples=16,
                     threads=None))]
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn exposure_dose_grid<'py>(
     py: Python<'py>,
-    shots_: &Bound<'py, PyAny>,
+    shots: &Bound<'py, PyAny>,
     x0_m: f64,
     y0_m: f64,
     dx_m: f64,
@@ -141,7 +146,7 @@ pub(crate) fn exposure_dose_grid<'py>(
 ) -> PyResult<Bound<'py, numpy::PyArray2<f64>>> {
     let e = Exposure::with_subsamples(
         psf(total_ev, alpha_m, beta_m, eta, gamma_m, nu)?,
-        shots(shots_)?,
+        parse_shots(shots)?,
         blur_m,
         subsamples,
     )
