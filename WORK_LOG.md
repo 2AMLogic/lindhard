@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #584**: feat: add per-layer dose, depth-dose and interface transmission tallies for electrons
+- **Issue #547** (closed): Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack
 - **PR #624**: refactor: split ElectronInput::resolve_in into per-stage helpers
 - **PR #623**: feat: direct Monte Carlo exposure mode compared with the PSF convolution
 - **PR #621**: test: add density-free Al2O3 sum-rule integrals and gap rows
