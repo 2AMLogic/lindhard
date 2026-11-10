@@ -255,7 +255,7 @@ fn run_transport(
     if !shell_tables.is_empty() {
         transport = transport.with_inner_shells(0, shell_tables)?;
     }
-    let proto = FullElectronTally::new(&transport, r.tally)?;
+    let proto = FullElectronTally::new(&transport, r.tally.clone())?;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
         .build()?;
