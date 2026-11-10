@@ -261,3 +261,62 @@ fn comparison_metric_and_tolerance() {
     assert!(compare_profile(&y, &d, &[], 0.1).is_err());
     assert!(compare_profile(&y, &d, &[(1e-9, 1e-9)], 0.0).is_err());
 }
+
+/// One small run per beam species (He, Ne, Ga, Xe) into a Si column: the report
+/// schema, species tag and totals hold for each. Gas beams are given the Si
+/// number density (fixed-density relaxation) since they have no solid volume
+/// here; this checks bookkeeping, not a physical agreement.
+#[test]
+fn each_beam_species_reports_a_consistent_profile() {
+    for (z, name) in [(2u8, "He"), (10, "Ne"), (31, "Ga"), (54, "Xe")] {
+        let stack = Stack::new(vec![(si(), 3.0 * NM); 4], Some(si())).unwrap();
+        let rel = Relaxation::fixed_number_density(4.996e28).unwrap();
+        let mut g = CompositionGrid::from_stack(&stack, rel).unwrap();
+        g.seed_energies(z, Some(15.0), None, Some(2.0));
+        let ls = LindhardScharff::new();
+        let tab = table();
+        let mut c = BcaConfig::new(5.0, 2.0);
+        c.seed = 4;
+        let count = 200u64;
+        let fluence = 2e19;
+        let mut r = DynamicRun2d::new(
+            vec![g; 3],
+            5.0 * NM,
+            Beam::normal(Ion::new(z).unwrap(), 1000.0, count),
+            c,
+            &ls,
+            tab,
+            Dynamic2dConfig {
+                fluence_m2: fluence,
+                policy: StepPolicy::Fixed { ions_per_step: 100 },
+                profile: BeamProfile::Uniform,
+                lateral: Boundary::Periodic,
+            },
+        )
+        .unwrap()
+        .with_profiles(grid(3, 5.0), &[fluence])
+        .unwrap();
+        r.run_all(|_, _| {}).unwrap();
+        let snap = r.profile_snapshot().unwrap();
+        assert_eq!(snap.beam_z, z, "{name}");
+        let t = snap.grand_total();
+        let y = r.cumulative();
+        let w = fluence / count as f64 * 5.0 * NM;
+        let rest = (y.primaries_in_slabs + y.primaries_in_substrate) as f64;
+        assert!(rest > 0.0, "{name}: no ion came to rest");
+        assert!(
+            (t.implanted_per_m - rest * w).abs() < 1e-9 * rest * w,
+            "{name}"
+        );
+        assert!(
+            (t.displacements_per_m - y.displaced as f64 * w).abs()
+                < 1e-9 * (y.displaced as f64 * w).max(1.0),
+            "{name}"
+        );
+        assert!(
+            snap.to_csv().contains("substrate_displacements_per_m3"),
+            "{name}"
+        );
+        assert_eq!(r.snapshots().len(), 1, "{name}");
+    }
+}
