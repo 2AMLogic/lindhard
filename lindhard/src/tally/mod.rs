@@ -42,6 +42,7 @@ pub mod ion;
 pub mod moments;
 pub mod pearson;
 pub mod psf;
+pub mod psf_scan;
 pub mod table_coverage;
 pub mod trajectory;
 pub mod voxel;
@@ -69,6 +70,9 @@ pub use pearson::{type_iv_min_kurtosis, DualPearson, DualPearsonFit, PearsonErro
 pub use psf::{
     fit_psf, GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
     PsfNormalization, PsfReport, PsfResidual, RadialAccumulator, RadialProfile,
+};
+pub use psf_scan::{
+    point_seed, scan_landing_points, PsfScanConfig, PsfScanError, PsfScanPoint, PsfScanReport,
 };
 pub use table_coverage::{LayerTableCoverage, TableCoverageCounts, TableCoverageTally};
 pub use trajectory::{

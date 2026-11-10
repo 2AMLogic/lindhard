@@ -4107,6 +4107,14 @@ A channeled ion loses about 10 % less per unit path than in a random direction. 
 
 **Trench comparison with a published cross-section: not yet performed.** `ion::dynamic::compare_profile` implements the check (RMS depth difference over the largest published depth, caller-set tolerance, per-point values; no extrapolation, nothing fitted), tested on synthetic points only. No measured cross-section has been read, so no dataset is committed and no agreement is claimed: a source with stated depth/width/dose values for a stated beam must first be read from its paper and entered in `docs/data-provenance.md` (measured values only; a plotted curve is read as an intermediate and not stored). Tracked in the PR for #561.
 
+### Position-dependent PSF over a buried edge (#572)
+
+`tally::scan_landing_points` runs one `Transport::run_beam` per landing point on a voxel target and reports the energy per electron deposited in a depth slab, with its standard error (JSON via serde, CSV via `to_csv`). Tests: `lindhard/tests/electron_psf_scan.rs` (uniform target: slab energy independent of position within 4.5 sigma; buried-edge scan: heavy side above light side, monotone step, edge point between the plateaus; report bit-identical at 1 and 2 threads, and a point's result independent of the other points; CSV/JSON shape).
+
+**Comparison with a published measurement or independent code: not performed.** No admissible source was read in this session, so no dataset is stored and no agreement is claimed. The check is a physical-consistency one: a 20 nm film on a substrate whose backscatter is stronger returns more energy to the film, so the slab energy must be larger over the strongly scattering substrate. The tables are synthetic (constant mean free paths, isotropic angles; heavy substrate elastic 2 nm, light 40 nm, inelastic 15 nm for both), so the size of the step is not a physical prediction and uses no backscatter-coefficient values.
+
+Measured (500 eV primaries, 8000 histories per point, seed 20261110; Linux x86-64): heavy side 89.12 +- 0.82 eV per electron, light side 57.45 +- 0.64 eV, ratio 1.55.
+
 ## Reporting
 
 The tables above are the committed summary metrics. A release note states
