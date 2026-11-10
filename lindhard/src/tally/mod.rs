@@ -44,9 +44,10 @@ pub mod trajectory;
 pub mod voxel;
 
 pub use electron::{
-    CartesianDeposition, CartesianGrid, CylindricalDeposition, CylindricalGrid, DepositionReport,
+    net_mean_se, CartesianCharge, CartesianDeposition, CartesianGrid, ChargeCells, ChargeCounts,
+    ChargeReport, CylindricalCharge, CylindricalDeposition, CylindricalGrid, DepositionReport,
     ElectronEnergyBudget, ElectronReport, ElectronTallyConfig, ElectronTallyError,
-    ElectronTallyMetadata, EmissionClass, EventCapCounts, FaceEmission, FateCounts,
+    ElectronTallyMetadata, EmissionClass, EscapedCharge, EventCapCounts, FaceEmission, FateCounts,
     FullElectronTally, GenerationVolume, PrimaryStoppingPoints, StoppingPoints, Yields,
     SE_BSE_SPLIT_EV,
 };

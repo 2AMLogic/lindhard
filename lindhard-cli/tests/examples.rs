@@ -987,6 +987,38 @@ fn electron_example_checks_runs_and_reports() {
         .unwrap();
     assert!((csv_sum(&cyl, "", 6) / inside - 1.0).abs() < 1e-9);
     assert!(s["files"]["deposition_cartesian"].is_null());
+    assert!(s["files"]["charge_cartesian"].is_null());
+
+    // Charge: the integer balance closes, and the CSV and the summary agree.
+    let ch = &r["charge"];
+    assert_eq!(ch["imbalance"], 0);
+    assert_eq!(ch["incident"], r["histories"]);
+    let esc = |f: &str| ch[f]["primary"].as_u64().unwrap() + ch[f]["secondary"].as_u64().unwrap();
+    let (stopped, created) = ["stopped_primary", "stopped_secondary"]
+        .iter()
+        .zip(["created_by_primary", "created_by_secondary"])
+        .fold((0, 0), |(s, c), (a, b)| {
+            (
+                s + ch["total"][*a].as_u64().unwrap(),
+                c + ch["total"][b].as_u64().unwrap(),
+            )
+        });
+    assert_eq!(
+        r["histories"].as_u64().unwrap() + created,
+        stopped + esc("escaped_front") + esc("escaped_back")
+    );
+    let cc = csv("charge_cylindrical");
+    let cells = &ch["cylindrical"]["cells"];
+    let col = |i| csv_sum(&cc, "", i) as u64;
+    assert_eq!(
+        col(6)
+            + col(7)
+            + cells["outside"]["stopped_primary"].as_u64().unwrap()
+            + cells["outside"]["stopped_secondary"].as_u64().unwrap(),
+        stopped
+    );
+    assert_eq!(col(6) + col(7), cells["inside_stopped"].as_u64().unwrap());
+    assert_eq!(col(8) + col(9), cells["inside_created"].as_u64().unwrap());
     let tables = csv("tables");
     let n_grid = mat["inelastic_table"]["energies"].as_u64().unwrap() as usize;
     assert_eq!(tables.lines().count(), 1 + n_grid);
@@ -1489,6 +1521,10 @@ fn rerun_removes_stale_electron_deposition_csvs() {
     let none = input("none", false, false);
     let cy = out.join("electron_deposition_cylindrical.csv");
     let ca = out.join("electron_deposition_cartesian.csv");
+    let (qy, qa) = (
+        out.join("electron_charge_cylindrical.csv"),
+        out.join("electron_charge_cartesian.csv"),
+    );
     let summary = out.join("electron_summary.json");
     let args = ["--histories", "32"];
     let steps: [(&Path, bool, bool); 6] = [
@@ -1505,6 +1541,8 @@ fn rerun_removes_stale_electron_deposition_csvs() {
         let note = note.get_or_insert_with(|| sentinel(&out));
         assert_eq!(cy.exists(), want_cyl, "cylindrical for {inp:?}");
         assert_eq!(ca.exists(), want_cart, "cartesian for {inp:?}");
+        assert_eq!(qy.exists(), want_cyl, "charge cylindrical for {inp:?}");
+        assert_eq!(qa.exists(), want_cart, "charge cartesian for {inp:?}");
         let s = json(&summary);
         assert_eq!(!s["files"]["deposition_cylindrical"].is_null(), want_cyl);
         assert_eq!(!s["files"]["deposition_cartesian"].is_null(), want_cart);
