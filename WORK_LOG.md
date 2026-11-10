@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #635**: docs: data is not licensed, code is; admit cited data from any source (#629)
+- **Issue #629** (closed): Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning
 - **PR #627**: refactor: consolidate duplicated [f64; 3] helpers into a vec3 module
 - **Issue #625** (closed): Simplify: consolidate duplicated 3-vector helpers (dot/cross/norm/normalize) into one module
 - **PR #584**: feat: add per-layer dose, depth-dose and interface transmission tallies for electrons
