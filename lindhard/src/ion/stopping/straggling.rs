@@ -10,6 +10,18 @@
 //! `(1 − β²/2) / (1 − β²)` (Bethe and Livingston 1937; Fano 1963) is included
 //! in [`StragglingModel::BohrRelativistic`].
 //!
+//! # Use in transport
+//!
+//! BCA transport does not sample electronic straggling: outside this module
+//! nothing references `variance_per_atom`, `StragglingModel` or
+//! `straggling::` (checked 2026-11-10 with
+//! `grep -rnE 'variance_per_atom|StragglingModel|straggling::' --include=*.rs .`
+//! piped through `grep -v 'stopping/straggling.rs'` prints nothing; the module
+//! is only declared by `pub mod straggling;` in `stopping/mod.rs`, which that
+//! pattern does not match and a plain `grep -rn straggling` finds). The
+//! electronic loss along each free flight is deterministic; this module is
+//! library-only.
+//!
 //! # Not implemented
 //!
 //! The Chu and Yang-O'Connor-Wang corrections, which reduce Bohr's value at
