@@ -190,6 +190,10 @@ fn run_electron(
         electron::PSF_PARAMETERS_FILE,
         electron::psf_parameters_csv(&sim),
     )?;
+    set.reconcile_optional(
+        electron::EXPOSURE_FILE,
+        electron::exposure_histogram_csv(&sim),
+    )?;
     // Last, so the summary describes the completed output set.
     set.publish()?;
     let y = &sim.report.yields;
