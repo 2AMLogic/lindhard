@@ -4,6 +4,15 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #624**: refactor: split ElectronInput::resolve_in into per-stage helpers
+- **PR #623**: feat: direct Monte Carlo exposure mode compared with the PSF convolution
+- **PR #621**: test: add density-free Al2O3 sum-rule integrals and gap rows
+- **PR #585**: feat: add multi-shot exposure dose, iso-dose contours and lindhard exposure command
+- **Issue #622** (closed): Simplify: split 630-line ElectronInput::resolve_in into per-stage helpers
+- **Issue #618** (closed): Al2O3 optical ELF: sum rules and IMFP comparison
+- **Issue #555** (closed): Direct Monte Carlo exposure of a small shot list, to check the PSF convolution on non-uniform targets
+- **Issue #552** (closed): Sourced optical energy-loss functions and band parameters for more metals, nitrides, dielectrics and resists
+- **Issue #551** (closed): Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check
 - **PR #615**: feat: position-dependent PSF scan over voxel targets
 - **PR #614**: feat: electron voxel damage map table and damage_export for electron runs
 - **PR #612**: feat: report pure-Ni yield against stored Ar -> Ni sets
