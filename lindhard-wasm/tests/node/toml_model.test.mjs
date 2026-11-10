@@ -10,6 +10,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 import {
   ModelError,
+  PRESETS,
   defaultSetup,
   fromToml,
   parseToml,
@@ -185,4 +186,22 @@ test("validate flags empty values and invalid layers", () => {
   const unknown = defaultSetup();
   unknown.beam.ion = "Xx";
   assert.deepEqual(paths(unknown), ["beam.ion"]);
+});
+
+test("Si and SiO2 presets validate without a displacement-energy error; GaAs asks for Ga and As", () => {
+  // Element rows as the page gets them: no tabulated E_d for Si, O, Ga, As.
+  const table = ["Si", "O", "Ga", "As", "B", "Cu", "Au"].map((symbol) => ({
+    symbol, default_displacement_ev: null, default_surface_binding_ev: 3, density_gcm3: 2,
+  }));
+  const eDErrors = (key) => {
+    const s = defaultSetup();
+    s.layers = [{ name: key, thicknessNm: null, densityGcm3: PRESETS[key].density ?? 2,
+      elements: PRESETS[key].elements.map((e) => ({ ...e })) }];
+    return validate(s, table).filter((b) => b.path.endsWith(".eD"));
+  };
+  for (const key of ["Si", "SiO2"]) assert.deepEqual(eDErrors(key), [], key);
+  assert.equal(PRESETS.Si.elements[0].eDEv, 15);
+  assert.equal(PRESETS.SiO2.elements[0].eDEv, 15);
+  assert.equal(eDErrors("GaAs").length, 2);
+  assert.match(PRESETS.GaAs.note, /enter one/);
 });

@@ -2,7 +2,7 @@
 // The Worker (worker.js) owns the WASM session; this file only draws.
 
 import init, { elements_json } from "./pkg/lindhard_wasm.js";
-import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
+import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, PRESETS, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
 import { buildPlots, caveatLines, dashForSeries, niceTicks, plotExtent, reportJson, toCsv } from "./plots.js";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
@@ -22,20 +22,6 @@ const CITE = {
   "lindhard-scharff": "Lindhard-Scharff: Lindhard and Scharff (1961); Lindhard, Scharff and Schiøtt (1963)",
   "bethe-bloch": "Bethe-Bloch: Bethe (1930, 1932), Fano (1963); a high-velocity model, the engine warns outside its range",
   "equipartition-ls-or": "Lindhard-Scharff and Oen-Robinson equipartition mix: Oen and Robinson (1976); see the stopping-model notes",
-};
-
-// Presets. SiO2 density: the usual handbook density of vitreous silica (CRC
-// Handbook; docs/data-provenance.md, example inputs). GaAs: 5.321 g/cm^3,
-// NBS Monograph 25 sec. 3 (docs/data-provenance.md, lattice constants). Si,
-// Cu, Au: the element table's densities. The O energies are the illustrative
-// model parameters of examples/as_50keV_si_sio2.toml, not recommendations.
-const el = (symbol, fraction = 1, eDEv = null, eSEv = null) => ({ symbol, fraction, eDEv, eBEv: null, eSEv });
-const PRESETS = {
-  Si: { density: null, elements: [el("Si")] },
-  Cu: { density: null, elements: [el("Cu")] },
-  Au: { density: null, elements: [el("Au")] },
-  SiO2: { density: 2.2, elements: [el("Si"), el("O", 2, 20, 2)], note: "O energies are illustrative model parameters" },
-  GaAs: { density: 5.321, elements: [el("Ga"), el("As")] },
 };
 
 let elements = [];
@@ -153,6 +139,11 @@ function uniqueName(base) {
   return n;
 }
 
+function showPresetNote(key) {
+  const note = PRESETS[key].note;
+  $("preset-note").textContent = note ? `${key}: ${note}.` : "";
+}
+
 function addPreset(key) {
   const p = PRESETS[key];
   const last = setup.layers[setup.layers.length - 1];
@@ -161,6 +152,7 @@ function addPreset(key) {
     name: uniqueName(key), thicknessNm: null, densityGcm3: p.density,
     elements: p.elements.map((e) => ({ ...e })),
   });
+  showPresetNote(key);
   renderLayers();
   refresh();
 }
@@ -604,6 +596,8 @@ try {
   $("traj-cascades").addEventListener("change", drawTrajectories);
   drawTrajectories();
   drawPlots(null);
+  $("preset").addEventListener("change", () => showPresetNote($("preset").value));
+  showPresetNote($("preset").value);
   $("add-layer").addEventListener("click", () => addPreset("Si"));
   $("add-preset").addEventListener("click", () => addPreset($("preset").value));
   for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "mode", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut"]) {
