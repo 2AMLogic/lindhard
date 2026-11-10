@@ -15,7 +15,8 @@
 //! the landing positions and lose the per-position response, so it is not
 //! used.
 //!
-//! The slab energy and its error are those of the [`RadialAccumulator`]
+//! The slab energy and its error are those of the
+//! [`RadialAccumulator`](super::psf::RadialAccumulator)
 //! total (`RadialProfile::total_ev` and `total_std_err_ev`): per-history
 //! slab totals `x_h` (the primary and all its secondaries), standard error
 //! `(N/(N-1) (Q - S²/N))^(1/2)` of the sum `S = Σ x_h`, `Q = Σ x_h²`, see
