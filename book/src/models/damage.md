@@ -116,6 +116,31 @@ E521 convention and are not yet verified against the standard
 ([`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md));
 Si has no default, so an input must choose one.
 
+## Electron beams: ionisation, lattice and the knock-on threshold
+
+An electron run reports the deposited energy in two channels
+(`lindhard::tally::electron`). **Ionisation** is electronic excitation, the
+source of electron-hole pairs: the energy left in the solid at inelastic
+events, plus the residual energy of electrons that fell below the cutoff (a
+cutoff-dependent term, placed here by convention). **Lattice** is LO-phonon
+emission and polaron traps, nonzero only with the opt-in insulator channels.
+Ionisation plus lattice equals the deposited energy per layer and per grid
+cell. Pairs per incident electron are the ionisation energy per primary divided
+by a per-material \\( E_\mathrm{pair} \\) that the input must supply with a
+citation; there is no default. Elastic nuclear recoil energy is not tallied by
+the electron engine and is in neither channel.
+
+The knock-on report is kinematics only. For a beam electron of kinetic energy
+\\( E \\) and a free atom of mass \\( M \\) at rest, head on,
+
+\\[ T_\mathrm{max} = \frac{2E(E + 2mc^2)}{Mc^2}, \\]
+
+and the atom can be displaced when \\( T_\mathrm{max} \ge E_d \\), which sets the
+threshold beam energy
+\\( E_\mathrm{th} = -mc^2 + \sqrt{(mc^2)^2 + E_d Mc^2/2} \\). It ignores lattice
+binding, thermal motion and crystal direction, and gives no displacement cross
+section or dpa. An element without \\( E_d \\) is reported as "not set".
+
 ## References
 
 - J. Lindhard, V. Nielsen, M. Scharff, P. V. Thomsen, "Integral equations

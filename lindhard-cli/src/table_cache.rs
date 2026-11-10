@@ -1148,6 +1148,8 @@ mod tests {
             // Shell channels are separate tables (not cached); the valence
             // table is the same with or without them.
             inner_shells: _,
+            // Post-processing of the ionisation energy; not a table input.
+            e_pair: _,
         } = &r.input.electron.materials["Si"];
         assert!(band.is_some());
         assert!(i.contains(&format!(

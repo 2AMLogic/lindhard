@@ -131,6 +131,18 @@ pub struct ResolvedElectronMaterial {
     pub mermin_fit: MerminFitOptions,
     /// Inner-shell channels, if given.
     pub inner_shells: Option<ResolvedInnerShells>,
+    /// Energy per electron-hole pair, eV, and its source; `None` when the
+    /// input gives none (no pair count is then reported).
+    pub e_pair: Option<ResolvedEPair>,
+}
+
+/// `E_pair` of a material, validated.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ResolvedEPair {
+    /// Energy per electron-hole pair, eV.
+    pub ev: f64,
+    /// The citation, trimmed.
+    pub source: String,
 }
 
 /// A validated electron input, in the engine's types.
