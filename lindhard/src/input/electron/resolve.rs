@@ -14,11 +14,12 @@ use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, 
 use crate::electron::phonon::{FrohlichPhonon, InsulatorChannels, PolaronTrapping, Sio2LoMode};
 use crate::electron::secondary::SecondaryModel;
 use crate::electron::transport::{
-    BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
+    BeamProfile, BeamSpread, BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
 };
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
-use crate::input::{invalid, resolve_material, InputError};
+use crate::input::{divergence_from_spec, invalid, resolve_material, InputError};
+use crate::ion::crystal::Divergence;
 use crate::material::Material;
 use crate::tally::{
     Binning, CartesianGrid, CylindricalGrid, ElectronTallyConfig, LogRadialBinning, PsfConfig,
@@ -32,6 +33,48 @@ const NM: f64 = 1e-9;
 
 fn finite_pos(v: f64) -> bool {
     v.is_finite() && v > 0.0
+}
+
+/// Validate the landing point, profile and divergence of `[electron.beam]`.
+fn resolve_beam_spread(b: &ElectronBeamSpec) -> Result<BeamSpread, InputError> {
+    if !b.landing_nm.iter().all(|v| v.is_finite()) {
+        return Err(invalid("electron.beam.landing_nm", "must be finite"));
+    }
+    let size = |field: &str, v: f64| {
+        if finite_pos(v) {
+            Ok(v * NM)
+        } else {
+            Err(invalid(
+                format!("electron.beam.profile.{field}"),
+                "must be finite and positive",
+            ))
+        }
+    };
+    let profile = match b.profile {
+        None | Some(BeamProfileSpec::Point) => BeamProfile::Point,
+        Some(BeamProfileSpec::Gaussian { sigma_nm }) => BeamProfile::Gaussian {
+            sigma_m: size("sigma_nm", sigma_nm)?,
+        },
+        Some(BeamProfileSpec::Disc { radius_nm }) => BeamProfile::Disc {
+            radius_m: size("radius_nm", radius_nm)?,
+        },
+        Some(BeamProfileSpec::Rectangle {
+            width_y_nm,
+            width_z_nm,
+        }) => BeamProfile::Rectangle {
+            width_y_m: size("width_y_nm", width_y_nm)?,
+            width_z_m: size("width_z_nm", width_z_nm)?,
+        },
+    };
+    let divergence = match &b.divergence {
+        None => Divergence::None,
+        Some(d) => divergence_from_spec(d, "electron.beam.divergence")?,
+    };
+    Ok(BeamSpread {
+        landing_m: [b.landing_nm[0] * NM, b.landing_nm[1] * NM],
+        profile,
+        divergence,
+    })
 }
 
 /// `band` with the optional valence binding of a metal applied.
@@ -178,6 +221,7 @@ impl ElectronInput {
             energy_ev: b.energy_ev,
             direction: [c, s * ca, s * sa],
         };
+        let beam = resolve_beam_spread(b)?;
 
         // Transport configuration.
         let t = &e.transport;
@@ -657,6 +701,7 @@ impl ElectronInput {
             materials,
             config,
             primary,
+            beam,
             elastic,
             inelastic,
             inelastic_fermi_ev: e.inelastic.fermi_energy_ev,

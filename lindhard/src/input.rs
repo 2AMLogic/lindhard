@@ -50,6 +50,7 @@ mod schema;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use resolve::divergence_from_spec;
 pub(crate) use resolved::resolve_material;
 pub use resolved::{
     stopping_model, ModelInfo, Resolved, ResolvedCrystal, ResolvedLayer, TABLE_SPEC,

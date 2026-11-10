@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
 use crate::electron::transport::TransportConfig;
-use crate::input::TargetSpec;
+use crate::input::{DivergenceSpec, TargetSpec};
 use crate::material::MaterialSpec;
 use crate::tally::{PsfModel, PsfNormalization, SE_BSE_SPLIT_EV};
 
@@ -75,6 +75,58 @@ pub struct ElectronBeamSpec {
     /// Azimuth of the incidence plane, degrees.
     #[serde(default)]
     pub azimuth_deg: f64,
+    /// Landing point `[y, z]` of the beam centre on the front face, nm
+    /// (default `[0, 0]`).
+    #[serde(default, skip_serializing_if = "is_origin")]
+    pub landing_nm: [f64; 2],
+    /// Lateral profile about the landing point (default: a point).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<BeamProfileSpec>,
+    /// Angular spread about the nominal direction; the ion beam's
+    /// `[beam.divergence]` laws ([`DivergenceSpec`]), with the same inward
+    /// conditioning and width limit (default: none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub divergence: Option<DivergenceSpec>,
+}
+
+fn is_origin(v: &[f64; 2]) -> bool {
+    *v == [0.0; 2]
+}
+
+/// `[electron.beam.profile]`: the lateral profile of the beam on the front
+/// face, selected by `model`; lengths in nm.
+///
+/// ```toml
+/// [electron.beam.profile]
+/// model = "gaussian"   # sigma_nm: standard deviation of each of y and z
+/// sigma_nm = 5.0
+/// # model = "disc"      # radius_nm: uniform in area
+/// # model = "rectangle" # width_y_nm, width_z_nm: full widths, uniform
+/// ```
+///
+/// See [`BeamProfile`](crate::electron::transport::BeamProfile) for the laws.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "model", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum BeamProfileSpec {
+    /// Every primary lands at the landing point.
+    Point,
+    /// Gaussian spot.
+    Gaussian {
+        /// Standard deviation of each of `y` and `z`, nm, `> 0`.
+        sigma_nm: f64,
+    },
+    /// Uniform disc.
+    Disc {
+        /// Radius, nm, `> 0`.
+        radius_nm: f64,
+    },
+    /// Uniform rectangle centred on the landing point.
+    Rectangle {
+        /// Full width along `y`, nm, `> 0`.
+        width_y_nm: f64,
+        /// Full width along `z`, nm, `> 0`.
+        width_z_nm: f64,
+    },
 }
 
 /// Where the cutoff is measured from.

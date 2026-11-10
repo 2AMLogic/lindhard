@@ -254,6 +254,7 @@ use crate::electron::phonon::{
 };
 use crate::electron::secondary::{kieft_bosch, kieft_bosch_shell, SecondaryEvent, SecondaryModel};
 use crate::geometry::Stack;
+use crate::ion::crystal::Divergence;
 use crate::rng::{run_particles, uniform};
 
 /// Errors from building a [`Transport`] or starting a run.
@@ -522,6 +523,156 @@ impl Primary {
             energy_ev,
             direction: [1.0, 0.0, 0.0],
         }
+    }
+}
+
+/// Lateral profile of the beam on the front face, about its landing point.
+/// Lengths are metres.
+///
+/// Each profile is a plain geometric law (no tabulated data): a Gaussian spot
+/// has independent normal `y` and `z` offsets with standard deviation
+/// `sigma_m` each (sampled by the Box-Muller transform, two draws); a disc is
+/// uniform in area (`r = R sqrt(U)`, azimuth uniform; two draws); a rectangle
+/// is uniform in `y` and `z` over its full widths (two draws). A point takes
+/// no draws.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+#[serde(tag = "model", rename_all = "kebab-case")]
+pub enum BeamProfile {
+    /// Every primary lands exactly at the landing point.
+    Point,
+    /// Gaussian spot, standard deviation per axis.
+    Gaussian {
+        /// Standard deviation of each of `y` and `z`, m (finite, `> 0`).
+        sigma_m: f64,
+    },
+    /// Uniform disc.
+    Disc {
+        /// Disc radius, m (finite, `> 0`).
+        radius_m: f64,
+    },
+    /// Uniform rectangle centred on the landing point.
+    Rectangle {
+        /// Full width along `y`, m (finite, `> 0`).
+        width_y_m: f64,
+        /// Full width along `z`, m (finite, `> 0`).
+        width_z_m: f64,
+    },
+}
+
+/// Where a run's primaries land and how they diverge: a finite lateral
+/// profile about a landing point on the front face, and an angular spread
+/// about the nominal [`Primary::direction`]. The default is a point beam
+/// without divergence, which draws no random numbers, so a run with it is
+/// bit-identical to one made before this type existed.
+///
+/// Per history the position is sampled first, then the direction, both from
+/// that history's own stream, so a run is identical at any thread count. The
+/// divergence is the ion beam's
+/// ([`Divergence`](crate::ion::crystal::Divergence): Gaussian per-plane
+/// angles, or uniform in solid angle within a cone). Where the nominal
+/// direction points into the target (`x > 0`), deflections that would send
+/// the primary out of it are rejected and redrawn (the inward conditioning of
+/// the ion side), so the draw count is then variable but still a function of
+/// the history's stream alone.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
+pub struct BeamSpread {
+    /// Landing point `(y, z)` on the front face, m.
+    pub landing_m: [f64; 2],
+    /// Lateral profile about the landing point.
+    pub profile: BeamProfile,
+    /// Angular spread about the nominal direction.
+    pub divergence: Divergence,
+}
+
+impl Default for BeamSpread {
+    fn default() -> Self {
+        Self {
+            landing_m: [0.0; 2],
+            profile: BeamProfile::Point,
+            divergence: Divergence::None,
+        }
+    }
+}
+
+/// Redraw cap of the inward conditioning of [`BeamSpread`].
+const MAX_DIVERGENCE_REDRAWS: u32 = 10_000;
+
+impl BeamSpread {
+    /// Whether this is the default point beam (it is then left out of the
+    /// run metadata).
+    pub fn is_point(&self) -> bool {
+        *self == Self::default()
+    }
+
+    /// Check the parameters.
+    pub fn validate(&self) -> Result<(), TransportError> {
+        if !self.landing_m.iter().all(|v| v.is_finite()) {
+            return invalid("beam landing point", "must be finite");
+        }
+        let ok = |v: f64| v.is_finite() && v > 0.0;
+        let good = match self.profile {
+            BeamProfile::Point => true,
+            BeamProfile::Gaussian { sigma_m } => ok(sigma_m),
+            BeamProfile::Disc { radius_m } => ok(radius_m),
+            BeamProfile::Rectangle {
+                width_y_m,
+                width_z_m,
+            } => ok(width_y_m) && ok(width_z_m),
+        };
+        if !good {
+            return invalid("beam profile", "sizes must be finite and positive");
+        }
+        self.divergence
+            .validate()
+            .or_else(|e| invalid("beam divergence", e.to_string()))
+    }
+
+    /// Draw the start `(y, z)`, m: the landing point plus a profile offset.
+    pub fn sample_position<R: Rng + ?Sized>(&self, rng: &mut R) -> [f64; 2] {
+        let [y0, z0] = self.landing_m;
+        let tau = std::f64::consts::TAU;
+        let (dy, dz) = match self.profile {
+            BeamProfile::Point => (0.0, 0.0),
+            BeamProfile::Gaussian { sigma_m } => {
+                let r = sigma_m * (-2.0 * (-uniform(rng)).ln_1p()).sqrt();
+                let (s, c) = (tau * uniform(rng)).sin_cos();
+                (r * c, r * s)
+            }
+            BeamProfile::Disc { radius_m } => {
+                let r = radius_m * uniform(rng).sqrt();
+                let (s, c) = (tau * uniform(rng)).sin_cos();
+                (r * c, r * s)
+            }
+            BeamProfile::Rectangle {
+                width_y_m,
+                width_z_m,
+            } => (
+                width_y_m * (uniform(rng) - 0.5),
+                width_z_m * (uniform(rng) - 0.5),
+            ),
+        };
+        [y0 + dy, z0 + dz]
+    }
+
+    /// Draw the direction about the unit `central` direction.
+    fn sample_direction<R: Rng + ?Sized>(
+        &self,
+        central: [f64; 3],
+        rng: &mut R,
+    ) -> Result<[f64; 3], TransportError> {
+        if self.divergence == Divergence::None {
+            return Ok(central);
+        }
+        for _ in 0..MAX_DIVERGENCE_REDRAWS {
+            let d = self.divergence.sample_direction(central, rng);
+            if central[0] <= 0.0 || d[0] > 0.0 {
+                return Ok(d);
+            }
+        }
+        invalid(
+            "beam divergence",
+            "no inward direction was drawn; the nominal direction is too close to the surface",
+        )
     }
 }
 
@@ -932,6 +1083,9 @@ pub struct RunMetadata {
     pub chunk_size: u64,
     /// The primary electron.
     pub primary: Primary,
+    /// Landing profile and divergence; left out for a point beam.
+    #[serde(skip_serializing_if = "BeamSpread::is_point")]
+    pub beam: BeamSpread,
     /// Per-layer table identities.
     pub layers: Vec<LayerMetadata>,
 }
@@ -1293,6 +1447,7 @@ impl Transport {
             n_histories,
             chunk_size,
             primary: *primary,
+            beam: BeamSpread::default(),
             layers: self
                 .stack
                 .layers()
@@ -1342,22 +1497,47 @@ impl Transport {
         T: ElectronTally,
         N: Fn() -> T + Sync,
     {
+        self.run_beam(
+            seed,
+            n_histories,
+            chunk_size,
+            primary,
+            &BeamSpread::default(),
+            new_tally,
+        )
+    }
+
+    /// [`Self::run`] with a finite beam: each history starts at a position
+    /// and direction drawn from `beam` ([`BeamSpread`]).
+    pub fn run_beam<T, N>(
+        &self,
+        seed: u64,
+        n_histories: u64,
+        chunk_size: u64,
+        primary: &Primary,
+        beam: &BeamSpread,
+        new_tally: N,
+    ) -> Result<TransportRun<T>, TransportError>
+    where
+        T: ElectronTally,
+        N: Fn() -> T + Sync,
+    {
         self.check_primary(primary)?;
+        beam.validate()?;
         let tally = run_particles(
             seed,
             n_histories,
             chunk_size,
             new_tally,
             |t, rng, i| {
-                self.history(t, rng, i, primary)
+                self.history_beam(t, rng, i, primary, beam)
                     .expect("primary validated before the run");
             },
             |total, part| total.merge(part),
         );
-        Ok(TransportRun {
-            tally,
-            metadata: self.metadata(seed, n_histories, chunk_size, primary),
-        })
+        let mut metadata = self.metadata(seed, n_histories, chunk_size, primary);
+        metadata.beam = *beam;
+        Ok(TransportRun { tally, metadata })
     }
 
     /// Simulate one primary, and every secondary it leads to, with the given
@@ -1373,9 +1553,29 @@ impl Transport {
         T: ElectronTally,
         R: Rng,
     {
+        self.history_beam(tally, rng, index, primary, &BeamSpread::default())
+    }
+
+    /// [`Self::history`] for a finite beam: the start position, then the
+    /// direction, are drawn from `rng` before the transport (no draws for the
+    /// default [`BeamSpread`]).
+    pub fn history_beam<T, R>(
+        &self,
+        tally: &mut T,
+        rng: &mut R,
+        index: u64,
+        primary: &Primary,
+        beam: &BeamSpread,
+    ) -> Result<Fate, TransportError>
+    where
+        T: ElectronTally,
+        R: Rng,
+    {
         let dir = self.check_primary(primary)?;
+        let [y, z] = beam.sample_position(rng);
+        let dir = beam.sample_direction(dir, rng)?;
         let mut st = ElectronState {
-            pos: [0.0; 3],
+            pos: [0.0, y, z],
             dir,
             energy_ev: primary.energy_ev,
             layer: 0,

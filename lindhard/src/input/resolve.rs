@@ -18,6 +18,37 @@ use super::resolved::*;
 use super::schema::*;
 use super::{invalid, Input, InputError};
 
+/// Validate a [`DivergenceSpec`] found at `path` (for error messages) and
+/// convert it to the engine's [`Divergence`]; shared by the ion and electron
+/// inputs.
+pub(crate) fn divergence_from_spec(
+    spec: &DivergenceSpec,
+    path: &str,
+) -> Result<Divergence, InputError> {
+    let (field, width_deg) = match *spec {
+        DivergenceSpec::Gaussian { sigma_deg } => (format!("{path}.sigma_deg"), sigma_deg),
+        DivergenceSpec::UniformCone { half_angle_deg } => {
+            (format!("{path}.half_angle_deg"), half_angle_deg)
+        }
+    };
+    if !(width_deg.is_finite() && (0.0..=MAX_DIVERGENCE_DEG).contains(&width_deg)) {
+        return Err(invalid(
+            field,
+            format!(
+                "must be finite and in [0, {MAX_DIVERGENCE_DEG}] degrees (small-angle \
+                 spreads only)"
+            ),
+        ));
+    }
+    let rad = width_deg.to_radians();
+    Ok(match spec {
+        DivergenceSpec::Gaussian { .. } => Divergence::Gaussian { sigma_rad: rad },
+        DivergenceSpec::UniformCone { .. } => Divergence::UniformCone {
+            half_angle_rad: rad,
+        },
+    })
+}
+
 impl Input {
     /// Validate `[dynamic]`.
     fn check_dynamic(&self, d: &DynamicSpec) -> Result<(), InputError> {
@@ -673,28 +704,7 @@ impl Input {
                 "not supported with a [dynamic] target; use a static run",
             ));
         }
-        let (field, width_deg) = match *spec {
-            DivergenceSpec::Gaussian { sigma_deg } => ("beam.divergence.sigma_deg", sigma_deg),
-            DivergenceSpec::UniformCone { half_angle_deg } => {
-                ("beam.divergence.half_angle_deg", half_angle_deg)
-            }
-        };
-        if !(width_deg.is_finite() && (0.0..=MAX_DIVERGENCE_DEG).contains(&width_deg)) {
-            return Err(invalid(
-                field,
-                format!(
-                    "must be finite and in [0, {MAX_DIVERGENCE_DEG}] degrees (small-angle \
-                     spreads only)"
-                ),
-            ));
-        }
-        let rad = width_deg.to_radians();
-        Ok(match spec {
-            DivergenceSpec::Gaussian { .. } => Divergence::Gaussian { sigma_rad: rad },
-            DivergenceSpec::UniformCone { .. } => Divergence::UniformCone {
-                half_angle_rad: rad,
-            },
-        })
+        divergence_from_spec(spec, "beam.divergence")
     }
 
     /// Validate `[[crystal]]` and build the engine's crystal targets. The
