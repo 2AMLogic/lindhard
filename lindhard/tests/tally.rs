@@ -436,3 +436,65 @@ fn dual_pearson_is_never_worse_than_the_single_pearson() {
     let single = fit.single_chi_square.expect("type IV moments");
     assert!(fit.chi_square <= single);
 }
+
+/// `follow_recoils = false` run with a depth grid shorter than the target, so
+/// some PKAs land in the overflow bin.
+fn run_pka_only(threads: usize) -> IonReport {
+    let stack = Stack::new(vec![(si(), 10.0 * NM), (si(), 40.0 * NM)], Some(si())).unwrap();
+    let ls = LindhardScharff::new();
+    let mut cfg = BcaConfig::new(5.0, 2.0);
+    cfg.follow_recoils = false;
+    let bca = Bca::new(
+        Beam::normal(Ion::new(5).unwrap(), 20e3, 200),
+        &stack,
+        cfg,
+        &ls,
+        table(),
+    )
+    .unwrap();
+    let mut c = config();
+    c.depth = Binning::new(0.0, 30.0 * NM, 30).unwrap();
+    let proto = IonTally::new(&stack, &bca.species_z(), c).unwrap();
+    with_threads(threads, || bca.run(|| proto.clone()).unwrap().report(false))
+}
+
+#[test]
+fn nrt_depth_profile_sums_to_the_totals() {
+    let r = run_pka_only(1);
+    let (h, k) = (&r.damage.nrt_histogram, &r.damage.kinchin_pease_histogram);
+    let n = r.damage.nrt;
+    assert!(n.pka_count > 0 && n.nrt_displacements > 0.0);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * b.abs();
+    assert!(close(h.total(), n.nrt_displacements));
+    assert!(close(k.total(), n.kinchin_pease_displacements));
+    // The grid ends inside the substrate layer: PKAs beyond it overflow, and
+    // nothing is shallower than the surface.
+    assert!(h.overflow > 0.0 && k.overflow > 0.0);
+    assert_eq!(h.underflow, 0.0);
+    // Both layers contribute, and the profile reaches into the second layer.
+    assert!(r.damage.layers.iter().all(|l| l.nrt.pka_count > 0));
+    assert!(h.sums[15..].iter().any(|&v| v > 0.0));
+    // Kinchin-Pease never lies below NRT, bin by bin.
+    for (a, b) in h.sums.iter().zip(&k.sums) {
+        assert!(b >= a);
+    }
+    // No cascades: the cascade count histograms hold only the PKAs.
+    assert_eq!(r.damage.cascade.replacements, 0);
+    assert_eq!(r.damage.vacancy_histogram.total(), n.pka_count);
+}
+
+#[test]
+fn nrt_depth_profile_is_bit_identical_across_threads() {
+    let r1 = run_pka_only(1);
+    for t in [2, 4] {
+        let r = run_pka_only(t);
+        assert_eq!(
+            r1.damage.nrt_histogram, r.damage.nrt_histogram,
+            "{t} threads"
+        );
+        assert_eq!(
+            r1.damage.kinchin_pease_histogram, r.damage.kinchin_pease_histogram,
+            "{t} threads"
+        );
+    }
+}

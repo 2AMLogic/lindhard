@@ -154,6 +154,65 @@ impl Histogram {
     }
 }
 
+/// Weighted sums over a [`Binning`], with underflow and overflow.
+///
+/// Unlike [`Histogram`] the bin contents are `f64` sums, so merging is
+/// deterministic only for a fixed merge order (chunk order, as for the other
+/// float accumulators of the ion tally).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WeightedHistogram {
+    /// The binning.
+    pub binning: Binning,
+    /// Summed weight per bin.
+    pub sums: Vec<f64>,
+    /// Weight of samples below `binning.lo`.
+    pub underflow: f64,
+    /// Weight of samples at or above `binning.hi` (and NaN samples).
+    pub overflow: f64,
+}
+
+impl WeightedHistogram {
+    /// Empty histogram.
+    pub fn new(binning: Binning) -> Self {
+        Self {
+            binning,
+            sums: vec![0.0; binning.bins],
+            underflow: 0.0,
+            overflow: 0.0,
+        }
+    }
+
+    /// Add weight `w` at `x`.
+    pub fn fill(&mut self, x: f64, w: f64) {
+        match self.binning.locate(x) {
+            Ok(i) => self.sums[i] += w,
+            Err(OutOfRange::Below) => self.underflow += w,
+            Err(OutOfRange::Above) => self.overflow += w,
+        }
+    }
+
+    /// All weight, in range or not.
+    pub fn total(&self) -> f64 {
+        self.sums.iter().sum::<f64>() + self.underflow + self.overflow
+    }
+
+    /// Add `other`, which must have the same binning.
+    ///
+    /// # Panics
+    /// If the binnings differ.
+    pub fn merge(&mut self, other: &WeightedHistogram) {
+        assert_eq!(
+            self.binning, other.binning,
+            "merging histograms with different binnings"
+        );
+        for (a, b) in self.sums.iter_mut().zip(&other.sums) {
+            *a += b;
+        }
+        self.underflow += other.underflow;
+        self.overflow += other.overflow;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

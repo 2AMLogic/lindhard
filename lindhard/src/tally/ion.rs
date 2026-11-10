@@ -20,7 +20,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::hist::{Binning, Histogram};
+use super::hist::{Binning, Histogram, WeightedHistogram};
 use super::moments::{MomentSummary, Moments};
 use super::pearson::{DualPearson, DualPearsonFit, PearsonError, PearsonIv};
 use crate::geometry::Stack;
@@ -274,6 +274,10 @@ pub struct IonTally {
     displacement_hist: Histogram,
     replacement_hist: Histogram,
     interstitial_hist: Histogram,
+    /// NRT displacements by PKA depth.
+    nrt_hist: WeightedHistogram,
+    /// Kinchin-Pease displacements by PKA depth.
+    kp_hist: WeightedHistogram,
     /// `[species] -> (front, back)`.
     escapes: Vec<(FaceAcc, FaceAcc)>,
     /// Per-history scratch: not part of the result, reset every history.
@@ -337,6 +341,8 @@ impl IonTally {
             displacement_hist: Histogram::new(config.depth),
             replacement_hist: Histogram::new(config.depth),
             interstitial_hist: Histogram::new(config.depth),
+            nrt_hist: WeightedHistogram::new(config.depth),
+            kp_hist: WeightedHistogram::new(config.depth),
             escapes: species_z
                 .iter()
                 .map(|_| (FaceAcc::new(&config), FaceAcc::new(&config)))
@@ -439,6 +445,8 @@ impl IonTally {
             vacancy_histogram: vacancy_hist,
             interstitial_histogram: self.interstitial_hist.clone(),
             replacement_histogram: self.replacement_hist.clone(),
+            nrt_histogram: self.nrt_hist.clone(),
+            kinchin_pease_histogram: self.kp_hist.clone(),
         };
         let species: Vec<SpeciesEscape> = self
             .escapes
@@ -501,8 +509,12 @@ impl BcaTally for IonTally {
             acc.nrt.pka_count += 1;
             acc.nrt.pka_energy_ev += t;
             acc.nrt.damage_energy_ev += t_dam;
-            acc.nrt.nrt_displacements += nrt_displacements(t_dam, e_d);
-            acc.nrt.kinchin_pease_displacements += kinchin_pease(t_dam, e_d);
+            let n_nrt = nrt_displacements(t_dam, e_d);
+            let n_kp = kinchin_pease(t_dam, e_d);
+            acc.nrt.nrt_displacements += n_nrt;
+            acc.nrt.kinchin_pease_displacements += n_kp;
+            self.nrt_hist.fill(r.pos[0], n_nrt);
+            self.kp_hist.fill(r.pos[0], n_kp);
         }
         self.last_site.recoil(r);
     }
@@ -586,6 +598,8 @@ impl BcaTally for IonTally {
         self.displacement_hist.merge(&o.displacement_hist);
         self.replacement_hist.merge(&o.replacement_hist);
         self.interstitial_hist.merge(&o.interstitial_hist);
+        self.nrt_hist.merge(&o.nrt_hist);
+        self.kp_hist.merge(&o.kp_hist);
         for (a, b) in self.escapes.iter_mut().zip(&o.escapes) {
             a.0.merge(&b.0);
             a.1.merge(&b.1);
@@ -673,6 +687,13 @@ pub struct DamageReport {
     pub interstitial_histogram: Histogram,
     /// Depth histogram of replacements, m.
     pub replacement_histogram: Histogram,
+    /// NRT displacement estimate by depth of the PKA, m. A model estimate
+    /// (damage-energy based, no cascade spread), not an event count; its sum
+    /// over bins, underflow and overflow is `nrt.nrt_displacements`.
+    pub nrt_histogram: WeightedHistogram,
+    /// Kinchin-Pease displacement estimate by PKA depth, m; sums to
+    /// `nrt.kinchin_pease_displacements`.
+    pub kinchin_pease_histogram: WeightedHistogram,
 }
 
 /// Damage in one layer.

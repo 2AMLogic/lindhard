@@ -855,6 +855,24 @@ depth grid. `vacancies` is displacements minus replacements. The last row,
 with `depth_hi_nm = inf`, holds everything deeper than the grid (empty
 densities). The totals equal `results.damage.cascade`.
 
+### `nrt_profile.csv`
+
+`depth_lo_nm,depth_hi_nm,nrt_displacements,kinchin_pease_displacements,` then
+the same two per incident ion per nm: the NRT and Kinchin-Pease displacement
+**model estimates** by depth of the primary knock-on atom, on the depth grid.
+They are the per-PKA terms of `results.damage.nrt`, placed at the PKA depth
+(no cascade spread), and are separate from the event counts of
+`damage_profile.csv`. The first row (`depth_lo_nm = -inf`) and the last row
+(`depth_hi_nm = inf`) hold what falls before and beyond the grid (empty
+densities); the column sums over all rows equal
+`results.damage.nrt.nrt_displacements` and `kinchin_pease_displacements`.
+
+**Quick damage estimate.** `follow_recoils = false` (see `[engine]`) skips the
+cascades: only the beam is transported, and every PKA is tallied but its
+recoil is not followed. `nrt_profile.csv` and `results.damage.nrt` are then
+complete, at the cost of the cascade counts (`damage_profile.csv`, with no
+replacements). Compound targets follow the convention of `lindhard::ion::damage`.
+
 ### `escape_spectra.csv`
 
 `species_z,symbol,beam,face,spectrum,lo,hi,count,per_ion_per_unit`: the energy
