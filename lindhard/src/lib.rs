@@ -28,6 +28,7 @@ pub mod geometry;
 pub mod input;
 pub mod ion;
 pub mod material;
+pub mod photon;
 pub mod rng;
 pub mod tally;
 pub mod units;
