@@ -987,6 +987,27 @@ fn electron_example_checks_runs_and_reports() {
         .unwrap();
     assert!((csv_sum(&cyl, "", 6) / inside - 1.0).abs() < 1e-9);
     assert!(s["files"]["deposition_cartesian"].is_null());
+    // The channel columns add up to the total column, and the damage block
+    // agrees with the budget.
+    let split = csv_sum(&cyl, "", 8) + csv_sum(&cyl, "", 9);
+    assert!((split / csv_sum(&cyl, "", 6) - 1.0).abs() < 1e-12);
+    let dmg = &r["damage"];
+    assert_eq!(dmg["residual_channel"], "ionisation");
+    let layer = &dmg["layers"][0];
+    let (ion, lat) = (
+        layer["ionisation_ev"].as_f64().unwrap(),
+        layer["lattice_ev"].as_f64().unwrap(),
+    );
+    let dep = r["budget"]["deposited_ev"].as_f64().unwrap();
+    assert!(((ion + lat) / dep - 1.0).abs() < 1e-12);
+    // No `e_pair` in the example: ionisation energy only, no pair count. Si
+    // has no default `E_d`, so the knock-on report says "not set".
+    assert!(layer.get("pairs_per_primary").is_none() && dmg.get("pairs_per_primary").is_none());
+    let k = &layer["knock_on"][0];
+    assert_eq!(k["element"], "Si");
+    assert_eq!(k["e_d_ev"], "not set");
+    assert_eq!(k["can_displace"], "not set");
+    assert!(k["t_max_ev"].as_f64().unwrap() > 0.0);
     assert!(s["files"]["charge_cartesian"].is_null());
 
     // Charge: the integer balance closes, and the CSV and the summary agree.

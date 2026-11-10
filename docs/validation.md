@@ -4101,6 +4101,12 @@ Measured (`boron_channeled_loss_per_path_is_below_random` in `lindhard/tests/cry
 
 A channeled ion loses about 10 % less per unit path than in a random direction. The reduction comes only from fewer partners within `p_max`; the nonlocal half is the same on both sides. Errors are statistical only (delta method over histories). This is a model result, not a comparison with measurement.
 
+### 2-D dynamic profiles and trench comparison (#561)
+
+`DynamicRun2d::with_profiles` tallies the beam species at rest and the simulated displacement count (recoils created, the `VoxelTally` / 1-D `IonReport` definition; no amorphization or damage accumulation) on a voxel grid in the sample frame, per metre of the invariant axis and as number densities, at chosen fluences. `run_until_cut_through` stops when an illuminated column has lost all its slabs and reports the peak-fluence bracket `(before, at]` (one step wide) and the displacements that occurred in the substrate layer. Tests: `lindhard/tests/dynamic_2d_profiles.rs` (totals equal the event counts, snapshots land on the requested fluences, cut-through and no-cut-through at the fluence cap, bit-identical profiles at 1 and 8 threads).
+
+**Trench comparison with a published cross-section: not yet performed.** `ion::dynamic::compare_profile` implements the check (RMS depth difference over the largest published depth, caller-set tolerance, per-point values; no extrapolation, nothing fitted), tested on synthetic points only. No measured cross-section has been read, so no dataset is committed and no agreement is claimed: a source with stated depth/width/dose values for a stated beam must first be read from its paper and entered in `docs/data-provenance.md` (measured values only; a plotted curve is read as an intermediate and not stored). Tracked in the PR for #561.
+
 ## Reporting
 
 The tables above are the committed summary metrics. A release note states

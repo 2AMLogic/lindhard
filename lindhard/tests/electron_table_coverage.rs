@@ -18,19 +18,17 @@ use lindhard::electron::transport::{
     Primary, SummaryTally, TableChannel, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
-use lindhard::material::Material;
 use lindhard::tally::{
     Binning, ElectronReport, ElectronTallyConfig, FullElectronTally, LayerTableCoverage,
     TableCoverageCounts, TableCoverageTally,
 };
 
+mod common;
+use common::bare_si;
+
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 const NM: f64 = 1e-9;
 const PROVENANCE: &str = "synthetic, tests/electron_table_coverage.rs";
-
-fn material() -> Material {
-    Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
 
 /// A table on `grid` with the same rate at every energy and quantile rows
 /// from `row(E, p)` (none where the rate is zero).
@@ -109,7 +107,7 @@ fn finite(thicknesses_nm: &[f64]) -> Stack {
     Stack::new(
         thicknesses_nm
             .iter()
-            .map(|&t| (material(), t * NM))
+            .map(|&t| (bare_si(), t * NM))
             .collect(),
         None,
     )
@@ -201,7 +199,7 @@ fn zero_rate_flight_is_one_evaluation_classed_by_energy() {
 #[test]
 fn collisions_across_the_grid_ends_with_exact_endpoints() {
     let t = Transport::new(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(
             elastic_none(&[50.0, 200.0, 500.0]),
             inelastic_const(&[100.0, 250.0, 400.0], 2.0 * NM, 50.0),
@@ -316,7 +314,7 @@ fn secondaries_are_counted_with_the_primary() {
         momentum_conservation: false,
     };
     let t = Transport::with_band_structures(
-        Stack::semi_infinite(material()),
+        Stack::semi_infinite(bare_si()),
         vec![pair(
             elastic_none(&[60.0, 150.0]),
             inelastic_frac(&[1.0, 10.0, 100.0, 1_000.0], 3.0 * NM, 0.5),

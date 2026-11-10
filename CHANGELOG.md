@@ -7,12 +7,26 @@ one version).
 
 ## [Unreleased]
 
+### Added
+
+- 2-D dynamic run: lateral implanted-species and displacement-damage profiles on a `VoxelTallyGrid` at chosen fluences (`DynamicRun2d::with_profiles`, `ProfileSnapshot` CSV export), a film cut-through run mode (`run_until_cut_through`) that reports the fluence bracket and the damage left in the substrate, and `compare_profile` for comparing a milled profile with published points (RMS depth difference, tolerance, per-point discrepancies). No published trench cross-section is committed yet (#561).
+
 ### Changed
 
 - The universal screening length uses the Thomas-Fermi constant 0.88534 (the SRIM book, 2015, Eq. 2-73, prints 0.8853) instead of 0.8854, a 1e-4 relative shift in `a_U`; golden values regenerated.
 
 ### Added
 
+- Electron runs report the deposited energy split into **ionisation** and
+  **lattice** channels, per layer and per cell of both deposition grids
+  (`ionisation + lattice = deposited_ev`; the residual of sub-cutoff electrons
+  is placed in ionisation by convention), electron-hole pairs per primary from a
+  per-material `e_pair` input that must carry a citation (no default), and a
+  knock-on report per layer and element (`T_max`, `E_d`, whether the beam can
+  displace the atom, and the threshold beam energy; elements without `E_d` show
+  "not set"). New `results.damage` in `electron_summary.json`, new
+  `ionisation_ev` and `lattice_ev` columns at the end of the two electron
+  deposition CSVs, and `lindhard::electron::knock_on` (#558, part of #553).
 - Per-element vacancy, interstitial and replacement maps: `VoxelTally::with_species`
   adds per-species defect counts to every voxel (same replacement rule as the 1D
   cascade tally, equal to its totals exactly), voxel CSV/VTK format v2 carries them

@@ -113,10 +113,14 @@
 mod adapter;
 mod driver;
 mod grid2d;
+mod profiles;
 
 pub use adapter::{InventoryTally, Yields};
 pub use driver::{DynamicConfig, DynamicRun, DynamicRunError, StepPolicy, StepRecord};
 pub use grid2d::{BeamProfile, Dynamic2dConfig, DynamicRun2d, Step2d, PROFILE_CUTOFF};
+pub use profiles::{
+    compare_profile, CutThrough, PointDifference, ProfileCell, ProfileComparison, ProfileSnapshot,
+};
 
 use std::collections::BTreeMap;
 
@@ -398,6 +402,11 @@ impl CompositionGrid {
             substrate,
             relaxation,
         })
+    }
+
+    /// Whether an immutable substrate backs the slabs.
+    pub fn has_substrate(&self) -> bool {
+        self.substrate.is_some()
     }
 
     /// Number of mutable slabs.
