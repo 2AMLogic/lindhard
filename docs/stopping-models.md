@@ -198,6 +198,10 @@ the declines are on that basis. Nothing was taken from ICRU/SRIM/NIST tables.
   densities and is published as tables; Yang, O'Connor & Wang (NIM B 61, 149
   (1991)) is a fit whose coefficients are fitted to data tables. Neither has
   a closed form with paper-sourced coefficients that we could verify.
+  Re-checked for #638 on 2026-11-10: neither paper (the APS page for Chu
+  returned 403) nor the SRIM book's straggling text could be opened in that
+  session, so no formula or coefficient was read or verified and the entry
+  stands unchanged. Nothing is to be entered from memory.
 
 ## Deviations from the issue text
 
