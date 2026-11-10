@@ -508,6 +508,12 @@ $("dl-png").addEventListener("click", () => {
   $("traj").toBlob((b) => b && download("lindhard-trajectories.png", b), "image/png");
 });
 
+if ("serviceWorker" in navigator) {
+  // Offline support: see sw.js. Relative URL so the scope is this directory on
+  // both hosts (site root and the GitHub Pages path prefix).
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+
 function startRun() {
   refresh();
   if (problems.length) return;
@@ -544,7 +550,12 @@ function startRun() {
         break;
     }
   };
-  worker.onerror = (e) => { status(`The worker failed: ${e.message}`, true); endRun(); };
+  worker.onerror = (e) => {
+    status(e.message
+      ? `The worker failed: ${e.message}`
+      : "The worker script could not be loaded; if you are offline, reload the page once online.", true);
+    endRun();
+  };
   worker.postMessage({ type: "init", toml: toToml(setup), ions: setup.run.ions, recordHistories: RECORDED_HISTORIES, maxPoints: MAX_POINTS_PER_TRACK });
   histories = [];
   counters(0, setup.run.ions, null);
