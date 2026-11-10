@@ -67,8 +67,8 @@ pub use exposure::{
 };
 pub use hist::{Binning, BinningError, Histogram, WeightedHistogram};
 pub use ion::{
-    CascadeDefects, DamageReport, EscapeReport, FaceEscape, IonReport, IonTally, IonTallyConfig,
-    LayerDamage, LayerRange, NrtDamage, RangeReport, SpeciesEscape,
+    CascadeDefects, DamageReport, EnergyProfileReport, EscapeReport, FaceEscape, IonReport,
+    IonTally, IonTallyConfig, LayerDamage, LayerRange, NrtDamage, RangeReport, SpeciesEscape,
 };
 pub use moments::{MomentSummary, Moments};
 pub use pearson::{type_iv_min_kurtosis, DualPearson, DualPearsonFit, PearsonError, PearsonIv};

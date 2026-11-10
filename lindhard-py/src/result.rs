@@ -8,8 +8,8 @@
 use std::path::PathBuf;
 
 use lindhard::input::Resolved;
-use lindhard::tally::Histogram as LibHistogram;
-use lindhard_cli::output::{self, density, symbol, NM};
+use lindhard::tally::{Histogram as LibHistogram, WeightedHistogram};
+use lindhard_cli::output::{self, density, energy_density, symbol, NM};
 use lindhard_cli::sim::Simulation;
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayMethods};
 use pyo3::prelude::*;
@@ -133,12 +133,102 @@ impl Histogram {
     }
 }
 
+/// Energy by depth: sums over uniform depth bins, with the bin edges and the
+/// per-ion densities (the CLI's `energy_profile.csv`).
+///
+/// `edges` is in nm. `energy` is the energy in each bin summed over all
+/// histories, eV; `density` is eV per incident ion per nm (`energy` divided
+/// by the histories and the bin width). `underflow` and `overflow` are the
+/// energy above the surface and deeper than the grid, eV summed over all
+/// histories: `energy.sum() + underflow + overflow` equals the matching
+/// energy-budget total.
+#[pyclass(module = "lindhard", frozen)]
+#[derive(Debug)]
+pub struct EnergyHistogram {
+    edges: Vec<f64>,
+    energy: Vec<f64>,
+    density: Vec<f64>,
+    underflow: f64,
+    overflow: f64,
+}
+
+#[pymethods]
+impl EnergyHistogram {
+    /// Bin edges, nm (length `len(energy) + 1`).
+    #[getter]
+    fn edges<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        self.edges.clone().into_pyarray(py)
+    }
+
+    /// Bin centres, nm.
+    #[getter]
+    fn centers<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        let c: Vec<f64> = self.edges.windows(2).map(|w| 0.5 * (w[0] + w[1])).collect();
+        c.into_pyarray(py)
+    }
+
+    /// Energy per bin summed over all histories, eV.
+    #[getter]
+    fn energy<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        self.energy.clone().into_pyarray(py)
+    }
+
+    /// Energy per incident ion per nm, eV.
+    #[getter]
+    fn density<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray1<f64>> {
+        self.density.clone().into_pyarray(py)
+    }
+
+    #[getter]
+    fn underflow(&self) -> f64 {
+        self.underflow
+    }
+
+    #[getter]
+    fn overflow(&self) -> f64 {
+        self.overflow
+    }
+
+    fn __len__(&self) -> usize {
+        self.energy.len()
+    }
+
+    fn __repr__(&self) -> String {
+        format!(
+            "EnergyHistogram({} bins in nm, underflow={}, overflow={})",
+            self.energy.len(),
+            self.underflow,
+            self.overflow
+        )
+    }
+}
+
+impl EnergyHistogram {
+    /// Edges and densities as `output::energy_csv` computes them.
+    fn from_lib(h: &WeightedHistogram, histories: u64) -> Self {
+        let b = &h.binning;
+        let w = b.width() / NM;
+        Self {
+            edges: (0..=b.bins).map(|i| b.edge(i) / NM).collect(),
+            energy: h.sums.clone(),
+            density: h
+                .sums
+                .iter()
+                .map(|&e| energy_density(e, histories, w))
+                .collect(),
+            underflow: h.underflow,
+            overflow: h.overflow,
+        }
+    }
+}
+
 /// The result of `Run.run()`.
 ///
 /// Histograms are `Histogram` objects: `depth` (stopped primaries by depth),
 /// `lateral_y`, `lateral_z` and `radial` (stopped primaries by lateral
 /// position and radial distance), `vacancies`, `interstitials` and
-/// `replacements` (cascade defects by depth) and `escapes` (energy and
+/// `replacements` (cascade defects by depth), `energy_profile` (energy by
+/// depth) and `escapes` (energy and
 /// polar-angle spectra of every escaping species). `summary()` is the
 /// command's `summary.json` as a dict; `ions` holds the final state of every
 /// primary as arrays (or `None` if `Tally.per_ion` is false).
@@ -244,6 +334,27 @@ impl RunResult {
     #[getter]
     fn replacements(&self, py: Python<'_>) -> PyResult<Py<Histogram>> {
         self.lib_hist(&self.sim.report.damage.replacement_histogram, py)
+    }
+
+    /// Where the beam's energy went, by depth: a dict of `EnergyHistogram`s
+    /// with keys `electronic` (electronic loss of all particles), `lattice`
+    /// (energy left in the lattice, including the energy of every particle
+    /// where it stopped) and `recoil` (transfer to primary knock-on atoms,
+    /// already inside the other two). Sums equal the energy budget, as in
+    /// `energy_profile.csv`.
+    #[getter]
+    fn energy_profile<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let e = &self.sim.report.energy;
+        let n = self.sim.report.histories;
+        let d = PyDict::new(py);
+        for (k, h) in [
+            ("electronic", &e.electronic),
+            ("lattice", &e.lattice),
+            ("recoil", &e.recoil),
+        ] {
+            d.set_item(k, Py::new(py, EnergyHistogram::from_lib(h, n))?)?;
+        }
+        Ok(d)
     }
 
     /// Escape spectra: a list of dicts with keys `z`, `symbol`, `beam`

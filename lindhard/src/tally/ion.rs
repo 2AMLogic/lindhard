@@ -24,7 +24,7 @@ use super::hist::{Binning, Histogram, WeightedHistogram};
 use super::moments::{MomentSummary, Moments};
 use super::pearson::{DualPearson, DualPearsonFit, PearsonError, PearsonIv};
 use crate::geometry::Stack;
-use crate::ion::bca::{BcaTally, EnergyBudget, Face, LatticeDeposit, Particle};
+use crate::ion::bca::{BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, Particle};
 use crate::ion::damage::{damage_energy_ev, kinchin_pease, nrt_displacements};
 use crate::material::MaterialError;
 
@@ -274,6 +274,9 @@ pub struct IonTally {
     displacement_hist: Histogram,
     replacement_hist: Histogram,
     interstitial_hist: Histogram,
+    electronic_energy: WeightedHistogram,
+    lattice_energy: WeightedHistogram,
+    recoil_energy: WeightedHistogram,
     /// NRT displacements by PKA depth.
     nrt_hist: WeightedHistogram,
     /// Kinchin-Pease displacements by PKA depth.
@@ -341,6 +344,9 @@ impl IonTally {
             displacement_hist: Histogram::new(config.depth),
             replacement_hist: Histogram::new(config.depth),
             interstitial_hist: Histogram::new(config.depth),
+            electronic_energy: WeightedHistogram::new(config.depth),
+            lattice_energy: WeightedHistogram::new(config.depth),
+            recoil_energy: WeightedHistogram::new(config.depth),
             nrt_hist: WeightedHistogram::new(config.depth),
             kp_hist: WeightedHistogram::new(config.depth),
             escapes: species_z
@@ -472,12 +478,18 @@ impl IonTally {
             sputter_yield: per(sputtered as f64, h),
             species,
         };
+        let energy = EnergyProfileReport {
+            electronic: self.electronic_energy.clone(),
+            lattice: self.lattice_energy.clone(),
+            recoil: self.recoil_energy.clone(),
+        };
         IonReport {
             histories: h,
             species_z: self.species_z.clone(),
             budget: self.budget,
             range,
             damage,
+            energy,
             escapes,
         }
     }
@@ -488,7 +500,24 @@ impl BcaTally for IonTally {
         self.last_site.clear();
     }
 
-    fn lattice(&mut self, _at: [f64; 3], _layer: usize, kind: LatticeDeposit, _energy_ev: f64) {
+    fn electronic(
+        &mut self,
+        p: &Particle,
+        from: [f64; 3],
+        channel: ElectronicChannel,
+        energy_ev: f64,
+    ) {
+        match channel {
+            ElectronicChannel::NonLocal => {
+                self.electronic_energy
+                    .fill_segment(from[0], p.pos[0], energy_ev);
+            }
+            ElectronicChannel::Local => self.electronic_energy.fill(p.pos[0], energy_ev),
+        }
+    }
+
+    fn lattice(&mut self, at: [f64; 3], _layer: usize, kind: LatticeDeposit, energy_ev: f64) {
+        self.lattice_energy.fill(at[0], energy_ev);
         if kind == LatticeDeposit::Subthreshold {
             self.last_site.clear();
         }
@@ -508,6 +537,7 @@ impl BcaTally for IonTally {
             let t_dam = damage_energy_ev(t, f64::from(r.z), r.mass_amu, c.mean_z, c.mean_a);
             acc.nrt.pka_count += 1;
             acc.nrt.pka_energy_ev += t;
+            self.recoil_energy.fill(r.pos[0], t);
             acc.nrt.damage_energy_ev += t_dam;
             let n_nrt = nrt_displacements(t_dam, e_d);
             let n_kp = kinchin_pease(t_dam, e_d);
@@ -522,6 +552,9 @@ impl BcaTally for IonTally {
     fn stopped(&mut self, p: &Particle) {
         let replaced = self.last_site.stopped(p).is_some();
         let x = p.pos[0];
+        // The rest energy of every stopped particle is lattice energy, so the
+        // profile integrates to `budget.lattice + budget.rest`.
+        self.lattice_energy.fill(x, p.energy_ev);
         if replaced {
             self.layers[p.layer].defects.replacements += 1;
             self.replacement_hist.fill(x);
@@ -598,6 +631,9 @@ impl BcaTally for IonTally {
         self.displacement_hist.merge(&o.displacement_hist);
         self.replacement_hist.merge(&o.replacement_hist);
         self.interstitial_hist.merge(&o.interstitial_hist);
+        self.electronic_energy.merge(&o.electronic_energy);
+        self.lattice_energy.merge(&o.lattice_energy);
+        self.recoil_energy.merge(&o.recoil_energy);
         self.nrt_hist.merge(&o.nrt_hist);
         self.kp_hist.merge(&o.kp_hist);
         for (a, b) in self.escapes.iter_mut().zip(&o.escapes) {
@@ -620,6 +656,8 @@ pub struct IonReport {
     pub range: RangeReport,
     /// Damage: model estimates and cascade counts, side by side.
     pub damage: DamageReport,
+    /// Where the energy of the beam went, by depth.
+    pub energy: EnergyProfileReport,
     /// Backscattering, transmission and sputtering.
     pub escapes: EscapeReport,
 }
@@ -670,6 +708,28 @@ pub struct LayerRange {
     pub depth: Option<MomentSummary>,
     /// Their depth histogram, m (overall binning).
     pub depth_histogram: Histogram,
+}
+
+/// Energy deposited by depth, on the binning of the range histogram, eV
+/// summed over all histories (divide by [`IonReport::histories`] for per-ion
+/// values). Each profile plus its underflow and overflow equals the matching
+/// [`EnergyBudget`] total; energy that leaves the target has no depth and is
+/// in no profile.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EnergyProfileReport {
+    /// Electronic loss of all particles: `electronic_nonlocal` (spread along
+    /// each flight segment) plus `electronic_local` (at the collision).
+    /// Sums to `budget.electronic_nonlocal + budget.electronic_local`.
+    pub electronic: WeightedHistogram,
+    /// Energy left in the lattice: subthreshold, weak-collision and binding
+    /// deposits at the collision, and the energy of each particle where it
+    /// stopped. Sums to `budget.lattice + budget.rest`.
+    pub lattice: WeightedHistogram,
+    /// Energy `T` transferred to primary knock-on atoms (generation 1), at
+    /// the recoil depth. Sums to [`NrtDamage::pka_energy_ev`]. This is a
+    /// share of the other two profiles in a later stage, not an extra
+    /// channel: do not add it to them.
+    pub recoil: WeightedHistogram,
 }
 
 /// Damage, as two separate kinds of result. See [`crate::ion::damage`].

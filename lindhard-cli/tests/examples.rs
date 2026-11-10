@@ -136,7 +136,12 @@ fn check_tally_outputs(out: &Path, s: &serde_json::Value, stem: &str) {
     let r = &s["results"];
     let p = &r["primaries"];
     let n = r["histories"].as_u64().unwrap();
-    for f in ["lateral_profile", "damage_profile", "escape_spectra"] {
+    for f in [
+        "lateral_profile",
+        "damage_profile",
+        "energy_profile",
+        "escape_spectra",
+    ] {
         let name = s["files"][f].as_str().unwrap();
         assert!(out.join(name).exists(), "{stem}: {name}");
     }
@@ -208,6 +213,31 @@ fn check_tally_outputs(out: &Path, s: &serde_json::Value, stem: &str) {
     assert_eq!(col_sum(&dmg, 2), c["vacancies"].as_u64().unwrap(), "{stem}");
     assert_eq!(col_sum(&dmg, 3), c["interstitials"].as_u64().unwrap());
     assert_eq!(col_sum(&dmg, 4), c["replacements"].as_u64().unwrap());
+    // The energy profiles are listed in the summary and sum to the budget.
+    let en = csv("energy_profile");
+    let f_sum = |col: usize| -> f64 {
+        en.lines()
+            .skip(1)
+            .map(|l| l.split(',').nth(col).unwrap().parse::<f64>().unwrap())
+            .sum()
+    };
+    let b = &r["energy_budget_ev_per_ion"];
+    let per_ion = |k: &str| b[k].as_f64().unwrap() * n as f64;
+    let close = |got: f64, want: f64, what: &str| {
+        let tol = 1e-9 * per_ion("incident").abs().max(want.abs());
+        assert!((got - want).abs() <= tol, "{stem}: {what}: {got} vs {want}");
+    };
+    close(
+        f_sum(2),
+        per_ion("electronic_nonlocal") + per_ion("electronic_local"),
+        "electronic",
+    );
+    close(f_sum(3), per_ion("lattice") + per_ion("rest"), "lattice");
+    close(
+        f_sum(4),
+        r["damage"]["nrt"]["pka_energy_ev"].as_f64().unwrap(),
+        "recoil",
+    );
     let lat = csv("lateral_profile");
     for q in ["y", "z", "radial"] {
         let rows: Vec<_> = lat
@@ -270,6 +300,7 @@ fn output_is_byte_identical_across_thread_counts() {
             "ions.csv",
             "lateral_profile.csv",
             "damage_profile.csv",
+            "energy_profile.csv",
             "escape_spectra.csv",
         ] {
             assert_eq!(read(&outs[0], f), read(&outs[1], f), "{name}: {f}");

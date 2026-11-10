@@ -112,7 +112,7 @@ fn b_5kev_si_example_is_unchanged() {
     cfg.seed = 1;
     let d = digest(&stack, 5, 5.0e3, cfg, 3000);
     assert_eq!(
-        d, "b0267ebe809dd4794351b3ce265599514a1228abecefba4551c16a650349a50e",
+        d, "1e717abe2512a33b4851765638df133c7404d57e3afe1b75f85ed28c46e9f088",
         "amorphous B 5 keV Si report changed"
     );
 }
@@ -127,7 +127,7 @@ fn all_optional_branches_are_unchanged() {
     cfg.weak_collisions = 2;
     let d = digest(&stack, 18, 2.0e3, cfg, 1500);
     assert_eq!(
-        d, "4c3d92727c1c5e2b30cb76510f9b828ca4259f3e25fb33cf5da240cb6781b882",
+        d, "a574a38e714d56bce35bd7b1362175030f0e42846278661a50c33796f83ae13d",
         "amorphous multi-branch report changed"
     );
 }

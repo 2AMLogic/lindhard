@@ -128,6 +128,7 @@ impl BcaTally for CliTally {
         channel: ElectronicChannel,
         energy_ev: f64,
     ) {
+        self.ion.electronic(p, from, channel, energy_ev);
         if let Some(v) = &mut self.voxel {
             v.electronic(p, from, channel, energy_ev);
         }
