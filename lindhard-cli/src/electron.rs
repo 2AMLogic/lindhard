@@ -415,11 +415,12 @@ pub fn simulate_electron(
     let t1 = Instant::now();
     let run = pool
         .install(|| {
-            transport.run(
+            transport.run_beam(
                 r.input.run.seed,
                 r.input.run.histories,
                 CHUNK_SIZE,
                 &r.primary,
+                &r.beam,
                 || proto.clone(),
             )
         })

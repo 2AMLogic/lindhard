@@ -476,9 +476,23 @@ seed = 1
 | `energy_ev` | required | Kinetic energy of the primaries, eV: the vacuum energy with `boundary = "step-barrier"`, the energy inside the first layer otherwise |
 | `tilt_deg` | 0 | Polar angle from the surface normal, `[0, 90)` |
 | `azimuth_deg` | 0 | Azimuth of the incidence plane |
+| `landing_nm` | `[0, 0]` | Landing point `[y, z]` of the beam centre on the front face, nm |
+| `profile` | point | `[electron.beam.profile]`, lateral profile about the landing point (below) |
+| `divergence` | none | `[electron.beam.divergence]`, the same table as the ion beam's `[beam.divergence]` (`gaussian` with `sigma_deg`, or `uniform-cone` with `half_angle_deg`; at most 10 degrees) |
 
-Primaries start on the front face at `y = z = 0` (just outside it with the
-step barrier).
+Primaries start on the front face (just outside it with the step barrier) at
+the landing point, which defaults to `y = z = 0`. `[electron.beam.profile]`
+selects the lateral profile by `model`: `point` (the default: every primary
+lands at the landing point), `gaussian` (`sigma_nm`, the standard deviation of
+each of `y` and `z`), `disc` (`radius_nm`, uniform in area) or `rectangle`
+(`width_y_nm`, `width_z_nm`, full widths, uniform). Sizes must be positive. Each
+history draws its start position, then its direction, from its own random
+stream, so results do not depend on the thread count. Divergence is conditioned
+on directions into the target, as for ions. The default (a point beam, no
+divergence) draws no extra random numbers, so existing inputs give identical
+results for a fixed seed. Through the library, use
+`Transport::run_beam` with a `BeamSpread`; `Transport::run` is the point beam.
+The slab has no lateral edge, so a spot is never partly off the face here.
 
 **`[electron.transport]`** (`lindhard::electron::transport::TransportConfig`)
 

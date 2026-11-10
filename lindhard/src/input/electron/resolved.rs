@@ -15,7 +15,7 @@ use crate::electron::elastic::corrections::{
 use crate::electron::inelastic::{MerminFitOptions, PennAlgorithm};
 use crate::electron::phonon::InsulatorChannels;
 use crate::electron::secondary::SecondaryModel;
-use crate::electron::transport::{BoundaryModel, Primary, TransportConfig};
+use crate::electron::transport::{BeamSpread, BoundaryModel, Primary, TransportConfig};
 use crate::geometry::Stack;
 use crate::input::{ModelInfo, ResolvedLayer};
 use crate::material::Material;
@@ -162,6 +162,9 @@ pub struct ResolvedElectron {
     pub config: TransportConfig,
     /// The primary electron.
     pub primary: Primary,
+    /// Landing profile and divergence of the beam (a point beam by default);
+    /// run with [`Transport::run_beam`](crate::electron::transport::Transport::run_beam).
+    pub beam: BeamSpread,
     /// Elastic choices.
     pub elastic: ElasticChoice,
     /// Inelastic model.

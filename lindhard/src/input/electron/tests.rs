@@ -571,6 +571,68 @@ fn inner_shells_parse_validate_and_resolve() {
     assert!(e.contains("electron.materials.Si.inner_shells") && e.contains("penn-single-pole"));
 }
 
+/// `[electron.beam]` landing point, profile and divergence: the default is a
+/// point beam that echoes unchanged, a full table round-trips, and errors
+/// name the field.
+#[test]
+fn beam_profile_defaults_round_trip_and_errors_name_fields() {
+    use crate::electron::transport::{BeamProfile, BeamSpread};
+    use crate::ion::crystal::Divergence;
+    let d = dir("beam-profile");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+
+    let r = ElectronInput::from_toml_str(GOOD)
+        .unwrap()
+        .resolve_in(&d)
+        .unwrap();
+    assert_eq!(r.beam, BeamSpread::default());
+    let echo = toml::to_string(&r.input).unwrap();
+    assert!(
+        !echo.contains("landing") && !echo.contains("profile") && !echo.contains("divergence"),
+        "{echo}"
+    );
+
+    let full = GOOD.replace(
+        "energy_ev = 1000.0",
+        "energy_ev = 1000.0\nlanding_nm = [10.0, -5.0]\n\
+         [electron.beam.profile]\nmodel = \"gaussian\"\nsigma_nm = 4.0\n\
+         [electron.beam.divergence]\nmodel = \"uniform-cone\"\nhalf_angle_deg = 0.5",
+    );
+    let i = ElectronInput::from_toml_str(&full).unwrap();
+    let again = ElectronInput::from_toml_str(&toml::to_string(&i).unwrap()).unwrap();
+    assert_eq!(i, again);
+    let r = i.resolve_in(&d).unwrap();
+    assert_eq!(r.beam.landing_m, [10.0e-9, -5.0e-9]);
+    assert_eq!(r.beam.profile, BeamProfile::Gaussian { sigma_m: 4.0e-9 });
+    assert_eq!(
+        r.beam.divergence,
+        Divergence::UniformCone {
+            half_angle_rad: 0.5_f64.to_radians()
+        }
+    );
+
+    let bad = |extra: &str| {
+        ElectronInput::from_toml_str(&GOOD.replace(
+            "energy_ev = 1000.0",
+            &format!("energy_ev = 1000.0\n{extra}"),
+        ))
+        .and_then(|i| i.resolve_in(&d))
+        .unwrap_err()
+        .to_string()
+    };
+    let e = bad("[electron.beam.profile]\nmodel = \"gaussian\"\nsigma_nm = 0.0");
+    assert!(e.contains("electron.beam.profile.sigma_nm"), "{e}");
+    let e = bad("[electron.beam.profile]\nmodel = \"disc\"\nradius_nm = -1.0");
+    assert!(e.contains("electron.beam.profile.radius_nm"), "{e}");
+    let e =
+        bad("[electron.beam.profile]\nmodel = \"rectangle\"\nwidth_y_nm = 1.0\nwidth_z_nm = 0.0");
+    assert!(e.contains("electron.beam.profile.width_z_nm"), "{e}");
+    let e = bad("[electron.beam.divergence]\nmodel = \"gaussian\"\nsigma_deg = 11.0");
+    assert!(e.contains("electron.beam.divergence.sigma_deg"), "{e}");
+    let e = bad("landing_nm = [nan, 0.0]");
+    assert!(e.contains("electron.beam.landing_nm"), "{e}");
+}
+
 /// `[electron.materials.<name>.e_pair]`: absent gives none (no default),
 /// present needs a positive value and a citation.
 #[test]
