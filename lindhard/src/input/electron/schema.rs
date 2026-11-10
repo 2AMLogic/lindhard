@@ -483,6 +483,25 @@ pub struct ElectronMaterialSpec {
     /// Inner-shell ionisation channels (`single-pole` only); absent: none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inner_shells: Option<InnerShellsSpec>,
+    /// Mean energy per electron-hole pair `E_pair`, with its source. Absent:
+    /// the report gives the ionisation energy of the material's layers only
+    /// and no pair count; no default is supplied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub e_pair: Option<EPairSpec>,
+}
+
+/// `[electron.materials.<name>.e_pair]`: the energy needed per electron-hole
+/// pair, a per-material input that must carry its citation (for example the
+/// Klein 1968 rule for a semiconductor, or a measured value for SiO2). Pairs
+/// per incident electron are the ionisation energy divided by it, a
+/// post-processing step; nothing in transport depends on it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EPairSpec {
+    /// `E_pair`, eV (positive).
+    pub ev: f64,
+    /// Where the value comes from (required, non-blank).
+    pub source: String,
 }
 
 /// A uniform binning in nm.

@@ -13,6 +13,16 @@ one version).
 
 ### Added
 
+- Electron runs report the deposited energy split into **ionisation** and
+  **lattice** channels, per layer and per cell of both deposition grids
+  (`ionisation + lattice = deposited_ev`; the residual of sub-cutoff electrons
+  is placed in ionisation by convention), electron-hole pairs per primary from a
+  per-material `e_pair` input that must carry a citation (no default), and a
+  knock-on report per layer and element (`T_max`, `E_d`, whether the beam can
+  displace the atom, and the threshold beam energy; elements without `E_d` show
+  "not set"). New `results.damage` in `electron_summary.json`, new
+  `ionisation_ev` and `lattice_ev` columns at the end of the two electron
+  deposition CSVs, and `lindhard::electron::knock_on` (#558, part of #553).
 - `lindhard-wasm`: the simulator's Run view gains live distribution plots (ion
   range with the Pearson IV overlay, lateral and radial, damage versus depth,
   escapes by species with energy and polar-angle spectra), CSV per plot, the full
