@@ -8,8 +8,10 @@ Rules (CONTRIBUTING.md, CLAUDE.md):
   page's own References section.
 - Every number that enters the code as data has a row in
   docs/data-provenance.md; say here how far it has been verified.
-- No SRIM, ICRU or other Tier C tables, and nothing fitted to them. No code
-  from Tier B programs. Nothing that is not already published physics.
+- Tables from any source (SRIM, ICRU, NIST and others) are admissible as
+  cited data; label their origin, and say when a model is fitted to a code's
+  output. No code from Tier B or Tier C programs. Nothing that is not already
+  published physics.
 - If the model is selected by an enum, name every variant in its Rust
   spelling, `Enum::Variant`, and, if the TOML input exposes it, in its TOML
   spelling, `key = "kebab-case"`. Add the enum to ENUMS in

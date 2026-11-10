@@ -28,8 +28,9 @@ Archive:
 
 Prefer the archived copies: pages on the live site have since changed, and
 some content on them is unrelated to the subject. lindhard builds on this
-published literature as an independent implementation. It is not derived
-from SRIM, uses none of its tables, and is not endorsed by its authors (see
+published literature as an independent implementation. It shares none of
+SRIM's code, uses SRIM's published data with citations where useful, and is
+not endorsed by its authors (see
 [Conventions and the clean-room position](models/overview.md)). This chapter
 contains no stopping data, curves or figures from srim.org.
 
