@@ -19,6 +19,14 @@ x = { lo_nm = 0.0, hi_nm = 1500.0, bins = 5 }
 y = { lo_nm = -500.0, hi_nm = 500.0, bins = 4 }
 z = { lo_nm = -500.0, hi_nm = 500.0, bins = 3 }
 """
+DOSE = """
+[electron.tally.dose]
+depth_bins_per_layer = 6
+refine_width_nm = 20.0
+refine_bins = 3
+substrate_depth_nm = 1500.0
+transmission = true
+"""
 
 
 def _small_input() -> str:
@@ -27,7 +35,7 @@ def _small_input() -> str:
     text = (EXAMPLES / "electron" / "e_10keV_si.toml").read_text()
     assert "points_per_decade = 8.0" in text
     text = text.replace("points_per_decade = 8.0", "points_per_decade = 3.0")
-    return text.replace("[electron.tally.cylindrical]", CARTESIAN + "\n[electron.tally.cylindrical]")
+    return text.replace("[electron.tally.cylindrical]", CARTESIAN + DOSE + "\n[electron.tally.cylindrical]")
 
 
 @pytest.fixture(scope="module")
@@ -225,6 +233,31 @@ def test_missing_data_file_names_it(case, tmp_path):
     (tmp_path / "e.toml").write_text(case.read_text())
     with pytest.raises(lh.InputError, match="synthetic_plasmon_elf"):
         lh.ElectronRun.from_toml_file(tmp_path / "e.toml").run(histories=1)
+
+
+def test_dose_tallies_equal_the_cli_outputs(cli_out, res1):
+    _, rows = read_csv(cli_out / "electron_depth_dose.csv")
+    cols = list(zip(*rows))
+    d = res1.depth_dose
+    assert np.array_equal(d["x_edges_nm"][:-1], floats(cols[2]))
+    assert np.array_equal(d["x_edges_nm"][1:], floats(cols[3]))
+    assert np.array_equal(d["energy_ev"], floats(cols[4]))
+    assert np.array_equal(d["energy_ev_std_err"], floats(cols[5]))
+    assert np.array_equal(d["ev_per_nm"], floats(cols[6]))
+    # A semi-infinite substrate has no dose: an empty CSV cell, NaN here.
+    assert np.isnan(d["dose_gy_m2"]).all() and np.isnan(floats(cols[8])).all()
+    summary = json.loads((cli_out / "electron_summary.json").read_text())
+    dose = summary["results"]["dose"]
+    assert "depth" not in dose
+    (layer,) = res1.layer_dose
+    assert layer["dose_gy_m2"] is None
+    assert layer["energy_ev"][0] == dose["layers"][0]["energy_ev"]["mean"]
+    # The bins and the outside energy sum to the layer's energy.
+    assert np.isclose(d["energy_ev"].sum() + d["outside_ev"][0], layer["energy_ev"][0], rtol=1e-12)
+    assert summary["files"]["depth_dose"] == "electron_depth_dose.csv"
+    # One layer, so no interface to cross.
+    assert res1.transmission is None
+    assert summary["files"]["interface_transmission"] is None
 
 
 VOXEL = """

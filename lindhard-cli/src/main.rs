@@ -190,6 +190,14 @@ fn run_electron(
     )?;
     set.reconcile_optional(electron::PSF_PROFILE_FILE, electron::psf_profile_csv(&sim))?;
     set.reconcile_optional(
+        electron::DEPTH_DOSE_FILE,
+        electron::depth_dose_csv(&sim.report),
+    )?;
+    set.reconcile_optional(
+        electron::TRANSMISSION_FILE,
+        electron::transmission_csv(&sim.report),
+    )?;
+    set.reconcile_optional(
         electron::PSF_PARAMETERS_FILE,
         electron::psf_parameters_csv(&sim),
     )?;

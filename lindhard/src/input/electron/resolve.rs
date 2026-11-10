@@ -22,9 +22,9 @@ use crate::input::{divergence_from_spec, invalid, resolve_material, InputError, 
 use crate::ion::crystal::Divergence;
 use crate::material::Material;
 use crate::tally::{
-    BeamProfile as ExposureBeamProfile, Binning, CartesianGrid, CylindricalGrid,
-    ElectronTallyConfig, ExposureConfig, ExposureVolume, LogRadialBinning, PsfConfig, PsfModel,
-    PsfNormalization, VolumeShape, VoxelTallyGrid,
+    BeamProfile as ExposureBeamProfile, Binning, CartesianGrid, CylindricalGrid, DepthDoseConfig,
+    DoseConfig, ElectronTallyConfig, ExposureConfig, ExposureVolume, InterfaceRefine,
+    LogRadialBinning, PsfConfig, PsfModel, PsfNormalization, VolumeShape, VoxelTallyGrid,
 };
 
 use super::resolved::*;
@@ -781,6 +781,61 @@ impl ElectronInput {
             tally.cylindrical = Some(CylindricalGrid {
                 r: binning_nm(&format!("{f}.cylindrical.r"), &c.r)?,
                 depth: binning_nm(&format!("{f}.cylindrical.depth"), &c.depth)?,
+            });
+        }
+        if let Some(d) = &ts.dose {
+            let depth = match d.depth_bins_per_layer {
+                None => {
+                    if d.refine_width_nm.is_some()
+                        || d.refine_bins.is_some()
+                        || d.substrate_depth_nm.is_some()
+                    {
+                        return Err(invalid(
+                            format!("{f}.dose.depth_bins_per_layer"),
+                            "required when a depth-profile key is given",
+                        ));
+                    }
+                    None
+                }
+                Some(bins_per_layer) => {
+                    if bins_per_layer == 0 {
+                        return Err(invalid(
+                            format!("{f}.dose.depth_bins_per_layer"),
+                            "must be at least 1",
+                        ));
+                    }
+                    let refine = match d.refine_width_nm {
+                        None => None,
+                        Some(w) => {
+                            if !(w.is_finite() && w >= 0.0) {
+                                return Err(invalid(
+                                    format!("{f}.dose.refine_width_nm"),
+                                    "must be finite and non-negative",
+                                ));
+                            }
+                            let bins = d.refine_bins.unwrap_or(10);
+                            if bins == 0 {
+                                return Err(invalid(
+                                    format!("{f}.dose.refine_bins"),
+                                    "must be at least 1",
+                                ));
+                            }
+                            Some(InterfaceRefine {
+                                width_m: w * NM,
+                                bins,
+                            })
+                        }
+                    };
+                    Some(DepthDoseConfig {
+                        bins_per_layer,
+                        refine,
+                        substrate_depth_m: d.substrate_depth_nm.unwrap_or(0.0) * NM,
+                    })
+                }
+            };
+            tally.dose = Some(DoseConfig {
+                depth,
+                transmission: d.transmission,
             });
         }
         let mut voxel_grid = None;

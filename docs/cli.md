@@ -720,6 +720,35 @@ per-history errors, and double- and triple-Gaussian fits to it.
 | `fits` | `["double", "triple"]` | Forms to fit, any subset of `"double"` and `"triple"` (may be empty) |
 | `normalization` | `"slab-total"` | `"slab-total"` fixes the fit's energy scale to the slab energy; `"free"` fits it |
 
+**`[electron.tally.dose]`** (`lindhard::tally::DoseConfig`, module
+`lindhard::tally::dose`): the energy and the dose in each layer per primary, a
+depth-dose profile through the stack and the electrons crossing each
+interface, all with per-history standard errors. Absent, none of it is
+tallied and nothing else changes.
+
+| Key | Default | Meaning |
+|---|---|---|
+| `depth_bins_per_layer` | none (no profile) | Uniform depth bins over the middle of each layer (the whole layer without refinement), at least 1 |
+| `refine_width_nm` | none | Width of a refined band next to each face of each layer, nm; limited to half the layer. Needs `depth_bins_per_layer` |
+| `refine_bins` | 10 | Uniform bins in each refined band |
+| `substrate_depth_nm` | required with a profile and a substrate | Depth binned in a semi-infinite last layer, nm; deeper energy is `outside_ev` |
+| `transmission` | `false` | Count the electrons crossing each interface, forward and back, primaries and secondaries separately, with a spectrum on the escape energy binning |
+
+Conventions. The target is laterally infinite, so the energy deposited in a
+layer per primary divided by the layer's areal mass density `ρ t` is the
+absorbed dose per unit incident fluence, in Gy m² (multiply by a fluence in
+m⁻²). A semi-infinite last layer has no finite areal mass and is reported as
+energy only. Deposits use the tally's point convention (an inelastic loss at
+the collision point, the sub-threshold remainder where the electron stops) and
+are measured from the band bottom, so with a secondary model they include the
+Fermi-sea energy of liberated conduction electrons and can sum to more than the
+energy the beam imparted. A deposit is binned by the layer it was made in, so
+the bins of a layer sum to its layer total. A crossing is counted each time an
+electron crosses an interface, at its kinetic energy on the new side. The
+standard error of a quantity is that of the mean of the per-history totals
+(the primary and its secondaries together), `NaN` for fewer than two
+histories.
+
 **`[electron.tally.voxel]`**: the same fields as the ion `[tally.voxel]`
 (`origin_nm`, `spacing_nm`, `dims`; same validation). Tallies the deposited
 energy per voxel, by channel (`electronic_ev`, `lattice_ev`, `rest_ev`), and
@@ -897,6 +926,7 @@ An electron run writes these instead of the ion files.
 | `physics.target` | Each layer: extent (nm), atom density and the resolved material |
 | `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
 | `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`; deposits are measured from the band bottom, so with secondaries in a layer with a Fermi energy `deposited_ev` includes the Fermi-sea energy of liberated conduction electrons and can exceed the energy imparted, which is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev - fermi_sea_ev - phonon_absorbed_ev`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
+| `results.dose` | Only with `tally.dose`: `layers`, one entry per layer with `index`, `name`, `thickness_m`, `areal_mass_kg_m2`, `energy_ev` and `dose_gy_m2` (each `{mean, std_err}` per primary; the dose is per unit incident fluence in Gy m², `null` with the thickness and areal mass for a semi-infinite layer), and `transmission`, four entries per interface (forward and back, primary and secondary) with `interface`, `from_layer`, `to_layer`, `secondary`, `count` and `energy_ev` (`{mean, std_err}` per primary) and `energy_fraction` (of the total incident energy). The per-bin depth profile and the spectra are in the CSV files, so `results.dose.depth` and each entry's `spectrum` are omitted |
 | `results.deposition.exposure` | Only with `tally.exposure` (else `null`): `lambda`, `beam` and per volume the volume, `mean_ev`, `second_moment_ev2` with standard errors, `zero_fraction`, the histogram sums (`histories`, `zero_count`, `bin_width_ev`, `overflow_count`, `sum_x` to `sum_x4`; the per-bin counts are in `electron_exposure_histogram.csv`) and `compound` (`mean_ev`, `variance_ev2` with errors, `p_zero`, `k_max`, `truncated_mass`, `distribution` with `quantiles`, `below` and `above`, each value a `low` / `central` / `high` bracket). `electron_exposure_histogram.csv`: `volume,bin,lo_ev,hi_ev,count,fraction`, bin 0 being `X = 0` |
 | `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. With `tally.psf` the per-bin profile is not repeated in the summary: the `results.deposition.psf` key is omitted. Without `tally.psf` that key is present and `null`. The per-bin profile (bin edges and centre, area, energy and its error, areal density and its error, and the fitted energy of the bin for each fit that succeeded) is in `electron_psf_profile.csv`; the fitted parameters and the `chi2`, `dof`, `reduced_chi2`, `converged` and `iterations` of each fit are in `electron_psf_parameters.csv`. Residuals are not written; the residual of a bin is `energy_ev - model_<model>_ev` |
 | `files` | Names of the CSV files (`null` if not written) |
@@ -1031,6 +1061,14 @@ stopped on a converged step, `0` if the iteration budget ran out) and
 not fitted parameters, so a consumer that reads every row as a parameter must
 skip them. Parameters from a fit with `converged` 0 need inspection of the fit
 diagnostics before use.
+
+`electron_depth_dose.csv` (with `tally.dose.depth_bins_per_layer`): one row per
+depth bin, `bin,layer,x_lo_nm,x_hi_nm,energy_ev,energy_ev_std_err,ev_per_nm,ev_per_nm_std_err,dose_gy_m2,dose_gy_m2_std_err`,
+per primary; the dose cells are empty in a semi-infinite layer.
+`electron_interface_transmission.csv` (with `tally.dose.transmission` and at
+least two layers): one row per interface, direction, class (`primary` or
+`secondary`) and spectrum bin, `interface,from_layer,to_layer,class,count_per_primary,count_std_err,energy_ev_per_primary,energy_std_err,energy_fraction,bin,e_lo_ev,e_hi_ev,crossings`,
+the totals repeated on each row of a spectrum.
 
 `electron_tables.csv`: `material,energy_ev,elastic_inverse_mfp_per_nm,inelastic_inverse_mfp_per_nm,inelastic_mean_loss_ev,inelastic_stopping_ev_per_nm`,
 the tables the run used, per material and inelastic-table energy (the
@@ -1263,7 +1301,10 @@ file the run did not produce is removed if present: `ions.csv` (without
 `tally.per_ion`), and `electron_deposition_cartesian.csv` or
 `electron_deposition_cylindrical.csv` (without the matching deposition grid),
 and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
-`tally.psf`), and `electron_exposure_histogram.csv` (without `tally.exposure`), and `damage_export.csv` (without `electron.tally.voxel`).
+`tally.psf`), `electron_exposure_histogram.csv` (without `tally.exposure`),
+`damage_export.csv` (without `electron.tally.voxel`), and
+`electron_depth_dose.csv` and `electron_interface_transmission.csv` (without the
+matching `tally.dose` part).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
 CSV write leaves no new summary) and lists only files that exist.

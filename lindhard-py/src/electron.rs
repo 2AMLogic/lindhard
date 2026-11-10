@@ -18,7 +18,7 @@ use lindhard_cli::output::NM;
 use numpy::{IntoPyArray, PyArrayMethods};
 use pyo3::exceptions::PyUserWarning;
 use pyo3::prelude::*;
-use pyo3::types::PyDict;
+use pyo3::types::{PyDict, PyList};
 
 use crate::errors;
 use crate::result::Histogram;
@@ -329,6 +329,108 @@ impl ElectronRunResult {
         )?;
         d.set_item("outside_ev", c.outside_ev)?;
         Ok(Some(d))
+    }
+
+    /// Per-layer energy and dose (`[electron.tally.dose]`) or `None` if not
+    /// configured. A list with one dict per layer: `index`, `name`,
+    /// `thickness_m`, `areal_mass_kg_m2` (`None` for a semi-infinite layer),
+    /// `energy_ev` and `dose_gy_m2` (per unit incident fluence, `None` for a
+    /// semi-infinite layer), each of the latter two a `(mean, std_err)` tuple
+    /// per primary.
+    #[getter]
+    fn layer_dose<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyList>>> {
+        let Some(d) = report(&self.sim).dose.as_ref() else {
+            return Ok(None);
+        };
+        let out = PyList::empty(py);
+        for l in &d.layers {
+            let e = PyDict::new(py);
+            e.set_item("index", l.index)?;
+            e.set_item("name", l.name.clone())?;
+            e.set_item("thickness_m", l.thickness_m)?;
+            e.set_item("areal_mass_kg_m2", l.areal_mass_kg_m2)?;
+            e.set_item("energy_ev", (l.energy_ev.mean, l.energy_ev.std_err))?;
+            e.set_item("dose_gy_m2", l.dose_gy_m2.map(|x| (x.mean, x.std_err)))?;
+            out.append(e)?;
+        }
+        Ok(Some(out))
+    }
+
+    /// The depth-dose profile (`depth_bins_per_layer`) or `None`. A dict of
+    /// NumPy arrays: `x_edges_nm` (length `n + 1`), `layer` (the layer of each
+    /// bin), `energy_ev` / `energy_ev_std_err`, `ev_per_nm` /
+    /// `ev_per_nm_std_err`, `dose_gy_m2` / `dose_gy_m2_std_err` (NaN in a
+    /// semi-infinite layer), all per primary, and `outside_ev`.
+    #[getter]
+    fn depth_dose<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
+        let Some(d) = report(&self.sim)
+            .dose
+            .as_ref()
+            .and_then(|d| d.depth.as_ref())
+        else {
+            return Ok(None);
+        };
+        let out = PyDict::new(py);
+        out.set_item(
+            "x_edges_nm",
+            d.edges_m
+                .iter()
+                .map(|x| x / NM)
+                .collect::<Vec<_>>()
+                .into_pyarray(py),
+        )?;
+        out.set_item("layer", d.layer_of_bin.clone().into_pyarray(py))?;
+        let split = |v: &[lindhard::tally::Estimate]| -> (Vec<f64>, Vec<f64>) {
+            (
+                v.iter().map(|e| e.mean).collect(),
+                v.iter().map(|e| e.std_err).collect(),
+            )
+        };
+        for (key, v) in [("energy_ev", &d.energy_ev), ("ev_per_nm", &d.ev_per_nm)] {
+            let (m, e) = split(v);
+            out.set_item(key, m.into_pyarray(py))?;
+            out.set_item(format!("{key}_std_err"), e.into_pyarray(py))?;
+        }
+        let nan = lindhard::tally::Estimate {
+            mean: f64::NAN,
+            std_err: f64::NAN,
+        };
+        let dose: Vec<_> = d.dose_gy_m2.iter().map(|x| x.unwrap_or(nan)).collect();
+        let (m, e) = split(&dose);
+        out.set_item("dose_gy_m2", m.into_pyarray(py))?;
+        out.set_item("dose_gy_m2_std_err", e.into_pyarray(py))?;
+        out.set_item("outside_ev", (d.outside_ev.mean, d.outside_ev.std_err))?;
+        Ok(Some(out))
+    }
+
+    /// Interface crossings (`transmission = true`) or `None`. A list of dicts,
+    /// four per interface: `interface`, `from_layer`, `to_layer`,
+    /// `secondary`, `count` and `energy_ev` (`(mean, std_err)` per primary),
+    /// `energy_fraction` and `spectrum` (a `Histogram` of the crossing
+    /// energy, eV).
+    #[getter]
+    fn transmission<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyList>>> {
+        let r = report(&self.sim);
+        let Some(d) = r.dose.as_ref().filter(|d| !d.transmission.is_empty()) else {
+            return Ok(None);
+        };
+        let out = PyList::empty(py);
+        for t in &d.transmission {
+            let e = PyDict::new(py);
+            e.set_item("interface", t.interface)?;
+            e.set_item("from_layer", t.from_layer)?;
+            e.set_item("to_layer", t.to_layer)?;
+            e.set_item("secondary", t.secondary)?;
+            e.set_item("count", (t.count.mean, t.count.std_err))?;
+            e.set_item("energy_ev", (t.energy_ev.mean, t.energy_ev.std_err))?;
+            e.set_item("energy_fraction", t.energy_fraction)?;
+            e.set_item(
+                "spectrum",
+                Histogram::from_lib(&t.spectrum, r.histories, 1.0, 1.0, "eV"),
+            )?;
+            out.append(e)?;
+        }
+        Ok(Some(out))
     }
 
     /// The voxel tally (`[electron.tally.voxel]`) in the damage-export layout

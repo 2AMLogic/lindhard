@@ -35,6 +35,7 @@
 //! report types derive `serde::Serialize`, with units documented per field
 //! (SI lengths in metres, energies in eV, angles in radians).
 
+pub mod dose;
 pub mod electron;
 pub mod exposure;
 pub mod hist;
@@ -47,6 +48,10 @@ pub mod table_coverage;
 pub mod trajectory;
 pub mod voxel;
 
+pub use dose::{
+    DepthDose, DepthDoseConfig, DoseConfig, DoseError, DoseReport, Estimate, InterfaceRefine,
+    InterfaceTransmission, LayerDose,
+};
 pub use electron::{
     net_mean_se, CartesianCharge, CartesianDeposition, CartesianGrid, ChargeCells, ChargeCounts,
     ChargeReport, CylindricalCharge, CylindricalDeposition, CylindricalGrid, DepositionReport,

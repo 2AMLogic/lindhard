@@ -229,6 +229,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use super::dose::{DoseAcc, DoseConfig, DoseError, DoseReport};
 use super::exposure::{ExposureAccumulator, ExposureConfig, ExposureError, ExposureReport};
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
@@ -283,6 +284,9 @@ pub enum ElectronTallyError {
     /// The radial-profile (PSF) configuration is invalid.
     #[error("invalid PSF configuration: {0}")]
     Psf(#[from] PsfError),
+    /// The dose / depth-dose / transmission configuration is invalid.
+    #[error(transparent)]
+    Dose(#[from] DoseError),
     /// The exposure settings are invalid.
     #[error(transparent)]
     Exposure(#[from] ExposureError),
@@ -381,6 +385,10 @@ pub struct ElectronTallyConfig {
     /// per-history errors: the input of the PSF fits of [`super::psf`].
     #[serde(default)]
     pub psf: Option<PsfConfig>,
+    /// Optional dose per layer, depth-dose profile and interface
+    /// transmission ([`super::dose`]).
+    #[serde(default)]
+    pub dose: Option<DoseConfig>,
     /// Optional exposure statistics: the per-electron deposit in target
     /// volumes and the compound-Poisson distribution of a finite exposure
     /// ([`super::exposure`]).
@@ -399,6 +407,7 @@ impl ElectronTallyConfig {
             escape_polar,
             se_bse_split_ev: SE_BSE_SPLIT_EV,
             psf: None,
+            dose: None,
             exposure: None,
         }
     }
@@ -909,6 +918,8 @@ pub struct FullElectronTally {
     cylindrical: Option<GridAcc>,
     /// Radial profile in a depth slab with per-history errors.
     psf: Option<RadialAccumulator>,
+    /// Dose, depth-dose and transmission accumulators.
+    dose: Option<DoseAcc>,
     /// Per-electron deposit in the exposure volumes.
     exposure: Option<ExposureAccumulator>,
     /// Energy-weighted deposition position: `x`, `y`, `z`, `r`.
@@ -976,6 +987,15 @@ impl FullElectronTally {
             }
         };
         let psf = config.psf.map(RadialAccumulator::new).transpose()?;
+        let dose = match config.dose {
+            None => None,
+            Some(d) => {
+                let stack = transport.geometry().as_stack().ok_or_else(|| {
+                    DoseError("the dose tally needs a layered stack target".into())
+                })?;
+                Some(DoseAcc::new(stack, d, config.escape_energy)?)
+            }
+        };
         let exposure = config
             .exposure
             .clone()
@@ -1013,6 +1033,7 @@ impl FullElectronTally {
             cartesian,
             cylindrical,
             psf,
+            dose,
             exposure,
             generation: [WeightedMoments::default(); 4],
             stop_depth: Moments::new(),
@@ -1111,6 +1132,9 @@ impl FullElectronTally {
         }
         if let Some(p) = &mut self.psf {
             p.deposit(pos, e);
+        }
+        if let Some(d) = &mut self.dose {
+            d.deposit(at.layer, pos[0], e);
         }
         if let Some(x) = &mut self.exposure {
             x.deposit(pos, e);
@@ -1264,6 +1288,7 @@ impl FullElectronTally {
                 psf: self.psf.as_ref().map(RadialAccumulator::profile),
                 exposure: self.exposure.as_ref().map(ExposureAccumulator::report),
             };
+        let dose = self.dose.as_ref().map(|d| d.report(self.budget.incident));
         ElectronReport {
             histories: h,
             metadata: ElectronTallyMetadata {
@@ -1283,6 +1308,7 @@ impl FullElectronTally {
             back,
             side: (self.side.slow.count + self.side.fast.count > 0).then(|| self.side.report(h)),
             deposition,
+            dose,
             generation_volume,
             charge: self.charge_report(),
             stopping_points: StoppingPoints {
@@ -1383,8 +1409,11 @@ impl ElectronTally for FullElectronTally {
         self.deposit(at, at.energy_ev, DepositKind::Lattice);
     }
 
-    fn interface(&mut self, at: &ElectronState, _from_layer: usize, _to_layer: usize) {
+    fn interface(&mut self, at: &ElectronState, from_layer: usize, to_layer: usize) {
         self.last = Some(*at);
+        if let Some(d) = &mut self.dose {
+            d.crossing(from_layer, to_layer, at.energy_ev, self.in_secondary);
+        }
     }
 
     fn barrier(&mut self, at: &ElectronState, _boundary: Boundary, delta_u_ev: f64) {
@@ -1486,6 +1515,9 @@ impl ElectronTally for FullElectronTally {
         if let Some(p) = &mut self.psf {
             p.end_history();
         }
+        if let Some(d) = &mut self.dose {
+            d.end_history();
+        }
         if let Some(x) = &mut self.exposure {
             x.end_history();
         }
@@ -1561,6 +1593,9 @@ impl ElectronTally for FullElectronTally {
         if let (Some(a), Some(b)) = (&mut self.psf, &o.psf) {
             a.merge(b);
         }
+        if let (Some(a), Some(b)) = (&mut self.dose, &o.dose) {
+            a.merge(b);
+        }
         if let (Some(a), Some(b)) = (&mut self.exposure, &o.exposure) {
             a.merge(b);
         }
@@ -1623,6 +1658,10 @@ pub struct ElectronReport {
     pub side: Option<FaceEmission>,
     /// Where the energy was deposited.
     pub deposition: DepositionReport,
+    /// Dose per layer, depth-dose and interface transmission, if configured
+    /// ([`ElectronTallyConfig::dose`]).
+    #[serde(default)]
+    pub dose: Option<DoseReport>,
     /// Energy-weighted moments of the deposition position; `None` if nothing
     /// was deposited.
     pub generation_volume: Option<GenerationVolume>,

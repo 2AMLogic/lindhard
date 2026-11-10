@@ -349,4 +349,10 @@ pub trait Geometry: Sync {
     /// collision partners that would lie beyond a surface. For a [`Stack`]
     /// this is in front of the front face only (as in the M0 engine).
     fn in_vacuum(&self, pos: [f64; 3]) -> bool;
+
+    /// This geometry as a layered [`Stack`], if it is one. Tallies defined
+    /// per layer (dose, depth-dose, interface transmission) need it.
+    fn as_stack(&self) -> Option<&Stack> {
+        None
+    }
 }

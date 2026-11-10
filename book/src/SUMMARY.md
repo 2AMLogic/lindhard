@@ -49,3 +49,4 @@
   - [Implant through a screen oxide](gallery/screen-oxide.md)
   - [Sputtering yield against incidence angle](gallery/sputtering-angle.md)
   - [Electron deposition in a resist on Si](gallery/resist-on-si.md)
+  - [Dose in a buried oxide](gallery/dose-buried-oxide.md)

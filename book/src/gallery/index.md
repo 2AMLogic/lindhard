@@ -1,6 +1,6 @@
 # Examples gallery
 
-Three scenarios, each with a runnable input under
+Four scenarios, each with a runnable input under
 [`examples/`](https://github.com/2AMLogic/lindhard/tree/main/examples), the
 command that runs it, and a figure and table of the result:
 
@@ -10,6 +10,9 @@ command that runs it, and a figure and table of the result:
    on Cu, swept over the tilt.
 3. [Electron deposition in a resist on Si](resist-on-si.md): 10 keV electrons
    into a 100 nm layer on Si, with **synthetic** electron data.
+4. [Dose in a buried oxide](dose-buried-oxide.md): electrons of 1 to 30 keV
+   on a metal and dielectric stack over a thin oxide, with **synthetic**
+   electron data.
 
 Every figure and table is generated from a run of the `lindhard` binary by one
 committed script, [`validation/gallery.py`](https://github.com/2AMLogic/lindhard/blob/main/validation/gallery.py);

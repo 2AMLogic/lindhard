@@ -56,6 +56,8 @@ pub const CHARGE_CARTESIAN_FILE: &str = "electron_charge_cartesian.csv";
 pub const CHARGE_CYLINDRICAL_FILE: &str = "electron_charge_cylindrical.csv";
 pub const PSF_PROFILE_FILE: &str = "electron_psf_profile.csv";
 pub const PSF_PARAMETERS_FILE: &str = "electron_psf_parameters.csv";
+pub const DEPTH_DOSE_FILE: &str = "electron_depth_dose.csv";
+pub const TRANSMISSION_FILE: &str = "electron_interface_transmission.csv";
 pub const EXPOSURE_FILE: &str = "electron_exposure_histogram.csv";
 pub const TABLES_FILE: &str = "electron_tables.csv";
 pub use crate::output::DAMAGE_EXPORT_FILE;
@@ -560,6 +562,8 @@ struct Files {
     charge_cylindrical: Option<&'static str>,
     psf_profile: Option<&'static str>,
     psf_parameters: Option<&'static str>,
+    depth_dose: Option<&'static str>,
+    interface_transmission: Option<&'static str>,
     exposure_histogram: Option<&'static str>,
     damage_export: Option<&'static str>,
 }
@@ -609,6 +613,19 @@ fn results_json(
         for class in ["slow", "fast"] {
             if let Some(o) = f[class].as_object_mut() {
                 o.remove("polar_histogram");
+            }
+        }
+    }
+    // The per-bin depth profile and the spectra go to CSV files.
+    if let Some(d) = v["dose"].as_object_mut() {
+        if d.get("depth").is_some_and(|x| !x.is_null()) {
+            d.remove("depth");
+        }
+        if let Some(t) = d.get_mut("transmission").and_then(|t| t.as_array_mut()) {
+            for e in t {
+                if let Some(o) = e.as_object_mut() {
+                    o.remove("spectrum");
+                }
             }
         }
     }
@@ -848,6 +865,9 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
         charge_cylindrical: r.tally.cylindrical.map(|_| CHARGE_CYLINDRICAL_FILE),
         psf_profile: sim.psf.as_ref().map(|_| PSF_PROFILE_FILE),
         psf_parameters: sim.psf.as_ref().map(|_| PSF_PARAMETERS_FILE),
+        depth_dose: r.tally.dose.and_then(|d| d.depth).map(|_| DEPTH_DOSE_FILE),
+        // A single-layer target has no interface to cross.
+        interface_transmission: transmission_csv(&sim.report).map(|_| TRANSMISSION_FILE),
         exposure_histogram: r.tally.exposure.as_ref().map(|_| EXPOSURE_FILE),
         damage_export: sim.voxel.as_ref().map(|_| DAMAGE_EXPORT_FILE),
     };
@@ -1000,6 +1020,74 @@ pub fn cylindrical_csv(report: &ElectronReport) -> Option<String> {
                 e / (n * v),
                 d.ionisation_ev.get(k).copied().unwrap_or(0.0),
                 d.lattice_ev.get(k).copied().unwrap_or(0.0)
+            )
+            .unwrap();
+        }
+    }
+    Some(out)
+}
+
+/// `electron_depth_dose.csv` (with `tally.dose.depth_bins_per_layer`): per depth
+/// bin, the energy per primary (eV, and eV per primary per nm) and the dose per
+/// unit incident fluence (Gy m², empty in a semi-infinite layer), with
+/// standard errors.
+pub fn depth_dose_csv(report: &ElectronReport) -> Option<String> {
+    let d = report.dose.as_ref()?.depth.as_ref()?;
+    let mut out = String::from(
+        "bin,layer,x_lo_nm,x_hi_nm,energy_ev,energy_ev_std_err,ev_per_nm,ev_per_nm_std_err,\
+         dose_gy_m2,dose_gy_m2_std_err\n",
+    );
+    for i in 0..d.energy_ev.len() {
+        let (e, p) = (&d.energy_ev[i], &d.ev_per_nm[i]);
+        let (g, ge) = match &d.dose_gy_m2[i] {
+            Some(g) => (format!("{:?}", g.mean), format!("{:?}", g.std_err)),
+            None => (String::new(), String::new()),
+        };
+        writeln!(
+            out,
+            "{i},{},{:?},{:?},{:?},{:?},{:?},{:?},{g},{ge}",
+            d.layer_of_bin[i],
+            d.edges_m[i] / NM,
+            d.edges_m[i + 1] / NM,
+            e.mean,
+            e.std_err,
+            p.mean,
+            p.std_err
+        )
+        .unwrap();
+    }
+    Some(out)
+}
+
+/// `electron_interface_transmission.csv` (with `tally.dose.transmission`): one
+/// row per interface, direction, particle class and energy bin of the
+/// spectrum, with the crossing totals repeated on each row.
+pub fn transmission_csv(report: &ElectronReport) -> Option<String> {
+    let dose = report.dose.as_ref()?;
+    if dose.transmission.is_empty() {
+        return None;
+    }
+    let mut out = String::from(
+        "interface,from_layer,to_layer,class,count_per_primary,count_std_err,\
+         energy_ev_per_primary,energy_std_err,energy_fraction,bin,e_lo_ev,e_hi_ev,crossings\n",
+    );
+    for t in &dose.transmission {
+        let b = &t.spectrum.binning;
+        for (i, c) in t.spectrum.counts.iter().enumerate() {
+            writeln!(
+                out,
+                "{},{},{},{},{:?},{:?},{:?},{:?},{:?},{i},{:?},{:?},{c}",
+                t.interface,
+                t.from_layer,
+                t.to_layer,
+                if t.secondary { "secondary" } else { "primary" },
+                t.count.mean,
+                t.count.std_err,
+                t.energy_ev.mean,
+                t.energy_ev.std_err,
+                t.energy_fraction,
+                b.edge(i),
+                b.edge(i + 1)
             )
             .unwrap();
         }
