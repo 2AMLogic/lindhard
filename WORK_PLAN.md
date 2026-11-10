@@ -141,19 +141,30 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-_None._
+- **#570**: [Epic #25] Electron transport on any Geometry (voxel targets) with a 3-D energy-deposition tally (part of #549)
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#543**: [Epic #22] Store Ar → Ni sputter-yield datasets from IPPJ-AM-32 (split from #511, part 1)
+- **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel)
+- **#547**: Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack
+- **#550**: Exposure statistics: distribution of energy deposited in a small volume by a finite number of electrons
+- **#551**: Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check
+- **#556**: Sourced optical ELFs: metals Co, Ru, W, Ta, Ti
+- **#558**: [Part of #553] Electron runs: ionisation vs lattice energy, e-h pairs, and knock-on threshold report
+- **#559**: [Epic #22] Focused ion beams, part 1: 2-D dynamic voxel target with finite beam, local-angle yield and redeposition
+- **#560**: [Part of #553] Ion runs: per-element vacancy, interstitial and replacement maps per voxel, written by the CLI
+- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
+- **#564**: Sourced optical ELFs: TaN and TiN
+- **#568**: Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
+- **#569**: Sourced optical ELFs: PMMA and hydrogen silsesquioxane (HSQ)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#542**: docs: record operator rulings on 0.1.0 scope and publishing
+- **#573**: docs: record W, Ta, Ti, Co and Ru optical-data sources as gaps
 
 ## Approved (Awaiting Merge)
 
@@ -180,6 +191,21 @@ Issues carrying `loom:curated`.
 - **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning *(curated)*
 - **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
 - **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2) *(curated)*
+- **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)*
+- **#547**: Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack *(curated)*
+- **#550**: Exposure statistics: distribution of energy deposited in a small volume by a finite number of electrons *(curated)*
+- **#551**: Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check *(curated)*
+- **#556**: Sourced optical ELFs: metals Co, Ru, W, Ta, Ti *(curated)*
+- **#558**: [Part of #553] Electron runs: ionisation vs lattice energy, e-h pairs, and knock-on threshold report *(curated)*
+- **#559**: [Epic #22] Focused ion beams, part 1: 2-D dynamic voxel target with finite beam, local-angle yield and redeposition *(curated)*
+- **#560**: [Part of #553] Ion runs: per-element vacancy, interstitial and replacement maps per voxel, written by the CLI *(curated)*
+- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose *(curated)*
+- **#564**: Sourced optical ELFs: TaN and TiN *(curated)*
+- **#565**: [Epic #22] Focused ion beams, part 2: validate sputter yield against incidence angle for one ion-target pair *(curated)*
+- **#568**: Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3 *(curated)*
+- **#569**: Sourced optical ELFs: PMMA and hydrogen silsesquioxane (HSQ) *(curated)*
+- **#570**: [Epic #25] Electron transport on any Geometry (voxel targets) with a 3-D energy-deposition tally (part of #549) *(curated)*
+- **#571**: [Epic #25] Electron beam with a finite lateral profile, landing position and divergence (part of #549) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -194,6 +220,7 @@ _None._
 - **#25**: Epic: 2D/3D target geometry and layout cross-sections
 - **#28**: Epic: Python and WASM bindings
 - **#33**: Epic: Permissive stopping-power data library
+- **#548**: Photon channel for electron runs: bremsstrahlung and characteristic x-rays, and the dose they carry beyond the electron range
 
 ## Backlog Balance
 
@@ -202,13 +229,13 @@ _None._
 | Operator merge-risk holds | 0 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 1 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 12 |
 | PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 0 |
-| Curated | 15 |
+| Curated | 30 |
 | Architect / Hermit proposals | 0 |
-| Active epics | 7 |
+| Active epics | 8 |
 <!-- guide:plan-body:end -->
 
 ## Done
