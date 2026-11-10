@@ -41,6 +41,7 @@ fn _lindhard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<dynamic_result::DynamicRunResult>()?;
     m.add_function(wrap_pyfunction!(exposure::exposure_dose, m)?)?;
     m.add_function(wrap_pyfunction!(exposure::exposure_dose_grid, m)?)?;
+    m.add_function(wrap_pyfunction!(exposure::exposure_direct, m)?)?;
     m.add_function(wrap_pyfunction!(exposure::area_dose, m)?)?;
     m.add_function(wrap_pyfunction!(exposure::iso_contours, m)?)?;
     m.add(

@@ -6,13 +6,15 @@
 
 use lindhard::contour::{contours_of, Contour};
 use lindhard::exposure::{
-    parse_shots_csv, uniform_area_dose, Exposure, Grid, Shot, DEFAULT_SUBSAMPLES,
+    compare_with_convolution, direct_dose, parse_shots_csv, uniform_area_dose, DirectConfig,
+    Exposure, Grid, Shot, DEFAULT_SUBSAMPLES,
 };
 use lindhard::tally::GaussianPsf;
 use numpy::{IntoPyArray, PyArrayMethods, PyReadonlyArray1, PyReadonlyArray2};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};
 
+use crate::electron::ElectronRun;
 use crate::errors;
 
 // The pyo3 signatures spell the default `subsamples=16` as a literal (a named
@@ -164,6 +166,116 @@ pub(crate) fn exposure_dose_grid<'py>(
         .detach(|| with_threads(threads, || e.dose_on_grid(&grid)))?
         .map_err(errors::input)?;
     dose.dose_ev_per_m2.into_pyarray(py).reshape([ny, nx])
+}
+
+/// Direct Monte Carlo exposure of `shots` on the target of `run` (an
+/// `ElectronRun`: its layers, tables and beam energy; the shot list sets where
+/// the primaries land), compared with the Gaussian-sum superposition of the
+/// given PSF on the grid `(x0_m, y0_m, dx_m, dy_m, nx, ny)`. Returns a dict of
+/// `(ny, nx)` arrays: `dose_ev_per_m2` and `std_err_ev_per_m2` (transport),
+/// `convolution_ev_per_m2` (averaged over each cell), `deviation_sigmas`
+/// (direct minus convolution in combined standard errors) and `flagged`
+/// (bool). The film slab is `slab_lo_m <= depth < slab_hi_m`. Arguments and
+/// model as for `lindhard exposure --direct` (`cli.md`, "Exposure"); results
+/// equal its CSV values bit for bit at any thread count. Raises `InputError`
+/// for an invalid value and `RunError` if table construction or transport
+/// fails.
+#[pyfunction]
+#[pyo3(signature = (shots, run, x0_m, y0_m, dx_m, dy_m, nx, ny, *, total_ev, alpha_m, beta_m,
+                    eta, slab_hi_m, histories_per_shot, gamma_m=None, nu=None, blur_m=0.0,
+                    subsamples=16, replicas=8, seed=1, slab_lo_m=0.0, tolerance_sigmas=5.0,
+                    conv_rel_err=0.0, floor_fraction=0.01, threads=None))]
+#[allow(clippy::too_many_arguments)]
+pub(crate) fn exposure_direct<'py>(
+    py: Python<'py>,
+    shots: &Bound<'py, PyAny>,
+    run: &Bound<'py, ElectronRun>,
+    x0_m: f64,
+    y0_m: f64,
+    dx_m: f64,
+    dy_m: f64,
+    nx: usize,
+    ny: usize,
+    total_ev: f64,
+    alpha_m: f64,
+    beta_m: f64,
+    eta: f64,
+    slab_hi_m: f64,
+    histories_per_shot: u64,
+    gamma_m: Option<f64>,
+    nu: Option<f64>,
+    blur_m: f64,
+    subsamples: usize,
+    replicas: usize,
+    seed: u64,
+    slab_lo_m: f64,
+    tolerance_sigmas: f64,
+    conv_rel_err: f64,
+    floor_fraction: f64,
+    threads: Option<usize>,
+) -> PyResult<Bound<'py, PyDict>> {
+    let shots = parse_shots(shots)?;
+    let e = Exposure::with_subsamples(
+        psf(total_ev, alpha_m, beta_m, eta, gamma_m, nu)?,
+        shots.clone(),
+        blur_m,
+        subsamples,
+    )
+    .map_err(errors::input)?;
+    let grid = Grid {
+        x0_m,
+        y0_m,
+        dx_m,
+        dy_m,
+        nx,
+        ny,
+    };
+    grid.validate().map_err(errors::input)?;
+    let resolved = run.borrow().resolve_input()?;
+    if threads == Some(0) {
+        return Err(errors::input("threads must be at least 1"));
+    }
+    let cfg = DirectConfig {
+        histories_per_shot,
+        replicas,
+        chunk_size: lindhard_cli::electron::CHUNK_SIZE,
+        seed,
+        depth_lo_m: slab_lo_m,
+        depth_hi_m: slab_hi_m,
+    };
+    let (direct, cmp) = py.detach(|| -> PyResult<_> {
+        let pool = rayon::ThreadPoolBuilder::new()
+            .num_threads(threads.unwrap_or(0))
+            .build()
+            .map_err(|e| errors::run(&e))?;
+        let (transport, _tables, _secs) =
+            lindhard_cli::electron::build_transport(&resolved, &pool, None)
+                .map_err(|e| errors::run(&e))?;
+        let direct = pool
+            .install(|| direct_dose(&transport, &resolved.primary, &shots, blur_m, &grid, &cfg))
+            .map_err(errors::input)?;
+        let cmp =
+            compare_with_convolution(&direct, &e, conv_rel_err, tolerance_sigmas, floor_fraction)
+                .map_err(errors::input)?;
+        Ok((direct, cmp))
+    })?;
+    let arr = |v: Vec<f64>| -> PyResult<Bound<'py, numpy::PyArray2<f64>>> {
+        v.into_pyarray(py).reshape([ny, nx])
+    };
+    let d = PyDict::new(py);
+    d.set_item("dose_ev_per_m2", arr(direct.dose_ev_per_m2.clone())?)?;
+    d.set_item("std_err_ev_per_m2", arr(direct.std_err_ev_per_m2.clone())?)?;
+    d.set_item(
+        "convolution_ev_per_m2",
+        arr(cmp.iter().map(|c| c.convolution_ev_per_m2).collect())?,
+    )?;
+    d.set_item(
+        "deviation_sigmas",
+        arr(cmp.iter().map(|c| c.deviation_sigmas).collect())?,
+    )?;
+    let flagged: Vec<bool> = cmp.iter().map(|c| c.flagged).collect();
+    d.set_item("flagged", flagged.into_pyarray(py).reshape([ny, nx])?)?;
+    Ok(d)
 }
 
 /// The dose far inside a large uniform exposure of `weight_per_m2` primaries

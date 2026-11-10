@@ -1162,7 +1162,8 @@ not block, a read-only cache serves its entries and refuses a miss). Remove the 
 Turns a fitted point-spread function into the dose of a list of shots (a
 pattern exposure). It does not transport anything: the dose is the analytic
 sum of Gaussians described in the module documentation of
-`lindhard::exposure`, so it is fast and exact for point shots.
+`lindhard::exposure`, so it is fast and exact for point shots. `--direct`
+adds an independent transport run of the same shots (see "Direct mode" below).
 
 ```text
 lindhard exposure --shots shots.csv \
@@ -1209,11 +1210,49 @@ Files written to the output directory:
 | `exposure_dose.csv` | `x_m,y_m,dose_ev_per_m2`, one row per grid point, rows in grid order (x fastest) |
 | `exposure_contours.csv` | with a threshold: one row per contour vertex, with the contour's index, `closed`, area and centroid |
 | `exposure_features.csv` | with a threshold: one row per contour: `contour,closed,vertices,signed_area_m2,centroid_x_m,centroid_y_m` |
-| `exposure_summary.json` | shot count, the PSF, blur, grid, largest dose, the large-area dose per unit weight density split into the forward (`alpha`) part and the long-range (backscatter) part, and the contour count |
+| `exposure_summary.json` | shot count, the PSF, blur, grid, largest dose, the large-area dose per unit weight density split into the forward (`alpha`) part and the long-range (backscatter) part, the contour count, and (with `--direct`) the `direct` block (settings and the number of flagged points; `null` otherwise) |
+| `exposure_direct.csv` | with `--direct`: `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2` from transport, rows in grid order |
+| `exposure_comparison.csv` | with `--direct`: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged` |
 
 The large-area dose of a uniform exposure of `w` primaries per m^2 is `w E`
 (the PSF integrates to `E`), of which the forward term gives the share
 `1 / (1 + eta [+ nu])`.
+
+### Direct mode: `--direct`
+
+The convolution above assumes a laterally uniform film. `--direct target.toml`
+also evaluates the same shot list by electron transport, as an independent
+answer at the same grid points. The model, frame and error are in the module
+documentation of `lindhard::exposure` ("Direct Monte Carlo exposure"); in
+short:
+
+- `target.toml` is an electron input (`[electron]`, see "Electron runs"). Its
+  layers, cross-section tables and beam energy are used; where the primaries
+  land (and the spot) comes from the shot list, so the input's own beam
+  profile, landing point and divergence are not used. The target is that
+  input's laterally uniform layer stack: a laterally varying (voxel) target is
+  available through the library and not yet through TOML.
+- Each shot runs `--direct-histories` primaries (split over `--direct-replicas`
+  independent replicas, at least 2) from the shot position with its spot
+  shape; a point shot with blur `b` is a Gaussian beam `exp(-r^2/b^2)`. A
+  shaped spot with a nonzero blur is refused. Exposure coordinates are offsets
+  from the target's entry point, `x` and `y` being the geometry's `y` and `z`.
+- The energy deposited in the film slab `--slab-lo-m` (default 0) to
+  `--slab-hi-m` (required) is tallied per grid cell and divided by the cell
+  area; the point is the cell centre. The result is the mean over the replicas
+  with its standard error (Monte Carlo noise only), reported next to the
+  convolution averaged over the same cell.
+- A point is flagged in `exposure_comparison.csv` when the doses differ by more
+  than `--tolerance-sigmas` (default 5) combined standard errors,
+  `sqrt(se_direct^2 + se_conv^2)`, where `se_conv` is `--conv-rel-err` times the
+  convolution dose (default 0: the PSF's own uncertainty is not propagated).
+  Points where both doses are below `--floor-fraction` (default 0.01) of the
+  largest dose are not judged, as the run cannot resolve them.
+- Seeds follow the run's thread-count-independent scheme (one SplitMix64 mix
+  per replica and shot), so the files are identical for any `--threads`.
+
+The PSF flags (`--psf-parameters` or the typed-in values) are still needed for
+the comparison.
 
 ## Reusing an output directory
 
