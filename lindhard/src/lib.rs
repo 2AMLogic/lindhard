@@ -7,6 +7,7 @@
 //! * [`constants`]: physical constants in SI units, each with its source.
 //! * [`electron`]: electron transport, from validated data to tallies.
 //! * [`elements`]: the per-element data table, Z = 1..=92.
+//! * [`exposure`]: dose of a multi-shot exposure from a fitted Gaussian-sum PSF.
 //! * [`geometry`]: the `Geometry` trait and the layered, voxel and mesh targets.
 //! * [`input`]: the TOML run description (beam, target, physics, run size).
 //! * [`ion`]: ion transport, screening, stopping, damage and crystal targets.
@@ -20,6 +21,7 @@
 pub mod constants;
 pub mod electron;
 pub mod elements;
+pub mod exposure;
 pub mod geometry;
 pub mod input;
 pub mod ion;
