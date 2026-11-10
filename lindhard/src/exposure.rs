@@ -61,14 +61,74 @@
 //! is tracked separately (issue #151). Superposition also assumes the film is
 //! laterally uniform.
 //!
+//! # Direct Monte Carlo exposure
+//!
+//! [`direct_dose`] evaluates the same shot list by transport instead of by
+//! superposition, which makes no assumption of a laterally uniform film. For
+//! each shot the electron engine ([`Transport::run_beam`]) runs primaries from
+//! the shot position with the shot's spot shape, and the energy deposited in
+//! the film slab `depth_lo <= x < depth_hi` is tallied per lateral cell of the
+//! evaluation [`Grid`] (one voxel per grid point, the point at its centre,
+//! through [`VoxelTallyGrid`]). The shot's weight scales the per-primary
+//! deposit, so the energy density at a point is
+//!
+//! ```text
+//! D(p) = Σ_shots w_s · (E_s(p) / N_s) / (dx · dy)
+//! ```
+//!
+//! with `E_s(p)` the energy deposited in the cell of `p` by the `N_s`
+//! primaries of shot `s`. This is the cell average of the density that
+//! [`Exposure::dose_at`] gives at the cell centre; the two agree when the
+//! dose varies little over a cell (choose `dx`, `dy` below the narrowest PSF
+//! width).
+//!
+//! **Frame.** Exposure coordinates `(x, y)` are offsets from the geometry's
+//! entry point (the centre of the front face of a voxel grid), as for
+//! [`BeamSpread::landing_m`]: exposure `x` is the geometry's `y` and exposure
+//! `y` its `z`. Depth is the geometry's `x`.
+//!
+//! **Spots.** A point shot is a Gaussian beam of the blur width (`b` in
+//! `exp(-r²/b²)`, i.e. `σ = b/√2` per axis); a disc or rectangle is the
+//! uniform profile of the same shape. A shaped spot with a nonzero blur is
+//! rejected: the engine's profiles do not convolve a shape with a Gaussian.
+//!
+//! **Statistical error.** The run is made in `R` independent replicas
+//! ([`DirectConfig::replicas`]), each with its own seeds and
+//! `histories_per_shot / R` primaries per shot. The reported dose at a point
+//! is the mean of the `R` replica doses and its standard error
+//! `sqrt(s² / R)`, with `s²` the sample variance of the replica doses
+//! (Bessel-corrected). The error is statistical only (Monte Carlo noise); the
+//! cross-section tables' own uncertainty is not included.
+//!
+//! **Determinism.** Replica `r` and shot `s` run with seed
+//! `point_seed(point_seed(seed, r), s)` (a SplitMix64 mix, see
+//! [`crate::tally::psf_scan`]), runs are made one after the other, each is
+//! bit-identical at any thread count, and the sums over shots and replicas
+//! are taken in index order, so the result does not depend on the thread
+//! count.
+//!
+//! **Comparison with the convolution.** [`compare_with_convolution`] puts the
+//! two results side by side per point (the convolution averaged over the
+//! same cell, as the tally measures a cell average) and flags the points where they differ
+//! by more than a stated number of combined standard errors,
+//! `sqrt(σ_direct² + σ_conv²)`. The superposition has no sampling error of
+//! its own; `σ_conv` is the stated relative uncertainty of the fitted PSF
+//! times the convolution dose (0 if none is given).
+//!
 //! [`PsfFit`]: crate::tally::PsfFit
+//! [`Transport::run_beam`]: crate::electron::transport::Transport::run_beam
+//! [`BeamSpread::landing_m`]: crate::electron::transport::BeamSpread
+//! [`VoxelTallyGrid`]: crate::tally::VoxelTallyGrid
 
 use std::f64::consts::PI;
 
 use rayon::prelude::*;
 use thiserror::Error;
 
-use crate::tally::GaussianPsf;
+use crate::electron::transport::{BeamProfile, BeamSpread, Primary, Transport};
+use crate::geometry::Geometry;
+use crate::tally::psf_scan::point_seed;
+use crate::tally::{Binning, ElectronTallyConfig, FullElectronTally, GaussianPsf, VoxelTallyGrid};
 
 /// Default sub-sampling per axis of a shaped spot.
 pub const DEFAULT_SUBSAMPLES: usize = 16;
@@ -79,6 +139,9 @@ pub enum ExposureError {
     /// A parameter is out of range.
     #[error("invalid exposure: {0}")]
     Invalid(String),
+    /// The transport rejected the run.
+    #[error("direct exposure: {0}")]
+    Transport(String),
     /// The shot-list CSV could not be read.
     #[error("shot list line {line}: {message}")]
     Csv {
@@ -520,4 +583,333 @@ pub fn parse_shots_csv(text: &str) -> Result<Vec<Shot>, ExposureError> {
         shots.push(shot);
     }
     Ok(shots)
+}
+
+/// Settings of [`direct_dose`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DirectConfig {
+    /// Primaries per shot, summed over the replicas (at least `replicas`).
+    pub histories_per_shot: u64,
+    /// Independent replicas for the statistical error (at least 2).
+    pub replicas: usize,
+    /// Histories per tally chunk (see `Transport::run_beam`).
+    pub chunk_size: u64,
+    /// Base seed.
+    pub seed: u64,
+    /// Lower depth of the film slab, m.
+    pub depth_lo_m: f64,
+    /// Upper depth of the film slab (excluded), m.
+    pub depth_hi_m: f64,
+}
+
+/// The energy density of a shot list by transport, with its statistical
+/// error, on a [`Grid`].
+#[derive(Debug, Clone, PartialEq)]
+pub struct DirectDose {
+    /// The evaluation grid.
+    pub grid: Grid,
+    /// Mean over replicas of the deposited energy density, eV/m², row-major.
+    pub dose_ev_per_m2: Vec<f64>,
+    /// Standard error of each mean, eV/m².
+    pub std_err_ev_per_m2: Vec<f64>,
+    /// Replicas.
+    pub replicas: usize,
+    /// Primaries per shot in each replica.
+    pub histories_per_shot_per_replica: u64,
+}
+
+impl DirectDose {
+    /// CSV with columns `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2`, rows in
+    /// grid order.
+    pub fn csv(&self) -> String {
+        let mut s = String::from("x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2\n");
+        for j in 0..self.grid.ny {
+            for i in 0..self.grid.nx {
+                let [x, y] = self.grid.point(i, j);
+                let k = j * self.grid.nx + i;
+                s.push_str(&format!(
+                    "{x},{y},{},{}\n",
+                    self.dose_ev_per_m2[k], self.std_err_ev_per_m2[k]
+                ));
+            }
+        }
+        s
+    }
+}
+
+/// The beam of a shot: its landing point and lateral profile.
+fn shot_beam(shot: &Shot, global_blur_m: f64) -> Result<BeamSpread, ExposureError> {
+    let b2 = global_blur_m * global_blur_m + shot.blur_m * shot.blur_m;
+    let profile = match shot.shape {
+        SpotShape::Point if b2 > 0.0 => BeamProfile::Gaussian {
+            sigma_m: (b2 / 2.0).sqrt(),
+        },
+        SpotShape::Point => BeamProfile::Point,
+        _ if b2 > 0.0 => {
+            return Err(ExposureError::Invalid(format!(
+                "a shaped spot with a nonzero blur is not supported by the direct mode: {shot:?}"
+            )))
+        }
+        SpotShape::Disc { radius_m } => BeamProfile::Disc { radius_m },
+        SpotShape::Rect { width_m, height_m } => BeamProfile::Rectangle {
+            width_y_m: width_m,
+            width_z_m: height_m,
+        },
+    };
+    Ok(BeamSpread {
+        landing_m: [shot.x_m, shot.y_m],
+        profile,
+        ..BeamSpread::default()
+    })
+}
+
+/// The energy density of `shots` on `grid` by electron transport; see the
+/// module docs ("Direct Monte Carlo exposure") for the model, frame and
+/// error. `global_blur_m` is the exposure's beam blur `b`.
+pub fn direct_dose<G: Geometry>(
+    transport: &Transport<G>,
+    primary: &Primary,
+    shots: &[Shot],
+    global_blur_m: f64,
+    grid: &Grid,
+    cfg: &DirectConfig,
+) -> Result<DirectDose, ExposureError> {
+    grid.validate()?;
+    if !(global_blur_m.is_finite() && global_blur_m >= 0.0) {
+        return Err(ExposureError::Invalid(format!(
+            "blur must be finite and non-negative, got {global_blur_m}"
+        )));
+    }
+    if cfg.replicas < 2 {
+        return Err(ExposureError::Invalid("replicas must be at least 2".into()));
+    }
+    if cfg.chunk_size == 0 {
+        return Err(ExposureError::Invalid("chunk size must be positive".into()));
+    }
+    let n_r = cfg.histories_per_shot / cfg.replicas as u64;
+    if n_r == 0 {
+        return Err(ExposureError::Invalid(
+            "histories per shot must be at least the number of replicas".into(),
+        ));
+    }
+    for s in shots {
+        s.validate()?;
+    }
+    let beams: Vec<BeamSpread> = shots
+        .iter()
+        .map(|s| shot_beam(s, global_blur_m))
+        .collect::<Result<_, _>>()?;
+
+    let entry = transport.geometry().entry_point();
+    let tally_grid = VoxelTallyGrid::new(
+        [
+            cfg.depth_lo_m,
+            entry[1] + grid.x0_m - grid.dx_m / 2.0,
+            entry[2] + grid.y0_m - grid.dy_m / 2.0,
+        ],
+        [cfg.depth_hi_m - cfg.depth_lo_m, grid.dx_m, grid.dy_m],
+        [1, grid.nx, grid.ny],
+    )
+    .map_err(|e| ExposureError::Invalid(format!("tally grid: {e}")))?;
+    let mut tally_config = ElectronTallyConfig::new(
+        Binning::new(0.0, primary.energy_ev, 1)
+            .map_err(|e| ExposureError::Invalid(e.to_string()))?,
+        Binning::new(0.0, std::f64::consts::FRAC_PI_2, 1).expect("one polar bin"),
+    );
+    tally_config.psf = None;
+    let proto = FullElectronTally::new(transport, tally_config)
+        .map_err(|e| ExposureError::Transport(e.to_string()))?
+        .with_voxel_grid(tally_grid);
+
+    let n = grid.len();
+    let area = grid.dx_m * grid.dy_m;
+    let mut replica_dose: Vec<Vec<f64>> = Vec::with_capacity(cfg.replicas);
+    for r in 0..cfg.replicas {
+        let rep_seed = point_seed(cfg.seed, r as u64);
+        let mut acc = vec![0.0; n];
+        for (s, (shot, beam)) in shots.iter().zip(&beams).enumerate() {
+            if shot.weight == 0.0 {
+                continue;
+            }
+            let run = transport
+                .run_beam(
+                    point_seed(rep_seed, s as u64),
+                    n_r,
+                    cfg.chunk_size,
+                    primary,
+                    beam,
+                    || proto.clone(),
+                )
+                .map_err(|e| ExposureError::Transport(e.to_string()))?;
+            let report = run
+                .tally
+                .voxel_report()
+                .expect("the voxel grid was configured");
+            for v in &report.voxels {
+                acc[v.index[2] * grid.nx + v.index[1]] +=
+                    shot.weight * v.cell.deposited_ev() / n_r as f64;
+            }
+        }
+        for a in &mut acc {
+            *a /= area;
+        }
+        replica_dose.push(acc);
+    }
+    let rn = cfg.replicas as f64;
+    let mut dose = Vec::with_capacity(n);
+    let mut err = Vec::with_capacity(n);
+    for k in 0..n {
+        let mean = replica_dose.iter().map(|d| d[k]).sum::<f64>() / rn;
+        let var = replica_dose
+            .iter()
+            .map(|d| (d[k] - mean) * (d[k] - mean))
+            .sum::<f64>()
+            / (rn - 1.0);
+        dose.push(mean);
+        err.push((var / rn).sqrt());
+    }
+    Ok(DirectDose {
+        grid: *grid,
+        dose_ev_per_m2: dose,
+        std_err_ev_per_m2: err,
+        replicas: cfg.replicas,
+        histories_per_shot_per_replica: n_r,
+    })
+}
+
+/// Sub-cells per axis of the cell average of the convolution dose.
+const CELL_SUBSAMPLES: usize = 8;
+
+/// The superposition dose averaged over the `dx × dy` cell centred on
+/// `(x, y)` (midpoint rule on `CELL_SUBSAMPLES²` points), the quantity the
+/// transport tally measures.
+fn cell_average(e: &Exposure, x: f64, y: f64, dx: f64, dy: f64) -> f64 {
+    let n = CELL_SUBSAMPLES;
+    let mut sum = 0.0;
+    for j in 0..n {
+        for i in 0..n {
+            let ox = ((i as f64 + 0.5) / n as f64 - 0.5) * dx;
+            let oy = ((j as f64 + 0.5) / n as f64 - 0.5) * dy;
+            sum += e.dose_at(x + ox, y + oy);
+        }
+    }
+    sum / (n * n) as f64
+}
+
+/// One evaluation point of [`compare_with_convolution`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct PointComparison {
+    /// Point, m.
+    pub x_m: f64,
+    /// Point, m.
+    pub y_m: f64,
+    /// Dose from the superposition, eV/m².
+    pub convolution_ev_per_m2: f64,
+    /// Dose from the transport run, eV/m².
+    pub direct_ev_per_m2: f64,
+    /// Combined standard error, eV/m².
+    pub combined_std_err_ev_per_m2: f64,
+    /// `(direct - convolution) / combined`; infinite with sign when the
+    /// error is 0 and the two differ, 0 when they are equal.
+    pub deviation_sigmas: f64,
+    /// Whether `|deviation_sigmas|` exceeds the tolerance at a point above
+    /// the resolution floor.
+    pub flagged: bool,
+}
+
+/// The direct and convolution doses side by side at every point of
+/// `direct.grid`; a point is flagged when the two differ by more than
+/// `tolerance_sigmas` combined standard errors (see the module docs).
+/// `conv_rel_err` is the relative uncertainty assigned to the convolution.
+///
+/// **Resolution floor.** A transport run cannot resolve a dose far below the
+/// grid's peak: with few or no deposits in a cell the replica variance is
+/// zero or itself noise. A point where both doses are below
+/// `floor_fraction` times the largest dose of either method on the grid is
+/// reported but never flagged (0 judges every point). Choose it with the
+/// histories per shot in mind: it should be well above `1 / (histories per
+/// replica)` of the peak.
+pub fn compare_with_convolution(
+    direct: &DirectDose,
+    convolution: &Exposure,
+    conv_rel_err: f64,
+    tolerance_sigmas: f64,
+    floor_fraction: f64,
+) -> Result<Vec<PointComparison>, ExposureError> {
+    if !(floor_fraction.is_finite() && (0.0..1.0).contains(&floor_fraction)) {
+        return Err(ExposureError::Invalid(
+            "floor fraction must be in [0, 1)".into(),
+        ));
+    }
+    if !(conv_rel_err.is_finite() && conv_rel_err >= 0.0) {
+        return Err(ExposureError::Invalid(
+            "convolution relative error must be finite and non-negative".into(),
+        ));
+    }
+    if !(tolerance_sigmas.is_finite() && tolerance_sigmas > 0.0) {
+        return Err(ExposureError::Invalid(
+            "tolerance must be finite and positive".into(),
+        ));
+    }
+    let g = &direct.grid;
+    let conv_doses: Vec<f64> = (0..g.len())
+        .map(|k| {
+            let [x, y] = g.point(k % g.nx, k / g.nx);
+            cell_average(convolution, x, y, g.dx_m, g.dy_m)
+        })
+        .collect();
+    let peak = conv_doses
+        .iter()
+        .chain(&direct.dose_ev_per_m2)
+        .fold(0.0_f64, |a, &b| a.max(b));
+    let floor = floor_fraction * peak;
+    let mut out = Vec::with_capacity(g.len());
+    for j in 0..g.ny {
+        for i in 0..g.nx {
+            let k = j * g.nx + i;
+            let [x, y] = g.point(i, j);
+            let conv = conv_doses[k];
+            let d = direct.dose_ev_per_m2[k];
+            let se = direct.std_err_ev_per_m2[k].hypot(conv_rel_err * conv);
+            let diff = d - conv;
+            let dev = if diff == 0.0 {
+                0.0
+            } else if se > 0.0 {
+                diff / se
+            } else {
+                f64::INFINITY.copysign(diff)
+            };
+            out.push(PointComparison {
+                x_m: x,
+                y_m: y,
+                convolution_ev_per_m2: conv,
+                direct_ev_per_m2: d,
+                combined_std_err_ev_per_m2: se,
+                deviation_sigmas: dev,
+                flagged: dev.abs() > tolerance_sigmas && conv.max(d) >= floor,
+            });
+        }
+    }
+    Ok(out)
+}
+
+/// CSV of a comparison: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,
+/// combined_std_err_ev_per_m2,deviation_sigmas,flagged`.
+pub fn comparison_csv(points: &[PointComparison]) -> String {
+    let mut s = String::from(
+        "x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged\n",
+    );
+    for p in points {
+        s.push_str(&format!(
+            "{},{},{},{},{},{},{}\n",
+            p.x_m,
+            p.y_m,
+            p.convolution_ev_per_m2,
+            p.direct_ev_per_m2,
+            p.combined_std_err_ev_per_m2,
+            p.deviation_sigmas,
+            u8::from(p.flagged)
+        ));
+    }
+    s
 }

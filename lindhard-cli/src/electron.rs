@@ -330,23 +330,15 @@ pub fn inelastic_axis(r: &ResolvedElectron, m: &ResolvedElectronMaterial) -> (f6
     }
 }
 
-/// Build the tables (or read them from `cache`), run every history on
-/// `threads` workers (`None`: all cores) and report. Neither the thread count
-/// nor the cache changes the results: a cached table is the built one, bit
-/// for bit (the cache form round-trips every `f64` exactly).
-pub fn simulate_electron(
+/// The cross-section tables of every material of `r` (or read from `cache`)
+/// and the transport engine built on them, with the insulator and inner-shell
+/// channels the input asks for, plus the seconds the tables took. The tables
+/// are built on `pool`.
+pub fn build_transport(
     r: &ResolvedElectron,
-    threads: Option<usize>,
+    pool: &rayon::ThreadPool,
     cache: Option<&TableCache>,
-) -> Result<ElectronSimulation> {
-    if threads == Some(0) {
-        bail!("threads must be at least 1");
-    }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
-
+) -> Result<(Transport, Vec<MaterialTables>, f64)> {
     let t0 = Instant::now();
     let tables: Vec<MaterialTables> = pool.install(|| {
         r.materials
@@ -412,6 +404,27 @@ pub fn simulate_electron(
                 })?;
         }
     }
+    Ok((transport, tables, table_build_s))
+}
+
+/// Build the tables (or read them from `cache`), run every history on
+/// `threads` workers (`None`: all cores) and report. Neither the thread count
+/// nor the cache changes the results: a cached table is the built one, bit
+/// for bit (the cache form round-trips every `f64` exactly).
+pub fn simulate_electron(
+    r: &ResolvedElectron,
+    threads: Option<usize>,
+    cache: Option<&TableCache>,
+) -> Result<ElectronSimulation> {
+    if threads == Some(0) {
+        bail!("threads must be at least 1");
+    }
+    let pool = rayon::ThreadPoolBuilder::new()
+        .num_threads(threads.unwrap_or(0))
+        .build()
+        .context("building the thread pool")?;
+
+    let (transport, tables, table_build_s) = build_transport(r, &pool, cache)?;
     let mut proto = FullElectronTally::new(&transport, r.tally.clone())
         .context("setting up the electron tally")?;
     if let Some(g) = r.voxel_grid {

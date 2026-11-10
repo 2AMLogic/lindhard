@@ -14,6 +14,8 @@ spectra and energy-deposition grids as NumPy arrays, summary as a dict).
 The dose of a multi-shot exposure from a fitted Gaussian-sum point-spread
 function is :func:`exposure_dose` / :func:`exposure_dose_grid`, its large-area
 limit :func:`area_dose` and its iso-dose contours :func:`iso_contours`.
+A direct Monte Carlo evaluation of the same shot list, compared with the
+convolution, is :func:`exposure_direct`.
 """
 
 from ._lindhard import (
@@ -38,6 +40,7 @@ from ._lindhard import (
     area_dose,
     exposure_dose,
     exposure_dose_grid,
+    exposure_direct,
     iso_contours,
     read_damage_export,
 )
@@ -63,6 +66,7 @@ __all__ = [
     "__version__",
     "area_dose",
     "exposure_dose",
+    "exposure_direct",
     "exposure_dose_grid",
     "iso_contours",
     "read_damage_export",

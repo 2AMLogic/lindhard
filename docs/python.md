@@ -132,6 +132,20 @@ bit at any thread count (`tests/test_exposure.py`).
 - `area_dose(*, total_ev, alpha_m, beta_m, eta, gamma_m=None, nu=None,
   weight_per_m2=1.0)`: the large-area dose with its forward-only and
   long-range parts.
+- `exposure_direct(shots, run, x0_m, y0_m, dx_m, dy_m, nx, ny, *, total_ev,
+  alpha_m, beta_m, eta, slab_hi_m, histories_per_shot, gamma_m=None, nu=None,
+  blur_m=0.0, subsamples=16, replicas=8, seed=1, slab_lo_m=0.0,
+  tolerance_sigmas=5.0, conv_rel_err=0.0, floor_fraction=0.01, threads=None)`:
+  the same shot list by electron transport (direct Monte Carlo) on the layered
+  target of an `ElectronRun` (its layers, tables and beam energy; the shots
+  set where the primaries land), compared with the superposition. Returns a
+  dict of `(ny, nx)` arrays: `dose_ev_per_m2` and `std_err_ev_per_m2`
+  (transport, mean and standard error over `replicas`), `convolution_ev_per_m2`
+  (averaged over each grid cell), `deviation_sigmas` and the boolean `flagged`
+  (points where the two differ by more than `tolerance_sigmas` combined
+  standard errors). Details and the meaning of the options are in `cli.md`,
+  "Exposure", section "Direct mode"; it runs the same code as
+  `lindhard exposure --direct`, and `threads` never changes the results.
 - `iso_contours(dose, x0_m, y0_m, dx_m, dy_m, threshold)`: a list of dicts
   with `points` (`(n, 2)`, m), `closed`, signed `area_m2` and `centroid_m`
   (`None` for a contour that leaves the grid).

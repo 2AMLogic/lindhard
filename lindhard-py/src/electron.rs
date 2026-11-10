@@ -170,6 +170,11 @@ impl ElectronRun {
 }
 
 impl ElectronRun {
+    /// The input resolved as `run()` does (for the direct exposure mode).
+    pub(crate) fn resolve_input(&self) -> PyResult<ResolvedElectron> {
+        self.resolve(&self.input)
+    }
+
     fn resolve(&self, input: &ElectronInput) -> PyResult<ResolvedElectron> {
         let base = self
             .base_dir

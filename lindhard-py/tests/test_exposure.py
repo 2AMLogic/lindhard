@@ -35,3 +35,35 @@ def test_area_dose_and_errors():
         lh.area_dose(**PSF, gamma_m=1e-6)
     with pytest.raises(lh.InputError):
         lh.exposure_dose("x_m,y_m\n1,2\n", np.zeros(1), np.zeros(1), **PSF)
+
+
+def _electron_run():
+    from pathlib import Path
+
+    case = Path(__file__).resolve().parents[2] / "examples" / "electron" / "e_10keV_si.toml"
+    text = case.read_text().replace("points_per_decade = 8.0", "points_per_decade = 3.0")
+    return lh.ElectronRun.from_toml(text, base_dir=case.parent)
+
+
+def test_exposure_direct_shapes_threads_and_errors():
+    run = _electron_run()
+    shots = np.array([[0.0, 0.0, 1.0], [5e-8, 0.0, 2.0]])
+    args = (shots, run, -2e-7, -2e-7, 2e-8, 2e-8, 20, 20)
+    kw = dict(
+        **PSF, slab_hi_m=5e-8, histories_per_shot=80, replicas=2, blur_m=1e-8
+    )
+    r1 = lh.exposure_direct(*args, **kw, threads=1)
+    r4 = lh.exposure_direct(*args, **kw, threads=4)
+    assert set(r1) == {
+        "dose_ev_per_m2",
+        "std_err_ev_per_m2",
+        "convolution_ev_per_m2",
+        "deviation_sigmas",
+        "flagged",
+    }
+    for k, v in r1.items():
+        assert v.shape == (20, 20)
+        assert np.array_equal(v, r4[k], equal_nan=True)
+    assert r1["flagged"].dtype == np.bool_
+    with pytest.raises(lh.InputError):
+        lh.exposure_direct(*args, **{**kw, "replicas": 1})
