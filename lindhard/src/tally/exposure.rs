@@ -80,6 +80,7 @@
 //!
 //! Units: energies in eV, lengths in metres.
 
+use crate::electron::transport::{disc_offset, finite_positive, gaussian_offset};
 use crate::rng::{stream, uniform};
 use serde::{Deserialize, Serialize};
 
@@ -126,17 +127,12 @@ impl BeamProfile {
             BeamProfile::Gaussian { sigma_m } => {
                 let mut rng = stream(seed, index);
                 let (u1, u2) = (uniform(&mut rng), uniform(&mut rng));
-                // Box-Muller; 1 - u1 is in (0, 1].
-                let r = sigma_m * (-2.0 * (1.0 - u1).ln()).sqrt();
-                let phi = std::f64::consts::TAU * u2;
-                [r * phi.cos(), r * phi.sin()]
+                gaussian_offset(sigma_m, u1, u2)
             }
             BeamProfile::UniformDisc { radius_m } => {
                 let mut rng = stream(seed, index);
                 let (u1, u2) = (uniform(&mut rng), uniform(&mut rng));
-                let r = radius_m * u1.sqrt();
-                let phi = std::f64::consts::TAU * u2;
-                [r * phi.cos(), r * phi.sin()]
+                disc_offset(radius_m, u1, u2)
             }
         }
     }
@@ -144,10 +140,8 @@ impl BeamProfile {
     fn validate(&self) -> Result<(), ExposureError> {
         match *self {
             BeamProfile::Point => Ok(()),
-            BeamProfile::Gaussian { sigma_m } if sigma_m.is_finite() && sigma_m > 0.0 => Ok(()),
-            BeamProfile::UniformDisc { radius_m } if radius_m.is_finite() && radius_m > 0.0 => {
-                Ok(())
-            }
+            BeamProfile::Gaussian { sigma_m } if finite_positive(sigma_m) => Ok(()),
+            BeamProfile::UniformDisc { radius_m } if finite_positive(radius_m) => Ok(()),
             _ => invalid("beam sigma or radius must be positive and finite"),
         }
     }
