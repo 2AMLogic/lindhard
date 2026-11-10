@@ -584,6 +584,17 @@ is never assigned to one of several candidates. The only in-tree second source
 is Bader et al. (1956) for H in Cu (0.2 % agreement, row above), which is a
 check of the digitizer, not of a per-paper file.
 
+## SRIM coefficient file format (#632)
+
+`stopping = "srim"` reads a versioned coefficient file
+(`lindhard-srim-coefficients/1`, see `docs/cli.md`). The loader rejects any
+row without a non-blank `citation` (edition, table, page), so no value can be
+loaded without a provenance string. This change ships **no book values**: the
+unit-test fixture is synthetic numbers made up for tests. The real
+coefficient and effective-charge tables, with one row here per printed table
+(origin: published table, origin class 5 above; entered twice and diffed),
+arrive in #633.
+
 ## Tuning factor sets (opt-in, #80)
 
 `[physics] tuning = "<set>"` selects a named, versioned set of

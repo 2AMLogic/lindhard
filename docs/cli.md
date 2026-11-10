@@ -135,7 +135,7 @@ substrate the target has a back face and particles can be transmitted.
 |---|---|---|
 | `potential` | `"zbl"` | `zbl`, `kr-c`, `moliere`, `lenz-jensen` |
 | `screening_length` | paired with the potential | `universal`, `firsov`, `lindhard` |
-| `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or`, `none` (see below) |
+| `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or`, `srim`, `none` (see below) |
 | `free_path` | `"constant"` | `constant`, `energy-dependent` |
 | `min_cm_angle_deg` | none | Required with, and only with, `energy-dependent` |
 | `weak_collisions` | 0 | `0` to `3`: weak collisions beyond `p_max` per collision step (Moller and Eckstein, IPP 9/64 (1988)); `constant` free path only. See the `ion::bca` docs, "Weak collisions" |
@@ -199,6 +199,18 @@ tables = ["tables/b_in_si.toml", "tables/p_in_si.toml"]
 | Key | Default | Meaning |
 |---|---|---|
 | `tables` | none | Paths of table files, one per pair |
+| `srim_data` | none | Path of an SRIM coefficient file; required with, and only with, `physics.stopping = "srim"` |
+
+**`stopping = "srim"`.** SRIM-data-sourced stopping: the published
+five-coefficient fit (see `docs/stopping-models.md`) evaluated with
+coefficients read from the `srim_data` file (format
+`lindhard-srim-coefficients/1`, one `[[row]]` per (ion, target element) pair,
+each with a non-blank `citation`). A query for a pair with no row, or outside
+the row's `e_min_kev_per_u..e_max_kev_per_u`, is an error, never an
+extrapolation. The run record's model list names the file and its citations.
+Agreement with SRIM is consistency, not independent validation. User
+`tables` still take precedence for the pairs they declare. The full coefficient
+data is entered in issue #633; until then supply a file.
 
 Absent, the input means what it always meant (`format.version` is unchanged
 and nothing is echoed).
