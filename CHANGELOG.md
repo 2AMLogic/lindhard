@@ -23,6 +23,11 @@ one version).
   "not set"). New `results.damage` in `electron_summary.json`, new
   `ionisation_ev` and `lattice_ev` columns at the end of the two electron
   deposition CSVs, and `lindhard::electron::knock_on` (#558, part of #553).
+- Per-element vacancy, interstitial and replacement maps: `VoxelTally::with_species`
+  adds per-species defect counts to every voxel (same replacement rule as the 1D
+  cascade tally, equal to its totals exactly), voxel CSV/VTK format v2 carries them
+  (v1 files still read), and the CLI writes `voxel_tally.csv` and `voxel_tally.vtk`
+  for a `[tally.voxel]` table (#560, part of #553).
 - Electron runs: `[electron.tally.exposure]` gives the distribution of the energy a
   small volume (cylinder or box, with a lateral offset) receives from a finite number of
   electrons. The per-electron deposit histogram (with the exact mass at zero) goes
