@@ -171,12 +171,14 @@ class Diagnostics(unittest.TestCase):
         self.assertEqual(t["physics"]["energies"]["Ni"]["e_s_ev"], 3.49)
         self.assertEqual(t["physics"]["energies"]["Cu"]["e_s_ev"], cd.ELEMENTS["Cu"]["e_s_ev"])
 
-    def test_stored_cu_band_and_the_missing_ni_data(self):
+    def test_stored_cu_band_and_the_stored_ni_sets(self):
         band = cd.stored_cu_band(2000.0, 0.02)
         self.assertGreater(band["points"], 0)
         self.assertLessEqual(band["min"], band["median"])
         self.assertLessEqual(band["median"], band["max"])
-        self.assertEqual(cd.count_stored_sets("ar_ni"), 0)
+        # Ar -> Ni sets were added after the #465 diagnosis (which committed
+        # "0 stored"); the committed snapshot is checked separately below.
+        self.assertGreater(cd.count_stored_sets("ar_ni"), 0)
         self.assertGreater(cd.count_stored_sets("ar_cu"), 0)
 
     def test_betz_interpolation_stays_between_the_bracketing_markers(self):
