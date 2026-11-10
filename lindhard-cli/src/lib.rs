@@ -13,5 +13,6 @@ pub mod exposure;
 pub mod output;
 pub mod publish;
 pub mod sim;
+pub mod stopping_table;
 pub mod table_cache;
 pub mod tally;

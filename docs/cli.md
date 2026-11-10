@@ -6,6 +6,8 @@ lindhard run input.toml --out dir/         # run, write dir/summary.json and CSV
                                            # (dir/electron_summary.json for [electron])
 lindhard run input.toml --out dir/ --ions 200 --seed 7 --threads 4
 lindhard run electron.toml --out dir/ --table-cache cache/   # reuse built electron tables
+lindhard exposure --shots shots.csv ... -o dir/   # dose of a shot list (see "Exposure")
+lindhard stopping-table input.toml -o dir/ # stopping and range table (see "Stopping tables")
 lindhard --version                         # crate version and git describe
 ```
 
@@ -1291,6 +1293,87 @@ short:
 
 The PSF flags (`--psf-parameters` or the typed-in values) are still needed for
 the comparison.
+
+## Stopping tables: `lindhard stopping-table`
+
+```text
+lindhard stopping-table input.toml --out dir/
+```
+
+Electronic stopping, nuclear stopping, their sum and the CSDA range of ions in
+targets on an energy grid, as `stopping_table.csv` and `stopping_table.json`.
+No transport is run, and nothing depends on `--threads` (there is none): a
+rerun is byte-identical. The model choices, user tables and compound rule are
+resolved by the code that resolves a run input, so `physics.stopping`,
+`[stopping] tables` and `[materials]` mean here what they mean in `run`.
+
+```toml
+targets = ["Si", "SiO2"]            # [materials] key, element symbol, or inline table
+
+[[ions]]                            # every ion is combined with every target
+ion = "B"
+# mass_amu = 11.009                 # default: standard atomic weight
+
+[materials.SiO2]                    # as in a run input
+density_g_cm3 = 2.2
+elements = [ { symbol = "Si", atom_fraction = 1.0 }, { symbol = "O", atom_fraction = 2.0 } ]
+
+[physics]                           # all optional, same names and defaults as in run
+potential = "zbl"                   # nuclear stopping
+# screening_length = "universal"
+stopping = "lindhard-scharff"       # electronic stopping
+
+# [stopping] tables = ["tables/b_in_si.toml"]    # user tables, as in run
+
+[energy]                            # either an explicit list ...
+# values_ev = [500.0, 1000.0, 2000.0]
+start_ev = 100.0                    # ... or a generated grid
+stop_ev = 100000.0                  # (omit with points = 1)
+points = 7
+scale = "log"                       # "log" (default) or "linear"
+
+[range]                             # the CSDA range column
+enabled = true                      # default
+from_ev = 1.0                       # default; see below
+
+[units]
+stopping = "eV/nm"                  # or "keV/um", "MeV/(mg/cm^2)", "eV/1e15 atoms/cm^2"
+range = "nm"                        # or "um", "mg/cm^2"
+```
+
+Unknown keys are errors. `[materials]` and `[stopping]` have the schema of the
+run input. The tables come out in input order, ions outer and targets inner,
+all in the one CSV (columns `ion`, `target`, `energy_ev`, then the electronic,
+nuclear, total stopping and the range, with the units in the column names) and
+in the JSON, which also echoes the units, the models with their citations, the
+target composition and densities, the path, SHA-256 and provenance of every
+user table, and the warnings.
+
+**Quantities.** Electronic stopping is the model's `S_e` summed over the
+elements of the target by atom fraction (Bragg additivity, as in `run`, with no
+compound correction). Nuclear stopping is the reduced `s_n(eps)` integral of
+the chosen screening function, in physical units, summed the same way. The
+stopping columns are the linear stopping power `-dE/dx = N S` (`eV/nm`,
+`keV/um`), the mass stopping power (`MeV/(mg/cm^2)`) or the cross section per
+atom (`eV/1e15 atoms/cm^2`); `physics.stopping = "equipartition-ls-or"` has
+the Lindhard-Scharff `S_e` here (its local/nonlocal split matters only in
+transport).
+
+**Range.** `csda_range` is `Int dE / (N (S_e + S_n))` from `range.from_ev` up
+to the row's energy: the mean path length of continuous slowing down, in `nm`,
+`um` or `mg/cm^2`. It is not the projected range, and ignores energy-loss
+fluctuations; the path below `range.from_ev` is not counted. The lower limit is
+fixed by the input, never by the grid, so a row does not change when other
+energies are added. It is integrated by Gauss-Legendre quadrature in `ln E`
+(8 cells per decade). Projected range and range straggling have no
+deterministic model here: use `lindhard run`. A model that is not defined down
+to `range.from_ev` (Bethe-Bloch, a user table) needs a larger `from_ev` that
+is at most the lowest energy, or `enabled = false`.
+
+**Errors and warnings.** An energy outside a model's hard domain (a user table's
+range, Bethe-Bloch far below its validity range) is an error naming the key
+(`energy.values_ev[0] (1 eV): ...`), and nothing is written. An energy outside
+only a model's advisory validity range is a warning on stderr and in the JSON.
 
 ## Reusing an output directory
 

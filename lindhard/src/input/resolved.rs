@@ -98,8 +98,8 @@ pub const TABLE_SPEC: TableSpec = TableSpec {
 /// Resolve a [`MaterialRef`] against the `[materials]` table: a key of
 /// `materials`, else an element symbol (the pure element at its tabulated
 /// density), or an inline table. `field` names the key in errors. Shared by
-/// the ion input and the electron input ([`electron`]).
-pub(crate) fn resolve_material(
+/// the ion input, the electron input ([`super::electron`]) and `lindhard stopping-table`.
+pub fn resolve_material(
     materials: &BTreeMap<String, MaterialSpec>,
     field: &str,
     r: &MaterialRef,

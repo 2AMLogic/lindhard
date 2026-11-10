@@ -1,0 +1,35 @@
+# Stopping and CSDA range of boron and phosphorus in silicon and in SiO2.
+#
+# Run:   lindhard stopping-table examples/stopping-table/b_si.toml --out out/stopping_table
+#
+# Schema: docs/cli.md, "Stopping tables". Energies are in eV.
+# One table per (ion, target), ions outer, in input order.
+
+targets = ["Si", "SiO2"]
+
+[[ions]]
+ion = "B"
+
+[[ions]]
+ion = "P"
+
+[materials.SiO2]
+density_g_cm3 = 2.2
+elements = [
+  { symbol = "Si", atom_fraction = 1.0 },
+  { symbol = "O", atom_fraction = 2.0 },
+]
+
+[physics]
+potential = "zbl"
+stopping = "lindhard-scharff"
+
+[energy]
+start_ev = 100.0
+stop_ev = 100000.0
+points = 7
+scale = "log"
+
+[units]
+stopping = "eV/nm"
+range = "nm"
