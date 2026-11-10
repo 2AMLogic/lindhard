@@ -163,6 +163,21 @@ Each element takes `symbol` or `z`, `atom_fraction` or `mass_fraction`
 Defaults for the energies come from the element table where one is
 tabulated; see `lindhard/src/material.rs`.
 
+A gas target gives a state instead of a density:
+
+```toml
+[materials.N2]
+gas = { pressure_pa = 101325.0, temperature_k = 300.0, molar_mass_g_mol = 28.0134 }
+elements = [{ symbol = "N", atom_fraction = 1.0 }]
+```
+
+The mass density is the ideal-gas value `rho = P M / (N_A k_B T)`. Give
+`molar_mass_g_mol` (the mass of a *molecule*) for anything but a monatomic
+gas; it defaults to the mean atomic weight. `gas` together with
+`density_g_cm3` is an error, as is a non-finite or non-positive pressure,
+temperature or molar mass. The material reports `Phase::Gas`, which the
+stopping model can read; nothing in the stopping model changes yet.
+
 ### `[target]`
 
 ```toml
@@ -366,7 +381,9 @@ key (`crystal[i].normal`, `.reference`, `.layers`, `.preset`,
 reference not in the surface plane, a layer that does not exist or is already
 assigned, a preset whose elements are not in the layer's material or whose
 atom density differs from the lattice's by more than 5 %, and a non-positive
-search length. Unsupported combinations are errors, never a silent amorphous
+search length. Materials are checked too: `gas` together with `density_g_cm3`, and a
+non-finite or non-positive `gas.pressure_pa`, `gas.temperature_k` or
+`gas.molar_mass_g_mol`, are errors naming the key. Unsupported combinations are errors, never a silent amorphous
 fallback: a `[dynamic]` target, an `[electron]` run, `physics.free_path` other
 than `"constant"`, `physics.weak_collisions > 0`, and `physics.tuning` (the
 only set was fitted for amorphous runs). `physics.stopping =

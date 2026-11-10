@@ -9,7 +9,7 @@ use lindhard::input::{
     BeamSpec, DivergenceSpec, EnergyOverride, LayerSpec, MaterialRef, PhysicsSpec, TallySpec,
     TargetSpec,
 };
-use lindhard::material::{ElementSpec, MaterialSpec};
+use lindhard::material::{ElementSpec, GasSpec, MaterialSpec};
 use pyo3::prelude::*;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -107,12 +107,19 @@ impl Element {
 /// A material: elements with fractions, and a mass density (required for
 /// compounds; optional for a single element, which then takes its tabulated
 /// density).
-#[pyclass(module = "lindhard", get_all, set_all, skip_from_py_object)]
+#[pyclass(module = "lindhard", skip_from_py_object)]
 #[derive(Debug, Clone, Default)]
 pub struct Material {
+    #[pyo3(get, set)]
     pub elements: Vec<Element>,
+    #[pyo3(get, set)]
     pub density_g_cm3: Option<f64>,
+    #[pyo3(get, set)]
     pub name: Option<String>,
+    /// Gas state of a material that came from a spec with `gas`. Not exposed
+    /// to Python; it is carried so that a spec round-trips through `Material`
+    /// without losing its phase.
+    pub gas: Option<GasSpec>,
 }
 
 #[pymethods]
@@ -124,6 +131,7 @@ impl Material {
             elements,
             density_g_cm3,
             name,
+            gas: None,
         }
     }
 
@@ -137,6 +145,7 @@ impl Material {
         MaterialSpec {
             name: self.name.clone(),
             density_g_cm3: self.density_g_cm3,
+            gas: self.gas,
             elements: self.elements.iter().map(Element::to_spec).collect(),
         }
     }
@@ -146,6 +155,7 @@ impl Material {
             elements: s.elements.iter().map(Element::from_spec).collect(),
             density_g_cm3: s.density_g_cm3,
             name: s.name.clone(),
+            gas: s.gas,
         }
     }
 }
