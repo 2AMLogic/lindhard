@@ -5,6 +5,7 @@
 //! provides:
 //!
 //! * [`constants`]: physical constants in SI units, each with its source.
+//! * [`contour`]: iso-dose contours of a gridded field, with area and centroid.
 //! * [`electron`]: electron transport, from validated data to tallies.
 //! * [`elements`]: the per-element data table, Z = 1..=92.
 //! * [`exposure`]: dose of a multi-shot exposure from a fitted Gaussian-sum PSF.
@@ -19,6 +20,7 @@
 #![forbid(unsafe_code)]
 
 pub mod constants;
+pub mod contour;
 pub mod electron;
 pub mod elements;
 pub mod exposure;

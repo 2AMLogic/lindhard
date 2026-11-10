@@ -253,3 +253,39 @@ fn shot_csv_round_trip_and_errors() {
     assert!(parse_shots_csv("x_m,y_m,weight,shape\n1,2,3,disc\n").is_err());
     assert!(parse_shots_csv("x_m,y_m,weight\n1,x,3\n").is_err());
 }
+
+#[test]
+fn half_dose_contour_of_a_square_pad_has_the_pad_area() {
+    use lindhard::contour::contours;
+    // A straight edge of a uniform exposure has exactly half the interior
+    // dose under every Gaussian term, so the half-dose contour is the pad
+    // edge up to corner rounding.
+    let psf = double();
+    let (pitch, n) = (20.0 * NM, 60);
+    let mut shots = Vec::new();
+    for j in 0..n {
+        for i in 0..n {
+            shots.push(Shot::point(i as f64 * pitch, j as f64 * pitch, 1.0));
+        }
+    }
+    let e = Exposure::new(psf, shots, 0.0).unwrap();
+    let grid = Grid {
+        x0_m: -300.0 * NM,
+        y0_m: -300.0 * NM,
+        dx_m: 16.0 * NM,
+        dy_m: 16.0 * NM,
+        nx: 110,
+        ny: 110,
+    };
+    let dose = e.dose_on_grid(&grid).unwrap();
+    let half = 0.5 * uniform_area_dose(&psf, 1.0 / (pitch * pitch)).total_ev_per_m2;
+    let c = contours(&dose, half);
+    assert_eq!(c.len(), 1);
+    // The shots sit at cell centres of an n·pitch square.
+    let side = n as f64 * pitch;
+    let area = c[0].signed_area_m2.unwrap();
+    assert!(rel(area, side * side) < 0.03, "{area} vs {}", side * side);
+    let m = c[0].centroid_m.unwrap();
+    let mid = (n as f64 - 1.0) / 2.0 * pitch;
+    assert!((m[0] - mid).abs() < 2.0 * NM && (m[1] - mid).abs() < 2.0 * NM);
+}
