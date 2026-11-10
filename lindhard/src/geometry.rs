@@ -243,6 +243,8 @@ pub enum Face {
     Back,
     /// A lateral face of a voxel grid, `y = 0`, `y = Ly`, `z = 0` or
     /// `z = Lz` (only reachable with a [`Boundary::Vacuum`] lateral axis).
+    /// For electrons it releases the particle whatever the `EscapeRule`,
+    /// which only governs the back face.
     Side,
 }
 

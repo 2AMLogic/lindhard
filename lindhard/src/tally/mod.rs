@@ -42,6 +42,7 @@ pub mod ion;
 pub mod moments;
 pub mod pearson;
 pub mod psf;
+pub mod psf_scan;
 pub mod table_coverage;
 pub mod trajectory;
 pub mod voxel;
@@ -70,11 +71,14 @@ pub use psf::{
     fit_psf, GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
     PsfNormalization, PsfReport, PsfResidual, RadialAccumulator, RadialProfile,
 };
+pub use psf_scan::{
+    point_seed, scan_landing_points, PsfScanConfig, PsfScanError, PsfScanPoint, PsfScanReport,
+};
 pub use table_coverage::{LayerTableCoverage, TableCoverageCounts, TableCoverageTally};
 pub use trajectory::{
     History, Recorded, Track, TrackEnd, TrajectoryConfig, TrajectoryPoint, TrajectoryRecorder,
 };
 pub use voxel::{
-    SpeciesDefects, VoxelCell, VoxelRecord, VoxelReport, VoxelTally, VoxelTallyError,
-    VoxelTallyGrid,
+    ExportProvenance, SpeciesDefects, VoxelCell, VoxelRecord, VoxelReport, VoxelTally,
+    VoxelTallyError, VoxelTallyGrid, EXPORT_FORMAT_VERSION,
 };

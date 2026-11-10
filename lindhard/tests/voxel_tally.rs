@@ -13,8 +13,8 @@ use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::tally::Binning;
 use lindhard::tally::{
-    IonTally, IonTallyConfig, SpeciesDefects, VoxelCell, VoxelRecord, VoxelReport, VoxelTally,
-    VoxelTallyError, VoxelTallyGrid,
+    ExportProvenance, IonTally, IonTallyConfig, SpeciesDefects, VoxelCell, VoxelRecord,
+    VoxelReport, VoxelTally, VoxelTallyError, VoxelTallyGrid,
 };
 
 const NM: f64 = 1e-9;
@@ -600,4 +600,53 @@ fn v2_files_round_trip_and_v1_files_still_read() {
         .nth(1)
         .unwrap()
         .starts_with("lindhard voxel tally v1 "));
+}
+
+fn provenance(engine: &str) -> ExportProvenance {
+    ExportProvenance::new(engine, 0xD0C, &"ab".repeat(32))
+}
+
+#[test]
+fn damage_export_round_trips_with_provenance_for_species_and_plain_reports() {
+    // Per-species ion map, a species-free map (the electron layout) and an
+    // empty one: each reads back unchanged, bit for bit, with its provenance.
+    let (species, _) = run_defects(true, 300, 64);
+    let plain = fixture();
+    let mut empty = fixture();
+    empty.voxels.clear();
+    empty.outside = VoxelCell::default();
+    for (engine, r) in [("ion", species), ("electron", plain), ("ion", empty)] {
+        let p = provenance(engine);
+        let text = r.to_export_csv(&p);
+        assert!(text.starts_with("# lindhard damage export v1\n"));
+        for key in [
+            "# format_version = 1",
+            "# engine = ",
+            "# lindhard_version = ",
+            "# seed = 3340",
+            "# input_sha256 = ",
+            "# units = length=m; energy=eV; counts=1",
+        ] {
+            assert!(text.contains(key), "{key}");
+        }
+        let (back, p2) = VoxelReport::read_export_csv(&text).unwrap();
+        assert_eq!(back, r);
+        assert_eq!(p2, p);
+        // The plain reader accepts the same file.
+        assert_eq!(VoxelReport::read_csv(&text).unwrap(), r);
+        // Deterministic.
+        assert_eq!(text, r.to_export_csv(&p));
+    }
+}
+
+#[test]
+fn damage_export_reader_refuses_files_without_provenance() {
+    let r = fixture();
+    // A plain voxel CSV is not an export file.
+    assert!(VoxelReport::read_export_csv(&r.to_csv()).is_err());
+    let text = r.to_export_csv(&provenance("ion"));
+    let no_seed = text.replace("# seed = 3340\n", "");
+    assert!(VoxelReport::read_export_csv(&no_seed).is_err());
+    let v9 = text.replace("format_version = 1", "format_version = 9");
+    assert!(VoxelReport::read_export_csv(&v9).is_err());
 }

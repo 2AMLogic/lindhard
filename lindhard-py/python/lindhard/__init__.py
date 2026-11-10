@@ -39,6 +39,7 @@ from ._lindhard import (
     exposure_dose,
     exposure_dose_grid,
     iso_contours,
+    read_damage_export,
 )
 
 __all__ = [
@@ -64,4 +65,5 @@ __all__ = [
     "exposure_dose",
     "exposure_dose_grid",
     "iso_contours",
+    "read_damage_export",
 ]

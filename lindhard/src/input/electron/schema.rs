@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
 use crate::electron::transport::TransportConfig;
-use crate::input::TargetSpec;
+use crate::input::{DivergenceSpec, TargetSpec, VoxelTallySpec};
 use crate::material::MaterialSpec;
 use crate::tally::{PsfModel, PsfNormalization, SE_BSE_SPLIT_EV};
 
@@ -75,6 +75,58 @@ pub struct ElectronBeamSpec {
     /// Azimuth of the incidence plane, degrees.
     #[serde(default)]
     pub azimuth_deg: f64,
+    /// Landing point `[y, z]` of the beam centre on the front face, nm
+    /// (default `[0, 0]`).
+    #[serde(default, skip_serializing_if = "is_origin")]
+    pub landing_nm: [f64; 2],
+    /// Lateral profile about the landing point (default: a point).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile: Option<BeamProfileSpec>,
+    /// Angular spread about the nominal direction; the ion beam's
+    /// `[beam.divergence]` laws ([`DivergenceSpec`]), with the same inward
+    /// conditioning and width limit (default: none).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub divergence: Option<DivergenceSpec>,
+}
+
+fn is_origin(v: &[f64; 2]) -> bool {
+    *v == [0.0; 2]
+}
+
+/// `[electron.beam.profile]`: the lateral profile of the beam on the front
+/// face, selected by `model`; lengths in nm.
+///
+/// ```toml
+/// [electron.beam.profile]
+/// model = "gaussian"   # sigma_nm: standard deviation of each of y and z
+/// sigma_nm = 5.0
+/// # model = "disc"      # radius_nm: uniform in area
+/// # model = "rectangle" # width_y_nm, width_z_nm: full widths, uniform
+/// ```
+///
+/// See [`BeamProfile`](crate::electron::transport::BeamProfile) for the laws.
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "model", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum BeamProfileSpec {
+    /// Every primary lands at the landing point.
+    Point,
+    /// Gaussian spot.
+    Gaussian {
+        /// Standard deviation of each of `y` and `z`, nm, `> 0`.
+        sigma_nm: f64,
+    },
+    /// Uniform disc.
+    Disc {
+        /// Radius, nm, `> 0`.
+        radius_nm: f64,
+    },
+    /// Uniform rectangle centred on the landing point.
+    Rectangle {
+        /// Full width along `y`, nm, `> 0`.
+        width_y_nm: f64,
+        /// Full width along `z`, nm, `> 0`.
+        width_z_nm: f64,
+    },
 }
 
 /// Where the cutoff is measured from.
@@ -483,6 +535,25 @@ pub struct ElectronMaterialSpec {
     /// Inner-shell ionisation channels (`single-pole` only); absent: none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub inner_shells: Option<InnerShellsSpec>,
+    /// Mean energy per electron-hole pair `E_pair`, with its source. Absent:
+    /// the report gives the ionisation energy of the material's layers only
+    /// and no pair count; no default is supplied.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub e_pair: Option<EPairSpec>,
+}
+
+/// `[electron.materials.<name>.e_pair]`: the energy needed per electron-hole
+/// pair, a per-material input that must carry its citation (for example the
+/// Klein 1968 rule for a semiconductor, or a measured value for SiO2). Pairs
+/// per incident electron are the ionisation energy divided by it, a
+/// post-processing step; nothing in transport depends on it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EPairSpec {
+    /// `E_pair`, eV (positive).
+    pub ev: f64,
+    /// Where the value comes from (required, non-blank).
+    pub source: String,
 }
 
 /// A uniform binning in nm.
@@ -731,6 +802,11 @@ pub struct ElectronTallySpec {
     /// Exposure statistics of small volumes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exposure: Option<ExposureSpec>,
+    /// Voxel energy-deposition grid, written as `damage_export.csv` (the
+    /// ion `[tally.voxel]` table, same fields). The electron tally has no
+    /// species axis, so the per-species defect columns are empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub voxel: Option<VoxelTallySpec>,
 }
 
 impl Default for ElectronTallySpec {
@@ -745,6 +821,7 @@ impl Default for ElectronTallySpec {
             cylindrical: None,
             psf: None,
             exposure: None,
+            voxel: None,
         }
     }
 }

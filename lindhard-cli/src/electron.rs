@@ -58,6 +58,7 @@ pub const PSF_PROFILE_FILE: &str = "electron_psf_profile.csv";
 pub const PSF_PARAMETERS_FILE: &str = "electron_psf_parameters.csv";
 pub const EXPOSURE_FILE: &str = "electron_exposure_histogram.csv";
 pub const TABLES_FILE: &str = "electron_tables.csv";
+pub use crate::output::DAMAGE_EXPORT_FILE;
 
 /// Histories per work chunk of the parallel driver. Fixed, so the summation
 /// order, and therefore every output bit, does not depend on the thread
@@ -151,6 +152,8 @@ pub struct ElectronSimulation {
     pub report: ElectronReport,
     /// The PSF profile and its fits (with `tally.psf`).
     pub psf: Option<PsfOutcome>,
+    /// The per-voxel deposition (with `tally.voxel`).
+    pub voxel: Option<lindhard::tally::VoxelReport>,
     /// Threads and timings.
     pub info: ElectronRunInfo,
 }
@@ -409,17 +412,21 @@ pub fn simulate_electron(
                 })?;
         }
     }
-    let proto = FullElectronTally::new(&transport, r.tally.clone())
+    let mut proto = FullElectronTally::new(&transport, r.tally.clone())
         .context("setting up the electron tally")?;
+    if let Some(g) = r.voxel_grid {
+        proto = proto.with_voxel_grid(g);
+    }
 
     let t1 = Instant::now();
     let run = pool
         .install(|| {
-            transport.run(
+            transport.run_beam(
                 r.input.run.seed,
                 r.input.run.histories,
                 CHUNK_SIZE,
                 &r.primary,
+                &r.beam,
                 || proto.clone(),
             )
         })
@@ -427,11 +434,13 @@ pub fn simulate_electron(
     let transport_s = t1.elapsed().as_secs_f64();
     let report = run.tally.report();
     let psf = psf_outcome(r, &report);
+    let voxel = run.tally.voxel_report();
     Ok(ElectronSimulation {
         tables,
         metadata: run.metadata,
         report,
         psf,
+        voxel,
         info: ElectronRunInfo {
             threads: pool.current_num_threads(),
             table_build_s,
@@ -539,6 +548,7 @@ struct Files {
     psf_profile: Option<&'static str>,
     psf_parameters: Option<&'static str>,
     exposure_histogram: Option<&'static str>,
+    damage_export: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -600,6 +610,9 @@ fn results_json(
                 })
                 .unwrap_or(0.0);
             o.insert("inside_ev".into(), serde_json::json!(inside));
+            // The per-cell channel maps go to the CSV too.
+            o.remove("ionisation_ev");
+            o.remove("lattice_ev");
         }
     }
     // The per-cell charge goes to the CSV files; keep the totals inside the
@@ -626,6 +639,85 @@ fn results_json(
         cells.insert("inside_created".into(), serde_json::json!(created));
     }
     Ok(v)
+}
+
+/// `results.damage`: per layer, the ionisation and lattice energy of the
+/// deposition (eV, summed over histories and per primary), the electron-hole
+/// pairs per incident electron where the layer's material has an `E_pair`
+/// (otherwise the key is absent), and the knock-on threshold report at the
+/// beam energy.
+///
+/// The ionisation channel includes the residual energy of electrons that fell
+/// below the cutoff (a stated convention, see `lindhard::tally::electron`).
+/// Elastic nuclear recoil energy is not tallied by the electron engine.
+/// `T_max` uses the beam energy as given in the input (for a step-barrier run
+/// that is the vacuum energy). An element without `E_d` is reported as
+/// `"not set"`.
+fn damage_json(r: &ResolvedElectron, report: &ElectronReport) -> serde_json::Value {
+    use serde_json::json;
+    let d = &report.deposition;
+    let h = report.histories.max(1) as f64;
+    let beam = r.input.electron.beam.energy_ev;
+    let mut layers = Vec::new();
+    let mut pairs_total = Some(0.0);
+    for (i, &mi) in r.layer_material.iter().enumerate() {
+        let m = &r.materials[mi];
+        let ion = d.per_layer_ionisation_ev.get(i).copied().unwrap_or(0.0);
+        let lat = d.per_layer_lattice_ev.get(i).copied().unwrap_or(0.0);
+        let mut o = json!({
+            "layer": i,
+            "material": m.name,
+            "ionisation_ev": ion,
+            "lattice_ev": lat,
+            "ionisation_ev_per_primary": ion / h,
+            "lattice_ev_per_primary": lat / h,
+        });
+        match &m.e_pair {
+            Some(p) => {
+                o["e_pair_ev"] = json!(p.ev);
+                o["e_pair_source"] = json!(p.source);
+                o["pairs_per_primary"] = json!(ion / h / p.ev);
+                if let Some(t) = pairs_total.as_mut() {
+                    *t += ion / h / p.ev;
+                }
+            }
+            None => {
+                // A layer with ionisation energy and no E_pair has no
+                // defined pair count, so there is no total either.
+                if ion > 0.0 {
+                    pairs_total = None;
+                }
+            }
+        }
+        let k = lindhard::electron::knock_on::layer_report(i, r.stack.layers()[i].material(), beam);
+        o["knock_on"] = json!(k
+            .elements
+            .iter()
+            .map(|e| json!({
+                "element": e.symbol,
+                "z": e.z,
+                "t_max_ev": e.t_max_ev,
+                "e_d_ev": e.e_d_ev.map_or(json!("not set"), |v| json!(v)),
+                "can_displace": e.can_displace.map_or(json!("not set"), |v| json!(v)),
+                "threshold_beam_ev": e.threshold_beam_ev.map_or(json!("not set"), |v| json!(v)),
+            }))
+            .collect::<Vec<_>>());
+        layers.push(o);
+    }
+    let mut out = json!({
+        "beam_energy_ev": beam,
+        "residual_channel": "ionisation",
+        "layers": layers,
+    });
+    if let Some(t) = pairs_total {
+        if r.layer_material
+            .iter()
+            .any(|&mi| r.materials[mi].e_pair.is_some())
+        {
+            out["pairs_per_primary"] = json!(t);
+        }
+    }
+    out
 }
 
 /// `results.psf`: the profile totals and, per fit, its parameters and quality.
@@ -744,6 +836,7 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
         psf_profile: sim.psf.as_ref().map(|_| PSF_PROFILE_FILE),
         psf_parameters: sim.psf.as_ref().map(|_| PSF_PARAMETERS_FILE),
         exposure_histogram: r.tally.exposure.as_ref().map(|_| EXPOSURE_FILE),
+        damage_export: sim.voxel.as_ref().map(|_| DAMAGE_EXPORT_FILE),
     };
     let summary = Summary {
         format: Format {
@@ -758,7 +851,11 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
             target,
             materials,
         },
-        results: results_json(&sim.report, sim.psf.as_ref())?,
+        results: {
+            let mut v = results_json(&sim.report, sim.psf.as_ref())?;
+            v["damage"] = damage_json(r, &sim.report);
+            v
+        },
         files,
         run: sim.info,
     };
@@ -769,6 +866,18 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
 
 // ---------------------------------------------------------------------------
 // CSV files
+
+/// `damage_export.csv`: the electron voxel tally in the versioned exchange
+/// format (engine `electron`), or `None` without `[electron.tally.voxel]`.
+pub fn damage_export_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> Option<String> {
+    let report = sim.voxel.as_ref()?;
+    Some(crate::output::export_csv(
+        report,
+        "electron",
+        r.input.run.seed,
+        &r.input,
+    ))
+}
 
 /// One row per bin (edges scaled by `scale`), then underflow and overflow
 /// rows with empty densities. `prefix` starts every row.
@@ -827,22 +936,25 @@ pub fn cartesian_csv(report: &ElectronReport) -> Option<String> {
     let v = g.voxel_volume_m3() / (NM * NM * NM);
     let n = report.histories.max(1) as f64;
     let mut out = String::from(
-        "ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,energy_ev,ev_per_primary_per_nm3\n",
+        "ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,energy_ev,ev_per_primary_per_nm3,ionisation_ev,lattice_ev\n",
     );
     for ix in 0..g.x.bins {
         for iy in 0..g.y.bins {
             for iz in 0..g.z.bins {
                 let e = d.at(ix, iy, iz);
+                let k = g.index(ix, iy, iz);
                 writeln!(
                     out,
-                    "{ix},{iy},{iz},{:?},{:?},{:?},{:?},{:?},{:?},{e:?},{:?}",
+                    "{ix},{iy},{iz},{:?},{:?},{:?},{:?},{:?},{:?},{e:?},{:?},{:?},{:?}",
                     g.x.edge(ix) / NM,
                     g.x.edge(ix + 1) / NM,
                     g.y.edge(iy) / NM,
                     g.y.edge(iy + 1) / NM,
                     g.z.edge(iz) / NM,
                     g.z.edge(iz + 1) / NM,
-                    e / (n * v)
+                    e / (n * v),
+                    d.ionisation_ev.get(k).copied().unwrap_or(0.0),
+                    d.lattice_ev.get(k).copied().unwrap_or(0.0)
                 )
                 .unwrap();
             }
@@ -858,20 +970,23 @@ pub fn cylindrical_csv(report: &ElectronReport) -> Option<String> {
     let g = &d.grid;
     let n = report.histories.max(1) as f64;
     let mut out = String::from(
-        "ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,energy_ev,ev_per_primary_per_nm3\n",
+        "ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,energy_ev,ev_per_primary_per_nm3,ionisation_ev,lattice_ev\n",
     );
     for ir in 0..g.r.bins {
         let v = g.cell_volume_m3(ir) / (NM * NM * NM);
         for ix in 0..g.depth.bins {
             let e = d.at(ir, ix);
+            let k = g.index(ir, ix);
             writeln!(
                 out,
-                "{ir},{ix},{:?},{:?},{:?},{:?},{e:?},{:?}",
+                "{ir},{ix},{:?},{:?},{:?},{:?},{e:?},{:?},{:?},{:?}",
                 g.r.edge(ir) / NM,
                 g.r.edge(ir + 1) / NM,
                 g.depth.edge(ix) / NM,
                 g.depth.edge(ix + 1) / NM,
-                e / (n * v)
+                e / (n * v),
+                d.ionisation_ev.get(k).copied().unwrap_or(0.0),
+                d.lattice_ev.get(k).copied().unwrap_or(0.0)
             )
             .unwrap();
         }

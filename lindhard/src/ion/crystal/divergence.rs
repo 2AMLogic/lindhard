@@ -49,7 +49,7 @@ use super::CrystalError;
 use crate::ion::bca::kinematics::rotate;
 
 /// Beam divergence model.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub enum Divergence {
     /// No divergence: every particle gets the central direction.
     None,

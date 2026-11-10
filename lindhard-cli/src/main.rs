@@ -197,6 +197,10 @@ fn run_electron(
         electron::EXPOSURE_FILE,
         electron::exposure_histogram_csv(&sim),
     )?;
+    set.reconcile_optional(
+        electron::DAMAGE_EXPORT_FILE,
+        electron::damage_export_csv(&r, &sim),
+    )?;
     // Last, so the summary describes the completed output set.
     set.publish()?;
     let y = &sim.report.yields;
@@ -343,7 +347,8 @@ fn run(
 
     std::fs::create_dir_all(out).with_context(|| format!("creating {}", out.display()))?;
     let summary = output::summary_json(&r, &table, &tally, &report, &crystals, info)?;
-    publish::publish_static_ion(out, summary, &tally, &report)?;
+    let export = output::damage_export_csv(&r, &tally);
+    publish::publish_static_ion(out, summary, &tally, &report, export)?;
     let s = &tally.summary;
     eprintln!(
         "{} ions: {} stopped, {} backscattered, {} transmitted, {} sputtered atoms; wrote {}",

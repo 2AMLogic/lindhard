@@ -47,6 +47,7 @@ mod schema;
 mod tests;
 
 pub use resolved::{
-    DataFile, ElasticChoice, ResolvedElectron, ResolvedElectronMaterial, ResolvedInnerShells,
+    DataFile, ElasticChoice, ResolvedEPair, ResolvedElectron, ResolvedElectronMaterial,
+    ResolvedInnerShells,
 };
 pub use schema::*;

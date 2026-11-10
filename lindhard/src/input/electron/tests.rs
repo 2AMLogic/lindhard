@@ -571,6 +571,102 @@ fn inner_shells_parse_validate_and_resolve() {
     assert!(e.contains("electron.materials.Si.inner_shells") && e.contains("penn-single-pole"));
 }
 
+/// `[electron.beam]` landing point, profile and divergence: the default is a
+/// point beam that echoes unchanged, a full table round-trips, and errors
+/// name the field.
+#[test]
+fn beam_profile_defaults_round_trip_and_errors_name_fields() {
+    use crate::electron::transport::{BeamProfile, BeamSpread};
+    use crate::ion::crystal::Divergence;
+    let d = dir("beam-profile");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+
+    let r = ElectronInput::from_toml_str(GOOD)
+        .unwrap()
+        .resolve_in(&d)
+        .unwrap();
+    assert_eq!(r.beam, BeamSpread::default());
+    let echo = toml::to_string(&r.input).unwrap();
+    assert!(
+        !echo.contains("landing") && !echo.contains("profile") && !echo.contains("divergence"),
+        "{echo}"
+    );
+
+    let full = GOOD.replace(
+        "energy_ev = 1000.0",
+        "energy_ev = 1000.0\nlanding_nm = [10.0, -5.0]\n\
+         [electron.beam.profile]\nmodel = \"gaussian\"\nsigma_nm = 4.0\n\
+         [electron.beam.divergence]\nmodel = \"uniform-cone\"\nhalf_angle_deg = 0.5",
+    );
+    let i = ElectronInput::from_toml_str(&full).unwrap();
+    let again = ElectronInput::from_toml_str(&toml::to_string(&i).unwrap()).unwrap();
+    assert_eq!(i, again);
+    let r = i.resolve_in(&d).unwrap();
+    assert_eq!(r.beam.landing_m, [10.0e-9, -5.0e-9]);
+    assert_eq!(r.beam.profile, BeamProfile::Gaussian { sigma_m: 4.0e-9 });
+    assert_eq!(
+        r.beam.divergence,
+        Divergence::UniformCone {
+            half_angle_rad: 0.5_f64.to_radians()
+        }
+    );
+
+    let bad = |extra: &str| {
+        ElectronInput::from_toml_str(&GOOD.replace(
+            "energy_ev = 1000.0",
+            &format!("energy_ev = 1000.0\n{extra}"),
+        ))
+        .and_then(|i| i.resolve_in(&d))
+        .unwrap_err()
+        .to_string()
+    };
+    let e = bad("[electron.beam.profile]\nmodel = \"gaussian\"\nsigma_nm = 0.0");
+    assert!(e.contains("electron.beam.profile.sigma_nm"), "{e}");
+    let e = bad("[electron.beam.profile]\nmodel = \"disc\"\nradius_nm = -1.0");
+    assert!(e.contains("electron.beam.profile.radius_nm"), "{e}");
+    let e =
+        bad("[electron.beam.profile]\nmodel = \"rectangle\"\nwidth_y_nm = 1.0\nwidth_z_nm = 0.0");
+    assert!(e.contains("electron.beam.profile.width_z_nm"), "{e}");
+    let e = bad("[electron.beam.divergence]\nmodel = \"gaussian\"\nsigma_deg = 11.0");
+    assert!(e.contains("electron.beam.divergence.sigma_deg"), "{e}");
+    let e = bad("landing_nm = [nan, 0.0]");
+    assert!(e.contains("electron.beam.landing_nm"), "{e}");
+}
+
+/// `[electron.materials.<name>.e_pair]`: absent gives none (no default),
+/// present needs a positive value and a citation.
+#[test]
+fn e_pair_has_no_default_and_needs_a_source() {
+    let d = dir("e-pair");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let with = |body: &str| format!("{GOOD}\n[electron.materials.Si.e_pair]\n{body}\n");
+    let resolve = |text: &str| {
+        ElectronInput::from_toml_str(text)
+            .map_err(|e| e.to_string())
+            .and_then(|i| i.resolve_in(&d).map_err(|e| e.to_string()))
+    };
+
+    let r = resolve(GOOD).unwrap();
+    assert!(r.materials[0].e_pair.is_none());
+    assert!(!r.input.to_toml_string().unwrap().contains("e_pair"));
+
+    let r = resolve(&with("ev = 3.6\nsource = \" a test source \"")).unwrap();
+    let p = r.materials[0].e_pair.as_ref().unwrap();
+    assert_eq!((p.ev, p.source.as_str()), (3.6, "a test source"));
+    assert!(r.input.to_toml_string().unwrap().contains("e_pair"));
+
+    for (body, field) in [
+        ("ev = 0.0\nsource = \"s\"", "e_pair.ev"),
+        ("ev = -1.0\nsource = \"s\"", "e_pair.ev"),
+        ("ev = 3.6\nsource = \"  \"", "e_pair.source"),
+    ] {
+        let e = resolve(&with(body)).unwrap_err();
+        assert!(e.contains(field), "{body}: {e}");
+    }
+    // A missing source is a parse error, not a silent default.
+    assert!(resolve(&with("ev = 3.6")).is_err());
+}
+
 #[test]
 fn exposure_section_resolves_echoes_and_names_bad_fields() {
     let d = dir("exposure");
@@ -605,4 +701,45 @@ fn exposure_section_resolves_echoes_and_names_bad_fields() {
     .unwrap_err()
     .to_string();
     assert!(e.contains("volumes[1].name"), "{e}");
+}
+
+#[test]
+fn voxel_table_resolves_echoes_and_names_bad_fields() {
+    let d = dir("voxel");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let sec = "\n[electron.tally.voxel]\norigin_nm = [0.0, -10.0, -10.0]\n\
+spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
+    let resolve = |text: &str| {
+        ElectronInput::from_toml_str(text)
+            .unwrap()
+            .resolve_in(&d)
+            .map_err(|e| e.to_string())
+    };
+    let r = resolve(&format!("{GOOD}{sec}")).unwrap();
+    assert!(r.voxel_grid.is_some());
+    let echoed = r.input.electron.tally.voxel.clone().unwrap();
+    assert_eq!(echoed.dims, [10, 2, 2]);
+    // The echo round-trips through TOML.
+    let text = toml::to_string(&r.input).unwrap();
+    assert!(text.contains("[electron.tally.voxel]"), "{text}");
+    // Without the table there is no grid.
+    assert!(resolve(GOOD).unwrap().voxel_grid.is_none());
+
+    for (from, to, field) in [
+        ("origin_nm = [0.0,", "origin_nm = [nan,", "voxel.origin_nm"),
+        (
+            "spacing_nm = [4.0,",
+            "spacing_nm = [0.0,",
+            "voxel.spacing_nm",
+        ),
+        (
+            "spacing_nm = [4.0,",
+            "spacing_nm = [inf,",
+            "voxel.spacing_nm",
+        ),
+        ("dims = [10,", "dims = [0,", "voxel.dims"),
+    ] {
+        let e = resolve(&format!("{GOOD}{}", sec.replace(from, to))).unwrap_err();
+        assert!(e.contains(&format!("electron.tally.{field}")), "{e}");
+    }
 }

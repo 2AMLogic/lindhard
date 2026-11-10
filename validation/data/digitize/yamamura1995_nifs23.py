@@ -195,7 +195,26 @@ AU_CLUSTERS = [
 AU = {"figure": "Fig. 310", "page": 96, "am32_page": 262, "shape": (2314, 1594), "panel": (890, 1550, 1160, 1875),
       "frame_frac": 0.3, "right_ticks": False, "letter_of": AU_LETTER_OF, "seeds": AU_SEEDS, "clusters": AU_CLUSTERS}
 
-FIGURES = {"Cu": CU, "Si": SI, "Ag": AG, "Au": AU}
+# Fig. 105 (Ar -> Ni), PDF p. 45, lower left. Legend: A Almen, B Fert, C Laegreid, D Stuart, E Fetz, F Roth (1979),
+# G Sletten, H Weijsenfeld, I Trabojevic, J Poate, K Okajima, L Oechsner; star ACAT (calculated, not read).
+# Many glyphs below 1 keV are drawn as boxes (D, E and others overlap); Roth-Bohdansky-Ottenberger's two I
+# points of IPPJ-AM-32 are F here.
+NI_LETTER_OF = {"ar_ni_sputter_laegreid1961": "C", "ar_ni_sputter_stuart1962": "D", "ar_ni_sputter_fetz1963": "E",
+                "ar_ni_sputter_roth1979": "F", "ar_ni_sputter_weijsenfeld1967": "H", "ar_ni_sputter_oechsner1973": "L",
+                "ar_ni_sputter_okajima1981": "K"}
+NI_SEEDS = [
+    ("F", "coincident", 478, 1374, 486, 1391, "about 3 keV: two F drawn 4-5 px apart in y (two I at one energy in "
+     "IPPJ-AM-32); the curve crosses the top bar, so the box starts at the curve"),
+    ("K", "isolated", 538, 1363, 550, 1378, "about 10 keV, below the curve"),
+]
+NI_CLUSTERS = [
+    (350, 1420, 395, 1465, "0.25-0.4 keV stack of Stuart D, Fetz E, Weijsenfeld H, Laegreid C and ACAT stars"),
+    (395, 1385, 435, 1425, "0.7-1.1 keV stack of Fetz E, Weijsenfeld H and Oechsner L"),
+]
+NI = {"figure": "Fig. 105", "page": 45, "am32_page": 103, "shape": (2314, 1602), "panel": (150, 830, 1130, 1875),
+      "frame_frac": 0.3, "letter_of": NI_LETTER_OF, "seeds": NI_SEEDS, "clusters": NI_CLUSTERS}
+
+FIGURES = {"Cu": CU, "Si": SI, "Ag": AG, "Au": AU, "Ni": NI}
 COMB = np.log10(np.array([k * 10.0**n for n in range(-4, 8) for k in range(1, 10)]))
 
 

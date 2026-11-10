@@ -476,9 +476,23 @@ seed = 1
 | `energy_ev` | required | Kinetic energy of the primaries, eV: the vacuum energy with `boundary = "step-barrier"`, the energy inside the first layer otherwise |
 | `tilt_deg` | 0 | Polar angle from the surface normal, `[0, 90)` |
 | `azimuth_deg` | 0 | Azimuth of the incidence plane |
+| `landing_nm` | `[0, 0]` | Landing point `[y, z]` of the beam centre on the front face, nm |
+| `profile` | point | `[electron.beam.profile]`, lateral profile about the landing point (below) |
+| `divergence` | none | `[electron.beam.divergence]`, the same table as the ion beam's `[beam.divergence]` (`gaussian` with `sigma_deg`, or `uniform-cone` with `half_angle_deg`; at most 10 degrees) |
 
-Primaries start on the front face at `y = z = 0` (just outside it with the
-step barrier).
+Primaries start on the front face (just outside it with the step barrier) at
+the landing point, which defaults to `y = z = 0`. `[electron.beam.profile]`
+selects the lateral profile by `model`: `point` (the default: every primary
+lands at the landing point), `gaussian` (`sigma_nm`, the standard deviation of
+each of `y` and `z`), `disc` (`radius_nm`, uniform in area) or `rectangle`
+(`width_y_nm`, `width_z_nm`, full widths, uniform). Sizes must be positive. Each
+history draws its start position, then its direction, from its own random
+stream, so results do not depend on the thread count. Divergence is conditioned
+on directions into the target, as for ions. The default (a point beam, no
+divergence) draws no extra random numbers, so existing inputs give identical
+results for a fixed seed. Through the library, use
+`Transport::run_beam` with a `BeamSpread`; `Transport::run` is the point beam.
+The slab has no lateral edge, so a spot is never partly off the face here.
 
 **`[electron.transport]`** (`lindhard::electron::transport::TransportConfig`)
 
@@ -589,6 +603,7 @@ Every name the target uses needs an entry; an unused entry warns.
 | `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
 | `mermin_fit` | none (the default fit) | Options of this material's Mermin oscillator fit, `mermin-melf` only: see below |
 | `inner_shells` | none (valence only) | Inner-shell ionisation channels of this material, `penn-single-pole` only: see below |
+| `e_pair` | none | Mean energy per electron-hole pair, `{ ev, source }`: `ev` positive, `source` a required non-blank citation (for example the Klein 1968 rule for a semiconductor, or a measured SiO₂ value). **No default is supplied.** Without it the summary reports the ionisation energy of the material's layers and no pair count. Post-processing only: transport does not read it |
 
 **`[electron.materials.<name>.mermin_fit]`** (`lindhard::electron::inelastic::MerminFitOptions`):
 the `mermin-melf` model fits Drude-Lorentz oscillators to each material's
@@ -705,6 +720,17 @@ per-history errors, and double- and triple-Gaussian fits to it.
 | `fits` | `["double", "triple"]` | Forms to fit, any subset of `"double"` and `"triple"` (may be empty) |
 | `normalization` | `"slab-total"` | `"slab-total"` fixes the fit's energy scale to the slab energy; `"free"` fits it |
 
+**`[electron.tally.voxel]`**: the same fields as the ion `[tally.voxel]`
+(`origin_nm`, `spacing_nm`, `dims`; same validation). Tallies the deposited
+energy per voxel, by channel (`electronic_ev`, `lattice_ev`, `rest_ev`), and
+writes it as `damage_export.csv` with `engine = electron` (see
+[Damage export format](damage-export-format.md)). The voxel energies plus
+`outside` sum to `results.budget.deposited_ev`. The species, defect and
+displacement columns are empty or zero: the electron tally has no species
+axis. Deposits are point events, so a flight is not split across voxel faces.
+Without the table no file is written, and one left in a reused output
+directory is removed.
+
 **`[electron.tally.exposure]`** (`lindhard::tally::exposure`): the energy `X`
 that one primary history (the primary and its secondaries) deposits in each
 target volume, binned into a histogram with an exact bin at `X = 0`, and the
@@ -814,6 +840,14 @@ definitions and the cutoff dependence of replacements are those of
 all voxels, the header's `outside` sums and all species they equal the
 `results.damage.cascade` totals exactly.
 
+### `damage_export.csv`
+
+Written with a `[tally.voxel]` table, removed from a reused output directory
+without it, and listed under `files` in `summary.json`. The same voxel map as
+`voxel_tally.csv` under the versioned exchange header (engine, version, seed,
+SHA-256 of the input echo, units); see
+[Damage export format](damage-export-format.md).
+
 ### `ions.csv`
 
 `index,fate,x_nm,y_nm,z_nm,energy_ev,dir_x,dir_y,dir_z,layer`: the final
@@ -868,6 +902,39 @@ An electron run writes these instead of the ion files.
 | `files` | Names of the CSV files (`null` if not written) |
 | `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
 
+`results.damage` (electron runs; an ion run's `results.damage` is the NRT
+block above) splits the deposited energy into **ionisation** (electronic
+excitation, the source of electron-hole pairs) and **lattice** heating, and
+tests the beam against the displacement threshold. `beam_energy_ev` is the
+beam energy of the input and `residual_channel` is `"ionisation"`. Per entry of
+`layers`: `layer`, `material`, `ionisation_ev` and `lattice_ev` (summed over
+histories) and the same `_per_primary`; with an `e_pair` for the layer's
+material also `e_pair_ev`, `e_pair_source` and `pairs_per_primary =
+ionisation_ev_per_primary / e_pair_ev` (the keys are absent without `e_pair`;
+the top-level `pairs_per_primary`, the sum over layers, is present only when
+every layer that has ionisation energy has an `e_pair`); and `knock_on`, one
+object per element: `element`, `z`, `t_max_ev = 2E(E + 2mc²)/(Mc²)` (relativistic,
+free atom at rest, head-on, `M` the atomic weight times the atomic mass unit),
+`e_d_ev`, `can_displace` (`T_max >= E_d`) and `threshold_beam_ev` (the beam
+energy at which `T_max = E_d`). An element without `E_d` shows `"not set"` in
+those three fields. `E_d` is the material's value (`[materials]` `e_d_ev`, or
+the element default where the element table has one). It is a threshold test
+only: no displacement cross section or dpa. For a step-barrier run `E` is the
+vacuum energy of the beam.
+
+Conventions of the split (`lindhard::tally::electron`, "The ionisation and
+lattice channels"). Ionisation is the energy left in the solid at inelastic
+events plus the **residual** energy of electrons that fell below the cutoff
+(`budget.residual_ev`, the cutoff-dependent term; placed here by convention).
+Lattice is LO-phonon emission plus polaron traps (`budget.phonon_emitted_ev +
+budget.polaron_ev`; both are zero without the insulator channels). Ionisation
+plus lattice equals `deposited_ev` in the budget, per layer
+(`deposition.per_layer_ionisation_ev`, `per_layer_lattice_ev`) and per cell, to
+floating-point rounding, and like all deposits includes Fermi-sea energy with
+secondaries. Elastic nuclear recoil energy is not tallied by the electron
+engine and is in neither channel. `budget.ionisation_ev` and `budget.lattice_ev`
+are the totals.
+
 `results.table_coverage` is a numerical diagnostic: one entry per layer
 (`layer`), and for its `elastic` and `inelastic` table the grid bounds
 `energy_min_ev` and `energy_max_ev` and the counts `below` (`E <
@@ -906,10 +973,13 @@ Each spectrum ends with `-inf` and `inf` rows for entries outside the grid,
 with empty densities. The density is per primary per eV or per degree.
 
 `electron_deposition_cylindrical.csv` (with `tally.cylindrical`):
-`ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,energy_ev,ev_per_primary_per_nm3`,
+`ir,ix,r_lo_nm,r_hi_nm,depth_lo_nm,depth_hi_nm,energy_ev,ev_per_primary_per_nm3,ionisation_ev,lattice_ev`,
 one row per cell. `electron_deposition_cartesian.csv` (with
-`tally.cartesian`): `ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,energy_ev,ev_per_primary_per_nm3`.
-Energy deposited outside a grid is `outside_ev` in the summary. Like `budget.deposited_ev`, the cell energies are
+`tally.cartesian`): `ix,iy,iz,x_lo_nm,x_hi_nm,y_lo_nm,y_hi_nm,z_lo_nm,z_hi_nm,energy_ev,ev_per_primary_per_nm3,ionisation_ev,lattice_ev`.
+`ionisation_ev + lattice_ev = energy_ev` per cell (the two columns are new and
+last, in eV summed over histories).
+Energy deposited outside a grid is `outside_ev` in the summary (with
+`outside_ionisation_ev` and `outside_lattice_ev`). Like `budget.deposited_ev`, the cell energies are
 measured from the band bottom and, with secondaries, include Fermi-sea energy
 the beam did not supply.
 
@@ -1154,7 +1224,7 @@ file the run did not produce is removed if present: `ions.csv` (without
 `tally.per_ion`), and `electron_deposition_cartesian.csv` or
 `electron_deposition_cylindrical.csv` (without the matching deposition grid),
 and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
-`tally.psf`), and `electron_exposure_histogram.csv` (without `tally.exposure`).
+`tally.psf`), and `electron_exposure_histogram.csv` (without `tally.exposure`), and `damage_export.csv` (without `electron.tally.voxel`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
 CSV write leaves no new summary) and lists only files that exist.
