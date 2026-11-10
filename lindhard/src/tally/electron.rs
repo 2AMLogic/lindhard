@@ -227,6 +227,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::exposure::{ExposureAccumulator, ExposureConfig, ExposureError, ExposureReport};
 use super::hist::{Binning, Histogram};
 use super::moments::{MomentSummary, Moments};
 use super::psf::{PsfConfig, PsfError, RadialAccumulator, RadialProfile};
@@ -278,6 +279,9 @@ pub enum ElectronTallyError {
     /// The radial-profile (PSF) configuration is invalid.
     #[error("invalid PSF configuration: {0}")]
     Psf(#[from] PsfError),
+    /// The exposure settings are invalid.
+    #[error(transparent)]
+    Exposure(#[from] ExposureError),
 }
 
 /// A Cartesian deposition grid over `x` (depth), `y` and `z`, m.
@@ -354,7 +358,7 @@ impl CylindricalGrid {
 }
 
 /// Settings of a [`FullElectronTally`].
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ElectronTallyConfig {
     /// Optional Cartesian deposition grid.
     pub cartesian: Option<CartesianGrid>,
@@ -373,6 +377,11 @@ pub struct ElectronTallyConfig {
     /// per-history errors: the input of the PSF fits of [`super::psf`].
     #[serde(default)]
     pub psf: Option<PsfConfig>,
+    /// Optional exposure statistics: the per-electron deposit in target
+    /// volumes and the compound-Poisson distribution of a finite exposure
+    /// ([`super::exposure`]).
+    #[serde(default)]
+    pub exposure: Option<ExposureConfig>,
 }
 
 impl ElectronTallyConfig {
@@ -386,6 +395,7 @@ impl ElectronTallyConfig {
             escape_polar,
             se_bse_split_ev: SE_BSE_SPLIT_EV,
             psf: None,
+            exposure: None,
         }
     }
 }
@@ -824,6 +834,8 @@ pub struct FullElectronTally {
     cylindrical: Option<GridAcc>,
     /// Radial profile in a depth slab with per-history errors.
     psf: Option<RadialAccumulator>,
+    /// Per-electron deposit in the exposure volumes.
+    exposure: Option<ExposureAccumulator>,
     /// Energy-weighted deposition position: `x`, `y`, `z`, `r`.
     generation: [WeightedMoments; 4],
     stop_depth: Moments,
@@ -886,6 +898,12 @@ impl FullElectronTally {
             }
         };
         let psf = config.psf.map(RadialAccumulator::new).transpose()?;
+        let exposure = config
+            .exposure
+            .clone()
+            .map(ExposureAccumulator::new)
+            .transpose()?;
+        let (front, back) = (FaceAcc::new(&config), FaceAcc::new(&config));
         let charge = ChargeAcc {
             layers: ChargeGrid::new(transport.stack().layers().len()),
             cartesian: cartesian
@@ -912,13 +930,14 @@ impl FullElectronTally {
             cartesian,
             cylindrical,
             psf,
+            exposure,
             generation: [WeightedMoments::default(); 4],
             stop_depth: Moments::new(),
             stop_radial: Moments::new(),
             primary_stop_depth: Moments::new(),
             primary_stop_radial: Moments::new(),
-            front: FaceAcc::new(&config),
-            back: FaceAcc::new(&config),
+            front,
+            back,
             charge,
             table_coverage: TableCoverageTally::new(transport),
             last: None,
@@ -957,6 +976,9 @@ impl FullElectronTally {
         }
         if let Some(p) = &mut self.psf {
             p.deposit(pos, e);
+        }
+        if let Some(x) = &mut self.exposure {
+            x.deposit(pos, e);
         }
         let r = pos[1].hypot(pos[2]);
         for (m, v) in self.generation.iter_mut().zip([pos[0], pos[1], pos[2], r]) {
@@ -1099,6 +1121,7 @@ impl FullElectronTally {
                     },
                 ),
                 psf: self.psf.as_ref().map(RadialAccumulator::profile),
+                exposure: self.exposure.as_ref().map(ExposureAccumulator::report),
             };
         ElectronReport {
             histories: h,
@@ -1109,7 +1132,7 @@ impl FullElectronTally {
                 cutoff_ev: self.cutoff_ev,
                 stopping_threshold_ev: self.thresholds.clone(),
                 layers: self.layer_deposit_ev.len(),
-                config: self.config,
+                config: self.config.clone(),
             },
             fates: self.fates,
             event_caps: self.event_caps,
@@ -1136,7 +1159,10 @@ impl FullElectronTally {
 }
 
 impl ElectronTally for FullElectronTally {
-    fn begin_history(&mut self, _index: u64, start: &ElectronState) {
+    fn begin_history(&mut self, index: u64, start: &ElectronState) {
+        if let Some(x) = &mut self.exposure {
+            x.begin_history(index, [start.pos[1], start.pos[2]]);
+        }
         self.budget.incident += start.energy_ev;
         self.last = Some(*start);
         self.primary_last = None;
@@ -1313,6 +1339,9 @@ impl ElectronTally for FullElectronTally {
         if let Some(p) = &mut self.psf {
             p.end_history();
         }
+        if let Some(x) = &mut self.exposure {
+            x.end_history();
+        }
         match fate {
             Fate::Stopped => self.fates.stopped += 1,
             Fate::Escaped(Face::Front) => self.fates.escaped_front += 1,
@@ -1382,6 +1411,9 @@ impl ElectronTally for FullElectronTally {
             a.merge(b);
         }
         if let (Some(a), Some(b)) = (&mut self.psf, &o.psf) {
+            a.merge(b);
+        }
+        if let (Some(a), Some(b)) = (&mut self.exposure, &o.exposure) {
             a.merge(b);
         }
         for (a, b) in self.generation.iter_mut().zip(&o.generation) {
@@ -1806,6 +1838,9 @@ pub struct DepositionReport {
     /// [`super::psf::fit_psf`].
     #[serde(default)]
     pub psf: Option<RadialProfile>,
+    /// Exposure statistics, if configured ([`ElectronTallyConfig::exposure`]).
+    #[serde(default)]
+    pub exposure: Option<ExposureReport>,
 }
 
 /// Deposited energy on a [`CartesianGrid`].
