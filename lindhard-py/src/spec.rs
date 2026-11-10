@@ -366,7 +366,8 @@ impl Beam {
         Ok(BeamSpec {
             ion: self.ion.clone(),
             mass_amu: self.mass_amu,
-            energy_ev: self.energy_ev,
+            energy_ev: Some(self.energy_ev),
+            spectrum: None,
             tilt_deg: self.tilt_deg,
             azimuth_deg: self.azimuth_deg,
             divergence: self.divergence_spec()?,
@@ -401,7 +402,12 @@ impl Beam {
     pub fn from_spec(s: &BeamSpec) -> Self {
         Self {
             ion: s.ion.clone(),
-            energy_ev: s.energy_ev,
+            // A spectrum has no Python surface yet; its largest line stands in.
+            energy_ev: s.energy_ev.unwrap_or_else(|| {
+                s.spectrum
+                    .as_deref()
+                    .map_or(0.0, |l| l.iter().map(|x| x.energy_ev).fold(0.0, f64::max))
+            }),
             mass_amu: s.mass_amu,
             tilt_deg: s.tilt_deg,
             azimuth_deg: s.azimuth_deg,

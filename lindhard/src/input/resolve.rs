@@ -3,7 +3,8 @@
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
 use crate::ion::bca::{
-    BcaConfig, Beam, CrystalTarget, ElectronicLoss, MeanFreePath, Thermal, MAX_WEAK_COLLISIONS,
+    BcaConfig, Beam, CrystalTarget, ElectronicLoss, EnergySpectrum, MeanFreePath, Thermal,
+    MAX_WEAK_COLLISIONS,
 };
 use crate::ion::crystal::Divergence;
 use crate::ion::stopping::table::StoppingTable;
@@ -219,7 +220,8 @@ impl Input {
                  use \"lindhard-scharff\" (or another model) as the fallback",
             ));
         }
-        let e0 = self.beam.energy_ev;
+        let energies = self.beam_energies();
+        let e0 = energies.iter().copied().fold(0.0, f64::max);
         let cutoff = self.physics.primary_cutoff_ev;
         let recoil_cutoff = self.physics.recoil_cutoff_ev;
         let follow = self.physics.follow_recoils;
@@ -325,11 +327,11 @@ impl Input {
                     ),
                 ));
             }
-            if e0 < lo || e0 > hi {
+            if let Some(&e) = energies.iter().find(|&&e| e < lo || e > hi) {
                 return Err(invalid(
                     &field,
                     format!(
-                        "{}: beam energy {e0} eV is outside the table range [{lo}, {hi}] eV",
+                        "{}: beam energy {e} eV is outside the table range [{lo}, {hi}] eV",
                         l.path
                     ),
                 ));
@@ -385,9 +387,13 @@ impl Input {
             Some(m) => Ion::with_mass(el.z, m),
         }
         .map_err(|e| invalid("beam.mass_amu", e.to_string()))?;
-        if !finite_pos(b.energy_ev) {
-            return Err(invalid("beam.energy_ev", "must be finite and positive"));
-        }
+        let spectrum = self.resolve_spectrum()?;
+        let e_max = spectrum
+            .as_ref()
+            .map_or_else(|| b.energy_ev.unwrap_or(0.0), EnergySpectrum::max_energy_ev);
+        let e_min = spectrum
+            .as_ref()
+            .map_or(e_max, EnergySpectrum::min_energy_ev);
         if !(b.tilt_deg.is_finite() && (0.0..90.0).contains(&b.tilt_deg)) {
             return Err(invalid("beam.tilt_deg", "must be in [0, 90) degrees"));
         }
@@ -406,7 +412,7 @@ impl Input {
         let divergence = self.resolve_divergence()?;
         let beam = Beam {
             ion,
-            energy_ev: b.energy_ev,
+            energy_ev: e_max,
             polar_rad: b.tilt_deg.to_radians(),
             azimuth_rad: b.azimuth_deg.to_radians(),
             count: self.run.ions,
@@ -554,12 +560,18 @@ impl Input {
                 "must be finite and non-negative",
             ));
         }
-        if p.primary_cutoff_ev >= b.energy_ev {
+        if p.primary_cutoff_ev >= e_min {
             return Err(invalid(
                 "physics.primary_cutoff_ev",
                 format!(
-                    "{} eV is not below the beam energy {} eV",
-                    p.primary_cutoff_ev, b.energy_ev
+                    "{} eV is not below the beam energy {} eV{}",
+                    p.primary_cutoff_ev,
+                    e_min,
+                    if spectrum.is_some() {
+                        " (the smallest spectrum line)"
+                    } else {
+                        ""
+                    }
                 ),
             ));
         }
@@ -683,11 +695,12 @@ impl Input {
                     .any(|t| t.table.covers_pair(ion.z(), c.z()))
             })
         });
-        if beam_pair_uncovered && !validity.contains(b.energy_ev) {
+        let outside = [e_min, e_max].into_iter().find(|&e| !validity.contains(e));
+        if let (true, Some(e)) = (beam_pair_uncovered, outside) {
             warnings.push(format!(
                 "beam energy {} eV is outside the advisory validity range of the {} \
                  stopping model for {} ([{}, {}] eV)",
-                b.energy_ev,
+                e,
                 fallback.name(),
                 b.ion,
                 validity.min_energy_ev,
@@ -700,6 +713,7 @@ impl Input {
             input: self.echo(),
             beam,
             divergence,
+            spectrum,
             stack,
             layers,
             config,
@@ -711,6 +725,70 @@ impl Input {
             warnings,
             tuning,
         })
+    }
+
+    /// The primary energies the beam can have: the spectrum's lines, or the
+    /// single `energy_ev`. Unvalidated (callers run after
+    /// [`Self::resolve_spectrum`]).
+    fn beam_energies(&self) -> Vec<f64> {
+        match &self.beam.spectrum {
+            Some(lines) => lines.iter().map(|l| l.energy_ev).collect(),
+            None => self.beam.energy_ev.into_iter().collect(),
+        }
+    }
+
+    /// Validate `[beam]`'s `energy_ev` / `spectrum` pair and build the
+    /// engine's [`EnergySpectrum`] (`None` for a plain `energy_ev`). Exactly
+    /// one of the two keys is required. A spectrum is for static ion runs: a
+    /// `[dynamic]` target is rejected.
+    fn resolve_spectrum(&self) -> Result<Option<EnergySpectrum>, InputError> {
+        let b = &self.beam;
+        match (&b.spectrum, b.energy_ev) {
+            (None, None) => Err(invalid(
+                "beam",
+                "needs either energy_ev or a spectrum (list of { energy_ev, weight })",
+            )),
+            (Some(_), Some(_)) => Err(invalid(
+                "beam",
+                "energy_ev and spectrum are mutually exclusive; give exactly one",
+            )),
+            (None, Some(e)) => {
+                if !finite_pos(e) {
+                    return Err(invalid("beam.energy_ev", "must be finite and positive"));
+                }
+                Ok(None)
+            }
+            (Some(lines), None) => {
+                if self.dynamic.is_some() {
+                    return Err(invalid(
+                        "beam.spectrum",
+                        "not supported with a [dynamic] target; use a static run",
+                    ));
+                }
+                if lines.is_empty() {
+                    return Err(invalid("beam.spectrum", "needs at least one line"));
+                }
+                for (i, l) in lines.iter().enumerate() {
+                    if !finite_pos(l.energy_ev) {
+                        return Err(invalid(
+                            format!("beam.spectrum[{i}].energy_ev"),
+                            "must be finite and positive",
+                        ));
+                    }
+                    if !finite_pos(l.weight) {
+                        return Err(invalid(
+                            format!("beam.spectrum[{i}].weight"),
+                            "must be finite and positive",
+                        ));
+                    }
+                }
+                let pairs: Vec<(f64, f64)> =
+                    lines.iter().map(|l| (l.energy_ev, l.weight)).collect();
+                EnergySpectrum::new(&pairs)
+                    .map(Some)
+                    .map_err(|e| invalid("beam.spectrum", e))
+            }
+        }
     }
 
     /// Validate `[beam.divergence]` and convert it to the engine's
@@ -923,11 +1001,12 @@ impl Input {
                 ),
             ));
         }
-        let e = self.beam.energy_ev;
-        if !(e_lo..=e_hi).contains(&e) {
-            warnings.push(format!(
+        for e in self.beam_energies() {
+            if !(e_lo..=e_hi).contains(&e) {
+                warnings.push(format!(
                 "tuning set {name:?} was fitted at {e_lo}..{e_hi} eV; {e} eV is an extrapolation"
             ));
+            }
         }
         if self.beam.tilt_deg != 0.0 {
             warnings.push(format!(

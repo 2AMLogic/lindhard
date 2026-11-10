@@ -138,6 +138,12 @@ struct Physics {
     /// (docs/cli.md, "Compatibility and extension").
     #[serde(skip_serializing_if = "Option::is_none")]
     beam_divergence: Option<lindhard::ion::bca::DivergenceMetadata>,
+    /// Present only for a run with a `[beam]` `spectrum`: the lines with
+    /// normalised weights and the random-stream segment of the energy draw.
+    /// Added without a `format.version` bump (docs/cli.md, "Compatibility
+    /// and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    beam_spectrum: Option<lindhard::ion::bca::EnergySpectrumMetadata>,
 }
 
 #[derive(Serialize)]
@@ -637,6 +643,10 @@ pub fn summary_json(
             tuning: r.tuning.clone(),
             crystal: crystals.to_vec(),
             beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
+            beam_spectrum: r
+                .spectrum
+                .as_ref()
+                .map(lindhard::ion::bca::EnergySpectrumMetadata::new),
         },
         results: Results {
             histories: s.histories,

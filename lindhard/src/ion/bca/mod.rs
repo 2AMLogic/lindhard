@@ -285,6 +285,134 @@ impl Beam {
 /// unchanged.
 pub const DIVERGENCE_STREAM_WORD: u128 = 1u128 << 65;
 
+/// Word position of the segment of a history's random stream that the
+/// primary-energy draw of a [`EnergySpectrum`] comes from: `2^64`.
+///
+/// The transport draws start at word 0 and never reach it; it is disjoint
+/// from the divergence (`2^65`), thermal (`2^66`) and crystal-shift (`2^67`)
+/// segments (each is far shorter than the gap to the next). `2^68` words is
+/// the ChaCha period, so the segments cannot go higher than `2^67`; `2^64`
+/// is the free slot below them. A run without a spectrum never touches it.
+pub const ENERGY_STREAM_WORD: u128 = 1u128 << 64;
+
+/// A discrete, weighted spectrum of primary energies (a recoil, or PKA,
+/// spectrum). Each history selects one line with probability proportional to
+/// its weight, from a copy of its own stream at [`ENERGY_STREAM_WORD`], so the
+/// choice is independent of the thread count and changes no other draw.
+///
+/// Lines are discrete: there is no interpolation and no continuous spectrum.
+/// Selection is by inversion of the cumulative normalised weights with one
+/// [`uniform`] draw.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnergySpectrum {
+    /// `(energy_ev, normalised weight)` in input order.
+    lines: Vec<(f64, f64)>,
+    /// Running sum of the normalised weights, last entry forced to 1.
+    cumulative: Vec<f64>,
+}
+
+impl EnergySpectrum {
+    /// Build from `(energy_ev, weight)` lines. Needs at least one line;
+    /// energies and weights must be finite and positive. Weights are
+    /// normalised to sum to 1.
+    pub fn new(lines: &[(f64, f64)]) -> Result<Self, String> {
+        if lines.is_empty() {
+            return Err("needs at least one line".to_string());
+        }
+        for (i, &(e, w)) in lines.iter().enumerate() {
+            if !(e.is_finite() && e > 0.0) {
+                return Err(format!(
+                    "line {i}: energy {e} eV must be finite and positive"
+                ));
+            }
+            if !(w.is_finite() && w > 0.0) {
+                return Err(format!("line {i}: weight {w} must be finite and positive"));
+            }
+        }
+        let total: f64 = lines.iter().map(|l| l.1).sum();
+        if !(total.is_finite() && total > 0.0) {
+            return Err("the weights do not sum to a finite positive number".to_string());
+        }
+        let norm: Vec<(f64, f64)> = lines.iter().map(|&(e, w)| (e, w / total)).collect();
+        let mut acc = 0.0;
+        let mut cumulative: Vec<f64> = norm
+            .iter()
+            .map(|l| {
+                acc += l.1;
+                acc
+            })
+            .collect();
+        if let Some(last) = cumulative.last_mut() {
+            *last = 1.0;
+        }
+        Ok(Self {
+            lines: norm,
+            cumulative,
+        })
+    }
+
+    /// `(energy_ev, normalised weight)` of each line, in input order.
+    pub fn lines(&self) -> &[(f64, f64)] {
+        &self.lines
+    }
+
+    /// Smallest line energy, eV.
+    pub fn min_energy_ev(&self) -> f64 {
+        self.lines.iter().map(|l| l.0).fold(f64::INFINITY, f64::min)
+    }
+
+    /// Largest line energy, eV.
+    pub fn max_energy_ev(&self) -> f64 {
+        self.lines.iter().map(|l| l.0).fold(0.0, f64::max)
+    }
+
+    /// Draw a line index with one uniform variate from `rng`.
+    pub fn sample_index<R: Rng + ?Sized>(&self, rng: &mut R) -> usize {
+        let u = uniform(rng);
+        self.cumulative
+            .iter()
+            .position(|&c| u < c)
+            .unwrap_or(self.lines.len() - 1)
+    }
+
+    /// Draw a primary energy, eV.
+    pub fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
+        self.lines[self.sample_index(rng)].0
+    }
+}
+
+/// One line of [`EnergySpectrumMetadata`].
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SpectrumLineMetadata {
+    /// Line energy, eV.
+    pub energy_ev: f64,
+    /// Normalised weight (the lines sum to 1).
+    pub weight: f64,
+}
+
+/// Run metadata of a primary-energy spectrum ([`Bca::spectrum_metadata`]).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnergySpectrumMetadata {
+    /// The lines with normalised weights, in input order.
+    pub lines: Vec<SpectrumLineMetadata>,
+    /// Word position of the random-stream segment the draw comes from.
+    pub stream_word: &'static str,
+}
+
+impl EnergySpectrumMetadata {
+    /// Metadata of `spectrum`.
+    pub fn new(spectrum: &EnergySpectrum) -> Self {
+        Self {
+            lines: spectrum
+                .lines()
+                .iter()
+                .map(|&(energy_ev, weight)| SpectrumLineMetadata { energy_ev, weight })
+                .collect(),
+            stream_word: "2^64",
+        }
+    }
+}
+
 /// Most deflected directions drawn for one primary before
 /// [`Bca::with_divergence`]'s inward conditioning gives up with
 /// [`BcaError::BeamDivergence`]. For the small-angle spreads the input
@@ -780,6 +908,9 @@ pub struct Bca<'a> {
     /// Beam divergence about the nominal direction ([`Bca::with_divergence`]);
     /// [`Divergence::None`] (the default) draws nothing.
     divergence: Divergence,
+    /// Primary-energy spectrum ([`Bca::with_spectrum`]); `None` (the default)
+    /// gives every primary [`Beam::energy_ev`] and draws nothing.
+    spectrum: Option<EnergySpectrum>,
 }
 
 fn finite_nonneg(v: f64) -> bool {
@@ -1001,6 +1132,7 @@ impl<'a> Bca<'a> {
             crystals: Vec::new(),
             region_crystal: Vec::new(),
             divergence: Divergence::None,
+            spectrum: None,
         })
     }
 
@@ -1030,6 +1162,36 @@ impl<'a> Bca<'a> {
             .map_err(|e| BcaError::InvalidBeam(format!("divergence: {e}")))?;
         self.divergence = divergence;
         Ok(self)
+    }
+
+    /// Give the primaries a weighted energy spectrum (opt-in; the default is
+    /// none, which changes nothing). Each history draws its primary energy
+    /// from [`EnergySpectrum`] using a copy of its own stream at
+    /// [`ENERGY_STREAM_WORD`]; the energy budget's incident energy and the
+    /// primary's start energy are that draw. [`Beam::energy_ev`] is then not
+    /// used as the primary energy, but it must still be valid (the callers
+    /// set it to the largest line).
+    pub fn with_spectrum(mut self, spectrum: EnergySpectrum) -> Self {
+        self.spectrum = Some(spectrum);
+        self
+    }
+
+    /// Metadata of the primary-energy spectrum; `None` without one.
+    pub fn spectrum_metadata(&self) -> Option<EnergySpectrumMetadata> {
+        self.spectrum.as_ref().map(EnergySpectrumMetadata::new)
+    }
+
+    /// The incident energy of the history with stream `rng`: the beam energy,
+    /// or the spectrum draw (see [`Bca::with_spectrum`]).
+    fn initial_energy(&self, rng: &ParticleRng) -> f64 {
+        match &self.spectrum {
+            None => self.beam.energy_ev,
+            Some(sp) => {
+                let mut erng = rng.clone();
+                erng.set_word_pos(ENERGY_STREAM_WORD);
+                sp.sample(&mut erng)
+            }
+        }
     }
 
     /// Metadata of the beam divergence; `None` without one.
@@ -1187,8 +1349,9 @@ impl<'a> Bca<'a> {
         index: u64,
     ) -> Result<EnergyBudget, HistoryError> {
         tally.begin_history(index);
+        let e_primary = self.initial_energy(rng);
         let mut budget = EnergyBudget {
-            incident: self.beam.energy_ev,
+            incident: e_primary,
             ..EnergyBudget::default()
         };
         let HistoryBuffers {
@@ -1236,7 +1399,7 @@ impl<'a> Bca<'a> {
             species: 0,
             z: self.beam.ion.z(),
             mass_amu: self.beam.ion.mass_amu(),
-            energy_ev: self.beam.energy_ev,
+            energy_ev: e_primary,
             pos: self.entry_pos,
             dir,
             layer: self.entry_region,

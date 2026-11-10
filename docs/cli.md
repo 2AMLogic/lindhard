@@ -39,10 +39,61 @@ keys. The schema types are `lindhard::input` (shared with future front ends).
 |---|---|---|
 | `ion` | required | Element symbol of the projectile (case-sensitive, `"As"`) |
 | `mass_amu` | standard atomic weight | Projectile mass, u |
-| `energy_ev` | required | Incident energy, eV |
+| `energy_ev` | one of `energy_ev` / `spectrum` | Incident energy, eV |
+| `spectrum` | none | A weighted list of primary energies (a recoil/PKA spectrum), the `[[beam.spectrum]]` array below. Mutually exclusive with `energy_ev` |
 | `tilt_deg` | 0 | Polar angle from the surface normal, `[0, 90)` |
 | `azimuth_deg` | 0 | Azimuth of the incidence plane |
 | `divergence` | none | Angular spread, the `[beam.divergence]` table below |
+
+#### `[[beam.spectrum]]` (optional)
+
+A primary-energy spectrum, for a cascade started from a recoil (a PKA
+spectrum) rather than from a mono-energetic beam. Give exactly one of
+`energy_ev` and `spectrum` (both, or neither, is an error naming `beam`).
+Each entry is a line:
+
+```toml
+[beam]
+ion = "Si"          # the beam species may be a target element (self-ion)
+spectrum = [
+  { energy_ev = 1000.0, weight = 3.0 },
+  { energy_ev = 2000.0, weight = 1.0 },
+]
+```
+
+| Key | Meaning |
+|---|---|
+| `energy_ev` | Line energy, eV; finite and positive |
+| `weight` | Relative weight; finite and positive. Weights are normalised over the list, so `3, 1` means 75 % / 25 % |
+
+The spectrum is discrete: no continuous or tabulated spectrum and no
+interpolation. At least one line is required. Each history picks its line
+with one uniform draw from a copy of its own random stream at word `2^64`,
+disjoint from the transport draws and the divergence (`2^65`), thermal
+(`2^66`) and lattice-shift (`2^67`) segments, so the choice does not depend
+on the thread count and no other draw of the history moves. With a one-line
+spectrum the run is therefore bit-identical to the same run with `energy_ev`.
+Without the key nothing changes. The energy budget closes per history with
+the drawn energy as the incident energy.
+
+Checks that involve the beam energy use the lines: `physics.primary_cutoff_ev`
+must be below the smallest line, and every line must lie inside the range of a
+`[[stopping.tables]]` entry that serves the beam pair (the advisory stopping
+validity warning fires if any line is outside). Static ion runs only: with a
+`[dynamic]` target the key is an error (`beam.spectrum`); `[electron]` runs
+have no such key.
+
+**Recoil start.** A PKA enters with the beam's `tilt_deg`, `azimuth_deg` and
+divergence like any primary; an isotropic or derived recoil direction, and
+deriving a spectrum from a flux or cross sections, are not part of this key.
+The beam species may equal a target element (e.g. Si into Si, as for the
+isotopic self-ion beam under `[stopping]`); give that element's `e_d_ev`,
+`e_b_ev` and `e_s_ev` under `[physics.energies]` as for any target element.
+
+The summary's `physics.beam_spectrum` records the lines with normalised
+weights and the stream segment (`stream_word`); the echoed `input.beam` is the
+input as written. It is absent without the key and `format.version` stays 1
+(see "Compatibility and extension").
 
 #### `[beam.divergence]` (optional)
 
@@ -1369,7 +1420,8 @@ keys, never by changing existing ones:
   `results.escapes` were added this way, without a version bump.
 - `physics.crystal` (the `[[crystal]]` metadata) was added this way, without
   a version bump; an amorphous run does not carry it. `physics.beam_divergence`
-  (the `[beam.divergence]` metadata) likewise.
+  (the `[beam.divergence]` metadata) and `physics.beam_spectrum` (the
+  `[beam]` `spectrum` metadata) likewise.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes

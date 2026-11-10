@@ -59,6 +59,10 @@ pub struct Resolved {
     /// Beam divergence about the nominal direction ([`crate::ion::crystal::Divergence::None`]
     /// without `[beam.divergence]`).
     pub divergence: crate::ion::crystal::Divergence,
+    /// Primary-energy spectrum from `[beam] spectrum` (`None` without it;
+    /// then every primary has `beam.energy_ev`). With a spectrum,
+    /// `beam.energy_ev` is the largest line.
+    pub spectrum: Option<crate::ion::bca::EnergySpectrum>,
     /// The target.
     pub stack: Stack,
     /// Layers in stack order, with where each material came from.

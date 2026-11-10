@@ -283,7 +283,10 @@ impl Run {
         format!(
             "Run(ion={}, energy_ev={}, ions={}, seed={})",
             self.input.beam.ion,
-            self.input.beam.energy_ev,
+            self.input
+                .beam
+                .energy_ev
+                .map_or("spectrum".to_string(), |e| e.to_string()),
             self.input.run.ions,
             self.input.run.seed
         )
