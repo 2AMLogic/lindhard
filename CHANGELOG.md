@@ -18,6 +18,15 @@ one version).
   the dose of a multi-shot exposure from a fitted Gaussian-sum point-spread
   function (analytic, with beam blur and shaped spots), iso-dose contours and
   the area and centroid of each exposed feature (#551).
+- Electron runs: `[electron.tally.exposure]` gives the distribution of the energy a
+  small volume (cylinder or box, with a lateral offset) receives from a finite number of
+  electrons. The per-electron deposit histogram (with the exact mass at zero) goes
+  to `electron_exposure_histogram.csv`; `results.deposition.exposure` in `summary.json`
+  holds `E[X]`, `E[X^2]` with standard errors and, for a Poisson mean number of
+  electrons `lambda` and a point, Gaussian or uniform-disc beam, the compound-Poisson
+  mean, variance, quantiles and `P(S < a)`, `P(S > b)` with a binning bracket, for each
+  volume (a neighbour is another volume). `ElectronTallyConfig` gains `exposure` and
+  is no longer `Copy`. (#550)
 - `lindhard-wasm`: the simulator's Run view gains live distribution plots (ion
   range with the Pearson IV overlay, lateral and radial, damage versus depth,
   escapes by species with energy and polar-angle spectra), CSV per plot, the full
