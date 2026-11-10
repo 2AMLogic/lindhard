@@ -122,7 +122,7 @@ docs follow-up #121.
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-- **PR #538**: fix: use the Thomas-Fermi constant for the universal screening length *(needs the aarch64 macOS crystal golden set)*
+_None._
 
 ## Very Important
 
@@ -134,7 +134,8 @@ _None._
 
 `loom:important`; taken before unlabelled work.
 
-- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots *(curated, operator)*
+- **#486**: [Epic #33] Digitize the measured points from the srim.org stopping plots (cited, flagged, count-checked)
+- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup
 
 ## Ready
 
@@ -146,39 +147,39 @@ _None._
 
 Issues currently being built (`loom:building`).
 
-- **#536**: Universal screening length: use the 0.8853 prefactor printed in the SRIM book's Eq. 2-73 *(PR #538)*
+- **#543**: [Epic #22] Store Ar → Ni sputter-yield datasets from IPPJ-AM-32 (split from #511, part 1)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **PR #540**: docs: verify Molière constants and TRIM-chapter formulas against the SRIM book
-- **PR #421**: docs: Guide document maintenance update *(2026-10-15; superseded by this refresh)*
+- **#542**: docs: record operator rulings on 0.1.0 scope and publishing
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **PR #539**: chore(deps): bump rizzma from 1.13.7 to 1.14.1 *(also `loom:blocked`)*
+_None._
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
-- **#15**: [Epic #10] Verify element and constant data against primary sources *(curated, blocked)*
-- **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources *(curated, blocked; narrowed by #537, #540)*
-- **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated, blocked)*
-- **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves *(curated, blocked)*
-- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(curated, blocked)*
-- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated, blocked)*
-- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy *(curated, blocked)*
-- **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings *(curated, operator)*
-- **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated, blocked)*
-- **#360**: Measure the build time and peak RSS of a penn-full table *(curated, blocked)*
-- **#483**: [Epic #33] Seed measured stopping datasets from primary papers *(curated, blocked)*
-- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots *(curated, operator, important)*
-- **#511**: [Epic #22] Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio *(curated, blocked)*
-- **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si *(curated, operator)*
+- **#15**: [Epic #10] Verify element and constant data against primary sources *(curated)*
+- **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
+- **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
+- **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(curated)*
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
+- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
+- **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
+- **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated)*
+- **#360**: Measure the build time and peak RSS of a penn-full table with band-bottom rate refinement (operator-run) *(curated)*
+- **#483**: [Epic #33] Seed measured stopping datasets from primary papers (first batch: H/He/B/P/As in Si, H/He in Cu and Au) *(curated)*
+- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)*
+- **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning *(curated)*
+- **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
+- **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -198,17 +199,16 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 0 |
 | Very important | 0 |
-| Important | 1 |
+| Important | 2 |
 | Ready (`loom:issue`) | 0 |
 | In Progress (`loom:building`) | 1 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 1 |
-| Curated | 14 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 0 |
+| Curated | 15 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 7 |
-| Open issues, all | 34 |
 <!-- guide:plan-body:end -->
 
 ## Done

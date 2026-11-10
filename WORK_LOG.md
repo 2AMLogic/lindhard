@@ -2,6 +2,178 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-09
+
+- **PR #539**: chore(deps): bump rizzma from 1.13.7 to 1.14.1 in the cargo-minor-patch group across 1 directory
+- **Issue #536** (closed): Universal screening length: use the 0.8853 prefactor printed in the SRIM book's Eq. 2-73
+- **PR #538**: fix: use the Thomas-Fermi constant for the universal screening length
+- **PR #541**: docs: roadmap refresh — close out and release 0.1.0
+- **PR #540**: docs: verify Molière constants and TRIM-chapter formulas against the SRIM book
+- **PR #537**: docs: verify ZBL constants against the SRIM book, Ch. 2
+- **PR #535**: docs: tidy SRIM book wording (follow-up to #534)
+
+### 2026-11-08
+
+- **PR #534**: docs: allow SRIM as a comparison reference, never as model input
+
+### 2026-11-07
+
+- **PR #527**: ci: report RustSec advisories weekly via a tracking issue
+- **PR #533**: Bump Repo Skills 0.25.1 -> 0.25.10
+
+### 2026-11-06
+
+- **Issue #531** (closed): Consolidate copy-pasted Si/SiO2 Material test fixtures into tests/common
+- **PR #532**: test: share Si and SiO2 material fixtures via tests/common
+- **Issue #529** (closed): Dedupe the Si-Si ZBL ScatteringTable test helper copied across 15 integration tests
+- **PR #530**: test: share Si-Si ZBL table helper across integration tests
+- **Issue #192** (closed): Test: malformed and hostile input values must error, never panic or hang
+- **PR #528**: test(input): add subprocess-contained malformed-input corpus; cap elastic grid size
+- **Issue #157** (closed): Auditor Capability Request: Rust and Python toolchains unavailable on auditor host
+- **Issue #193** (closed): Auditor process proposal: check current main for conflicts before review handoff
+- **Issue #525** (closed): Add the H and He water/polystyrene compound points to the stopping residual report
+- **PR #526**: feat(validation): add water and polystyrene compound points to the stopping residual report
+
+### 2026-11-02
+
+- **Issue #522** (closed): lindhard.org: public demo site (landing, in-browser WASM calculator, gallery, validation) on Cloudflare Pages
+- **PR #523**: feat(site): Cloudflare Pages build script, CI job and validation/status/about pages
+- **PR #524**: chore(deps): bump sha2 from 0.11.0 to 0.11.1 in the cargo-minor-patch group across 1 directory
+
+### 2026-11-01
+
+- **PR #519**: feat: add live distribution plots and CSV/JSON/PNG exports to the simulator Run view
+- **PR #521**: Bump Repo Skills 0.24.7 -> 0.25.1
+
+### 2026-10-31
+
+- **Issue #512** (closed): [Epic #22] Run the Sb-in-Si high-fluence profile comparison against the stored Titze et al. SIMS data (criterion b)
+- **PR #520**: validation: compare the fluence-dependent engine with the Sb-in-Si implant profile
+- **Issue #513** (closed): [Epic #12] Step 22: impact-parameter-dependent electronic stopping (Oen–Robinson local term), calibrated per ion/crystal from primary sources
+- **PR #517**: test: record channeled vs random electronic loss for B in Si
+- **Issue #514** (closed): [Epic #12] Step 23: amorphous overlayers (native / screen oxide) over a crystalline substrate with exact interface handling
+- **PR #518**: test: check crystal interface identity and per-layer bookkeeping in mixed targets
+- **PR #510**: feat: add live counters, trajectory view and ion cap to the simulator Run view
+- **PR #506**: feat(wasm): simulator page with layered-target setup, TOML round-trip and worker run
+
+### 2026-10-30
+
+- **Issue #498** (closed): [Epic #33] Digitize compound-target stopping plots (water, polystyrene, hydrocarbons, polymers)
+- **PR #508**: data(stopping): count-check report and hand check for the srim.org compound figures
+- **Issue #496** (closed): [Epic #33] Digitize per-pair stopping plots for Li and heavier ions
+- **PR #509**: data(stopping): per-plot count check for the Li per-pair plots
+- **Issue #495** (closed): [Epic #33] Digitize measured projected-range plots (B, P, As in Si; He in air)
+- **PR #507**: data(ranges): count-check report and hand check for the srim.org range figures
+
+### 2026-10-29
+
+- **Issue #479** (closed): lindhard-wasm: Simulation session for the full engine (layered compound targets, chunked runs, IonReport and trajectories as JSON)
+- **PR #482**: feat: add stepwise Simulation session to lindhard-wasm
+- **Issue #470** (closed): Project landing page on the Pages site with validation status
+- **PR #480**: feat: landing page over the book root, with a relative-link check
+- **Issue #488** (closed): Supply primary papers to complete the first batch of measured stopping datasets
+- **PR #505**: feat(data): add per-paper digitized stopping datasets for H and He in Si and Cu
+- **Issue #502** (closed): Fix stale srim_org_h_he.csv name in stopping compilation README
+- **PR #504**: docs: point compilation README at renamed srim_org_stopping.csv
+- **PR #500**: Recover hidden srim.org points; add Li, ranges and compound figures (#486)
+- **Issue #485** (closed): [Epic #33] Preserve the srim.org experimental stopping bibliography (~2,300 papers) as CC0 data
+- **PR #494**: feat: add srim.org experimental-paper bibliography for pairs and compounds
+- **Issue #499** (closed): [Epic #33] Admit the digitized-compilation origin in the stopping loader and residual report
+- **PR #501**: feat(stopping): admit the digitized-compilation origin in loader and report
+- **PR #493**: Digitize the srim.org H and He stopping compilation (7,241 measured points)
+- **Issue #489** (closed): [Epic #33] Book chapter: history and literature of ion stopping, with a page on James F. Ziegler (1935–2024)
+- **PR #492**: docs: add history-and-literature chapter and Ziegler page to the book
+- **PR #484**: docs(clean-room): allow measured points from the srim.org compilation (operator ruling)
+- **Issue #179** (closed): [Epic #12] Crystal step 19b: hexagonal lattices (wurtzite GaN, 4H/6H-SiC)
+- **PR #491**: test: derive 4H-SiC density tolerance from measured spread
+- **PR #490**: docs: record first-batch measured-stopping search and unreadable papers
+
+### 2026-10-28
+
+- **Issue #156** (closed): Electron CLI: subshell binding-energy input key once inner-shell channels reach the transport loop
+- **PR #481**: feat: add inner_shells key for electron materials in lindhard run
+- **Issue #336** (closed): CI: pin the clippy gate and move latest-stable lint drift to a scheduled canary
+- **Issue #444** (closed): Verify the WASM range-calculator page in a real browser (follow-up to #432)
+- **Issue #93** (closed): [Epic #11] Elastic validation: total and transport cross sections vs published partial-wave values (C, Si, Cu, Au)
+- **Issue #301** (closed): Au and Cu secondary-electron yield excess of the Mermin model: the candidates #242 could not test
+- **Issue #432** (closed): [Epic #28] WASM build and static range-calculator page
+- **PR #439**: feat: add lindhard-wasm crate and static WASM range-calculator page
+- **Issue #431** (closed): [Epic #33] Stopping residual report: one command, published in the docs
+- **PR #443**: feat: generate the stopping-residual report page and check it in CI
+- **PR #475**: chore(deps): bump the github-actions group across 1 directory with 2 updates
+
+### 2026-10-27
+
+- **Issue #474** (closed): Remove one-off #131 start-rule measurement harness from elastic tests
+- **PR #478**: test(elastic): remove the one-off start-rule measurement harness
+- **Issue #464** (closed): Benchmark lindhard-gpu-proto on real GPU hardware and add the rows to gpu-feasibility.md
+- **PR #477**: docs(gpu-feasibility): add Apple M3 Ultra (Metal) rows, restate defer (#464)
+
+### 2026-10-26
+
+- **PR #476**: chore(deps): bump the cargo-minor-patch group across 1 directory with 2 updates
+
+### 2026-10-24
+
+- **Issue #465** (closed): [Epic #22] Diagnose why the dynamic engine is low against the Cu–Ni measurements (no tuning)
+- **PR #473**: docs: diagnose the Cu-Ni shortfall with static pure-element and fixed-composition runs
+- **Issue #468** (closed): Opt-in ion trajectory recorder in the engine (per-history collision points)
+- **PR #472**: feat: add opt-in trajectory recorder tally for ion and recoil paths
+- **Issue #466** (closed): [Epic #22] Source a measured high-fluence implant depth profile from an openable publication
+- **PR #471**: docs: add measured high-fluence Sb-in-Si SIMS profile with two-read digitization
+- **Issue #36** (closed): Epic: Performance (profile-guided, SIMD, GPU feasibility)
+
+### 2026-10-23
+
+- **Issue #462** (closed): CI: ubuntu-latest moved to 26.04; x86_64 Linux golden digests in crystal_amorphous_identity fail (and macOS job hits 30 min timeout)
+- **PR #463**: ci: raise rust job timeout to 45 min for macOS headroom
+- **Issue #460** (closed): CI: Rust job on main fails linking lindhard-py (unable to find -lpython3.12)
+- **PR #461**: ci: pin the x86_64 Rust test leg to ubuntu-24.04
+- **Issue #425** (closed): [Epic #36] GPU feasibility study: written decision with a prototype benchmark
+- **PR #427**: docs: GPU feasibility decision (defer) with an out-of-workspace wgpu prototype
+
+### 2026-10-21
+
+- **PR #459**: Bump Repo Skills 0.24.3 -> 0.24.7
+
+### 2026-10-20
+
+- **Issue #448** (closed): [Epic #22] Validate dynamic Cu–Ni targets against Ho and Betz measurements
+- **PR #456**: test: compare the fluence-dependent engine with measured Cu-Ni yields and surface fractions
+- **Issue #457** (closed): Audit Si shell inputs and remaining Au backscatter discrepancy; prepare comparison plan
+- **PR #458**: docs(validation): Si shell input audit, 199 eV join review, Au audit and comparison plan
+- **Issue #454** (closed): Consolidate 14 copies of the 53-bit uniform helper into rng.rs
+- **PR #455**: refactor: share one 53-bit uniform helper from rng.rs
+- **Issue #452** (closed): [Epic #11] Elastic validation follow-up: test whether the potential difference explains the σ_el gap vs NIST SRD 64
+- **PR #453**: test: report in-tree potential sensitivity of elastic gaps vs NIST SRD 64
+- **PR #447**: Preserve Ho and Betz Cu–Ni experimental data with provenance
+- **PR #451**: test: validate elastic cross sections against NIST SRD 64 and report all 16 gaps
+- **Issue #449** (closed): Diagnose the silicon backscatter excess at 20–30 keV (#148)
+- **PR #450**: feat(validation): Si backscatter with inner-shell channels (library-level example)
+
+### 2026-10-16
+
+- **Issue #437** (closed): [Epic #22] Validation: fluence-dependent sputter yield and high-fluence implant profile
+- **Issue #435** (closed): [Epic #25] Validation: masked-implant lateral edge profile vs the analytic result
+- **PR #446**: test: add masked-implant edge-profile validation on a voxel target
+- **PR #445**: docs: record the fluence-dependent validation data gap
+- **Issue #433** (closed): [Epic #25] Sparse 3D voxel tallies with CSV and VTK export
+- **PR #440**: feat: add a sparse 3D voxel tally with CSV and VTK export
+- **Issue #436** (closed): [Epic #22] Implanted-species retention limit (saturation and re-emission)
+- **PR #442**: feat: add a per-species retention limit with re-emission to the fluence loop
+- **PR #441**: docs: record klayout-tools pin and the missing polygon export in 0.7.0
+- **Issue #30** (closed): Epic: Release engineering and documentation
+- **Issue #430** (closed): [Epic #33] Per-pair stopping correction fits with bootstrap uncertainty and held-out residuals
+- **PR #438**: feat: per-pair stopping correction fits with bootstrap band and held-out residuals
+- **PR #423**: Bump Repo Skills 0.24.1 -> 0.24.3
+- **Issue #424** (closed): [Epic #36] Re-profile after hot-path work and decide SoA/SIMD with numbers
+- **PR #428**: perf: compute the collision azimuth with a short series instead of libm sin and cos
+- **Issue #426** (closed): [Epic #30] Examples gallery: screen-oxide implant, sputtering yield vs angle, electron deposition in resist on Si
+- **PR #429**: docs: add examples gallery with screen-oxide, sputter-angle and resist pages
+- **Issue #217** (closed): Decide on pure-Rust libm: crystal BCA golden run diverges on aarch64 macOS
+- **PR #422**: test: pin a labelled aarch64-macOS crystal golden set
+
+
 ### 2026-10-15
 
 - **PR #419**: docs: record Au phonon energy-loss inputs as a provenance gap
