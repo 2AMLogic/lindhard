@@ -225,3 +225,54 @@ def test_missing_data_file_names_it(case, tmp_path):
     (tmp_path / "e.toml").write_text(case.read_text())
     with pytest.raises(lh.InputError, match="synthetic_plasmon_elf"):
         lh.ElectronRun.from_toml_file(tmp_path / "e.toml").run(histories=1)
+
+
+VOXEL = """
+[electron.tally.voxel]
+origin_nm = [0.0, -500.0, -500.0]
+spacing_nm = [300.0, 500.0, 500.0]
+dims = [5, 2, 2]
+"""
+
+
+@pytest.fixture(scope="module")
+def voxel_case(case):
+    p = case.parent / "e_voxel.toml"
+    p.write_text(case.read_text() + VOXEL)
+    return p
+
+
+def test_damage_export_matches_the_cli_file(cli, voxel_case, tmp_path):
+    subprocess.run(
+        [str(cli), "run", str(voxel_case), "--out", str(tmp_path), "--histories", str(HISTORIES),
+         "--seed", str(SEED), "--threads", "1"],
+        check=True, capture_output=True,
+    )
+    assert "damage_export.csv" in json.loads(
+        (tmp_path / "electron_summary.json").read_text())["files"].values()
+    res = lh.ElectronRun.from_toml_file(voxel_case).run(histories=HISTORIES, seed=SEED, threads=1)
+    live = res.damage_export()
+    assert live is not None
+    back = lh.read_damage_export(tmp_path / "damage_export.csv")
+    assert live.keys() == back.keys()
+    for k, v in live.items():
+        if isinstance(v, np.ndarray):
+            assert v.tobytes() == back[k].tobytes(), k
+        else:
+            assert v == back[k], k
+    assert back["provenance"]["engine"] == "electron"
+    assert back["dims"] == (5, 2, 2)
+    # voxels plus outside carry the energy budget's deposited energy
+    budget = res.summary()["results"]["budget"]["deposited_ev"]
+    total = back["deposited_ev"].sum() + back["outside"]["deposited_ev"]
+    assert total == pytest.approx(budget, rel=1e-9)
+
+
+def test_damage_export_is_thread_invariant_and_optional(voxel_case, res1):
+    run = lh.ElectronRun.from_toml_file(voxel_case)
+    a = run.run(histories=HISTORIES, seed=SEED, threads=1).damage_export()
+    b = run.run(histories=HISTORIES, seed=SEED, threads=4).damage_export()
+    for k in a:
+        if isinstance(a[k], np.ndarray):
+            assert a[k].tobytes() == b[k].tobytes(), k
+    assert res1.damage_export() is None

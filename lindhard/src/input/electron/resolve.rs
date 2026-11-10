@@ -24,7 +24,7 @@ use crate::material::Material;
 use crate::tally::{
     BeamProfile as ExposureBeamProfile, Binning, CartesianGrid, CylindricalGrid,
     ElectronTallyConfig, ExposureConfig, ExposureVolume, LogRadialBinning, PsfConfig, PsfModel,
-    PsfNormalization, VolumeShape,
+    PsfNormalization, VolumeShape, VoxelTallyGrid,
 };
 
 use super::resolved::*;
@@ -651,6 +651,31 @@ impl ElectronInput {
                 depth: binning_nm(&format!("{f}.cylindrical.depth"), &c.depth)?,
             });
         }
+        let mut voxel_grid = None;
+        if let Some(v) = &ts.voxel {
+            for a in 0..3 {
+                if !v.origin_nm[a].is_finite() {
+                    return Err(invalid(format!("{f}.voxel.origin_nm"), "must be finite"));
+                }
+                if !finite_pos(v.spacing_nm[a]) {
+                    return Err(invalid(
+                        format!("{f}.voxel.spacing_nm"),
+                        "must be finite and positive",
+                    ));
+                }
+                if v.dims[a] == 0 {
+                    return Err(invalid(format!("{f}.voxel.dims"), "must be at least 1"));
+                }
+            }
+            voxel_grid = Some(
+                VoxelTallyGrid::new(
+                    v.origin_nm.map(|x| x * NM),
+                    v.spacing_nm.map(|x| x * NM),
+                    v.dims,
+                )
+                .map_err(|e| invalid(format!("{f}.voxel"), e.to_string()))?,
+            );
+        }
         let mut psf_fits: Vec<PsfModel> = Vec::new();
         let mut psf_normalization = PsfNormalization::default();
         if let Some(p) = &ts.psf {
@@ -782,6 +807,7 @@ impl ElectronInput {
             inelastic_fermi_ev: e.inelastic.fermi_energy_ev,
             table_energy_ev,
             tally,
+            voxel_grid,
             psf_fits,
             psf_normalization,
             warnings,

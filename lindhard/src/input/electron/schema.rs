@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
 use crate::electron::transport::TransportConfig;
-use crate::input::{DivergenceSpec, TargetSpec};
+use crate::input::{DivergenceSpec, TargetSpec, VoxelTallySpec};
 use crate::material::MaterialSpec;
 use crate::tally::{PsfModel, PsfNormalization, SE_BSE_SPLIT_EV};
 
@@ -802,6 +802,11 @@ pub struct ElectronTallySpec {
     /// Exposure statistics of small volumes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exposure: Option<ExposureSpec>,
+    /// Voxel energy-deposition grid, written as `damage_export.csv` (the
+    /// ion `[tally.voxel]` table, same fields). The electron tally has no
+    /// species axis, so the per-species defect columns are empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub voxel: Option<VoxelTallySpec>,
 }
 
 impl Default for ElectronTallySpec {
@@ -816,6 +821,7 @@ impl Default for ElectronTallySpec {
             cylindrical: None,
             psf: None,
             exposure: None,
+            voxel: None,
         }
     }
 }

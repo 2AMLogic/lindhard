@@ -58,6 +58,7 @@ pub const PSF_PROFILE_FILE: &str = "electron_psf_profile.csv";
 pub const PSF_PARAMETERS_FILE: &str = "electron_psf_parameters.csv";
 pub const EXPOSURE_FILE: &str = "electron_exposure_histogram.csv";
 pub const TABLES_FILE: &str = "electron_tables.csv";
+pub use crate::output::DAMAGE_EXPORT_FILE;
 
 /// Histories per work chunk of the parallel driver. Fixed, so the summation
 /// order, and therefore every output bit, does not depend on the thread
@@ -151,6 +152,8 @@ pub struct ElectronSimulation {
     pub report: ElectronReport,
     /// The PSF profile and its fits (with `tally.psf`).
     pub psf: Option<PsfOutcome>,
+    /// The per-voxel deposition (with `tally.voxel`).
+    pub voxel: Option<lindhard::tally::VoxelReport>,
     /// Threads and timings.
     pub info: ElectronRunInfo,
 }
@@ -409,8 +412,11 @@ pub fn simulate_electron(
                 })?;
         }
     }
-    let proto = FullElectronTally::new(&transport, r.tally.clone())
+    let mut proto = FullElectronTally::new(&transport, r.tally.clone())
         .context("setting up the electron tally")?;
+    if let Some(g) = r.voxel_grid {
+        proto = proto.with_voxel_grid(g);
+    }
 
     let t1 = Instant::now();
     let run = pool
@@ -428,11 +434,13 @@ pub fn simulate_electron(
     let transport_s = t1.elapsed().as_secs_f64();
     let report = run.tally.report();
     let psf = psf_outcome(r, &report);
+    let voxel = run.tally.voxel_report();
     Ok(ElectronSimulation {
         tables,
         metadata: run.metadata,
         report,
         psf,
+        voxel,
         info: ElectronRunInfo {
             threads: pool.current_num_threads(),
             table_build_s,
@@ -540,6 +548,7 @@ struct Files {
     psf_profile: Option<&'static str>,
     psf_parameters: Option<&'static str>,
     exposure_histogram: Option<&'static str>,
+    damage_export: Option<&'static str>,
 }
 
 #[derive(Serialize)]
@@ -827,6 +836,7 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
         psf_profile: sim.psf.as_ref().map(|_| PSF_PROFILE_FILE),
         psf_parameters: sim.psf.as_ref().map(|_| PSF_PARAMETERS_FILE),
         exposure_histogram: r.tally.exposure.as_ref().map(|_| EXPOSURE_FILE),
+        damage_export: sim.voxel.as_ref().map(|_| DAMAGE_EXPORT_FILE),
     };
     let summary = Summary {
         format: Format {
@@ -856,6 +866,18 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
 
 // ---------------------------------------------------------------------------
 // CSV files
+
+/// `damage_export.csv`: the electron voxel tally in the versioned exchange
+/// format (engine `electron`), or `None` without `[electron.tally.voxel]`.
+pub fn damage_export_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> Option<String> {
+    let report = sim.voxel.as_ref()?;
+    Some(crate::output::export_csv(
+        report,
+        "electron",
+        r.input.run.seed,
+        &r.input,
+    ))
+}
 
 /// One row per bin (edges scaled by `scale`), then underflow and overflow
 /// rows with empty densities. `prefix` starts every row.

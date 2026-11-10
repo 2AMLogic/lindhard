@@ -18,7 +18,7 @@ are in `lindhard-py/python/lindhard/`.
 | `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`, `run_dynamic()` |
 | `RunResult` | `depth`, `lateral_y`, `lateral_z`, `radial`, `vacancies`, `interstitials`, `replacements` (each a `Histogram` with `edges`, `counts`, `density`, `underflow`, `overflow`), `escapes`, `ions` (final state of each primary), `summary()` (dict), `write(dir)` |
 | `ElectronRun` | An electron input (an `[electron]` table): `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`; settable `histories`, `seed`, `threads`, `base_dir` |
-| `ElectronRunResult` | Result of `ElectronRun.run()`: `escape_spectra`, `cartesian`, `cylindrical`, `summary()` (dict), `summary_json()` |
+| `ElectronRunResult` | Result of `ElectronRun.run()`: `escape_spectra`, `cartesian`, `cylindrical`, `damage_export()`, `summary()` (dict), `summary_json()` |
 | `DynamicRunResult` | Result of `Run.run_dynamic()`: `species`, `steps` (per-step arrays), `composition` (per-step slab profiles), `summary()` (dict), `write(dir)` |
 
 ## One schema, one engine
@@ -121,7 +121,9 @@ An input with a `[tally.voxel]` table gives `res.damage_export()`: a dict of
 NumPy arrays in the [damage export format](damage-export-format.md), also
 written by `res.write(dir)` as `damage_export.csv`. `lindhard.read_damage_export(path)`
 reads such a file back into the same dict; the arrays are equal to the run's
-bit for bit. `res.damage_export()` is `None` without the table.
+bit for bit. `res.damage_export()` is `None` without the table. An electron
+run (`ElectronRun`) gives the same from an `[electron.tally.voxel]` table
+(`engine` `"electron"` in `provenance`).
 
 Keys: `origin_m`, `spacing_m` (3-vectors, m), `dims`, `histories`,
 `species_z` (list), the `(nx, ny, nz)` arrays `implanted`, `displacements`

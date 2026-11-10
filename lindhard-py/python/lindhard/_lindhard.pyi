@@ -371,5 +371,8 @@ class ElectronRunResult:
         """``r_edges_nm``, ``depth_edges_nm``; ``energy_ev`` and
         ``ev_per_primary_per_nm3`` of shape ``(nr, ndepth)``; ``outside_ev``.
         ``None`` if the grid is not configured."""
+    def damage_export(self) -> dict[str, Any] | None:
+        """The ``[electron.tally.voxel]`` tally in the damage-export layout
+        (as ``read_damage_export``), or ``None`` without the table."""
     def summary(self) -> dict[str, Any]: ...
     def summary_json(self) -> str: ...
