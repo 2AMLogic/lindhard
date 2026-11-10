@@ -618,6 +618,32 @@ impl Default for BeamSpread {
     }
 }
 
+/// Whether a beam size is finite and strictly positive (shared by the
+/// transport and exposure beam validators).
+pub(crate) fn finite_positive(v: f64) -> bool {
+    v.is_finite() && v > 0.0
+}
+
+/// Lateral offset `(y, z)` of a Gaussian spot from two uniform draws
+/// `u1, u2` in `[0, 1)`: the Box-Muller transform (Box & Muller, Ann. Math.
+/// Stat. 29, 610 (1958)), `r = sigma sqrt(-2 ln(1 - u1))`, azimuth
+/// `phi = 2 pi u2`, offset `(r cos phi, r sin phi)`. `1 - u1` is in `(0, 1]`,
+/// so the radius is finite; `ln(1 - u1)` is evaluated as `ln_1p(-u1)`.
+pub(crate) fn gaussian_offset(sigma_m: f64, u1: f64, u2: f64) -> [f64; 2] {
+    let r = sigma_m * (-2.0 * (-u1).ln_1p()).sqrt();
+    let (s, c) = (std::f64::consts::TAU * u2).sin_cos();
+    [r * c, r * s]
+}
+
+/// Lateral offset `(y, z)` uniform in area on a disc of radius `radius_m`
+/// from two uniform draws `u1, u2` in `[0, 1)`: `r = R sqrt(u1)`, azimuth
+/// `phi = 2 pi u2`, offset `(r cos phi, r sin phi)`.
+pub(crate) fn disc_offset(radius_m: f64, u1: f64, u2: f64) -> [f64; 2] {
+    let r = radius_m * u1.sqrt();
+    let (s, c) = (std::f64::consts::TAU * u2).sin_cos();
+    [r * c, r * s]
+}
+
 /// Redraw cap of the inward conditioning of [`BeamSpread`].
 const MAX_DIVERGENCE_REDRAWS: u32 = 10_000;
 
@@ -633,7 +659,7 @@ impl BeamSpread {
         if !self.landing_m.iter().all(|v| v.is_finite()) {
             return invalid("beam landing point", "must be finite");
         }
-        let ok = |v: f64| v.is_finite() && v > 0.0;
+        let ok = finite_positive;
         let good = match self.profile {
             BeamProfile::Point => true,
             BeamProfile::Gaussian { sigma_m } => ok(sigma_m),
@@ -654,18 +680,17 @@ impl BeamSpread {
     /// Draw the start `(y, z)`, m: the landing point plus a profile offset.
     pub fn sample_position<R: Rng + ?Sized>(&self, rng: &mut R) -> [f64; 2] {
         let [y0, z0] = self.landing_m;
-        let tau = std::f64::consts::TAU;
         let (dy, dz) = match self.profile {
             BeamProfile::Point => (0.0, 0.0),
             BeamProfile::Gaussian { sigma_m } => {
-                let r = sigma_m * (-2.0 * (-uniform(rng)).ln_1p()).sqrt();
-                let (s, c) = (tau * uniform(rng)).sin_cos();
-                (r * c, r * s)
+                let (u1, u2) = (uniform(rng), uniform(rng));
+                let [dy, dz] = gaussian_offset(sigma_m, u1, u2);
+                (dy, dz)
             }
             BeamProfile::Disc { radius_m } => {
-                let r = radius_m * uniform(rng).sqrt();
-                let (s, c) = (tau * uniform(rng)).sin_cos();
-                (r * c, r * s)
+                let (u1, u2) = (uniform(rng), uniform(rng));
+                let [dy, dz] = disc_offset(radius_m, u1, u2);
+                (dy, dz)
             }
             BeamProfile::Rectangle {
                 width_y_m,
@@ -2162,6 +2187,30 @@ pub(crate) fn normalize(v: [f64; 3]) -> [f64; 3] {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn beam_offset_helpers_match_the_inline_formulas() {
+        let tau = std::f64::consts::TAU;
+        for &(u1, u2) in &[(0.0, 0.0), (0.25, 0.75), (0.5, 0.1), (0.999_999_999, 0.9)] {
+            // Disc: exact.
+            let r = 3.0e-6 * f64::sqrt(u1);
+            let want = [r * (tau * u2).cos(), r * (tau * u2).sin()];
+            assert_eq!(disc_offset(3.0e-6, u1, u2), want);
+            // Gaussian: the old exposure form `ln(1 - u1)`, to rounding.
+            let r = 2.0e-6 * (-2.0 * (1.0 - u1).ln()).sqrt();
+            let want = [r * (tau * u2).cos(), r * (tau * u2).sin()];
+            let got = gaussian_offset(2.0e-6, u1, u2);
+            for k in 0..2 {
+                assert!((got[k] - want[k]).abs() <= 1e-15 * want[k].abs().max(1e-9));
+            }
+            assert!(got.iter().all(|v| v.is_finite()));
+        }
+        assert_eq!(gaussian_offset(1.0, 0.0, 0.3), [0.0, 0.0]);
+        for bad in [0.0, -1.0, f64::NAN, f64::INFINITY] {
+            assert!(!finite_positive(bad));
+        }
+        assert!(finite_positive(1e-12));
+    }
+
     use super::*;
 
     #[test]
