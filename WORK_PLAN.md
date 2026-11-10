@@ -30,13 +30,16 @@ The rest run as capacity allows.
 
 ## Current phase: close out and release 0.1.0
 
-Operator decision, 2026-11-09: finish what is started and cut a first real
-release before opening new fronts. Since the last refresh (2026-10-15), 54
-issues closed. Merges have nearly stopped since 2026-10-31, because almost
-every open issue now waits on an operator input (a source, a measurement, a
-quiet machine, a browser check) rather than on agent work. The SRIM book
-(Tier C literature, `CONTRIBUTING.md`) unblocked several of the source gaps
-on 2026-11-08 and 2026-11-09 (#537, #540).
+Operator decision, 2026-11-09: cut a first real release, 0.1.0, with the
+scope below. The release waits almost entirely on operator inputs (a source,
+a measurement, a ruling) rather than on agent work, so agent capacity went to
+new work from 2026-11-09: 27 issues (#546 to #572) on electron dose and
+exposure, electrons on voxel targets, damage outputs, focused ion beams,
+optical data and a photon channel. That work is listed under "Alongside the
+close-out" below. **It does not change the 0.1.0 scope and does not gate the
+release** (operator ruling, 2026-11-10): whatever has merged by the tag ships
+with it, and its open validations are listed as such in
+`docs/validation.md`.
 
 Operator rulings, 2026-11-09:
 
@@ -53,11 +56,11 @@ Where the milestones stand:
 
 | Milestone | State | What is left |
 |---|---|---|
-| M0 amorphous ion core (#10) | Feature-complete and validated (levels 1 to 3) | #15 (constant-data verification: only inaccessible sources remain), #45 (screening and magic constants: narrowed by the SRIM book) |
+| M0 amorphous ion core (#10) | **Closed 2026-11-10.** Feature-complete and validated (levels 1 to 3) | Recorded gaps, not release blockers: #15 (ASTM E521 `E_d`; C and Mn densities), #45 (Lenz-Jensen polynomial digits; Kr-C screening coefficients) |
 | M1 electron engine (#11) | Engine done, 24 sub-issues closed | Validation gates #148 (η), #151 (PSF); #111 and #162 wait on sources |
 | M2 crystalline implant (#12) | Engine done through step 23 (#513, #514) | SIMS validation #515 then #516; #251 (Oen-Robinson length) affects channeled-range accuracy |
-| M3 dynamic composition (#22) | Engine and two validations done | #511 (Ar to Cu/Ni yield ratio) |
-| 2D/3D geometry (#25) | Voxel tallies and masked-edge validation done | #434 waits on a `klayout-tools` polygon export |
+| M3 dynamic composition (#22) | Engine and two validations done | #511 (Ar to Cu/Ni yield ratio): #543, then #544. Focused ion beams (#554) run alongside |
+| 2D/3D geometry (#25) | Voxel tallies and masked-edge validation done | #434 waits on a `klayout-tools` polygon export. Electrons on voxel targets (#549) run alongside |
 | Bindings (#28) | Python and WASM done | #469 browser check (operator) |
 | Stopping-data library (#33) | Loader, residual report, compilation bibliography done | Digitization #486, #497 and seed datasets #483, #503: **after 0.1.0** |
 
@@ -65,11 +68,14 @@ Where the milestones stand:
 
 1. ~~**Land the SRIM-book verifications.**~~ Done 2026-11-09: #540 and
    #538 (0.8853 universal length) merged.
-2. **Narrow #45 and #15 to what is truly inaccessible,** then close M0
-   (#10). After #537 and #540, the ZBL and Moliere sets, both magic-formula
-   sets and the nuclear stopping fit are verified. Left: the Lenz-Jensen
-   polynomial digits and the Kr-C coefficients (Wilson, Haggmark and
-   Biersack 1977). These are recorded gaps, not release blockers.
+2. ~~**Narrow #45 and #15 to what is truly inaccessible,** then close M0
+   (#10).~~ Done 2026-11-10: both issues now open with their remaining
+   scope, and #10 is closed. One of its success criteria (every provenance
+   row verified against its source) is not met, and the close says so. Left
+   in #45: the Lenz-Jensen polynomial digits and the Kr-C screening
+   coefficients (Wilson, Haggmark and Biersack 1977). Left in #15: the ASTM
+   E521 `E_d` values and the C and Mn densities. These are recorded gaps,
+   not release blockers.
 3. **M2 SIMS validation** (#515, then #516). Before it, close #251
    (Oen-Robinson length), since the channeled tail depends on it. Both wait
    on the papers the operator is obtaining.
@@ -85,7 +91,10 @@ Where the milestones stand:
    - #511 (Ar to Cu/Ni yield ratio): split on 2026-11-09 as the Builder
      recommended. #543 stores the Ni datasets (IPPJ-AM-32, PDF p. 103,
      digitized by the existing method); #544 then attributes the 0.67 Cu
-     ratio without tuning. Agent work.
+     ratio without tuning. Agent work. A first Builder pass on #543
+     (2026-11-09) stopped on glyph stacks at 60 to 150 eV, which lie below
+     the stored range (196 eV to 10.2 keV); the issue was returned to the
+     queue on 2026-11-10 with that noted.
    - #151 (PSF): needs an openable measured PSF for a stated resist stack
      and energy, and the PMMA optical ELF (#162; the open question there is
      whether the CXRO tables are acceptable). Operator inputs.
@@ -94,12 +103,30 @@ Where the milestones stand:
    to crates.io and the wheels to PyPI. The website is not announced with
    it, so #469 is not a prerequisite.
 
+### Alongside the close-out
+
+Opened 2026-11-09 and 2026-11-10. None of it gates 0.1.0. Each front carries
+its own validation issue, and a front is not done until that closes.
+
+| Front | Issues | Open validation or gap |
+|---|---|---|
+| Electron dose, charge and exposure | #546, #547, #550, #551 | #557 (depth-dose against published measurements), #555 (direct Monte Carlo check of the PSF convolution); #546 is delivered as a tally (#578) and still wants a comparison |
+| Electrons on voxel targets (#549, Epic #25) | #570, #571 | #572 (position-dependent PSF and buried-edge validation) |
+| Damage outputs (#553) | #558, #560 | #563 (versioned export with a Python round trip) |
+| Focused ion beams (#554, Epic #22) | #559 | #565 (yield against incidence angle; needs a readable paper), #561 |
+| Optical energy-loss functions (#552) | #556, #564, #568, #569 | Only amorphous Al2O3 has a sourced ELF so far (#577). W, Ta, Ti, Co, Ru, TiN, TaN and HSQ are recorded in `docs/data-provenance.md` as gaps: no openable source |
+| Photon channel (#548) | #562, then #566, #567 | #562 waits on an operator ruling on the attenuation data source |
+
 ### Operator inputs that unblock work
 
 | Input | Unblocks |
 |---|---|
 | Oen and Robinson, NIM 132, 647 (1976) (operator obtaining) | #251, then M2 accuracy |
 | Lenz (1932) and Jensen (1932); Wilson, Haggmark, Biersack (1977) | the rest of #45 |
+| ASTM E521 (any edition); a CRC Handbook edition later than the 80th | the rest of #15 |
+| A ruling on the photon attenuation data source (NIST XCOM's terms reserve all rights; EPDL97/EPICS2017 is the proposed alternative) | #562, then #566, #567 |
+| Oliva-Florio et al., Phys. Rev. B 35, 2198 (1987), or another measured yield against incidence angle | #565 |
+| Openable optical data for W, Ta, Ti, Co, Ru, TiN, TaN and HSQ | the rest of #556, #564, #569 |
 | SIMS profiles from papers (B, P, As in Si; screen oxide) (operator obtaining) | #515, #516 |
 | An openable measured resist PSF; a ruling on the CXRO tables for the PMMA ELF | #151 (release gate), #162 |
 | A ruling on a Si core-region ELF source (Henke tables) and authorization of the #457 comparison runs | #148 (release gate) |
