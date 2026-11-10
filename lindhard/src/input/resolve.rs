@@ -7,6 +7,7 @@ use crate::ion::bca::{
     MAX_WEAK_COLLISIONS,
 };
 use crate::ion::crystal::Divergence;
+use crate::ion::stopping::srim::SrimStopping;
 use crate::ion::stopping::table::StoppingTable;
 use crate::ion::stopping::Ion;
 use crate::material::{EnergyKind, Material};
@@ -199,6 +200,51 @@ impl Input {
             });
         }
         Ok(loaded)
+    }
+
+    /// Read and validate the `stopping.srim_data` file: required exactly
+    /// when `physics.stopping = "srim"`.
+    fn load_srim_data(&self, base_dir: &Path) -> Result<Option<LoadedSrimData>, InputError> {
+        let wants = self.physics.stopping == StoppingChoice::Srim;
+        let Some(path) = &self.stopping.srim_data else {
+            return if wants {
+                Err(invalid(
+                    "stopping.srim_data",
+                    "required with physics.stopping = \"srim\": the path of an SRIM \
+                     coefficient file (format lindhard-srim-coefficients/1)",
+                ))
+            } else {
+                Ok(None)
+            };
+        };
+        if !wants {
+            return Err(invalid(
+                "stopping.srim_data",
+                "only used with physics.stopping = \"srim\"",
+            ));
+        }
+        let field = "stopping.srim_data";
+        let joined = base_dir.join(path);
+        let bytes = std::fs::read(&joined)
+            .map_err(|e| invalid(field, format!("cannot read {}: {e}", joined.display())))?;
+        let text = std::str::from_utf8(&bytes).map_err(|_| {
+            invalid(
+                field,
+                format!("{} is not valid UTF-8 text", joined.display()),
+            )
+        })?;
+        let model = SrimStopping::from_toml_str(text)
+            .map_err(|e| invalid(field, format!("{path}: {e}")))?;
+        let sha256 = Sha256::digest(&bytes)
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        Ok(Some(LoadedSrimData {
+            path: path.clone(),
+            resolved_path: std::fs::canonicalize(&joined).unwrap_or(joined),
+            sha256,
+            model,
+        }))
     }
 
     /// Checks of the loaded tables against the rest of the run.
@@ -615,9 +661,10 @@ impl Input {
             StoppingChoice::EquipartitionLsOr => ElectronicLoss::EquipartitionLsOr,
             // `None` is nonlocal loss with a zero model: no energy is taken
             // along the flight, and no local loss is added at collisions.
-            StoppingChoice::LindhardScharff | StoppingChoice::BetheBloch | StoppingChoice::None => {
-                ElectronicLoss::NonLocal
-            }
+            StoppingChoice::LindhardScharff
+            | StoppingChoice::BetheBloch
+            | StoppingChoice::Srim
+            | StoppingChoice::None => ElectronicLoss::NonLocal,
         };
         config.follow_recoils = p.follow_recoils;
         config.primary_surface_binding_ev = p.primary_surface_binding_ev;
@@ -683,7 +730,8 @@ impl Input {
             .screening_length
             .map_or(screening.default_length(), LengthChoice::length);
         let stopping_tables = self.load_stopping_tables(base_dir)?;
-        let fallback = stopping_model(p.stopping);
+        let srim = self.load_srim_data(base_dir)?;
+        let fallback = stopping_model_with(p.stopping, srim.as_ref().map(|s| &s.model));
         let validity = fallback.validity(&ion);
         // The advisory range of the fallback model only matters for the pairs
         // it actually serves; a beam pair with a table has its range checked
@@ -721,6 +769,7 @@ impl Input {
             screening_length,
             table_spec: TABLE_SPEC,
             stopping_tables,
+            srim,
             crystals,
             warnings,
             tuning,

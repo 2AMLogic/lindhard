@@ -72,6 +72,7 @@ impl Run {
             physics: physics.to_spec()?,
             stopping: StoppingSpec {
                 tables: stopping_tables.unwrap_or_default(),
+                ..StoppingSpec::default()
             },
             run: RunSpec {
                 ions,

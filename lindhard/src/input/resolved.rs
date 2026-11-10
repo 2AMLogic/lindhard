@@ -8,6 +8,7 @@ use crate::ion::scattering::TableSpec;
 use crate::ion::stopping::bethe::BetheBloch;
 use crate::ion::stopping::lindhard_scharff::LindhardScharff;
 use crate::ion::stopping::none::NoStopping;
+use crate::ion::stopping::srim::SrimStopping;
 use crate::ion::stopping::table::TableOverride;
 use crate::ion::stopping::ElectronicStopping;
 use crate::material::{Material, MaterialSpec};
@@ -77,6 +78,8 @@ pub struct Resolved {
     pub table_spec: TableSpec,
     /// User stopping tables, in input order (empty without `[stopping]`).
     pub stopping_tables: Vec<LoadedStoppingTable>,
+    /// The SRIM coefficient file, when `physics.stopping = "srim"`.
+    pub srim: Option<LoadedSrimData>,
     /// Crystal assignments, in input order (empty: amorphous run).
     pub crystals: Vec<ResolvedCrystal>,
     /// Non-fatal advice (e.g. beam energy outside a model's validity range).
@@ -158,8 +161,22 @@ pub(crate) fn resolve_material(
 /// is returned so the validity range can still be checked. For
 /// [`StoppingChoice::None`] it is [`NoStopping`], whose validity range is
 /// unbounded, so no out-of-range warning is raised.
+///
+/// For [`StoppingChoice::Srim`] this has no data and every query is an error;
+/// use [`stopping_model_with`] (or [`Resolved::stopping_model`]) to supply the
+/// loaded coefficients.
 pub fn stopping_model(choice: StoppingChoice) -> Box<dyn ElectronicStopping + Send + Sync> {
+    stopping_model_with(choice, None)
+}
+
+/// Like [`stopping_model`], with the SRIM coefficients for
+/// [`StoppingChoice::Srim`] (ignored for every other choice).
+pub fn stopping_model_with(
+    choice: StoppingChoice,
+    srim: Option<&SrimStopping>,
+) -> Box<dyn ElectronicStopping + Send + Sync> {
     match choice {
+        StoppingChoice::Srim => Box::new(srim.cloned().unwrap_or_default()),
         StoppingChoice::LindhardScharff | StoppingChoice::EquipartitionLsOr => {
             Box::new(LindhardScharff::new())
         }
@@ -173,7 +190,10 @@ impl Resolved {
     /// choice, with any `[stopping]` tables layered over it for the pairs
     /// they declare. This is what to pass to the engine.
     pub fn stopping_model(&self) -> Box<dyn ElectronicStopping + Send + Sync> {
-        let base = stopping_model(self.input.physics.stopping);
+        let base = stopping_model_with(
+            self.input.physics.stopping,
+            self.srim.as_ref().map(|s| &s.model),
+        );
         if self.stopping_tables.is_empty() {
             base
         } else {
@@ -303,6 +323,21 @@ impl Resolved {
                     ),
                 },
             ],
+            StoppingChoice::Srim => vec![ModelInfo {
+                role: "electronic stopping",
+                name: "srim",
+                citation: Cow::Owned(match &self.srim {
+                    Some(s) => format!(
+                        "SRIM-data-sourced (consistency with SRIM, not independent \
+                         validation): five-coefficient fit of H. H. Andersen and J. F. Ziegler \
+                         (1977) / J. F. Ziegler, J. P. Biersack, U. Littmark (1985) ch. 3; \
+                         coefficients from {}: {}",
+                        s.path,
+                        s.model.citations().join("; ")
+                    ),
+                    None => "SRIM-data-sourced (no coefficient file loaded)".to_string(),
+                }),
+            }],
             StoppingChoice::None => vec![ModelInfo {
                 role: "electronic stopping",
                 name: "none",

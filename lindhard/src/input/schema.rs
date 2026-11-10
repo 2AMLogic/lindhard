@@ -3,6 +3,7 @@
 //! Moved out of the parent module unchanged; every item is re-exported there.
 
 use crate::ion::potential::{Screening, ScreeningLength};
+use crate::ion::stopping::srim::SrimStopping;
 use crate::ion::stopping::table::StoppingTable;
 use crate::material::MaterialSpec;
 use serde::de::{self, MapAccess, Visitor};
@@ -238,13 +239,32 @@ pub struct StoppingSpec {
     /// Paths of table files, one per (ion, target element) pair.
     #[serde(default)]
     pub tables: Vec<String>,
+    /// Path of an SRIM coefficient file ([`SrimStopping`]); required with
+    /// `physics.stopping = "srim"` and rejected otherwise. Resolves against
+    /// the directory of the input file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub srim_data: Option<String>,
 }
 
 impl StoppingSpec {
-    /// No tables declared.
+    /// No tables and no SRIM data file declared.
     pub fn is_empty(&self) -> bool {
-        self.tables.is_empty()
+        self.tables.is_empty() && self.srim_data.is_none()
     }
+}
+
+/// An SRIM coefficient file after loading, with what a run record needs to
+/// identify the exact file.
+#[derive(Debug, Clone)]
+pub struct LoadedSrimData {
+    /// The path as written in the input (`stopping.srim_data`).
+    pub path: String,
+    /// The path the file was read from.
+    pub resolved_path: PathBuf,
+    /// SHA-256 of the file's bytes, lowercase hex.
+    pub sha256: String,
+    /// The validated coefficients.
+    pub model: SrimStopping,
 }
 
 /// A user stopping table after loading, with what a run record needs to
@@ -275,6 +295,11 @@ pub enum StoppingChoice {
     /// Equipartition of Lindhard-Scharff: half nonlocal, half local at each
     /// collision by Oen-Robinson ([`ElectronicLoss::EquipartitionLsOr`]).
     EquipartitionLsOr,
+    /// SRIM-data-sourced stopping ([`SrimStopping`]): the published
+    /// coefficient fit, with coefficients read from the file named by
+    /// `stopping.srim_data`, all loss nonlocal. Output is SRIM-data-sourced:
+    /// agreement with SRIM is consistency, not independent validation.
+    Srim,
     /// No electronic stopping ([`NoStopping`]): nuclear loss only. For
     /// like-for-like transport comparisons against codes run with electronic
     /// stopping off, and for nuclear-only studies; not a realistic setting.
