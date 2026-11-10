@@ -53,6 +53,12 @@ limits are in the <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/s
 notes</a>; warnings from the engine are shown above the result.</small></p>
 
 <script type="module">
+if ("serviceWorker" in navigator) {
+  // Offline support: see sw.js. Relative URL so the scope is this directory on
+  // both hosts (site root and the GitHub Pages path prefix).
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+
 import init, { calculate } from "./pkg/lindhard_wasm.js";
 
 const $ = (id) => document.getElementById(id);
