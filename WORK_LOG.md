@@ -2,6 +2,14 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-10
+
+- **PR #580**: feat: exposure statistics for small volumes via compound-Poisson tally
+- **PR #578**: feat: tally stopped electrons and holes per layer and cell with an exact charge balance
+- **PR #574**: docs: record HSQ as a sourced-ELF gap in the optical inventory
+- **Issue #569** (closed): Sourced optical ELFs: PMMA and hydrogen silsesquioxane (HSQ)
+- **Issue #550** (closed): Exposure statistics: distribution of energy deposited in a small volume by a finite number of electrons
+
 ### 2026-11-09
 
 - **PR #542**: docs: record operator rulings on 0.1.0 scope and publishing
