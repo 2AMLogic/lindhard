@@ -273,7 +273,7 @@ use crate::electron::phonon::{
     sample_cos_theta, FrohlichPhonon, InsulatorChannels, PolaronTrapping,
 };
 use crate::electron::secondary::{kieft_bosch, kieft_bosch_shell, SecondaryEvent, SecondaryModel};
-use crate::geometry::{ExitOutcome, Face as GeoFace, Flight, Geometry, Stack};
+use crate::geometry::{ExitOutcome, Flight, Geometry, Stack};
 use crate::ion::crystal::Divergence;
 use crate::rng::{run_particles, uniform};
 
@@ -332,18 +332,7 @@ pub enum EscapeRule {
     FrontOnly,
 }
 
-/// Which face of the target an electron left through.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Face {
-    /// The front surface, `x = 0`.
-    Front,
-    /// The back face of a finite stack or voxel grid.
-    Back,
-    /// A lateral face of a voxel grid (`y` or `z` at an end of the grid, with
-    /// a vacuum boundary on that axis). It releases the electron whatever
-    /// the [`EscapeRule`], which only governs the back face.
-    Side,
-}
+pub use crate::geometry::Face;
 
 /// A face an electron met: between two layers, or a face of the target.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -1992,12 +1981,12 @@ impl<G: Geometry> Transport<G> {
                     (Some(to), Boundary::Interface { from: region, to })
                 }
                 ExitOutcome::Escape { face, .. } => match face {
-                    GeoFace::Front => (None, Boundary::Surface(Face::Front)),
-                    GeoFace::Side => (None, Boundary::Surface(Face::Side)),
-                    GeoFace::Back if self.config.escape_rule == EscapeRule::BothFaces => {
+                    Face::Front => (None, Boundary::Surface(Face::Front)),
+                    Face::Side => (None, Boundary::Surface(Face::Side)),
+                    Face::Back if self.config.escape_rule == EscapeRule::BothFaces => {
                         (None, Boundary::Surface(Face::Back))
                     }
-                    GeoFace::Back => {
+                    Face::Back => {
                         tally.absorbed(st);
                         return Fate::Absorbed;
                     }
