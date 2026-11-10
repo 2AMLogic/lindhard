@@ -9,7 +9,7 @@ use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
 use lindhard_cli::publish::{self, OutputSet};
 use lindhard_cli::table_cache::TableCache;
-use lindhard_cli::{dynamic, electron, output, sim};
+use lindhard_cli::{dynamic, electron, exposure, output, sim};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -58,6 +58,9 @@ enum Command {
         #[arg(long, value_name = "DIR")]
         table_cache: Option<PathBuf>,
     },
+    /// Dose of a multi-shot exposure from a Gaussian-sum PSF, on a grid, with
+    /// optional iso-dose contours (exposure_*.csv, exposure_summary.json).
+    Exposure(Box<exposure::ExposureArgs>),
 }
 
 fn read(path: &Path) -> Result<String> {
@@ -365,6 +368,7 @@ fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
 fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Check { input } => check(&input),
+        Command::Exposure(a) => exposure::run(&a),
         Command::Run {
             input,
             out,
