@@ -65,7 +65,7 @@ pub use exposure::{
     ExposureAccumulator, ExposureConfig, ExposureError, ExposureHistogram, ExposureReport,
     ExposureVolume, ExposureVolumeReport, QuantileResult, ThresholdResult, VolumeShape,
 };
-pub use hist::{Binning, BinningError, Histogram};
+pub use hist::{Binning, BinningError, Histogram, WeightedHistogram};
 pub use ion::{
     CascadeDefects, DamageReport, EscapeReport, FaceEscape, IonReport, IonTally, IonTallyConfig,
     LayerDamage, LayerRange, NrtDamage, RangeReport, SpeciesEscape,
