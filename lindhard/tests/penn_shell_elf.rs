@@ -21,13 +21,12 @@ use lindhard::electron::inelastic::{
 use rayon::prelude::*;
 use std::f64::consts::PI;
 
+mod common;
+use common::rel;
+
 /// A synthetic atom density, m⁻³ (a round number, not a material's).
 const ATOMS_PER_M3: f64 = 5.0e28;
 const MATERIAL: &str = "synthetic target (EADL edges, made-up density)";
-
-fn rel(a: f64, b: f64) -> f64 {
-    (a / b - 1.0).abs()
-}
 
 /// The Stobbe K-shell cross section per electron of a hydrogen-like ion of
 /// charge `z` at photon energy `eps` times its ionization energy, m²

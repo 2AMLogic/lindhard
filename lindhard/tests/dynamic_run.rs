@@ -16,6 +16,7 @@ const AS: u8 = 33;
 
 mod common;
 use common::si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 /// `n_slabs` slabs of `slab_nm` of Si, with a Si substrate if asked.
@@ -50,14 +51,6 @@ fn config(seed: u64) -> BcaConfig {
     let mut c = BcaConfig::new(5.0, 2.0);
     c.seed = seed;
     c
-}
-
-fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build()
-        .unwrap()
-        .install(f)
 }
 
 struct Outcome {

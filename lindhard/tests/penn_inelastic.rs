@@ -16,6 +16,9 @@ use lindhard::electron::inelastic::{
 };
 use rayon::prelude::*;
 
+mod common;
+use common::{rel, simpson_log};
+
 /// Plasmon energy and width of the main fixture, eV (synthetic values).
 const PLASMON_EV: f64 = 20.0;
 const WIDTH_EV: f64 = 5.0;
@@ -41,35 +44,11 @@ fn coarse_fixture() -> OpticalElf {
         .unwrap()
 }
 
-fn rel(a: f64, b: f64) -> f64 {
-    (a / b - 1.0).abs()
-}
-
 /// `n` log-spaced points from `lo` to `hi`.
 fn log_grid(lo: f64, hi: f64, n: usize) -> Vec<f64> {
     (0..n)
         .map(|i| lo * (hi / lo).powf(i as f64 / (n - 1) as f64))
         .collect()
-}
-
-/// Composite Simpson rule in `ln x` on `[lo, hi]` with `n` (even) intervals.
-fn simpson_log(f: &impl Fn(f64) -> f64, lo: f64, hi: f64, n: usize) -> f64 {
-    let (a, b) = (lo.ln(), hi.ln());
-    let h = (b - a) / n as f64;
-    let mut s = 0.0;
-    for i in 0..=n {
-        let u = a + h * i as f64;
-        let w = if i == 0 || i == n {
-            1.0
-        } else if i % 2 == 1 {
-            4.0
-        } else {
-            2.0
-        };
-        let x = u.exp().clamp(lo, hi);
-        s += w * f(x) * x;
-    }
-    s * h / 3.0
 }
 
 /// Composite Simpson rule on `[a, b]` with `m` (even) intervals.
