@@ -6,8 +6,8 @@
 import { test, expect } from "./fixtures.mjs";
 
 // Tables that are wider than their wrapper at 1440 px because of their
-// content, not their styling: "page|first header cell". Removed by #663.
-const KNOWN_WIDE = new Set(["guide/output.html|File"]);
+// content, not their styling: "page|first header cell". None remain (#663).
+const KNOWN_WIDE = new Set();
 
 // Every chapter, read from the book's own table of contents.
 let pages;

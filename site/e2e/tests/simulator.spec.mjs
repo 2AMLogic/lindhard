@@ -77,6 +77,16 @@ test("the page opens ready to run B at 10 keV into Si", async ({ page }) => {
   await expect(page.locator("#cap-note")).toContainText("ions");
 });
 
+test("a short run paints the legend and trajectories as soon as it is done", async ({ page }) => {
+  // The last progress report and `finished` can arrive in one animation
+  // frame; the final draw must flush the pending report, not discard it.
+  await open(page);
+  await configure(page, { ion: "B", energyKeV: 10 });
+  await run(page);
+  expect(await page.locator("#traj-legend li").count()).toBeGreaterThanOrEqual(1);
+  expect(await canvasColours(page.locator("#traj"))).toBeGreaterThan(3);
+});
+
 for (const [ion, energyKeV] of [["B", 10], ["P", 30], ["As", 50]]) {
   test(`${ion} into Si runs to the end`, async ({ page }) => {
     await open(page);
@@ -328,13 +338,22 @@ for (const scheme of ["light", "dark"]) {
   });
 }
 
-test("species are told apart without colour: markers and dash patterns are named", async ({ page }) => {
+test("species are told apart without colour: toggles and dash patterns are named", async ({ page }) => {
   await open(page);
   await configure(page, { ion: "As", energyKeV: 50, mode: "full" });
   await addPreset(page, "SiO2");
   await run(page);
   const legend = await page.locator("#traj-legend").innerText();
-  for (const word of ["circle", "square", "solid", "dashed", "dotted"]) expect(legend).toContain(word);
+  for (const word of ["solid", "dashed", "dotted"]) expect(legend).toContain(word);
+  expect(legend).not.toContain("circle");
+  const boxes = page.locator("#traj-legend input[type=checkbox]");
+  expect(await boxes.count()).toBeGreaterThanOrEqual(2);
+  const segments = async () => Number((await page.locator("#traj-note").innerText()).match(/(\d+) segments/)[1]);
+  const all = await segments();
+  await boxes.nth(0).uncheck();
+  expect(await segments()).toBeLessThan(all);
+  await boxes.nth(0).check();
+  expect(await segments()).toBe(all);
 });
 
 test("the page is usable at 1280 px", async ({ page }) => {
@@ -344,6 +363,22 @@ test("the page is usable at 1280 px", async ({ page }) => {
   await run(page);
   await expectResults(page, 300);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+// Issue #668: Setup fits one 1440x900 screen for a one-layer target. The
+// controls of the closed Physics and Input file sections are in the DOM and
+// have a layout box, so `offsetParent` counts them (it measured 1333 px,
+// the #toml textarea); `checkVisibility()` skips the closed sections. Measured
+// with it on chromium: the last visible control ends at about 676 px.
+test("Setup's controls fit a 1440x900 screen for a one-layer target", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page);
+  await expect(page.locator("#layers .layer")).toHaveCount(1);
+  const bottom = await page.evaluate(() =>
+    Math.max(...[...document.querySelectorAll("#setup input, #setup select, #setup button, #setup textarea")]
+      .filter((e) => e.checkVisibility())
+      .map((e) => e.getBoundingClientRect().bottom + window.scrollY)));
+  expect(bottom).toBeLessThanOrEqual(900);
 });
 
 test("Setup and Run fit a phone screen", async ({ page }) => {
@@ -370,4 +405,93 @@ test("a second run works after the network is gone", async ({ page, context }) =
   await page.locator("#btn-run").click();
   await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
   await expectResults(page, 300);
+});
+
+// Issue #691: "Add element" called an `el` that simulator.js never imported.
+test("Add element appends a row without a page error", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await open(page);
+  const rows = page.locator("#layers .layer").first().locator(".el-row");
+  const before = await rows.count();
+  await page.locator("#layers .layer").first().getByRole("button", { name: "Add element" }).click();
+  await expect(rows).toHaveCount(before + 1);
+  expect(errors).toEqual([]);
+});
+
+// Issue #674: canvases are sized from their CSS box and the pixel ratio, and
+// redrawn when the box or the colour scheme changes.
+const CANVASES = "#traj, #plots canvas[role=img]";
+
+/** For each canvas: bitmap size, CSS content-box size and the ratio in force. */
+const canvasSizes = (page) =>
+  page.evaluate((sel) => Array.from(document.querySelectorAll(sel), (c) => ({
+    w: c.width, h: c.height, cw: c.clientWidth, ch: c.clientHeight, dpr: window.devicePixelRatio,
+    right: c.getBoundingClientRect().right,
+  })), CANVASES);
+
+test.describe("canvases at device pixel ratio 2", () => {
+  test.use({ deviceScaleFactor: 2, viewport: { width: 390, height: 844 } });
+
+  test("the bitmap is the CSS size times the pixel ratio and nothing overflows at 390 px", async ({ page }) => {
+    await open(page);
+    await configure(page, {});
+    await run(page);
+    await expectResults(page, 300);
+    const sizes = await canvasSizes(page);
+    expect(sizes.length).toBeGreaterThan(1);
+    for (const c of sizes) {
+      expect(c.dpr).toBe(2);
+      expect(c.w).toBe(Math.round(c.cw * 2));
+      expect(c.h).toBe(Math.round(c.ch * 2));
+      expect(c.right).toBeLessThanOrEqual(390);
+    }
+  });
+});
+
+test("resizing the viewport redraws every canvas at the new size", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  await expectResults(page, 300);
+  const wide = await canvasSizes(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await canvasSizes(page)).every((c) => c.w === c.cw * c.dpr)).toBe(true);
+  const narrow = await canvasSizes(page);
+  expect(narrow[0].w).toBeLessThan(wide[0].w);
+  for (const c of narrow) expect(c.right).toBeLessThanOrEqual(390);
+  expect(await canvasColours(page.locator("#traj"))).toBeGreaterThan(3);
+});
+
+test("switching the colour scheme redraws the canvases without a reload", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  await expectResults(page, 300);
+  // The corner of a canvas is its background.
+  const corner = () => page.locator(CANVASES).evaluateAll((cs) =>
+    cs.map((c) => Array.from(c.getContext("2d").getImageData(c.width - 2, 2, 1, 1).data.slice(0, 3)).join(",")));
+  const light = await corner();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect.poll(async () => (await corner()).every((p, i) => p !== light[i])).toBe(true);
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect.poll(async () => (await corner()).every((p, i) => p === light[i])).toBe(true);
+});
+
+test("the PNG export has a fixed size, whatever the window", async ({ page }) => {
+  const size = async (w) => {
+    await page.setViewportSize({ width: w, height: 800 });
+    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#dl-png").click()]);
+    const body = readFileSync(await download.path());
+    return [body.readUInt32BE(16), body.readUInt32BE(20)]; // IHDR width, height
+  };
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  const big = await size(1280);
+  expect(big).toEqual([1800, 720]);
+  expect(await size(390)).toEqual(big);
 });

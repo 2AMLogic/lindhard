@@ -68,7 +68,9 @@
   progress { width: 100%; }
   table.counters { border-collapse: collapse; margin: .6rem 0; }
   table.counters th, table.counters td { text-align: left; padding: .2rem 1.2rem .2rem 0; }
-  canvas { width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  canvas { display: block; width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  canvas#traj { aspect-ratio: 900 / 360; }
+  .plot canvas[role=img] { aspect-ratio: 3 / 1; }
   .legend { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: 0; margin: .3rem 0; font-size: .85rem; }
   [hidden] { display: none !important; }
   @media (min-width: 60rem) { .target { grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; } .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pair.ratio { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } figure.stack { position: sticky; top: 1rem; } }
@@ -227,7 +229,7 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
         </select></label>
       <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
     </div>
-    <canvas id="traj" width="900" height="360" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
+    <canvas id="traj" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
     <ul id="traj-legend" class="legend"></ul>
     <p class="note" id="traj-note"></p>
   </fieldset>
