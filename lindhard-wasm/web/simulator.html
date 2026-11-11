@@ -55,7 +55,7 @@
   .el-row .cap { display: none; color: var(--muted); }
   .el-row input { width: 100%; box-sizing: border-box; }
   .target { display: grid; gap: .5rem 1rem; }
-  .notes .note, #mass-note { font-size: .8rem; margin: .3rem 0; }
+  .notes .note, #mass-note, #cap-note { font-size: .8rem; margin: .3rem 0; }
   .pair { display: grid; gap: 0 1rem; grid-template-columns: minmax(0, 1fr); }
   .pair > * { min-width: 0; align-self: start; }
   figure.stack { margin: 0; }
@@ -115,18 +115,24 @@
   .plot .note { font-size: .8rem; margin: .2rem 0 0; }
   canvas { display: block; width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
   canvas#traj { aspect-ratio: 900 / 360; }
+  /* 3D view: taller, and a horizontal drag turns it (a vertical swipe still scrolls). */
+  canvas#traj.orbit { aspect-ratio: 900 / 540; cursor: grab; touch-action: pan-y; }
+  canvas#traj.orbit.dragging { cursor: grabbing; }
   .plot canvas[role=img] { aspect-ratio: 3 / 1; }
   .legend { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: 0; margin: .3rem 0; font-size: .85rem; }
   [hidden] { display: none !important; }
-  @media (min-width: 60rem) { .target { grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; } .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pair.ratio { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } figure.stack { position: sticky; top: 1rem; } }
-  @media (max-width: 40rem) {
-    body { font-size: 15px; }
+  /* Setup is the full page width below 64rem and a 22-28rem column from there, so
+     its inner layout follows its own width (a container query), not the window's. */
+  #setup { container-type: inline-size; }
+  @container (min-width: 56rem) { .target { grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; } .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pair.ratio { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } figure.stack { position: sticky; top: 1rem; } }
+  @container (max-width: 38rem) {
     .row, .ion-row, .layer-head { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .el-head { display: none; }
     .el-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .el-row .cap { display: block; }
     .el-row .rm { align-self: end; }
   }
+  @media (max-width: 40rem) { body { font-size: 15px; } }
 </style>
 </head>
 <body>
@@ -300,8 +306,10 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
           <select id="traj-view">
             <option value="side">Side: depth across, y down</option>
             <option value="end">End-on: y across, z down</option>
+            <option value="3d">3D: drag to rotate</option>
           </select></label>
         <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
+        <button type="button" id="traj-reset" hidden>Reset rotation</button>
         <button type="button" id="dl-png">Download trajectory view (PNG)</button>
       </div>
       <canvas id="traj" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>

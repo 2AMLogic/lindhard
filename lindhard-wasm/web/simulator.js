@@ -6,7 +6,7 @@ import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, PRESETS, el, defaultSetup,
 import { buildPlots, caveatLines, dashForSeries, niceTicks, plotExtent, reportJson, toCsv } from "./plots.js";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
-  layerSpans, roundToError, segmentBounds, speciesLabels, trajectorySegments,
+  boxBounds, boxEdges, clampPitch, layerSpans, orbitProjector, ORBIT_HOME, roundToError, segmentBounds, speciesLabels, trajectorySegments,
 } from "./run_view.js";
 
 const $ = (id) => document.getElementById(id);
@@ -273,25 +273,36 @@ function layerStackSvg() {
 }
 
 let problems = [];
+// refresh() runs on every input and change event, mostly with nothing new to
+// show. It writes only what changed: rewriting unchanged content makes WebKit
+// re-clamp the Setup scroller, and the panel then jumps under the pointer
+// between a press and its release (a field's change event fires on the press).
+function setText(id, text) {
+  if ($(id).textContent !== text) $(id).textContent = text;
+}
+
 function refresh() {
   readScalars();
   const row = table.get(setup.beam.ion);
   $("mass").placeholder = row ? String(row.atomic_weight) : "";
-  $("mass-note").textContent = "Leave the mass blank to use the element's standard atomic weight (the placeholder); enter a mass to simulate one isotope." +
+  setText("mass-note", "Leave the mass blank to use the element's standard atomic weight (the placeholder); enter a mass to simulate one isotope." +
     (row?.weight_is_mass_number
-      ? ` ${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "");
-  $("model-cite").textContent = `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`;
-  $("strip-models").textContent = `${CITE[setup.physics.potential]}; ${CITE[setup.physics.stopping]}.`;
+      ? ` ${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : ""));
+  setText("model-cite", `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`);
+  setText("strip-models", `${CITE[setup.physics.potential]}; ${CITE[setup.physics.stopping]}.`);
   drawLayerDrawing();
-  $("physics-summary").textContent = `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`;
-  $("stack").replaceChildren(layerStackSvg());
+  setText("physics-summary", `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`);
+  const drawing = layerStackSvg();
+  if (drawing.outerHTML !== $("stack").firstElementChild?.outerHTML) $("stack").replaceChildren(drawing);
   problems = validate(setup, elements);
   if (setup.run.ions > INTERACTIVE_MAX_IONS) {
     problems.push({ path: "run.ions", message: `the page runs at most ${INTERACTIVE_MAX_IONS} ions; use lindhard-cli for more` });
   }
-  $("problems").replaceChildren(...problems.map((p) => h("li", {}, `${p.path}: ${p.message}`)));
+  const lines = problems.map((p) => `${p.path}: ${p.message}`);
+  if (lines.join("\n") !== [...$("problems").children].map((li) => li.textContent).join("\n")) $("problems").replaceChildren(...lines.map((t) => h("li", {}, t)));
   $("problems-box").hidden = problems.length === 0;
-  $("toml").value = toToml(setup);
+  const toml = toToml(setup);
+  if ($("toml").value !== toml) $("toml").value = toml;
   $("btn-run").disabled = problems.length > 0 || running();
 }
 
@@ -443,7 +454,7 @@ function fitCanvas(canvas) {
   return { w, h };
 }
 
-const EXPORT_W = 900, EXPORT_H = 360, EXPORT_SCALE = 2; // PNG export size in CSS px and pixel ratio
+const EXPORT_W = 900, EXPORT_H = 360, EXPORT_H_3D = 540, EXPORT_SCALE = 2; // PNG export size in CSS px and pixel ratio
 const MARKERS = ["circle", "square", "triangle", "diamond", "cross", "plus"];
 let histories = []; // recorded so far in this run
 let symbolOfZ = () => undefined;
@@ -478,6 +489,7 @@ function paintTrajectories(ctx, W, H) {
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const panel = css.getPropertyValue("--panel").trim() || "#eee", muted = css.getPropertyValue("--muted").trim() || "#666";
   const view = $("traj-view").value;
+  if (view === "3d") return paintOrbit(ctx, W, H, { fg, bg, panel, muted });
   const cascades = $("traj-cascades").checked;
   const segs = trajectorySegments(histories, { view, cascades, hidden: hiddenSpecies });
   const L = 50, R = 12, T = 20, B = 30; // margins hold the tick labels and axis titles
@@ -570,13 +582,183 @@ function paintTrajectories(ctx, W, H) {
   ctx.restore();
 }
 
+// ---- 3D trajectory view ----------------------------------------------------
+
+let orbit = { ...ORBIT_HOME }; // the viewing angles, kept across runs
+const is3d = () => $("traj-view").value === "3d";
+
+// Paint the 3D view into a W x H box of CSS pixels: an orthographic drawing at
+// one scale on all three axes. Draw order: layer interfaces, the box and its
+// ticks, tracks (far to near, fainter with distance), primary end markers.
+function paintOrbit(ctx, W, H, { fg, bg, panel, muted }) {
+  const segs = trajectorySegments(histories, { view: "3d", cascades: $("traj-cascades").checked, hidden: hiddenSpecies });
+  const box = boxBounds(segs);
+  const M = Math.min(56, W / 6); // margin for the tick labels and axis titles
+  const pw = Math.max(W - 2 * M, 1), ph = Math.max(H - 2 * M, 1);
+  const pr = orbitProjector(orbit, box, pw, ph);
+  const P = (p) => { const q = pr.project(p); return [M + q[0], M + q[1], q[2]]; };
+  const path = (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); };
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.lineWidth = 1;
+  ctx.textBaseline = "middle";
+
+  // Layer interfaces as translucent sheets across the box, named at a corner.
+  const sheet = (x, name) => {
+    if (!(x >= box.x0 && x <= box.x1)) return;
+    const w = box.w, quad = [[x, -w, -w], [x, w, -w], [x, w, w], [x, -w, w]].map(P);
+    path(quad); ctx.closePath();
+    ctx.globalAlpha = 0.55; ctx.fillStyle = panel; ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = muted; ctx.stroke();
+    if (name) {
+      const top = quad.reduce((a, b) => (b[1] < a[1] ? b : a));
+      ctx.fillStyle = muted; ctx.textAlign = "left";
+      ctx.fillText(name, top[0] + 4, top[1] - 8);
+    }
+  };
+  const spans = layerSpans(setup.layers);
+  for (const l of spans) sheet(l.top, l.name);
+  const last = spans[spans.length - 1];
+  if (last && Number.isFinite(last.bottom)) sheet(last.bottom, "vacuum");
+
+  // The box, and the beam axis through it.
+  const edges = boxEdges(box).map((e) => ({ ...e, pa: P(e.a), pb: P(e.b) }));
+  ctx.strokeStyle = muted;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  for (const e of edges) { ctx.moveTo(e.pa[0], e.pa[1]); ctx.lineTo(e.pb[0], e.pb[1]); }
+  ctx.stroke();
+  ctx.setLineDash([2, 4]);
+  path([P([box.x0, 0, 0]), P([box.x1, 0, 0])]); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // Ticks in nm on one edge per axis: the lowest edge for depth and y, the
+  // leftmost for z. An edge seen nearly end-on is left unlabelled.
+  const cx = M + pw / 2, cy = M + ph / 2;
+  const names = ["depth", "y", "z"];
+  ctx.fillStyle = muted; ctx.textAlign = "center";
+  for (let axis = 0; axis < 3; axis++) {
+    const rank = (e) => (axis === 2 ? -(e.pa[0] + e.pb[0]) : e.pa[1] + e.pb[1]);
+    const e = edges.filter((x) => x.axis === axis).reduce((a, b) => (rank(b) > rank(a) ? b : a));
+    const ex = e.pb[0] - e.pa[0], ey = e.pb[1] - e.pa[1], len = Math.hypot(ex, ey);
+    if (len < 40) continue;
+    // Unit normal to the edge on screen, pointing away from the box centre.
+    let nx = -ey / len, ny = ex / len;
+    if (nx * ((e.pa[0] + e.pb[0]) / 2 - cx) + ny * ((e.pa[1] + e.pb[1]) / 2 - cy) < 0) { nx = -nx; ny = -ny; }
+    const lo = nm(e.a[axis]), hi = nm(e.b[axis]);
+    for (const t of niceTicks(lo, hi, Math.max(Math.floor(len / 60), 2))) {
+      if (t < lo || t > hi) continue;
+      const f = (t - lo) / (hi - lo), x = e.pa[0] + f * ex, y = e.pa[1] + f * ey;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 4 * nx, y + 4 * ny); ctx.stroke();
+      ctx.fillText(String(t), x + 15 * nx, y + 15 * ny);
+    }
+    const off = 30 + 24 * Math.abs(nx); // clear of the tick labels, which are wider than tall
+    ctx.fillText(`${names[axis]} (nm)`, (e.pa[0] + e.pb[0]) / 2 + off * nx, (e.pa[1] + e.pb[1]) / 2 + off * ny);
+  }
+  ctx.textAlign = "right";
+  ctx.fillText("scale 1:1:1", W - 8, 12);
+
+  // Tracks: one path per generation, species and distance band, far bands
+  // first and later generations first, so near primaries are on top.
+  const reach = Math.hypot(box.x1 - box.x0, 2 * box.w, 2 * box.w) / 2;
+  const groups = new Map();
+  for (const s of segs) {
+    const a = P(s.a), b = P(s.b), away = (a[2] + b[2]) / 2;
+    const band = away > reach / 4 ? 2 : away > -reach / 4 ? 1 : 0; // 2 is the far band
+    const key = band * 1e6 + s.generation * 1000 + s.species;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(a, b);
+  }
+  for (const key of [...groups.keys()].sort((a, b) => b - a)) {
+    const pts = groups.get(key), band = Math.floor(key / 1e6), generation = Math.floor((key % 1e6) / 1000), species = key % 1000;
+    ctx.strokeStyle = SPECIES_COLOURS[species % SPECIES_COLOURS.length];
+    ctx.globalAlpha = (generation ? 0.45 : 1) * [1, 0.75, 0.5][band];
+    ctx.lineWidth = generation ? 0.8 : 2;
+    ctx.setLineDash(dashFor(generation));
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i += 2) { ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1;
+  for (const hist of histories) for (const t of hist.tracks) {
+    if (t.generation > 0 || hiddenSpecies.has(t.species)) continue;
+    const q = t.points[t.points.length - 1];
+    if (!q) continue;
+    const [x, y] = P(q);
+    ctx.fillStyle = SPECIES_COLOURS[t.species % SPECIES_COLOURS.length];
+    ctx.strokeStyle = fg;
+    marker(ctx, MARKERS[t.species % MARKERS.length], x, y, 4);
+  }
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
+// The 3D view turns with a drag or the arrow keys; Home (or the button) resets it.
+let orbitDrawQueued = false;
+function queueOrbitDraw() {
+  if (orbitDrawQueued) return;
+  orbitDrawQueued = true;
+  requestAnimationFrame(() => { orbitDrawQueued = false; drawTrajectories(); });
+}
+function turn(dYaw, dPitch) {
+  orbit = { yaw: orbit.yaw + dYaw, pitch: clampPitch(orbit.pitch + dPitch) };
+  queueOrbitDraw();
+}
+function resetOrbit() {
+  orbit = { ...ORBIT_HOME };
+  queueOrbitDraw();
+}
+function setTrajectoryView() {
+  const cv = $("traj"), on = is3d();
+  cv.classList.toggle("orbit", on);
+  $("traj-reset").hidden = !on;
+  if (on) cv.tabIndex = 0; else cv.removeAttribute("tabindex");
+  cv.setAttribute("aria-label", on
+    ? "Recorded ion and recoil trajectories in 3D; drag or use the arrow keys to rotate"
+    : "Recorded ion and recoil trajectories");
+  drawTrajectories();
+}
+function wireOrbit() {
+  const cv = $("traj");
+  let drag = null;
+  cv.addEventListener("pointerdown", (e) => {
+    if (!is3d()) return;
+    drag = { x: e.clientX, y: e.clientY };
+    cv.setPointerCapture?.(e.pointerId);
+    cv.classList.add("dragging");
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    turn((e.clientX - drag.x) * 0.01, (e.clientY - drag.y) * 0.01);
+    drag = { x: e.clientX, y: e.clientY };
+  });
+  const end = () => { drag = null; cv.classList.remove("dragging"); };
+  cv.addEventListener("pointerup", end);
+  cv.addEventListener("pointercancel", end);
+  cv.addEventListener("dblclick", () => is3d() && resetOrbit());
+  const KEYS = { ArrowLeft: [-0.1, 0], ArrowRight: [0.1, 0], ArrowUp: [0, -0.1], ArrowDown: [0, 0.1] };
+  cv.addEventListener("keydown", (e) => {
+    if (!is3d()) return;
+    if (KEYS[e.key]) { e.preventDefault(); turn(...KEYS[e.key]); }
+    else if (e.key === "Home") { e.preventDefault(); resetOrbit(); }
+  });
+  $("traj-reset").addEventListener("click", resetOrbit);
+}
+
 function updateTrajectoryNote() {
   const segs = trajectorySegments(histories, { view: $("traj-view").value, cascades: $("traj-cascades").checked, hidden: hiddenSpecies });
   const n = histories.length;
   $("traj-note").textContent = n === 0
     ? `No trajectories yet. The first ${RECORDED_HISTORIES} ion histories of a run are recorded.`
     : `${n} recorded histor${n === 1 ? "y" : "ies"} (the first ${RECORDED_HISTORIES} of the run), ${segs.length} segments.` +
-      (anyTruncated(histories) ? " Some histories were cut at the point limit of each track, so their tails are missing." : "");
+      (anyTruncated(histories) ? " Some histories were cut at the point limit of each track, so their tails are missing." : "") +
+      (is3d() ? " Equal scale on all three axes; drag, or use the arrow keys, to rotate." : "");
 }
 
 let legendReport = null;
@@ -770,13 +952,14 @@ $("dl-json").addEventListener("click", () => {
   if (lastReport) download("lindhard-report.json", new Blob([reportJson(lastReport)], { type: "application/json" }));
 });
 $("dl-png").addEventListener("click", () => {
-  // Fixed size (1800 x 720 px), independent of the window and the pixel ratio.
+  // Fixed size (1800 x 720 px; 1800 x 1080 for the 3D view), independent of the window and the pixel ratio.
   readPalette();
   const out = document.createElement("canvas");
-  out.width = EXPORT_W * EXPORT_SCALE; out.height = EXPORT_H * EXPORT_SCALE;
+  const exportH = is3d() ? EXPORT_H_3D : EXPORT_H; // the 3D view is exported as it is turned
+  out.width = EXPORT_W * EXPORT_SCALE; out.height = exportH * EXPORT_SCALE;
   const ctx = out.getContext("2d");
   ctx.setTransform(EXPORT_SCALE, 0, 0, EXPORT_SCALE, 0, 0);
-  paintTrajectories(ctx, EXPORT_W, EXPORT_H);
+  paintTrajectories(ctx, EXPORT_W, exportH);
   out.toBlob((b) => b && download("lindhard-trajectories.png", b), "image/png");
 });
 
@@ -950,7 +1133,8 @@ try {
   $("cap-note").textContent = `The page runs up to ${INTERACTIVE_MAX_IONS} ions and records the paths of the first ${RECORDED_HISTORIES}, so a run stays responsive; the command-line tool has no such limit.`;
   symbolOfZ = (z) => elements.find((e) => e.z === z)?.symbol;
   resizeObserver?.observe($("traj"));
-  $("traj-view").addEventListener("change", drawTrajectories);
+  $("traj-view").addEventListener("change", setTrajectoryView);
+  wireOrbit();
   $("traj-cascades").addEventListener("change", drawTrajectories);
   drawTrajectories();
   drawPlots(null);
