@@ -22,6 +22,7 @@ Python standard library only.
 
 from __future__ import annotations
 
+import html as htmlmod
 import re
 import shutil
 import sys
@@ -33,6 +34,26 @@ SITE = ROOT / "site"
 # The one place the simulator page's path lives.
 SIMULATOR_PAGE = "calculator/simulator.html"
 API_PAGE = "api/lindhard/index.html"
+
+# Landing-page sources that are generated or published elsewhere.
+VALIDATION_MD = ROOT / "book" / "src" / "validation.md"
+CARGO_TOML = ROOT / "Cargo.toml"
+QUICKSTART_SVG = "gallery/generated/quickstart.svg"
+QUICKSTART_MD = ROOT / "book" / "src" / "gallery" / "generated" / "quickstart.md"
+# Rows of the level 1 table and bullets of "Known deviations" the landing page
+# quotes, chosen by the start of their text. A label that is not found fails
+# the build, so rewording a row in validation.md cannot silently drop it.
+TRUST_ROWS = (
+    "Quadrature scattering angle",
+    "Projected range, 50 keV P into Si",
+    "Lindhard partition solver",
+    "Per-history energy budget",
+)
+DEVIATIONS = (
+    "ZBL universal fit",
+    "Range against measurement",
+    "Dynamic composition",
+)
 
 CALCULATOR_DIR = "calculator"
 # Pages (under CALCULATOR_DIR) that carry the markers below.
@@ -101,6 +122,79 @@ def finish_book_pages(out: Path) -> int:
     return count
 
 
+def inline(text: str) -> str:
+    """Escape text and turn the **bold** and `code` of the book's Markdown into HTML."""
+    text = htmlmod.escape(text, quote=False)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    return re.sub(r"`([^`]+)`", r"<code>\1</code>", text)
+
+
+def workspace_version() -> str:
+    m = re.search(r"^\[workspace\.package\]\s*$.*?^version\s*=\s*\"([^\"]+)\"", CARGO_TOML.read_text(encoding="utf-8"), re.S | re.M)
+    if not m:
+        raise ValueError("no [workspace.package] version in Cargo.toml")
+    return m.group(1)
+
+
+def section(md: str, heading: str) -> str:
+    m = re.search(rf"^## {re.escape(heading)}[^\n]*\n(.*?)(?=^## |\Z)", md, re.S | re.M)
+    if not m:
+        raise ValueError(f"validation.md has no section '{heading}'")
+    return m.group(1)
+
+
+def trust_rows(md: str) -> str:
+    """HTML rows (compared / against / deviation) picked by label from the level 1 table."""
+    table = [
+        [c.strip() for c in line.strip().strip("|").split("|")]
+        for line in section(md, "Level 1").splitlines()
+        if line.startswith("|")
+    ][2:]  # drop the header and the rule
+    out = []
+    for label in TRUST_ROWS:
+        row = next((r for r in table if r[0].startswith(label)), None)
+        if row is None or len(row) < 3:
+            raise ValueError(f"validation.md level 1 table has no row starting '{label}'")
+        out.append("<tr>" + "".join(f"<td>{inline(c)}</td>" for c in row[:3]) + "</tr>")
+    return "\n".join(out)
+
+
+def known_deviations(md: str) -> str:
+    """One list item per chosen deviation: its label and first sentence."""
+    items = re.findall(r"^- (.*?)(?=^- |\Z)", section(md, "Known deviations"), re.S | re.M)
+    out = []
+    for label in DEVIATIONS:
+        raw = next((" ".join(i.split()) for i in items if i.startswith(f"**{label}")), None)
+        if raw is None:
+            raise ValueError(f"validation.md Known deviations has no item starting '**{label}'")
+        first = re.split(r"(?<=[.])\s", raw, maxsplit=1)[0]
+        out.append(f"<li>{inline(first)}</li>")
+    return "\n".join(out)
+
+
+def hero_figure(out: Path) -> str:
+    """The quick-start figure and its generated caption, unmodified."""
+    if not (out / QUICKSTART_SVG).is_file():
+        raise ValueError(f"{out} lacks {QUICKSTART_SVG} (run validation/gallery.py)")
+    caption = QUICKSTART_MD.read_text(encoding="utf-8").strip()
+    caption = re.sub(r"`([^`]+)`", r"<code>\1</code>", caption)  # the caption's only Markdown
+    return (
+        '<figure class="hero-figure">'
+        f'<a href="{SIMULATOR_PAGE}"><img src="{QUICKSTART_SVG}" width="640" height="530" '
+        'alt="Paths of the first ions above the depth profile of 5 keV boron in silicon"></a>'
+        f"<figcaption>{caption}</figcaption></figure>"
+    )
+
+
+def favicon(out: Path) -> str:
+    """Links to the favicons mdBook wrote for the book, for those that exist."""
+    links = []
+    for name, kind in (("favicon.svg", "image/svg+xml"), ("favicon.png", "image/png")):
+        if (out / name).is_file():
+            links.append(f'<link rel="icon" href="{name}" type="{kind}">')
+    return "\n".join(links)
+
+
 def main() -> int:
     out = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "book" / "book"
     if not (out / "introduction.html").is_file():
@@ -110,12 +204,24 @@ def main() -> int:
     if not (out / SIMULATOR_PAGE).is_file():
         print(f"error: {out} lacks the simulator page {SIMULATOR_PAGE}", file=sys.stderr)
         return 1
-    sim = f'<a href="{SIMULATOR_PAGE}">Trajectory simulator</a>: ion trajectories in your browser.'
+    sim = f'<a href="{SIMULATOR_PAGE}">Trajectory simulator</a>'
     if (out / API_PAGE).is_file():
-        api = f'<a href="{API_PAGE}">API documentation</a> of the <code>lindhard</code> library (rustdoc)'
+        api = f'<a href="{API_PAGE}">API documentation</a> (rustdoc)'
     else:
         api = "API documentation: <code>cargo doc -p lindhard --open</code>"
-    for marker, text in (("<!--SIMULATOR_SLOT-->", sim), ("<!--API_LINK-->", api)):
+    md = VALIDATION_MD.read_text(encoding="utf-8")
+    try:
+        generated = (
+            ("<!--VERSION-->", f"<code>{htmlmod.escape(workspace_version())}</code>"),
+            ("<!--TRUST_ROWS-->", trust_rows(md)),
+            ("<!--KNOWN_DEVIATIONS-->", known_deviations(md)),
+            ("<!--HERO_FIGURE-->", hero_figure(out)),
+            ("<!--FAVICON-->", favicon(out)),
+        )
+    except ValueError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 1
+    for marker, text in generated + (("<!--SIMULATOR_SLOT-->", sim), ("<!--API_LINK-->", api)):
         if marker not in html:
             print(f"error: site/index.html lacks {marker}", file=sys.stderr)
             return 1

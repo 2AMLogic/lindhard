@@ -25,6 +25,10 @@ ROOT = Path(__file__).resolve().parents[1]
 EXISTING = ["introduction.html", "models/overview.html", "guide/install.html", "guide/first-run.html"]
 # Pages the landing page links to that must exist in the built book.
 EXISTING += ["validation.html", "status.html", "about.html"]
+# The landing page's hero figure, gallery thumbnails and examples.
+EXISTING += ["gallery/index.html", "gallery/generated/quickstart.svg"]
+# Ids the landing page's sections must keep (anchors other pages may link to).
+LANDING_IDS = ["try", "what", "validation", "physics", "examples", "start", "status"]
 
 
 class Collector(HTMLParser):
@@ -82,6 +86,20 @@ def check_page(out: Path, rel: str, bad: list[str]) -> int:
     return len(page.refs)
 
 
+def check_landing(out: Path, bad: list[str]) -> None:
+    """The landing page keeps its sections, copy buttons and no unfilled build slot."""
+    path = out / "index.html"
+    ids = parse(path).ids
+    for i in LANDING_IDS:
+        if i not in ids:
+            bad.append(f"index.html: section id {i!r} missing")
+    text = path.read_text(encoding="utf-8")
+    if "<!--" in text and re.search(r"<!--[A-Z_]+-->", text):
+        bad.append("index.html: an unfilled build slot is left in the page")
+    if text.count('class="codeblock"') < 2:
+        bad.append("index.html: the build and run blocks are missing")
+
+
 def check_chrome_sources(bad: list[str]) -> None:
     """The book's header is a byte copy of the shared fragment; tool pages use tokens only."""
     header = (ROOT / "site" / "header.html").read_text(encoding="utf-8")
@@ -104,6 +122,7 @@ def main() -> int:
         if not (out / url).is_file():
             bad.append(f"existing book URL {url} no longer resolves")
     check_chrome_sources(bad)
+    check_landing(out, bad)
     if bad:
         print("site link check failed:", file=sys.stderr)
         for b in bad:
