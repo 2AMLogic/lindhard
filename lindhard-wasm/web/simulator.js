@@ -599,6 +599,8 @@ function drawPlot(spec) {
       ctx.fillText(String(t), sx(t), H - B + 16);
     }
     ctx.lineWidth = 1.6;
+    // Clip series to the plot area: the x range is trimmed below the data's full range.
+    ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - R, H - T - B); ctx.clip();
     for (const s of spec.series) {
       ctx.strokeStyle = SPECIES_COLOURS[s.style % SPECIES_COLOURS.length];
       ctx.setLineDash(dashForSeries(s.dashIndex ?? s.style));
@@ -616,6 +618,7 @@ function drawPlot(spec) {
       }
       ctx.stroke();
     }
+    ctx.restore();
     ctx.setLineDash([]);
     for (const m of spec.markers ?? []) {
       if (!(m.x >= ext.x0 && m.x <= ext.x1)) continue;
