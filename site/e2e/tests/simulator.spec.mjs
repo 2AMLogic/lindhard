@@ -115,6 +115,43 @@ test("the layer stack drawing follows the layers and the tilt", async ({ page })
   await expect(page.locator("#stack svg")).toHaveAccessibleDescription(/45° from the surface normal/);
 });
 
+// Issue #692: the drawing at normal incidence, and with a name far longer
+// than the block it labels.
+test("the layer stack drawing at tilt 0 has a level beam and says so", async ({ page }) => {
+  await open(page);
+  await addPreset(page, "SiO2");
+  await page.locator("#tilt").fill("45");
+  const beam = page.locator("#stack line.stack-beam");
+  expect(await beam.getAttribute("y1")).not.toBe(await beam.getAttribute("y2"));
+  await page.locator("#tilt").fill("0");
+  await expect(page.locator("#stack svg")).toHaveCount(1);
+  expect(await beam.getAttribute("y1")).toBe(await beam.getAttribute("y2"));
+  await expect(page.locator("#stack .stack-block")).toHaveCount(2);
+  const svg = page.locator("#stack svg");
+  await expect(svg).toHaveAccessibleDescription(/^Beam at 0° from the surface normal, /);
+  await expect(svg).toHaveAccessibleDescription(/1: SiO2[^;]*; 2: Si, substrate/);
+});
+
+test("a long layer name is shortened inside its block and kept in full for assistive technology", async ({ page }) => {
+  const name = "thermally grown silicon dioxide film on the wafer";
+  expect(name.length).toBeGreaterThan(40);
+  await open(page);
+  await page.locator('#layers input[aria-label="name of layer 1"]').fill(name);
+  const svg = page.locator("#stack svg");
+  await expect(svg).toHaveCount(1);
+  await expect(svg).toHaveAccessibleDescription(new RegExp(`1: ${name}, substrate`));
+  const label = page.locator("#stack text.stack-text").first();
+  await expect(label).toHaveText(/…$/);
+  await expect(label.locator("title")).toHaveText(name);
+  const box = await page.evaluate(() => {
+    const t = document.querySelector("#stack text.stack-text").getBBox();
+    const b = document.querySelector("#stack path.stack-block").getBBox();
+    return { textLeft: t.x, textRight: t.x + t.width, blockLeft: b.x, blockRight: b.x + b.width };
+  });
+  expect(box.textLeft).toBeGreaterThanOrEqual(box.blockLeft);
+  expect(box.textRight).toBeLessThanOrEqual(box.blockRight);
+});
+
 test("a thin layer beside a thick one is drawn at a minimum width and marked not to scale", async ({ page }) => {
   await open(page);
   await addPreset(page, "SiO2");
