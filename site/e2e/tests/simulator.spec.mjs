@@ -459,20 +459,25 @@ test("the page is usable at 1280 px", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
 
-// Issue #668: Setup fits one 1440x900 screen for a one-layer target. The
-// controls of the closed Physics and Input file sections are in the DOM and
-// have a layout box, so `offsetParent` counts them (it measured 1333 px,
-// the #toml textarea); `checkVisibility()` skips the closed sections. Measured
-// with it on chromium: the last visible control ends at about 676 px.
-test("Setup's controls fit a 1440x900 screen for a one-layer target", async ({ page }) => {
+// Issue #668: Setup fits one 1440x900 screen for a one-layer target. Since
+// issue #666 Setup is the sticky left column of the two-column layout, a
+// panel at most one viewport tall that scrolls inside itself, so its controls
+// no longer all end above 900 px of page height (they measured 1557 px in the
+// 22-28 rem column). What is held now: the panel is sticky, is no taller than
+// the screen, and the Run button in the run bar is on that first screen.
+test("Setup's panel fits a 1440x900 screen for a one-layer target", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page);
   await expect(page.locator("#layers .layer")).toHaveCount(1);
-  const bottom = await page.evaluate(() =>
-    Math.max(...[...document.querySelectorAll("#setup input, #setup select, #setup button, #setup textarea")]
-      .filter((e) => e.checkVisibility())
-      .map((e) => e.getBoundingClientRect().bottom + window.scrollY)));
-  expect(bottom).toBeLessThanOrEqual(900);
+  const setup = await page.evaluate(() => {
+    const e = document.querySelector("#setup");
+    return { position: getComputedStyle(e).position, overflowY: getComputedStyle(e).overflowY, height: e.getBoundingClientRect().height };
+  });
+  expect(setup.position).toBe("sticky");
+  expect(setup.overflowY).toBe("auto");
+  expect(setup.height).toBeLessThanOrEqual(900);
+  const run = await page.locator("#btn-run").boundingBox();
+  expect(run.y + run.height).toBeLessThanOrEqual(900);
 });
 
 test("Setup and Results fit a phone screen", async ({ page }) => {
