@@ -274,6 +274,8 @@ function counters(done, total, report) {
   $("c-eion").textContent = pct(c.partition?.ionization);
   $("c-enuc").textContent = pct(c.partition?.nuclear);
   $("c-eesc").textContent = pct(c.partition?.escaped);
+  $("r-erec").hidden = c.partition?.recoilsNotFollowed == null;
+  $("c-erec").textContent = pct(c.partition?.recoilsNotFollowed);
   $("c-eoth").textContent = pct(c.partition?.other);
 }
 

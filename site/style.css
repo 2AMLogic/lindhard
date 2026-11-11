@@ -22,4 +22,3 @@ pre {
 code { font-family: var(--lh-mono); font-size: 0.9em; }
 .skip { position: absolute; left: -999px; top: 0; background: var(--lh-bg); padding: 0.5rem 1rem; }
 .skip:focus { left: 0.5rem; top: 0.5rem; z-index: 10; }
-.planned { color: var(--lh-muted); }

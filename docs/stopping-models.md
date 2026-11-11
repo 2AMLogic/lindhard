@@ -12,17 +12,25 @@ advisory; the models do not refuse energies outside them (Bethe-Bloch returns
 
 | Model | Module | Intended range | Source |
 |---|---|---|---|
-| Lindhard-Scharff | `lindhard_scharff` | `v < v0 Z1^(2/3)` (E/A below about 25 keV · Z1^(4/3)); stopping ∝ `v` | Lindhard & Scharff, Phys. Rev. 124, 128 (1961) |
+| Lindhard-Scharff | `lindhard_scharff` | `v < v0 Z1^(2/3)` (E/A below about 25 keV · Z1^(4/3)); stopping ∝ `v` | Lindhard & Scharff, Phys. Rev. 124, 128 (1961) |
 | Oen-Robinson (local) | `oen_robinson` | same as LS; impact-averaged value equals LS | Oen & Robinson, NIM 132, 647 (1976) |
 | Equipartition LS/OR | `mix` | same as LS | as above |
-| Bethe-Bloch | `bethe` | `v >= 3 v0 Z1^(2/3)` up to 1 GeV/u (no density effect) | Bethe 1930/32; Bloch 1933; Fano 1963 |
+| Bethe-Bloch | `bethe` | `v >= 3 v0 Z1^(2/3)` up to 1 GeV/u (no density effect) | Bethe 1930/32; Bloch 1933; Fano 1963 |
 | None (zero) | `none` | unbounded: no electronic loss at any energy; for comparisons and nuclear-only studies, not a physical model | the `k = 0` limit of Lindhard, Scharff & Schiott, Mat. Fys. Medd. 33 (14) (1963) |
-| SRIM-data-sourced | `srim` | exactly each coefficient row's `e_min_kev_per_u..e_max_kev_per_u` (out of range or no row for the pair is an error); form `A1 E^0.45` below 10 keV/u, `S_low S_high/(S_low+S_high)` above, `S_high = (A3/E) ln(1 + A4/E + A5 E)`. Coefficients are data from a file; output is SRIM-data-sourced, so agreement with SRIM is consistency, not independent validation. The form is to be checked against the book page when the full tables are entered (#633) | Andersen & Ziegler (1977); Ziegler, Biersack & Littmark (1985), ch. 3; coefficient file citations |
+| SRIM-data-sourced | `srim` | each coefficient row's own range; none outside (see "The `srim` model" below) | Andersen & Ziegler (1977); Ziegler, Biersack & Littmark (1985), ch. 3; coefficient file citations |
 | User table | `table` | exactly the table's energy range | the table's own `provenance` |
 | Bragg additivity | `bragg` | where the element models apply; ignores chemical state unless a correction is supplied | Bragg & Kleeman 1905 |
-| Single-oscillator density effect (opt-in) | `bethe::density_effect_single_oscillator` | `βγ > I/ħω_p` (about 5.6 for Si, beyond the Bethe-Bloch 1 GeV/u range); zero below, so no effect in range; underestimates `δ` through the transition | Fermi 1940; Sternheimer 1952; Fano 1963 (specialisation ours) |
+| Single-oscillator density effect (opt-in) | `bethe::density_effect_single_oscillator` | `βγ > I/ħω_p` (about 5.6 for Si, beyond the Bethe-Bloch 1 GeV/u range); zero below, so no effect in range; underestimates `δ` through the transition | Fermi 1940; Sternheimer 1952; Fano 1963 (specialisation ours) |
 | Per-pair correction (opt-in) | `correction` | only inside the energy span of its training points, for the one ion and target it was fitted to; the base model unchanged elsewhere | Fitted to cited measured points; the form (exponential of a Chebyshev series in `ln E`) is ours, the bootstrap is Efron, Ann. Statist. 7, 1 (1979). See "Per-pair corrections" below |
-| Bohr straggling | `straggling` | high energy, `v >> v0 Z1^(2/3)`; overestimates below about 1 MeV/u | Bohr 1948 |
+| Bohr straggling | `straggling` | high energy, `v >> v0 Z1^(2/3)`; overestimates below about 1 MeV/u | Bohr 1948 |
+
+**The `srim` model.** The intended range is exactly each coefficient row's
+`e_min_kev_per_u..e_max_kev_per_u`; an energy out of range, or no row for the
+pair, is an error. The form is `A1 E^0.45` below 10 keV/u and
+`S_low S_high/(S_low+S_high)` above, with `S_high = (A3/E) ln(1 + A4/E + A5 E)`.
+Coefficients are data from a file; output is SRIM-data-sourced, so agreement
+with SRIM is consistency, not independent validation. The form is to be checked
+against the book page when the full tables are entered (#633).
 
 ## Per-pair corrections
 

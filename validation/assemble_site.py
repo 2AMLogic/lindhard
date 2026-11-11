@@ -3,13 +3,10 @@
 
 mdBook renders book/src/introduction.md to index.html. The landing page takes
 that URL; the introduction stays reachable at introduction.html, so no
-published book URL breaks. The two optional links on the landing page are
-rendered only when their target exists in the built output, so the page never
-carries a dead link:
-
-- the trajectory simulator (SIMULATOR_PAGE; a "planned" line otherwise),
-- the API docs (API_PAGE, published from target/doc by book.yml; omitted
-  otherwise).
+published book URL breaks. The trajectory simulator (SIMULATOR_PAGE) ships in
+every build, so a missing simulator page is an error, not a fallback. The API
+docs link (API_PAGE, published from target/doc by book.yml) is optional: it is
+rendered only when its target exists, so the page never carries a dead link.
 
 It also puts the shared site chrome on every surface (site/tokens.css,
 site/chrome.css, site/header.html, site/footer.html): the files are copied to
@@ -34,7 +31,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SITE = ROOT / "site"
 
 # The one place the simulator page's path lives.
-SIMULATOR_PAGE = "simulator/index.html"
+SIMULATOR_PAGE = "calculator/simulator.html"
 API_PAGE = "api/lindhard/index.html"
 
 CALCULATOR_DIR = "calculator"
@@ -110,10 +107,10 @@ def main() -> int:
         print(f"error: {out} is not a rendered book (no introduction.html)", file=sys.stderr)
         return 1
     html = (SITE / "index.html").read_text(encoding="utf-8")
-    if (out / SIMULATOR_PAGE).is_file():
-        sim = f'<a href="{SIMULATOR_PAGE}">Trajectory simulator</a>: ion trajectories in your browser.'
-    else:
-        sim = '<span class="planned">Trajectory simulator: planned.</span>'
+    if not (out / SIMULATOR_PAGE).is_file():
+        print(f"error: {out} lacks the simulator page {SIMULATOR_PAGE}", file=sys.stderr)
+        return 1
+    sim = f'<a href="{SIMULATOR_PAGE}">Trajectory simulator</a>: ion trajectories in your browser.'
     if (out / API_PAGE).is_file():
         api = f'<a href="{API_PAGE}">API documentation</a> of the <code>lindhard</code> library (rustdoc)'
     else:

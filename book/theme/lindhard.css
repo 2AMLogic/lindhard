@@ -41,3 +41,92 @@ code, pre, .hljs { font-family: var(--lh-mono); }
 .page-wrapper { padding-top: var(--lh-bar-h); }
 #menu-bar { top: var(--lh-bar-h); }
 :target { scroll-margin-top: calc(var(--lh-bar-h) + 3.5rem); }
+
+/* lindhard book: tables and display equations.
+ *
+ * These rules read mdBook's variables (--bg, --table-border-color, ...), which
+ * the mapping at the top of this file sets from the site tokens. No JS.
+ */
+
+/* ---- Tables ---- */
+.content { container-type: inline-size; }
+
+.content .table-wrapper {
+    margin: 1.4em 0;
+    overflow-x: auto;
+    width: max-content;            /* shrink-wrap narrow tables */
+    max-width: 100%;
+    /* scroll affordance: a shadow at whichever edge has more content */
+    background:
+        linear-gradient(to right, var(--bg) 30%, transparent) left center / 40px 100% no-repeat local,
+        linear-gradient(to left,  var(--bg) 30%, transparent) right center / 40px 100% no-repeat local,
+        radial-gradient(farthest-side at 0 50%, rgba(128,128,128,.45), transparent) left center / 12px 100% no-repeat scroll,
+        radial-gradient(farthest-side at 100% 50%, rgba(128,128,128,.45), transparent) right center / 12px 100% no-repeat scroll;
+}
+@supports (width: 1cqw) {
+    .content .table-wrapper {
+        /* prose column plus the right gutter, less 84 px for the page arrow */
+        max-width: calc(100% + max(0px, (100cqw - var(--content-max-width)) / 2 - 84px));
+    }
+}
+
+.content table {
+    margin: 0;
+    border-collapse: collapse;
+    font-size: 0.9em;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+    background: transparent;
+}
+.content table th,
+.content table td {
+    padding: 6px 12px;
+    vertical-align: top;
+    text-align: left;
+    border: 0;
+    border-bottom: 1px solid var(--table-border-color);
+    background-clip: padding-box;
+}
+.content table thead th {
+    padding: 6px 12px;
+    vertical-align: bottom;
+    border-bottom: 2px solid var(--table-border-color);
+}
+.content table thead tr { border: 0; }
+.content table [style*="text-align: right"]  { text-align: right; }
+.content table [style*="text-align: center"] { text-align: center; }
+
+/* row backgrounds must not hide the scroll shadow */
+.content table thead,
+.content table tbody tr:nth-child(2n) { background: transparent; }
+.content table thead th { background: color-mix(in srgb, var(--table-header-bg) 55%, transparent); }
+.content table tbody tr:nth-child(2n) td { background: color-mix(in srgb, var(--table-alternate-bg) 60%, transparent); }
+
+/* code in cells: smaller, never broken inside a token */
+.content table code {
+    font-size: 0.85em;
+    padding: 0.05em 0.25em;
+    overflow-wrap: normal;
+    word-break: normal;
+    hyphens: none;
+}
+.content table td:first-child code { white-space: nowrap; }
+
+/* phone and tablet: lay a wide table out as if it had 560 px, then scroll it */
+@media (max-width: 800px) {
+    .content table { width: max-content; max-width: max(100%, 560px); }
+}
+@media (max-width: 600px) {
+    .content table { font-size: 0.85em; }
+    .content table th, .content table td, .content table thead th { padding: 5px 8px; }
+}
+
+/* ---- Display equations: scroll in their own box ---- */
+.content .MathJax_Display,
+.content .MathJax_SVG_Display,
+.content mjx-container[display="true"] {
+    overflow-x: auto;
+    overflow-y: hidden;
+    max-width: 100%;
+    padding: 2px 0;
+}

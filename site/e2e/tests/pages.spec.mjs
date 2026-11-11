@@ -25,11 +25,19 @@ for (const [path, title] of PAGES) {
   });
 }
 
-test("the landing page says what the project is and links to the tools", async ({ page }) => {
+test("the landing page says what the project is and links to the tools", async ({ page, request }) => {
   await page.goto("index.html");
   await expect(page.locator("h1")).toHaveText("lindhard");
   await expect(page.locator('a[href="calculator/index.html"]').first()).toBeVisible();
   await expect(page.locator('a[href="validation.html"]').first()).toBeVisible();
+  // Nav entry and the "Try it" entry both link the simulator, and it resolves.
+  const sim = page.locator('a[href="calculator/simulator.html"]');
+  await expect(sim).toHaveCount(2);
+  await expect(sim.first()).toBeVisible();
+  await expect(sim.last()).toBeVisible();
+  const r = await request.get("calculator/simulator.html");
+  expect(r.status()).toBe(200);
+  await expect(page.getByText(/planned/i)).toHaveCount(0);
 });
 
 test("every same-site link on the landing page resolves", async ({ page, request }) => {
