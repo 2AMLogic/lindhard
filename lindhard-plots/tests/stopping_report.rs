@@ -73,7 +73,12 @@ fn committed_page_is_what_the_generator_renders() {
     // The committed dataset is in the page, with its per-system statistics.
     for needle in [
         "bader1956_p_cu.csv",
-        "Points: 15. Energy span: 50 keV to 600 keV.",
+        "Points: 15. Energy span: 50\u{a0}keV to 600\u{a0}keV.",
+        "## H on Cu, Bader 1956",
+        "File: `bader1956_p_cu.csv`. Name: `bader1956-p-cu`.",
+        "## Summary",
+        "## H on Si, Grahmann 1976 \u{2014} srim.org",
+        "|---|---|---:|---:|---:|",
         "Phys. Rev. 103, 32 (1956)",
         "| lindhard-scharff | 15 | 0 |",
         "**held out**",
@@ -81,6 +86,29 @@ fn committed_page_is_what_the_generator_renders() {
     ] {
         assert!(page.contains(needle), "page lacks {needle:?}");
     }
+}
+
+#[test]
+fn summary_has_one_row_per_dataset_and_model() {
+    let page = render(&root().join(LABEL), LABEL).unwrap();
+    let summary: Vec<&str> = page
+        .split("## Summary\n")
+        .nth(1)
+        .unwrap()
+        .split("\n## ")
+        .next()
+        .unwrap()
+        .lines()
+        .filter(|l| l.starts_with("| ") && !l.starts_with("| Dataset"))
+        .collect();
+    let datasets = fs::read_dir(root().join(LABEL))
+        .unwrap()
+        .filter(|e| {
+            let p = e.as_ref().unwrap().path();
+            p.extension().is_some_and(|x| x == "csv")
+        })
+        .count();
+    assert_eq!(summary.len(), 4 * datasets);
 }
 
 #[test]
