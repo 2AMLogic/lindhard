@@ -363,6 +363,11 @@ test("the layout follows the width and a run survives a resize across 64rem", as
   const before = await page.locator("#counters").innerText();
   await page.setViewportSize({ width: 700, height: 900 });
   await expect(page.locator("nav[role=tablist]")).toBeVisible();
+  // The run made at desktop width stays on screen when the window narrows.
+  await expect(page.locator("#run")).toBeVisible();
+  await expect(page.locator("#setup")).toBeHidden();
+  await page.locator("#tab-setup").click();
+  await expect(page.locator("#setup")).toBeVisible();
   await expect(page.locator("#run")).toBeHidden();
   await page.locator("#tab-run").click();
   await expect(page.locator("#counters")).toBeVisible();
