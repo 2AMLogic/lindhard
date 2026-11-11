@@ -35,6 +35,22 @@ test("energy partition adds up to the incident energy", () => {
   assert.equal(energyPartition(undefined), null);
 });
 
+test("quick mode splits unfollowed-recoil energy out and both modes sum to 100 %", () => {
+  const q = energyPartition(report.budget, false);
+  assert.ok(Math.abs(q.recoilsNotFollowed - 0.057) < 1e-12);
+  assert.ok(Math.abs(q.other - 0.001) < 1e-12);
+  const sum = (p) => p.ionization + p.nuclear + p.escaped + p.other + (p.recoilsNotFollowed ?? 0);
+  assert.ok(Math.abs(sum(q) - 1) < 1e-9);
+  const f = energyPartition(report.budget, true);
+  assert.equal(f.recoilsNotFollowed, null);
+  assert.ok(Math.abs(f.other - 0.058) < 1e-12);
+  assert.ok(Math.abs(sum(f) - 1) < 1e-9);
+  const z = energyPartition({ ...report.budget, rest: 0, surface_barrier: 0, lattice: 3080 }, true);
+  assert.ok(Math.abs(sum(z) - 1) < 1e-9);
+  assert.equal(deriveCounters(report, { done: 1, total: 1, followRecoils: false }).partition.recoilsNotFollowed, 0.057);
+  assert.equal(deriveCounters({ ...report, budget: null }, { done: 1, total: 1, followRecoils: false }).partition, null);
+});
+
 test("vacancies per ion use the cascade in full mode and NRT in quick mode", () => {
   assert.equal(vacanciesPerIon(report, true), 3);
   assert.equal(vacanciesPerIon(report, false), 5);

@@ -24,14 +24,26 @@ function moment(m) {
 // electronic loss (nonlocal plus local); nuclear is the energy left in the
 // lattice (`budget.lattice`); escaped is what leaves through the faces; other
 // is the surface-barrier work and the kinetic energy of particles at rest.
-export function energyPartition(budget) {
+// In quick mode (`followRecoils` false) `budget.rest` is almost entirely the
+// kinetic energy of displaced recoils that were handed on but not followed, so
+// it is reported apart as `recoilsNotFollowed` (null in full-cascade mode,
+// where `rest` is cascade particles coming to rest and stays in `other`).
+// The five parts sum to 1.
+export function energyPartition(budget, followRecoils = true) {
   const inc = finite(budget?.incident);
   if (!inc || inc <= 0) return null;
   const ionization = (budget.electronic_nonlocal ?? 0) + (budget.electronic_local ?? 0);
   const nuclear = budget.lattice ?? 0;
   const escaped = (budget.backscattered ?? 0) + (budget.sputtered ?? 0) + (budget.transmitted ?? 0) + (budget.lateral ?? 0);
-  const other = (budget.surface_barrier ?? 0) + (budget.rest ?? 0);
-  return { ionization: ionization / inc, nuclear: nuclear / inc, escaped: escaped / inc, other: other / inc };
+  const rest = budget.rest ?? 0;
+  const other = (budget.surface_barrier ?? 0) + (followRecoils ? rest : 0);
+  return {
+    ionization: ionization / inc,
+    nuclear: nuclear / inc,
+    escaped: escaped / inc,
+    other: other / inc,
+    recoilsNotFollowed: followRecoils ? null : rest / inc,
+  };
 }
 
 // Vacancies per ion. In full-cascade mode the followed cascade's count; in
@@ -61,7 +73,7 @@ export function deriveCounters(report, { done, total, followRecoils }) {
     transmission: e ? e.transmission_coefficient : null,
     sputterYield: e ? e.sputter_yield : null,
     vacancies: vacanciesPerIon(report, followRecoils),
-    partition: energyPartition(report?.budget),
+    partition: energyPartition(report?.budget, followRecoils),
     modeLabel: followRecoils ? "full cascades" : "quick (NRT estimate)",
   };
 }

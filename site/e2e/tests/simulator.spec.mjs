@@ -19,7 +19,7 @@ async function configure(page, { ion, energyKeV, tilt, ions = 300, mode } = {}) 
   if (ion) await page.locator("#ion").fill(ion);
   if (energyKeV != null) await page.locator("#energy").fill(String(energyKeV));
   if (tilt != null) await page.locator("#tilt").fill(String(tilt));
-  if (mode) await page.locator("#mode").selectOption(mode);
+  if (mode) await page.locator(`#mode-${mode}`).check();
   await page.locator("#ions").fill(String(ions));
 }
 
@@ -30,7 +30,7 @@ async function configure(page, { ion, energyKeV, tilt, ions = 300, mode } = {}) 
  */
 async function addPreset(page, preset) {
   await page.locator("#preset").selectOption(preset);
-  await page.locator("#add-preset").click();
+  await page.locator("#add-layer").click();
   for (const field of await page.locator('#layers input[aria-label^="displacement energy"][placeholder="required"]').all()) {
     if ((await field.inputValue()) === "") await field.fill("15");
   }
@@ -99,6 +99,42 @@ for (const [ion, energyKeV] of [["B", 10], ["P", 30], ["As", 50]]) {
     await expect(page.locator("#c-vac-mode")).toContainText("(");
   });
 }
+
+test("the layer stack drawing follows the layers and the tilt", async ({ page }) => {
+  await open(page);
+  const blocks = page.locator("#stack .stack-block");
+  await expect(blocks).toHaveCount(1);
+  await addPreset(page, "SiO2");
+  await expect(blocks).toHaveCount(2);
+  await page.locator("#layers .layer").nth(1).getByRole("button", { name: "Delete layer" }).click();
+  await expect(blocks).toHaveCount(1);
+  const beam = page.locator("#stack line.stack-beam");
+  const before = await beam.getAttribute("y1");
+  await page.locator("#tilt").fill("45");
+  expect(await beam.getAttribute("y1")).not.toBe(before);
+  await expect(page.locator("#stack svg")).toHaveAccessibleDescription(/45° from the surface normal/);
+});
+
+test("a thin layer beside a thick one is drawn at a minimum width and marked not to scale", async ({ page }) => {
+  await open(page);
+  await addPreset(page, "SiO2");
+  await addPreset(page, "Cu");
+  await expect(page.locator("#stack")).not.toContainText("not to scale");
+  await page.locator("#thick-0").fill("1");
+  await page.locator("#thick-1").fill("1000");
+  await expect(page.locator("#stack")).toContainText("not to scale");
+});
+
+test("the setup has no truncated control at phone width", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 800 });
+  await open(page);
+  await addPreset(page, "SiO2");
+  const clipped = await page.evaluate(() => [...document.querySelectorAll("#setup input, #setup select, #setup label, #setup button")]
+    .filter((e) => e.offsetParent !== null && e.scrollWidth > e.clientWidth + 1)
+    .map((e) => e.id || e.getAttribute("aria-label") || e.textContent.slice(0, 20)));
+  expect(clipped).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
 
 test("As into SiO2 on Si runs with two layers built in the form", async ({ page }) => {
   await open(page);
@@ -223,6 +259,7 @@ test("the input file, the report, the plots and the picture download", async ({ 
     return { name: download.suggestedFilename(), body: readFileSync(await download.path()) };
   };
 
+  await page.locator("#input-file > summary").click();
   const toml = await save(() => page.locator("#download").click());
   expect(toml.name).toBe("lindhard-input.toml");
   expect(toml.body.toString()).toBe(await page.locator("#toml").inputValue());
