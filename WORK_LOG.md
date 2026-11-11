@@ -4,6 +4,18 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-11
 
+- **PR #689**: feat: compact simulator setup form with layer stack drawing
+- **PR #684**: docs: turn long-prose book tables into lists and add header to coefficient tables
+- **PR #682**: feat(wasm-calculator): fix dark mode, ticks, freeze, form and escaped-ion count
+- **PR #681**: fix(wasm): label unfollowed-recoil energy and correct damage-plot note in quick mode
+- **PR #680**: feat(book): style tables and display equations to fit their column
+- **PR #679**: fix: link the shipped simulator from the landing page and fail the build if it is missing
+- **Issue #672** (closed): Book: hand-written tables to definition lists (output, input, validity, potentials)
+- **Issue #670** (closed): Simulator quick mode: the damage plot contradicts its note, and the energy partition reads as wrong
+- **Issue #668** (closed): Simulator Setup: fields sized to their content, clearer layer controls, and a drawn layer stack
+- **Issue #662** (closed): Book: tables do not fit their content, and equations pan the page sideways on a phone
+- **Issue #661** (closed): Range calculator: unreadable in dark mode, and other small defects
+- **Issue #660** (closed): Landing page says the trajectory simulator is "planned" although it is published
 - **PR #617**: validation: attribute the pure-Cu sputter shortfall and compare engine Ni with stored sets
 - **Issue #544** (closed): [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2)
 
