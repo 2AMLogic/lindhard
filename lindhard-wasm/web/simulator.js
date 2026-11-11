@@ -754,7 +754,9 @@ function startRun() {
   refresh();
   if (problems.length) return;
   showResults();
-  if (!wide.matches) tab("run");
+  // Also on wide screens (where `tab` leaves both panels shown): `current` must
+  // follow the run so narrowing below 64rem keeps the results visible.
+  tab("run");
   worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
   setButtons("running");
   status("Starting…");
