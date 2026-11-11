@@ -43,4 +43,3 @@ code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; fo
 footer { margin-top: 3rem; padding-bottom: 2rem; color: var(--muted); border-top: 1px solid var(--rule); }
 .skip { position: absolute; left: -999px; top: 0; background: var(--bg); padding: 0.5rem 1rem; }
 .skip:focus { left: 0.5rem; top: 0.5rem; z-index: 10; }
-.planned { color: var(--muted); }
