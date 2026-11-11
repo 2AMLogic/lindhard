@@ -249,6 +249,7 @@ test("the input file, the report, the plots and the picture download", async ({ 
     return { name: download.suggestedFilename(), body: readFileSync(await download.path()) };
   };
 
+  await page.locator("#input-file > summary").click();
   const toml = await save(() => page.locator("#download").click());
   expect(toml.name).toBe("lindhard-input.toml");
   expect(toml.body.toString()).toBe(await page.locator("#toml").inputValue());
