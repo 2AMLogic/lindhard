@@ -2573,6 +2573,50 @@
      "min": 3.029,
      "median": 4.008,
      "max": 4.548
+    },
+    "within_60_percent": {
+     "points": 18,
+     "sets": [
+      "ar_cu_sputter_akaishi1977",
+      "ar_cu_sputter_bader1961",
+      "ar_cu_sputter_bohdansky1980",
+      "ar_cu_sputter_keywell1955",
+      "ar_cu_sputter_koshkin1969",
+      "ar_cu_sputter_oechsner1973",
+      "ar_cu_sputter_southern1963",
+      "ar_cu_sputter_weijsenfeld1967"
+     ],
+     "min": 2.105,
+     "median": 3.5355,
+     "max": 5.332
+    }
+   },
+   "ni_band_normal_incidence": {
+    "within_2_percent": {
+     "points": 0,
+     "sets": [],
+     "min": null,
+     "median": null,
+     "max": null
+    },
+    "within_25_percent": {
+     "points": 0,
+     "sets": [],
+     "min": null,
+     "median": null,
+     "max": null
+    },
+    "within_60_percent": {
+     "points": 5,
+     "sets": [
+      "ar_ni_sputter_fetz1963",
+      "ar_ni_sputter_oechsner1973",
+      "ar_ni_sputter_roth1979",
+      "ar_ni_sputter_weijsenfeld1967"
+     ],
+     "min": 1.764,
+     "median": 2.185,
+     "max": 2.566
     }
    }
   },
@@ -2677,7 +2721,14 @@
    "ratio_to_min": 0.8674785407725322,
    "ratio_to_max": 0.6210334436303474
   },
-  "pure_ni_over_stored": null,
+  "pure_ni_over_stored": {
+   "window": "within_60_percent",
+   "engine_0deg": 2.08779,
+   "stored_median": 2.185,
+   "ratio_to_median": 0.9555102974828376,
+   "ratio_to_min": 1.1835544217687075,
+   "ratio_to_max": 0.8136360093530788
+  },
   "ho_20deg": {
    "grid": [
     {

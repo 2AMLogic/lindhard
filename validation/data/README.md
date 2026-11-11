@@ -2,9 +2,10 @@
 
 Published measurements that `lindhard` is compared against
 ([`docs/validation.md`](../../docs/validation.md) section 3). Everything here
-is a measured fact cited to its paper. **Never** SRIM/TRIM output, tables
-derived from it, or any other code's output, however well known
-([`CONTRIBUTING.md`](../../CONTRIBUTING.md), clean-room tiers).
+is a measured fact cited to its paper. Code output (SRIM/TRIM tables and
+others) is admissible data too ([`CONTRIBUTING.md`](../../CONTRIBUTING.md),
+"Data"), but it lives elsewhere, labelled as code output, so that this
+directory holds measurements only.
 
 ## Status
 

@@ -47,7 +47,7 @@
 //! neighbours are computed from identical vertex coordinates, which welded
 //! meshes guarantee.
 
-pub(super) type V3 = [f64; 3];
+pub(super) use crate::vec3::V3;
 
 /// Largest number of triangles in a leaf.
 const MAX_LEAF: usize = 4;

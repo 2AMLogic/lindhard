@@ -7,6 +7,11 @@ name: Book
 # the build job is unaffected. The build is scripts/deploy-site.sh
 # --no-deploy; the `cloudflare` job publishes the same tree to Cloudflare Pages
 # from main once the repository has the Cloudflare secrets (skipped before).
+#
+# The `e2e` job opens the built tree in Chromium, Firefox and WebKit
+# (site/e2e, Playwright) on every pull request and push; neither host is
+# published unless it passes. After a Cloudflare publish, `e2e-live` runs the
+# same tests against the public site.
 
 on:
   pull_request:
@@ -79,10 +84,45 @@ jobs:
         with:
           path: site/dist
 
+  e2e:
+    name: Browser tests of the built site
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          name: github-pages
+          path: /tmp/pages
+      - name: Unpack the built site
+        run: |
+          set -euo pipefail
+          mkdir -p site/dist
+          tar -xf /tmp/pages/artifact.tar -C site/dist
+      - name: Install Playwright and its browsers
+        working-directory: site/e2e
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Run the browser tests
+        working-directory: site/e2e
+        run: npx playwright test
+      - name: Keep the report and traces of a failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            site/e2e/playwright-report
+            site/e2e/test-results
+          retention-days: 14
+
   deploy:
     name: Deploy to GitHub Pages
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: [build, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -101,12 +141,14 @@ jobs:
   cloudflare:
     name: Publish to Cloudflare Pages
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
+    needs: [build, e2e]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
       group: cloudflare-pages
       cancel-in-progress: false
+    outputs:
+      published: ${{ steps.creds.outputs.have }}
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -136,3 +178,34 @@ jobs:
           mkdir -p site/dist
           tar -xf /tmp/pages/artifact.tar -C site/dist
           scripts/deploy-site.sh --publish-only
+
+  e2e-live:
+    name: Browser tests of the published site
+    # Only when the job above published. Without the Cloudflare secrets this
+    # job is skipped, and shows as skipped, not as passed.
+    if: needs.cloudflare.outputs.published == 'true'
+    needs: cloudflare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SITE_URL: ${{ vars.LINDHARD_SITE_URL || 'https://lindhard.org' }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install Playwright and its browsers
+        working-directory: site/e2e
+        run: |
+          set -euo pipefail
+          npm ci
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Run the browser tests against the public site
+        working-directory: site/e2e
+        run: npx playwright test
+      - name: Keep the report and traces of a failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-live-report
+          path: |
+            site/e2e/playwright-report
+            site/e2e/test-results
+          retention-days: 14

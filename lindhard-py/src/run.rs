@@ -72,6 +72,7 @@ impl Run {
             physics: physics.to_spec()?,
             stopping: StoppingSpec {
                 tables: stopping_tables.unwrap_or_default(),
+                ..StoppingSpec::default()
             },
             run: RunSpec {
                 ions,
@@ -283,7 +284,10 @@ impl Run {
         format!(
             "Run(ion={}, energy_ev={}, ions={}, seed={})",
             self.input.beam.ion,
-            self.input.beam.energy_ev,
+            self.input
+                .beam
+                .energy_ev
+                .map_or("spectrum".to_string(), |e| e.to_string()),
             self.input.run.ions,
             self.input.run.seed
         )

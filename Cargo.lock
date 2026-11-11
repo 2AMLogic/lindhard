@@ -499,6 +499,7 @@ dependencies = [
  "lindhard-cli",
  "numpy",
  "pyo3",
+ "rayon",
  "serde",
  "toml",
 ]

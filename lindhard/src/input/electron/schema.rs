@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
 use crate::electron::transport::TransportConfig;
-use crate::input::{DivergenceSpec, TargetSpec};
+use crate::input::{DivergenceSpec, TargetSpec, VoxelTallySpec};
 use crate::material::MaterialSpec;
 use crate::tally::{PsfModel, PsfNormalization, SE_BSE_SPLIT_EV};
 
@@ -799,9 +799,40 @@ pub struct ElectronTallySpec {
     /// Radial profile of a depth slab and its PSF fits.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub psf: Option<PsfSpec>,
+    /// Dose per layer, depth-dose profile and interface transmission.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub dose: Option<DoseSpec>,
     /// Exposure statistics of small volumes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub exposure: Option<ExposureSpec>,
+    /// Voxel energy-deposition grid, written as `damage_export.csv` (the
+    /// ion `[tally.voxel]` table, same fields). The electron tally has no
+    /// species axis, so the per-species defect columns are empty.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub voxel: Option<VoxelTallySpec>,
+}
+
+/// `[electron.tally.dose]`: dose in each layer per unit incident fluence
+/// (always on once the table is present), optional depth-dose profile and
+/// interface transmission.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DoseSpec {
+    /// Uniform depth bins per layer; omit for no depth-dose profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub depth_bins_per_layer: Option<usize>,
+    /// Width of the refined depth bands next to each interface, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refine_width_nm: Option<f64>,
+    /// Bins in each refined band (default 10 when a width is given).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refine_bins: Option<usize>,
+    /// Depth binned in a semi-infinite last layer, nm.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub substrate_depth_nm: Option<f64>,
+    /// Count crossings of each interface, with energy spectra.
+    #[serde(default)]
+    pub transmission: bool,
 }
 
 impl Default for ElectronTallySpec {
@@ -815,7 +846,9 @@ impl Default for ElectronTallySpec {
             cartesian: None,
             cylindrical: None,
             psf: None,
+            dose: None,
             exposure: None,
+            voxel: None,
         }
     }
 }

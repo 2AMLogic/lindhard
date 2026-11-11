@@ -702,3 +702,44 @@ fn exposure_section_resolves_echoes_and_names_bad_fields() {
     .to_string();
     assert!(e.contains("volumes[1].name"), "{e}");
 }
+
+#[test]
+fn voxel_table_resolves_echoes_and_names_bad_fields() {
+    let d = dir("voxel");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let sec = "\n[electron.tally.voxel]\norigin_nm = [0.0, -10.0, -10.0]\n\
+spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
+    let resolve = |text: &str| {
+        ElectronInput::from_toml_str(text)
+            .unwrap()
+            .resolve_in(&d)
+            .map_err(|e| e.to_string())
+    };
+    let r = resolve(&format!("{GOOD}{sec}")).unwrap();
+    assert!(r.voxel_grid.is_some());
+    let echoed = r.input.electron.tally.voxel.clone().unwrap();
+    assert_eq!(echoed.dims, [10, 2, 2]);
+    // The echo round-trips through TOML.
+    let text = toml::to_string(&r.input).unwrap();
+    assert!(text.contains("[electron.tally.voxel]"), "{text}");
+    // Without the table there is no grid.
+    assert!(resolve(GOOD).unwrap().voxel_grid.is_none());
+
+    for (from, to, field) in [
+        ("origin_nm = [0.0,", "origin_nm = [nan,", "voxel.origin_nm"),
+        (
+            "spacing_nm = [4.0,",
+            "spacing_nm = [0.0,",
+            "voxel.spacing_nm",
+        ),
+        (
+            "spacing_nm = [4.0,",
+            "spacing_nm = [inf,",
+            "voxel.spacing_nm",
+        ),
+        ("dims = [10,", "dims = [0,", "voxel.dims"),
+    ] {
+        let e = resolve(&format!("{GOOD}{}", sec.replace(from, to))).unwrap_err();
+        assert!(e.contains(&format!("electron.tally.{field}")), "{e}");
+    }
+}

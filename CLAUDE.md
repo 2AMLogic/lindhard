@@ -8,15 +8,19 @@ be read about in papers, and what may never enter the tree) and the
 
 - Physics comes from published papers. Every model and constant cites its
   source in a doc comment.
-- Every dataset gets a row in `docs/data-provenance.md`. No SRIM-derived
-  tables, ever: SRIM's computed output (curves, tables, model values) is never
-  data here. SRIM (local runs, or the tables in the SRIM book) is a comparison reference
-  only: compare locally, commit summary metrics, never tune or fit to it. Page
-  scans of the book stay out of the tree. Measured points from the srim.org
-  compilation are facts from their papers and are admitted under
-  `CONTRIBUTING.md`, including points recovered from its Experiment/Theory
-  panel, where the curve is read only as an intermediate and never stored
-  ([operator ruling on #486](https://github.com/2AMLogic/lindhard/issues/486#issuecomment-6488202598)).
+- **Data is not licensed; code is** ([operator ruling, 2026-11-10](https://github.com/2AMLogic/lindhard/issues/629)). The goal is to add to the
+  digital commons: lindhard aims to be a complete open replacement for
+  SRIM/TRIM. Published numbers from any source (papers, the SRIM book's
+  tables, srim.org plots and curves, SRIM/TRIM output, ICRU, NIST, other
+  codes' data files) may enter the tree as data. Every dataset gets a row in
+  `docs/data-provenance.md` citing its source (edition, table and page; or
+  program, version and file) and labelling its origin.
+- The clean room is about **code**: never read, port or transcribe code from
+  Tier B or Tier C programs (`CONTRIBUTING.md`).
+- Keep validation honest: a comparison of lindhard against data that came
+  from the same code is consistency, not independent validation, and a model
+  fitted to a code's output is a named calibration, not physics. Page images
+  of books stay out of the tree; commit the numbers.
 - Determinism across thread counts is a tested invariant. Do not break it.
 - This repo is public. Keep it free of anything that is not already
   published physics, and of any description of downstream applications.

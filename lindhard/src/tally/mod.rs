@@ -35,6 +35,7 @@
 //! report types derive `serde::Serialize`, with units documented per field
 //! (SI lengths in metres, energies in eV, angles in radians).
 
+pub mod dose;
 pub mod electron;
 pub mod exposure;
 pub mod hist;
@@ -42,10 +43,15 @@ pub mod ion;
 pub mod moments;
 pub mod pearson;
 pub mod psf;
+pub mod psf_scan;
 pub mod table_coverage;
 pub mod trajectory;
 pub mod voxel;
 
+pub use dose::{
+    DepthDose, DepthDoseConfig, DoseConfig, DoseError, DoseReport, Estimate, InterfaceRefine,
+    InterfaceTransmission, LayerDose,
+};
 pub use electron::{
     net_mean_se, CartesianCharge, CartesianDeposition, CartesianGrid, ChargeCells, ChargeCounts,
     ChargeReport, CylindricalCharge, CylindricalDeposition, CylindricalGrid, DepositionReport,
@@ -59,7 +65,7 @@ pub use exposure::{
     ExposureAccumulator, ExposureConfig, ExposureError, ExposureHistogram, ExposureReport,
     ExposureVolume, ExposureVolumeReport, QuantileResult, ThresholdResult, VolumeShape,
 };
-pub use hist::{Binning, BinningError, Histogram};
+pub use hist::{Binning, BinningError, Histogram, WeightedHistogram};
 pub use ion::{
     CascadeDefects, DamageReport, EscapeReport, FaceEscape, IonReport, IonTally, IonTallyConfig,
     LayerDamage, LayerRange, NrtDamage, RangeReport, SpeciesEscape,
@@ -69,6 +75,9 @@ pub use pearson::{type_iv_min_kurtosis, DualPearson, DualPearsonFit, PearsonErro
 pub use psf::{
     fit_psf, GaussianPsf, LogRadialBinning, PsfConfig, PsfError, PsfFit, PsfFitOptions, PsfModel,
     PsfNormalization, PsfReport, PsfResidual, RadialAccumulator, RadialProfile,
+};
+pub use psf_scan::{
+    point_seed, scan_landing_points, PsfScanConfig, PsfScanError, PsfScanPoint, PsfScanReport,
 };
 pub use table_coverage::{LayerTableCoverage, TableCoverageCounts, TableCoverageTally};
 pub use trajectory::{

@@ -126,9 +126,10 @@
 
 use std::f64::consts::PI;
 
-use super::{add, cross, dot, scale, unit, CrystalError};
+use super::{add, unit, CrystalError};
 use crate::elements::element;
 use crate::units::M_PER_ANGSTROM;
+use crate::vec3::{cross, dot, scale};
 
 /// A cited lattice constant: value, the temperature it refers to, and where
 /// it was read.

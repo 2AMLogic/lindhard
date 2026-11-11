@@ -13,6 +13,7 @@
   - [Oen-Robinson and the equipartition mix](models/stopping-oen-robinson.md)
   - [Bethe-Bloch and the density effect](models/stopping-bethe-bloch.md)
   - [User stopping tables](models/stopping-user-tables.md)
+  - [SRIM-data-sourced stopping](models/stopping-srim.md)
   - [Bragg additivity](models/stopping-bragg.md)
   - [Energy-loss straggling](models/straggling.md)
   - [Validity ranges and declined terms](models/stopping-validity.md)
@@ -49,3 +50,4 @@
   - [Implant through a screen oxide](gallery/screen-oxide.md)
   - [Sputtering yield against incidence angle](gallery/sputtering-angle.md)
   - [Electron deposition in a resist on Si](gallery/resist-on-si.md)
+  - [Dose in a buried oxide](gallery/dose-buried-oxide.md)

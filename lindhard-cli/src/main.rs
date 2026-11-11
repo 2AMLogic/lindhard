@@ -9,7 +9,7 @@ use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
 use lindhard_cli::publish::{self, OutputSet};
 use lindhard_cli::table_cache::TableCache;
-use lindhard_cli::{dynamic, electron, output, sim};
+use lindhard_cli::{dynamic, electron, exposure, output, sim};
 
 const LONG_VERSION: &str = concat!(
     env!("CARGO_PKG_VERSION"),
@@ -58,6 +58,9 @@ enum Command {
         #[arg(long, value_name = "DIR")]
         table_cache: Option<PathBuf>,
     },
+    /// Dose of a multi-shot exposure from a Gaussian-sum PSF, on a grid, with
+    /// optional iso-dose contours (exposure_*.csv, exposure_summary.json).
+    Exposure(Box<exposure::ExposureArgs>),
 }
 
 fn read(path: &Path) -> Result<String> {
@@ -187,12 +190,24 @@ fn run_electron(
     )?;
     set.reconcile_optional(electron::PSF_PROFILE_FILE, electron::psf_profile_csv(&sim))?;
     set.reconcile_optional(
+        electron::DEPTH_DOSE_FILE,
+        electron::depth_dose_csv(&sim.report),
+    )?;
+    set.reconcile_optional(
+        electron::TRANSMISSION_FILE,
+        electron::transmission_csv(&sim.report),
+    )?;
+    set.reconcile_optional(
         electron::PSF_PARAMETERS_FILE,
         electron::psf_parameters_csv(&sim),
     )?;
     set.reconcile_optional(
         electron::EXPOSURE_FILE,
         electron::exposure_histogram_csv(&sim),
+    )?;
+    set.reconcile_optional(
+        electron::DAMAGE_EXPORT_FILE,
+        electron::damage_export_csv(&r, &sim),
     )?;
     // Last, so the summary describes the completed output set.
     set.publish()?;
@@ -228,9 +243,13 @@ fn check(path: &Path) -> Result<()> {
     let r = resolve(path, &input)?;
     let b = &r.input.beam;
     println!("{}: OK", path.display());
+    let energy = match &b.spectrum {
+        Some(lines) => format!("a {}-line energy spectrum", lines.len()),
+        None => format!("{} eV", b.energy_ev.unwrap_or(f64::NAN)),
+    };
     println!(
-        "  beam: {} at {} eV, tilt {} deg, azimuth {} deg; {} ions, seed {}",
-        b.ion, b.energy_ev, b.tilt_deg, b.azimuth_deg, r.input.run.ions, r.input.run.seed
+        "  beam: {} at {}, tilt {} deg, azimuth {} deg; {} ions, seed {}",
+        b.ion, energy, b.tilt_deg, b.azimuth_deg, r.input.run.ions, r.input.run.seed
     );
     for (i, (g, l)) in r.stack.layers().iter().zip(&r.layers).enumerate() {
         let extent = if g.back_m().is_finite() {
@@ -378,6 +397,7 @@ fn run_dynamic(r: &Resolved, threads: Option<usize>, out: &Path) -> Result<()> {
 fn main() -> Result<()> {
     match Cli::parse().command {
         Command::Check { input } => check(&input),
+        Command::Exposure(a) => exposure::run(&a),
         Command::Run {
             input,
             out,

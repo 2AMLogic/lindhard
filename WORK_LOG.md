@@ -4,6 +4,56 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #635**: docs: data is not licensed, code is; admit cited data from any source (#629)
+- **Issue #629** (closed): Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning
+- **PR #627**: refactor: consolidate duplicated [f64; 3] helpers into a vec3 module
+- **Issue #625** (closed): Simplify: consolidate duplicated 3-vector helpers (dot/cross/norm/normalize) into one module
+- **PR #584**: feat: add per-layer dose, depth-dose and interface transmission tallies for electrons
+- **Issue #547** (closed): Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack
+- **PR #624**: refactor: split ElectronInput::resolve_in into per-stage helpers
+- **PR #623**: feat: direct Monte Carlo exposure mode compared with the PSF convolution
+- **PR #621**: test: add density-free Al2O3 sum-rule integrals and gap rows
+- **PR #585**: feat: add multi-shot exposure dose, iso-dose contours and lindhard exposure command
+- **Issue #622** (closed): Simplify: split 630-line ElectronInput::resolve_in into per-stage helpers
+- **Issue #618** (closed): Al2O3 optical ELF: sum rules and IMFP comparison
+- **Issue #555** (closed): Direct Monte Carlo exposure of a small shot list, to check the PSF convolution on non-uniform targets
+- **Issue #552** (closed): Sourced optical energy-loss functions and band parameters for more metals, nitrides, dielectrics and resists
+- **Issue #551** (closed): Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check
+- **PR #615**: feat: position-dependent PSF scan over voxel targets
+- **PR #614**: feat: electron voxel damage map table and damage_export for electron runs
+- **PR #612**: feat: report pure-Ni yield against stored Ar -> Ni sets
+- **PR #611**: docs: record SiCOH and SiCN optical ELF as gaps
+- **PR #610**: refactor: share Gaussian and disc beam offset helpers across transport and exposure
+- **PR #609**: refactor: unify electron Face with geometry::Face via re-export
+- **PR #607**: docs: record HfO2 optical ELF as a gap with routes tried
+- **PR #604**: docs: record Si3N4 optical ELF as a gap with routes tried
+- **PR #603**: test: per-species (He, Ne, Ga, Xe) 2-D dynamic profile runs
+- **PR #601**: feat: versioned damage-export file with provenance header and NumPy round trip
+- **PR #600**: docs: record SiO2 optical ELF as a gap with routes tried
+- **PR #599**: docs: record full Al2O3 Table 9 second read against the scan
+- **PR #596**: test: share synthetic table builder and bare-Si helper across electron tests
+- **PR #595**: feat: lateral implant/damage profiles and film cut-through for the 2-D dynamic run
+- **PR #593**: data: add measured Ar -> Ni sputter yields (IPPJ-AM-32 p. 103) with NIFS cross-check
+- **PR #592**: docs: new fronts run alongside the 0.1.0 close-out; close-out step 2 done
+- **PR #591**: fix: set empty species/defect fields in electron voxel_report
+- **PR #586**: feat: split electron deposition into ionisation and lattice, add pairs and knock-on report
+- **PR #579**: feat: electron beam landing point, lateral profile and divergence
+- **PR #577**: data: add amorphous Al2O3 optical ELF (Hagemann 1975, Table 9)
+- **Issue #602** (closed): Electron voxel damage map: input table and Python/CLI export
+- **Issue #597** (closed): Regenerate the #465 Cu-Ni diagnostic now that Ar -> Ni sets are stored
+- **Issue #572** (closed): [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549)
+- **Issue #568** (closed): Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
+- **Issue #549** (closed): Electron transport on 2-D/3-D voxel targets with a finite beam, and a position-dependent point-spread report
+- **Issue #606** (closed): Collapse duplicate BeamProfile in tally::exposure into electron::transport::BeamProfile
+- **Issue #605** (closed): Unify duplicate Face enum: electron::transport re-exports geometry::Face
+- **Issue #598** (closed): data: second read of Al2O3 optical ELF rows above 20.5 eV against the DESY SR-74/7 scan
+- **Issue #590** (closed): main does not compile: tally/electron.rs VoxelReport/VoxelRecord missing fields after #560/#570 merge
+- **Issue #589** (closed): Consolidate duplicated synthetic-table and bare-Si helpers in electron tests
+- **Issue #571** (closed): [Epic #25] Electron beam with a finite lateral profile, landing position and divergence (part of #549)
+- **Issue #563** (closed): [Part of #553] Versioned damage-map export (ion and electron) with provenance header and Python round trip
+- **Issue #558** (closed): [Part of #553] Electron runs: ionisation vs lattice energy, e-h pairs, and knock-on threshold report
+- **Issue #553** (closed): Damage outputs: ionisation dose and knock-on threshold for electrons, per-species defect maps for ions, and a documented export
+- **Issue #543** (closed): [Epic #22] Store Ar → Ni sputter-yield datasets from IPPJ-AM-32 (split from #511, part 1)
 - **PR #583**: feat: add a 2-D dynamic run with finite beam, height-field surface and redeposition
 - **PR #582**: feat: run electron transport on any Geometry with a per-voxel deposition tally
 - **PR #581**: feat: per-element defect maps in the voxel tally, written by the CLI

@@ -62,6 +62,9 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
     bca = bca
         .with_divergence(r.divergence)
         .context("setting up the beam divergence")?;
+    if let Some(sp) = &r.spectrum {
+        bca = bca.with_spectrum(sp.clone());
+    }
     for (i, c) in r.crystals.iter().enumerate() {
         bca = bca
             .with_crystal(c.target.clone(), &c.regions)

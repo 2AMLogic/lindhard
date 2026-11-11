@@ -14,7 +14,11 @@
 //!   `kinematics::sin_cos_turns` (#424), which changes results at the
 //!   1e-16 level, and re-recorded again when the universal screening length
 //!   switched to the Thomas-Fermi constant (#536), a relative shift of about
-//!   1e-4 in the potential. They were recorded on x86_64 Linux; libm
+//!   1e-4 in the potential, and re-recorded once more when the damage report
+//!   gained the NRT and Kinchin-Pease depth histograms (#640). That change
+//!   only adds serialised fields: with those two fields excluded from the
+//!   JSON, the previous digests still matched, so transport is unchanged.
+//!   They were recorded on x86_64 Linux; libm
 //!   `exp`/`ln`/`pow`/trigonometry differ in the last bit on other targets
 //!   (macOS, aarch64 Linux), so the serialised floats, and the digests, are
 //!   platform dependent. The gate keeps the before/after
@@ -108,7 +112,7 @@ fn b_5kev_si_example_is_unchanged() {
     cfg.seed = 1;
     let d = digest(&stack, 5, 5.0e3, cfg, 3000);
     assert_eq!(
-        d, "2cf7e0bf54600db52e816474fec792f5fd2cf0698e6c0337cbcef3fad1830065",
+        d, "b0267ebe809dd4794351b3ce265599514a1228abecefba4551c16a650349a50e",
         "amorphous B 5 keV Si report changed"
     );
 }
@@ -123,7 +127,7 @@ fn all_optional_branches_are_unchanged() {
     cfg.weak_collisions = 2;
     let d = digest(&stack, 18, 2.0e3, cfg, 1500);
     assert_eq!(
-        d, "ec7190289f070659abfb92b62f5399eaf151870e6efad86a918731b450cdcb21",
+        d, "4c3d92727c1c5e2b30cb76510f9b828ca4259f3e25fb33cf5da240cb6781b882",
         "amorphous multi-branch report changed"
     );
 }

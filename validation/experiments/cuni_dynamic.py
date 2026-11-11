@@ -118,7 +118,8 @@ SPUTTER_DATA = HERE.parent / "data" / "sputtering"
 DIAG_ENERGY_EV = 2000.0
 DIAG_SEEDS = [1, 2, 3, 4]
 DIAG_IONS = 100000  # per seed
-DIAG_WINDOWS = {"within_2_percent": 0.02, "within_25_percent": 0.25}  # of the energy, around 2 keV
+DIAG_WINDOWS = {"within_2_percent": 0.02, "within_25_percent": 0.25,
+                "within_60_percent": 0.60}  # of the energy, around 2 keV
 DIAG_COMPOSITIONS = [0.20, 0.24, 0.268, 0.28, 0.32, 0.34, 0.36, 0.384, 0.40]  # Cu fraction, uniform slab
 
 
@@ -643,11 +644,12 @@ def static_yields(binary: Path, threads: int, cu_fraction: float, tilt_deg: floa
     return res
 
 
-def stored_cu_band(energy_ev: float, window: float) -> dict:
-    """The stored measured Ar -> Cu points (normal incidence, flagged points left
-    out as in run.py) within `window` (relative) of `energy_ev`."""
+def stored_band(prefix: str, energy_ev: float, window: float) -> dict:
+    """The stored measured points of the `prefix` sets (e.g. "ar_cu", "ar_ni";
+    normal incidence, flagged points left out as in run.py) within `window`
+    (relative) of `energy_ev`. An empty window gives zero points and None stats."""
     pts = []
-    for f in sorted(SPUTTER_DATA.glob("ar_cu_sputter_*.json")):
+    for f in sorted(SPUTTER_DATA.glob(f"{prefix}_sputter_*.json")):
         d = json.loads(f.read_text())
         if d["incidence_deg"] != 0.0:
             continue
@@ -658,8 +660,18 @@ def stored_cu_band(energy_ev: float, window: float) -> dict:
                 pts.append((p["yield"], d["id"]))
     ys = sorted(y for y, _ in pts)
     n = len(ys)
+    if n == 0:
+        return {"points": 0, "sets": [], "min": None, "median": None, "max": None}
     med = ys[n // 2] if n % 2 else 0.5 * (ys[n // 2 - 1] + ys[n // 2])
     return {"points": n, "sets": sorted({i for _, i in pts}), "min": ys[0], "median": med, "max": ys[-1]}
+
+
+def stored_cu_band(energy_ev: float, window: float) -> dict:
+    return stored_band("ar_cu", energy_ev, window)
+
+
+def stored_ni_band(energy_ev: float, window: float) -> dict:
+    return stored_band("ar_ni", energy_ev, window)
 
 
 def count_stored_sets(prefix: str) -> int:
@@ -701,7 +713,8 @@ def diagnostics(binary: Path, threads: int, ho_exp: dict, betz_points: list[dict
     c_bulk = ho_exp["cu_fraction"]
     out = {"energy_ev": DIAG_ENERGY_EV, "seeds": DIAG_SEEDS, "ions_per_seed": DIAG_IONS,
            "stored_data": {"ar_cu_sets": count_stored_sets("ar_cu"), "ar_ni_sets": count_stored_sets("ar_ni"),
-                           "cu_band_normal_incidence": {k: stored_cu_band(DIAG_ENERGY_EV, w) for k, w in DIAG_WINDOWS.items()}}}
+                           "cu_band_normal_incidence": {k: stored_cu_band(DIAG_ENERGY_EV, w) for k, w in DIAG_WINDOWS.items()},
+                           "ni_band_normal_incidence": {k: stored_ni_band(DIAG_ENERGY_EV, w) for k, w in DIAG_WINDOWS.items()}}}
     # 1. single elements, static.
     pure = {}
     for tilt in (0.0, 20.0):
@@ -713,7 +726,13 @@ def diagnostics(binary: Path, threads: int, ho_exp: dict, betz_points: list[dict
     out["pure_cu_over_stored"] = {"engine_0deg": y_cu0, "stored_median": band["median"],
                                   "ratio_to_median": y_cu0 / band["median"],
                                   "ratio_to_min": y_cu0 / band["min"], "ratio_to_max": y_cu0 / band["max"]}
-    out["pure_ni_over_stored"] = None  # no stored Ar -> Ni set at the time of #465; see "attribution" (#544)
+    # Comparison only; nothing is tuned to the stored Ni points. Null if the window holds none.
+    # The stored Ni points are sparse near 2 keV (none within 25 %), so the 60 % window is used.
+    nband = out["stored_data"]["ni_band_normal_incidence"]["within_60_percent"]
+    y_ni0 = pure["Ni_0deg"]["y_total"]["value"]
+    out["pure_ni_over_stored"] = None if nband["points"] == 0 else {
+        "window": "within_60_percent", "engine_0deg": y_ni0, "stored_median": nband["median"], "ratio_to_median": y_ni0 / nband["median"],
+        "ratio_to_min": y_ni0 / nband["min"], "ratio_to_max": y_ni0 / nband["max"]}
     # 2. the binary at fixed composition (uniform slab; the real surface has a depth profile).
     for tilt, tag in ((20.0, "ho_20deg"), (0.0, "betz_0deg")):
         yc, yn = pure[f"Cu_{tilt:g}deg"]["y_total"]["value"], pure[f"Ni_{tilt:g}deg"]["y_total"]["value"]

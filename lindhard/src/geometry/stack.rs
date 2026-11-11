@@ -111,6 +111,10 @@ impl Stack {
 }
 
 impl Geometry for Stack {
+    fn as_stack(&self) -> Option<&Stack> {
+        Some(self)
+    }
+
     fn n_materials(&self) -> usize {
         self.layers.len()
     }

@@ -589,7 +589,7 @@ Programs are run unmodified on matched problems, under the rules in
 | RustBCA | Amorphous ranges, sputter yields, reflection coefficients, ions/s |
 | OpenTRIM | Ranges, damage profiles, ions/s |
 | iradina / IM3D | 3D geometry cases (M3) |
-| SRIM (via Wine, local only; or the SRIM book's printed tables) | Ranges, straggling and stopping as a reference; summary metrics only, never a fixture, never a tuning target |
+| SRIM (via Wine, local only; or the SRIM book's printed tables) | Ranges, straggling and stopping as a reference; summary metrics committed, and its tables admissible as labelled data (a comparison against SRIM-sourced data is consistency, not validation) |
 | Nebula | Electron PSFs, SE/BSE yields (M1) |
 | Geant4 MicroElec | Electron energy deposition in Si/SiO₂ (M1) |
 | PENELOPE / penEasy | Electron depth–dose above ~1 keV (M1) |
@@ -2597,7 +2597,7 @@ independent code's published result) needs a source read for its numbers. None
 was opened in the #546 session, and no value was entered from memory. The rule
 for when one is chosen: record the source and the digitized or tabulated points
 in [`data-provenance.md`](data-provenance.md) first, commit summary metrics
-only, and do not tune or fit to SRIM-derived values (`CONTRIBUTING.md`, Tier C).
+only, and label any SRIM-derived values as such (`CONTRIBUTING.md`, Tier C).
 This line is open; it is tracked on #546.
 
 ### Fluence-dependent targets vs measurement (#437, #448): Cu–Ni compared, not validated
@@ -2789,13 +2789,13 @@ Betz summary: ideal-mixing/ar-re-emitted: 0 of 22 pass (-47 to -31 %); fixed-num
 
 **Diagnosis (#465): static runs, same matched settings, no dynamic profile.** 4 seeds × 100000 ions per run, 2000 eV Ar; mean ± standard error over the seeds.
 
-*1. Single elements.* Stored measured Ar → Cu sets: 15; stored Ar → Ni sets: **7** (the Ni sets were added after the #465 diagnosis; the Ni comparison is in the attribution below).
+*1. Single elements.* Stored measured Ar → Cu sets: 15; stored Ar → Ni sets: **7**. No stored Ni point lies within 25 % of the energy, so the Ni band uses the 60 % window; the yield rises steeply across it, so that ratio is indicative only. Comparison only: nothing is tuned to these points.
 
 | Target, incidence | Engine yield (atoms/ion) | Stored measured, normal incidence | Engine / measured |
 |---|---|---|---|
 | Cu, 0° | 2.628 ± 0.003 | 3.03-4.23 (median 3.92), 4 points of 4 sets within 2 % of the energy | 0.67 of the median (0.62-0.87 of the band's max and min) |
 | Cu, 0° | same | 3.03-4.55 (median 4.01), 7 points of 6 sets within 25 % of the energy | 0.66 of the median |
-| Ni, 0° | 2.087 ± 0.003 | 0 stored points within 25 % of the energy; nearest below 2.11 at 1049 eV (oechsner1973), above 2.48 at 3036 eV (roth1979) | 0.72 at 1049 eV, 0.97 at 3036 eV (engine run at each energy; table below) |
+| Ni, 0° | 2.087 ± 0.003 | 1.76-2.57 (median 2.19), 5 points of 4 sets within 60 % of the energy | 0.96 of the median (0.81-1.18 of the band's max and min) |
 | Cu, 20° | 3.061 ± 0.003 | no stored data at 20° | not available |
 | Ni, 20° | 2.476 ± 0.002 | no stored data at 20° | not available |
 
@@ -2939,11 +2939,14 @@ block) isolate each candidate, in the order the operator ruling set.
    the two pure-element yields to within 0.3 % at every composition and both
    angles, so the alloy introduces no further loss: the engine/measured ratios of
    the alloy total yield (Ho 0.69–0.74 per the flux convention; Betz at 38.4 at%
-   Cu about 0.64) are those of pure Cu. **Ni cannot be compared**: the repository
-   holds no Ar → Ni sputter set (0 stored; 15 Ar → Cu sets), so the engine's Ni
-   yield (2.09 at normal incidence, 2.48 at 20°) is reported without a ratio, and
-   no Ni data was digitized in this work (a separate dataset issue, with its own
-   provenance row). Why the engine is low for Cu at these settings is not
+   Cu about 0.64) are those of pure Cu. **Ni can be compared, coarsely**: the repository now holds 7 Ar → Ni sputter
+   sets (15 Ar → Cu sets). No stored Ni point lies within 25 % of 2 keV, so the
+   band is the 60 % window (5 points of 4 sets, 1.76–2.57, median 2.19), across
+   which the yield rises steeply; the engine's pure-Ni yield at normal incidence
+   (2.09) is **0.96 of that median** (0.81 of the band's top, 1.18 of its
+   bottom), i.e. inside the band, in contrast to Cu. This is a comparison only:
+   nothing was tuned to these points, and the 20° Ni yield (2.48) has no stored
+   counterpart. Why the engine is low for Cu at these settings is not
    resolved here; section 3 documents what was tried and ruled out for Ar → Cu,
    and the E_s tuning experiment there is not repeated.
 2. *Alloy model.* **The binding treatment is per species, not
@@ -4250,6 +4253,14 @@ A channeled ion loses about 10 % less per unit path than in a random direction. 
 `DynamicRun2d::with_profiles` tallies the beam species at rest and the simulated displacement count (recoils created, the `VoxelTally` / 1-D `IonReport` definition; no amorphization or damage accumulation) on a voxel grid in the sample frame, per metre of the invariant axis and as number densities, at chosen fluences. `run_until_cut_through` stops when an illuminated column has lost all its slabs and reports the peak-fluence bracket `(before, at]` (one step wide) and the displacements that occurred in the substrate layer. Tests: `lindhard/tests/dynamic_2d_profiles.rs` (totals equal the event counts, snapshots land on the requested fluences, cut-through and no-cut-through at the fluence cap, bit-identical profiles at 1 and 8 threads, and one small run each for He, Ne, Ga and Xe beams in Si checking the species tag, the totals and the CSV schema; gas beams use the Si number density, so this is bookkeeping, not a physical comparison).
 
 **Trench comparison with a published cross-section: not yet performed.** `ion::dynamic::compare_profile` implements the check (RMS depth difference over the largest published depth, caller-set tolerance, per-point values; no extrapolation, nothing fitted), tested on synthetic points only. No measured cross-section has been read, so no dataset is committed and no agreement is claimed: a source with stated depth/width/dose values for a stated beam must first be read from its paper and entered in `docs/data-provenance.md` (measured values only; a plotted curve is read as an intermediate and not stored). Tracked in the PR for #561.
+
+### Position-dependent PSF over a buried edge (#572)
+
+`tally::scan_landing_points` runs one `Transport::run_beam` per landing point on a voxel target and reports the energy per electron deposited in a depth slab, with its standard error (JSON via serde, CSV via `to_csv`). Tests: `lindhard/tests/electron_psf_scan.rs` (uniform target: slab energy independent of position within 4.5 sigma; buried-edge scan: heavy side above light side, monotone step, edge point between the plateaus; report bit-identical at 1 and 2 threads, and a point's result independent of the other points; CSV/JSON shape).
+
+**Comparison with a published measurement or independent code: not performed.** No admissible source was read in this session, so no dataset is stored and no agreement is claimed. The check is a physical-consistency one: a 20 nm film on a substrate whose backscatter is stronger returns more energy to the film, so the slab energy must be larger over the strongly scattering substrate. The tables are synthetic (constant mean free paths, isotropic angles; heavy substrate elastic 2 nm, light 40 nm, inelastic 15 nm for both), so the size of the step is not a physical prediction and uses no backscatter-coefficient values.
+
+Measured (500 eV primaries, 8000 histories per point, seed 20261110; Linux x86-64): heavy side 89.12 +- 0.82 eV per electron, light side 57.45 +- 0.64 eV, ratio 1.55.
 
 ## Reporting
 

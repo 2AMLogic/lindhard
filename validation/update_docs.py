@@ -1303,8 +1303,17 @@ def _cuni_diagnostics(r: dict) -> list[str]:
     band2, band25 = sd["cu_band_normal_incidence"]["within_2_percent"], sd["cu_band_normal_incidence"]["within_25_percent"]
     pure = d["pure_elements"]
     po = d["pure_cu_over_stored"]
+    pn = d["pure_ni_over_stored"]
+    nband = sd["ni_band_normal_incidence"]["within_60_percent"]
     dc = d["data_consistency"]
     pm = lambda x, nd=3: f"{x['value']:.{nd}f} ± {x['se']:.{nd}f}"  # noqa: E731
+    if pn is None:
+        ni_row = f"| Ni, 0° | {pm(pure['Ni_0deg']['y_total'])} | no stored points within 60 % of the energy | not available |"
+    else:
+        ni_row = (f"| Ni, 0° | {pm(pure['Ni_0deg']['y_total'])} | {nband['min']:.2f}-{nband['max']:.2f} (median "
+                  f"{nband['median']:.2f}), {nband['points']} points of {len(nband['sets'])} sets within 60 % of the "
+                  f"energy | {pn['ratio_to_median']:.2f} of the median ({pn['ratio_to_max']:.2f}-"
+                  f"{pn['ratio_to_min']:.2f} of the band's max and min) |")
     lines = [
         "",
         f"**Diagnosis (#465): static runs, same matched settings, no dynamic profile.** "
@@ -1312,9 +1321,9 @@ def _cuni_diagnostics(r: dict) -> list[str]:
         "mean ± standard error over the seeds.",
         "",
         "*1. Single elements.* Stored measured Ar → Cu sets: "
-        f"{sd['ar_cu_sets']}; stored Ar → Ni sets: **{sd['ar_ni_sets']}**"
-        + (" (the Ni sets were added after the #465 diagnosis; the Ni comparison is in the attribution below)."
-           if sd["ar_ni_sets"] else " (the Ni half of the comparison has no stored data and none is digitized here)."),
+        f"{sd['ar_cu_sets']}; stored Ar → Ni sets: **{sd['ar_ni_sets']}**. No stored Ni point lies within "
+        "25 % of the energy, so the Ni band uses the 60 % window; the yield rises steeply across it, so that ratio "
+        "is indicative only. Comparison only: nothing is tuned to these points.",
         "",
         "| Target, incidence | Engine yield (atoms/ion) | Stored measured, normal incidence | Engine / measured |",
         "|---|---|---|---|",
@@ -1325,22 +1334,7 @@ def _cuni_diagnostics(r: dict) -> list[str]:
         f"| Cu, 0° | same | {band25['min']:.2f}-{band25['max']:.2f} (median {band25['median']:.2f}), "
         f"{band25['points']} points of {len(band25['sets'])} sets within 25 % of the energy | "
         f"{po['engine_0deg'] / band25['median']:.2f} of the median |",
-    ]
-    att = d.get("attribution")
-    if att:
-        nip = att["points"]["Ni"]
-        near = [p for p in nip if abs(p["energy_ev"] / d["energy_ev"] - 1) <= 0.25]
-        lo = max((p for p in nip if p["energy_ev"] < d["energy_ev"]), key=lambda p: p["energy_ev"])
-        hi = min((p for p in nip if p["energy_ev"] > d["energy_ev"]), key=lambda p: p["energy_ev"])
-        lines.append(
-            f"| Ni, 0° | {pm(pure['Ni_0deg']['y_total'])} | {len(near)} stored points within 25 % of the energy; "
-            f"nearest below {lo['yield']:.2f} at {lo['energy_ev']:g} eV ({lo['set'].split('_')[-1]}), above "
-            f"{hi['yield']:.2f} at {hi['energy_ev']:g} eV ({hi['set'].split('_')[-1]}) | "
-            f"{lo['engine_over_measured']:.2f} at {lo['energy_ev']:g} eV, {hi['engine_over_measured']:.2f} at "
-            f"{hi['energy_ev']:g} eV (engine run at each energy; table below) |")
-    else:
-        lines.append(f"| Ni, 0° | {pm(pure['Ni_0deg']['y_total'])} | no stored data | not available |")
-    lines += [
+        ni_row,
         f"| Cu, 20° | {pm(pure['Cu_20deg']['y_total'])} | no stored data at 20° | not available |",
         f"| Ni, 20° | {pm(pure['Ni_20deg']['y_total'])} | no stored data at 20° | not available |",
         "",
@@ -1382,6 +1376,7 @@ def _cuni_diagnostics(r: dict) -> list[str]:
         f"20° / 0° yield ratio for pure Cu is {dc['engine_tilt_20_over_0_pure_cu']:.2f}. Both experiments "
         "are digitized or converted with the unresolved conventions of the notes above.",
     ]
+    att = d.get("attribution")
     if att:
         lines += _cuni_attribution(d, att)
     return lines

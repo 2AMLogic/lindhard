@@ -620,3 +620,73 @@ fn bad_beam_divergence_is_diagnosed_with_the_field() {
     );
     assert_eq!(field(&err(&dynamic)), "beam.divergence");
 }
+
+fn with_spectrum(lines: &str) -> String {
+    B_SI.replace("energy_ev = 5000.0\n", &format!("{lines}\n"))
+}
+
+const TWO_LINES: &str = "spectrum = [{ energy_ev = 1000.0, weight = 3.0 }, \
+                         { energy_ev = 2000.0, weight = 1.0 }]";
+
+#[test]
+fn beam_spectrum_resolves_normalises_and_echoes() {
+    assert!(Input::from_toml_str(B_SI)
+        .unwrap()
+        .resolve()
+        .unwrap()
+        .spectrum
+        .is_none());
+    let i = Input::from_toml_str(&with_spectrum(TWO_LINES)).unwrap();
+    let r = i.resolve().unwrap();
+    let sp = r.spectrum.as_ref().expect("spectrum");
+    assert_eq!(sp.lines(), &[(1000.0, 0.75), (2000.0, 0.25)]);
+    // The engine beam carries the largest line.
+    assert_eq!(r.beam.energy_ev, 2000.0);
+    // The echo keeps the input spelling (raw weights) and round-trips.
+    assert_eq!(r.input.beam.spectrum, i.beam.spectrum);
+    assert_eq!(r.input.beam.energy_ev, None);
+    assert_eq!(
+        Input::from_toml_str(&i.to_toml_string().unwrap()).unwrap(),
+        i
+    );
+}
+
+#[test]
+fn beam_spectrum_input_errors_name_the_field() {
+    // Both, or neither, of energy_ev and spectrum.
+    let both = B_SI.replace("tilt_deg", &format!("{TWO_LINES}\ntilt_deg"));
+    assert_eq!(field(&err(&both)), "beam");
+    let neither = B_SI.replace("energy_ev = 5000.0\n", "");
+    assert_eq!(field(&err(&neither)), "beam");
+    // Empty list, bad weight, bad energy.
+    assert_eq!(
+        field(&err(&with_spectrum("spectrum = []"))),
+        "beam.spectrum"
+    );
+    for (lines, f) in [
+        (
+            "spectrum = [{ energy_ev = 1000.0, weight = 0.0 }]",
+            "beam.spectrum[0].weight",
+        ),
+        (
+            "spectrum = [{ energy_ev = 1000.0, weight = -1.0 }]",
+            "beam.spectrum[0].weight",
+        ),
+        (
+            "spectrum = [{ energy_ev = 1000.0, weight = 1.0 }, { energy_ev = -5.0, weight = 1.0 }]",
+            "beam.spectrum[1].energy_ev",
+        ),
+    ] {
+        assert_eq!(field(&err(&with_spectrum(lines))), f, "{lines}");
+    }
+    // The primary cutoff is checked against the smallest line.
+    let low = with_spectrum(
+        "spectrum = [{ energy_ev = 4.0, weight = 1.0 }, { energy_ev = 9000.0, weight = 1.0 }]",
+    );
+    assert_eq!(field(&err(&low)), "physics.primary_cutoff_ev");
+    // Unknown keys in a line are refused.
+    assert!(Input::from_toml_str(&with_spectrum(
+        "spectrum = [{ energy_ev = 1000.0, weight = 1.0, tilt = 1.0 }]"
+    ))
+    .is_err());
+}

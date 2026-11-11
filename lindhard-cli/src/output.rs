@@ -34,6 +34,7 @@ pub const DEPTH_FILE: &str = "depth_profile.csv";
 pub const IONS_FILE: &str = "ions.csv";
 pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
+pub const NRT_FILE: &str = "nrt_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
 pub const VOXEL_CSV_FILE: &str = "voxel_tally.csv";
 pub const VOXEL_VTK_FILE: &str = "voxel_tally.vtk";
@@ -137,6 +138,12 @@ struct Physics {
     /// (docs/cli.md, "Compatibility and extension").
     #[serde(skip_serializing_if = "Option::is_none")]
     beam_divergence: Option<lindhard::ion::bca::DivergenceMetadata>,
+    /// Present only for a run with a `[beam]` `spectrum`: the lines with
+    /// normalised weights and the random-stream segment of the energy draw.
+    /// Added without a `format.version` bump (docs/cli.md, "Compatibility
+    /// and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    beam_spectrum: Option<lindhard::ion::bca::EnergySpectrumMetadata>,
 }
 
 #[derive(Serialize)]
@@ -487,6 +494,7 @@ struct Files {
     ions: Option<&'static str>,
     lateral_profile: &'static str,
     damage_profile: &'static str,
+    nrt_profile: &'static str,
     escape_spectra: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     voxel_tally_csv: Option<&'static str>,
@@ -635,6 +643,10 @@ pub fn summary_json(
             tuning: r.tuning.clone(),
             crystal: crystals.to_vec(),
             beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
+            beam_spectrum: r
+                .spectrum
+                .as_ref()
+                .map(lindhard::ion::bca::EnergySpectrumMetadata::new),
         },
         results: Results {
             histories: s.histories,
@@ -666,6 +678,7 @@ pub fn summary_json(
             ions: t.per_ion.then_some(IONS_FILE),
             lateral_profile: LATERAL_FILE,
             damage_profile: DAMAGE_FILE,
+            nrt_profile: NRT_FILE,
             escape_spectra: ESCAPES_FILE,
             voxel_tally_csv: t.voxel.is_some().then_some(VOXEL_CSV_FILE),
             voxel_tally_vtk: t.voxel.is_some().then_some(VOXEL_VTK_FILE),
@@ -683,15 +696,27 @@ pub fn summary_json(
 /// `lindhard` version, the seed and the SHA-256 of the resolved-input echo
 /// (the `input` block of `summary.json`'s source, serialized compactly).
 pub fn damage_export_csv(r: &Resolved, t: &CliTally) -> Option<String> {
-    use sha2::{Digest, Sha256};
     let report = t.voxel.as_ref()?.report();
-    let echo = serde_json::to_vec(&r.input).expect("the input serializes");
+    Some(export_csv(&report, "ion", r.config.seed, &r.input))
+}
+
+/// The versioned damage-export text of `report` for either engine: the
+/// header carries `engine`, the `lindhard` version, the `seed` and the
+/// SHA-256 of `input` (the resolved-input echo, serialized compactly).
+pub fn export_csv<T: serde::Serialize>(
+    report: &lindhard::tally::VoxelReport,
+    engine: &str,
+    seed: u64,
+    input: &T,
+) -> String {
+    use sha2::{Digest, Sha256};
+    let echo = serde_json::to_vec(input).expect("the input serializes");
     let hash: String = Sha256::digest(&echo)
         .iter()
         .map(|b| format!("{b:02x}"))
         .collect();
-    let p = lindhard::tally::ExportProvenance::new("ion", r.config.seed, &hash);
-    Some(report.to_export_csv(&p))
+    let p = lindhard::tally::ExportProvenance::new(engine, seed, &hash);
+    report.to_export_csv(&p)
 }
 
 /// `depth_profile.csv`: stopped primaries per depth bin. The last bin also
@@ -820,6 +845,54 @@ pub fn damage_csv(r: &IonReport) -> String {
         d.vacancy_histogram.overflow,
         d.interstitial_histogram.overflow,
         d.replacement_histogram.overflow
+    )
+    .unwrap();
+    out
+}
+
+/// `nrt_profile.csv`: NRT and Kinchin-Pease displacement estimates by depth of
+/// the primary knock-on atom. These are model estimates (damage-energy based,
+/// no cascade spread), not the event counts of `damage_profile.csv`.
+/// Densities are per incident ion per nm. The last row is everything deeper
+/// than the grid, the first row everything shallower; the column sums over
+/// all rows equal
+/// `results.damage.nrt`.
+pub fn nrt_csv(r: &IonReport) -> String {
+    let d = &r.damage;
+    let n = r.histories.max(1) as f64;
+    let (h, k) = (&d.nrt_histogram, &d.kinchin_pease_histogram);
+    let b = &h.binning;
+    let w = b.width() / NM;
+    let mut out = String::from(
+        "depth_lo_nm,depth_hi_nm,nrt_displacements,kinchin_pease_displacements,\
+         nrt_per_ion_per_nm,kinchin_pease_per_ion_per_nm\n",
+    );
+    writeln!(
+        out,
+        "-inf,{:?},{:?},{:?},,",
+        b.lo / NM,
+        h.underflow,
+        k.underflow
+    )
+    .unwrap();
+    for i in 0..b.bins {
+        let (a, c) = (h.sums[i], k.sums[i]);
+        writeln!(
+            out,
+            "{:?},{:?},{a:?},{c:?},{:?},{:?}",
+            b.edge(i) / NM,
+            b.edge(i + 1) / NM,
+            a / (n * w),
+            c / (n * w)
+        )
+        .unwrap();
+    }
+    writeln!(
+        out,
+        "{:?},inf,{:?},{:?},,",
+        b.hi / NM,
+        h.overflow,
+        k.overflow
     )
     .unwrap();
     out

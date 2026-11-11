@@ -103,30 +103,11 @@ use std::collections::BTreeMap;
 use super::bvh::{Bvh, Ray, V3};
 use super::{Exit, ExitOutcome, Face, Flight, Geometry, GeometryError};
 use crate::material::Material;
+use crate::vec3::{cross, dot, norm, sub};
 
 /// Relative size of the geometric tolerance: `tol = TOL_REL x` the scene
 /// diagonal.
 pub(super) const TOL_REL: f64 = 1e-10;
-
-fn sub(a: V3, b: V3) -> V3 {
-    [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
-}
-
-fn cross(a: V3, b: V3) -> V3 {
-    [
-        a[1] * b[2] - a[2] * b[1],
-        a[2] * b[0] - a[0] * b[2],
-        a[0] * b[1] - a[1] * b[0],
-    ]
-}
-
-fn dot(a: V3, b: V3) -> f64 {
-    a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-}
-
-fn norm(a: V3) -> f64 {
-    dot(a, a).sqrt()
-}
 
 /// A closed, watertight, outward-oriented triangle mesh with welded vertices.
 #[derive(Debug, Clone, PartialEq)]

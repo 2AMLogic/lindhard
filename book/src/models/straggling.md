@@ -27,7 +27,11 @@ For a compound the variances add by atom fraction,
 
 Library only (`variance_per_atom`, `variance_per_atom_material`). The BCA
 engine does not use it at present and there is no TOML key: the electronic
-loss along each free flight is deterministic.
+loss along each free flight is deterministic. Checked 2026-11-10:
+`grep -rnE 'variance_per_atom|StragglingModel|straggling::' --include=*.rs .`
+finds no hit outside `straggling.rs` itself. The module is only declared by
+`pub mod straggling;` in `stopping/mod.rs`, which that pattern does not match
+and a plain `grep -rn straggling` finds.
 
 ## Assumptions
 

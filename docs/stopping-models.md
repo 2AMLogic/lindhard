@@ -17,6 +17,7 @@ advisory; the models do not refuse energies outside them (Bethe-Bloch returns
 | Equipartition LS/OR | `mix` | same as LS | as above |
 | Bethe-Bloch | `bethe` | `v >= 3 v0 Z1^(2/3)` up to 1 GeV/u (no density effect) | Bethe 1930/32; Bloch 1933; Fano 1963 |
 | None (zero) | `none` | unbounded: no electronic loss at any energy; for comparisons and nuclear-only studies, not a physical model | the `k = 0` limit of Lindhard, Scharff & Schiott, Mat. Fys. Medd. 33 (14) (1963) |
+| SRIM-data-sourced | `srim` | exactly each coefficient row's `e_min_kev_per_u..e_max_kev_per_u` (out of range or no row for the pair is an error); form `A1 E^0.45` below 10 keV/u, `S_low S_high/(S_low+S_high)` above, `S_high = (A3/E) ln(1 + A4/E + A5 E)`. Coefficients are data from a file; output is SRIM-data-sourced, so agreement with SRIM is consistency, not independent validation. The form is to be checked against the book page when the full tables are entered (#633) | Andersen & Ziegler (1977); Ziegler, Biersack & Littmark (1985), ch. 3; coefficient file citations |
 | User table | `table` | exactly the table's energy range | the table's own `provenance` |
 | Bragg additivity | `bragg` | where the element models apply; ignores chemical state unless a correction is supplied | Bragg & Kleeman 1905 |
 | Single-oscillator density effect (opt-in) | `bethe::density_effect_single_oscillator` | `βγ > I/ħω_p` (about 5.6 for Si, beyond the Bethe-Bloch 1 GeV/u range); zero below, so no effect in range; underestimates `δ` through the transition | Fermi 1940; Sternheimer 1952; Fano 1963 (specialisation ours) |
@@ -198,6 +199,10 @@ the declines are on that basis. Nothing was taken from ICRU/SRIM/NIST tables.
   densities and is published as tables; Yang, O'Connor & Wang (NIM B 61, 149
   (1991)) is a fit whose coefficients are fitted to data tables. Neither has
   a closed form with paper-sourced coefficients that we could verify.
+  Re-checked for #638 on 2026-11-10: neither paper (the APS page for Chu
+  returned 403) nor the SRIM book's straggling text could be opened in that
+  session, so no formula or coefficient was read or verified and the entry
+  stands unchanged. Nothing is to be entered from memory.
 
 ## Deviations from the issue text
 

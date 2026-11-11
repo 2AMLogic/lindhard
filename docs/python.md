@@ -18,7 +18,7 @@ are in `lindhard-py/python/lindhard/`.
 | `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`, `run_dynamic()` |
 | `RunResult` | `depth`, `lateral_y`, `lateral_z`, `radial`, `vacancies`, `interstitials`, `replacements` (each a `Histogram` with `edges`, `counts`, `density`, `underflow`, `overflow`), `escapes`, `ions` (final state of each primary), `summary()` (dict), `write(dir)` |
 | `ElectronRun` | An electron input (an `[electron]` table): `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`; settable `histories`, `seed`, `threads`, `base_dir` |
-| `ElectronRunResult` | Result of `ElectronRun.run()`: `escape_spectra`, `cartesian`, `cylindrical`, `summary()` (dict), `summary_json()` |
+| `ElectronRunResult` | Result of `ElectronRun.run()`: `escape_spectra`, `cartesian`, `cylindrical`, `damage_export()`, `summary()` (dict), `summary_json()` |
 | `DynamicRunResult` | Result of `Run.run_dynamic()`: `species`, `steps` (per-step arrays), `composition` (per-step slab profiles), `summary()` (dict), `write(dir)` |
 
 ## One schema, one engine
@@ -115,13 +115,52 @@ seed at any thread count (`tests/test_electron.py` compares against the
 built binary). A walk-through is in
 [`../examples/python/electron_run.py`](../examples/python/electron_run.py).
 
+## Exposure dose and contours
+
+The dose of a shot list from a fitted Gaussian-sum point-spread function is
+available without a run; the functions are the ones behind `lindhard
+exposure` (`cli.md`, "Exposure"), so the arrays equal its CSV values bit for
+bit at any thread count (`tests/test_exposure.py`).
+
+- `exposure_dose(shots, x_m, y_m, *, total_ev, alpha_m, beta_m, eta,
+  gamma_m=None, nu=None, blur_m=0.0, subsamples=16, threads=None)`: dose in
+  eV/m^2 at the points. `shots` is the CSV text of `cli.md` or an `(n, 3)`
+  array of `x_m, y_m, weight`.
+- `exposure_dose_grid(shots, x0_m, y0_m, dx_m, dy_m, nx, ny, *, ...)`: the
+  dose on a grid, shape `(ny, nx)`, element `[j, i]` at `(x0_m + i dx_m,
+  y0_m + j dy_m)`.
+- `area_dose(*, total_ev, alpha_m, beta_m, eta, gamma_m=None, nu=None,
+  weight_per_m2=1.0)`: the large-area dose with its forward-only and
+  long-range parts.
+- `exposure_direct(shots, run, x0_m, y0_m, dx_m, dy_m, nx, ny, *, total_ev,
+  alpha_m, beta_m, eta, slab_hi_m, histories_per_shot, gamma_m=None, nu=None,
+  blur_m=0.0, subsamples=16, replicas=8, seed=1, slab_lo_m=0.0,
+  tolerance_sigmas=5.0, conv_rel_err=0.0, floor_fraction=0.01, threads=None)`:
+  the same shot list by electron transport (direct Monte Carlo) on the layered
+  target of an `ElectronRun` (its layers, tables and beam energy; the shots
+  set where the primaries land), compared with the superposition. Returns a
+  dict of `(ny, nx)` arrays: `dose_ev_per_m2` and `std_err_ev_per_m2`
+  (transport, mean and standard error over `replicas`), `convolution_ev_per_m2`
+  (averaged over each grid cell), `deviation_sigmas` and the boolean `flagged`
+  (points where the two differ by more than `tolerance_sigmas` combined
+  standard errors). Details and the meaning of the options are in `cli.md`,
+  "Exposure", section "Direct mode"; it runs the same code as
+  `lindhard exposure --direct`, and `threads` never changes the results.
+- `iso_contours(dose, x0_m, y0_m, dx_m, dy_m, threshold)`: a list of dicts
+  with `points` (`(n, 2)`, m), `closed`, signed `area_m2` and `centroid_m`
+  (`None` for a contour that leaves the grid).
+
+Invalid values raise `InputError`.
+
 ## Damage export
 
 An input with a `[tally.voxel]` table gives `res.damage_export()`: a dict of
 NumPy arrays in the [damage export format](damage-export-format.md), also
 written by `res.write(dir)` as `damage_export.csv`. `lindhard.read_damage_export(path)`
 reads such a file back into the same dict; the arrays are equal to the run's
-bit for bit. `res.damage_export()` is `None` without the table.
+bit for bit. `res.damage_export()` is `None` without the table. An electron
+run (`ElectronRun`) gives the same from an `[electron.tally.voxel]` table
+(`engine` `"electron"` in `provenance`).
 
 Keys: `origin_m`, `spacing_m` (3-vectors, m), `dims`, `histories`,
 `species_z` (list), the `(nx, ny, nz)` arrays `implanted`, `displacements`
