@@ -140,6 +140,28 @@ test("bounds: depth starts at the surface and lateral is symmetric", () => {
   assert.ok(empty.u1 > empty.u0 && empty.v1 > empty.v0);
 });
 
+test("bounds with a plot aspect are 1:1, or report the lateral scale", () => {
+  const aspect = 3.6;
+  const e = segmentBounds(trajectorySegments([hist()], { view: "end" }), "end", aspect);
+  assert.ok(Math.abs((e.u1 - e.u0) / (e.v1 - e.v0) - aspect) < 1e-9);
+  assert.equal(e.lateralScale, 1);
+  // A narrow cascade fits: equal metres per pixel on both axes.
+  const narrow = [{ a: [0, 0], b: [1e-7, 1e-9], species: 0, generation: 0 }];
+  const s = segmentBounds(narrow, "side", aspect);
+  assert.ok(Math.abs((s.u1 - s.u0) / (s.v1 - s.v0) - aspect) < 1e-9);
+  assert.equal(s.lateralScale, 1);
+  // A wide one does not: the lateral range holds it and the factor is reported.
+  const wide = [{ a: [0, 0], b: [1e-8, 4e-8], species: 0, generation: 0 }];
+  const w = segmentBounds(wide, "side", aspect);
+  assert.ok(w.v1 >= 4e-8 && w.lateralScale < 1);
+  assert.ok(Math.abs(w.lateralScale - ((w.u1 - w.u0) / aspect / 2) / w.v1) < 1e-12);
+});
+
+test("hidden species leave no segments", () => {
+  assert.equal(trajectorySegments([hist()], { hidden: new Set([0]) }).filter((s) => s.species === 0).length, 0);
+  assert.equal(trajectorySegments([hist()], { hidden: new Set() }).length, 3);
+});
+
 test("generations get different dash patterns (a non-colour cue)", () => {
   assert.notDeepEqual(dashFor(0), dashFor(1));
   assert.notDeepEqual(dashFor(1), dashFor(2));
