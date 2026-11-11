@@ -371,3 +371,26 @@ test("a second run works after the network is gone", async ({ page, context }) =
   await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
   await expectResults(page, 300);
 });
+
+// Issue #691: "Add element" called an `el` that simulator.js never imported.
+test("Add element appends a row without a page error", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await open(page);
+  const rows = page.locator("#layers .layer").first().locator(".el-row");
+  const before = await rows.count();
+  await page.locator("#layers .layer").first().getByRole("button", { name: "Add element" }).click();
+  await expect(rows).toHaveCount(before + 1);
+  expect(errors).toEqual([]);
+});
+
+// Issue #668's criterion, as defined in #691: at 1440x900 with a one-layer
+// target, the Setup controls (not the footer) end inside the viewport.
+test("the Setup controls of a one-layer target fit a 1440x900 viewport", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page);
+  const bottom = await page.evaluate(() => Math.max(...[...document.querySelectorAll("#setup input, #setup select, #setup button, #setup textarea")]
+    .filter((e) => e.offsetParent !== null)
+    .map((e) => e.getBoundingClientRect().bottom + window.scrollY)));
+  expect(bottom).toBeLessThanOrEqual(900);
+});
