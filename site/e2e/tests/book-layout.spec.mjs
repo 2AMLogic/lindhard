@@ -6,8 +6,8 @@
 import { test, expect } from "./fixtures.mjs";
 
 // Tables that are wider than their wrapper at 1440 px because of their
-// content, not their styling: "page|first header cell". Removed by #663.
-const KNOWN_WIDE = new Set(["guide/output.html|File"]);
+// content, not their styling: "page|first header cell". None remain (#663).
+const KNOWN_WIDE = new Set();
 
 // Every chapter, read from the book's own table of contents.
 let pages;
@@ -59,4 +59,15 @@ test("no book page scrolls sideways at 390 px", async ({ page }) => {
     if (px > 0) over.push(`${path} (+${px}px)`);
   }
   expect(over, "pages whose content pane scrolls sideways").toEqual([]);
+});
+
+test("the stopping-residuals tables do not scroll sideways at 768 px", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto("models/stopping-residuals.html");
+  await settle(page);
+  const tables = await page.locator(".content .table-wrapper").evaluateAll((ws) =>
+    ws.map((w) => ({ head: w.querySelector("th")?.textContent.trim() ?? "", over: w.scrollWidth - w.clientWidth })),
+  );
+  expect(tables.length, "tables on the page").toBeGreaterThan(0);
+  expect(tables.filter((t) => t.over > 1).map((t) => `${t.head} (+${t.over}px)`), "tables that scroll sideways at 768 px").toEqual([]);
 });

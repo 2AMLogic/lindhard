@@ -338,13 +338,22 @@ for (const scheme of ["light", "dark"]) {
   });
 }
 
-test("species are told apart without colour: markers and dash patterns are named", async ({ page }) => {
+test("species are told apart without colour: toggles and dash patterns are named", async ({ page }) => {
   await open(page);
   await configure(page, { ion: "As", energyKeV: 50, mode: "full" });
   await addPreset(page, "SiO2");
   await run(page);
   const legend = await page.locator("#traj-legend").innerText();
-  for (const word of ["circle", "square", "solid", "dashed", "dotted"]) expect(legend).toContain(word);
+  for (const word of ["solid", "dashed", "dotted"]) expect(legend).toContain(word);
+  expect(legend).not.toContain("circle");
+  const boxes = page.locator("#traj-legend input[type=checkbox]");
+  expect(await boxes.count()).toBeGreaterThanOrEqual(2);
+  const segments = async () => Number((await page.locator("#traj-note").innerText()).match(/(\d+) segments/)[1]);
+  const all = await segments();
+  await boxes.nth(0).uncheck();
+  expect(await segments()).toBeLessThan(all);
+  await boxes.nth(0).check();
+  expect(await segments()).toBe(all);
 });
 
 test("the page is usable at 1280 px", async ({ page }) => {
@@ -354,6 +363,22 @@ test("the page is usable at 1280 px", async ({ page }) => {
   await run(page);
   await expectResults(page, 300);
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+// Issue #668: Setup fits one 1440x900 screen for a one-layer target. The
+// controls of the closed Physics and Input file sections are in the DOM and
+// have a layout box, so `offsetParent` counts them (it measured 1333 px,
+// the #toml textarea); `checkVisibility()` skips the closed sections. Measured
+// with it on chromium: the last visible control ends at about 676 px.
+test("Setup's controls fit a 1440x900 screen for a one-layer target", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page);
+  await expect(page.locator("#layers .layer")).toHaveCount(1);
+  const bottom = await page.evaluate(() =>
+    Math.max(...[...document.querySelectorAll("#setup input, #setup select, #setup button, #setup textarea")]
+      .filter((e) => e.checkVisibility())
+      .map((e) => e.getBoundingClientRect().bottom + window.scrollY)));
+  expect(bottom).toBeLessThanOrEqual(900);
 });
 
 test("Setup and Run fit a phone screen", async ({ page }) => {
@@ -380,6 +405,18 @@ test("a second run works after the network is gone", async ({ page, context }) =
   await page.locator("#btn-run").click();
   await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
   await expectResults(page, 300);
+});
+
+// Issue #691: "Add element" called an `el` that simulator.js never imported.
+test("Add element appends a row without a page error", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await open(page);
+  const rows = page.locator("#layers .layer").first().locator(".el-row");
+  const before = await rows.count();
+  await page.locator("#layers .layer").first().getByRole("button", { name: "Add element" }).click();
+  await expect(rows).toHaveCount(before + 1);
+  expect(errors).toEqual([]);
 });
 
 // Issue #674: canvases are sized from their CSS box and the pixel ratio, and
