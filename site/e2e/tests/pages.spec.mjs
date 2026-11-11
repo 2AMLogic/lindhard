@@ -65,3 +65,77 @@ test("the WebAssembly module is served with its media type", async ({ request })
   expect(r.status()).toBe(200);
   expect(r.headers()["content-type"]).toContain("application/wasm");
 });
+
+// ---- the shared site bar and footer ----------------------------------------
+
+// One page per surface.
+const SURFACES = [
+  ["landing page", "index.html"],
+  ["book", "guide/install.html"],
+  ["range calculator", "calculator/index.html"],
+  ["simulator", "calculator/simulator.html"],
+];
+const BAR_LINKS = ["Manual", "Simulator", "Range calculator", "Validation", "Status", "GitHub"];
+
+for (const [name, path] of SURFACES) {
+  test(`the ${name} has the site bar and footer`, async ({ page }) => {
+    await page.goto(path);
+    const bar = page.locator("header.lh-bar");
+    await expect(bar).toBeVisible();
+    await expect(bar.getByRole("navigation", { name: "Site" })).toBeVisible();
+    await expect(bar.locator("a")).toHaveText(["lindhard", ...BAR_LINKS]);
+    await expect(page.locator("footer.lh-footer")).toHaveCount(1);
+    await expect(page.locator("footer.lh-footer a").first()).toBeVisible();
+  });
+
+  test(`the wordmark leads home from the ${name}`, async ({ page }) => {
+    await page.goto(path);
+    await page.locator("header.lh-bar .lh-wordmark").click();
+    await expect(page).toHaveURL(/\/index\.html$|\/$/);
+    await expect(page.locator("h1")).toHaveText("lindhard");
+  });
+
+  test(`the site bar of the ${name} fits a phone screen`, async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(path);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+  });
+}
+
+test("the site bar marks the current section", async ({ page }) => {
+  const current = async () => page.locator('header.lh-bar a[aria-current="page"]').allInnerTexts();
+  for (const [path, label] of [
+    ["guide/install.html", "Manual"],
+    ["validation.html", "Validation"],
+    ["status.html", "Status"],
+    ["calculator/index.html", "Range calculator"],
+    ["calculator/simulator.html", "Simulator"],
+    ["index.html", "lindhard"],
+  ]) {
+    await page.goto(path);
+    expect(await current(), path).toEqual([label]);
+  }
+});
+
+test("with a dark system setting every surface is dark on first load, with the same background", async ({ browser }) => {
+  const backgrounds = [];
+  for (const [, path] of SURFACES) {
+    const context = await browser.newContext({ colorScheme: "dark", baseURL: test.info().project.use.baseURL });
+    const page = await context.newPage();
+    await page.goto(path);
+    backgrounds.push(
+      await page.evaluate(() => {
+        for (const el of [document.body, document.documentElement]) {
+          const c = getComputedStyle(el).backgroundColor;
+          if (c !== "rgba(0, 0, 0, 0)" && c !== "transparent") return c;
+        }
+        return "none";
+      }),
+    );
+    await context.close();
+  }
+  expect(new Set(backgrounds).size, backgrounds.join(" | ")).toBe(1);
+  const [r, g, b] = backgrounds[0].match(/\d+/g).map(Number);
+  expect((r + g + b) / 3, backgrounds[0]).toBeLessThan(80);
+});

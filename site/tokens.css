@@ -1,0 +1,58 @@
+/* Shared design tokens for every page of the site: landing page, book,
+   range calculator and simulator. One source; scripts/deploy-site.sh (via
+   validation/assemble_site.py) copies it next to each surface.
+
+   Light by default, dark when the reader's system asks for it. mdBook picks
+   its own theme class on <html>; the book's theme choice wins over the system
+   setting, so the explicit classes are listed too. */
+:root {
+  color-scheme: light dark;
+  --lh-bg: #ffffff;
+  --lh-surface: #f3f5f7;
+  --lh-fg: #1b1f24;
+  --lh-muted: #4b5563;
+  --lh-rule: #d0d7de;
+  --lh-link: #0b5cad;
+  --lh-caution: #b00020;
+
+  /* Plot colours (Okabe-Ito: distinguishable under the common colour-vision
+     deficiencies; plots add a second cue such as dashes or markers). */
+  --lh-plot-1: #0072b2;
+  --lh-plot-2: #d55e00;
+  --lh-plot-3: #009e73;
+  --lh-plot-4: #cc79a7;
+  --lh-plot-5: #e69f00;
+  --lh-plot-6: #56b4e9;
+  --lh-plot-bar: #1f5fbf;
+  --lh-plot-mark: #d9534f;
+
+  --lh-font: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --lh-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --lh-radius: 6px;
+  --lh-bar-h: 2.75rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not(.light):not(.rust) {
+    color-scheme: dark;
+    --lh-bg: #12161b;
+    --lh-surface: #1c232b;
+    --lh-fg: #e6e9ed;
+    --lh-muted: #a3acb8;
+    --lh-rule: #2f3740;
+    --lh-link: #7ab7ff;
+    --lh-caution: #ff8a80;
+    --lh-plot-bar: #6fa8ff;
+  }
+}
+:root.coal, :root.navy, :root.ayu {
+  color-scheme: dark;
+  --lh-bg: #12161b;
+  --lh-surface: #1c232b;
+  --lh-fg: #e6e9ed;
+  --lh-muted: #a3acb8;
+  --lh-rule: #2f3740;
+  --lh-link: #7ab7ff;
+  --lh-caution: #ff8a80;
+  --lh-plot-bar: #6fa8ff;
+}
+:root.light, :root.rust { color-scheme: light; }

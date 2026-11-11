@@ -15,3 +15,9 @@ mathjax-support = true
 git-repository-url = "https://github.com/2AMLogic/lindhard"
 edit-url-template = "https://github.com/2AMLogic/lindhard/edit/main/book/{path}"
 site-url = "/lindhard/"
+# The same light and dark values as the other pages (book/theme/lindhard.css
+# maps site/tokens.css onto mdBook's variables). On first load the book follows
+# the system setting.
+additional-css = ["theme/lindhard.css"]
+default-theme = "light"
+preferred-dark-theme = "coal"

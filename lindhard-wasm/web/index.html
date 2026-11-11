@@ -4,21 +4,24 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lindhard range calculator</title>
+<!--SITE_HEAD-->
 <style>
-  body { font: 16px/1.4 system-ui, sans-serif; max-width: 46rem; margin: 1.5rem auto; padding: 0 1rem; }
+  body { margin: 0; color: var(--lh-fg); background: var(--lh-bg); font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); }
+  main { max-width: 46rem; margin: 1.5rem auto 0; padding: 0 1rem; }
   form { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; align-items: end; }
   label { display: flex; flex-direction: column; font-size: .85rem; gap: .2rem; }
   input, button { font: inherit; padding: .3rem .4rem; }
   table { border-collapse: collapse; margin: 1rem 0; }
   th, td { text-align: left; padding: .2rem 1rem .2rem 0; }
   #status { min-height: 1.4rem; }
-  #status.error { color: #b00020; }
-  canvas { width: 100%; height: auto; border: 1px solid #8884; }
-  small { color: #666; }
-  @media (prefers-color-scheme: dark) { small { color: #aaa; } #status.error { color: #ff8a80; } }
+  #status.error { color: var(--lh-caution); }
+  canvas { width: 100%; height: auto; border: 1px solid var(--lh-rule); }
+  small { color: var(--lh-muted); }
 </style>
 </head>
 <body>
+<!--SITE_HEADER-->
+<main>
 <h1>Ion range calculator</h1>
 <p><a href="simulator.html">Open the simulator</a> for layered targets, full cascades and a downloadable input file.</p>
 <p>Projected range <i>R</i><sub>p</sub>, straggle Δ<i>R</i><sub>p</sub> and depth
@@ -52,6 +55,9 @@ on every machine to within the statistical error. Model validity and its
 limits are in the <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/stopping-models.md">stopping-model
 notes</a>; warnings from the engine are shown above the result.</small></p>
 
+</main>
+<!--SITE_FOOTER-->
+
 <script type="module">
 if ("serviceWorker" in navigator) {
   // Offline support: see sw.js. Relative URL so the scope is this directory on
@@ -71,9 +77,12 @@ const fmt = (x) => (x >= 100 ? x.toFixed(1) : x >= 10 ? x.toFixed(2) : x.toPreci
 function plot(r) {
   const canvas = $("plot");
   const ctx = canvas.getContext("2d");
-  const dark = matchMedia("(prefers-color-scheme: dark)").matches;
-  const fg = dark ? "#ddd" : "#222";
-  const bar = dark ? "#6fa8ff" : "#1f5fbf";
+  // Colours come from the site tokens; without them (the page opened
+  // standalone) the text colour is used for everything.
+  const css = getComputedStyle(document.documentElement);
+  const token = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+  const fg = token("--lh-fg", getComputedStyle(document.body).color);
+  const bar = token("--lh-plot-bar", fg);
   const W = canvas.width, H = canvas.height;
   const m = { l: 70, r: 15, t: 15, b: 45 };
   const counts = Array.from(r.counts);
@@ -83,7 +92,7 @@ function plot(r) {
   const ymax = Math.max(...y) * 1.05;
   const xmax = counts.length * w;
   ctx.clearRect(0, 0, W, H);
-  ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.font = "14px system-ui, sans-serif";
+  ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.font = `14px ${token("--lh-font", "system-ui, sans-serif")}`;
   const px = (x) => m.l + (x / xmax) * (W - m.l - m.r);
   const py = (v) => H - m.b - (v / ymax) * (H - m.t - m.b);
   ctx.fillStyle = bar;
@@ -104,7 +113,7 @@ function plot(r) {
   ctx.save(); ctx.translate(14, (H - m.b + m.t) / 2); ctx.rotate(-Math.PI / 2);
   ctx.textAlign = "center"; ctx.fillText("stopped ions per incident ion per nm", 0, 0); ctx.restore();
   // Mark Rp.
-  ctx.strokeStyle = "#d9534f"; ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = token("--lh-plot-mark", fg); ctx.setLineDash([5, 4]);
   ctx.beginPath(); ctx.moveTo(px(r.rp_nm), m.t); ctx.lineTo(px(r.rp_nm), H - m.b); ctx.stroke();
   ctx.setLineDash([]);
 }

@@ -1,0 +1,43 @@
+/* Map the site tokens (tokens.css) onto mdBook's theme variables, and make
+   room for the site bar (header.hbs). The selectors name every mdBook theme
+   class so that the book follows the same light and dark values as the other
+   pages; book.toml makes the first-load choice follow the system setting. */
+html.light, html.rust, html.coal, html.navy, html.ayu {
+  --bg: var(--lh-bg);
+  --fg: var(--lh-fg);
+  --sidebar-bg: var(--lh-surface);
+  --sidebar-fg: var(--lh-fg);
+  --sidebar-non-existant: var(--lh-muted);
+  --sidebar-active: var(--lh-link);
+  --sidebar-spacer: var(--lh-rule);
+  --scrollbar: var(--lh-muted);
+  --icons: var(--lh-muted);
+  --icons-hover: var(--lh-fg);
+  --links: var(--lh-link);
+  --inline-code-color: var(--lh-fg);
+  --theme-popup-bg: var(--lh-surface);
+  --theme-popup-border: var(--lh-rule);
+  --theme-hover: var(--lh-rule);
+  --quote-bg: var(--lh-surface);
+  --quote-border: var(--lh-rule);
+  --table-border-color: var(--lh-rule);
+  --table-header-bg: var(--lh-surface);
+  --table-alternate-bg: var(--lh-surface);
+  --searchbar-border-color: var(--lh-rule);
+  --searchbar-bg: var(--lh-bg);
+  --searchbar-fg: var(--lh-fg);
+  --searchbar-shadow-color: var(--lh-rule);
+  --searchresults-header-fg: var(--lh-muted);
+  --searchresults-border-color: var(--lh-rule);
+  --searchresults-li-bg: var(--lh-surface);
+  --search-mark-bg: var(--lh-rule);
+}
+html { font-family: var(--lh-font); }
+code, pre, .hljs { font-family: var(--lh-mono); }
+
+/* The site bar stays at the top; the sidebar and the page start below it. */
+.lh-bar { position: fixed; top: 0; left: 0; right: 0; z-index: 1000; }
+#sidebar { top: var(--lh-bar-h); }
+.page-wrapper { padding-top: var(--lh-bar-h); }
+#menu-bar { top: var(--lh-bar-h); }
+:target { scroll-margin-top: calc(var(--lh-bar-h) + 3.5rem); }

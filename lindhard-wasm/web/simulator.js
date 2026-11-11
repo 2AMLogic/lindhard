@@ -279,9 +279,17 @@ function counters(done, total, report) {
 
 // ---- trajectory view -------------------------------------------------------
 
-// Okabe-Ito colours, safe for the common colour-vision deficiencies; the
-// second cue is the dash pattern (generation) and an end marker (species).
-const SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
+// Species colours are the shared Okabe-Ito plot tokens (--lh-plot-1..6 in
+// site/tokens.css), safe for the common colour-vision deficiencies; the second
+// cue is the dash pattern (generation) and an end marker (species). Opened
+// without the tokens, every species takes the text colour and only the cues
+// tell them apart.
+const SPECIES_COUNT = 6;
+function speciesPalette() {
+  const css = getComputedStyle(document.documentElement);
+  const fallback = css.getPropertyValue("--fg").trim() || "CanvasText";
+  return Array.from({ length: SPECIES_COUNT }, (_, i) => css.getPropertyValue(`--lh-plot-${i + 1}`).trim() || fallback);
+}
 const MARKERS = ["circle", "square", "triangle", "diamond", "cross", "plus"];
 let histories = []; // recorded so far in this run
 let symbolOfZ = () => undefined;
@@ -303,6 +311,7 @@ function drawTrajectories() {
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const panel = css.getPropertyValue("--panel").trim() || "#eee", muted = css.getPropertyValue("--muted").trim() || "#666";
+  const palette = speciesPalette();
   const view = $("traj-view").value;
   const segs = trajectorySegments(histories, { view, cascades: $("traj-cascades").checked });
   const bd = segmentBounds(segs, view);
@@ -333,7 +342,7 @@ function drawTrajectories() {
   ctx.fillText(`${axes[1]} ±${fmt(nm(bd.v1))} nm`, 4, H - 8);
   ctx.lineWidth = 1.2;
   for (const s of segs) {
-    ctx.strokeStyle = SPECIES_COLOURS[s.species % SPECIES_COLOURS.length];
+    ctx.strokeStyle = palette[s.species % palette.length];
     ctx.setLineDash(dashFor(s.generation));
     ctx.beginPath(); ctx.moveTo(sx(s.a[0]), sy(s.a[1])); ctx.lineTo(sx(s.b[0]), sy(s.b[1])); ctx.stroke();
   }
@@ -344,7 +353,7 @@ function drawTrajectories() {
     const q = t.points[t.points.length - 1];
     if (!q) continue;
     const [u, v] = view === "side" ? [q[0], q[1]] : [q[1], q[2]];
-    ctx.fillStyle = SPECIES_COLOURS[t.species % SPECIES_COLOURS.length];
+    ctx.fillStyle = palette[t.species % palette.length];
     ctx.strokeStyle = fg;
     marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), t.generation ? 2.5 : 4);
   }
@@ -363,11 +372,11 @@ function drawLegend(report) {
     c.width = 34; c.height = 12;
     c.style.cssText = "width:34px;height:12px;border:0";
     const x = c.getContext("2d");
-    x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.fillStyle = x.strokeStyle; x.lineWidth = 2;
+    x.strokeStyle = speciesPalette()[i % SPECIES_COUNT]; x.fillStyle = x.strokeStyle; x.lineWidth = 2;
     x.setLineDash(dashFor(g));
     x.beginPath(); x.moveTo(0, 6); x.lineTo(26, 6); x.stroke();
     x.setLineDash([]);
-    x.strokeStyle = "#888";
+    x.strokeStyle = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim() || "GrayText";
     marker(x, MARKERS[i % MARKERS.length], 29, 6, 3);
     return c;
   };
@@ -416,7 +425,7 @@ function legendSwatch(i) {
   c.width = 34; c.height = 12;
   c.style.cssText = "width:34px;height:12px;border:0";
   const x = c.getContext("2d");
-  x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.lineWidth = 2;
+  x.strokeStyle = speciesPalette()[i % SPECIES_COUNT]; x.lineWidth = 2;
   x.setLineDash(dashForSeries(i));
   x.beginPath(); x.moveTo(0, 6); x.lineTo(32, 6); x.stroke();
   return c;
@@ -428,6 +437,7 @@ function drawPlot(spec) {
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const muted = css.getPropertyValue("--muted").trim() || "#666";
+  const palette = speciesPalette();
   const W = canvas.width, H = canvas.height, L = 64, R = 12, T = 12, B = 40;
   const ext = plotExtent(spec);
   const yTicks = niceTicks(0, ext.y1, 5);
@@ -449,7 +459,7 @@ function drawPlot(spec) {
     spec.categories.forEach((c, i) => {
       ctx.fillStyle = muted;
       ctx.fillText(c, L + (i + 0.5) * bw, H - B + 16, bw - 4);
-      ctx.fillStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length];
+      ctx.fillStyle = palette[i % palette.length];
       const top = sy(spec.series[0].y[i]);
       ctx.fillRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
       ctx.strokeStyle = fg; ctx.strokeRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
@@ -462,7 +472,7 @@ function drawPlot(spec) {
     }
     ctx.lineWidth = 1.6;
     for (const s of spec.series) {
-      ctx.strokeStyle = SPECIES_COLOURS[s.style % SPECIES_COLOURS.length];
+      ctx.strokeStyle = palette[s.style % palette.length];
       ctx.setLineDash(dashForSeries(s.style));
       ctx.beginPath();
       if (s.line) {
