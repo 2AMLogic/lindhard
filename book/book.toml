@@ -15,6 +15,7 @@ mathjax-support = true
 git-repository-url = "https://github.com/2AMLogic/lindhard"
 edit-url-template = "https://github.com/2AMLogic/lindhard/edit/main/book/{path}"
 site-url = "/lindhard/"
+# Table and display-equation rules plus readability rules (loaded after the built-in theme CSS).
 additional-css = ["theme/lindhard.css"]
 no-section-label = true
 

@@ -86,7 +86,9 @@ The reduced nuclear stopping cross section follows from the angle,
 integrated over \\( \ln\beta \\) by Simpson's rule. It is used in tests and
 validation, not in transport (the BCA samples the collisions themselves).
 Two references are checked against it: the ZBL universal fit
-\\( s_n = \ln(1 + 1.1383\varepsilon) / [2(\varepsilon + 0.01321\varepsilon^{0.21226} + 0.19593\varepsilon^{0.5})] \\)
+
+\\[ s_n = \ln(1 + 1.1383\varepsilon) / [2(\varepsilon + 0.01321\varepsilon^{0.21226} + 0.19593\varepsilon^{0.5})] \\]
+
 for \\( \varepsilon \le 30 \\) (Ziegler, Biersack and Littmark 1985), and the
 high-energy limit for a sum of exponentials from the first-order impulse
 approximation of Lindhard, Nielsen and Scharff (1968, eq. (3.4)).
