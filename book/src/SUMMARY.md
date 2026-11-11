@@ -2,6 +2,25 @@
 
 [Introduction](introduction.md)
 
+# User guide
+
+- [Installing](guide/install.md)
+- [First run: 5 keV B into Si](guide/first-run.md)
+- [TOML input reference](guide/input.md)
+- [Output files](guide/output.md)
+- [Range calculator in the browser](guide/range-calculator.md)
+- [Simulator in the browser](guide/simulator.md)
+- [Voxel tallies and VTK export](guide/voxel-tallies.md)
+- [Layout cross-section import](guide/layout-import.md)
+
+# Examples gallery
+
+- [Overview](gallery/index.md)
+  - [Implant through a screen oxide](gallery/screen-oxide.md)
+  - [Sputtering yield against incidence angle](gallery/sputtering-angle.md)
+  - [Electron deposition in a resist on Si](gallery/resist-on-si.md)
+  - [Dose in a buried oxide](gallery/dose-buried-oxide.md)
+
 # Physics manual
 
 - [Conventions and the clean-room position](models/overview.md)
@@ -32,22 +51,3 @@
 - [Validation](validation.md)
 - [Status and roadmap](status.md)
 - [About and the clean-room rule](about.md)
-
-# User guide
-
-- [Installing](guide/install.md)
-- [First run: 5 keV B into Si](guide/first-run.md)
-- [TOML input reference](guide/input.md)
-- [Output files](guide/output.md)
-- [Range calculator in the browser](guide/range-calculator.md)
-- [Simulator in the browser](guide/simulator.md)
-- [Voxel tallies and VTK export](guide/voxel-tallies.md)
-- [Layout cross-section import (finding)](guide/layout-import.md)
-
-# Examples gallery
-
-- [Overview](gallery/index.md)
-  - [Implant through a screen oxide](gallery/screen-oxide.md)
-  - [Sputtering yield against incidence angle](gallery/sputtering-angle.md)
-  - [Electron deposition in a resist on Si](gallery/resist-on-si.md)
-  - [Dose in a buried oxide](gallery/dose-buried-oxide.md)
