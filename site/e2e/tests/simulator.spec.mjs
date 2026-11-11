@@ -334,3 +334,80 @@ test("a second run works after the network is gone", async ({ page, context }) =
   await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
   await expectResults(page, 300);
 });
+
+// Issue #674: canvases are sized from their CSS box and the pixel ratio, and
+// redrawn when the box or the colour scheme changes.
+const CANVASES = "#traj, #plots canvas[role=img]";
+
+/** For each canvas: bitmap size, CSS content-box size and the ratio in force. */
+const canvasSizes = (page) =>
+  page.evaluate((sel) => Array.from(document.querySelectorAll(sel), (c) => ({
+    w: c.width, h: c.height, cw: c.clientWidth, ch: c.clientHeight, dpr: window.devicePixelRatio,
+    right: c.getBoundingClientRect().right,
+  })), CANVASES);
+
+test.describe("canvases at device pixel ratio 2", () => {
+  test.use({ deviceScaleFactor: 2, viewport: { width: 390, height: 844 } });
+
+  test("the bitmap is the CSS size times the pixel ratio and nothing overflows at 390 px", async ({ page }) => {
+    await open(page);
+    await configure(page, {});
+    await run(page);
+    await expectResults(page, 300);
+    const sizes = await canvasSizes(page);
+    expect(sizes.length).toBeGreaterThan(1);
+    for (const c of sizes) {
+      expect(c.dpr).toBe(2);
+      expect(c.w).toBe(Math.round(c.cw * 2));
+      expect(c.h).toBe(Math.round(c.ch * 2));
+      expect(c.right).toBeLessThanOrEqual(390);
+    }
+  });
+});
+
+test("resizing the viewport redraws every canvas at the new size", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  await expectResults(page, 300);
+  const wide = await canvasSizes(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => (await canvasSizes(page)).every((c) => c.w === c.cw * c.dpr)).toBe(true);
+  const narrow = await canvasSizes(page);
+  expect(narrow[0].w).toBeLessThan(wide[0].w);
+  for (const c of narrow) expect(c.right).toBeLessThanOrEqual(390);
+  expect(await canvasColours(page.locator("#traj"))).toBeGreaterThan(3);
+});
+
+test("switching the colour scheme redraws the canvases without a reload", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  await expectResults(page, 300);
+  // The corner of a canvas is its background.
+  const corner = () => page.locator(CANVASES).evaluateAll((cs) =>
+    cs.map((c) => Array.from(c.getContext("2d").getImageData(c.width - 2, 2, 1, 1).data.slice(0, 3)).join(",")));
+  const light = await corner();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await expect.poll(async () => (await corner()).every((p, i) => p !== light[i])).toBe(true);
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect.poll(async () => (await corner()).every((p, i) => p === light[i])).toBe(true);
+});
+
+test("the PNG export has a fixed size, whatever the window", async ({ page }) => {
+  const size = async (w) => {
+    await page.setViewportSize({ width: w, height: 800 });
+    const [download] = await Promise.all([page.waitForEvent("download"), page.locator("#dl-png").click()]);
+    const body = readFileSync(await download.path());
+    return [body.readUInt32BE(16), body.readUInt32BE(20)]; // IHDR width, height
+  };
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  const big = await size(1280);
+  expect(big).toEqual([1800, 720]);
+  expect(await size(390)).toEqual(big);
+});
