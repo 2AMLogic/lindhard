@@ -1,13 +1,19 @@
 # Simulator in the browser
 
-The [simulator](../calculator/simulator.html) is the layered-target companion
-of the [range calculator](range-calculator.md). It runs the same engine as
+The [simulator](../calculator/simulator.html) runs the same engine as the
+[range calculator](range-calculator.md), which is this page in its Quick range
+state. It runs as
 WebAssembly in a Web Worker, so the page stays responsive during a run, and it
 is static: there is no server and nothing you enter leaves your machine.
 
 The page has a **Setup** view and a **Run** view. The Run view shows live
 counters, a trajectory view, the energy partition, live distribution plots and
 downloads.
+
+The page opens by running the default case (10 keV B into Si) with 1000 ions
+and seed 1, in the worker, labelled "Example run: 1000 ions, seed 1." The seed
+is fixed, so every visitor sees the same example. The page is usable while it
+runs, and the first edit or Run replaces the label.
 
 ## Run
 

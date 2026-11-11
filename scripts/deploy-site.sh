@@ -39,8 +39,15 @@ build() {
   cd "$root"
   local web=lindhard-wasm/web calc=book/src/calculator
   "$web/../build.sh" web "$calc/pkg"
-  cp "$web"/index.html "$web"/simulator.html "$web"/simulator.js "$web"/worker.js "$web"/calculator-worker.js \
+  cp "$web"/simulator.html "$web"/simulator.js "$web"/worker.js \
      "$web"/toml_model.js "$web"/run_view.js "$web"/plots.js "$calc/"
+  # calculator/index.html is the simulator page in its Quick range state: the
+  # same file with data-view="quick" on the body (read by simulator.js) and the
+  # range calculator's title. One page, so one plot and one set of defaults.
+  sed -e 's|^<body>$|<body data-view="quick">|' \
+      -e 's|<title>lindhard simulator</title>|<title>lindhard range calculator</title>|' \
+      "$web/simulator.html" > "$calc/index.html"
+  grep -q '^<body data-view="quick">$' "$calc/index.html" || { echo "error: Quick range entry was not generated" >&2; exit 1; }
   # Service worker (offline cache): stamp a hash of the shipped files into the
   # cache name so a changed deploy replaces the old cache.
   local build_id
