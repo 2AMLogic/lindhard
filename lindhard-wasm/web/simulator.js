@@ -414,9 +414,36 @@ function counters(done, total, report) {
 
 // ---- trajectory view -------------------------------------------------------
 
-// Okabe-Ito colours, safe for the common colour-vision deficiencies; the
-// second cue is the dash pattern (generation) and an end marker (species).
-const SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
+// Series colours are CSS custom properties (--s0..--s5, per colour scheme in
+// simulator.html): Okabe-Ito, safe for the common colour-vision deficiencies;
+// the second cue is the dash pattern (generation) and an end marker (species).
+// `SPECIES_COLOURS` is re-read from the page at the start of every draw.
+const SERIES_COUNT = 6;
+let SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
+let swatchMark = "#888";
+function readPalette() {
+  const css = getComputedStyle(document.documentElement);
+  SPECIES_COLOURS = SPECIES_COLOURS.map((old, i) => css.getPropertyValue(`--s${i}`).trim() || old);
+  swatchMark = css.getPropertyValue("--swatch-mark").trim() || swatchMark;
+}
+
+/**
+ * Size a canvas bitmap from its CSS box and devicePixelRatio and scale the
+ * context so callers draw in CSS pixels. Returns {w, h} in CSS pixels, or null
+ * when the canvas has no size (hidden or collapsed); nothing is drawn then.
+ */
+function fitCanvas(canvas) {
+  const w = canvas.clientWidth, h = canvas.clientHeight; // content box, border excluded
+  if (w < 1 || h < 1) return null;
+  const dpr = window.devicePixelRatio || 1;
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (canvas.width !== bw) canvas.width = bw;
+  if (canvas.height !== bh) canvas.height = bh;
+  canvas.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { w, h };
+}
+
+const EXPORT_W = 900, EXPORT_H = 360, EXPORT_SCALE = 2; // PNG export size in CSS px and pixel ratio
 const MARKERS = ["circle", "square", "triangle", "diamond", "cross", "plus"];
 let histories = []; // recorded so far in this run
 let symbolOfZ = () => undefined;
@@ -434,14 +461,22 @@ function marker(ctx, kind, x, y, r) {
 }
 
 function drawTrajectories() {
-  const cv = $("traj"), ctx = cv.getContext("2d");
+  readPalette();
+  const cv = $("traj");
+  const size = fitCanvas(cv);
+  if (size) paintTrajectories(cv.getContext("2d"), size.w, size.h);
+  updateTrajectoryNote();
+}
+
+// Paint the trajectory view into a W x H box of CSS pixels.
+function paintTrajectories(ctx, W, H) {
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const panel = css.getPropertyValue("--panel").trim() || "#eee", muted = css.getPropertyValue("--muted").trim() || "#666";
   const view = $("traj-view").value;
   const segs = trajectorySegments(histories, { view, cascades: $("traj-cascades").checked });
   const bd = segmentBounds(segs, view);
-  const W = cv.width, H = cv.height, pad = 28;
+  const pad = 28;
   const sx = (u) => pad + ((u - bd.u0) / (bd.u1 - bd.u0)) * (W - 2 * pad);
   const sy = (v) => pad + ((v - bd.v0) / (bd.v1 - bd.v0)) * (H - 2 * pad);
   ctx.setLineDash([]);
@@ -483,6 +518,10 @@ function drawTrajectories() {
     ctx.strokeStyle = fg;
     marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), t.generation ? 2.5 : 4);
   }
+}
+
+function updateTrajectoryNote() {
+  const segs = trajectorySegments(histories, { view: $("traj-view").value, cascades: $("traj-cascades").checked });
   const n = histories.length;
   $("traj-note").textContent = n === 0
     ? `No trajectories yet. The first ${RECORDED_HISTORIES} ion histories of a run are recorded.`
@@ -490,19 +529,30 @@ function drawTrajectories() {
       (anyTruncated(histories) ? " Some histories were cut at the point limit of each track, so their tails are missing." : "");
 }
 
+let legendReport = null;
+function swatchCanvas() {
+  const c = document.createElement("canvas");
+  const dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(34 * dpr); c.height = Math.round(12 * dpr);
+  c.style.cssText = "width:34px;height:12px;border:0";
+  c.setAttribute("aria-hidden", "true");
+  const x = c.getContext("2d");
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [c, x];
+}
+
 function drawLegend(report) {
+  readPalette();
+  legendReport = report;
   const names = speciesLabels(report, symbolOfZ);
   const item = (text, swatch) => h("li", {}, swatch, ` ${text}`);
   const line = (i, g) => {
-    const c = document.createElement("canvas");
-    c.width = 34; c.height = 12;
-    c.style.cssText = "width:34px;height:12px;border:0";
-    const x = c.getContext("2d");
+    const [c, x] = swatchCanvas();
     x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.fillStyle = x.strokeStyle; x.lineWidth = 2;
     x.setLineDash(dashFor(g));
     x.beginPath(); x.moveTo(0, 6); x.lineTo(26, 6); x.stroke();
     x.setLineDash([]);
-    x.strokeStyle = "#888";
+    x.strokeStyle = swatchMark;
     marker(x, MARKERS[i % MARKERS.length], 29, 6, 3);
     return c;
   };
@@ -529,7 +579,7 @@ function download(name, blob) {
 function plotView(spec) {
   let v = plotViews.get(spec.id);
   if (v) return v;
-  const canvas = h("canvas", { width: 900, height: 300, role: "img", "aria-label": spec.title });
+  const canvas = h("canvas", { role: "img", "aria-label": spec.title });
   const legend = h("ul", { className: "legend" });
   const note = h("p", { className: "note" });
   const csv = h("button", {
@@ -542,15 +592,13 @@ function plotView(spec) {
   const box = h("div", { className: "plot" }, h("header", {}, h("h3", {}, spec.title), csv), canvas, legend, note);
   $(spec.id.startsWith("escape-") ? "plots-escapes" : "plots-main").append(box);
   v = { canvas, legend, note };
+  resizeObserver?.observe(canvas);
   plotViews.set(spec.id, v);
   return v;
 }
 
 function legendSwatch(i) {
-  const c = document.createElement("canvas");
-  c.width = 34; c.height = 12;
-  c.style.cssText = "width:34px;height:12px;border:0";
-  const x = c.getContext("2d");
+  const [c, x] = swatchCanvas();
   x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.lineWidth = 2;
   x.setLineDash(dashForSeries(i));
   x.beginPath(); x.moveTo(0, 6); x.lineTo(32, 6); x.stroke();
@@ -559,11 +607,12 @@ function legendSwatch(i) {
 
 function drawPlot(spec) {
   const { canvas, legend, note } = plotView(spec);
+  const size = fitCanvas(canvas);
   const ctx = canvas.getContext("2d");
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const muted = css.getPropertyValue("--muted").trim() || "#666";
-  const W = canvas.width, H = canvas.height, L = 64, R = 12, T = 12, B = 40;
+  const W = size ? size.w : 900, H = size ? size.h : 300, L = 64, R = 12, T = 12, B = 40;
   const ext = plotExtent(spec);
   const yTicks = niceTicks(0, ext.y1, 5);
   const y1 = Math.max(ext.y1, yTicks[yTicks.length - 1]);
@@ -632,6 +681,7 @@ const PLOT_ORDER = ["range", "damage", "lateral", "escape-species", "escape-ener
 function drawPlots(report) {
   lastReport = report;
   if (report === null) { $("plots-main").replaceChildren(); $("plots-escapes").replaceChildren(); plotViews.clear(); }
+  readPalette();
   plotSpecs = buildPlots(report, { layerNames: setup.layers.map((l) => l.name), symbolOfZ })
     .sort((a, b) => PLOT_ORDER.indexOf(a.id) - PLOT_ORDER.indexOf(b.id));
   for (const s of plotSpecs) drawPlot(s);
@@ -643,8 +693,56 @@ $("dl-json").addEventListener("click", () => {
   if (lastReport) download("lindhard-report.json", new Blob([reportJson(lastReport)], { type: "application/json" }));
 });
 $("dl-png").addEventListener("click", () => {
-  $("traj").toBlob((b) => b && download("lindhard-trajectories.png", b), "image/png");
+  // Fixed size (1800 x 720 px), independent of the window and the pixel ratio.
+  readPalette();
+  const out = document.createElement("canvas");
+  out.width = EXPORT_W * EXPORT_SCALE; out.height = EXPORT_H * EXPORT_SCALE;
+  const ctx = out.getContext("2d");
+  ctx.setTransform(EXPORT_SCALE, 0, 0, EXPORT_SCALE, 0, 0);
+  paintTrajectories(ctx, EXPORT_W, EXPORT_H);
+  out.toBlob((b) => b && download("lindhard-trajectories.png", b), "image/png");
 });
+
+// ---- redraw on resize, colour-scheme change and when a hidden view is shown ----
+
+function redrawAll() {
+  drawTrajectories();
+  if (legendReport) drawLegend(legendReport);
+  readPalette();
+  for (const s of plotSpecs) drawPlot(s);
+}
+
+// Latest unpainted progress message; painted by the next animation frame.
+let pendingProgress = null, progressDrawQueued = false;
+// Paint the unpainted progress report, if any, and clear it. Called by the
+// animation frame and, synchronously, by `finished` and `stopped` so the last
+// batch (legend, trajectories, plots) is never dropped.
+function flushProgress() {
+  const p = pendingProgress;
+  if (!p) return;
+  pendingProgress = null;
+  drawPlots(p.report);
+  if (p.firstTrajectories) drawLegend(p.report);
+  if (p.newTrajectories) drawTrajectories();
+}
+function queueProgressDraw() {
+  if (progressDrawQueued) return;
+  progressDrawQueued = true;
+  requestAnimationFrame(() => {
+    progressDrawQueued = false;
+    flushProgress();
+  });
+}
+
+let redrawQueued = false;
+function queueRedraw() {
+  if (redrawQueued) return;
+  redrawQueued = true;
+  requestAnimationFrame(() => { redrawQueued = false; redrawAll(); });
+}
+const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(queueRedraw) : null;
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", queueRedraw);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) queueRedraw(); });
 
 if ("serviceWorker" in navigator) {
   // Offline support: see sw.js. Relative URL so the scope is this directory on
@@ -668,19 +766,28 @@ function startRun() {
         status("Running…");
         break;
       case "progress":
+        // Counting and recording are cheap and happen for every message; the
+        // drawing is coalesced to one per animation frame, so a slow draw
+        // cannot let progress messages queue up behind it (which would keep
+        // the counters moving after Pause).
         counters(m.done, m.total, m.report);
-        drawPlots(m.report);
         histories.push(...m.trajectories);
-        if (histories.length === m.trajectories.length) drawLegend(m.report);
-        if (m.trajectories.length) drawTrajectories();
+        pendingProgress = {
+          report: m.report,
+          firstTrajectories: pendingProgress?.firstTrajectories || histories.length === m.trajectories.length,
+          newTrajectories: (pendingProgress?.newTrajectories || 0) + m.trajectories.length,
+        };
+        queueProgressDraw();
         break;
       case "finished":
+        flushProgress();
         counters(m.done, m.total, m.report);
         drawPlots(m.report);
         status("Done (± is one standard error).");
         endRun();
         break;
       case "stopped":
+        flushProgress();
         status(`Stopped after ${m.done} of ${m.total} ions.`);
         endRun();
         break;
@@ -697,7 +804,7 @@ function startRun() {
     endRun();
   };
   worker.postMessage({ type: "init", toml: toToml(setup), ions: setup.run.ions, recordHistories: RECORDED_HISTORIES, maxPoints: MAX_POINTS_PER_TRACK });
-  histories = [];
+  histories = []; pendingProgress = null;
   counters(0, setup.run.ions, null);
   drawTrajectories();
   drawPlots(null);
@@ -760,6 +867,7 @@ try {
   $("ions").max = String(Math.min(MAX_IONS, INTERACTIVE_MAX_IONS));
   $("cap-note").textContent = `The page runs up to ${INTERACTIVE_MAX_IONS} ions and records the paths of the first ${RECORDED_HISTORIES}, so a run stays responsive; the command-line tool has no such limit.`;
   symbolOfZ = (z) => elements.find((e) => e.z === z)?.symbol;
+  resizeObserver?.observe($("traj"));
   $("traj-view").addEventListener("change", drawTrajectories);
   $("traj-cascades").addEventListener("change", drawTrajectories);
   drawTrajectories();
