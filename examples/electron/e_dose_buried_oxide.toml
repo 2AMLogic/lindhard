@@ -47,19 +47,50 @@ points_per_decade = 8.0
 
 [electron.materials.Metal]
 optical_elf = "synthetic_plasmon_elf.toml"
-band = { kind = "metal", fermi_ev = 5.0, work_function_ev = 4.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of any metal" }
+
+[electron.materials.Metal.band]
+kind = "metal"
+fermi_ev = 5.0
+work_function_ev = 4.0
+provenance = """SYNTHETIC round numbers for the dose example \
+  (examples/electron/e_dose_buried_oxide.toml), \
+  not band parameters of any metal"""
 
 [electron.materials.Dielectric]
 optical_elf = "synthetic_plasmon_elf.toml"
-band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 4.0, affinity_ev = 1.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of any dielectric" }
+
+[electron.materials.Dielectric.band]
+kind = "insulator"
+valence_band_width_ev = 10.0
+band_gap_ev = 4.0
+affinity_ev = 1.0
+provenance = """SYNTHETIC round numbers for the dose example \
+  (examples/electron/e_dose_buried_oxide.toml), \
+  not band parameters of any dielectric"""
 
 [electron.materials.Oxide]
 optical_elf = "synthetic_plasmon_elf.toml"
-band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 8.0, affinity_ev = 1.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of SiO2" }
+
+[electron.materials.Oxide.band]
+kind = "insulator"
+valence_band_width_ev = 10.0
+band_gap_ev = 8.0
+affinity_ev = 1.0
+provenance = """SYNTHETIC round numbers for the dose example \
+  (examples/electron/e_dose_buried_oxide.toml), \
+  not band parameters of SiO2"""
 
 [electron.materials.Si]
 optical_elf = "synthetic_plasmon_elf.toml"
-band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0, provenance = "SYNTHETIC round numbers for the dose example (examples/electron/e_dose_buried_oxide.toml), not band parameters of Si" }
+
+[electron.materials.Si.band]
+kind = "insulator"
+valence_band_width_ev = 10.0
+band_gap_ev = 2.0
+affinity_ev = 3.0
+provenance = """SYNTHETIC round numbers for the dose example \
+  (examples/electron/e_dose_buried_oxide.toml), \
+  not band parameters of Si"""
 
 [electron.tally]
 escape_energy_bins = 50

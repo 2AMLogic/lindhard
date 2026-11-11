@@ -113,7 +113,8 @@ which the stopped primaries came to rest, with their standard errors.
 
 When the moments lie outside the region of the Pearson IV family, as they
 do here, `pearson_iv` is `null` and `pearson_iv_error` gives the reason
-instead of a silent fallback. The dual-Pearson fit requested in
+(shortened here; the figures are the moments above) instead of a
+silent fallback. The dual-Pearson fit requested in
 `[tally]` (`results.range.dual_pearson`, shortened here) splits the profile
 into a near-surface head and a tail:
 
