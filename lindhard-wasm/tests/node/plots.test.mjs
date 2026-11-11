@@ -177,6 +177,12 @@ test("nice ticks cover the range with 1, 2, 5 steps", () => {
   assert.deepEqual(niceTicks(3, 3, 5), [3]);
 });
 
+test("the damage-plot note is true in both modes (no 'zero in quick mode' claim)", () => {
+  const note = JSON.stringify(buildPlots(report(), opts).find((p) => p.id === "damage"));
+  assert.match(note, /first recoil of each ion/);
+  assert.doesNotMatch(note, /zero in quick mode/);
+});
+
 test("report JSON round-trips and caveats name the models and the validation doc", () => {
   const r = report();
   assert.deepEqual(JSON.parse(reportJson(r)), r);
