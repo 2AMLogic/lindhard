@@ -387,7 +387,7 @@ function setTile(id, m) {
 const pct = (f) => (f == null ? "–" : `${(100 * f).toFixed(1)} %`);
 const perIon = (x) => (x == null ? "–" : x.toPrecision(3));
 
-const PARTITION = [["eion", "ionization", "#0072B2"], ["enuc", "nuclear", "#D55E00"], ["eesc", "escaped", "#009E73"], ["erec", "recoilsNotFollowed", "#CC79A7"], ["eoth", "other", "#E69F00"]];
+const PARTITION = [["eion", "ionization", "var(--lh-plot-1)"], ["enuc", "nuclear", "var(--lh-plot-2)"], ["eesc", "escaped", "var(--lh-plot-3)"], ["erec", "recoilsNotFollowed", "var(--lh-plot-4)"], ["eoth", "other", "var(--lh-plot-5)"]];
 
 function counters(done, total, report) {
   const c = deriveCounters(report, { done, total, followRecoils: setup.physics.followRecoils });

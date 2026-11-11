@@ -7,10 +7,7 @@
 <!--SITE_HEAD-->
 <style>
   /* The page's own names for the shared tokens (site/tokens.css). */
-  :root { --fg: var(--lh-fg); --bg: var(--lh-bg); --muted: var(--lh-muted); --line: var(--lh-rule); --accent: var(--lh-link); --bad: var(--lh-caution); --panel: var(--lh-surface);
-    /* Series colours (Okabe-Ito), in order; the dark set swaps the blue for one that stays visible as a thin line. */
-    --s0: #0072B2; --s1: #D55E00; --s2: #009E73; --s3: #CC79A7; --s4: #E69F00; --s5: #56B4E9; --swatch-mark: #888; }
-  @media (prefers-color-scheme: dark) { :root { --s0: #5AB4F0; --s1: #F08A3C; --s2: #2FCB9E; --s3: #E08CBC; --s4: #F0B52A; --s5: #8CCBF5; --swatch-mark: #b8b8c0; } }
+  :root { --fg: var(--lh-fg); --bg: var(--lh-bg); --muted: var(--lh-muted); --line: var(--lh-rule); --accent: var(--lh-link); --bad: var(--lh-caution); --panel: var(--lh-surface); }
   body { margin: 0; font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); color: var(--fg); background: var(--bg); }
   main { max-width: 96rem; margin: 1rem auto 0; padding: 0 1rem; }
   nav[role="tablist"] { display: flex; gap: .5rem; margin: 1rem 0; }
@@ -281,11 +278,11 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
       <div class="note">Where the incident energy goes</div>
       <div class="bar" id="partition-bar" role="img" aria-label="Energy partition"></div>
       <ul>
-        <li><span class="sw" style="background:#0072B2"></span>To electrons (ionization) <b id="c-eion">–</b></li>
-        <li><span class="sw" style="background:#D55E00"></span>To the lattice (nuclear) <b id="c-enuc">–</b></li>
-        <li><span class="sw" style="background:#009E73"></span>Carried out of the target <b id="c-eesc">–</b></li>
-        <li id="r-erec" hidden><span class="sw" style="background:#CC79A7"></span>Given to recoils, not followed in quick mode <b id="c-erec">–</b></li>
-        <li><span class="sw" style="background:#E69F00"></span>Other (surface barrier, at rest) <b id="c-eoth">–</b></li>
+        <li><span class="sw" style="background:var(--lh-plot-1)"></span>To electrons (ionization) <b id="c-eion">–</b></li>
+        <li><span class="sw" style="background:var(--lh-plot-2)"></span>To the lattice (nuclear) <b id="c-enuc">–</b></li>
+        <li><span class="sw" style="background:var(--lh-plot-3)"></span>Carried out of the target <b id="c-eesc">–</b></li>
+        <li id="r-erec" hidden><span class="sw" style="background:var(--lh-plot-4)"></span>Given to recoils, not followed in quick mode <b id="c-erec">–</b></li>
+        <li><span class="sw" style="background:var(--lh-plot-5)"></span>Other (surface barrier, at rest) <b id="c-eoth">–</b></li>
       </ul>
     </div>
   </div>
