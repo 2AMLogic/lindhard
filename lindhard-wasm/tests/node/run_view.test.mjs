@@ -7,7 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, anyTruncated, dashFor, deriveCounters,
-  energyPartition, layerSpans, segmentBounds, speciesLabels, trajectorySegments, vacanciesPerIon,
+  energyPartition, layerSpans, roundToError, segmentBounds, speciesLabels, trajectorySegments, vacanciesPerIon,
 } from "../../web/run_view.js";
 
 const m = (mean, sd) => ({ n: 100, mean, std_dev: sd, skewness: 0, kurtosis: 3, mean_std_err: sd / 10, std_dev_std_err: sd / 14 });
@@ -136,4 +136,14 @@ test("truncation flag and species labels", () => {
   const names = { 5: "B", 14: "Si" };
   assert.deepEqual(speciesLabels(report, (z) => names[z]), ["B (beam)", "Si"]);
   assert.deepEqual(speciesLabels(report, () => undefined), ["Z=5 (beam)", "Z=14"]);
+});
+
+test("a value and its error share a decimal place, the error to two figures", () => {
+  assert.deepEqual(roundToError(46.38, 0.999), { value: "46.4", err: "1.0" });
+  assert.deepEqual(roundToError(46.38, 0.131), { value: "46.38", err: "0.13" });
+  assert.deepEqual(roundToError(56789.4, 1234), { value: "56800", err: "1200" });
+  assert.deepEqual(roundToError(100, 0.1234), { value: "100.00", err: "0.12" });
+  assert.deepEqual(roundToError(5, 0), { value: "5", err: "0" });
+  assert.deepEqual(roundToError(3, null), { value: "3", err: null });
+  assert.deepEqual(roundToError(NaN, 1), { value: "–", err: null });
 });

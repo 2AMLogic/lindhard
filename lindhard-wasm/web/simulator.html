@@ -7,9 +7,25 @@
 <style>
   :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --panel: #f4f5f8; }
   @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --panel: #22242a; } }
-  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 72rem; margin: 1rem auto; padding: 0 1rem; }
+  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 96rem; margin: 1rem auto; padding: 0 1rem; }
   nav { display: flex; gap: .5rem; margin: 1rem 0; }
   nav button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
+  /* One column and two tabs on a phone; at 64rem and wider both panels show side by side. */
+  #app { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 1.5rem; }
+  #runbar { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: .5rem 0; margin-bottom: .75rem; }
+  #runbar .tools { align-items: center; margin: 0 0 .3rem; }
+  #runbar button#btn-run { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; padding: .4rem 1.4rem; }
+  #runbar button#btn-run:disabled { opacity: .5; }
+  #runbar progress { flex: 1 1 8rem; width: auto; min-width: 6rem; }
+  #runbar #status { margin: 0; min-height: 1.4rem; font-size: .9rem; }
+  @media (min-width: 64rem) {
+    nav { display: none; }
+    #app { grid-template-columns: minmax(22rem, 28rem) minmax(0, 1fr); grid-template-areas: "setup bar" "setup run"; align-items: start; }
+    #runbar { grid-area: bar; }
+    #setup { grid-area: setup; position: sticky; top: .5rem; max-height: calc(100vh - 1rem); overflow-y: auto; padding-right: .3rem; }
+    #run { grid-area: run; }
+    #setup .row { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+  }
   /* min-width: a fieldset is otherwise as wide as its content, and overflows a phone. */
   fieldset { border: 1px solid var(--line); border-radius: .4rem; margin: 0 0 1rem; padding: .75rem; background: var(--panel); min-width: 0; }
   legend { font-weight: 600; padding: 0 .3rem; }
@@ -30,11 +46,40 @@
   .tools { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; }
   #problems { margin: 0; padding-left: 1.2rem; }
   #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 ui-monospace, monospace; box-sizing: border-box; }
-  #status { min-height: 1.4rem; }
   #status.error { color: var(--bad); }
   progress { width: 100%; }
-  table.counters { border-collapse: collapse; margin: .6rem 0; }
-  table.counters th, table.counters td { text-align: left; padding: .2rem 1.2rem .2rem 0; }
+  #problems-box { border: 1px solid var(--bad); border-radius: .4rem; padding: .5rem .75rem; margin: 0 0 1rem; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .6rem; margin: 0 0 .6rem; }
+  .tile { border: 1px solid var(--line); border-radius: .4rem; background: var(--panel); padding: .5rem .7rem; min-width: 0; }
+  .tile .lbl { display: block; font-size: .8rem; color: var(--muted); }
+  .tile .val { display: block; font-size: 1.5rem; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tile .val .unit { font-size: .85rem; color: var(--muted); margin-left: .2rem; }
+  .tile .val .err { display: block; font-size: .85rem; color: var(--muted); }
+  .tiles.second .val { font-size: 1.2rem; }
+  .tag { font-size: .75rem; border: 1px solid var(--line); border-radius: 1rem; padding: 0 .4rem; margin-left: .3rem; color: var(--muted); white-space: nowrap; }
+  .partition { margin: 0 0 .6rem; }
+  .partition .bar { display: flex; height: 1.6rem; border: 1px solid var(--line); border-radius: .3rem; overflow: hidden; }
+  .partition .bar span { min-width: 0; }
+  .partition ul { list-style: none; display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; padding: 0; margin: .3rem 0 0; font-size: .85rem; }
+  .partition .sw { display: inline-block; width: .8rem; height: .8rem; border: 1px solid var(--line); vertical-align: -1px; margin-right: .3rem; }
+  .strip { font-size: .85rem; color: var(--muted); margin: .3rem 0 .8rem; }
+  .strip b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+  #empty { border: 1px dashed var(--line); border-radius: .4rem; padding: .8rem 1rem; margin: 0 0 1rem; }
+  #empty h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
+  .stack { display: flex; height: 3.2rem; border: 1px solid var(--line); border-radius: .3rem; overflow: hidden; margin: .4rem 0; }
+  .stack div { flex: 1 1 0; min-width: 3rem; padding: .2rem .4rem; font-size: .8rem; border-right: 1px solid var(--line); overflow: hidden; background: var(--panel); }
+  .stack div:nth-child(even) { background: var(--bg); }
+  .stack div:last-child { border-right: 0; }
+  .stack small { display: block; }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 0; }
+  .chips button { border-radius: 1rem; padding: .25rem .8rem; }
+  #plots h2 { font-size: 1.05rem; margin: .8rem 0 .4rem; }
+  .plotgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: .8rem; margin: 0 0 .6rem; }
+  .plot { border: 1px solid var(--line); border-radius: .4rem; padding: .5rem .6rem; background: var(--panel); min-width: 0; }
+  .plot header { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+  .plot h3 { margin: 0; font-size: .95rem; }
+  .plot header button { font-size: .75rem; padding: .1rem .5rem; }
+  .plot .note { font-size: .8rem; margin: .2rem 0 0; }
   canvas { width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
   .legend { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: 0; margin: .3rem 0; font-size: .85rem; }
   [hidden] { display: none !important; }
@@ -50,10 +95,20 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
 
 <nav role="tablist" aria-label="View">
   <button role="tab" id="tab-setup" aria-selected="true" aria-controls="setup">Setup</button>
-  <button role="tab" id="tab-run" aria-selected="false" aria-controls="run">Run</button>
+  <button role="tab" id="tab-run" aria-selected="false" aria-controls="run">Results</button>
 </nav>
 
-<p id="status" role="status"></p>
+<div id="app">
+<div id="runbar" role="group" aria-label="Run controls">
+  <div class="tools">
+    <button type="button" id="btn-run">Run</button>
+    <button type="button" id="btn-pause" disabled>Pause</button>
+    <button type="button" id="btn-stop" disabled>Stop</button>
+    <progress id="progress" max="1" value="0" aria-label="Progress"></progress>
+    <button type="button" id="dl-json" disabled>Download report (JSON)</button>
+  </div>
+  <p id="status" role="status"></p>
+</div>
 
 <section id="setup" role="tabpanel" aria-labelledby="tab-setup">
   <fieldset>
@@ -97,6 +152,7 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
       <label>Depth bin (nm) <input id="bin" type="number" min="0" step="any" required></label>
       <label>Depth bins <input id="bins" type="number" min="1" step="1" required></label>
     </div>
+    <p class="note" id="cap-note"></p>
   </fieldset>
 
   <fieldset>
@@ -130,62 +186,75 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
 </section>
 
 <section id="run" role="tabpanel" aria-labelledby="tab-run" hidden>
-  <div class="tools">
-    <button type="button" id="btn-run">Run</button>
-    <button type="button" id="btn-pause" disabled>Pause</button>
-    <button type="button" id="btn-resume" disabled>Resume</button>
-    <button type="button" id="btn-stop" disabled>Stop</button>
+  <div id="empty">
+    <h2>No run yet</h2>
+    <p class="note">The target as set up, surface at the left (the last layer is a substrate if it is semi-infinite):</p>
+    <div id="layer-drawing" class="stack" role="img" aria-label="Target layers"></div>
+    <p class="note">Press Run, or load an example into Setup first:</p>
+    <div class="chips" id="examples">
+      <button type="button" data-example="b-si">B into Si</button>
+      <button type="button" data-example="as-sio2-si">As into SiO₂ on Si</button>
+      <button type="button" data-example="ar-cu">Ar into Cu, full cascades</button>
+    </div>
   </div>
-  <label>Progress <progress id="progress" max="1" value="0"></progress></label>
-  <p id="progress-text">Not started.</p>
-  <p class="note" id="cap-note"></p>
-  <table class="counters" id="counters">
-    <tr><th>Ions done</th><td id="c-done">–</td></tr>
-    <tr><th><i>R</i><sub>p</sub></th><td id="c-rp">–</td></tr>
-    <tr><th>Δ<i>R</i><sub>p</sub></th><td id="c-drp">–</td></tr>
-    <tr><th>Lateral straggle, y</th><td id="c-ly">–</td></tr>
-    <tr><th>Lateral straggle, z</th><td id="c-lz">–</td></tr>
-    <tr><th>Radial</th><td id="c-rad">–</td></tr>
-    <tr><th>Stopped in the target</th><td id="c-stopped">–</td></tr>
-    <tr><th>Backscattered (per ion)</th><td id="c-back">–</td></tr>
-    <tr><th>Transmitted (per ion)</th><td id="c-trans">–</td></tr>
-    <tr><th>Sputtered atoms per ion</th><td id="c-sput">–</td></tr>
-    <tr><th>Vacancies per ion <span id="c-vac-mode"></span></th><td id="c-vac">–</td></tr>
-    <tr><th>Energy to electrons (ionization)</th><td id="c-eion">–</td></tr>
-    <tr><th>Energy to the lattice (nuclear)</th><td id="c-enuc">–</td></tr>
-    <tr><th>Energy carried out of the target</th><td id="c-eesc">–</td></tr>
-    <tr><th>Energy, other (surface barrier, at rest)</th><td id="c-eoth">–</td></tr>
-  </table>
-  <fieldset>
-    <legend>Trajectories</legend>
-    <div class="tools">
-      <label>View
-        <select id="traj-view">
-          <option value="side">Side: depth across, y down</option>
-          <option value="end">End-on: y across, z down</option>
-        </select></label>
-      <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
+
+  <div id="results" hidden>
+    <div class="tiles" id="counters">
+      <div class="tile"><span class="lbl"><i>R</i><sub>p</sub> (mean depth)</span><span class="val" id="c-rp">–</span></div>
+      <div class="tile"><span class="lbl">Δ<i>R</i><sub>p</sub> (depth straggle)</span><span class="val" id="c-drp">–</span></div>
+      <div class="tile"><span class="lbl">Lateral straggle, y</span><span class="val" id="c-ly">–</span></div>
+      <div class="tile"><span class="lbl">Lateral straggle, z</span><span class="val" id="c-lz">–</span></div>
+      <div class="tile"><span class="lbl">Radial range</span><span class="val" id="c-rad">–</span></div>
     </div>
-    <canvas id="traj" width="900" height="360" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
-    <ul id="traj-legend" class="legend"></ul>
-    <p class="note" id="traj-note"></p>
-  </fieldset>
-  <fieldset>
-    <legend>Distributions</legend>
-    <div class="tools">
-      <button type="button" id="dl-json" disabled>Download full report (JSON)</button>
-      <button type="button" id="dl-png">Download trajectory view (PNG)</button>
+    <div class="tiles second">
+      <div class="tile"><span class="lbl">Backscattered (per ion)</span><span class="val" id="c-back">–</span></div>
+      <div class="tile"><span class="lbl">Transmitted (per ion)</span><span class="val" id="c-trans">–</span></div>
+      <div class="tile"><span class="lbl">Sputtered atoms per ion</span><span class="val" id="c-sput">–</span></div>
+      <div class="tile"><span class="lbl">Vacancies per ion <span class="tag" id="c-vac-mode"></span></span><span class="val" id="c-vac">–</span></div>
     </div>
-    <div id="plots"></div>
-    <ul id="caveats" class="note"></ul>
-  </fieldset>
+    <div class="partition">
+      <div class="note">Where the incident energy goes</div>
+      <div class="bar" id="partition-bar" role="img" aria-label="Energy partition"></div>
+      <ul>
+        <li><span class="sw" style="background:#0072B2"></span>To electrons (ionization) <b id="c-eion">–</b></li>
+        <li><span class="sw" style="background:#D55E00"></span>To the lattice (nuclear) <b id="c-enuc">–</b></li>
+        <li><span class="sw" style="background:#009E73"></span>Carried out of the target <b id="c-eesc">–</b></li>
+        <li><span class="sw" style="background:#E69F00"></span>Other (surface barrier, at rest) <b id="c-eoth">–</b></li>
+      </ul>
+    </div>
+  </div>
+
+  <p class="strip" id="strip">Ions done <b id="c-done">–</b>; stopped in the target <b id="c-stopped">–</b>.
+  ± is one standard error. Models: <span id="strip-models"></span>
+  Validation status and limits: <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md">docs/validation.md</a>.
+  Amorphous, static layered targets.</p>
+
+  <div id="results-body" hidden>
+    <fieldset>
+      <legend>Trajectories</legend>
+      <div class="tools">
+        <label>View
+          <select id="traj-view">
+            <option value="side">Side: depth across, y down</option>
+            <option value="end">End-on: y across, z down</option>
+          </select></label>
+        <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
+        <button type="button" id="dl-png">Download trajectory view (PNG)</button>
+      </div>
+      <canvas id="traj" width="900" height="360" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
+      <ul id="traj-legend" class="legend"></ul>
+      <p class="note" id="traj-note"></p>
+    </fieldset>
+    <div id="plots">
+      <div class="plotgrid" id="plots-main"></div>
+      <h2>Escapes</h2>
+      <div class="plotgrid" id="plots-escapes"></div>
+    </div>
+  </div>
+  <ul id="caveats" class="note"></ul>
   <p id="warnings" class="note"></p>
 </section>
-
-<p><small>Amorphous, static layered targets; the models in use are listed under Physics and
-written into the input file. Results carry statistical error (shown as one standard error);
-the engine's validation status and its limits are in
-<a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md">docs/validation.md</a>.</small></p>
+</div>
 
 <datalist id="symbols"></datalist>
 <script type="module" src="simulator.js"></script>
