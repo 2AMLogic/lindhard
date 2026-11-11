@@ -70,6 +70,8 @@ code, pre, .hljs { font-family: var(--lh-mono); }
     }
 }
 
+/* Cell padding is 10 px: the site font (system-ui) is wider than mdBook's, and
+   the 8-column table in models/stopping-residuals.html no longer fit at 12 px. */
 .content table {
     margin: 0;
     border-collapse: collapse;
@@ -80,7 +82,7 @@ code, pre, .hljs { font-family: var(--lh-mono); }
 }
 .content table th,
 .content table td {
-    padding: 6px 12px;
+    padding: 6px 10px;
     vertical-align: top;
     text-align: left;
     border: 0;
@@ -88,7 +90,7 @@ code, pre, .hljs { font-family: var(--lh-mono); }
     background-clip: padding-box;
 }
 .content table thead th {
-    padding: 6px 12px;
+    padding: 6px 10px;
     vertical-align: bottom;
     border-bottom: 2px solid var(--table-border-color);
 }
