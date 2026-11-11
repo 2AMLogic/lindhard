@@ -149,7 +149,7 @@ docs follow-up #121.
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-_None._
+- **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
 
 ## Very Important
 
@@ -168,28 +168,25 @@ _None._
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-_None._
+- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2)
-- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
-- **#629**: Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning
+_None._
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#631**: feat: add photon transport with EPDL2017 cross sections and per-region photon dose
-- **#635**: docs: data is not licensed, code is; admit cited data from any source (#629)
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
 
 ## Proposed
 
@@ -209,13 +206,27 @@ Issues carrying `loom:curated`.
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)*
 - **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning *(curated)*
 - **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
-- **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2) *(curated)*
 - **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)*
 - **#557**: Electron depth-dose and interface-enhancement validation against published measurements *(curated)*
 - **#561**: [Epic #22] Focused ion beams, part 3: lateral implant and damage profiles, film cut-through fluence, trench comparison *(curated)*
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose *(curated)*
 - **#565**: [Epic #22] Focused ion beams, part 2: validate sputter yield against incidence angle for one ion-target pair *(curated)*
-- **#629**: Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning *(curated)*
+- **#630**: Epic: lindhard as a comprehensive SRIM/TRIM replacement (feature-parity census and plan) *(curated)*
+- **#633**: [Epic #630] Enter the SRIM book's stopping coefficient and effective-charge tables (double entry) *(curated)*
+- **#634**: [Epic #630] Compound stopping: cores-and-bonds and phase corrections and a compound dictionary from the book *(curated)*
+- **#637**: [Epic #630] `lindhard stopping-table`: stopping and range tables over an energy grid *(curated)*
+- **#638**: [Epic #630] Energy-loss straggling beyond Bohr (verify transport use, add Chu-type model) *(curated)*
+- **#642**: [Epic #630] TRIM.IN importer *(curated)*
+- **#643**: [Epic #630] SRIM-format output writers *(curated)*
+- **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
+- **#660**: Landing page says the trajectory simulator is "planned" although it is published *(curated)*
+- **#661**: Range calculator: unreadable in dark mode, and other small defects *(curated)*
+- **#662**: Book: tables do not fit their content, and equations pan the page sideways on a phone *(curated)*
+- **#664**: One shared header, footer and visual system across the landing page, the book and the browser tools *(curated)*
+- **#666**: Simulator: one workspace on desktop, a single Run button, result tiles, and plots in a grid *(curated)*
+- **#668**: Simulator Setup: fields sized to their content, clearer layer controls, and a drawn layer stack *(curated)*
+- **#669**: Book readability: collapsible sidebar with the user guide first, line length and heading rhythm, code blocks, gallery figures in dark mode *(curated)*
+- **#670**: Simulator quick mode: the damage plot contradicts its note, and the energy partition reads as wrong *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -235,14 +246,14 @@ _None._
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 2 |
-| Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 3 |
-| PRs awaiting review | 2 |
-| Approved PRs awaiting merge | 0 |
-| Curated | 21 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 0 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 35 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 7 |
 <!-- guide:plan-body:end -->
