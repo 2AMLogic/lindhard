@@ -41,6 +41,12 @@ build() {
   "$web/../build.sh" web "$calc/pkg"
   cp "$web"/index.html "$web"/simulator.html "$web"/simulator.js "$web"/worker.js \
      "$web"/toml_model.js "$web"/run_view.js "$web"/plots.js "$calc/"
+  # Service worker (offline cache): stamp a hash of the shipped files into the
+  # cache name so a changed deploy replaces the old cache.
+  local build_id
+  rm -f "$calc/sw.js"
+  build_id="$(cat "$calc"/*.js "$calc"/*.html "$calc"/pkg/lindhard_wasm.js "$calc"/pkg/lindhard_wasm_bg.wasm | sha256sum | cut -c1-16)"
+  sed "s/__BUILD_ID__/$build_id/" "$web/sw.js" > "$calc/sw.js"
   mdbook build book
   cargo doc -p lindhard --no-deps
   mkdir -p book/book/api

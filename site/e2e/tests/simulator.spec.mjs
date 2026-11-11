@@ -320,12 +320,13 @@ test("Setup and Run fit a phone screen", async ({ page }) => {
   await expect(page.locator("#traj")).toBeVisible();
 });
 
-// Issue #469 asks that the page work offline after its first load. It does
-// not yet: each run starts a new Worker, which fetches worker.js and the
-// engine again, and nothing caches them for offline use (issue #653).
-// Remove `fixme` when that is fixed.
-test.fixme("a second run works after the network is gone", async ({ page, context }) => {
+// Issue #469 asks that the page work offline after its first load. The
+// service worker (issue #653) precaches the files each run's Worker fetches.
+test("a second run works after the network is gone", async ({ page, context }) => {
   await open(page);
+  // The worker answers fetches only once it is active and controls the page.
+  await page.evaluate(() => navigator.serviceWorker.ready);
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await configure(page, {});
   await run(page);
   await context.setOffline(true);
