@@ -360,15 +360,15 @@ function counters(done, total, report) {
 
 // ---- trajectory view -------------------------------------------------------
 
-// Series colours are CSS custom properties (--s0..--s5, per colour scheme in
-// simulator.html): Okabe-Ito, safe for the common colour-vision deficiencies;
-// the second cue is the dash pattern (generation) and an end marker (species).
+// Series colours are the shared Okabe-Ito plot tokens (--lh-plot-1..6 in
+// site/tokens.css), safe for the common colour-vision deficiencies; the second
+// cue is the dash pattern (generation) and an end marker (species).
 // `SPECIES_COLOURS` is re-read from the page at the start of every draw.
 const SERIES_COUNT = 6;
 let SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
 function readPalette() {
   const css = getComputedStyle(document.documentElement);
-  SPECIES_COLOURS = SPECIES_COLOURS.map((old, i) => css.getPropertyValue(`--s${i}`).trim() || old);
+  SPECIES_COLOURS = SPECIES_COLOURS.map((old, i) => css.getPropertyValue(`--lh-plot-${i + 1}`).trim() || old);
 }
 
 /**

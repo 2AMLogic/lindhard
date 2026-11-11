@@ -4,11 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lindhard range calculator</title>
+<!--SITE_HEAD-->
 <style>
-  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --rp: #c0392b; }
-  @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --rp: #ff8a80; } }
-  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 46rem; margin: 1.5rem auto; padding: 0 1rem; }
-  a { color: var(--accent); }
+  /* The page's own names for the shared tokens (site/tokens.css). */
+  :root { --fg: var(--lh-fg); --bg: var(--lh-bg); --muted: var(--lh-muted); --line: var(--lh-rule); --accent: var(--lh-link); --bad: var(--lh-caution); }
+  body { margin: 0; color: var(--fg); background: var(--bg); font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); }
+  main { max-width: 46rem; margin: 1.5rem auto 0; padding: 0 1rem; }
   form { display: grid; gap: .75rem; }
   .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; align-items: end; }
   label { display: flex; flex-direction: column; font-size: .85rem; gap: .2rem; }
@@ -21,13 +22,15 @@
   table { border-collapse: collapse; margin: 1rem 0; }
   th, td { text-align: left; padding: .2rem 1rem .2rem 0; }
   #status { min-height: 1.4rem; }
-  #status.error { color: var(--bad); }
-  canvas { width: 100%; height: auto; border: 1px solid var(--line); background: var(--bg); }
-  small { color: var(--muted); }
+  #status.error { color: var(--lh-caution); }
+  canvas { width: 100%; height: auto; border: 1px solid var(--lh-rule); }
+  small { color: var(--lh-muted); }
   [hidden] { display: none !important; }
 </style>
 </head>
 <body>
+<!--SITE_HEADER-->
+<main>
 <h1>Ion range calculator</h1>
 <p><a href="simulator.html">Open the simulator</a> for layered targets, full cascades and a downloadable input file.</p>
 <p>Projected range <i>R</i><sub>p</sub>, straggle Δ<i>R</i><sub>p</sub> and depth
@@ -65,6 +68,9 @@ on every machine to within the statistical error. Model validity and its
 limits are in the <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/stopping-models.md">stopping-model
 notes</a>; warnings from the engine are shown above the result.</small></p>
 
+</main>
+<!--SITE_FOOTER-->
+
 <script type="module">
 import { niceTicks } from "./plots.js";
 
@@ -93,7 +99,12 @@ let lastResult = null;
 function plot(r) {
   const canvas = $("plot");
   const ctx = canvas.getContext("2d");
-  const fg = css("--fg"), bar = css("--accent"), rp = css("--rp");
+  // Colours come from the site tokens; without them (the page opened
+  // standalone) the text colour is used for everything.
+  const css = getComputedStyle(document.documentElement);
+  const token = (name, fallback) => css.getPropertyValue(name).trim() || fallback;
+  const fg = token("--lh-fg", getComputedStyle(document.body).color);
+  const bar = token("--lh-plot-bar", fg);
   const W = canvas.width, H = canvas.height;
   const m = { l: 80, r: 25, t: 15, b: 45 };
   const w = r.bin_nm;
@@ -102,7 +113,7 @@ function plot(r) {
   const ymax = Math.max(...y) * 1.05;
   const xmax = r.counts.length * w;
   ctx.clearRect(0, 0, W, H);
-  ctx.font = "14px system-ui, sans-serif";
+  ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.font = `14px ${token("--lh-font", "system-ui, sans-serif")}`;
   const px = (x) => m.l + (x / xmax) * (W - m.l - m.r);
   const py = (v) => H - m.b - (v / ymax) * (H - m.t - m.b);
   ctx.fillStyle = bar;
@@ -127,7 +138,7 @@ function plot(r) {
   ctx.save(); ctx.translate(14, (H - m.b + m.t) / 2); ctx.rotate(-Math.PI / 2);
   ctx.textAlign = "center"; ctx.fillText("stopped ions per incident ion per nm", 0, 0); ctx.restore();
   // Mark Rp.
-  ctx.strokeStyle = rp; ctx.setLineDash([5, 4]);
+  ctx.strokeStyle = token("--lh-plot-mark", fg); ctx.setLineDash([5, 4]);
   ctx.beginPath(); ctx.moveTo(px(r.rp_nm), m.t); ctx.lineTo(px(r.rp_nm), H - m.b); ctx.stroke();
   ctx.setLineDash([]);
 }

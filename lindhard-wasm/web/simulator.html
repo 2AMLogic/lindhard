@@ -4,14 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lindhard simulator</title>
+<!--SITE_HEAD-->
 <style>
-  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --panel: #f4f5f8;
-    /* Series colours (Okabe-Ito), in order; the dark set swaps the blue for one that stays visible as a thin line. */
-    --s0: #0072B2; --s1: #D55E00; --s2: #009E73; --s3: #CC79A7; --s4: #E69F00; --s5: #56B4E9; --swatch-mark: #888; }
-  @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --panel: #22242a; --s0: #5AB4F0; --s1: #F08A3C; --s2: #2FCB9E; --s3: #E08CBC; --s4: #F0B52A; --s5: #8CCBF5; --swatch-mark: #b8b8c0; } }
-  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 72rem; margin: .5rem auto; padding: 0 1rem; }
-  nav { display: flex; gap: .5rem; margin: 1rem 0; }
-  nav button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
+  /* The page's own names for the shared tokens (site/tokens.css). */
+  :root { --fg: var(--lh-fg); --bg: var(--lh-bg); --muted: var(--lh-muted); --line: var(--lh-rule); --accent: var(--lh-link); --bad: var(--lh-caution); --panel: var(--lh-surface); }
+  body { margin: 0; font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); color: var(--fg); background: var(--bg); }
+  main { max-width: 72rem; margin: 1rem auto 0; padding: 0 1rem; }
+  nav[role="tablist"] { display: flex; gap: .5rem; margin: 1rem 0; }
+  nav[role="tablist"] button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
   /* min-width: a fieldset is otherwise as wide as its content, and overflows a phone. */
   fieldset { border: 1px solid var(--line); border-radius: .4rem; margin: 0 0 1rem; padding: .75rem; background: var(--panel); min-width: 0; }
   legend { font-weight: 600; padding: 0 .3rem; }
@@ -62,7 +62,7 @@
   .note, small { color: var(--muted); }
   .tools { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; }
   #problems { margin: 0; padding-left: 1.2rem; }
-  #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 ui-monospace, monospace; box-sizing: border-box; }
+  #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 var(--lh-mono, monospace); box-sizing: border-box; }
   #status { min-height: 1.4rem; }
   #status.error { color: var(--bad); }
   progress { width: 100%; }
@@ -85,6 +85,8 @@
 </style>
 </head>
 <body>
+<!--SITE_HEADER-->
+<main>
 <h1>lindhard simulator</h1>
 <p>Set up a beam and a layered amorphous target, then run it. The
 <a href="https://github.com/2AMLogic/lindhard">lindhard</a> binary-collision engine
@@ -249,6 +251,8 @@ the engine's validation status and its limits are in
 <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md">docs/validation.md</a>.</small></p>
 
 <datalist id="symbols"></datalist>
+</main>
+<!--SITE_FOOTER-->
 <script type="module" src="simulator.js"></script>
 </body>
 </html>
