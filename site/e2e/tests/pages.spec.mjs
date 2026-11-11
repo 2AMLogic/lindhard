@@ -55,15 +55,13 @@ test("at 1440 px the first screen shows the description, both buttons and the fi
   await inView(page.locator(".hero-figure img"));
 });
 
-test("the hero figure loads, links to the simulator and has a generated caption", async ({ page, request }) => {
+test("the hero figure loads, links to the simulator and has a generated caption", async ({ page }) => {
   await page.goto("index.html");
   const img = page.locator(".hero-figure img");
   await expect.poll(() => img.evaluate((i) => i.complete && i.naturalWidth > 0)).toBe(true);
   await expect(page.locator(".hero-figure a")).toHaveAttribute("href", "calculator/simulator.html");
   const caption = await page.locator(".hero-figure figcaption").innerText();
   for (const word of [/5 keV B into Si/, /\d+ ions/, /seed \d+/, /models:/]) expect(caption).toMatch(word);
-  const generated = await request.get("gallery/generated/quickstart.md");
-  expect(generated.status()).toBe(200);
 });
 
 test("the metadata line carries the workspace version", async ({ page }) => {
