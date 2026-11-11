@@ -507,7 +507,7 @@ function paintTrajectories(ctx, W, H) {
     const q = t.points[t.points.length - 1];
     if (!q) continue;
     const [u, v] = view === "side" ? [q[0], q[1]] : [q[1], q[2]];
-    ctx.fillStyle = palette[t.species % palette.length];
+    ctx.fillStyle = SPECIES_COLOURS[t.species % SPECIES_COLOURS.length];
     ctx.strokeStyle = fg;
     marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), 4);
   }
@@ -633,7 +633,7 @@ function drawPlot(spec) {
     spec.categories.forEach((c, i) => {
       ctx.fillStyle = muted;
       ctx.fillText(c, L + (i + 0.5) * bw, H - B + 16, bw - 4);
-      ctx.fillStyle = palette[i % palette.length];
+      ctx.fillStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length];
       const top = sy(spec.series[0].y[i]);
       ctx.fillRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
       ctx.strokeStyle = fg; ctx.strokeRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
@@ -646,7 +646,7 @@ function drawPlot(spec) {
     }
     ctx.lineWidth = 1.6;
     for (const s of spec.series) {
-      ctx.strokeStyle = palette[s.style % palette.length];
+      ctx.strokeStyle = SPECIES_COLOURS[s.style % SPECIES_COLOURS.length];
       ctx.setLineDash(dashForSeries(s.style));
       ctx.beginPath();
       if (s.line) {
