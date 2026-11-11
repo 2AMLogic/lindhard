@@ -22,14 +22,6 @@ fn normal(rng: &mut ParticleRng) -> f64 {
     (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos()
 }
 
-fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build()
-        .unwrap()
-        .install(f)
-}
-
 #[test]
 fn gaussian_moments_are_recovered() {
     let (mu, sigma) = (120.0 * NM, 35.0 * NM);
@@ -291,6 +283,7 @@ fn dual_pearson_rejects_thin_histograms() {
 
 mod common;
 use common::si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn config() -> IonTallyConfig {

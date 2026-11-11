@@ -14,6 +14,7 @@ const NM: f64 = 1e-9;
 mod common;
 use common::si_surface_binding_if_unset as si;
 use common::sio2;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 /// Set `E_d` = 15 eV for every element and `E_s` = 2 eV where the element
@@ -35,14 +36,6 @@ fn elemental(z: u8) -> Material {
 
 fn run_summary(bca: &Bca, bin_m: f64, bins: usize) -> SummaryTally {
     bca.run(|| SummaryTally::new(bin_m, bins)).unwrap()
-}
-
-fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build()
-        .unwrap()
-        .install(f)
 }
 
 #[test]
