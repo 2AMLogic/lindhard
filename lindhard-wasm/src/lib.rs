@@ -66,6 +66,9 @@ pub struct Profile {
     pub drp_std_err_nm: f64,
     /// Ions that came to rest in the target.
     pub stopped: u64,
+    /// Primary ions that left the target (backscattered, transmitted or out
+    /// of a side face) instead of stopping; `stopped + escaped == histories`.
+    pub escaped: u64,
     /// Ions run.
     pub histories: u64,
     /// Width of one histogram bin, nm.
@@ -83,6 +86,7 @@ pub struct Profile {
 #[derive(Debug, Default)]
 struct DepthTally {
     histories: u64,
+    escaped: u64,
     depths_m: Vec<f64>,
 }
 
@@ -97,10 +101,16 @@ impl BcaTally for DepthTally {
         }
     }
 
-    fn escaped(&mut self, _p: &Particle, _face: Face) {}
+    fn escaped(&mut self, p: &Particle, _face: Face) {
+        // Sputtered recoils also leave through the front face; count the beam.
+        if p.is_primary() {
+            self.escaped += 1;
+        }
+    }
 
     fn merge(&mut self, other: Self) {
         self.histories += other.histories;
+        self.escaped += other.escaped;
         self.depths_m.extend(other.depths_m);
     }
 }
@@ -180,6 +190,7 @@ pub fn range_profile(req: &Request) -> Result<Profile, String> {
         rp_std_err_nm: summary.mean_std_err,
         drp_std_err_nm: summary.std_dev_std_err,
         stopped: tally.depths_m.len() as u64,
+        escaped: tally.escaped,
         histories: tally.histories,
         bin_nm,
         counts,
@@ -222,6 +233,12 @@ impl RangeResult {
     #[wasm_bindgen(getter)]
     pub fn stopped(&self) -> f64 {
         self.0.stopped as f64
+    }
+
+    /// Ions that left the target instead of stopping in it.
+    #[wasm_bindgen(getter)]
+    pub fn escaped(&self) -> f64 {
+        self.0.escaped as f64
     }
 
     /// Ions run.

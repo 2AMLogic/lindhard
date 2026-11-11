@@ -67,6 +67,8 @@ fn native_matches_the_golden_record() {
     );
     assert_eq!(p.histories, 10_000);
     assert_eq!(p.counts.iter().sum::<u64>(), p.stopped);
+    // Every primary either stops or leaves the target.
+    assert_eq!(p.stopped + p.escaped, p.histories);
 }
 
 #[test]

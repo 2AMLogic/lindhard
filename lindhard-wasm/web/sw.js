@@ -17,6 +17,7 @@ const PRECACHE = [
   "simulator.html",
   "simulator.js",
   "worker.js",
+  "calculator-worker.js",
   "toml_model.js",
   "run_view.js",
   "plots.js",

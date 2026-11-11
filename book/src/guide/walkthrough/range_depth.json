@@ -11,5 +11,5 @@
     "kurtosis_std_err": 0.04691467531104645
   },
   "pearson_iv": null,
-  "pearson_iv_error": "moments outside the Pearson IV region: skewness = 0.37117262070685103, kurtosis = 2.7137519074674534 (needs kurtosis > Some(3.260100391096362))"
+  "pearson_iv_error": "moments outside the Pearson IV region: skewness = ..., kurtosis = ..."
 }
