@@ -87,3 +87,78 @@
     max-width: 100%;
     padding: 2px 0;
 }
+
+/* Readability rules for the lindhard book (issue #669). Sections are kept
+   separate so other style work can append its own. */
+
+/* --- Prose ------------------------------------------------------------ */
+.content main {
+  line-height: 1.6;
+}
+/* About 70 characters per line; wide things keep the full width. */
+.content main > p,
+.content main > ul,
+.content main > ol,
+.content main > blockquote,
+.content main > dl {
+  max-width: 70ch;
+}
+.content main > ul li,
+.content main > ol li {
+  margin-block: 0.25em;
+}
+
+/* --- Headings --------------------------------------------------------- */
+.content main h1 { margin-block: 0 0.8em; }
+.content main h2 {
+  margin-block: 1.6em 0.6em;
+  padding-bottom: 0.2em;
+  border-bottom: 1px solid var(--table-border-color, #ccc);
+}
+.content main h3 { margin-block: 1.3em 0.4em; }
+.content main h4 {
+  margin-block: 1.1em 0.3em;
+  font-size: 1em;
+  font-style: italic;
+  text-transform: none;
+}
+
+/* --- Code blocks ------------------------------------------------------ */
+.content main pre {
+  border: 1px solid var(--table-border-color, #ccc);
+  border-radius: 4px;
+}
+.content main pre > code {
+  max-height: 28em;
+  overflow: auto;
+}
+@media (max-width: 600px) {
+  .content main pre > code { font-size: 0.8em; }
+}
+
+/* --- Figures ---------------------------------------------------------- */
+.content main img {
+  max-width: 100%;
+  height: auto;
+}
+.gallery-thumbs {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(14em, 1fr));
+  gap: 1em;
+  margin-block: 1.2em;
+}
+.gallery-thumbs a {
+  display: block;
+  text-decoration: none;
+}
+.gallery-thumbs img {
+  display: block;
+  width: 100%;
+  border: 1px solid var(--table-border-color, #ccc);
+  border-radius: 4px;
+}
+.gallery-thumbs span {
+  display: block;
+  margin-top: 0.3em;
+  font-size: 0.9em;
+}

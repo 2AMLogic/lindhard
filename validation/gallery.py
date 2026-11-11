@@ -62,6 +62,33 @@ GRID = "#ddd"
 BLUE = "#1f77b4"
 ORANGE = "#d95f02"
 
+# Dark-scheme counterparts. The figures are embedded with <img>, so they
+# cannot inherit the page's colours; they follow the OS colour scheme through
+# a <style> block of their own (attribute selectors keep the drawing code
+# above unchanged). Dark ink on a dark plate: 12:1; the lighter series
+# colours on the plate: 8:1 (blue) and 9:1 (orange).
+DARK_PLATE = "#1e2124"
+DARK_INK = "#e4e4e4"
+DARK_GRID = "#444"
+DARK_BLUE = "#6fb7ee"
+DARK_ORANGE = "#ff9f4a"
+
+
+def dark_style() -> str:
+    """The <style> element that re-colours a figure under a dark OS scheme."""
+    rules = [
+        (f'rect[fill="#fff"]', f"fill:{DARK_PLATE}"),
+        (f'[fill="{INK}"]', f"fill:{DARK_INK}"),
+        (f'[stroke="{INK}"]', f"stroke:{DARK_INK}"),
+        (f'[stroke="{GRID}"]', f"stroke:{DARK_GRID}"),
+        (f'[fill="{BLUE}"]', f"fill:{DARK_BLUE}"),
+        (f'[stroke="{BLUE}"]', f"stroke:{DARK_BLUE}"),
+        (f'[fill="{ORANGE}"]', f"fill:{DARK_ORANGE}"),
+        (f'[stroke="{ORANGE}"]', f"stroke:{DARK_ORANGE}"),
+    ]
+    body = "".join(f"{sel}{{{decl}}}" for sel, decl in rules)
+    return f"<style>@media (prefers-color-scheme: dark){{{body}}}</style>"
+
 
 def run(cmd: list[str], cwd: Path) -> None:
     proc = subprocess.run(
@@ -129,6 +156,7 @@ def chart(
         f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" '
         f'width="{w}" height="{h}" font-family="sans-serif" font-size="12" '
         f'role="img" aria-label="{title}">',
+        dark_style(),
         f'<rect width="{w}" height="{h}" fill="#fff"/>',
         f'<text x="{w / 2}" y="22" text-anchor="middle" font-size="14" '
         f'fill="{INK}">{title}</text>',
