@@ -9,6 +9,7 @@ one version).
 
 ### Added
 
+- The exposure tally takes the electron beam profile type, so `[electron.tally.exposure]` gains `beam = { model = "rectangle", width_y_nm, width_z_nm }`; the `model = "disc"` spelling is accepted beside the historical `kind = "uniform-disc"`, and exposure outputs and landing-offset draws are unchanged (#608).
 - Energy by depth for ion runs: `energy_profile.csv`, `IonReport::energy` (`EnergyProfileReport`, built on the new `WeightedHistogram`) and the Python `RunResult.energy_profile` give the electronic loss, the lattice energy and the energy transferred to primary recoils on the depth grid; each sums to the matching energy-budget total (#639).
 - 2-D dynamic run: lateral implanted-species and displacement-damage profiles on a `VoxelTallyGrid` at chosen fluences (`DynamicRun2d::with_profiles`, `ProfileSnapshot` CSV export), a film cut-through run mode (`run_until_cut_through`) that reports the fluence bracket and the damage left in the substrate, and `compare_profile` for comparing a milled profile with published points (RMS depth difference, tolerance, per-point discrepancies). No published trench cross-section is committed yet (#561).
 

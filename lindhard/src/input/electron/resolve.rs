@@ -22,9 +22,9 @@ use crate::input::{divergence_from_spec, invalid, resolve_material, InputError, 
 use crate::ion::crystal::Divergence;
 use crate::material::Material;
 use crate::tally::{
-    BeamProfile as ExposureBeamProfile, Binning, CartesianGrid, CylindricalGrid, DepthDoseConfig,
-    DoseConfig, ElectronTallyConfig, ExposureConfig, ExposureVolume, InterfaceRefine,
-    LogRadialBinning, PsfConfig, PsfModel, PsfNormalization, VolumeShape, VoxelTallyGrid,
+    Binning, CartesianGrid, CylindricalGrid, DepthDoseConfig, DoseConfig, ElectronTallyConfig,
+    ExposureConfig, ExposureVolume, InterfaceRefine, LogRadialBinning, PsfConfig, PsfModel,
+    PsfNormalization, VolumeShape, VoxelTallyGrid,
 };
 
 use super::resolved::*;
@@ -935,12 +935,19 @@ impl ElectronInput {
             }
         };
         let beam = match x.beam {
-            ExposureBeamSpec::Point => ExposureBeamProfile::Point,
-            ExposureBeamSpec::Gaussian { sigma_nm } => ExposureBeamProfile::Gaussian {
+            BeamProfileSpec::Point => BeamProfile::Point,
+            BeamProfileSpec::Gaussian { sigma_nm } => BeamProfile::Gaussian {
                 sigma_m: nm("beam.sigma_nm", sigma_nm)?,
             },
-            ExposureBeamSpec::UniformDisc { radius_nm } => ExposureBeamProfile::UniformDisc {
+            BeamProfileSpec::Disc { radius_nm } => BeamProfile::Disc {
                 radius_m: nm("beam.radius_nm", radius_nm)?,
+            },
+            BeamProfileSpec::Rectangle {
+                width_y_nm,
+                width_z_nm,
+            } => BeamProfile::Rectangle {
+                width_y_m: nm("beam.width_y_nm", width_y_nm)?,
+                width_z_m: nm("beam.width_z_nm", width_z_nm)?,
             },
         };
         let mut volumes = Vec::new();
