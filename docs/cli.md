@@ -1367,14 +1367,12 @@ smooth contour's by `O(h^2)` in the grid spacing.
 
 Files written to the output directory:
 
-| File | Contents |
-|---|---|
-| `exposure_dose.csv` | `x_m,y_m,dose_ev_per_m2`, one row per grid point, rows in grid order (x fastest) |
-| `exposure_contours.csv` | with a threshold: one row per contour vertex, with the contour's index, `closed`, area and centroid |
-| `exposure_features.csv` | with a threshold: one row per contour: `contour,closed,vertices,signed_area_m2,centroid_x_m,centroid_y_m` |
-| `exposure_summary.json` | shot count, the PSF, blur, grid, largest dose, the large-area dose per unit weight density split into the forward (`alpha`) part and the long-range (backscatter) part, the contour count, and (with `--direct`) the `direct` block (settings and the number of flagged points; `null` otherwise) |
-| `exposure_direct.csv` | with `--direct`: `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2` from transport, rows in grid order |
-| `exposure_comparison.csv` | with `--direct`: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged` |
+- `exposure_dose.csv`: `x_m,y_m,dose_ev_per_m2`, one row per grid point, rows in grid order (x fastest)
+- `exposure_contours.csv`: with a threshold: one row per contour vertex, with the contour's index, `closed`, area and centroid
+- `exposure_features.csv`: with a threshold: one row per contour: `contour,closed,vertices,signed_area_m2,centroid_x_m,centroid_y_m`
+- `exposure_summary.json`: shot count, the PSF, blur, grid, largest dose, the large-area dose per unit weight density split into the forward (`alpha`) part and the long-range (backscatter) part, the contour count, and (with `--direct`) the `direct` block (settings and the number of flagged points; `null` otherwise)
+- `exposure_direct.csv`: with `--direct`: `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2` from transport, rows in grid order
+- `exposure_comparison.csv`: with `--direct`: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged`
 
 The large-area dose of a uniform exposure of `w` primaries per m^2 is `w E`
 (the PSF integrates to `E`), of which the forward term gives the share
