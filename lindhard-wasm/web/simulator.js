@@ -800,6 +800,9 @@ function startRun() {
   };
   worker.postMessage({ type: "init", toml: toToml(setup), ions: setup.run.ions, recordHistories: RECORDED_HISTORIES, maxPoints: MAX_POINTS_PER_TRACK });
   histories = []; pendingProgress = null;
+  // Species indices are per-run: show every species again, and re-sync the legend checkboxes.
+  hiddenSpecies.clear();
+  if (legendReport) drawLegend(legendReport);
   counters(0, setup.run.ions, null);
   drawTrajectories();
   drawPlots(null);
