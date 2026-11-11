@@ -471,7 +471,6 @@ function legendSwatch(i) {
 }
 
 function drawPlot(spec) {
-  readPalette();
   const { canvas, legend, note } = plotView(spec);
   const size = fitCanvas(canvas);
   const ctx = canvas.getContext("2d");
@@ -545,6 +544,7 @@ function drawPlot(spec) {
 function drawPlots(report) {
   lastReport = report;
   if (report === null) { $("plots").replaceChildren(); plotViews.clear(); }
+  readPalette();
   plotSpecs = buildPlots(report, { layerNames: setup.layers.map((l) => l.name), symbolOfZ });
   for (const s of plotSpecs) drawPlot(s);
   $("caveats").replaceChildren(...caveatLines(report, setup.physics).map((t) => h("li", {}, t)));
@@ -570,7 +570,24 @@ $("dl-png").addEventListener("click", () => {
 function redrawAll() {
   drawTrajectories();
   if (legendReport) drawLegend(legendReport);
+  readPalette();
   for (const s of plotSpecs) drawPlot(s);
+}
+
+// Latest unpainted progress message; painted by the next animation frame.
+let pendingProgress = null, progressDrawQueued = false;
+function queueProgressDraw() {
+  if (progressDrawQueued) return;
+  progressDrawQueued = true;
+  requestAnimationFrame(() => {
+    progressDrawQueued = false;
+    const p = pendingProgress;
+    if (!p) return;
+    pendingProgress = null;
+    drawPlots(p.report);
+    if (p.firstTrajectories) drawLegend(p.report);
+    if (p.newTrajectories) drawTrajectories();
+  });
 }
 
 let redrawQueued = false;
@@ -603,19 +620,28 @@ function startRun() {
         status("Running…");
         break;
       case "progress":
+        // Counting and recording are cheap and happen for every message; the
+        // drawing is coalesced to one per animation frame, so a slow draw
+        // cannot let progress messages queue up behind it (which would keep
+        // the counters moving after Pause).
         counters(m.done, m.total, m.report);
-        drawPlots(m.report);
         histories.push(...m.trajectories);
-        if (histories.length === m.trajectories.length) drawLegend(m.report);
-        if (m.trajectories.length) drawTrajectories();
+        pendingProgress = {
+          report: m.report,
+          firstTrajectories: pendingProgress?.firstTrajectories || histories.length === m.trajectories.length,
+          newTrajectories: (pendingProgress?.newTrajectories || 0) + m.trajectories.length,
+        };
+        queueProgressDraw();
         break;
       case "finished":
+        pendingProgress = null;
         counters(m.done, m.total, m.report);
         drawPlots(m.report);
         status("Done (± is one standard error).");
         endRun();
         break;
       case "stopped":
+        pendingProgress = null;
         status(`Stopped after ${m.done} of ${m.total} ions.`);
         endRun();
         break;
@@ -632,7 +658,7 @@ function startRun() {
     endRun();
   };
   worker.postMessage({ type: "init", toml: toToml(setup), ions: setup.run.ions, recordHistories: RECORDED_HISTORIES, maxPoints: MAX_POINTS_PER_TRACK });
-  histories = [];
+  histories = []; pendingProgress = null;
   counters(0, setup.run.ions, null);
   drawTrajectories();
   drawPlots(null);
