@@ -4,6 +4,22 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-10
 
+- **PR #657**: feat: add service worker for offline calculator use
+- **PR #656**: fix(web): give Si and SiO2 presets an illustrative Si displacement energy
+- **PR #655**: test(site): Playwright browser tests of the site, run in CI before and after publishing
+- **PR #652**: feat: add stopping = "srim" model reading a cited coefficient file
+- **PR #649**: feat: report electronic, lattice and recoil energy by depth
+- **PR #648**: feat: tally NRT and Kinchin-Pease displacements by PKA depth
+- **PR #647**: feat: weighted primary-energy spectrum for [beam]
+- **PR #646**: feat: add ideal-gas material spec with a gas phase flag
+- **PR #645**: docs: record that BCA transport does not sample straggling
+- **Issue #654** (closed): Simulator: adding a Si, SiO2 or GaAs preset layer leaves the setup unrunnable until a displacement energy is typed
+- **Issue #653** (closed): Simulator page does not work offline after its first load
+- **Issue #641** (closed): [Epic #630] PKA-spectrum primaries (neutron-recoil style cascades)
+- **Issue #640** (closed): [Epic #630] Quick-calculation mode: K-P/NRT damage without cascades (verify, expose)
+- **Issue #639** (closed): [Epic #630] Ionization, phonon and energy-to-recoil depth profiles (verify, add missing)
+- **Issue #636** (closed): [Epic #630] Gas targets: density from pressure and temperature, gas-phase flag
+- **Issue #632** (closed): [Epic #630] `stopping = "srim"`: SRIM-book electronic stopping as a selectable model
 - **PR #635**: docs: data is not licensed, code is; admit cited data from any source (#629)
 - **Issue #629** (closed): Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning
 - **PR #627**: refactor: consolidate duplicated [f64; 3] helpers into a vec3 module
