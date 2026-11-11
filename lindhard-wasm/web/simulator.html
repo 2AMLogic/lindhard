@@ -5,8 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lindhard simulator</title>
 <style>
-  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --panel: #f4f5f8; }
-  @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --panel: #22242a; } }
+  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --panel: #f4f5f8;
+    /* Series colours (Okabe-Ito), in order; the dark set swaps the blue for one that stays visible as a thin line. */
+    --s0: #0072B2; --s1: #D55E00; --s2: #009E73; --s3: #CC79A7; --s4: #E69F00; --s5: #56B4E9; --swatch-mark: #888; }
+  @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --panel: #22242a; --s0: #5AB4F0; --s1: #F08A3C; --s2: #2FCB9E; --s3: #E08CBC; --s4: #F0B52A; --s5: #8CCBF5; --swatch-mark: #b8b8c0; } }
   body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 72rem; margin: .5rem auto; padding: 0 1rem; }
   nav { display: flex; gap: .5rem; margin: 1rem 0; }
   nav button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
@@ -66,7 +68,9 @@
   progress { width: 100%; }
   table.counters { border-collapse: collapse; margin: .6rem 0; }
   table.counters th, table.counters td { text-align: left; padding: .2rem 1.2rem .2rem 0; }
-  canvas { width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  canvas { display: block; width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  canvas#traj { aspect-ratio: 900 / 360; }
+  .plot canvas[role=img] { aspect-ratio: 3 / 1; }
   .legend { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: 0; margin: .3rem 0; font-size: .85rem; }
   [hidden] { display: none !important; }
   @media (min-width: 60rem) { .target { grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; } .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pair.ratio { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } figure.stack { position: sticky; top: 1rem; } }
@@ -223,7 +227,7 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
         </select></label>
       <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
     </div>
-    <canvas id="traj" width="900" height="360" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
+    <canvas id="traj" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
     <ul id="traj-legend" class="legend"></ul>
     <p class="note" id="traj-note"></p>
   </fieldset>
