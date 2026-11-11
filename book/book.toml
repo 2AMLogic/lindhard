@@ -21,3 +21,8 @@ site-url = "/lindhard/"
 additional-css = ["theme/lindhard.css"]
 default-theme = "light"
 preferred-dark-theme = "coal"
+no-section-label = true
+
+[output.html.fold]
+enable = true
+level = 0

@@ -2,6 +2,11 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-11
+
+- **PR #617**: validation: attribute the pure-Cu sputter shortfall and compare engine Ni with stored sets
+- **Issue #544** (closed): [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2)
+
 ### 2026-11-10
 
 - **PR #657**: feat: add service worker for offline calculator use

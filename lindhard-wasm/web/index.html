@@ -6,17 +6,26 @@
 <title>lindhard range calculator</title>
 <!--SITE_HEAD-->
 <style>
-  body { margin: 0; color: var(--lh-fg); background: var(--lh-bg); font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); }
+  /* The page's own names for the shared tokens (site/tokens.css). */
+  :root { --fg: var(--lh-fg); --bg: var(--lh-bg); --muted: var(--lh-muted); --line: var(--lh-rule); --accent: var(--lh-link); --bad: var(--lh-caution); }
+  body { margin: 0; color: var(--fg); background: var(--bg); font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); }
   main { max-width: 46rem; margin: 1.5rem auto 0; padding: 0 1rem; }
-  form { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .75rem; align-items: end; }
+  form { display: grid; gap: .75rem; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .75rem; align-items: end; }
   label { display: flex; flex-direction: column; font-size: .85rem; gap: .2rem; }
-  input, button { font: inherit; padding: .3rem .4rem; }
+  input, button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .25rem; padding: .3rem .4rem; min-width: 0; }
+  input[aria-invalid="true"] { border-color: var(--bad); outline: 1px solid var(--bad); }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; padding: .45rem 1.4rem; justify-self: start; }
+  button:disabled { opacity: .5; cursor: default; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
   table { border-collapse: collapse; margin: 1rem 0; }
   th, td { text-align: left; padding: .2rem 1rem .2rem 0; }
   #status { min-height: 1.4rem; }
   #status.error { color: var(--lh-caution); }
   canvas { width: 100%; height: auto; border: 1px solid var(--lh-rule); }
   small { color: var(--lh-muted); }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
@@ -31,12 +40,16 @@ engine running in your browser (WebAssembly, one thread). Nothing is sent to a
 server.</p>
 
 <form id="form">
-  <label>Ion <input id="ion" value="B" list="ions" required size="3"></label>
-  <label>Energy (keV) <input id="energy" type="number" value="5" min="0.01" step="any" required></label>
-  <label>Target <input id="target" value="Si" list="targets" required size="3"></label>
-  <label>Ions <input id="ions-n" type="number" value="10000" min="100" max="1000000" step="100" required></label>
-  <label>Seed <input id="seed" type="number" value="1" min="0" step="1" required></label>
-  <button id="run" type="submit">Run</button>
+  <div class="row">
+    <label>Ion <input id="ion" value="B" list="ions" required size="3"></label>
+    <label>Energy (keV) <input id="energy" type="number" value="10" min="0.01" step="any" required></label>
+    <label>Target <input id="target" value="Si" list="targets" required size="3"></label>
+  </div>
+  <div class="row">
+    <label>Ions <input id="ions-n" type="number" value="10000" min="100" max="1000000" step="100" required></label>
+    <label>Random seed <input id="seed" type="number" value="1" min="0" step="1" required></label>
+  </div>
+  <button id="run" class="primary" type="submit">Run</button>
 </form>
 <datalist id="ions"><option>H<option>He<option>B<option>C<option>N<option>O<option>F<option>Al<option>Si<option>P<option>Ar<option>Ga<option>Ge<option>As<option>In<option>Sb<option>Xe</datalist>
 <datalist id="targets"><option>C<option>Al<option>Si<option>Ti<option>Fe<option>Ni<option>Cu<option>Ge<option>Ag<option>W<option>Pt<option>Au</datalist>
@@ -59,13 +72,13 @@ notes</a>; warnings from the engine are shown above the result.</small></p>
 <!--SITE_FOOTER-->
 
 <script type="module">
+import { niceTicks } from "./plots.js";
+
 if ("serviceWorker" in navigator) {
   // Offline support: see sw.js. Relative URL so the scope is this directory on
   // both hosts (site root and the GitHub Pages path prefix).
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
-
-import init, { calculate } from "./pkg/lindhard_wasm.js";
 
 const $ = (id) => document.getElementById(id);
 const status = (text, error = false) => {
@@ -73,6 +86,15 @@ const status = (text, error = false) => {
   $("status").className = error ? "error" : "";
 };
 const fmt = (x) => (x >= 100 ? x.toFixed(1) : x >= 10 ? x.toFixed(2) : x.toPrecision(3));
+const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+// Plain decimal tick label with just enough digits for the tick step.
+const tickLabel = (v, step) => {
+  const d = Math.max(0, -Math.floor(Math.log10(step) + 1e-9));
+  return v.toFixed(Math.min(d, 6));
+};
+
+let lastResult = null;
 
 function plot(r) {
   const canvas = $("plot");
@@ -84,31 +106,34 @@ function plot(r) {
   const fg = token("--lh-fg", getComputedStyle(document.body).color);
   const bar = token("--lh-plot-bar", fg);
   const W = canvas.width, H = canvas.height;
-  const m = { l: 70, r: 15, t: 15, b: 45 };
-  const counts = Array.from(r.counts);
+  const m = { l: 80, r: 25, t: 15, b: 45 };
   const w = r.bin_nm;
   // Concentration profile: stopped ions per ion run, per nm of depth.
-  const y = counts.map((c) => c / (r.histories * w));
+  const y = r.counts.map((c) => c / (r.histories * w));
   const ymax = Math.max(...y) * 1.05;
-  const xmax = counts.length * w;
+  const xmax = r.counts.length * w;
   ctx.clearRect(0, 0, W, H);
   ctx.fillStyle = fg; ctx.strokeStyle = fg; ctx.font = `14px ${token("--lh-font", "system-ui, sans-serif")}`;
   const px = (x) => m.l + (x / xmax) * (W - m.l - m.r);
   const py = (v) => H - m.b - (v / ymax) * (H - m.t - m.b);
   ctx.fillStyle = bar;
   y.forEach((v, i) => ctx.fillRect(px(i * w), py(v), Math.max(1, px(w) - px(0) - 1), py(0) - py(v)));
-  ctx.fillStyle = fg;
+  ctx.fillStyle = fg; ctx.strokeStyle = fg;
   ctx.beginPath(); ctx.moveTo(m.l, m.t); ctx.lineTo(m.l, H - m.b); ctx.lineTo(W - m.r, H - m.b); ctx.stroke();
+  const xt = niceTicks(0, xmax, 5);
+  const xstep = xt.length > 1 ? xt[1] - xt[0] : xmax;
   ctx.textAlign = "center";
-  for (let i = 0; i <= 4; i++) {
-    const x = (xmax * i) / 4;
-    ctx.fillText(fmt(x), px(x), H - m.b + 18);
+  for (const x of xt) {
+    ctx.beginPath(); ctx.moveTo(px(x), H - m.b); ctx.lineTo(px(x), H - m.b + 4); ctx.stroke();
+    ctx.fillText(tickLabel(x, xstep), px(x), H - m.b + 18);
   }
   ctx.fillText("depth (nm)", (m.l + W - m.r) / 2, H - 8);
+  const yt = niceTicks(0, ymax, 5);
+  const ystep = yt.length > 1 ? yt[1] - yt[0] : ymax;
   ctx.textAlign = "right";
-  for (let i = 0; i <= 4; i++) {
-    const v = (ymax * i) / 4;
-    ctx.fillText(v.toExponential(1), m.l - 6, py(v) + 5);
+  for (const v of yt) {
+    ctx.beginPath(); ctx.moveTo(m.l - 4, py(v)); ctx.lineTo(m.l, py(v)); ctx.stroke();
+    ctx.fillText(tickLabel(v, ystep), m.l - 8, py(v) + 5);
   }
   ctx.save(); ctx.translate(14, (H - m.b + m.t) / 2); ctx.rotate(-Math.PI / 2);
   ctx.textAlign = "center"; ctx.fillText("stopped ions per incident ion per nm", 0, 0); ctx.restore();
@@ -118,26 +143,49 @@ function plot(r) {
   ctx.setLineDash([]);
 }
 
-await init();
+// Redraw with the new colours if the colour scheme changes while a result is shown.
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (lastResult) plot(lastResult);
+});
+
+const clearInvalid = () => { $("ion").removeAttribute("aria-invalid"); $("target").removeAttribute("aria-invalid"); };
+$("ion").addEventListener("input", clearInvalid);
+$("target").addEventListener("input", clearInvalid);
+
+// The run happens in a Worker: the page stays responsive while it goes.
+const worker = new Worker(new URL("./calculator-worker.js", import.meta.url), { type: "module" });
+const runInWorker = (args) => new Promise((resolve, reject) => {
+  worker.onmessage = (e) => resolve(e.data);
+  worker.onerror = (e) => reject(new Error(e.message || "The calculation failed to start."));
+  worker.postMessage(args);
+});
 
 $("form").addEventListener("submit", async (e) => {
   e.preventDefault();
+  clearInvalid();
   $("run").disabled = true;
   status("Running…");
   $("result").hidden = true; $("plot").hidden = true;
-  // Let the browser paint the status before the (blocking) run starts.
-  await new Promise((resolve) => setTimeout(resolve, 30));
+  lastResult = null;
   try {
     const t0 = performance.now();
-    const r = calculate(
-      $("ion").value.trim(), Number($("energy").value) * 1000, $("target").value.trim(),
-      Number($("ions-n").value), Number($("seed").value),
-    );
+    const out = await runInWorker({
+      ion: $("ion").value.trim(), energyEv: Number($("energy").value) * 1000,
+      target: $("target").value.trim(), ions: Number($("ions-n").value), seed: Number($("seed").value),
+    });
+    if (!out.ok) {
+      if (out.field) $(out.field).setAttribute("aria-invalid", "true");
+      status(out.message, true);
+      return;
+    }
+    const r = out.result;
     const s = (performance.now() - t0) / 1000;
     $("rp").textContent = `${fmt(r.rp_nm)} nm (± ${fmt(r.rp_std_err_nm)})`;
     $("drp").textContent = `${fmt(r.drp_nm)} nm (± ${fmt(r.drp_std_err_nm)})`;
-    $("stopped").textContent = `${r.stopped} of ${r.histories} ions`;
+    $("stopped").textContent = `${r.stopped} of ${r.histories} ions` +
+      (r.escaped > 0 ? `; ${r.escaped} left the target (backscattered or transmitted)` : "");
     $("result").hidden = false; $("plot").hidden = false;
+    lastResult = r;
     plot(r);
     status(`${r.warnings ? r.warnings + " — " : ""}done in ${s.toFixed(1)} s (± is one standard error).`);
   } catch (err) {
