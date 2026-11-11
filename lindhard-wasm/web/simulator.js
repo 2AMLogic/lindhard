@@ -288,7 +288,6 @@ function refresh() {
       ? ` ${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "");
   $("model-cite").textContent = `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`;
   $("strip-models").textContent = `${CITE[setup.physics.potential]}; ${CITE[setup.physics.stopping]}.`;
-  syncQuick();
   $("physics-summary").textContent = `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`;
   $("stack").replaceChildren(layerStackSvg());
   problems = validate(setup, elements);
@@ -297,6 +296,7 @@ function refresh() {
   }
   $("problems").replaceChildren(...problems.map((p) => h("li", {}, `${p.path}: ${p.message}`)));
   $("problems-box").hidden = problems.length === 0;
+  syncQuick(); // reads `problems`, so it runs after they are recomputed
   $("toml").value = toToml(setup);
   $("btn-run").disabled = runDisabled();
 }

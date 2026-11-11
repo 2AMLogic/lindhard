@@ -51,7 +51,7 @@ test("the page opens with the labelled example run", async ({ page }) => {
   await expect(page.locator("#ions")).toHaveValue("1000");
   await expect(page.locator("#seed")).toHaveValue(String(golden.seed));
   await expect(page.locator("#c-done")).toHaveText("1000 / 1000");
-  expect(await canvasColours(page.locator('#plots .plot[data-plot="range"] canvas'))).toBeGreaterThan(3);
+  expect(await canvasColours(page.locator('#plots .plot[data-plot="range"] canvas[role="img"]'))).toBeGreaterThan(3);
 });
 
 test("B into Si matches the native golden record", async ({ page }) => {
@@ -66,7 +66,7 @@ test("B into Si matches the native golden record", async ({ page }) => {
   expect(Math.abs((await tileNumber(page, "c-drp")) - golden.drp_nm)).toBeLessThanOrEqual(golden.drp_std_err_nm + 0.005);
   const sigma = Math.sqrt(golden.stopped * (1 - golden.stopped / golden.ions));
   expect(Math.abs(Number(await page.locator("#c-stopped").innerText()) - golden.stopped)).toBeLessThanOrEqual(sigma);
-  expect(await canvasColours(page.locator('#plots .plot[data-plot="range"] canvas'))).toBeGreaterThan(3);
+  expect(await canvasColours(page.locator('#plots .plot[data-plot="range"] canvas[role="img"]'))).toBeGreaterThan(3);
 });
 
 test("the same seed gives the same result twice", async ({ page }) => {
@@ -109,7 +109,7 @@ test("the plot is readable in dark mode", async ({ page }) => {
       return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
     };
     const bg = getComputedStyle(document.body).backgroundColor.match(/\d+/g).slice(0, 3).map(Number);
-    const c = document.querySelector('#plots .plot[data-plot="range"] canvas');
+    const c = document.querySelector('#plots .plot[data-plot="range"] canvas[role="img"]');
     const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
     let best = 0;
     for (let i = 0; i < d.length; i += 4) if (d[i + 3] === 255) best = Math.max(best, lum([d[i], d[i + 1], d[i + 2]]));
