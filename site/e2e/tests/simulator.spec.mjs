@@ -129,7 +129,7 @@ test("the layer stack drawing at tilt 0 has a level beam and says so", async ({ 
   await expect(page.locator("#stack .stack-block")).toHaveCount(2);
   const svg = page.locator("#stack svg");
   await expect(svg).toHaveAccessibleDescription(/^Beam at 0° from the surface normal, /);
-  await expect(svg).toHaveAccessibleDescription(/1: SiO2[^;]*; 2: Si, substrate/);
+  await expect(svg).toHaveAccessibleDescription(/1: Si, [^;]*; 2: SiO2, substrate/);
 });
 
 test("a long layer name is shortened inside its block and kept in full for assistive technology", async ({ page }) => {
@@ -141,7 +141,10 @@ test("a long layer name is shortened inside its block and kept in full for assis
   await expect(svg).toHaveCount(1);
   await expect(svg).toHaveAccessibleDescription(new RegExp(`1: ${name}, substrate`));
   const label = page.locator("#stack text.stack-text").first();
-  await expect(label).toHaveText(/…$/);
+  // The label's own text node; textContent would also include the child <title>.
+  const shown = await label.evaluate((el) => el.firstChild.textContent);
+  expect(shown).toMatch(/^[^…]+…$/);
+  expect(shown.length).toBeLessThan(name.length);
   await expect(label.locator("title")).toHaveText(name);
   const box = await page.evaluate(() => {
     const t = document.querySelector("#stack text.stack-text").getBBox();
