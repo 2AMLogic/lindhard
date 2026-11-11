@@ -576,17 +576,23 @@ function redrawAll() {
 
 // Latest unpainted progress message; painted by the next animation frame.
 let pendingProgress = null, progressDrawQueued = false;
+// Paint the unpainted progress report, if any, and clear it. Called by the
+// animation frame and, synchronously, by `finished` and `stopped` so the last
+// batch (legend, trajectories, plots) is never dropped.
+function flushProgress() {
+  const p = pendingProgress;
+  if (!p) return;
+  pendingProgress = null;
+  drawPlots(p.report);
+  if (p.firstTrajectories) drawLegend(p.report);
+  if (p.newTrajectories) drawTrajectories();
+}
 function queueProgressDraw() {
   if (progressDrawQueued) return;
   progressDrawQueued = true;
   requestAnimationFrame(() => {
     progressDrawQueued = false;
-    const p = pendingProgress;
-    if (!p) return;
-    pendingProgress = null;
-    drawPlots(p.report);
-    if (p.firstTrajectories) drawLegend(p.report);
-    if (p.newTrajectories) drawTrajectories();
+    flushProgress();
   });
 }
 
@@ -634,14 +640,14 @@ function startRun() {
         queueProgressDraw();
         break;
       case "finished":
-        pendingProgress = null;
+        flushProgress();
         counters(m.done, m.total, m.report);
         drawPlots(m.report);
         status("Done (± is one standard error).");
         endRun();
         break;
       case "stopped":
-        pendingProgress = null;
+        flushProgress();
         status(`Stopped after ${m.done} of ${m.total} ions.`);
         endRun();
         break;

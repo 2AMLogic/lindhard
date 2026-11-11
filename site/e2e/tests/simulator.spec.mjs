@@ -77,6 +77,16 @@ test("the page opens ready to run B at 10 keV into Si", async ({ page }) => {
   await expect(page.locator("#cap-note")).toContainText("ions");
 });
 
+test("a short run paints the legend and trajectories as soon as it is done", async ({ page }) => {
+  // The last progress report and `finished` can arrive in one animation
+  // frame; the final draw must flush the pending report, not discard it.
+  await open(page);
+  await configure(page, { ion: "B", energyKeV: 10 });
+  await run(page);
+  expect(await page.locator("#traj-legend li").count()).toBeGreaterThanOrEqual(1);
+  expect(await canvasColours(page.locator("#traj"))).toBeGreaterThan(3);
+});
+
 for (const [ion, energyKeV] of [["B", 10], ["P", 30], ["As", 50]]) {
   test(`${ion} into Si runs to the end`, async ({ page }) => {
     await open(page);
