@@ -58,7 +58,7 @@ test("at 1440 px the first screen shows the description, both buttons and the fi
 test("the hero figure loads, links to the simulator and has a generated caption", async ({ page, request }) => {
   await page.goto("index.html");
   const img = page.locator(".hero-figure img");
-  expect(await img.evaluate((i) => i.complete && i.naturalWidth > 0)).toBe(true);
+  await expect.poll(() => img.evaluate((i) => i.complete && i.naturalWidth > 0)).toBe(true);
   await expect(page.locator(".hero-figure a")).toHaveAttribute("href", "calculator/simulator.html");
   const caption = await page.locator(".hero-figure figcaption").innerText();
   for (const word of [/5 keV B into Si/, /\d+ ions/, /seed \d+/, /models:/]) expect(caption).toMatch(word);
@@ -87,7 +87,9 @@ test("the examples show four thumbnails that link to the gallery pages", async (
   const thumbs = page.locator(".cards.thumbs a.card");
   await expect(thumbs).toHaveCount(4);
   for (const img of await thumbs.locator("img").all()) {
-    expect(await img.evaluate((i) => i.complete && i.naturalWidth > 0)).toBe(true);
+    // The thumbnails are loading="lazy"; scroll each into view so it is requested.
+    await img.scrollIntoViewIfNeeded();
+    await expect.poll(() => img.evaluate((i) => i.complete && i.naturalWidth > 0)).toBe(true);
   }
   await expect(page.locator('a[href="gallery/index.html"]')).toBeVisible();
 });
