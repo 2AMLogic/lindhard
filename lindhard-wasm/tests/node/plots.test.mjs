@@ -47,8 +47,8 @@ const names = { 5: "B", 14: "Si" };
 const opts = { layerNames: ["SiO2", "Si"], symbolOfZ: (z) => names[z] };
 const get = (plots, id) => plots.find((p) => p.id === id);
 
-test("six plots, in a stable order, from one report", () => {
-  assert.deepEqual(buildPlots(report(), opts).map((p) => p.id), ["range", "lateral", "damage", "escape-species", "escape-energy", "escape-polar"]);
+test("seven plots, in a stable order, from one report", () => {
+  assert.deepEqual(buildPlots(report(), opts).map((p) => p.id), ["range", "lateral", "radial", "damage", "escape-species", "escape-energy", "escape-polar"]);
   assert.deepEqual(buildPlots(null), []);
 });
 
@@ -90,11 +90,58 @@ test("no pearson_iv but an error explains the missing overlay", () => {
   assert.equal(p.series.some((s) => s.overlay), false);
 });
 
-test("lateral and radial series keep their own binning", () => {
-  const p = get(buildPlots(report(), opts), "lateral");
-  assert.deepEqual(p.series.map((s) => s.label), ["lateral y", "lateral z", "radial"]);
-  assert.equal(p.series[0].bins.lo[0], -20);
-  assert.equal(p.series[2].bins.lo[0], 0);
+test("lateral (signed) and radial (non-negative) are separate plots", () => {
+  const plots = buildPlots(report(), opts);
+  const lat = get(plots, "lateral"), rad = get(plots, "radial");
+  assert.deepEqual(lat.series.map((s) => s.label), ["lateral y", "lateral z"]);
+  assert.equal(lat.series[0].bins.lo[0], -20);
+  assert.deepEqual(rad.series.map((s) => s.label), ["radial"]);
+  assert.equal(rad.series[0].bins.lo[0], 0);
+});
+
+test("Rp is marked on the range plot when the depth moments exist", () => {
+  assert.deepEqual(get(buildPlots(report(), opts), "range").markers, []);
+  const r = report({ range: { depth: { mean: 2.5e-8 } } });
+  assert.deepEqual(get(buildPlots(r, opts), "range").markers, [{ x: 25, label: "Rp" }]);
+});
+
+test("the same species has the same colour index in every plot", () => {
+  const plots = buildPlots(report(), opts);
+  assert.deepEqual(get(plots, "escape-species").speciesOf, [0, 0, 1, 1]);
+  const en = get(plots, "escape-energy");
+  assert.deepEqual(en.series.map((s) => [s.label, s.style]), [["B (beam), front", 0], ["Si, front", 1]]);
+});
+
+test("integer ticks: whole numbers only, none fractional on a small count axis", () => {
+  assert.deepEqual(niceTicks(0, 2, 5, { integer: true }), [0, 1, 2]);
+  assert.ok(niceTicks(0, 3, 5, { integer: true }).every(Number.isInteger));
+  assert.ok(niceTicks(0, 1, 5, { integer: true }).every(Number.isInteger));
+  assert.deepEqual(niceTicks(0, 100, 5, { integer: true }), [0, 20, 40, 60, 80, 100]);
+  assert.ok(niceTicks(0, 2, 5).some((t) => !Number.isInteger(t)));
+});
+
+test("plotExtent trims the x axis to the last non-empty bin, rounded to a tick", () => {
+  const spec = (counts, overflow = 0) => ({
+    kind: "hist", series: [{ y: counts, bins: { lo: counts.map((_, i) => i * 100), hi: counts.map((_, i) => (i + 1) * 100), overflow } }],
+  });
+  const e = plotExtent(spec([5, 9, 3, 0, 0, 0, 0, 0, 0, 0]));
+  assert.equal(e.trimmed, true);
+  assert.equal(e.full, 1000);
+  assert.ok(e.x1 >= 300 && e.x1 <= 400, `x1=${e.x1}`);
+  // all counts in one bin
+  const one = plotExtent(spec([7, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+  assert.equal(one.trimmed, true);
+  assert.ok(one.x1 >= 100 && one.x1 < 1000);
+  // data in the last bin: nothing to trim
+  assert.equal(plotExtent(spec([0, 0, 4])).trimmed, false);
+  // overflow means the data run past the range: no trim
+  const over = plotExtent(spec([5, 0, 0, 0, 0, 0], 2));
+  assert.equal(over.trimmed, false);
+  assert.equal(over.x1, 600);
+  // empty plot keeps the full range
+  const none = plotExtent(spec([0, 0, 0, 0]));
+  assert.equal(none.trimmed, false);
+  assert.equal(none.x1, 400);
 });
 
 test("CSV is long format with under- and overflow rows, and quotes correctly", () => {
