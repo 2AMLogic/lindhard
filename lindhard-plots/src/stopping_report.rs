@@ -162,7 +162,7 @@ fn pct(x: f64) -> String {
     if x.is_nan() {
         "n/a".into()
     } else {
-        format!("{:+.2} %", 100.0 * x)
+        format!("{:+.2}\u{a0}%", 100.0 * x)
     }
 }
 
@@ -170,7 +170,7 @@ fn pct_unsigned(x: f64) -> String {
     if x.is_nan() {
         "n/a".into()
     } else {
-        format!("{:.2} %", 100.0 * x)
+        format!("{:.2}\u{a0}%", 100.0 * x)
     }
 }
 
@@ -192,11 +192,11 @@ fn val_unsigned(x: f64) -> String {
 
 fn energy(ev: f64) -> String {
     if ev >= 1.0e6 {
-        format!("{} MeV", trim(ev / 1.0e6))
+        format!("{}\u{a0}MeV", trim(ev / 1.0e6))
     } else if ev >= 1.0e3 {
-        format!("{} keV", trim(ev / 1.0e3))
+        format!("{}\u{a0}keV", trim(ev / 1.0e3))
     } else {
-        format!("{} eV", trim(ev))
+        format!("{}\u{a0}eV", trim(ev))
     }
 }
 
@@ -213,6 +213,74 @@ fn distinct(values: impl Iterator<Item = String>) -> Vec<String> {
         }
     }
     out
+}
+
+/// A readable section title for a dataset: the systems it covers, the first
+/// author's surname and the year of its citation, and the compilation when
+/// the file is a digitized one (`H on Si, Grahmann 1976 \u{2014} srim.org`).
+/// Falls back to the dataset's own name when the citation has no year.
+fn title(d: &Loaded) -> String {
+    let systems = distinct(
+        systems_of(&d.ds)
+            .iter()
+            .map(|s| format!("{} on {}", symbol(s.z), s.target)),
+    )
+    .join("; ");
+    let compilation = "srim.org compilation: ";
+    let citation = d.ds.points().first().map_or("", |p| p.citation());
+    let (via_srim, reference) = match citation.split_once(compilation) {
+        Some((_, rest)) => (true, rest),
+        None => (false, citation),
+    };
+    let year = reference.split('(').skip(1).find_map(|t| {
+        let y = t.get(..4)?;
+        (y.bytes().all(|b| b.is_ascii_digit()) && t[4..].starts_with(')')).then_some(y)
+    });
+    let author = reference
+        .split([',', ';'])
+        .next()
+        .and_then(|a| a.split(" and ").next())
+        .and_then(|a| a.split_whitespace().last());
+    match (author, year) {
+        (Some(a), Some(y)) => format!(
+            "{systems}, {a} {y}{}",
+            if via_srim { " \u{2014} srim.org" } else { "" }
+        ),
+        _ => d.ds.name().to_string(),
+    }
+}
+
+/// Headline statistic of every dataset and model: the relative rms of the
+/// uncorrected model over all points the model evaluates (the *rel. rms* of
+/// "How to read the tables"), pooled over the dataset's systems.
+fn summary_table(o: &mut String, datasets: &[Loaded], models: &[Box<dyn ElectronicStopping>]) {
+    o.push_str("## Summary\n\n");
+    o.push_str(
+        "Relative rms of each model over all points of each dataset (uncorrected; points \
+         the model cannot evaluate are skipped and in no statistic).\n\n\
+         | Dataset | Model | Points | Skipped | Rel. rms |\n|---|---|---:|---:|---:|\n",
+    );
+    for d in datasets {
+        let name = cell(&title(d));
+        for m in models {
+            let cmp = compare(m.as_ref(), &NoCorrection, &d.ds);
+            let pairs: Vec<(f64, f64)> = cmp
+                .residuals
+                .iter()
+                .map(|r| (r.model_ev_1e15_cm2, r.measured_ev_1e15_cm2))
+                .collect();
+            let st = ResidualStats::of(&pairs);
+            let _ = writeln!(
+                o,
+                "| {name} | {} | {} | {} | {} |",
+                m.name(),
+                st.n,
+                cmp.skipped.len(),
+                pct_unsigned(st.rms_relative)
+            );
+        }
+    }
+    o.push('\n');
 }
 
 fn page(datasets: &[Loaded], data_label: &str) -> String {
@@ -241,7 +309,7 @@ fn page(datasets: &[Loaded], data_label: &str) -> String {
         "* A residual is `model - measured`; positive means the model is **above** the \
          measurement. Relative residuals are `model / measured - 1`.\n\
          * Stopping is a cross section per target atom (per average atom for a compound), in \
-         eV\u{b7}10\u{207b}\u{b9}\u{2075} cm\u{b2}. *Mean* and *rms* are the mean and root mean \
+         eV\u{b7}10\u{207b}\u{b9}\u{2075}\u{a0}cm\u{b2}. *Mean* and *rms* are the mean and root mean \
          square of the absolute residual in that unit; *rel. mean* and *rel. rms* are those of \
          the relative residual.\n\
          * A point the model cannot evaluate is **skipped**: it is counted in the *skipped* \
@@ -253,20 +321,25 @@ fn page(datasets: &[Loaded], data_label: &str) -> String {
          (a Chebyshev polynomial of degree {} in ln E for the log of the measured-to-model \
          ratio, `lindhard::ion::stopping::correction`) is fitted to the training points. \
          {} interior points chosen with seed {} are held out of the fit. The corrected and \
-         uncorrected statistics on the **held-out** points are shown side by side; whether the \
-         correction helps is stated either way. The correction applies only inside the \
+         uncorrected statistics on the **held-out** points are shown side by side (*raw* is the \
+         uncorrected model, *fit* the corrected one; the means and rms there are relative); \
+         whether the correction helps is stated either way. The correction applies only inside the \
          energy span of the training points.\n",
         FIT_SETTINGS.degree, FIT_SETTINGS.held_out, FIT_SETTINGS.seed
     );
-    o.push_str("## Datasets\n\n| File | Name | Points | Systems |\n|---|---|---|---|\n");
-    for Loaded { name: file, ds, .. } in datasets {
+    o.push_str(
+        "## Datasets\n\nEach section below is headed by a readable title; its `File:` and `Name:` \
+         lines give the file and dataset name listed here.\n\n\
+         | Section | File | Points | Systems |\n|---|---|---:|---:|\n",
+    );
+    for d in datasets {
         let _ = writeln!(
             o,
-            "| `{}` | {} | {} | {} |",
-            file,
-            cell(ds.name()),
-            ds.points().len(),
-            systems_of(ds).len()
+            "| {} | `{}` | {} | {} |",
+            cell(&title(d)),
+            d.name,
+            d.ds.points().len(),
+            systems_of(&d.ds).len()
         );
     }
     o.push('\n');
@@ -274,6 +347,9 @@ fn page(datasets: &[Loaded], data_label: &str) -> String {
         o.push_str("No dataset is committed.\n");
     }
     let models = models();
+    if !datasets.is_empty() {
+        summary_table(&mut o, datasets, &models);
+    }
     for d in datasets {
         dataset_section(&mut o, d, &models);
     }
@@ -282,8 +358,8 @@ fn page(datasets: &[Loaded], data_label: &str) -> String {
 
 fn dataset_section(o: &mut String, d: &Loaded, models: &[Box<dyn ElectronicStopping>]) {
     let Loaded { name: file, ds, .. } = d;
-    let _ = writeln!(o, "## {}\n", cell(ds.name()));
-    let _ = writeln!(o, "File: `{file}`.\n");
+    let _ = writeln!(o, "## {}\n", cell(&title(d)));
+    let _ = writeln!(o, "File: `{file}`. Name: `{}`.\n", ds.name());
     if let Some(d) = ds.description() {
         let _ = writeln!(o, "{d}\n");
     }
@@ -338,7 +414,7 @@ fn dataset_section(o: &mut String, d: &Loaded, models: &[Box<dyn ElectronicStopp
         }
         o.push_str(
             "\n| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |\n\
-             |---|---|---|---|---|---|---|\n",
+             |---|---:|---:|---:|---:|---:|---:|\n",
         );
         let mut skipped_lines: Vec<String> = Vec::new();
         for (m, cmp) in models.iter().zip(&comparisons) {
@@ -440,8 +516,8 @@ fn corrections(
                     },
                 );
                 let mut table = String::from(
-                    "| Line | Energy | Measured | Uncorrected | Corrected | Split |\n\
-                     |---|---|---|---|---|---|\n",
+                    "| Line | Energy | Measured | Raw | Fit | Split |\n\
+                     |---:|---:|---:|---:|---:|---|\n",
                 );
                 for (k, p) in sub.points().iter().enumerate() {
                     let held = fit.held_out_indices().contains(&k);
@@ -466,9 +542,8 @@ fn corrections(
     }
     if !rows.is_empty() {
         o.push_str(
-            "| Model | Held out | Rel. mean, uncorrected | Rel. mean, corrected | Rel. rms, \
-             uncorrected | Rel. rms, corrected | Correction vs rel. rms | Correction span |\n\
-             |---|---|---|---|---|---|---|---|\n",
+            "| Model | Held out | Mean raw | Mean fit | rms raw | rms fit | Effect | Span |\n\
+             |---|---:|---:|---:|---:|---:|---|---|\n",
         );
         o.push_str(&rows);
         o.push('\n');
