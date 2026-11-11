@@ -114,7 +114,8 @@ export function buildPlots(report, { layerNames = [], symbolOfZ = () => undefine
     histSeries("radial", r.radial_histogram, NM, 2),
   ];
 
-  // 3. Damage versus depth (full-cascade runs; zero in quick mode).
+  // 3. Damage versus depth: displacement events the engine counted. In quick
+  // mode only the first recoil of each ion is created, so these are first-generation counts.
   const damage = [
     histSeries("vacancies", d.vacancy_histogram, NM, 0),
     histSeries("interstitials", d.interstitial_histogram, NM, 1),
@@ -170,7 +171,7 @@ export function buildPlots(report, { layerNames = [], symbolOfZ = () => undefine
     histPlot("lateral", "Lateral and radial distribution", "distance from the beam axis (nm)", "distance_nm", lateral,
       "Lateral y and z are signed; radial is the distance from the beam axis."),
     histPlot("damage", "Damage versus depth", "depth (nm)", "depth_nm", damage,
-      "Counts of defects from the followed cascades; zero in quick mode, which gives only the NRT estimate."),
+      "Displacement events counted by the engine. In quick mode only the first recoil of each ion is created (no cascade), so this is primary-collision damage; see the NRT estimate in the counters."),
     species, energy, polar,
   ];
 }
