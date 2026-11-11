@@ -67,7 +67,7 @@ function layerView(l, i) {
     on: { input: upd((t) => (l.thicknessNm = Number(t.value) * UNIT_NM[unitT[i]])) },
   });
   const unit = h("select", {
-    id: `tunit-${i}`,
+    id: `tunit-${i}`, "aria-label": `thickness unit of layer ${i + 1}`,
     on: { change: (e) => { unitT[i] = e.target.value; if (l.thicknessNm != null) thick.value = String(l.thicknessNm / UNIT_NM[unitT[i]]); } },
   }, ...Object.keys(UNIT_NM).map((k) => h("option", { selected: k === u }, k)));
   const semi = h("input", {
@@ -81,46 +81,50 @@ function layerView(l, i) {
     placeholder: pure && tab?.density_g_cm3 != null ? String(tab.density_g_cm3) : "required",
     on: { input: upd((t) => (l.densityGcm3 = numOrNull(t.value))) },
   });
-  const densSource = pure && l.densityGcm3 == null && tab?.density_g_cm3 != null
-    ? "tabulated density of the element (X-Ray Data Booklet, via the element table)"
-    : l.densityGcm3 != null ? "entered" : "none: enter one";
 
+  const cell = (cap, input) => h("div", { className: "cell" }, h("span", { className: "cap", "aria-hidden": "true" }, ...cap), input);
   const rows = l.elements.map((e, j) => {
     const row = table.get(e.symbol);
-    const field = (key, tabKey, label) => h("td", {}, h("input", {
+    const field = (key, tabKey, label, cap) => cell(cap, h("input", {
       type: "number", min: 0, step: "any", "aria-label": `${label} of ${e.symbol} in ${l.name}`,
       value: show(e[key]), placeholder: tabKey === null ? "0" : row?.[tabKey] != null ? String(row[tabKey]) : "required",
       on: { input: upd((t) => (e[key] = numOrNull(t.value))) },
     }));
-    return h("tr", {},
-      h("td", {}, h("input", { value: e.symbol, size: 3, list: "symbols", "aria-label": `element ${j + 1} of ${l.name}`, on: { input: upd((t) => { e.symbol = t.value.trim(); renderLayers(); }) } })),
-      h("td", {}, h("input", { type: "number", min: 0, step: "any", value: String(e.fraction), "aria-label": `amount of ${e.symbol} in ${l.name}`, on: { input: upd((t) => (e.fraction = Number(t.value))) } })),
-      field("eDEv", "default_displacement_ev", "displacement energy"),
-      field("eBEv", null, "lattice binding energy"),
-      field("eSEv", "default_surface_binding_ev", "surface binding energy"),
-      h("td", {}, h("button", { type: "button", "aria-label": `remove ${e.symbol} from ${l.name}`, on: { click: () => { l.elements.splice(j, 1); renderLayers(); refresh(); } } }, "×")),
+    return h("div", { className: "el-row" },
+      cell(["Element"], h("input", { value: e.symbol, size: 3, list: "symbols", "aria-label": `element ${j + 1} of ${l.name}`, on: { input: upd((t) => { e.symbol = t.value.trim(); renderLayers(); }) } })),
+      cell(["Atom fraction"], h("input", { type: "number", min: 0, step: "any", value: String(e.fraction), "aria-label": `amount of ${e.symbol} in ${l.name}`, on: { input: upd((t) => (e.fraction = Number(t.value))) } })),
+      field("eDEv", "default_displacement_ev", "displacement energy", edCap("d")),
+      field("eBEv", null, "lattice binding energy", edCap("b")),
+      field("eSEv", "default_surface_binding_ev", "surface binding energy", edCap("s")),
+      h("button", { type: "button", className: "icon rm", title: `Remove ${e.symbol}`, "aria-label": `remove ${e.symbol} from ${l.name}`, on: { click: () => { l.elements.splice(j, 1); renderLayers(); refresh(); } } }, "×"),
     );
   });
+  const head = h("div", { className: "el-head", "aria-hidden": "true" },
+    h("span", {}, "Element"), h("span", {}, "Fraction"),
+    h("span", {}, ...edCap("d")), h("span", {}, ...edCap("b")), h("span", {}, ...edCap("s")), h("span"));
 
+  const iconBtn = (text, name, disabled, fn) => h("button", { type: "button", className: "icon", title: name, "aria-label": name, disabled, on: { click: fn } }, text);
   return h("div", { className: "layer" },
-    h("h3", {}, `Layer ${i + 1}`),
-    h("div", { className: "row" },
+    h("div", { className: "layer-title" },
+      h("h3", {}, `Layer ${i + 1}`),
+      h("button", { type: "button", on: { click: () => { l.elements.push(el("Si")); renderLayers(); refresh(); } } }, "Add element"),
+      iconBtn("↑", "Move up", i === 0, () => move(i, -1)),
+      iconBtn("↓", "Move down", last, () => move(i, 1)),
+      iconBtn("×", "Delete layer", false, () => { setup.layers.splice(i, 1); unitT.splice(i, 1); renderLayers(); refresh(); })),
+    h("div", { className: "layer-head" },
       h("label", {}, "Name", h("input", { value: l.name, "aria-label": `name of layer ${i + 1}`, on: { input: upd((t) => (l.name = t.value.trim())) } })),
-      h("label", {}, "Thickness", thick),
-      h("label", {}, "Unit", unit),
+      h("label", {}, "Thickness", h("span", { className: "group" }, thick, unit)),
       h("label", { className: "inline" }, semi, "Semi-infinite (substrate)"),
       h("label", {}, "Density (g/cm³)", density),
     ),
-    h("p", { className: "note" }, `Density source: ${densSource}.`),
-    h("table", { className: "elements" },
-      h("tr", {}, ...["Element", "Atom fraction", "E_d (eV)", "E_b (eV)", "E_s (eV)", ""].map((t) => h("th", { scope: "col" }, t))),
-      ...rows),
-    h("div", { className: "tools" },
-      h("button", { type: "button", on: { click: () => { l.elements.push(el("Si")); renderLayers(); refresh(); } } }, "Add element"),
-      h("button", { type: "button", disabled: i === 0, on: { click: () => move(i, -1) } }, "Move up"),
-      h("button", { type: "button", disabled: last, on: { click: () => move(i, 1) } }, "Move down"),
-      h("button", { type: "button", on: { click: () => { setup.layers.splice(i, 1); unitT.splice(i, 1); renderLayers(); refresh(); } } }, "Delete layer")),
+    head,
+    ...rows,
   );
+}
+
+// E_d / E_b / E_s with subscripts; the legend under the layers names them.
+function edCap(sub) {
+  return ["E", h("sub", {}, sub), " (eV)"];
 }
 
 function move(i, d) {
@@ -140,16 +144,18 @@ function uniqueName(base) {
 }
 
 function showPresetNote(key) {
-  const note = PRESETS[key].note;
+  const note = PRESETS[key]?.note;
   $("preset-note").textContent = note ? `${key}: ${note}.` : "";
 }
 
+const CUSTOM = "Custom";
+
 function addPreset(key) {
-  const p = PRESETS[key];
+  const p = PRESETS[key === CUSTOM ? "Si" : key];
   const last = setup.layers[setup.layers.length - 1];
   if (last && last.thicknessNm == null) last.thicknessNm = 100; // a new layer goes below
   setup.layers.push({
-    name: uniqueName(key), thicknessNm: null, densityGcm3: p.density,
+    name: uniqueName(key === CUSTOM ? "layer" : key), thicknessNm: null, densityGcm3: p.density,
     elements: p.elements.map((e) => ({ ...e })),
   });
   showPresetNote(key);
@@ -165,7 +171,7 @@ function readScalars() {
   b.energyEv = Number($("energy").value) * UNIT_EV[unitE];
   b.tiltDeg = Number($("tilt").value);
   const p = setup.physics;
-  p.followRecoils = $("mode").value === "full";
+  p.followRecoils = $("mode-full").checked;
   p.potential = $("potential").value;
   p.stopping = $("stopping").value;
   p.primaryCutoffEv = Number($("pcut").value);
@@ -183,7 +189,8 @@ function writeScalars() {
   $("energy-unit").value = unitE;
   $("energy").value = String(b.energyEv / UNIT_EV[unitE]);
   $("tilt").value = String(b.tiltDeg);
-  $("mode").value = p.followRecoils ? "full" : "quick";
+  $("mode-full").checked = p.followRecoils;
+  $("mode-quick").checked = !p.followRecoils;
   $("potential").value = p.potential;
   $("stopping").value = p.stopping;
   $("pcut").value = String(p.primaryCutoffEv);
@@ -194,14 +201,86 @@ function writeScalars() {
   $("bins").value = String(setup.tally.depthBins);
 }
 
+// ---- layer stack drawing ---------------------------------------------------
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs = {}, ...kids) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+  e.append(...kids);
+  return e;
+}
+
+const STACK = { x0: 64, top: 20, height: 80, minW: 62, finiteW: 210, substrateW: 74, beamLen: 50 };
+const thicknessText = (nmValue) => (nmValue >= 1000 ? `${+(nmValue / 1000).toPrecision(3)} µm` : `${+nmValue.toPrecision(3)} nm`);
+
+// Layers left to right from the surface at x0, beam arriving at the tilt angle
+// from the normal (horizontal here). Widths follow thickness, with a minimum so
+// a thin layer stays readable; then the drawing says it is not to scale.
+function layerStackSvg() {
+  const { x0, top, height, minW, finiteW, substrateW, beamLen } = STACK;
+  const layers = setup.layers;
+  const finite = layers.filter((l) => l.thicknessNm != null);
+  const total = finite.reduce((a, l) => a + (Number.isFinite(l.thicknessNm) ? Math.max(l.thicknessNm, 0) : 0), 0);
+  let notToScale = false;
+  const widths = layers.map((l) => {
+    if (l.thicknessNm == null) return substrateW;
+    const t = Number.isFinite(l.thicknessNm) ? Math.max(l.thicknessNm, 0) : 0;
+    const w = total > 0 ? (t / total) * finiteW : minW;
+    if (w < minW) { notToScale = true; return minW; }
+    return w;
+  });
+  const sumW = widths.reduce((a, b) => a + b, 0);
+  const tilt = Number.isFinite(setup.beam.tiltDeg) ? Math.min(Math.max(setup.beam.tiltDeg, 0), 89.9) : 0;
+  const rad = (tilt * Math.PI) / 180;
+  const yMid = top + height / 2;
+  const vbW = x0 + Math.max(sumW, 40) + 12;
+  const text = layers.length === 0
+    ? "No layers."
+    : layers.map((l, i) => `${i + 1}: ${l.name || "unnamed"}, ${l.thicknessNm == null ? "substrate (semi-infinite)" : thicknessText(l.thicknessNm)}`).join("; ") + ".";
+  const desc = `Beam at ${tilt}° from the surface normal, entering the surface first. Layers from the surface: ${text}${notToScale ? " Not to scale." : ""}`;
+
+  const root = svg("svg", { viewBox: `0 0 ${vbW} ${top + height + 24}`, role: "img", "aria-labelledby": "stack-title", "aria-describedby": "stack-desc" },
+    svg("title", { id: "stack-title" }, "Layer stack"),
+    svg("desc", { id: "stack-desc" }, desc),
+    svg("defs", {}, svg("marker", { id: "stack-arrow", viewBox: "0 0 8 8", refX: 7, refY: 4, markerWidth: 7, markerHeight: 7, orient: "auto" },
+      svg("path", { d: "M0 0 L8 4 L0 8 z", class: "stack-beam" }))));
+  root.append(svg("line", {
+    x1: x0 - beamLen * Math.cos(rad), y1: yMid - beamLen * Math.sin(rad), x2: x0 - 1, y2: yMid,
+    class: "stack-beam", "marker-end": "url(#stack-arrow)",
+  }));
+  let x = x0;
+  layers.forEach((l, i) => {
+    const w = widths[i], sub = l.thicknessNm == null;
+    const edge = sub
+      ? `L${x + w} ${top} ` + Array.from({ length: 6 }, (_, k) => `L${x + w - (k % 2 ? 0 : 7)} ${top + ((k + 1) * height) / 6}`).join(" ") + ` L${x} ${top + height} Z`
+      : `L${x + w} ${top} L${x + w} ${top + height} L${x} ${top + height} Z`;
+    root.append(svg("path", { d: `M${x} ${top} ${edge}`, class: `stack-block${i % 2 ? " alt" : ""}` }));
+    const fit = Math.max(3, Math.floor(w / 6));
+    const name = l.name || "unnamed";
+    const short = name.length > fit ? `${name.slice(0, fit - 1)}…` : name;
+    const label = svg("text", { x: x + w / 2 - (sub ? 3 : 0), y: yMid - 2, class: "stack-text" }, short);
+    label.append(svg("title", {}, name));
+    root.append(label);
+    root.append(svg("text", { x: x + w / 2 - (sub ? 3 : 0), y: yMid + 13, class: "stack-text" }, sub ? "substrate" : thicknessText(l.thicknessNm)));
+    x += w;
+  });
+  if (layers.length === 0) root.append(svg("text", { x: x0 + 20, y: yMid + 4, class: "stack-text", "text-anchor": "start" }, "No layers"));
+  if (notToScale) root.append(svg("text", { x: vbW - 4, y: top + height + 16, class: "stack-text", style: "text-anchor:end" }, "not to scale"));
+  return root;
+}
+
 let problems = [];
 function refresh() {
   readScalars();
   const row = table.get(setup.beam.ion);
-  $("mass").placeholder = row ? `${row.atomic_weight} (standard atomic weight)` : "";
-  $("mass-note").textContent = row?.weight_is_mass_number
-    ? `${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "";
+  $("mass").placeholder = row ? String(row.atomic_weight) : "";
+  $("mass-note").textContent = "Leave the mass blank to use the element's standard atomic weight (the placeholder); enter a mass to simulate one isotope." +
+    (row?.weight_is_mass_number
+      ? ` ${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "");
   $("model-cite").textContent = `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`;
+  $("physics-summary").textContent = `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`;
+  $("stack").replaceChildren(layerStackSvg());
   problems = validate(setup, elements);
   if (setup.run.ions > INTERACTIVE_MAX_IONS) {
     problems.push({ path: "run.ions", message: `the page runs at most ${INTERACTIVE_MAX_IONS} ions; use lindhard-cli for more` });
@@ -601,7 +680,7 @@ try {
   $("symbols").replaceChildren(...elements.map((e) => h("option", { value: e.symbol })));
   $("potential").replaceChildren(...POTENTIALS.map((p) => h("option", {}, p)));
   $("stopping").replaceChildren(...STOPPINGS.map((p) => h("option", {}, p)));
-  $("preset").replaceChildren(...Object.keys(PRESETS).map((p) => h("option", {}, p)));
+  $("preset").replaceChildren(...[CUSTOM, ...Object.keys(PRESETS)].map((p) => h("option", {}, p)));
   $("ions").max = String(Math.min(MAX_IONS, INTERACTIVE_MAX_IONS));
   $("cap-note").textContent = `The page runs up to ${INTERACTIVE_MAX_IONS} ions and records the paths of the first ${RECORDED_HISTORIES}, so a run stays responsive; the command-line tool has no such limit.`;
   symbolOfZ = (z) => elements.find((e) => e.z === z)?.symbol;
@@ -611,9 +690,8 @@ try {
   drawPlots(null);
   $("preset").addEventListener("change", () => showPresetNote($("preset").value));
   showPresetNote($("preset").value);
-  $("add-layer").addEventListener("click", () => addPreset("Si"));
-  $("add-preset").addEventListener("click", () => addPreset($("preset").value));
-  for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "mode", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut"]) {
+  $("add-layer").addEventListener("click", () => addPreset($("preset").value));
+  for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "mode-quick", "mode-full", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut"]) {
     $(id).addEventListener("input", refresh);
     $(id).addEventListener("change", refresh);
   }
