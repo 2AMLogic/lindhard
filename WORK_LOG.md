@@ -4,6 +4,14 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-11
 
+- **PR #690**: docs: reflow example band tables and shorten Pearson IV excerpt
+- **PR #688**: docs: readable titles and summary table for the stopping-residuals page
+- **PR #686**: docs(book): collapsed sidebar, readability stylesheet, dark-aware gallery figures
+- **PR #683**: feat(simulator): size canvases from CSS box and pixel ratio, redraw on resize and theme change
+- **Issue #675** (closed): Book: gallery and first-run code lines overflow the page
+- **Issue #674** (closed): Simulator canvases: sharp at any pixel density, redraw on resize and theme change
+- **Issue #673** (closed): Book: stopping-residuals page — shorter headers, summary table, readable headings
+- **Issue #669** (closed): Book readability: collapsible sidebar with the user guide first, line length and heading rhythm, code blocks, gallery figures in dark mode
 - **PR #689**: feat: compact simulator setup form with layer stack drawing
 - **PR #684**: docs: turn long-prose book tables into lists and add header to coefficient tables
 - **PR #682**: feat(wasm-calculator): fix dark mode, ticks, freeze, form and escaped-ion count
