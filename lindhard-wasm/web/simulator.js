@@ -543,10 +543,10 @@ function plotView(spec) {
   return v;
 }
 
-function legendSwatch(i) {
+function legendSwatch(i, dash = i) {
   const [c, x] = swatchCanvas();
   x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.lineWidth = 2;
-  x.setLineDash(dashForSeries(i));
+  x.setLineDash(dashForSeries(dash));
   x.beginPath(); x.moveTo(0, 6); x.lineTo(32, 6); x.stroke();
   return c;
 }
@@ -558,9 +558,9 @@ function drawPlot(spec) {
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const muted = css.getPropertyValue("--muted").trim() || "#666";
-  const W = size ? size.w : 900, H = size ? size.h : 300, L = 64, R = 12, T = 12, B = 40;
+  const W = size ? size.w : 900, H = size ? size.h : 300, L = 64, R = 28, T = 12, B = 40;
   const ext = plotExtent(spec);
-  const yTicks = niceTicks(0, ext.y1, 5);
+  const yTicks = niceTicks(0, ext.y1, 5, { integer: true }); // counts are whole numbers
   const y1 = Math.max(ext.y1, yTicks[yTicks.length - 1]);
   const sx = (x) => L + ((x - ext.x0) / (ext.x1 - ext.x0)) * (W - L - R);
   const sy = (y) => H - B - (y / y1) * (H - B - T);
@@ -568,7 +568,11 @@ function drawPlot(spec) {
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   ctx.font = "12px system-ui, sans-serif";
   ctx.lineWidth = 1; ctx.strokeStyle = muted; ctx.fillStyle = muted;
+  const gridLine = (x0, y0, x1, y1b) => {
+    ctx.save(); ctx.globalAlpha = 0.2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1b); ctx.stroke(); ctx.restore();
+  };
   for (const t of yTicks) {
+    gridLine(L, sy(t), W - R, sy(t));
     ctx.beginPath(); ctx.moveTo(L - 4, sy(t)); ctx.lineTo(L, sy(t)); ctx.stroke();
     ctx.textAlign = "right"; ctx.fillText(String(t), L - 7, sy(t) + 4);
   }
@@ -579,21 +583,25 @@ function drawPlot(spec) {
     spec.categories.forEach((c, i) => {
       ctx.fillStyle = muted;
       ctx.fillText(c, L + (i + 0.5) * bw, H - B + 16, bw - 4);
-      ctx.fillStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length];
+      const sp = spec.speciesOf?.[i] ?? i;
+      ctx.fillStyle = SPECIES_COLOURS[sp % SPECIES_COLOURS.length];
       const top = sy(spec.series[0].y[i]);
       ctx.fillRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
       ctx.strokeStyle = fg; ctx.strokeRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
+      ctx.fillStyle = fg;
+      ctx.fillText(String(spec.series[0].y[i]), L + (i + 0.5) * bw, top - 4, bw - 4);
     });
   } else {
     for (const t of niceTicks(ext.x0, ext.x1, 6)) {
       ctx.strokeStyle = muted; ctx.fillStyle = muted;
+      gridLine(sx(t), T, sx(t), H - B);
       ctx.beginPath(); ctx.moveTo(sx(t), H - B); ctx.lineTo(sx(t), H - B + 4); ctx.stroke();
       ctx.fillText(String(t), sx(t), H - B + 16);
     }
     ctx.lineWidth = 1.6;
     for (const s of spec.series) {
       ctx.strokeStyle = SPECIES_COLOURS[s.style % SPECIES_COLOURS.length];
-      ctx.setLineDash(dashForSeries(s.style));
+      ctx.setLineDash(dashForSeries(s.dashIndex ?? s.style));
       ctx.beginPath();
       if (s.line) {
         s.y.forEach((y, i) => {
@@ -609,6 +617,14 @@ function drawPlot(spec) {
       ctx.stroke();
     }
     ctx.setLineDash([]);
+    for (const m of spec.markers ?? []) {
+      if (!(m.x >= ext.x0 && m.x <= ext.x1)) continue;
+      ctx.strokeStyle = fg; ctx.fillStyle = fg; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(sx(m.x), T); ctx.lineTo(sx(m.x), H - B); ctx.stroke();
+      ctx.setLineDash([]); ctx.textAlign = "left";
+      ctx.fillText(`${m.label} = ${Number(m.x.toPrecision(3))} nm`, sx(m.x) + 4, T + 10);
+      ctx.textAlign = "center";
+    }
   }
   ctx.fillStyle = fg; ctx.textAlign = "center";
   ctx.fillText(spec.xLabel, (L + W - R) / 2, H - 6);
@@ -616,10 +632,12 @@ function drawPlot(spec) {
   ctx.fillText(spec.yLabel, 0, 0); ctx.restore();
   if (spec.empty) { ctx.fillStyle = muted; ctx.fillText("No data yet", (L + W - R) / 2, (T + H - B) / 2); }
   legend.replaceChildren(...(spec.kind === "hist"
-    ? spec.series.map((s) => h("li", {}, legendSwatch(s.style), ` ${s.label}`)) : []));
+    ? spec.series.map((s) => h("li", {}, legendSwatch(s.style, s.dashIndex ?? s.style), ` ${s.label}`)) : []));
   const flows = spec.series.filter((s) => s.bins && !s.overlay && (s.bins.underflow || s.bins.overflow))
     .map((s) => `${s.label}: ${s.bins.underflow} below, ${s.bins.overflow} above the plotted range`);
-  note.textContent = [spec.note, ...flows].filter(Boolean).join(" ");
+  const trim = ext.trimmed
+    ? `The x axis is trimmed to ${ext.x1}; the tally extends to ${ext.full} and the CSV holds all of it.` : "";
+  note.textContent = [spec.note, trim, ...flows].filter(Boolean).join(" ");
 }
 
 function drawPlots(report) {
