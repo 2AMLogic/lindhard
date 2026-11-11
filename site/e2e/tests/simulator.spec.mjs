@@ -365,6 +365,22 @@ test("the page is usable at 1280 px", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
 
+// Issue #668: Setup fits one 1440x900 screen for a one-layer target. The
+// controls of the closed Physics and Input file sections are in the DOM and
+// have a layout box, so `offsetParent` counts them (it measured 1333 px,
+// the #toml textarea); `checkVisibility()` skips the closed sections. Measured
+// with it on chromium: the last visible control ends at about 676 px.
+test("Setup's controls fit a 1440x900 screen for a one-layer target", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page);
+  await expect(page.locator("#layers .layer")).toHaveCount(1);
+  const bottom = await page.evaluate(() =>
+    Math.max(...[...document.querySelectorAll("#setup input, #setup select, #setup button, #setup textarea")]
+      .filter((e) => e.checkVisibility())
+      .map((e) => e.getBoundingClientRect().bottom + window.scrollY)));
+  expect(bottom).toBeLessThanOrEqual(900);
+});
+
 test("Setup and Run fit a phone screen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
