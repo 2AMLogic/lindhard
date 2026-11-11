@@ -1376,6 +1376,55 @@ def _cuni_diagnostics(r: dict) -> list[str]:
         f"20° / 0° yield ratio for pure Cu is {dc['engine_tilt_20_over_0_pure_cu']:.2f}. Both experiments "
         "are digitized or converted with the unresolved conventions of the notes above.",
     ]
+    att = d.get("attribution")
+    if att:
+        lines += _cuni_attribution(d, att)
+    return lines
+
+
+def _cuni_attribution(d: dict, att: dict) -> list[str]:
+    """The #544 attribution: stored points, one-at-a-time candidates, data conventions."""
+    pm = lambda x, nd=3: f"{x['value']:.{nd}f} ± {x['se']:.{nd}f}"  # noqa: E731
+    lines = [
+        "",
+        f"**Attribution (#544): one candidate at a time.** Pure Cu and pure Ni, {att['energy_ev']:g} eV Ar, normal "
+        f"incidence, static, {len(att['seeds'])} seeds × {att['ions_per_seed']} ions, mean ± standard error. "
+        "Each row changes one thing from the baseline (the matched settings, E_s = 3.49 eV Cu and 4.44 eV Ni, "
+        "E_d = E_s, E_b = 0). Kinds: *convention* is an alternative that the element table or the published "
+        "codes use, *model* is another published model already in the engine, *sensitivity* is a fixed step that "
+        "only measures how much the yield moves. No row is adopted, and none is chosen because it lands near a "
+        "measurement.",
+        "",
+        "| Group | Candidate | Kind | Cu yield | Cu / baseline | Ni yield | Ni / baseline |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for r in att["candidates"]:
+        lines.append(f"| {r['group']} | {r['label']} | {r['kind']} | {pm(r['Cu'])} | {r['Cu_over_base']:.3f} | "
+                     f"{pm(r['Ni'])} | {r['Ni_over_base']:.3f} |")
+    el = att["es_elasticity"]
+    lines += ["", f"Elasticity of the yield to E_s (E_d moved with it, ±25 %): d ln Y / d ln E_s = {el['Cu']:.2f} (Cu), "
+              f"{el['Ni']:.2f} (Ni).", ""]
+    for sym in ("Cu", "Ni"):
+        pts = att["points"][sym]
+        scope = "within 25 % of 2 keV" if sym == "Cu" else "all stored points (none lies within 25 % of 2 keV)"
+        lines += [f"Engine (baseline) against each stored Ar → {sym} point, {scope}; the engine is run at the "
+                  "energy of the point (points within 2 % share a run), same seeds and ions:", "",
+                  "| Set | Energy (eV) | Measured | Engine | Engine / measured |", "|---|---|---|---|---|"]
+        for p in pts:
+            lines.append(f"| {p['set'].split('_sputter_')[-1]} | {p['energy_ev']:g} | {p['yield']:.3f} | "
+                         f"{pm(p['engine'])} | {p['engine_over_measured']:.2f} |")
+        g = math.exp(sum(math.log(p["engine_over_measured"]) for p in pts) / len(pts))
+        rs = [p["engine_over_measured"] for p in pts]
+        lines += ["", f"Geometric mean of engine / measured over these {len(pts)} points: {g:.2f} "
+                  f"(range {min(rs):.2f}-{max(rs):.2f}).", ""]
+    lines += ["Data convention of the Cu sets: engine over the measured median with each set left out in turn "
+              "(nothing reweighted):", "", "| Window | Left out | Points | Median | Engine / median |", "|---|---|---|---|---|"]
+    for tag, rows in att["cu_leave_one_set_out"].items():
+        for r in rows:
+            lines.append(f"| {tag.replace('within_', 'within ').replace('_percent', ' %')} | "
+                         f"{r['left_out'].split('_sputter_')[-1]} | {r['points']} | {r['median']:.2f} | "
+                         f"{r['engine_over_median']:.2f} |")
+    lines.append("")
     return lines
 
 

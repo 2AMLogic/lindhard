@@ -2721,7 +2721,7 @@ conversions, the generated inputs and the committed results against the data
 files and the fixed tolerances.
 
 <!-- validation:level3-cuni-dynamic:begin -->
-lindhard 0.0.1 (fb81239); reproduce with `python3 validation/experiments/cuni_dynamic.py` (all runs; `--reuse` resumes). Ho: 60000 ions per run, seeds [1, 2, 3, 4], 2 keV Ar at 20° from the normal; Betz: 30000 ions per run, seed 1, normal incidence. Fluence 3.0e+16 cm⁻² per run, a 40 nm film on a substrate of the same alloy, slabs 0.5 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Steady window: the last 50 % of the ions, in 5 blocks. Physics: the matched sputter settings of section 3 (ZBL, Lindhard-Scharff, constant free path, cutoffs 2 / 1 eV, E_b = 0, E_d = E_s, E_s = 3.49 eV (Cu) and 4.44 eV (Ni)); no tuning set, no fitted parameter.
+lindhard 0.0.1 (499d047); reproduce with `python3 validation/experiments/cuni_dynamic.py` (all runs; `--reuse` resumes). Ho: 60000 ions per run, seeds [1, 2, 3, 4], 2 keV Ar at 20° from the normal; Betz: 30000 ions per run, seed 1, normal incidence. Fluence 3.0e+16 cm⁻² per run, a 40 nm film on a substrate of the same alloy, slabs 0.5 nm, `max_change` 0.1, `ions_per_step` 1000, erosion on. Steady window: the last 50 % of the ions, in 5 blocks. Physics: the matched sputter settings of section 3 (ZBL, Lindhard-Scharff, constant free path, cutoffs 2 / 1 eV, E_b = 0, E_d = E_s, E_s = 3.49 eV (Cu) and 4.44 eV (Ni)); no tuning set, no fitted parameter.
 
 **Ho et al. (1976), row `t2-r4` (2 keV, 38.4 at% Cu).** Excluded: `t1-r3`, `t2-r1` (the conflicting 0.5 keV pair). Alloy number density 8.876e+22 cm⁻³ (8.93 g/cm³), additive atomic volumes of the elemental solids (an assumption: Ho's own alloy density was not available). Erosion 23 ± 2.5 Å/min at 9.4e+13 ions cm⁻² s⁻¹; the ± are the printed amounts, not standard deviations.
 
@@ -2735,57 +2735,57 @@ Tolerances (fixed in advance, not relaxed): total yield 30 % relative, surface C
 
 | Relaxation | Argon | Yield (atoms/ion) | vs sample-area flux | vs beam-normal flux | Surface Cu fraction (AES) | vs m |
 |---|---|---|---|---|---|---|
-| ideal-mixing | ar-retained | 1.839 ± 0.007 | -49.2 % (fail) | -52.3 % (fail) | 0.3430 ± 0.0007 | +27.8 % (fail) |
-| ideal-mixing | ar-re-emitted | 2.665 ± 0.006 | -26.4 % (pass) | -30.8 % (fail) | 0.3484 ± 0.0002 | +29.9 % (fail) |
-| fixed-number-density | ar-retained | 2.248 ± 0.004 | -37.9 % (fail) | -41.6 % (fail) | 0.3493 ± 0.0009 | +30.2 % (fail) |
-| fixed-number-density | ar-re-emitted | 2.655 ± 0.006 | -26.6 % (pass) | -31.1 % (fail) | 0.3488 ± 0.0005 | +30.0 % (fail) |
+| ideal-mixing | ar-retained | 1.836 ± 0.008 | -49.3 % (fail) | -52.3 % (fail) | 0.3430 ± 0.0007 | +27.9 % (fail) |
+| ideal-mixing | ar-re-emitted | 2.666 ± 0.007 | -26.4 % (pass) | -30.8 % (fail) | 0.3485 ± 0.0001 | +29.9 % (fail) |
+| fixed-number-density | ar-retained | 2.248 ± 0.005 | -37.9 % (fail) | -41.6 % (fail) | 0.3491 ± 0.0008 | +30.1 % (fail) |
+| fixed-number-density | ar-re-emitted | 2.656 ± 0.007 | -26.6 % (pass) | -31.1 % (fail) | 0.3487 ± 0.0004 | +30.0 % (fail) |
 
 Surface Cu fraction under other depth mappings (relative difference from m; all must be within 20 % to pass):
 
 | Relaxation | Argon | First slab alone | AES, 0.5× length | AES, 1× | AES, 2× | Argon in the front slab |
 |---|---|---|---|---|---|---|
-| ideal-mixing | ar-retained | 0.338 (+25.9 % (fail)) | 0.337 (+25.5 % (fail)) | 0.343 (+27.8 % (fail)) | 0.360 (+34.2 % (fail)) | 13.1 % |
-| ideal-mixing | ar-re-emitted | 0.336 (+25.3 % (fail)) | 0.340 (+26.7 % (fail)) | 0.348 (+29.9 % (fail)) | 0.360 (+34.4 % (fail)) | 0.0 % |
-| fixed-number-density | ar-retained | 0.338 (+26.0 % (fail)) | 0.340 (+26.9 % (fail)) | 0.349 (+30.2 % (fail)) | 0.363 (+35.3 % (fail)) | 11.9 % |
-| fixed-number-density | ar-re-emitted | 0.337 (+25.5 % (fail)) | 0.340 (+26.8 % (fail)) | 0.349 (+30.0 % (fail)) | 0.361 (+34.5 % (fail)) | 0.0 % |
+| ideal-mixing | ar-retained | 0.338 (+26.0 % (fail)) | 0.337 (+25.6 % (fail)) | 0.343 (+27.9 % (fail)) | 0.360 (+34.1 % (fail)) | 13.1 % |
+| ideal-mixing | ar-re-emitted | 0.336 (+25.3 % (fail)) | 0.340 (+26.7 % (fail)) | 0.348 (+29.9 % (fail)) | 0.361 (+34.4 % (fail)) | 0.0 % |
+| fixed-number-density | ar-retained | 0.338 (+25.9 % (fail)) | 0.340 (+26.8 % (fail)) | 0.349 (+30.1 % (fail)) | 0.363 (+35.2 % (fail)) | 11.9 % |
+| fixed-number-density | ar-re-emitted | 0.337 (+25.6 % (fail)) | 0.340 (+26.9 % (fail)) | 0.349 (+30.0 % (fail)) | 0.361 (+34.4 % (fail)) | 0.0 % |
 
 **Convergence evidence.** Yield over the quarters 2, 3 and 4 of the run (steady-state check: a drift means the run had not reached steady state), then the range over one-at-a-time changes (slab 0.25 / 1.0 nm, `max_change` 0.05, twice the ions; one seed each, standard errors of those runs 0.01-0.02):
 
 | Relaxation | Argon | Yield, quarter 2 / 3 / 4 | Yield range, sensitivity runs | AES m range, sensitivity runs |
 |---|---|---|---|---|
-| ideal-mixing | ar-retained | 1.991 / 1.866 / 1.812 | 1.819-1.855 | 0.3428-0.3441 |
-| ideal-mixing | ar-re-emitted | 2.668 / 2.660 / 2.670 | 2.651-2.688 | 0.3477-0.3512 |
-| fixed-number-density | ar-retained | 2.322 / 2.258 / 2.237 | 2.231-2.266 | 0.3493-0.3510 |
-| fixed-number-density | ar-re-emitted | 2.673 / 2.651 / 2.660 | 2.641-2.677 | 0.3485-0.3521 |
+| ideal-mixing | ar-retained | 1.992 / 1.856 / 1.816 | 1.830-1.843 | 0.3418-0.3449 |
+| ideal-mixing | ar-re-emitted | 2.672 / 2.662 / 2.669 | 2.649-2.685 | 0.3471-0.3514 |
+| fixed-number-density | ar-retained | 2.329 / 2.256 / 2.240 | 2.230-2.265 | 0.3488-0.3502 |
+| fixed-number-density | ar-re-emitted | 2.672 / 2.652 / 2.660 | 2.642-2.678 | 0.3489-0.3527 |
 
 **Betz (1980), Fig. 13** (2 keV Ar, normal incidence, about 200 nm film; 22 digitized markers, digitization bounds ±0.03-0.05 atoms/ion; experimental uncertainty unknown, not zero). Simulated steady-state yield against each marker, relative difference (all verdicts at 30 %):
 
 | Marker | Cu (at%) | Measured | ideal-mixing, Ar re-emitted | fixed-number-density, Ar re-emitted | ideal-mixing, Ar retained | fixed-number-density, Ar retained |
 |---|---|---|---|---|---|---|
-| fig13-p01 | 14.1 | 3.13 ± 0.03 | 2.16 (-31 %) | 2.14 (-32 %) | 1.41 (-55 %) | 1.78 (-43 %) |
-| fig13-p02 | 18.6 | 3.36 ± 0.03 | 2.17 (-36 %) | 2.18 (-35 %) | 1.41 (-58 %) | 1.79 (-47 %) |
-| fig13-p03 | 21.4 | 3.21 ± 0.03 | 2.19 (-32 %) | 2.17 (-32 %) | 1.42 (-56 %) | 1.80 (-44 %) |
-| fig13-p04 | 24.1 | 3.26 ± 0.03 | 2.21 (-32 %) | 2.20 (-33 %) | 1.44 (-56 %) | 1.81 (-45 %) |
-| fig13-p05 | 28.3 | 3.50 ± 0.03 | 2.20 (-37 %) | 2.22 (-37 %) | 1.42 (-59 %) | 1.82 (-48 %) |
-| fig13-p06 | 34.4 | 3.58 ± 0.03 | 2.26 (-37 %) | 2.26 (-37 %) | 1.45 (-60 %) | 1.83 (-49 %) |
-| fig13-p07 | 36.1 | 3.52 ± 0.03 | 2.28 (-35 %) | 2.26 (-36 %) | 1.48 (-58 %) | 1.84 (-48 %) |
-| fig13-p08 | 41.9 | 3.65 ± 0.03 | 2.30 (-37 %) | 2.29 (-37 %) | 1.47 (-60 %) | 1.89 (-48 %) |
-| fig13-p09 | 44.4 | 3.93 ± 0.03 | 2.31 (-41 %) | 2.31 (-41 %) | 1.49 (-62 %) | 1.88 (-52 %) |
-| fig13-p10 | 50.3 | 3.78 ± 0.03 | 2.35 (-38 %) | 2.32 (-39 %) | 1.51 (-60 %) | 1.91 (-49 %) |
-| fig13-p11 | 53.3 | 4.23 ± 0.03 | 2.35 (-45 %) | 2.35 (-44 %) | 1.52 (-64 %) | 1.93 (-54 %) |
-| fig13-p12 | 61.4 | 4.03 ± 0.03 | 2.40 (-40 %) | 2.40 (-41 %) | 1.55 (-62 %) | 1.97 (-51 %) |
-| fig13-p13 | 67.0 | 4.18 ± 0.03 | 2.41 (-42 %) | 2.41 (-42 %) | 1.58 (-62 %) | 1.99 (-52 %) |
-| fig13-p14 | 74.1 | 4.07 ± 0.03 | 2.47 (-39 %) | 2.48 (-39 %) | 1.60 (-61 %) | 2.02 (-50 %) |
-| fig13-p15 | 79.9 | 4.35 ± 0.03 | 2.50 (-43 %) | 2.50 (-42 %) | 1.62 (-63 %) | 2.04 (-53 %) |
-| fig13-p16 | 84.3 | 4.33 ± 0.05 | 2.53 (-41 %) | 2.53 (-42 %) | 1.64 (-62 %) | 2.06 (-52 %) |
-| fig13-p17 | 87.5 | 4.67 ± 0.05 | 2.57 (-45 %) | 2.56 (-45 %) | 1.66 (-65 %) | 2.08 (-55 %) |
-| fig13-p18 | 88.5 | 4.41 ± 0.05 | 2.57 (-42 %) | 2.55 (-42 %) | 1.66 (-62 %) | 2.08 (-53 %) |
-| fig13-p19 | 90.7 | 4.55 ± 0.05 | 2.57 (-44 %) | 2.57 (-44 %) | 1.67 (-63 %) | 2.10 (-54 %) |
-| fig13-p20 | 91.1 | 4.64 ± 0.05 | 2.57 (-45 %) | 2.57 (-45 %) | 1.68 (-64 %) | 2.11 (-55 %) |
-| fig13-p21 | 91.3 | 4.88 ± 0.05 | 2.57 (-47 %) | 2.57 (-47 %) | 1.66 (-66 %) | 2.11 (-57 %) |
-| fig13-p22 | 92.6 | 4.92 ± 0.05 | 2.60 (-47 %) | 2.60 (-47 %) | 1.68 (-66 %) | 2.11 (-57 %) |
+| fig13-p01 | 14.1 | 3.13 ± 0.03 | 2.16 (-31 %) | 2.14 (-32 %) | 1.39 (-56 %) | 1.78 (-43 %) |
+| fig13-p02 | 18.6 | 3.36 ± 0.03 | 2.17 (-35 %) | 2.18 (-35 %) | 1.41 (-58 %) | 1.80 (-46 %) |
+| fig13-p03 | 21.4 | 3.21 ± 0.03 | 2.19 (-32 %) | 2.18 (-32 %) | 1.41 (-56 %) | 1.80 (-44 %) |
+| fig13-p04 | 24.1 | 3.26 ± 0.03 | 2.21 (-32 %) | 2.20 (-33 %) | 1.41 (-57 %) | 1.81 (-44 %) |
+| fig13-p05 | 28.3 | 3.50 ± 0.03 | 2.21 (-37 %) | 2.22 (-37 %) | 1.44 (-59 %) | 1.82 (-48 %) |
+| fig13-p06 | 34.4 | 3.58 ± 0.03 | 2.26 (-37 %) | 2.25 (-37 %) | 1.46 (-59 %) | 1.84 (-49 %) |
+| fig13-p07 | 36.1 | 3.52 ± 0.03 | 2.28 (-35 %) | 2.26 (-36 %) | 1.47 (-58 %) | 1.83 (-48 %) |
+| fig13-p08 | 41.9 | 3.65 ± 0.03 | 2.31 (-37 %) | 2.29 (-37 %) | 1.50 (-59 %) | 1.89 (-48 %) |
+| fig13-p09 | 44.4 | 3.93 ± 0.03 | 2.30 (-41 %) | 2.31 (-41 %) | 1.50 (-62 %) | 1.89 (-52 %) |
+| fig13-p10 | 50.3 | 3.78 ± 0.03 | 2.34 (-38 %) | 2.32 (-39 %) | 1.52 (-60 %) | 1.91 (-49 %) |
+| fig13-p11 | 53.3 | 4.23 ± 0.03 | 2.35 (-44 %) | 2.35 (-44 %) | 1.54 (-64 %) | 1.94 (-54 %) |
+| fig13-p12 | 61.4 | 4.03 ± 0.03 | 2.39 (-41 %) | 2.39 (-41 %) | 1.55 (-61 %) | 1.97 (-51 %) |
+| fig13-p13 | 67.0 | 4.18 ± 0.03 | 2.41 (-42 %) | 2.42 (-42 %) | 1.58 (-62 %) | 1.99 (-52 %) |
+| fig13-p14 | 74.1 | 4.07 ± 0.03 | 2.46 (-39 %) | 2.48 (-39 %) | 1.60 (-61 %) | 2.02 (-50 %) |
+| fig13-p15 | 79.9 | 4.35 ± 0.03 | 2.49 (-43 %) | 2.51 (-42 %) | 1.62 (-63 %) | 2.04 (-53 %) |
+| fig13-p16 | 84.3 | 4.33 ± 0.05 | 2.53 (-42 %) | 2.52 (-42 %) | 1.64 (-62 %) | 2.03 (-53 %) |
+| fig13-p17 | 87.5 | 4.67 ± 0.05 | 2.57 (-45 %) | 2.56 (-45 %) | 1.64 (-65 %) | 2.08 (-55 %) |
+| fig13-p18 | 88.5 | 4.41 ± 0.05 | 2.57 (-42 %) | 2.55 (-42 %) | 1.64 (-63 %) | 2.08 (-53 %) |
+| fig13-p19 | 90.7 | 4.55 ± 0.05 | 2.57 (-44 %) | 2.57 (-44 %) | 1.67 (-63 %) | 2.11 (-54 %) |
+| fig13-p20 | 91.1 | 4.64 ± 0.05 | 2.57 (-45 %) | 2.57 (-45 %) | 1.65 (-64 %) | 2.11 (-55 %) |
+| fig13-p21 | 91.3 | 4.88 ± 0.05 | 2.57 (-47 %) | 2.58 (-47 %) | 1.66 (-66 %) | 2.11 (-57 %) |
+| fig13-p22 | 92.6 | 4.92 ± 0.05 | 2.59 (-47 %) | 2.60 (-47 %) | 1.68 (-66 %) | 2.10 (-57 %) |
 
-Betz summary: ideal-mixing/ar-re-emitted: 0 of 22 pass (-47 to -31 %); fixed-number-density/ar-re-emitted: 0 of 22 pass (-47 to -32 %); ideal-mixing/ar-retained: 0 of 22 pass (-66 to -55 %); fixed-number-density/ar-retained: 0 of 22 pass (-57 to -43 %). The transient bias of the film-integrated yield, estimated from each run's own cumulative sputtering (intercept over the film inventory), is at most 0.33 %, so replacing the film-integrated measurement by the steady-state yield is justified within that model estimate (the film is eroded over a fluence about 100 times the transient's). It is an engine estimate, not a measurement.
+Betz summary: ideal-mixing/ar-re-emitted: 0 of 22 pass (-47 to -31 %); fixed-number-density/ar-re-emitted: 0 of 22 pass (-47 to -32 %); ideal-mixing/ar-retained: 0 of 22 pass (-66 to -56 %); fixed-number-density/ar-retained: 0 of 22 pass (-57 to -43 %). The transient bias of the film-integrated yield, estimated from each run's own cumulative sputtering (intercept over the film inventory), is at most 0.34 %, so replacing the film-integrated measurement by the steady-state yield is justified within that model estimate (the film is eroded over a fluence about 100 times the transient's). It is an engine estimate, not a measurement.
 
 **Diagnosis (#465): static runs, same matched settings, no dynamic profile.** 4 seeds × 100000 ions per run, 2000 eV Ar; mean ± standard error over the seeds.
 
@@ -2793,25 +2793,25 @@ Betz summary: ideal-mixing/ar-re-emitted: 0 of 22 pass (-47 to -31 %); fixed-num
 
 | Target, incidence | Engine yield (atoms/ion) | Stored measured, normal incidence | Engine / measured |
 |---|---|---|---|
-| Cu, 0° | 2.628 ± 0.002 | 3.03-4.23 (median 3.92), 4 points of 4 sets within 2 % of the energy | 0.67 of the median (0.62-0.87 of the band's max and min) |
+| Cu, 0° | 2.628 ± 0.003 | 3.03-4.23 (median 3.92), 4 points of 4 sets within 2 % of the energy | 0.67 of the median (0.62-0.87 of the band's max and min) |
 | Cu, 0° | same | 3.03-4.55 (median 4.01), 7 points of 6 sets within 25 % of the energy | 0.66 of the median |
-| Ni, 0° | 2.088 ± 0.003 | 1.76-2.57 (median 2.19), 5 points of 4 sets within 60 % of the energy | 0.96 of the median (0.81-1.18 of the band's max and min) |
-| Cu, 20° | 3.062 ± 0.003 | no stored data at 20° | not available |
-| Ni, 20° | 2.477 ± 0.002 | no stored data at 20° | not available |
+| Ni, 0° | 2.087 ± 0.003 | 1.76-2.57 (median 2.19), 5 points of 4 sets within 60 % of the energy | 0.96 of the median (0.81-1.18 of the band's max and min) |
+| Cu, 20° | 3.061 ± 0.003 | no stored data at 20° | not available |
+| Ni, 20° | 2.476 ± 0.002 | no stored data at 20° | not available |
 
 *2. The binary at fixed composition, Ho geometry, 20°.* A uniform slab of the given Cu fraction (the real surface has a depth profile; this isolates the collisional physics). "Additive" is c Y(Cu) + (1 − c) Y(Ni) from the pure-element runs above; "preference" is (Y_Cu / Y_Ni) / (c / (1 − c)).
 
 | Cu fraction c | Y_Cu | Y_Ni | Total | Total / additive | Cu fraction of sputtered flux | Preference |
 |---|---|---|---|---|---|---|
-| 0.200 | 0.613 ± 0.002 | 1.977 ± 0.003 | 2.590 ± 0.004 | 0.999 | 0.2367 ± 0.0004 | 1.240 |
-| 0.240 | 0.736 ± 0.001 | 1.878 ± 0.004 | 2.613 ± 0.004 | 0.999 | 0.2815 ± 0.0006 | 1.241 |
-| 0.268 | 0.821 ± 0.001 | 1.810 ± 0.003 | 2.631 ± 0.004 | 0.999 | 0.3120 ± 0.0002 | 1.239 |
-| 0.280 | 0.857 ± 0.002 | 1.781 ± 0.004 | 2.638 ± 0.003 | 0.999 | 0.3250 ± 0.0007 | 1.238 |
-| 0.320 | 0.978 ± 0.001 | 1.680 ± 0.003 | 2.658 ± 0.004 | 0.998 | 0.3678 ± 0.0004 | 1.237 |
-| 0.340 | 1.040 ± 0.002 | 1.630 ± 0.004 | 2.670 ± 0.004 | 0.998 | 0.3897 ± 0.0006 | 1.239 |
-| 0.360 | 1.102 ± 0.002 | 1.580 ± 0.002 | 2.682 ± 0.004 | 0.998 | 0.4109 ± 0.0002 | 1.240 |
-| 0.384 | 1.175 ± 0.002 | 1.523 ± 0.002 | 2.698 ± 0.004 | 0.999 | 0.4355 ± 0.0002 | 1.238 |
-| 0.400 | 1.224 ± 0.002 | 1.481 ± 0.002 | 2.705 ± 0.004 | 0.998 | 0.4525 ± 0.0003 | 1.240 |
+| 0.200 | 0.613 ± 0.002 | 1.977 ± 0.003 | 2.590 ± 0.004 | 0.999 | 0.2366 ± 0.0004 | 1.240 |
+| 0.240 | 0.736 ± 0.002 | 1.877 ± 0.004 | 2.613 ± 0.005 | 0.999 | 0.2815 ± 0.0006 | 1.241 |
+| 0.268 | 0.821 ± 0.001 | 1.809 ± 0.003 | 2.631 ± 0.004 | 0.999 | 0.3122 ± 0.0002 | 1.240 |
+| 0.280 | 0.857 ± 0.002 | 1.780 ± 0.004 | 2.637 ± 0.003 | 0.999 | 0.3250 ± 0.0007 | 1.238 |
+| 0.320 | 0.977 ± 0.001 | 1.679 ± 0.003 | 2.657 ± 0.003 | 0.998 | 0.3679 ± 0.0004 | 1.237 |
+| 0.340 | 1.040 ± 0.002 | 1.630 ± 0.004 | 2.670 ± 0.004 | 0.998 | 0.3895 ± 0.0006 | 1.239 |
+| 0.360 | 1.102 ± 0.001 | 1.580 ± 0.003 | 2.682 ± 0.004 | 0.998 | 0.4110 ± 0.0002 | 1.240 |
+| 0.384 | 1.175 ± 0.002 | 1.523 ± 0.002 | 2.698 ± 0.003 | 0.999 | 0.4355 ± 0.0002 | 1.237 |
+| 0.400 | 1.223 ± 0.002 | 1.480 ± 0.002 | 2.704 ± 0.004 | 0.998 | 0.4524 ± 0.0004 | 1.239 |
 
 At steady state the sputtered flux has the bulk composition (38.4 at% Cu). The uniform-slab Cu fraction at which this engine's flux has that composition is 0.335.
 
@@ -2820,21 +2820,21 @@ Mechanism test, not a fit (both elements given Cu's 3.49 eV surface binding, sam
 | Cu fraction c | Total | Cu fraction of sputtered flux |
 |---|---|---|
 | 0.268 | 3.084 ± 0.004 | 0.2660 ± 0.0001 |
-| 0.384 | 3.076 ± 0.005 | 0.3823 ± 0.0004 |
+| 0.384 | 3.075 ± 0.005 | 0.3823 ± 0.0005 |
 
 *2. The binary at fixed composition, Betz geometry, normal.* A uniform slab of the given Cu fraction (the real surface has a depth profile; this isolates the collisional physics). "Additive" is c Y(Cu) + (1 − c) Y(Ni) from the pure-element runs above; "preference" is (Y_Cu / Y_Ni) / (c / (1 − c)).
 
 | Cu fraction c | Y_Cu | Y_Ni | Total | Total / additive | Cu fraction of sputtered flux | Preference |
 |---|---|---|---|---|---|---|
-| 0.200 | 0.524 ± 0.001 | 1.671 ± 0.003 | 2.195 ± 0.004 | 1.000 | 0.2386 ± 0.0003 | 1.253 |
-| 0.240 | 0.627 ± 0.001 | 1.589 ± 0.004 | 2.217 ± 0.004 | 1.000 | 0.2831 ± 0.0004 | 1.250 |
-| 0.268 | 0.700 ± 0.002 | 1.530 ± 0.002 | 2.230 ± 0.004 | 0.999 | 0.3139 ± 0.0002 | 1.249 |
-| 0.280 | 0.732 ± 0.001 | 1.504 ± 0.002 | 2.236 ± 0.003 | 0.998 | 0.3275 ± 0.0003 | 1.252 |
-| 0.320 | 0.838 ± 0.002 | 1.419 ± 0.002 | 2.257 ± 0.003 | 0.999 | 0.3714 ± 0.0004 | 1.255 |
-| 0.340 | 0.892 ± 0.002 | 1.378 ± 0.002 | 2.271 ± 0.003 | 1.000 | 0.3930 ± 0.0004 | 1.257 |
-| 0.360 | 0.946 ± 0.002 | 1.335 ± 0.002 | 2.281 ± 0.003 | 0.999 | 0.4149 ± 0.0003 | 1.260 |
-| 0.384 | 1.007 ± 0.001 | 1.286 ± 0.002 | 2.292 ± 0.002 | 0.999 | 0.4391 ± 0.0004 | 1.256 |
-| 0.400 | 1.047 ± 0.001 | 1.251 ± 0.002 | 2.298 ± 0.002 | 0.997 | 0.4556 ± 0.0005 | 1.256 |
+| 0.200 | 0.523 ± 0.001 | 1.671 ± 0.002 | 2.194 ± 0.003 | 0.999 | 0.2385 ± 0.0004 | 1.253 |
+| 0.240 | 0.627 ± 0.001 | 1.589 ± 0.004 | 2.216 ± 0.004 | 1.000 | 0.2830 ± 0.0004 | 1.250 |
+| 0.268 | 0.700 ± 0.002 | 1.530 ± 0.002 | 2.230 ± 0.004 | 0.999 | 0.3139 ± 0.0003 | 1.250 |
+| 0.280 | 0.732 ± 0.001 | 1.503 ± 0.002 | 2.235 ± 0.002 | 0.998 | 0.3277 ± 0.0003 | 1.253 |
+| 0.320 | 0.838 ± 0.002 | 1.419 ± 0.001 | 2.257 ± 0.003 | 0.999 | 0.3712 ± 0.0004 | 1.254 |
+| 0.340 | 0.892 ± 0.002 | 1.378 ± 0.002 | 2.270 ± 0.003 | 1.000 | 0.3931 ± 0.0005 | 1.257 |
+| 0.360 | 0.946 ± 0.002 | 1.334 ± 0.002 | 2.281 ± 0.004 | 1.000 | 0.4149 ± 0.0003 | 1.261 |
+| 0.384 | 1.006 ± 0.001 | 1.286 ± 0.002 | 2.292 ± 0.003 | 0.999 | 0.4391 ± 0.0004 | 1.256 |
+| 0.400 | 1.047 ± 0.001 | 1.251 ± 0.002 | 2.297 ± 0.003 | 0.998 | 0.4556 ± 0.0004 | 1.255 |
 
 At steady state the sputtered flux has the bulk composition (38.4 at% Cu). The uniform-slab Cu fraction at which this engine's flux has that composition is 0.332.
 
@@ -2842,10 +2842,85 @@ Mechanism test, not a fit (both elements given Cu's 3.49 eV surface binding, sam
 
 | Cu fraction c | Total | Cu fraction of sputtered flux |
 |---|---|---|
-| 0.268 | 2.639 ± 0.003 | 0.2665 ± 0.0004 |
-| 0.384 | 2.636 ± 0.002 | 0.3821 ± 0.0002 |
+| 0.268 | 2.639 ± 0.003 | 0.2667 ± 0.0004 |
+| 0.384 | 2.635 ± 0.002 | 0.3819 ± 0.0002 |
 
-*3. The data.* Betz's markers bracketing Ho's bulk composition (36.1 and 41.9 at% Cu, normal incidence) give 3.57 atoms/ion by linear interpolation. Ho's converted yield is 3.62 (flux per sample area, ratio to Betz 1.01) or 3.85 (per beam-normal area, ratio 1.08); the engine's own 20° / 0° yield ratio for pure Cu is 1.16. Both experiments are digitized or converted with the unresolved conventions of the notes above.
+*3. The data.* Betz's markers bracketing Ho's bulk composition (36.1 and 41.9 at% Cu, normal incidence) give 3.57 atoms/ion by linear interpolation. Ho's converted yield is 3.62 (flux per sample area, ratio to Betz 1.01) or 3.85 (per beam-normal area, ratio 1.08); the engine's own 20° / 0° yield ratio for pure Cu is 1.17. Both experiments are digitized or converted with the unresolved conventions of the notes above.
+
+**Attribution (#544): one candidate at a time.** Pure Cu and pure Ni, 2000 eV Ar, normal incidence, static, 4 seeds × 100000 ions, mean ± standard error. Each row changes one thing from the baseline (the matched settings, E_s = 3.49 eV Cu and 4.44 eV Ni, E_d = E_s, E_b = 0). Kinds: *convention* is an alternative that the element table or the published codes use, *model* is another published model already in the engine, *sensitivity* is a fixed step that only measures how much the yield moves. No row is adopted, and none is chosen because it lands near a measurement.
+
+| Group | Candidate | Kind | Cu yield | Cu / baseline | Ni yield | Ni / baseline |
+|---|---|---|---|---|---|---|
+| baseline | baseline (matched settings) | baseline | 2.628 ± 0.003 | 1.000 | 2.087 ± 0.003 | 1.000 |
+| surface binding | E_s x 0.75 (E_d = E_s kept) | sensitivity | 3.413 ± 0.002 | 1.299 | 2.759 ± 0.004 | 1.322 |
+| surface binding | E_s x 1.25 (E_d = E_s kept) | sensitivity | 2.110 ± 0.004 | 0.803 | 1.648 ± 0.002 | 0.790 |
+| surface binding | bulk binding E_b = E_s instead of 0 | convention | 1.385 ± 0.001 | 0.527 | 1.057 ± 0.001 | 0.507 |
+| surface binding | E_d = E_s / 2 | convention | 2.627 ± 0.001 | 1.000 | 2.085 ± 0.003 | 0.999 |
+| surface binding | E_d = 2 E_s | convention | 2.210 ± 0.002 | 0.841 | 1.728 ± 0.002 | 0.828 |
+| surface binding | E_d = the element table's displacement energy (30 eV Cu, 40 eV Ni) | convention | 0.746 ± 0.001 | 0.284 | 0.526 ± 0.001 | 0.252 |
+| electronic stopping | stopping = equipartition-ls-or (LS and Oen-Robinson) | model | 3.774 ± 0.003 | 1.436 | 2.953 ± 0.004 | 1.415 |
+| electronic stopping | stopping = none (upper bound, not realistic) | sensitivity | 6.366 ± 0.004 | 2.423 | 4.845 ± 0.003 | 2.322 |
+| cut-offs | cut-offs 1 / 0.5 eV (primary / recoil) | sensitivity | 2.627 ± 0.001 | 1.000 | 2.084 ± 0.003 | 0.999 |
+| cut-offs | cut-offs 3 / 3 eV (primary / recoil) | sensitivity | 2.624 ± 0.002 | 0.999 | 2.090 ± 0.004 | 1.002 |
+| cut-offs | weak_collisions = 3 (section 3, #61) | model | 1.222 ± 0.000 | 0.465 | 1.007 ± 0.002 | 0.482 |
+| other model choices | potential = kr-c | model | 2.711 ± 0.001 | 1.032 | 2.174 ± 0.002 | 1.042 |
+| other model choices | potential = moliere | model | 3.476 ± 0.004 | 1.323 | 2.816 ± 0.002 | 1.349 |
+| other model choices | potential = lenz-jensen | model | 2.165 ± 0.001 | 0.824 | 1.730 ± 0.003 | 0.829 |
+| other model choices | free_path = energy-dependent (min_cm_angle_deg = 0.5) | model | 2.437 ± 0.004 | 0.928 | 1.953 ± 0.005 | 0.936 |
+
+Elasticity of the yield to E_s (E_d moved with it, ±25 %): d ln Y / d ln E_s = -0.94 (Cu), -1.01 (Ni).
+
+Engine (baseline) against each stored Ar → Cu point, within 25 % of 2 keV; the engine is run at the energy of the point (points within 2 % share a run), same seeds and ions:
+
+| Set | Energy (eV) | Measured | Engine | Engine / measured |
+|---|---|---|---|---|
+| southern1963 | 1508 | 3.395 | 2.345 ± 0.003 | 0.69 |
+| bader1961 | 1594 | 4.127 | 2.402 ± 0.002 | 0.58 |
+| akaishi1977 | 1981 | 4.231 | 2.616 ± 0.002 | 0.62 |
+| koshkin1969 | 1988 | 3.029 | 2.616 ± 0.002 | 0.86 |
+| bohdansky1980 | 1993 | 3.822 | 2.616 ± 0.002 | 0.68 |
+| southern1963 | 2008 | 4.008 | 2.616 ± 0.002 | 0.65 |
+| keywell1955 | 2392 | 4.548 | 2.794 ± 0.003 | 0.61 |
+
+Geometric mean of engine / measured over these 7 points: 0.67 (range 0.58-0.86).
+
+Engine (baseline) against each stored Ar → Ni point, all stored points (none lies within 25 % of 2 keV); the engine is run at the energy of the point (points within 2 % share a run), same seeds and ions:
+
+| Set | Energy (eV) | Measured | Engine | Engine / measured |
+|---|---|---|---|---|
+| fetz1963 | 294.4 | 0.767 | 0.520 ± 0.000 | 0.68 |
+| stuart1962 | 297.1 | 0.940 | 0.520 ± 0.000 | 0.55 |
+| weijsenfeld1967 | 343.9 | 1.092 | 0.621 ± 0.001 | 0.57 |
+| weijsenfeld1967 | 344.1 | 0.930 | 0.621 ± 0.001 | 0.67 |
+| laegreid1961 | 394.1 | 1.225 | 0.717 ± 0.001 | 0.59 |
+| fetz1963 | 737.7 | 1.506 | 1.221 ± 0.002 | 0.81 |
+| weijsenfeld1967 | 787.6 | 1.880 | 1.276 ± 0.001 | 0.68 |
+| fetz1963 | 886.4 | 1.764 | 1.379 ± 0.002 | 0.78 |
+| weijsenfeld1967 | 990.4 | 2.185 | 1.478 ± 0.003 | 0.68 |
+| oechsner1973 | 1049 | 2.111 | 1.529 ± 0.003 | 0.72 |
+| roth1979 | 3036 | 2.480 | 2.408 ± 0.004 | 0.97 |
+| roth1979 | 3037 | 2.566 | 2.408 ± 0.004 | 0.94 |
+| okajima1981 | 10180 | 3.106 | 2.996 ± 0.003 | 0.96 |
+
+Geometric mean of engine / measured over these 13 points: 0.73 (range 0.55-0.97).
+
+Data convention of the Cu sets: engine over the measured median with each set left out in turn (nothing reweighted):
+
+| Window | Left out | Points | Median | Engine / median |
+|---|---|---|---|---|
+| within 2 % | none | 4 | 3.92 | 0.67 |
+| within 2 % | akaishi1977 | 3 | 3.82 | 0.69 |
+| within 2 % | bohdansky1980 | 3 | 4.01 | 0.66 |
+| within 2 % | koshkin1969 | 3 | 4.01 | 0.66 |
+| within 2 % | southern1963 | 3 | 3.82 | 0.69 |
+| within 25 % | none | 7 | 4.01 | 0.66 |
+| within 25 % | akaishi1977 | 6 | 3.92 | 0.67 |
+| within 25 % | bader1961 | 6 | 3.92 | 0.67 |
+| within 25 % | bohdansky1980 | 6 | 4.07 | 0.65 |
+| within 25 % | keywell1955 | 6 | 3.92 | 0.67 |
+| within 25 % | koshkin1969 | 6 | 4.07 | 0.65 |
+| within 25 % | southern1963 | 5 | 4.13 | 0.64 |
+
 
 Per-run values: `validation/experiments/cuni_dynamic_results.json`; data: `validation/data/alloys/`; provenance: [`data-provenance.md`](data-provenance.md).
 <!-- validation:level3-cuni-dynamic:end -->
@@ -2925,6 +3000,75 @@ The weak Cu depletion is the engine's binding-energy-only preference (1.24)
 against the 1.70 the AES ratio implies; the dynamic machinery and the depth mapping
 are not responsible. Both tolerances are unchanged and both comparisons still fail
 as reported above.
+
+**Attribution (#544): why pure Cu is 0.67 of the measured median.** Nothing
+was tuned or adopted; no engine parameter, default or matched setting was
+changed. The runs are the attribution tables in the generated block above
+(static, pure elements, 2 keV, normal incidence, 4 seeds × 100000 ions, one
+candidate changed at a time, in the order of the operator ruling on #511). The
+bullet "Ni cannot be compared" of the #465 diagnosis above is superseded by
+item 1; the text of #465 is otherwise kept as written. The regenerated results
+come from a later engine revision (`499d047`) than the #465 ones (`fb81239`);
+the Ho and Betz yields moved by at most about two percentage points, from the
+different random stream, and no verdict changed.
+
+1. *Ni against the stored sets.* The seven Ar → Ni sets (13 points) hold no
+   point within 25 % of 2 keV. Run at the energy of each point, the engine is
+   0.55–0.81 of the measurement at the ten points from 294 to 1049 eV (geometric
+   mean 0.67) and 0.94–0.97 at the three points from 3036 to 10180 eV (two from one
+   set, Roth 1979, and one from Okajima 1981). The Cu points within 25 % of
+   2 keV give 0.58–0.86 (geometric mean 0.67). So Ni at 1 keV and below is as low
+   as Cu at 2 keV, and the three higher-energy Ni points are not; 2 keV lies
+   between the two Ni groups and no ratio there is claimed (interpolating the
+   measurements would add a curve the data do not give). The shortfall is
+   therefore not specific to Cu, and the Ni half of the Ho and Betz comparison is
+   not measured at 2 keV.
+2. *Surface binding (source and convention).* The yield falls as
+   E_s^−0.94 for Cu and E_s^−1.01 for Ni (E_s ±25 %, E_d moved with it).
+   Reaching the Cu median by E_s alone would need about two thirds of the
+   cohesive energy (2.3 eV for Cu), which no source supports; that is the
+   experiment section 3 already records, and it is not repeated or adopted.
+   The E_d convention cannot be the cause: E_d below E_s changes nothing (1.000),
+   E_d = 2 E_s lowers the yield by 16 % and the element table's displacement
+   energies (30 and 40 eV) by 72 % (Cu) and 75 % (Ni), because only a recoil above E_d can be
+   created (the Biersack-Haggmark criterion, level 1). A bulk binding E_b = E_s
+   instead of 0 halves the yield (0.53). Every binding convention that differs
+   from the baseline lowers the yield.
+3. *Electronic stopping at keV energies.* Replacing the Lindhard-Scharff
+   treatment by the engine's documented equipartition of Lindhard-Scharff and
+   Oen-Robinson raises the Cu yield by a factor 1.44 (to 3.77, 0.96 of the median) and
+   the Ni yield by 1.42 (to 2.95); the 1 keV Cu probe of section 3 gave 1.45. Removing
+   electronic stopping altogether (not realistic) raises it by 2.4. This is the
+   largest single lever that is a published model rather than a number, and it
+   is the only candidate that moves Cu across its measured band without leaving
+   a published model. It is **not adopted**: the matched settings are unchanged,
+   and a model is not chosen because it lands near a measurement. The
+   Lindhard-Scharff coefficient in `ion::stopping::lindhard_scharff` was read
+   against its doc comment and its dimensional form (a test holds them to 1 %);
+   no defect and no unsourced constant was found.
+4. *Cut-offs and cascade options.* Primary / recoil cut-offs of 1 / 0.5 eV and of
+   3 / 3 eV change the yield by at most 0.1 % (Cu and Ni): the cut-offs are not
+   the cause. Weak collisions (K = 3, section 3) lower it to 0.47. Beyond the
+   ruling's list: the Molière potential raises Cu by 1.32 (to 3.48), Kr-C by
+   1.03, Lenz-Jensen lowers it to 0.82, and an energy-dependent free path to
+   0.93.
+5. *Data conventions of the Cu sets.* Leaving any one set out in turn moves the
+   engine / median ratio only between 0.64 and 0.69 (0.66–0.69 for the four sets
+   within 2 % of 2 keV). The engine is below the lowest of those four sets
+   (0.87 of 3.03) and below every point within 25 % of 2 keV. The scatter
+   between sets (a factor 1.4 at 2 keV) is therefore real but does not reach the
+   engine.
+
+**Outcome of #544.** The Cu ratio of 0.67 is attributed, by measured effect
+size, to the electronic-stopping treatment (a factor 1.44 available from a
+published model already in the engine) and to the surface-binding energy (an
+elasticity of −0.94), and not to the cut-offs, to the E_d convention, or to
+the data conventions of the Cu sets. The Ni half is as low below 1 keV and
+close to the measurement above 3 keV. No defect and no unsourced constant was
+found, so no code was changed. This is stated as a **modelling limit**: the
+engine with Lindhard-Scharff electronic stopping and the cohesive energy as
+E_s sputters 0.67 of the measured median in Cu, and the Cu-Ni comparisons above
+inherit it; the choice of the stopping model is left to the operator.
 
 **Criterion (b): Sb in Si at 5×10¹⁶ ions/cm² (#512).** The stored Titze et
 al. profile (Fig. 3, SIMS, normalized to its own maximum) against the
