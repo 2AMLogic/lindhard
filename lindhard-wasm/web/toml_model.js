@@ -33,7 +33,7 @@ export class ModelError extends Error {}
 // and the O energies are the illustrative model parameters of
 // examples/as_50keV_si_sio2.toml, not recommendations. Ga and As have no
 // tabulated displacement energy and no value is invented for them.
-const el = (symbol, fraction = 1, eDEv = null, eSEv = null) => ({ symbol, fraction, eDEv, eBEv: null, eSEv });
+export const el = (symbol, fraction = 1, eDEv = null, eSEv = null) => ({ symbol, fraction, eDEv, eBEv: null, eSEv });
 export const PRESETS = {
   Si: { density: null, elements: [el("Si", 1, 15)], note: "The Si displacement energy (15 eV) is an illustrative model parameter, not a recommendation" },
   Cu: { density: null, elements: [el("Cu")] },

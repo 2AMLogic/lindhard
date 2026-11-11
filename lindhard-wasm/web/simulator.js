@@ -2,7 +2,7 @@
 // The Worker (worker.js) owns the WASM session; this file only draws.
 
 import init, { elements_json } from "./pkg/lindhard_wasm.js";
-import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, PRESETS, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
+import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, PRESETS, el, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
 import { buildPlots, caveatLines, dashForSeries, niceTicks, plotExtent, reportJson, toCsv } from "./plots.js";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
