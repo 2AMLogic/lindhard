@@ -8,7 +8,7 @@ Chromium, Firefox and WebKit and use it as a reader would.
 | `tests/pages.spec.mjs` | Each published page loads with no console error and no missing file; the landing page's links resolve; it follows the colour scheme and fits a phone. |
 | `tests/calculator.spec.mjs` | The range calculator loads the engine and reproduces the native result in `lindhard-wasm/tests/b_5keV_si.golden.json`, within the tolerance of `lindhard-wasm/tests/parity.rs`. |
 | `tests/simulator.spec.mjs` | The simulator: the cases of issue #469 (B, P and As into Si; As into SiO₂ on Si; Ar into Cu with cascades; a transmitting film; 60° incidence), pause, resume and stop, loading an input file, every download, validation messages, keyboard use, both themes and a phone screen. |
-| `tests/book-layout.spec.mjs` | The book's tables and equations fit (`book/theme/lindhard.css`): at 1440 px no table is wider than its column except the listed content cases; at 390 px no page's content pane scrolls sideways. |
+| `tests/book-layout.spec.mjs` | The book's tables and equations fit (`book/theme/lindhard.css`): at 1440 px no table is wider than its column except the listed content cases; at 390 px no page's content pane scrolls sideways; at 768 px the stopping-residuals tables do not scroll. |
 
 Every test also fails if the page logs a console error, throws, or requests
 something that fails (`tests/fixtures.mjs`).

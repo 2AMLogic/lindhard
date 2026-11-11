@@ -217,7 +217,7 @@ fn distinct(values: impl Iterator<Item = String>) -> Vec<String> {
 
 /// A readable section title for a dataset: the systems it covers, the first
 /// author's surname and the year of its citation, and the compilation when
-/// the file is a digitized one (`H on Si, Grahmann 1976 \u{2014} srim.org`).
+/// the file is a digitized one (`H on Si, Grahmann 1976 — srim.org`).
 /// Falls back to the dataset's own name when the citation has no year.
 fn title(d: &Loaded) -> String {
     let systems = distinct(

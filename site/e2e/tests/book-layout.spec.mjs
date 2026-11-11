@@ -60,3 +60,14 @@ test("no book page scrolls sideways at 390 px", async ({ page }) => {
   }
   expect(over, "pages whose content pane scrolls sideways").toEqual([]);
 });
+
+test("the stopping-residuals tables do not scroll sideways at 768 px", async ({ page }) => {
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto("models/stopping-residuals.html");
+  await settle(page);
+  const tables = await page.locator(".content .table-wrapper").evaluateAll((ws) =>
+    ws.map((w) => ({ head: w.querySelector("th")?.textContent.trim() ?? "", over: w.scrollWidth - w.clientWidth })),
+  );
+  expect(tables.length, "tables on the page").toBeGreaterThan(0);
+  expect(tables.filter((t) => t.over > 1).map((t) => `${t.head} (+${t.over}px)`), "tables that scroll sideways at 768 px").toEqual([]);
+});
