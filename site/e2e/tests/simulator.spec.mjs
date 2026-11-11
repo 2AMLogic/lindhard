@@ -475,6 +475,18 @@ test("a second run works after the network is gone", async ({ page, context }) =
   await expectResults(page, 300);
 });
 
+// Issue #691: "Add element" called an `el` that simulator.js never imported.
+test("Add element appends a row without a page error", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await open(page);
+  const rows = page.locator("#layers .layer").first().locator(".el-row");
+  const before = await rows.count();
+  await page.locator("#layers .layer").first().getByRole("button", { name: "Add element" }).click();
+  await expect(rows).toHaveCount(before + 1);
+  expect(errors).toEqual([]);
+});
+
 // Issue #674: canvases are sized from their CSS box and the pixel ratio, and
 // redrawn when the box or the colour scheme changes.
 const CANVASES = "#traj, #plots canvas[role=img]";
