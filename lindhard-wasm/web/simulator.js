@@ -256,7 +256,9 @@ function layerStackSvg() {
       ? `L${x + w} ${top} ` + Array.from({ length: 6 }, (_, k) => `L${x + w - (k % 2 ? 0 : 7)} ${top + ((k + 1) * height) / 6}`).join(" ") + ` L${x} ${top + height} Z`
       : `L${x + w} ${top} L${x + w} ${top + height} L${x} ${top + height} Z`;
     root.append(svg("path", { d: `M${x} ${top} ${edge}`, class: `stack-block${i % 2 ? " alt" : ""}` }));
-    const fit = Math.max(3, Math.floor(w / 6));
+    // ~6.5 px per character at 11px, and 14 px kept clear for the substrate's
+    // 3 px label offset and its 7 px zigzag edge, so the label stays in the block.
+    const fit = Math.max(3, Math.floor((w - 14) / 6.5));
     const name = l.name || "unnamed";
     const short = name.length > fit ? `${name.slice(0, fit - 1)}…` : name;
     const label = svg("text", { x: x + w / 2 - (sub ? 3 : 0), y: yMid - 2, class: "stack-text" }, short);
