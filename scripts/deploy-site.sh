@@ -39,7 +39,7 @@ build() {
   cd "$root"
   local web=lindhard-wasm/web calc=book/src/calculator
   "$web/../build.sh" web "$calc/pkg"
-  cp "$web"/index.html "$web"/simulator.html "$web"/simulator.js "$web"/worker.js \
+  cp "$web"/index.html "$web"/simulator.html "$web"/simulator.js "$web"/worker.js "$web"/calculator-worker.js \
      "$web"/toml_model.js "$web"/run_view.js "$web"/plots.js "$calc/"
   # Service worker (offline cache): stamp a hash of the shipped files into the
   # cache name so a changed deploy replaces the old cache.
