@@ -6,7 +6,7 @@ import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, PRESETS, el, defaultSetup,
 import { buildPlots, caveatLines, dashForSeries, niceTicks, plotExtent, reportJson, toCsv } from "./plots.js";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
-  layerSpans, segmentBounds, speciesLabels, trajectorySegments,
+  layerSpans, roundToError, segmentBounds, speciesLabels, trajectorySegments,
 } from "./run_view.js";
 
 const $ = (id) => document.getElementById(id);
@@ -281,6 +281,8 @@ function refresh() {
     (row?.weight_is_mass_number
       ? ` ${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "");
   $("model-cite").textContent = `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`;
+  $("strip-models").textContent = `${CITE[setup.physics.potential]}; ${CITE[setup.physics.stopping]}.`;
+  drawLayerDrawing();
   $("physics-summary").textContent = `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`;
   $("stack").replaceChildren(layerStackSvg());
   problems = validate(setup, elements);
@@ -291,6 +293,48 @@ function refresh() {
   $("problems-box").hidden = problems.length === 0;
   $("toml").value = toToml(setup);
   $("btn-run").disabled = problems.length > 0 || running();
+}
+
+// The layer stack, shown before any run: widths are in proportion to the
+// thickness, the substrate taking an arbitrary share since it is unbounded.
+function drawLayerDrawing() {
+  const spans = layerSpans(setup.layers);
+  const finiteTotal = spans.reduce((t, l) => (l.bottom === Infinity ? t : l.bottom), 0);
+  const subShare = Math.max(finiteTotal / 2, 1e-9);
+  $("layer-drawing").replaceChildren(...spans.map((l) => {
+    const thick = l.bottom === Infinity ? null : l.bottom - l.top;
+    const label = thick === null ? "substrate" : `${fmt(nm(thick))} nm`;
+    const d = h("div", { style: `flex-grow:${Math.max(thick ?? subShare, finiteTotal / 20, 1e-12)}` }, l.name, h("small", {}, label));
+    return d;
+  }));
+}
+
+// ---- examples ----------------------------------------------------------------
+
+const EXAMPLES = {
+  "b-si": () => defaultSetup(),
+  "as-sio2-si": () => {
+    const s = defaultSetup();
+    s.beam = { ion: "As", massAmu: null, energyEv: 50000, tiltDeg: 7 };
+    s.layers.unshift({ name: "SiO2", thicknessNm: 10, densityGcm3: PRESETS.SiO2.density, elements: PRESETS.SiO2.elements.map((e) => ({ ...e })) });
+    return s;
+  },
+  "ar-cu": () => {
+    const s = defaultSetup();
+    s.beam = { ion: "Ar", massAmu: null, energyEv: 1000, tiltDeg: 0 };
+    s.layers = [{ name: "Cu", thicknessNm: null, densityGcm3: PRESETS.Cu.density, elements: PRESETS.Cu.elements.map((e) => ({ ...e })) }];
+    s.physics.followRecoils = true;
+    return s;
+  },
+};
+
+function loadExample(key) {
+  setup = EXAMPLES[key]();
+  unitT.length = 0;
+  writeScalars();
+  renderLayers();
+  refresh();
+  status("Example loaded into Setup; press Run.");
 }
 
 // ---- input file ------------------------------------------------------------
@@ -324,40 +368,50 @@ const running = () => worker !== null;
 const fmt = (x) => (x >= 100 ? x.toFixed(1) : x >= 10 ? x.toFixed(2) : x.toPrecision(3));
 const nm = (m) => m * 1e9;
 
+// "idle", "running" or "paused". One button pauses and resumes.
+let runState = "idle";
 function setButtons(state) {
+  runState = state;
   $("btn-run").disabled = state !== "idle" || problems.length > 0;
-  $("btn-pause").disabled = state !== "running";
-  $("btn-resume").disabled = state !== "paused";
+  $("btn-pause").disabled = state === "idle";
+  $("btn-pause").textContent = state === "paused" ? "Resume" : "Pause";
   $("btn-stop").disabled = state === "idle";
 }
 
-const pm = (x, e) => `${fmt(nm(x))} nm (± ${fmt(nm(e))})`;
-const dash = (m) => (m ? pm(m.mean, m.err) : "–");
+// A tile value: the number large, the unit beside it, "± err unit" below.
+function setTile(id, m) {
+  const el = $(id);
+  if (!m) { el.textContent = "–"; return; }
+  const r = roundToError(nm(m.mean), nm(m.err));
+  el.replaceChildren(r.value, h("span", { className: "unit" }, "nm"));
+  if (r.err !== null) el.append(h("span", { className: "err" }, `± ${r.err} nm`));
+}
 const pct = (f) => (f == null ? "–" : `${(100 * f).toFixed(1)} %`);
 const perIon = (x) => (x == null ? "–" : x.toPrecision(3));
+
+const PARTITION = [["eion", "ionization", "var(--lh-plot-1)"], ["enuc", "nuclear", "var(--lh-plot-2)"], ["eesc", "escaped", "var(--lh-plot-3)"], ["erec", "recoilsNotFollowed", "var(--lh-plot-4)"], ["eoth", "other", "var(--lh-plot-5)"]];
 
 function counters(done, total, report) {
   const c = deriveCounters(report, { done, total, followRecoils: setup.physics.followRecoils });
   $("progress").value = c.fraction;
-  $("progress-text").textContent = `${done} of ${total} ions`;
   $("c-done").textContent = `${done} / ${total}`;
-  $("c-rp").textContent = dash(c.depth);
-  $("c-drp").textContent = c.depth ? pm(c.depth.sd, c.depth.sdErr) : "–";
-  $("c-ly").textContent = c.lateralY ? `${fmt(nm(c.lateralY.sd))} nm (± ${fmt(nm(c.lateralY.sdErr))})` : "–";
-  $("c-lz").textContent = c.lateralZ ? `${fmt(nm(c.lateralZ.sd))} nm (± ${fmt(nm(c.lateralZ.sdErr))})` : "–";
-  $("c-rad").textContent = dash(c.radial);
+  setTile("c-rp", c.depth && { mean: c.depth.mean, err: c.depth.err });
+  setTile("c-drp", c.depth && { mean: c.depth.sd, err: c.depth.sdErr });
+  setTile("c-ly", c.lateralY && { mean: c.lateralY.sd, err: c.lateralY.sdErr });
+  setTile("c-lz", c.lateralZ && { mean: c.lateralZ.sd, err: c.lateralZ.sdErr });
+  setTile("c-rad", c.radial && { mean: c.radial.mean, err: c.radial.err });
   $("c-stopped").textContent = c.stopped == null ? "–" : String(c.stopped);
   $("c-back").textContent = perIon(c.backscatter);
   $("c-trans").textContent = perIon(c.transmission);
   $("c-sput").textContent = perIon(c.sputterYield);
   $("c-vac").textContent = perIon(c.vacancies);
-  $("c-vac-mode").textContent = report ? `(${c.modeLabel})` : "";
-  $("c-eion").textContent = pct(c.partition?.ionization);
-  $("c-enuc").textContent = pct(c.partition?.nuclear);
-  $("c-eesc").textContent = pct(c.partition?.escaped);
+  $("c-vac-mode").textContent = report ? c.modeLabel : "";
+  for (const [id, key] of PARTITION) $(`c-${id}`).textContent = pct(c.partition?.[key]);
+  $("partition-bar").replaceChildren(...PARTITION.map(([id, key, colour]) => {
+    const f = c.partition?.[key] ?? 0;
+    return h("span", { style: `width:${100 * f}%;background:${colour}`, title: `${key}: ${pct(f)}` });
+  }));
   $("r-erec").hidden = c.partition?.recoilsNotFollowed == null;
-  $("c-erec").textContent = pct(c.partition?.recoilsNotFollowed);
-  $("c-eoth").textContent = pct(c.partition?.other);
 }
 
 // ---- trajectory view -------------------------------------------------------
@@ -585,14 +639,14 @@ function plotView(spec) {
   const legend = h("ul", { className: "legend" });
   const note = h("p", { className: "note" });
   const csv = h("button", {
-    type: "button",
+    type: "button", "aria-label": "Download CSV", title: "Download CSV",
     on: { click: () => {
       const s = plotSpecs.find((p) => p.id === spec.id);
       if (s) download(`lindhard-${s.id}.csv`, new Blob([toCsv(s.table)], { type: "text/csv" }));
     } },
-  }, "Download CSV");
-  const box = h("div", { className: "plot" }, h("h3", {}, spec.title), canvas, legend, note, h("div", { className: "tools" }, csv));
-  $("plots").append(box);
+  }, "CSV");
+  const box = h("div", { className: "plot" }, h("header", {}, h("h3", {}, spec.title), csv), canvas, legend, note);
+  $(spec.id.startsWith("escape-") ? "plots-escapes" : "plots-main").append(box);
   v = { canvas, legend, note };
   resizeObserver?.observe(canvas);
   plotViews.set(spec.id, v);
@@ -699,11 +753,14 @@ function drawPlot(spec) {
   note.textContent = [spec.note, trim, ...flows].filter(Boolean).join(" ");
 }
 
+const PLOT_ORDER = ["range", "damage", "lateral", "escape-species", "escape-energy", "escape-polar"];
+
 function drawPlots(report) {
   lastReport = report;
-  if (report === null) { $("plots").replaceChildren(); plotViews.clear(); }
+  if (report === null) { $("plots-main").replaceChildren(); $("plots-escapes").replaceChildren(); plotViews.clear(); }
   readPalette();
-  plotSpecs = buildPlots(report, { layerNames: setup.layers.map((l) => l.name), symbolOfZ });
+  plotSpecs = buildPlots(report, { layerNames: setup.layers.map((l) => l.name), symbolOfZ })
+    .sort((a, b) => PLOT_ORDER.indexOf(a.id) - PLOT_ORDER.indexOf(b.id));
   for (const s of plotSpecs) drawPlot(s);
   $("caveats").replaceChildren(...caveatLines(report, setup.physics).map((t) => h("li", {}, t)));
   $("dl-json").disabled = report === null;
@@ -773,6 +830,10 @@ if ("serviceWorker" in navigator) {
 function startRun() {
   refresh();
   if (problems.length) return;
+  showResults();
+  // Also on wide screens (where `tab` leaves both panels shown): `current` must
+  // follow the run so narrowing below 64rem keeps the results visible.
+  tab("run");
   worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
   setButtons("running");
   status("Starting…");
@@ -838,18 +899,26 @@ function endRun() {
 }
 
 $("btn-run").addEventListener("click", startRun);
-$("btn-pause").addEventListener("click", () => { worker.postMessage({ type: "pause" }); setButtons("paused"); status("Paused."); });
-$("btn-resume").addEventListener("click", () => { worker.postMessage({ type: "resume" }); setButtons("running"); status("Running…"); });
+$("btn-pause").addEventListener("click", () => {
+  if (runState === "paused") { worker.postMessage({ type: "resume" }); setButtons("running"); status("Running…"); }
+  else if (runState === "running") { worker.postMessage({ type: "pause" }); setButtons("paused"); status("Paused."); }
+});
 $("btn-stop").addEventListener("click", () => worker.postMessage({ type: "stop" }));
 
-// ---- tabs ------------------------------------------------------------------
+// ---- tabs and layout ---------------------------------------------------------
 
+// From 64rem both panels show side by side and the tabs are hidden (CSS);
+// below it only the selected tab's panel shows. The `hidden` attributes follow.
+const wide = matchMedia("(min-width: 64rem)");
+let current = "setup";
 function tab(which) {
+  current = which;
   for (const t of ["setup", "run"]) {
-    $(t).hidden = t !== which;
+    $(t).hidden = !wide.matches && t !== which;
     $(`tab-${t}`).setAttribute("aria-selected", String(t === which));
   }
 }
+wide.addEventListener("change", () => tab(current));
 $("tab-setup").addEventListener("click", () => tab("setup"));
 $("tab-run").addEventListener("click", () => tab("run"));
 for (const [id, other] of [["tab-setup", "tab-run"], ["tab-run", "tab-setup"]]) {
@@ -857,6 +926,15 @@ for (const [id, other] of [["tab-setup", "tab-run"], ["tab-run", "tab-setup"]]) 
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") { $(other).focus(); $(other).click(); }
   });
 }
+
+// Before the first run the results area shows the target and the examples.
+function showResults() {
+  $("empty").hidden = true;
+  $("results").hidden = false;
+  $("results-body").hidden = false;
+}
+for (const b of document.querySelectorAll("[data-example]")) b.addEventListener("click", () => loadExample(b.dataset.example));
+tab("setup");
 
 // ---- start -----------------------------------------------------------------
 

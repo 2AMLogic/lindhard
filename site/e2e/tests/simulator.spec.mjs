@@ -14,7 +14,7 @@ async function open(page) {
   await expect(page.locator("#status")).toHaveText("Ready: B at 10 keV into Si.");
 }
 
-/** Fill the scalar fields of the Setup tab. */
+/** Fill the scalar fields of the setup. */
 async function configure(page, { ion, energyKeV, tilt, ions = 300, mode } = {}) {
   if (ion) await page.locator("#ion").fill(ion);
   if (energyKeV != null) await page.locator("#energy").fill(String(energyKeV));
@@ -44,7 +44,6 @@ async function substrate(page, preset) {
 
 async function run(page, { timeout = 60_000 } = {}) {
   await expect(page.locator("#problems-box")).toBeHidden();
-  await page.locator("#tab-run").click();
   await page.locator("#btn-run").click();
   await expect(page.locator("#status")).toHaveText(DONE, { timeout });
 }
@@ -96,7 +95,7 @@ for (const [ion, energyKeV] of [["B", 10], ["P", 30], ["As", 50]]) {
     expect(await cellNumber(page, "c-rp")).toBeGreaterThan(1);
     expect(await cellNumber(page, "c-drp")).toBeGreaterThan(0);
     expect(await cellNumber(page, "c-stopped")).toBeGreaterThan(200);
-    await expect(page.locator("#c-vac-mode")).toContainText("(");
+    await expect(page.locator("#c-vac-mode")).toContainText(/quick|full cascades/);
   });
 }
 
@@ -253,9 +252,7 @@ test("the same seed gives the same counters, and another seed does not", async (
   await configure(page, {});
   const once = async () => {
     await run(page);
-    const text = await page.locator("#counters").innerText();
-    await page.locator("#tab-setup").click();
-    return text;
+    return page.locator("#counters").innerText();
   };
   const first = await once();
   expect(await once()).toBe(first);
@@ -267,7 +264,6 @@ test("pause holds the run, resume continues it, stop ends it", async ({ page }) 
   await open(page);
   await configure(page, { ion: "Ar", energyKeV: 5, tilt: 0, mode: "full", ions: 100000 });
   await substrate(page, "Cu");
-  await page.locator("#tab-run").click();
   await page.locator("#btn-run").click();
   await expect(page.locator("#status")).toHaveText("Running…");
   const done = async () => Number((await page.locator("#c-done").innerText()).split("/")[0]);
@@ -281,9 +277,12 @@ test("pause holds the run, resume continues it, stop ends it", async ({ page }) 
   await page.waitForTimeout(700);
   expect(await done()).toBe(held);
   expect(held).toBeLessThan(100000);
-  await expect(page.locator("#btn-resume")).toBeEnabled();
+  // One control pauses and resumes: its label flips.
+  await expect(page.locator("#btn-pause")).toHaveText("Resume");
+  await expect(page.locator("#btn-resume")).toHaveCount(0);
 
-  await page.locator("#btn-resume").click();
+  await page.locator("#btn-pause").click();
+  await expect(page.locator("#btn-pause")).toHaveText("Pause");
   await expect.poll(done).toBeGreaterThan(held);
 
   await page.locator("#btn-stop").click();
@@ -330,9 +329,7 @@ test("a setup the page cannot run is explained and Run is disabled", async ({ pa
   await page.locator("#ions").fill("200000");
   await expect(page.locator("#problems-box")).toBeVisible();
   await expect(page.locator("#problems")).toContainText("run.ions");
-  await page.locator("#tab-run").click();
   await expect(page.locator("#btn-run")).toBeDisabled();
-  await page.locator("#tab-setup").click();
   await page.locator("#ions").fill("300");
   await page.locator("#ion").fill("Xx");
   await expect(page.locator("#problems-box")).toBeVisible();
@@ -340,7 +337,8 @@ test("a setup the page cannot run is explained and Run is disabled", async ({ pa
   await expect(page.locator("#problems-box")).toBeHidden();
 });
 
-test("the tabs and the run work from the keyboard", async ({ page }) => {
+test("the tabs and the run work from the keyboard on a phone", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   await configure(page, {});
   await page.locator("#tab-setup").focus();
@@ -349,12 +347,108 @@ test("the tabs and the run work from the keyboard", async ({ page }) => {
   await expect(page.locator("#tab-run")).toHaveAttribute("aria-selected", "true");
   await expect(page.locator("#run")).toBeVisible();
   await expect(page.locator("#setup")).toBeHidden();
+  // The run bar is outside both panels: Run is reachable from either tab.
   await page.locator("#btn-run").focus();
   await page.keyboard.press("Enter");
   await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
   await page.locator("#tab-run").focus();
   await page.keyboard.press("ArrowLeft");
   await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#btn-run")).toBeVisible();
+});
+
+test("the run is operable from the keyboard on a desktop: Run, Pause, Stop", async ({ page }) => {
+  await open(page);
+  await configure(page, { ion: "Ar", energyKeV: 5, tilt: 0, mode: "full", ions: 100000 });
+  await substrate(page, "Cu");
+  await page.locator("#btn-run").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#status")).toHaveText("Running…");
+  await page.locator("#btn-pause").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#status")).toHaveText("Paused.");
+  await page.locator("#btn-stop").focus();
+  await page.keyboard.press("Enter");
+  await expect(page.locator("#status")).toContainText(/^Stopped after/);
+});
+
+test("at 1440 px the inputs, the run bar and the results are visible together", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page);
+  await expect(page.locator("nav[role=tablist]")).toBeHidden();
+  await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#run")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Run", exact: true })).toHaveCount(1);
+  await configure(page, {});
+  await run(page);
+  await expectResults(page, 300);
+  const box = async (sel) => page.locator(sel).boundingBox();
+  const setup = await box("#setup"), tile = await box("#c-rp"), bar = await box("#runbar");
+  expect(tile.x).toBeGreaterThan(setup.x + setup.width - 1);
+  expect(bar.x).toBeGreaterThan(setup.x + setup.width - 1);
+  // The caveats, the standard-error note and the validation link need no click.
+  await expect(page.locator("#caveats li").first()).toBeVisible();
+  await expect(page.locator("#strip")).toContainText("± is one standard error");
+  await expect(page.locator("#strip a")).toHaveAttribute("href", /validation\.md$/);
+  // Plots sit two across.
+  const plots = await page.locator("#plots-main .plot").all();
+  expect((await plots[0].boundingBox()).y).toBeCloseTo((await plots[1].boundingBox()).y, 0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+test("the layout follows the width and a run survives a resize across 64rem", async ({ page }) => {
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  const before = await page.locator("#counters").innerText();
+  await page.setViewportSize({ width: 700, height: 900 });
+  await expect(page.locator("nav[role=tablist]")).toBeVisible();
+  // The run made at desktop width stays on screen when the window narrows.
+  await expect(page.locator("#run")).toBeVisible();
+  await expect(page.locator("#setup")).toBeHidden();
+  await page.locator("#tab-setup").click();
+  await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#run")).toBeHidden();
+  await page.locator("#tab-run").click();
+  await expect(page.locator("#counters")).toBeVisible();
+  expect(await page.locator("#counters").innerText()).toBe(before);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#run")).toBeVisible();
+  await expect(page.locator("#status")).toHaveText(DONE);
+});
+
+test("before any run the results area shows the target and the examples, not dashes", async ({ page }) => {
+  await open(page);
+  await expect(page.locator("#empty")).toBeVisible();
+  await expect(page.locator("#layer-drawing")).toContainText("Si");
+  await expect(page.locator("#examples button")).toHaveText(["B into Si", "As into SiO₂ on Si", "Ar into Cu, full cascades"]);
+  await expect(page.locator("#counters")).toBeHidden();
+  await page.locator('#examples [data-example="as-sio2-si"]').click();
+  await expect(page.locator("#ion")).toHaveValue("As");
+  await expect(page.locator("#layers .layer")).toHaveCount(2);
+  await expect(page.locator("#layer-drawing")).toContainText("SiO2");
+  await page.locator('#examples [data-example="ar-cu"]').click();
+  await expect(page.locator("#mode-full")).toBeChecked();
+  await expect(page.locator("#layers .layer")).toHaveCount(1);
+  // Loading an example does not run it.
+  await expect(page.locator("#empty")).toBeVisible();
+  await page.locator("#btn-run").click();
+  await expect(page.locator("#empty")).toBeHidden();
+  await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
+});
+
+test("a value and its error share a decimal place, the error to two figures", async ({ page }) => {
+  await open(page);
+  const fmt = (v, e) => page.evaluate(async ([v, e]) => (await import("./run_view.js")).roundToError(v, e), [v, e]);
+  expect(await fmt(46.38, 0.999)).toEqual({ value: "46.4", err: "1.0" });
+  expect(await fmt(46.38, 0.131)).toEqual({ value: "46.38", err: "0.13" });
+  expect(await fmt(56789.4, 1234)).toEqual({ value: "56800", err: "1200" });
+  expect(await fmt(5, 0)).toEqual({ value: "5", err: "0" });
+  expect(await fmt(3, null)).toEqual({ value: "3", err: null });
+  await configure(page, {});
+  await run(page);
+  await expect(page.locator("#c-rp .err")).toHaveText(/^± \d+(\.\d+)? nm$/);
 });
 
 for (const scheme of ["light", "dark"]) {
@@ -405,29 +499,38 @@ test("the page is usable at 1280 px", async ({ page }) => {
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
 });
 
-// Issue #668: Setup fits one 1440x900 screen for a one-layer target. The
-// controls of the closed Physics and Input file sections are in the DOM and
-// have a layout box, so `offsetParent` counts them (it measured 1333 px,
-// the #toml textarea); `checkVisibility()` skips the closed sections. Measured
-// with it on chromium: the last visible control ends at about 676 px.
-test("Setup's controls fit a 1440x900 screen for a one-layer target", async ({ page }) => {
+// Issue #668: Setup fits one 1440x900 screen for a one-layer target. Since
+// issue #666 Setup is the sticky left column of the two-column layout, a
+// panel at most one viewport tall that scrolls inside itself, so its controls
+// no longer all end above 900 px of page height (they measured 1557 px in the
+// 22-28 rem column). What is held now: the panel is sticky, is no taller than
+// the screen, and the Run button in the run bar is on that first screen.
+test("Setup's panel fits a 1440x900 screen for a one-layer target", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await open(page);
   await expect(page.locator("#layers .layer")).toHaveCount(1);
-  const bottom = await page.evaluate(() =>
-    Math.max(...[...document.querySelectorAll("#setup input, #setup select, #setup button, #setup textarea")]
-      .filter((e) => e.checkVisibility())
-      .map((e) => e.getBoundingClientRect().bottom + window.scrollY)));
-  expect(bottom).toBeLessThanOrEqual(900);
+  const setup = await page.evaluate(() => {
+    const e = document.querySelector("#setup");
+    return { position: getComputedStyle(e).position, overflowY: getComputedStyle(e).overflowY, height: e.getBoundingClientRect().height };
+  });
+  expect(setup.position).toBe("sticky");
+  expect(setup.overflowY).toBe("auto");
+  expect(setup.height).toBeLessThanOrEqual(900);
+  const run = await page.locator("#btn-run").boundingBox();
+  expect(run.y + run.height).toBeLessThanOrEqual(900);
 });
 
-test("Setup and Run fit a phone screen", async ({ page }) => {
+test("Setup and Results fit a phone screen", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page);
   const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(await overflow()).toBeLessThanOrEqual(0);
   await configure(page, {});
+  // The run controls are reachable from Setup, and Run switches to Results.
+  await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#btn-run")).toBeVisible();
   await run(page);
+  await expect(page.locator("#run")).toBeVisible();
   expect(await overflow()).toBeLessThanOrEqual(0);
   await expect(page.locator("#traj")).toBeVisible();
 });

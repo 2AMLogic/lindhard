@@ -165,3 +165,21 @@ export function speciesLabels(report, symbolOfZ) {
   const z = report?.species_z ?? [];
   return z.map((zi, i) => `${symbolOfZ(zi) ?? `Z=${zi}`}${i === 0 ? " (beam)" : ""}`);
 }
+
+// A value and its standard error as strings sharing one decimal place: the
+// error to two significant figures, the value rounded to the same place
+// (46.38 +- 0.999 -> "46.4", "1.0"). With no usable error the value gets
+// three significant figures. Both are in whatever unit the caller passes.
+export function roundToError(value, err) {
+  if (finite(value) === null) return { value: "–", err: null };
+  if (finite(err) === null || err < 0) return { value: Number(value.toPrecision(3)).toString(), err: null };
+  if (err === 0) return { value: Number(value.toPrecision(3)).toString(), err: "0" };
+  const exp = (x) => Math.floor(Math.log10(x));
+  let step = 10 ** (exp(err) - 1);
+  let rounded = Math.round(err / step) * step;
+  step = 10 ** (exp(rounded) - 1); // 0.999 rounds up to 1.00: two figures are now 1.0
+  rounded = Math.round(err / step) * step;
+  const places = Math.max(0, -Math.round(Math.log10(step)));
+  const v = Math.round(value / step) * step;
+  return { value: v.toFixed(places), err: rounded.toFixed(places) };
+}
