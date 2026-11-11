@@ -98,13 +98,15 @@ export const dashFor = (generation) => DASHES[Math.min(generation, DASHES.length
 
 // Segments to draw, in metres, as {a: [u, v], b: [u, v], species, generation}
 // for a view: "side" is depth across, lateral y down; "end" is y across, z down.
-// Cascade recoils (generation > 0) are left out unless `cascades`.
-export function trajectorySegments(histories, { view = "side", cascades = true } = {}) {
+// Cascade recoils (generation > 0) are left out unless `cascades`; species in
+// the `hidden` set are left out whatever their generation.
+export function trajectorySegments(histories, { view = "side", cascades = true, hidden = new Set() } = {}) {
   const [iu, iv] = view === "end" ? [1, 2] : [0, 1];
   const segs = [];
   for (const h of histories) {
     for (const t of h.tracks) {
       if (t.generation > 0 && !cascades) continue;
+      if (hidden.has(t.species)) continue;
       for (let k = 1; k < t.points.length; k++) {
         const p = t.points[k - 1], q = t.points[k];
         segs.push({ a: [p[iu], p[iv]], b: [q[iu], q[iv]], species: t.species, generation: t.generation });
@@ -114,9 +116,15 @@ export function trajectorySegments(histories, { view = "side", cascades = true }
   return segs;
 }
 
-// Extent {u0, u1, v0, v1} of a segment list, padded; the depth axis starts at
-// the surface. A symmetric lateral range keeps the beam axis centred.
-export function segmentBounds(segs, view = "side") {
+// Extent {u0, u1, v0, v1, lateralScale} of a segment list, padded; the depth
+// axis starts at the surface. A symmetric lateral range keeps the beam axis
+// centred. `aspect` is the width/height of the plot area in pixels; with it the
+// bounds are drawn at equal scale on both axes (1:1) and lateralScale is 1. The
+// side view cannot always be 1:1: when the lateral spread does not fit, the
+// lateral range is widened to hold it and lateralScale (< 1) is the lateral
+// pixels per metre over the depth pixels per metre, to be printed on the plot.
+export function segmentBounds(segs, view = "side", aspect = undefined) {
+  const sized = Number.isFinite(aspect) && aspect > 0;
   let u0 = view === "side" ? 0 : Infinity, u1 = -Infinity, vmax = 0;
   for (const s of segs) {
     for (const p of [s.a, s.b]) {
@@ -125,16 +133,26 @@ export function segmentBounds(segs, view = "side") {
       vmax = Math.max(vmax, Math.abs(p[1]));
     }
   }
-  if (!segs.length) return { u0: 0, u1: 1e-8, v0: -5e-9, v1: 5e-9 };
+  if (!segs.length) {
+    const w = sized && aspect < 1 ? 5e-9 / aspect : 5e-9;
+    return { u0: 0, u1: 1e-8, v0: -w, v1: w, lateralScale: 1 };
+  }
   if (view === "end") {
     let m = 0;
     for (const s of segs) for (const p of [s.a, s.b]) m = Math.max(m, Math.abs(p[0]));
     const w = Math.max(m, vmax, 1e-10);
-    return { u0: -w, u1: w, v0: -w, v1: w };
+    const wu = sized ? w * Math.max(aspect, 1) : w, wv = sized ? w * Math.max(1 / aspect, 1) : w;
+    return { u0: -wu, u1: wu, v0: -wv, v1: wv, lateralScale: 1 };
   }
   const span = Math.max(u1 - u0, 1e-10);
+  const uEnd = u1 + span * 0.02;
+  if (sized) {
+    const fit = (uEnd - u0) / aspect / 2; // lateral half-range that makes the axes 1:1
+    const w = Math.max(vmax, fit, 1e-10);
+    return { u0, u1: uEnd, v0: -w, v1: w, lateralScale: fit / w };
+  }
   const w = Math.max(vmax, span / 4, 1e-10);
-  return { u0, u1: u1 + span * 0.02, v0: -w, v1: w };
+  return { u0, u1: uEnd, v0: -w, v1: w, lateralScale: 1 };
 }
 
 // True if any recorded history was cut by the point cap.

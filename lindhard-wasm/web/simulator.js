@@ -420,11 +420,9 @@ function counters(done, total, report) {
 // `SPECIES_COLOURS` is re-read from the page at the start of every draw.
 const SERIES_COUNT = 6;
 let SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
-let swatchMark = "#888";
 function readPalette() {
   const css = getComputedStyle(document.documentElement);
   SPECIES_COLOURS = SPECIES_COLOURS.map((old, i) => css.getPropertyValue(`--s${i}`).trim() || old);
-  swatchMark = css.getPropertyValue("--swatch-mark").trim() || swatchMark;
 }
 
 /**
@@ -468,60 +466,110 @@ function drawTrajectories() {
   updateTrajectoryNote();
 }
 
-// Paint the trajectory view into a W x H box of CSS pixels.
+const hiddenSpecies = new Set(); // species whose tracks the legend toggles have hidden
+
+// Paint the trajectory view into a W x H box of CSS pixels. Draw order: layer
+// bands (to the canvas edges), recoils (thin, translucent), primaries, then
+// markers on the primaries' end points only.
 function paintTrajectories(ctx, W, H) {
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const panel = css.getPropertyValue("--panel").trim() || "#eee", muted = css.getPropertyValue("--muted").trim() || "#666";
   const view = $("traj-view").value;
-  const segs = trajectorySegments(histories, { view, cascades: $("traj-cascades").checked });
-  const bd = segmentBounds(segs, view);
-  const pad = 28;
-  const sx = (u) => pad + ((u - bd.u0) / (bd.u1 - bd.u0)) * (W - 2 * pad);
-  const sy = (v) => pad + ((v - bd.v0) / (bd.v1 - bd.v0)) * (H - 2 * pad);
+  const cascades = $("traj-cascades").checked;
+  const segs = trajectorySegments(histories, { view, cascades, hidden: hiddenSpecies });
+  const L = 50, R = 12, T = 20, B = 30; // margins hold the tick labels and axis titles
+  const pw = Math.max(W - L - R, 1), ph = Math.max(H - T - B, 1);
+  const bd = segmentBounds(segs, view, pw / ph);
+  const sx = (u) => L + ((u - bd.u0) / (bd.u1 - bd.u0)) * pw;
+  const sy = (v) => T + ((v - bd.v0) / (bd.v1 - bd.v0)) * ph;
+  const clampX = (x) => Math.min(Math.max(x, 0), W);
   ctx.setLineDash([]);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
   ctx.font = "12px system-ui, sans-serif";
   ctx.lineWidth = 1;
+  ctx.textAlign = "left";
   if (view === "side") {
-    // Layers shaded alternately, boundaries as lines, names at the top.
-    layerSpans(setup.layers).forEach((l, i) => {
-      const x0 = sx(Math.max(l.top, bd.u0)), x1 = sx(Math.min(l.bottom, bd.u1));
+    // Bands run the full height and out to the canvas edges: vacuum in front of
+    // the surface, then the layers shaded alternately, names at the top.
+    const spans = layerSpans(setup.layers);
+    ctx.fillStyle = muted;
+    if (spans.length && sx(0) >= 44) ctx.fillText("vacuum", 4, 14);
+    spans.forEach((l, i) => {
+      const x0 = clampX(sx(l.top)), x1 = clampX(sx(l.bottom));
       if (x1 <= x0) return;
-      ctx.fillStyle = i % 2 ? bg : panel;
+      ctx.fillStyle = panel;
       ctx.fillRect(x0, 0, x1 - x0, H);
+      if (i % 2) { ctx.globalAlpha = 0.5; ctx.fillStyle = bg; ctx.fillRect(x0, 0, x1 - x0, H); ctx.globalAlpha = 1; }
       ctx.strokeStyle = muted;
       ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, H); ctx.stroke();
       ctx.fillStyle = muted;
-      ctx.fillText(l.name, x0 + 4, 14);
+      ctx.fillText(l.name, x0 + 4, 14, Math.max(x1 - x0 - 8, 0));
     });
+    const last = spans[spans.length - 1];
+    if (last && Number.isFinite(last.bottom) && sx(last.bottom) < W - 44) ctx.fillText("vacuum", sx(last.bottom) + 4, 14);
   }
-  const axes = view === "side" ? ["depth", "y"] : ["y", "z"];
-  ctx.fillStyle = muted;
-  ctx.fillText(`${axes[0]} → ${fmt(nm(bd.u1))} nm`, W - 160, H - 8);
-  ctx.fillText(`${axes[1]} ±${fmt(nm(bd.v1))} nm`, 4, H - 8);
-  ctx.lineWidth = 1.2;
+  // Axes with ticks, in nm.
+  const [uName, vName] = view === "side" ? ["depth", "y"] : ["y", "z"];
+  ctx.strokeStyle = muted; ctx.fillStyle = muted;
+  ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, T + ph); ctx.lineTo(L + pw, T + ph); ctx.stroke();
+  ctx.textAlign = "center";
+  for (const t of niceTicks(nm(bd.u0), nm(bd.u1), Math.max(Math.floor(pw / 80), 2))) {
+    const x = sx(t * 1e-9);
+    ctx.beginPath(); ctx.moveTo(x, T + ph); ctx.lineTo(x, T + ph + 4); ctx.stroke();
+    ctx.fillText(String(t), x, T + ph + 16);
+  }
+  ctx.textAlign = "right";
+  for (const t of niceTicks(nm(bd.v0), nm(bd.v1), Math.max(Math.floor(ph / 40), 2))) {
+    const y = sy(t * 1e-9);
+    ctx.beginPath(); ctx.moveTo(L - 4, y); ctx.lineTo(L, y); ctx.stroke();
+    ctx.fillText(String(t), L - 7, y + 4);
+  }
+  ctx.textAlign = "center";
+  ctx.fillText(`${uName} (nm)`, L + pw / 2, H - 4);
+  ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(`${vName} (nm)`, 0, 0); ctx.restore();
+  ctx.textAlign = "right";
+  ctx.fillText(bd.lateralScale >= 0.999 ? "scale 1:1" : `lateral scale ×${bd.lateralScale.toPrecision(2)} (not 1:1)`, W - R, 14);
+  ctx.textAlign = "left";
+  // Tracks: one path per species and generation, clipped to the plot area.
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  const groups = new Map();
   for (const s of segs) {
-    ctx.strokeStyle = SPECIES_COLOURS[s.species % SPECIES_COLOURS.length];
-    ctx.setLineDash(dashFor(s.generation));
-    ctx.beginPath(); ctx.moveTo(sx(s.a[0]), sy(s.a[1])); ctx.lineTo(sx(s.b[0]), sy(s.b[1])); ctx.stroke();
+    const key = s.generation * 1000 + s.species;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
   }
+  // Later generations first, so the primaries are on top.
+  for (const key of [...groups.keys()].sort((a, b) => b - a)) {
+    const list = groups.get(key), generation = Math.floor(key / 1000), species = key % 1000;
+    ctx.strokeStyle = SPECIES_COLOURS[species % SPECIES_COLOURS.length];
+    ctx.globalAlpha = generation ? 0.45 : 1;
+    ctx.lineWidth = generation ? 0.8 : 2;
+    ctx.setLineDash(dashFor(generation));
+    ctx.beginPath();
+    for (const s of list) { ctx.moveTo(sx(s.a[0]), sy(s.a[1])); ctx.lineTo(sx(s.b[0]), sy(s.b[1])); }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
   ctx.setLineDash([]);
-  // End markers: one per track, shape by species.
-  for (const h of histories) for (const t of h.tracks) {
-    if (t.generation > 0 && !$("traj-cascades").checked) continue;
+  ctx.lineWidth = 1;
+  // Markers on the end points of primary tracks only.
+  for (const hist of histories) for (const t of hist.tracks) {
+    if (t.generation > 0 || hiddenSpecies.has(t.species)) continue;
     const q = t.points[t.points.length - 1];
     if (!q) continue;
     const [u, v] = view === "side" ? [q[0], q[1]] : [q[1], q[2]];
     ctx.fillStyle = SPECIES_COLOURS[t.species % SPECIES_COLOURS.length];
     ctx.strokeStyle = fg;
-    marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), t.generation ? 2.5 : 4);
+    marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), 4);
   }
+  ctx.restore();
 }
 
 function updateTrajectoryNote() {
-  const segs = trajectorySegments(histories, { view: $("traj-view").value, cascades: $("traj-cascades").checked });
+  const segs = trajectorySegments(histories, { view: $("traj-view").value, cascades: $("traj-cascades").checked, hidden: hiddenSpecies });
   const n = histories.length;
   $("traj-note").textContent = n === 0
     ? `No trajectories yet. The first ${RECORDED_HISTORIES} ion histories of a run are recorded.`
@@ -548,16 +596,22 @@ function drawLegend(report) {
   const item = (text, swatch) => h("li", {}, swatch, ` ${text}`);
   const line = (i, g) => {
     const [c, x] = swatchCanvas();
-    x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.fillStyle = x.strokeStyle; x.lineWidth = 2;
+    x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.lineWidth = 2;
     x.setLineDash(dashFor(g));
-    x.beginPath(); x.moveTo(0, 6); x.lineTo(26, 6); x.stroke();
-    x.setLineDash([]);
-    x.strokeStyle = swatchMark;
-    marker(x, MARKERS[i % MARKERS.length], 29, 6, 3);
+    x.beginPath(); x.moveTo(0, 6); x.lineTo(32, 6); x.stroke();
     return c;
   };
+  // Each species has a checkbox: unchecking hides its tracks (the non-colour cue
+  // between species); the dash patterns below tell the generations apart.
+  const toggle = (n, i) => {
+    const box = h("input", { type: "checkbox", checked: !hiddenSpecies.has(i), on: { change: (e) => {
+      if (e.target.checked) hiddenSpecies.delete(i); else hiddenSpecies.add(i);
+      drawTrajectories();
+    } } });
+    return h("li", {}, h("label", { className: "inline" }, box, " ", line(i, 0), ` ${n}`));
+  };
   $("traj-legend").replaceChildren(
-    ...names.map((n, i) => item(`${n}: ${MARKERS[i % MARKERS.length]} at the track's end`, line(i, 0))),
+    ...names.map(toggle),
     item("solid: primary ion", line(0, 0)),
     item("dashed: first recoils", line(0, 1)),
     item("dotted: later generations", line(0, 2)),

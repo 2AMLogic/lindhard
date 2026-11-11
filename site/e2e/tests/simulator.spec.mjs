@@ -432,13 +432,22 @@ for (const scheme of ["light", "dark"]) {
   });
 }
 
-test("species are told apart without colour: markers and dash patterns are named", async ({ page }) => {
+test("species are told apart without colour: toggles and dash patterns are named", async ({ page }) => {
   await open(page);
   await configure(page, { ion: "As", energyKeV: 50, mode: "full" });
   await addPreset(page, "SiO2");
   await run(page);
   const legend = await page.locator("#traj-legend").innerText();
-  for (const word of ["circle", "square", "solid", "dashed", "dotted"]) expect(legend).toContain(word);
+  for (const word of ["solid", "dashed", "dotted"]) expect(legend).toContain(word);
+  expect(legend).not.toContain("circle");
+  const boxes = page.locator("#traj-legend input[type=checkbox]");
+  expect(await boxes.count()).toBeGreaterThanOrEqual(2);
+  const segments = async () => Number((await page.locator("#traj-note").innerText()).match(/(\d+) segments/)[1]);
+  const all = await segments();
+  await boxes.nth(0).uncheck();
+  expect(await segments()).toBeLessThan(all);
+  await boxes.nth(0).check();
+  expect(await segments()).toBe(all);
 });
 
 test("the page is usable at 1280 px", async ({ page }) => {
