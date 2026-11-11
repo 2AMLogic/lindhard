@@ -43,11 +43,27 @@ points_per_decade = 8.0
 
 [electron.materials.Resist]
 optical_elf = "synthetic_plasmon_elf.toml"
-band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 4.0, affinity_ev = 1.0, provenance = "SYNTHETIC round numbers for the gallery example (examples/electron/e_10keV_resist_on_si.toml), not band parameters of any resist" }
+
+[electron.materials.Resist.band]
+kind = "insulator"
+valence_band_width_ev = 10.0
+band_gap_ev = 4.0
+affinity_ev = 1.0
+provenance = """SYNTHETIC round numbers for the gallery example \
+  (examples/electron/e_10keV_resist_on_si.toml), \
+  not band parameters of any resist"""
 
 [electron.materials.Si]
 optical_elf = "synthetic_plasmon_elf.toml"
-band = { kind = "insulator", valence_band_width_ev = 10.0, band_gap_ev = 2.0, affinity_ev = 3.0, provenance = "SYNTHETIC round numbers for the gallery example (examples/electron/e_10keV_resist_on_si.toml), not band parameters of Si" }
+
+[electron.materials.Si.band]
+kind = "insulator"
+valence_band_width_ev = 10.0
+band_gap_ev = 2.0
+affinity_ev = 3.0
+provenance = """SYNTHETIC round numbers for the gallery example \
+  (examples/electron/e_10keV_resist_on_si.toml), \
+  not band parameters of Si"""
 
 [electron.tally]
 escape_energy_bins = 100

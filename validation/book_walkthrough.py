@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -54,6 +55,18 @@ def excerpt(obj: object) -> str:
     return json.dumps(obj, indent=2) + "\n"
 
 
+def short_error(msg: str | None) -> str | None:
+    """Shorten the Pearson IV error for the page so the line fits the code block.
+
+    The numbers are already shown in the `depth` block above; only the figures
+    and the trailing threshold are elided, and the guide says so.
+    """
+    if msg is None:
+        return None
+    msg = re.sub(r"(skewness|kurtosis) = [-+0-9.eE]+", r"\1 = ...", msg)
+    return re.sub(r" \(needs .*\)$", "", msg)
+
+
 def generate(lindhard: Path, threads: int | None) -> dict[str, str]:
     files: dict[str, str] = {}
     with tempfile.TemporaryDirectory(prefix="lindhard-walkthrough-") as tmp:
@@ -76,7 +89,7 @@ def generate(lindhard: Path, threads: int | None) -> dict[str, str]:
             {
                 "depth": r["range"]["depth"],
                 "pearson_iv": r["range"]["pearson_iv"],
-                "pearson_iv_error": r["range"].get("pearson_iv_error"),
+                "pearson_iv_error": short_error(r["range"].get("pearson_iv_error")),
             }
         )
         files["dual_pearson.json"] = excerpt(
