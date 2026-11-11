@@ -55,7 +55,7 @@ async function expectResults(page, ions) {
   await expect(page.locator("#traj-note")).toContainText("recorded histor");
   expect(await page.locator("#traj-legend li").count()).toBeGreaterThanOrEqual(4);
   const plots = page.locator("#plots .plot");
-  await expect(plots).toHaveCount(6);
+  await expect(plots).toHaveCount(7);
   for (const canvas of await plots.locator("canvas[role=img]").all()) {
     expect(await canvasColours(canvas)).toBeGreaterThan(2);
   }
@@ -197,7 +197,7 @@ test("a thin film that transmits every ion draws without error", async ({ page }
   await expect(page.locator("#c-done")).toHaveText("300 / 300");
   expect(await cellNumber(page, "c-trans")).toBeGreaterThan(0.99);
   await expect(page.locator("#c-stopped")).toHaveText("0");
-  await expect(page.locator("#plots .plot")).toHaveCount(6);
+  await expect(page.locator("#plots .plot")).toHaveCount(7);
 });
 
 test("oblique incidence at 60 degrees runs", async ({ page }) => {
@@ -274,7 +274,7 @@ test("the input file, the report, the plots and the picture download", async ({ 
   expect(png.body.subarray(0, 8).toString("latin1")).toBe("\x89PNG\r\n\x1a\n");
 
   const buttons = page.locator("#plots .plot").getByRole("button", { name: "Download CSV" });
-  await expect(buttons).toHaveCount(6);
+  await expect(buttons).toHaveCount(7);
   for (const button of await buttons.all()) {
     const csv = await save(() => button.click());
     expect(csv.name).toMatch(/^lindhard-[a-z-]+\.csv$/);

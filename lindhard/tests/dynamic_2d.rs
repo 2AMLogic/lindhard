@@ -17,6 +17,7 @@ const AS: u8 = 33;
 
 mod common;
 use common::si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn column(
@@ -47,14 +48,6 @@ fn beam(count: u64, polar_rad: f64) -> Beam {
         polar_rad,
         ..Beam::normal(Ion::new(AS).unwrap(), 1000.0, count)
     }
-}
-
-fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build()
-        .unwrap()
-        .install(f)
 }
 
 struct Out2d {

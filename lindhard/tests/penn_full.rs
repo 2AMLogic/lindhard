@@ -22,6 +22,9 @@ use lindhard::electron::inelastic::{
 use lindhard::material::Material;
 use rayon::prelude::*;
 
+mod common;
+use common::{rel, simpson_log};
+
 const TOL: f64 = 1e-3;
 
 fn fixture() -> OpticalElf {
@@ -35,29 +38,6 @@ fn full() -> FullPenn {
     FullPenn::new(fixture())
         .with_relative_tolerance(TOL)
         .unwrap()
-}
-
-fn rel(a: f64, b: f64) -> f64 {
-    (a / b - 1.0).abs()
-}
-
-/// Composite Simpson rule in `ln x` on `[lo, hi]` with `n` (even) intervals.
-fn simpson_log(f: &impl Fn(f64) -> f64, lo: f64, hi: f64, n: usize) -> f64 {
-    let (a, b) = (lo.ln(), hi.ln());
-    let h = (b - a) / n as f64;
-    let mut s = 0.0;
-    for i in 0..=n {
-        let x = (a + h * i as f64).exp().clamp(lo, hi);
-        let w = if i == 0 || i == n {
-            1.0
-        } else if i % 2 == 1 {
-            4.0
-        } else {
-            2.0
-        };
-        s += w * f(x) * x;
-    }
-    s * h / 3.0
 }
 
 // ---------------------------------------------------------------------------

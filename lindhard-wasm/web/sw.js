@@ -21,6 +21,8 @@ const PRECACHE = [
   "toml_model.js",
   "run_view.js",
   "plots.js",
+  "tokens.css",
+  "chrome.css",
   "pkg/lindhard_wasm.js",
   "pkg/lindhard_wasm_bg.wasm",
 ];

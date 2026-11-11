@@ -22,6 +22,9 @@ use lindhard::electron::inelastic::{
 use lindhard::material::Material;
 use rayon::prelude::*;
 
+mod common;
+use common::rel;
+
 const SYNTHETIC: &str = "synthetic test fixture, not physical data";
 
 fn fixture_elf() -> OpticalElf {
@@ -114,10 +117,6 @@ fn summed_elf() -> OpticalElf {
         })
         .collect();
     OpticalElf::new("synthetic sum", SYNTHETIC, v.energy_ev().to_vec(), sum).unwrap()
-}
-
-fn rel(a: f64, b: f64) -> f64 {
-    (a / b - 1.0).abs()
 }
 
 #[test]

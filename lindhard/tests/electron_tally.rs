@@ -17,7 +17,7 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, synthetic_table};
+use common::{bare_si, close, synthetic_table};
 
 const NM: f64 = 1e-9;
 
@@ -78,10 +78,6 @@ fn run(t: &Transport, n: u64, e0: f64, seed: u64) -> ElectronReport {
         .unwrap()
         .tally
         .report()
-}
-
-fn close(a: f64, b: f64, rel: f64) -> bool {
-    (a - b).abs() <= rel * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
 }
 
 /// The invariants every report must satisfy.

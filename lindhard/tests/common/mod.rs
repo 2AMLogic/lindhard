@@ -125,3 +125,43 @@ pub(crate) fn synthetic_table(
 ) -> CrossSectionTable {
     synthetic_table_on(&GRID, axis, rate, row)
 }
+
+/// Run `f` inside a rayon pool of exactly `n` threads, for the
+/// thread-count determinism tests.
+pub(crate) fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
+    rayon::ThreadPoolBuilder::new()
+        .num_threads(n)
+        .build()
+        .unwrap()
+        .install(f)
+}
+
+/// Relative deviation `|a / b - 1|`.
+pub(crate) fn rel(a: f64, b: f64) -> f64 {
+    (a / b - 1.0).abs()
+}
+
+/// `true` when `a` and `b` agree to relative tolerance `rel`.
+pub(crate) fn close(a: f64, b: f64, rel: f64) -> bool {
+    (a - b).abs() <= rel * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
+}
+
+/// Composite Simpson rule in `ln x` on `[lo, hi]` with `n` (even) intervals.
+pub(crate) fn simpson_log(f: &impl Fn(f64) -> f64, lo: f64, hi: f64, n: usize) -> f64 {
+    let (a, b) = (lo.ln(), hi.ln());
+    let h = (b - a) / n as f64;
+    let mut s = 0.0;
+    for i in 0..=n {
+        let u = a + h * i as f64;
+        let w = if i == 0 || i == n {
+            1.0
+        } else if i % 2 == 1 {
+            4.0
+        } else {
+            2.0
+        };
+        let x = u.exp().clamp(lo, hi);
+        s += w * f(x) * x;
+    }
+    s * h / 3.0
+}

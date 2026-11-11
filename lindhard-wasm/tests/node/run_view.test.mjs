@@ -140,6 +140,18 @@ test("bounds: depth starts at the surface and lateral is symmetric", () => {
   assert.ok(empty.u1 > empty.u0 && empty.v1 > empty.v0);
 });
 
+test("empty bounds with a plot aspect are 1:1 at every aspect", () => {
+  for (const aspect of [0.5, 1, 2]) {
+    const b = segmentBounds([], "side", aspect);
+    assert.equal(b.lateralScale, 1);
+    assert.ok(Math.abs((b.u1 - b.u0) / (b.v1 - b.v0) - aspect) < 1e-12, `aspect ${aspect}`);
+  }
+  for (const a of [undefined, NaN, 0]) {
+    const b = segmentBounds([], "side", a);
+    assert.equal(b.v1, 5e-9);
+  }
+});
+
 test("bounds with a plot aspect are 1:1, or report the lateral scale", () => {
   const aspect = 3.6;
   const e = segmentBounds(trajectorySegments([hist()], { view: "end" }), "end", aspect);

@@ -4,14 +4,17 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lindhard simulator</title>
+<!--SITE_HEAD-->
 <style>
-  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --panel: #f4f5f8;
+  /* The page's own names for the shared tokens (site/tokens.css). */
+  :root { --fg: var(--lh-fg); --bg: var(--lh-bg); --muted: var(--lh-muted); --line: var(--lh-rule); --accent: var(--lh-link); --bad: var(--lh-caution); --panel: var(--lh-surface);
     /* Series colours (Okabe-Ito), in order; the dark set swaps the blue for one that stays visible as a thin line. */
     --s0: #0072B2; --s1: #D55E00; --s2: #009E73; --s3: #CC79A7; --s4: #E69F00; --s5: #56B4E9; --swatch-mark: #888; }
-  @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --panel: #22242a; --s0: #5AB4F0; --s1: #F08A3C; --s2: #2FCB9E; --s3: #E08CBC; --s4: #F0B52A; --s5: #8CCBF5; --swatch-mark: #b8b8c0; } }
-  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 96rem; margin: .5rem auto; padding: 0 1rem; }
-  nav { display: flex; gap: .5rem; margin: 1rem 0; }
-  nav button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
+  @media (prefers-color-scheme: dark) { :root { --s0: #5AB4F0; --s1: #F08A3C; --s2: #2FCB9E; --s3: #E08CBC; --s4: #F0B52A; --s5: #8CCBF5; --swatch-mark: #b8b8c0; } }
+  body { margin: 0; font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); color: var(--fg); background: var(--bg); }
+  main { max-width: 96rem; margin: 1rem auto 0; padding: 0 1rem; }
+  nav[role="tablist"] { display: flex; gap: .5rem; margin: 1rem 0; }
+  nav[role="tablist"] button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
   /* One column and two tabs on a phone; at 64rem and wider both panels show side by side. */
   #app { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 1.5rem; }
   #runbar { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: .5rem 0; margin-bottom: .75rem; }
@@ -21,7 +24,7 @@
   #runbar progress { flex: 1 1 8rem; width: auto; min-width: 6rem; }
   #runbar #status { margin: 0; min-height: 1.4rem; font-size: .9rem; }
   @media (min-width: 64rem) {
-    nav { display: none; }
+    nav[role="tablist"] { display: none; }
     #app { grid-template-columns: minmax(22rem, 28rem) minmax(0, 1fr); grid-template-areas: "setup bar" "setup run"; align-items: start; }
     #runbar { grid-area: bar; }
     #setup { grid-area: setup; position: sticky; top: .5rem; max-height: calc(100vh - 1rem); overflow-y: auto; padding-right: .3rem; }
@@ -78,7 +81,7 @@
   .note, small { color: var(--muted); }
   .tools { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; }
   #problems { margin: 0; padding-left: 1.2rem; }
-  #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 ui-monospace, monospace; box-sizing: border-box; }
+  #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 var(--lh-mono, monospace); box-sizing: border-box; }
   #status.error { color: var(--bad); }
   progress { width: 100%; }
   #problems-box { border: 1px solid var(--bad); border-radius: .4rem; padding: .5rem .75rem; margin: 0 0 1rem; }
@@ -130,6 +133,8 @@
 </style>
 </head>
 <body>
+<!--SITE_HEADER-->
+<main>
 <h1>lindhard simulator</h1>
 <p>Set up a beam and a layered amorphous target, then run it. The
 <a href="https://github.com/2AMLogic/lindhard">lindhard</a> binary-collision engine
@@ -318,6 +323,8 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
 </div>
 
 <datalist id="symbols"></datalist>
+</main>
+<!--SITE_FOOTER-->
 <script type="module" src="simulator.js"></script>
 </body>
 </html>

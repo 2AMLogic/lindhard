@@ -134,7 +134,8 @@ export function segmentBounds(segs, view = "side", aspect = undefined) {
     }
   }
   if (!segs.length) {
-    const w = sized && aspect < 1 ? 5e-9 / aspect : 5e-9;
+    // 1e-8 deep by 2w wide is 1:1 on a plot of this aspect when w = 5e-9 / aspect.
+    const w = sized ? 5e-9 / aspect : 5e-9;
     return { u0: 0, u1: 1e-8, v0: -w, v1: w, lateralScale: 1 };
   }
   if (view === "end") {

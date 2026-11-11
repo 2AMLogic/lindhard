@@ -1,0 +1,39 @@
+/* The site bar and footer shared by every surface (see site/header.html and
+   site/footer.html). Uses only the tokens of tokens.css. Plain CSS, no JS: on
+   a narrow screen the links scroll sideways inside the bar. */
+.lh-bar {
+  background: var(--lh-surface);
+  border-bottom: 1px solid var(--lh-rule);
+  font: 0.95rem/1.2 var(--lh-font);
+}
+.lh-bar nav {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  box-sizing: border-box;
+  max-width: 72rem;
+  height: var(--lh-bar-h);
+  margin: 0 auto;
+  padding: 0 1rem;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.lh-bar ul { display: flex; gap: 1.1rem; list-style: none; margin: 0; padding: 0; }
+.lh-bar a { color: var(--lh-link); text-decoration: none; }
+.lh-bar a:hover { text-decoration: underline; }
+.lh-bar a:focus-visible, .lh-footer a:focus-visible { outline: 3px solid var(--lh-link); outline-offset: 2px; }
+.lh-bar .lh-wordmark { color: var(--lh-fg); font-weight: 700; letter-spacing: -0.01em; font-size: 1.1rem; }
+.lh-bar a[aria-current="page"] { color: var(--lh-fg); font-weight: 600; text-decoration: underline; text-underline-offset: 0.3em; }
+
+.lh-footer {
+  margin: 3rem auto 0;
+  padding: 1rem 1rem 2rem;
+  max-width: 72rem;
+  border-top: 1px solid var(--lh-rule);
+  color: var(--lh-muted);
+  font: 0.9rem/1.5 var(--lh-font);
+}
+.lh-footer-cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 1rem 2rem; }
+.lh-footer-h { margin: 0 0 0.25rem; color: var(--lh-fg); font-weight: 600; }
+.lh-footer ul { list-style: none; margin: 0; padding: 0; }
+.lh-footer a { color: var(--lh-link); }

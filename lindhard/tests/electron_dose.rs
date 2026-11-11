@@ -14,6 +14,9 @@ use lindhard::tally::{
 };
 use lindhard::units::J_PER_EV;
 
+mod common;
+use common::close;
+
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 const NM: f64 = 1e-9;
@@ -122,10 +125,6 @@ fn run(t: &Transport, cfg: ElectronTallyConfig, n: u64) -> ElectronReport {
         .unwrap()
         .tally
         .report()
-}
-
-fn close(a: f64, b: f64, rel: f64) -> bool {
-    (a - b).abs() <= rel * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
 }
 
 #[test]
