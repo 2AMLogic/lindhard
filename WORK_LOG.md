@@ -4,6 +4,12 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-11
 
+- **PR #693**: fix: export el for the simulator's Add element button; add e2e tests
+- **PR #701**: docs: regenerate screen_oxide gallery table and curve after ZBL constant change
+- **PR #697**: docs: turn the exposure output-files table into a list and drop the last wide-table exception
+- **Issue #695** (closed): Follow-on from PR #686: screen_oxide gallery numbers drift from the committed results
+- **Issue #691** (closed): Simulator Setup: fix Add element ReferenceError; finish one-screen layout at 1440 px
+- **Issue #663** (closed): Book: tables that need content changes to fit (output and input guides, stopping residuals, validity)
 - **PR #690**: docs: reflow example band tables and shorten Pearson IV excerpt
 - **PR #688**: docs: readable titles and summary table for the stopping-residuals page
 - **PR #686**: docs(book): collapsed sidebar, readability stylesheet, dark-aware gallery figures

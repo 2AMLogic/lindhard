@@ -174,13 +174,23 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#664**: One shared header, footer and visual system across the landing page, the book and the browser tools
+- **#666**: Simulator: one workspace on desktop, a single Run button, result tiles, and plots in a grid
+- **#676**: Simulator plots: axes that follow the data, integer count ticks, consistent species colours
+- **#677**: Simulator trajectory view: readable cascades, true aspect ratio, real axes
+- **#696**: docs: check stopping-residuals tables at 1440/768/390 px after #688
+- **#698**: Simulator Setup: one-layer target ends 1333 px down at 1440x900; fit the 900 px viewport
+- **#699**: Consolidate duplicated integration-test helpers into tests/common (with_threads, rel, simpson_log, close)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#700**: test: assert Setup's visible controls fit 1440x900, skipping closed details
+- **#703**: test: assert stopping-residuals tables fit at 768 px
+- **#704**: feat(simulator): readable trajectory cascades with axes, 1:1 scale and species toggles
+- **#705**: feat(simulator): trim plot axes, integer count ticks, species colours, radial plot, Rp marker
+- **#706**: test: consolidate duplicated test helpers into tests/common
 
 ## Approved (Awaiting Merge)
 
@@ -219,14 +229,13 @@ Issues carrying `loom:curated`.
 - **#642**: [Epic #630] TRIM.IN importer *(curated)*
 - **#643**: [Epic #630] SRIM-format output writers *(curated)*
 - **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
-- **#660**: Landing page says the trajectory simulator is "planned" although it is published *(curated)*
-- **#661**: Range calculator: unreadable in dark mode, and other small defects *(curated)*
-- **#662**: Book: tables do not fit their content, and equations pan the page sideways on a phone *(curated)*
 - **#664**: One shared header, footer and visual system across the landing page, the book and the browser tools *(curated)*
 - **#666**: Simulator: one workspace on desktop, a single Run button, result tiles, and plots in a grid *(curated)*
-- **#668**: Simulator Setup: fields sized to their content, clearer layer controls, and a drawn layer stack *(curated)*
-- **#669**: Book readability: collapsible sidebar with the user guide first, line length and heading rhythm, code blocks, gallery figures in dark mode *(curated)*
-- **#670**: Simulator quick mode: the damage plot contradicts its note, and the energy partition reads as wrong *(curated)*
+- **#676**: Simulator plots: axes that follow the data, integer count ticks, consistent species colours *(curated)*
+- **#677**: Simulator trajectory view: readable cascades, true aspect ratio, real axes *(curated)*
+- **#692**: Simulator: "Add element" button throws ReferenceError; 1440 px single-screen layout not met *(curated)*
+- **#696**: docs: check stopping-residuals tables at 1440/768/390 px after #688 *(curated)*
+- **#698**: Simulator Setup: one-layer target ends 1333 px down at 1440x900; fit the 900 px viewport *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -250,10 +259,10 @@ _None._
 | Very important | 0 |
 | Important | 2 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 0 |
-| PRs awaiting review | 0 |
+| In Progress (`loom:building`) | 7 |
+| PRs awaiting review | 5 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 35 |
+| Curated | 34 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 7 |
 <!-- guide:plan-body:end -->
