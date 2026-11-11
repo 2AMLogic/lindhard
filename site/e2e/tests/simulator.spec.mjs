@@ -374,7 +374,7 @@ test("before any run the results area shows the target and the examples, not das
   await expect(page.locator("#layers .layer")).toHaveCount(2);
   await expect(page.locator("#layer-drawing")).toContainText("SiO2");
   await page.locator('#examples [data-example="ar-cu"]').click();
-  await expect(page.locator("#mode")).toHaveValue("full");
+  await expect(page.locator("#mode-full")).toBeChecked();
   await expect(page.locator("#layers .layer")).toHaveCount(1);
   // Loading an example does not run it.
   await expect(page.locator("#empty")).toBeVisible();
