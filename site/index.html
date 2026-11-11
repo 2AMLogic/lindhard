@@ -4,8 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lindhard: Monte Carlo transport of ions in matter</title>
-<meta name="description" content="lindhard is a clean-room, MIT-licensed Rust engine for Monte Carlo transport of ions in matter, in the binary-collision approximation.">
+<meta name="description" content="lindhard computes ranges, damage, sputtering and backscattering for ions in layered amorphous targets, in the binary-collision approximation. MIT-licensed Rust.">
 <meta name="color-scheme" content="light dark">
+<!--FAVICON-->
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="chrome.css">
 <link rel="stylesheet" href="landing.css">
@@ -13,87 +14,163 @@
 <body>
 <a class="skip" href="#main">Skip to content</a>
 <!--SITE_HEADER-->
-<div class="hero">
-  <h1>lindhard</h1>
-  <p class="tagline">A clean-room, MIT-licensed Rust engine for Monte Carlo transport of ions in matter.</p>
-</div>
 <main id="main">
+  <section class="hero" aria-labelledby="top">
+    <div class="hero-text">
+      <h1 id="top">lindhard</h1>
+      <p class="tagline">Ranges, damage, sputtering and backscattering for ions
+      entering layered amorphous targets, computed by Monte Carlo in the
+      binary-collision approximation.</p>
+      <p class="meta">MIT licence &middot; Rust &middot; pre-release, version <!--VERSION--></p>
+      <p class="buttons">
+        <a class="button primary" href="calculator/simulator.html">Open the simulator</a>
+        <a class="button" href="introduction.html">Read the manual</a>
+      </p>
+    </div>
+    <!--HERO_FIGURE-->
+  </section>
+
+  <section aria-labelledby="try">
+    <h2 id="try">Try it in the browser</h2>
+    <div class="cards two">
+      <div class="card">
+        <h3><!--SIMULATOR_SLOT--></h3>
+        <p>Watch ion trajectories and where the ions stop, for a target you describe.</p>
+      </div>
+      <div class="card">
+        <h3><a href="calculator/index.html">Range calculator</a></h3>
+        <p>Projected range and straggle for an ion, energy and target.</p>
+      </div>
+    </div>
+    <p class="note">Both run locally, as WebAssembly. Nothing you enter is sent anywhere.</p>
+  </section>
+
   <section aria-labelledby="what">
-    <h2 id="what">What it is</h2>
-    <p>For a beam of ions entering a layered amorphous target, lindhard
-    computes where the ions stop, how much damage their cascades make, and
-    what is sputtered and backscattered. It works in the binary-collision
-    approximation (BCA). Results are deterministic: a run gives the same bits
-    on one thread or many.</p>
-    <p>A low-energy electron engine is under development. lindhard is early,
-    pre-release software; the <a href="status.html">status table</a> says what
-    is done.</p>
-    <p>Every model is taken from published papers and cited where it is
-    implemented. The code is clean-room: the
+    <h2 id="what">What it computes</h2>
+    <ul class="plain">
+      <li><strong>Ranges.</strong> Where ions stop in a layered target, with the projected range and its straggle.</li>
+      <li><strong>Damage.</strong> Displacement damage from the collision cascades.</li>
+      <li><strong>Sputtering and backscattering.</strong> What leaves the surface, and with what yield.</li>
+      <li><strong>Reproducibly.</strong> A run gives the same bits on one thread or many.</li>
+    </ul>
+    <p>A low-energy electron engine is under development. Every model is taken
+    from published papers and cited where it is implemented. The code is
+    clean-room: the
     <a href="https://github.com/2AMLogic/lindhard/blob/main/CONTRIBUTING.md">license tiers</a>
     say what may be ported and what may only be read about.</p>
+  </section>
+
+  <section aria-labelledby="validation">
+    <h2 id="validation">How far to trust it</h2>
+    <div class="callout">
+      <p>Validation is reported in full, including where lindhard does not
+      agree with a reference. A few of the level 1 checks, copied from the
+      validation summary:</p>
+      <div class="scroll-x">
+        <table class="trust">
+          <thead><tr><th>Compared</th><th>Against</th><th>Deviation</th></tr></thead>
+          <tbody>
+<!--TRUST_ROWS-->
+          </tbody>
+        </table>
+      </div>
+      <p><strong>Known deviations</strong>, reported and not asserted away:</p>
+      <ul class="deviations">
+<!--KNOWN_DEVIATIONS-->
+      </ul>
+      <p class="links"><a href="validation.html">The full validation summary</a>
+      &middot; <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md">Data provenance</a></p>
+    </div>
   </section>
 
   <section aria-labelledby="physics">
     <h2 id="physics">Physics covered</h2>
     <p>One manual page per model, with the equations, the assumptions, the
     range of use and the papers.</p>
-    <ul>
-      <li><a href="models/potentials.html">Interatomic potentials</a> and their <a href="models/screening-lengths.html">screening lengths</a></li>
-      <li><a href="models/scattering.html">The scattering integral</a></li>
-      <li><a href="models/stopping.html">Electronic stopping</a> (Lindhard&#8211;Scharff, Oen&#8211;Robinson, Bethe&#8211;Bloch, user tables, Bragg additivity) and <a href="models/straggling.html">straggling</a></li>
-      <li><a href="models/bca.html">BCA transport</a></li>
-      <li><a href="models/damage.html">Displacement damage</a></li>
-      <li><a href="models/dynamic-composition.html">Dynamic composition</a></li>
-    </ul>
+    <div class="cards">
+      <a class="card" href="models/potentials.html"><strong>Interatomic potentials</strong><span>and their screening lengths</span></a>
+      <a class="card" href="models/scattering.html"><strong>The scattering integral</strong><span>deflection of a colliding pair</span></a>
+      <a class="card" href="models/stopping.html"><strong>Electronic stopping</strong><span>Lindhard&#8211;Scharff, Oen&#8211;Robinson, Bethe&#8211;Bloch, user tables</span></a>
+      <a class="card" href="models/straggling.html"><strong>Straggling</strong><span>energy-loss fluctuations</span></a>
+      <a class="card" href="models/bca.html"><strong>BCA transport</strong><span>the Monte Carlo loop</span></a>
+      <a class="card" href="models/damage.html"><strong>Displacement damage</strong><span>from recoil cascades</span></a>
+      <a class="card" href="models/dynamic-composition.html"><strong>Dynamic composition</strong><span>targets that change with fluence</span></a>
+    </div>
+  </section>
+
+  <section aria-labelledby="examples">
+    <h2 id="examples">Examples</h2>
+    <p>Four runnable examples, each with its input and the command that runs it.
+    <a href="gallery/index.html">All examples</a>.</p>
+    <div class="cards thumbs">
+      <a class="card" href="gallery/screen-oxide.html">
+        <img src="gallery/generated/screen_oxide.svg" alt="Depth profile of 50 keV As in Si through 10 nm SiO2" loading="lazy">
+        <strong>Implant through a screen oxide</strong>
+        <span>50 keV As into Si through 10 nm of SiO&#8322;. Illustrative parameters.</span>
+      </a>
+      <a class="card" href="gallery/sputtering-angle.html">
+        <img src="gallery/generated/sputter_angle.svg" alt="Sputtering yield of Cu under 1 keV Ar against angle" loading="lazy">
+        <strong>Sputtering yield against angle</strong>
+        <span>1 keV Ar on Cu. Illustrative displacement energies; not a validated prediction.</span>
+      </a>
+      <a class="card" href="gallery/resist-on-si.html">
+        <img src="gallery/generated/resist_on_si.svg" alt="Energy deposited by 10 keV electrons in a resist on Si" loading="lazy">
+        <strong>Electrons in a resist on Si</strong>
+        <span>Uses synthetic electron data: an illustration only.</span>
+      </a>
+      <a class="card" href="gallery/dose-buried-oxide.html">
+        <img src="gallery/generated/dose_buried_oxide.svg" alt="Dose in a buried oxide against beam energy" loading="lazy">
+        <strong>Dose in a buried oxide</strong>
+        <span>Uses synthetic electron data: an illustration only.</span>
+      </a>
+    </div>
   </section>
 
   <section aria-labelledby="start">
-    <h2 id="start">Install and quick start</h2>
-    <p>lindhard has no published release yet, so there is no package to install;
-    build it from source with a stable Rust toolchain. See <a href="guide/install.html">Installing</a>.</p>
+    <h2 id="start">Build from source</h2>
+    <p>There is no published release yet, so there is no package to install;
+    build it with a stable Rust toolchain. See <a href="guide/install.html">Installing</a>.</p>
+    <h3>Build</h3>
+    <div class="codeblock">
 <pre><code>git clone https://github.com/2AMLogic/lindhard.git
 cd lindhard
-cargo build --release -p lindhard-cli
-target/release/lindhard run examples/b_5keV_si.toml --out out/b_5keV_si</code></pre>
+cargo build --release -p lindhard-cli</code></pre>
+      <button type="button" class="copy" hidden>Copy</button>
+    </div>
+    <h3>Run</h3>
+    <div class="codeblock">
+<pre><code>target/release/lindhard run examples/b_5keV_si.toml --out out/b_5keV_si</code></pre>
+      <button type="button" class="copy" hidden>Copy</button>
+    </div>
     <p>The <a href="guide/first-run.html">first run</a> walks through that
     example (5 keV boron into silicon) from start to finish.</p>
   </section>
 
-  <section aria-labelledby="try">
-    <h2 id="try">Try it</h2>
-    <ul>
-      <li><a href="calculator/index.html">Range calculator</a>: projected range and straggle in your browser, as WebAssembly. Nothing you enter leaves your machine.</li>
-      <li><!--SIMULATOR_SLOT--></li>
-    </ul>
-  </section>
-
-  <section aria-labelledby="validation">
-    <h2 id="validation">How far to trust it</h2>
-    <p>Validation is reported in full, including where lindhard does not
-    agree with a reference. Known gaps exist and are listed, with their
-    causes, under
-    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md#known-deviations-reported-not-asserted">Known deviations</a>
-    in the validation document; read them before relying on a result. The
-    <a href="validation.html">validation summary</a> lists the comparisons
-    with their residuals. The
-    document also holds the
-    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md#results">analytic-check results</a>,
-    the code-to-code comparisons and the comparisons with measurement, and
-    says where a comparison is missing. The
-    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md">data provenance table</a>
-    records where every number in the tree comes from.</p>
-  </section>
-
-  <section aria-labelledby="docs">
-    <h2 id="docs">Documentation</h2>
-    <ul>
-      <li><a href="introduction.html">The book</a>: physics manual and user guide</li>
-      <li><!--API_LINK--></li>
-      <li><a href="https://github.com/2AMLogic/lindhard">Source repository</a></li>
-    </ul>
+  <section aria-labelledby="status">
+    <h2 id="status">Status</h2>
+    <p>lindhard is early, pre-release software. The
+    <a href="status.html">status table</a> says what is done.
+    <!--API_LINK--> &middot; <a href="https://github.com/2AMLogic/lindhard">Source repository</a></p>
   </section>
 </main>
 <!--SITE_FOOTER-->
+<script>
+(function () {
+  if (!navigator.clipboard) return;
+  document.querySelectorAll(".codeblock").forEach(function (block) {
+    var button = block.querySelector("button.copy");
+    var code = block.querySelector("code");
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      navigator.clipboard.writeText(code.textContent).then(function () {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = "Copy"; }, 1500);
+      }, function () {
+        button.textContent = "Copy failed";
+      });
+    });
+  });
+})();
+</script>
 </body>
 </html>

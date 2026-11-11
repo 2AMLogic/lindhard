@@ -5,20 +5,111 @@ body {
   color: var(--lh-fg);
   font: 1rem/1.6 var(--lh-font);
 }
-main, .hero { max-width: 46rem; margin: 0 auto; padding: 0 1rem; }
-.hero { padding-top: 2.5rem; border-bottom: 1px solid var(--lh-rule); padding-bottom: 1rem; }
-h1 { margin: 0; font-size: 2.5rem; letter-spacing: -0.02em; }
-h2 { margin-top: 2rem; font-size: 1.35rem; }
-.tagline { margin: 0.25rem 0 1rem; color: var(--lh-muted); font-size: 1.15rem; }
+main { max-width: 72rem; margin: 0 auto; padding: 0 1rem; }
+h1 { margin: 0; font-size: 2.75rem; letter-spacing: -0.02em; line-height: 1.1; }
+h2 { margin: 2.5rem 0 0.75rem; font-size: 1.45rem; }
+h3 { margin: 1rem 0 0.4rem; font-size: 1.05rem; }
 a { color: var(--lh-link); }
-a:focus-visible { outline: 3px solid var(--lh-link); outline-offset: 2px; }
-pre {
-  overflow-x: auto;
-  padding: 0.75rem 1rem;
-  background: var(--lh-surface);
-  border: 1px solid var(--lh-rule);
-  border-radius: var(--lh-radius);
-}
+a:focus-visible, button:focus-visible { outline: 3px solid var(--lh-link); outline-offset: 2px; }
 code { font-family: var(--lh-mono); font-size: 0.9em; }
 .skip { position: absolute; left: -999px; top: 0; background: var(--lh-bg); padding: 0.5rem 1rem; }
 .skip:focus { left: 0.5rem; top: 0.5rem; z-index: 10; }
+.note { color: var(--lh-muted); font-size: 0.95rem; }
+
+/* Hero: text and figure side by side from 1100 px, stacked below 900 px. */
+.hero {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem 2.5rem;
+  align-items: start;
+  padding: 2rem 0 1.5rem;
+  border-bottom: 1px solid var(--lh-rule);
+}
+.hero-text { max-width: 40rem; }
+.tagline { margin: 0.6rem 0 0.5rem; font-size: 1.2rem; }
+.meta { margin: 0 0 1rem; color: var(--lh-muted); font-size: 0.95rem; }
+.buttons { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 0; }
+.button {
+  display: inline-block;
+  padding: 0.55rem 1.1rem;
+  border: 1px solid var(--lh-link);
+  border-radius: var(--lh-radius);
+  text-decoration: none;
+  font-weight: 600;
+}
+.button.primary { background: var(--lh-link); color: var(--lh-bg); }
+.button:hover { text-decoration: underline; }
+.hero-figure { margin: 0; min-width: 0; }
+.hero-figure img { display: block; width: 100%; max-width: 40rem; height: auto; }
+.hero-figure figcaption { margin-top: 0.5rem; color: var(--lh-muted); font-size: 0.85rem; line-height: 1.45; }
+@media (min-width: 1100px) {
+  .hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  h1 { font-size: 3.25rem; }
+}
+
+/* Cards. */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); gap: 1rem; }
+.cards.two { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.cards.thumbs { grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr)); }
+.card {
+  display: block;
+  padding: 0.9rem 1rem;
+  background: var(--lh-surface);
+  border: 1px solid var(--lh-rule);
+  border-radius: var(--lh-radius);
+  color: var(--lh-fg);
+  text-decoration: none;
+}
+a.card:hover strong { text-decoration: underline; }
+.card h3 { margin: 0 0 0.3rem; }
+.card p { margin: 0; color: var(--lh-muted); }
+.card strong { display: block; color: var(--lh-link); }
+.card span { display: block; margin-top: 0.2rem; color: var(--lh-muted); font-size: 0.9rem; }
+.card img { display: block; width: 100%; height: auto; margin-bottom: 0.5rem; border: 1px solid var(--lh-rule); border-radius: 4px; background: var(--lh-bg); }
+ul.plain { padding-left: 1.2rem; }
+
+/* Trust callout. */
+.callout {
+  padding: 0.25rem 1.25rem 0.75rem;
+  border: 1px solid var(--lh-rule);
+  border-left: 5px solid var(--lh-caution);
+  border-radius: var(--lh-radius);
+  background: var(--lh-surface);
+}
+.scroll-x { overflow-x: auto; }
+table.trust { border-collapse: collapse; width: 100%; font-size: 0.92rem; }
+table.trust th, table.trust td { padding: 0.4rem 0.6rem; border-bottom: 1px solid var(--lh-rule); text-align: left; vertical-align: top; }
+.deviations { padding-left: 1.2rem; }
+.callout .links { margin-bottom: 0.25rem; }
+
+/* Code blocks: scroll sideways, with an edge shadow as the cue, and a copy button. */
+.codeblock { position: relative; }
+pre {
+  margin: 0;
+  overflow-x: auto;
+  padding: 0.75rem 4.5rem 0.75rem 1rem;
+  border: 1px solid var(--lh-rule);
+  border-radius: var(--lh-radius);
+  background:
+    linear-gradient(to right, var(--lh-surface), var(--lh-surface)) left center / 1.5rem 100% no-repeat local,
+    linear-gradient(to left, var(--lh-surface), var(--lh-surface)) right center / 1.5rem 100% no-repeat local,
+    linear-gradient(to right, var(--lh-rule), transparent) left center / 0.9rem 100% no-repeat scroll,
+    linear-gradient(to left, var(--lh-rule), transparent) right center / 0.9rem 100% no-repeat scroll,
+    var(--lh-surface);
+}
+.codeblock .copy {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--lh-rule);
+  border-radius: var(--lh-radius);
+  background: var(--lh-bg);
+  color: var(--lh-link);
+  font: 0.85rem var(--lh-font);
+  cursor: pointer;
+}
+.codeblock .copy[hidden] { display: none; }
+@media (max-width: 600px) {
+  h1 { font-size: 2.25rem; }
+}
