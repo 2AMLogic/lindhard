@@ -26,10 +26,25 @@ const PRECACHE = [
   "pkg/lindhard_wasm_bg.wasm",
 ];
 
+// A host may answer "simulator.html" with a redirect to "simulator" (Cloudflare
+// Pages does). A response that followed a redirect must not answer a
+// navigation: the browser fails the load ("Response served by service worker
+// has redirections"). So a redirected response is rebuilt as a plain one, with
+// the same body, status and headers, before it is stored.
+function unredirected(res) {
+  if (!res.redirected) return res;
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers: res.headers });
+}
+
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE)
-      .then((cache) => cache.addAll(PRECACHE.map((u) => new Request(u, { cache: "reload" }))))
+      // Not cache.addAll: it stores the responses as fetched, redirects included.
+      .then((cache) => Promise.all(PRECACHE.map(async (u) => {
+        const res = await fetch(new Request(u, { cache: "reload" }));
+        if (!res.ok) throw new Error(`precache ${u}: HTTP ${res.status}`);
+        await cache.put(u, unredirected(res));
+      })))
       .then(() => self.skipWaiting()),
   );
 });
@@ -54,7 +69,7 @@ self.addEventListener("fetch", (event) => {
     const cache = await caches.open(CACHE);
     const cached = await cache.match(req, { ignoreSearch: true });
     const refresh = fetch(req).then((res) => {
-      if (res.ok && res.type === "basic") cache.put(req, res.clone());
+      if (res.ok && res.type === "basic") cache.put(req, unredirected(res.clone()));
       return res;
     });
     if (cached) {

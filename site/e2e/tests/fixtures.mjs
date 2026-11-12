@@ -11,11 +11,17 @@ import { test as base, expect } from "@playwright/test";
 // defect of the site.
 const KNOWN_CONSOLE = [/^Permissions policy violation: unload is not allowed/];
 
+// Cloudflare adds its own requests under /cdn-cgi/ to the published site (the
+// analytics beacon, cancelled when the page navigates away). They are the
+// host's, not the site's, and the built tree has none.
+const HOST_INJECTED = /^\/cdn-cgi\//;
+
 export const test = base.extend({
   problems: [
     async ({ page, baseURL }, use) => {
       const problems = [];
-      const ours = (url) => url.startsWith(new URL(baseURL).origin);
+      const origin = new URL(baseURL).origin;
+      const ours = (url) => url.startsWith(origin) && !HOST_INJECTED.test(new URL(url).pathname);
       page.on("console", (m) => {
         if (m.type() === "error" && !KNOWN_CONSOLE.some((k) => k.test(m.text()))) problems.push(`console error: ${m.text()}`);
       });
