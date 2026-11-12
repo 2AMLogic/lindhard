@@ -2,8 +2,22 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-12
+
+- **PR #721**: fix(sw): never store a redirected response in the offline cache
+- **PR #720**: Bump Repo Skills 0.25.10 -> 0.26.1
+- **PR #719**: feat(simulator): 3D trajectory view; fix the Setup column layout
+- **PR #718**: feat(site): fold the range calculator into the simulator and run an example on load
+- **PR #717**: refactor(exposure): share the electron transport beam profile and add rectangle
+- **Issue #671** (closed): Decide: fold the range calculator into the simulator, and run the default case on page load?
+- **Issue #608** (closed): Decide whether to collapse exposure::BeamProfile into transport::BeamProfile
+
 ### 2026-11-11
 
+- **PR #716**: feat(site): restructure the landing page around a hero, trust rows and examples
+- **PR #714**: feat(gallery): generate the quick-start figure from one wasm session
+- **Issue #713** (closed): Landing hero: generate the quick-start figure (trajectories over depth profile) in gallery.py
+- **Issue #665** (closed): Landing page: hero with a real figure, tools and physics as cards, a scannable trust section
 - **PR #711**: test: cover the layer stack drawing at tilt 0 and with a long layer name
 - **PR #710**: fix: reset hidden species on run start and make empty trajectory bounds 1:1
 - **PR #706**: test: consolidate duplicated test helpers into tests/common
