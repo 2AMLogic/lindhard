@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, anyTruncated, dashFor, deriveCounters,
+  boxBounds, boxEdges, clampPitch, orbitProjector, ORBIT_HOME,
   energyPartition, layerSpans, roundToError, segmentBounds, speciesLabels, trajectorySegments, vacanciesPerIon,
 } from "../../web/run_view.js";
 
@@ -196,4 +197,70 @@ test("a value and its error share a decimal place, the error to two figures", ()
   assert.deepEqual(roundToError(5, 0), { value: "5", err: "0" });
   assert.deepEqual(roundToError(3, null), { value: "3", err: null });
   assert.deepEqual(roundToError(NaN, 1), { value: "–", err: null });
+});
+
+test("3D segments keep all three coordinates", () => {
+  const segs = trajectorySegments([hist()], { view: "3d" });
+  assert.equal(segs.length, 3);
+  assert.deepEqual(segs[0].b, [1e-9, 2e-10, -1e-10]);
+  assert.equal(trajectorySegments([hist()], { view: "3d", cascades: false }).length, 2);
+});
+
+test("3D box: starts at the surface, holds every point, same half-width for y and z", () => {
+  const segs = trajectorySegments([hist()], { view: "3d" });
+  const b = boxBounds(segs);
+  assert.equal(b.x0, 0);
+  assert.ok(b.x1 >= 3e-9);
+  assert.ok(b.w >= 5e-10);
+  const back = boxBounds([{ a: [-2e-9, 0, 0], b: [1e-9, 0, 4e-9] }]);
+  assert.equal(back.x0, -2e-9);
+  assert.ok(back.w >= 4e-9);
+  const empty = boxBounds([]);
+  assert.ok(empty.x1 > empty.x0 && empty.w > 0);
+  assert.equal(boxEdges(b).length, 12);
+  assert.deepEqual(boxEdges(b).map((e) => e.axis).sort(), [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]);
+});
+
+test("3D projector at yaw 0, pitch 0 is a side view: depth right, z up, y away", () => {
+  const box = { x0: 0, x1: 100e-9, w: 30e-9 };
+  const p = orbitProjector({ yaw: 0, pitch: 0 }, box, 800, 400);
+  const [cx, cy, away0] = p.project([50e-9, 0, 0]);
+  assert.deepEqual([cx, cy, away0], [400, 200, 0]);
+  assert.ok(p.project([60e-9, 0, 0])[0] > cx);
+  assert.ok(p.project([50e-9, 0, 10e-9])[1] < cy);
+  assert.ok(p.project([50e-9, 10e-9, 0])[2] > 0);
+  assert.equal(p.project([50e-9, 10e-9, 0])[0], cx);
+});
+
+test("3D projector: one scale on every axis, and the box stays in the plot area at any angle", () => {
+  const box = { x0: -5e-9, x1: 100e-9, w: 30e-9 };
+  const centre = [(box.x0 + box.x1) / 2, 0, 0];
+  for (const yaw of [-3, -0.55, 0, 0.7, 1.6, 2.9]) for (const pitch of [-Math.PI / 2, -0.4, 0, 0.3, 1.2, Math.PI / 2]) {
+    const p = orbitProjector({ yaw, pitch }, box, 800, 400);
+    const o = p.project(centre);
+    for (let axis = 0; axis < 3; axis++) {
+      const q = [...centre];
+      q[axis] += 1e-9;
+      const r = p.project(q);
+      // A 1 nm step is `scale` nm-pixels long in screen-plus-depth space: no axis is stretched.
+      const len = Math.hypot(r[0] - o[0], r[1] - o[1], (r[2] - o[2]) * p.scale);
+      assert.ok(Math.abs(len - p.scale * 1e-9) < 1e-9 * p.scale * 1e-9 + 1e-9);
+    }
+    for (const e of boxEdges(box)) for (const corner of [e.a, e.b]) {
+      const [x, y] = p.project(corner);
+      assert.ok(x > -1e-6 && x < 800 + 1e-6 && y > -1e-6 && y < 400 + 1e-6, `corner off the plot at yaw ${yaw}, pitch ${pitch}`);
+    }
+  }
+  // The scale does not depend on the yaw.
+  assert.equal(orbitProjector({ yaw: 0.3, pitch: 0.3 }, box, 800, 400).scale, orbitProjector({ yaw: 2, pitch: 0.3 }, box, 800, 400).scale);
+});
+
+test("3D projector: a positive pitch looks down from above, and the pitch is clamped", () => {
+  const box = { x0: 0, x1: 100e-9, w: 30e-9 };
+  const p = orbitProjector({ yaw: 0, pitch: 0.5 }, box, 800, 400);
+  // The near side (y < 0) is lower on the screen than the far side.
+  assert.ok(p.project([50e-9, -30e-9, 0])[1] > p.project([50e-9, 30e-9, 0])[1]);
+  assert.equal(clampPitch(5), Math.PI / 2);
+  assert.equal(clampPitch(-5), -Math.PI / 2);
+  assert.equal(clampPitch(ORBIT_HOME.pitch), ORBIT_HOME.pitch);
 });

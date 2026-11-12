@@ -229,6 +229,61 @@ test("Ar into Cu with full cascades sputters", async ({ page }) => {
   expect(await canvasColours(page.locator("#traj"))).toBeGreaterThan(3);
 });
 
+test("the 3D trajectory view draws, turns with a drag and the keys, and resets", async ({ page }) => {
+  await open(page);
+  await configure(page, {});
+  await run(page);
+  const canvas = page.locator("#traj");
+  const flat = await canvas.boundingBox();
+  await expect(page.locator("#traj-reset")).toBeHidden();
+  await page.locator("#traj-view").selectOption("3d");
+  await expect(page.locator("#traj-reset")).toBeVisible();
+  await expect(page.locator("#traj-note")).toContainText("Equal scale on all three axes");
+  await expect.poll(async () => (await canvas.boundingBox()).height).toBeGreaterThan(flat.height * 1.2);
+  expect(await canvasColours(canvas)).toBeGreaterThan(3);
+  const picture = () => canvas.evaluate((c) => c.toDataURL());
+  const home = await picture();
+  await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 90, box.y + box.height / 2 + 25, { steps: 5 });
+  await page.mouse.up();
+  await expect.poll(picture).not.toBe(home);
+  const dragged = await picture();
+  await canvas.focus();
+  await page.keyboard.press("ArrowLeft");
+  await expect.poll(picture).not.toBe(dragged);
+  await page.locator("#traj-reset").click();
+  await expect.poll(picture).toBe(home);
+  // The flat views are unchanged by a drag.
+  await page.locator("#traj-view").selectOption("side");
+  await expect(page.locator("#traj-reset")).toBeHidden();
+  expect(await canvasColours(canvas)).toBeGreaterThan(3);
+});
+
+test("in the two-column layout the Setup column stacks its panels and nothing overlaps", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page);
+  const setup = await page.locator("#setup").boundingBox();
+  // Ion, Calculation and Target layers each take the column's width.
+  for (const box of await page.locator("#setup fieldset:visible").all()) {
+    expect((await box.boundingBox()).width).toBeGreaterThan(setup.width * 0.85);
+  }
+  // The layer form has the column to itself, and the stack drawing sits below it.
+  const layers = await page.locator("#layers").boundingBox();
+  const stack = await page.locator("figure.stack").boundingBox();
+  expect(layers.width).toBeGreaterThan(setup.width * 0.75);
+  expect(stack.y).toBeGreaterThanOrEqual(layers.y + layers.height);
+  // No control of the layer runs past the layer's box.
+  const layer = page.locator("#layers .layer").first();
+  const edge = await layer.boundingBox();
+  for (const control of await layer.locator("input, select, button").all()) {
+    const b = await control.boundingBox();
+    expect(b.x + b.width).toBeLessThanOrEqual(edge.x + edge.width + 0.5);
+  }
+});
+
 test("a thin film that transmits every ion draws without error", async ({ page }) => {
   await open(page);
   await configure(page, { ion: "H", energyKeV: 500, tilt: 0 });

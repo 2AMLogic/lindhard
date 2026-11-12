@@ -97,11 +97,13 @@ export const DASHES = [[], [6, 3], [2, 3]];
 export const dashFor = (generation) => DASHES[Math.min(generation, DASHES.length - 1)];
 
 // Segments to draw, in metres, as {a: [u, v], b: [u, v], species, generation}
-// for a view: "side" is depth across, lateral y down; "end" is y across, z down.
+// for a view: "side" is depth across, lateral y down; "end" is y across, z down;
+// "3d" keeps all three coordinates, a and b being [x, y, z].
 // Cascade recoils (generation > 0) are left out unless `cascades`; species in
 // the `hidden` set are left out whatever their generation.
 export function trajectorySegments(histories, { view = "side", cascades = true, hidden = new Set() } = {}) {
   const [iu, iv] = view === "end" ? [1, 2] : [0, 1];
+  const pick = view === "3d" ? (p) => [p[0], p[1], p[2]] : (p) => [p[iu], p[iv]];
   const segs = [];
   for (const h of histories) {
     for (const t of h.tracks) {
@@ -109,7 +111,7 @@ export function trajectorySegments(histories, { view = "side", cascades = true, 
       if (hidden.has(t.species)) continue;
       for (let k = 1; k < t.points.length; k++) {
         const p = t.points[k - 1], q = t.points[k];
-        segs.push({ a: [p[iu], p[iv]], b: [q[iu], q[iv]], species: t.species, generation: t.generation });
+        segs.push({ a: pick(p), b: pick(q), species: t.species, generation: t.generation });
       }
     }
   }
@@ -154,6 +156,71 @@ export function segmentBounds(segs, view = "side", aspect = undefined) {
   }
   const w = Math.max(vmax, span / 4, 1e-10);
   return { u0, u1: uEnd, v0: -w, v1: w, lateralScale: 1 };
+}
+
+// ---- 3D view ---------------------------------------------------------------
+
+// The box {x0, x1, w} that holds a 3D segment list: depth from x0 (the surface
+// at 0, or less if something left through it) to x1, and a lateral half-width
+// w about the beam axis that is the same for y and z.
+export function boxBounds(segs) {
+  if (!segs.length) return { x0: 0, x1: 1e-8, w: 5e-9 };
+  let x0 = 0, x1 = -Infinity, w = 0;
+  for (const s of segs) {
+    for (const p of [s.a, s.b]) {
+      x0 = Math.min(x0, p[0]);
+      x1 = Math.max(x1, p[0]);
+      w = Math.max(w, Math.abs(p[1]), Math.abs(p[2]));
+    }
+  }
+  const span = Math.max(x1 - x0, 1e-10);
+  return { x0, x1: x1 + span * 0.02, w: Math.max(w * 1.05, span / 8, 1e-10) };
+}
+
+export const ORBIT_HOME = { yaw: -0.55, pitch: 0.3 };
+const HALF_PI = Math.PI / 2;
+export const clampPitch = (pitch) => Math.min(Math.max(pitch, -HALF_PI), HALF_PI);
+
+// An orthographic projector of the box onto a pw x ph plot area: the same
+// pixels per metre along all three axes, so the view is 1:1:1 at any angle.
+// `yaw` turns the scene about the z axis (which points up the screen) and
+// `pitch` tips the top towards the viewer (a view from above); at yaw 0 and pitch 0 depth runs
+// to the right, z up and y away from the viewer. The scale depends on the
+// pitch but not on the yaw, so the picture does not pulse while it turns.
+// Returns {scale (px/m), project(p) -> [px, py, away]}: px and py from the
+// top left of the plot area, `away` the distance behind the box centre in m.
+export function orbitProjector({ yaw, pitch }, box, pw, ph) {
+  const dx = box.x1 - box.x0, d = 2 * box.w;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const across = Math.hypot(dx, d); // the widest the box can be, at any yaw
+  const scale = Math.min(pw / across, ph / (d * Math.abs(cp) + across * Math.abs(sp)));
+  const mx = (box.x0 + box.x1) / 2;
+  return {
+    scale,
+    project([x, y, z]) {
+      const X = x - mx;
+      const right = X * cy - y * sy, away = X * sy + y * cy;
+      const up = z * cp + away * sp;
+      return [pw / 2 + scale * right, ph / 2 - scale * up, away * cp - z * sp];
+    },
+  };
+}
+
+// The 12 edges of the box as {axis, a, b}: axis 0 runs along the depth, 1
+// along y, 2 along z; a and b are the end points in metres.
+export function boxEdges(box) {
+  const lo = [box.x0, -box.w, -box.w], hi = [box.x1, box.w, box.w];
+  const edges = [];
+  for (let axis = 0; axis < 3; axis++) {
+    const [j, k] = [0, 1, 2].filter((i) => i !== axis);
+    for (const vj of [lo[j], hi[j]]) for (const vk of [lo[k], hi[k]]) {
+      const a = [0, 0, 0], b = [0, 0, 0];
+      a[axis] = lo[axis]; b[axis] = hi[axis];
+      a[j] = b[j] = vj; a[k] = b[k] = vk;
+      edges.push({ axis, a, b });
+    }
+  }
+  return edges;
 }
 
 // True if any recorded history was cut by the point cap.

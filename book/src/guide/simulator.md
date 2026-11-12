@@ -24,7 +24,11 @@ runs, and the first edit or Run replaces the label.
   to electrons, to the lattice, out of the target, and elsewhere. Brackets give one
   standard error.
 - **Trajectories**: the paths of the first 50 ion histories, in a side view
-  (depth across, lateral y down, layers shaded and named) or an end-on y × z view.
+  (depth across, lateral y down, layers shaded and named), an end-on y × z view, or
+  a 3D view. The 3D view is drawn at one scale on all three axes, with the layer
+  interfaces as sheets across the box; drag it, or use the arrow keys, to rotate it
+  (Home, a double-click or the button resets the angle). Nearer tracks are drawn
+  stronger than far ones.
   Primary paths are always drawn; recoil cascades can be switched off. Species are
   told apart by colour and by the shape of the marker at the track's end, and the
   generation by the dash pattern (solid primary, dashed first recoils, dotted later
@@ -39,7 +43,7 @@ runs, and the first edit or Run replaces the label.
   are stated under each plot.
 - **Downloads**: each plot's data as CSV (one row per bin per series, with the
   under- and overflow counts as rows), the full report as JSON, and the trajectory
-  view as a PNG. Results are shown with their statistical error, the models in use,
+  view as a PNG (the 3D view at the angle it is turned to). Results are shown with their statistical error, the models in use,
   and a pointer to `docs/validation.md`.
 - **Limit**: the page runs up to 100 000 ions so that it stays responsive; use
   `lindhard run` for larger runs.
