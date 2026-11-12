@@ -196,6 +196,9 @@ test("the site bar marks the current section", async ({ page }) => {
   ]) {
     await page.goto(path);
     expect(await current(), path).toEqual([label]);
+    // The tool pages load the engine and run an example on opening. Let that
+    // finish: leaving mid-load cancels the requests, which counts as a failure.
+    if (path.startsWith("calculator/")) await expect(page.locator("#status")).toHaveText(/^Done/, { timeout: 60_000 });
   }
 });
 
