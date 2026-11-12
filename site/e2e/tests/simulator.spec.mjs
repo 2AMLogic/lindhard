@@ -267,7 +267,7 @@ test("in the two-column layout the Setup column stacks its panels and nothing ov
   await open(page);
   const setup = await page.locator("#setup").boundingBox();
   // Ion, Calculation and Target layers each take the column's width.
-  for (const box of await page.locator("#setup fieldset").all()) {
+  for (const box of await page.locator("#setup fieldset:visible").all()) {
     expect((await box.boundingBox()).width).toBeGreaterThan(setup.width * 0.85);
   }
   // The layer form has the column to itself, and the stack drawing sits below it.

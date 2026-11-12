@@ -329,7 +329,7 @@ function syncQuick() {
   const simple = isSimpleTarget();
   $("q-target").disabled = !simple;
   setIfIdle($("q-target"), simple ? setup.layers[0].elements[0].symbol : "layered");
-  $("q-note").textContent = simple ? "" : "The target has more than one layer or element: edit it under More options.";
+  setText("q-note", simple ? "" : "The target has more than one layer or element: edit it under More options.");
   const at = (re) => problems.some((p) => re.test(p.path));
   $("q-ion").toggleAttribute("aria-invalid", at(/^beam\.ion$/));
   $("q-target").toggleAttribute("aria-invalid", simple && at(/^layers\[0\]\.elements\[0\]\.symbol$/));
@@ -760,7 +760,7 @@ function wireOrbit() {
   const cv = $("traj");
   let drag = null;
   cv.addEventListener("pointerdown", (e) => {
-    if (!is3d()) return;
+    if (!is3d() || e.button !== 0) return;
     drag = { x: e.clientX, y: e.clientY };
     cv.setPointerCapture?.(e.pointerId);
     cv.classList.add("dragging");
@@ -1179,7 +1179,7 @@ try {
   $("traj-view").addEventListener("change", setTrajectoryView);
   wireOrbit();
   $("traj-cascades").addEventListener("change", drawTrajectories);
-  drawTrajectories();
+  setTrajectoryView(); // not just a draw: a reload can restore the select to "3d"
   drawPlots(null);
   $("preset").addEventListener("change", () => showPresetNote($("preset").value));
   showPresetNote($("preset").value);
