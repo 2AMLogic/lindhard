@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-12
 
+- **PR #724**: data: add Madsen 1953 proton stopping in Cu and Au from the paper's tables
+- **Issue #483** (closed): [Epic #33] Seed measured stopping datasets from primary papers (first batch: H/He/B/P/As in Si, H/He in Cu and Au)
 - **PR #721**: fix(sw): never store a redirected response in the offline cache
 - **PR #720**: Bump Repo Skills 0.25.10 -> 0.26.1
 - **PR #719**: feat(simulator): 3D trajectory view; fix the Setup column layout
