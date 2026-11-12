@@ -40,6 +40,10 @@ directory holds measurements only.
   (50 to 600 keV) from Table I of Bader et al., Phys. Rev. 103, 32 (1956),
   in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
   curve values; no uncertainty stated.
+- **Stopping, protons in Cu and Au:** `stopping/madsen1953_p_cu.csv` and
+  `stopping/madsen1953_p_au.csv`, 14 values each (359 to 2002 keV) from
+  Tables IV and VI of C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27,
+  no. 13 (1953), converted from keV per mg/cm² (#483). No uncertainty stated.
 - **Stopping, H, D, He and Li, 176 ion–target systems (74 target elements) (srim.org compilation):**
   `stopping/compilation/srim_org_stopping.csv`, 11,771 measured points digitized
   from the per-system plots of the srim.org compilation, each with candidate
