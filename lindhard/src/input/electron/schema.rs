@@ -667,22 +667,97 @@ fn default_exposure_tail() -> f64 {
     1e-12
 }
 
-/// Beam profile of `[electron.tally.exposure]`.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-pub enum ExposureBeamSpec {
-    /// All electrons land on the axis.
-    Point,
-    /// Gaussian landing offset, `sigma_nm` per lateral axis.
-    Gaussian {
-        /// Standard deviation per axis, nm.
-        sigma_nm: f64,
-    },
-    /// Uniform disc.
-    UniformDisc {
-        /// Radius, nm.
-        radius_nm: f64,
-    },
+/// Serde of the beam of `[electron.tally.exposure]`: the same laws as
+/// `[electron.beam.profile]` ([`BeamProfileSpec`], `model = "disc"`), and the
+/// historical `kind` tag with `uniform-disc` is still read and still written
+/// (so an echoed input is unchanged). Giving both `kind` and `model` is an
+/// error.
+mod exposure_beam {
+    use super::BeamProfileSpec;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+    #[derive(Serialize)]
+    #[serde(tag = "kind", rename_all = "kebab-case")]
+    enum Out {
+        Point,
+        Gaussian { sigma_nm: f64 },
+        UniformDisc { radius_nm: f64 },
+        Rectangle { width_y_nm: f64, width_z_nm: f64 },
+    }
+
+    #[derive(Deserialize)]
+    #[serde(deny_unknown_fields)]
+    struct Raw {
+        kind: Option<String>,
+        model: Option<String>,
+        sigma_nm: Option<f64>,
+        radius_nm: Option<f64>,
+        width_y_nm: Option<f64>,
+        width_z_nm: Option<f64>,
+    }
+
+    pub(super) fn serialize<S: Serializer>(b: &BeamProfileSpec, s: S) -> Result<S::Ok, S::Error> {
+        match *b {
+            BeamProfileSpec::Point => Out::Point,
+            BeamProfileSpec::Gaussian { sigma_nm } => Out::Gaussian { sigma_nm },
+            BeamProfileSpec::Disc { radius_nm } => Out::UniformDisc { radius_nm },
+            BeamProfileSpec::Rectangle {
+                width_y_nm,
+                width_z_nm,
+            } => Out::Rectangle {
+                width_y_nm,
+                width_z_nm,
+            },
+        }
+        .serialize(s)
+    }
+
+    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
+        d: D,
+    ) -> Result<BeamProfileSpec, D::Error> {
+        use serde::de::Error;
+        let r = Raw::deserialize(d)?;
+        let tag = match (&r.kind, &r.model) {
+            (Some(_), Some(_)) => return Err(D::Error::custom("give `model` or `kind`, not both")),
+            (Some(t), None) | (None, Some(t)) => t.as_str(),
+            (None, None) => return Err(D::Error::custom("missing `model` (or legacy `kind`)")),
+        };
+        let need = |v: Option<f64>, name: &str| {
+            v.ok_or_else(|| D::Error::custom(format!("`{tag}` beam needs `{name}`")))
+        };
+        let (used, spec) = match tag {
+            "point" => (0, BeamProfileSpec::Point),
+            "gaussian" => (
+                1,
+                BeamProfileSpec::Gaussian {
+                    sigma_nm: need(r.sigma_nm, "sigma_nm")?,
+                },
+            ),
+            "disc" | "uniform-disc" => (
+                2,
+                BeamProfileSpec::Disc {
+                    radius_nm: need(r.radius_nm, "radius_nm")?,
+                },
+            ),
+            "rectangle" => (
+                3,
+                BeamProfileSpec::Rectangle {
+                    width_y_nm: need(r.width_y_nm, "width_y_nm")?,
+                    width_z_nm: need(r.width_z_nm, "width_z_nm")?,
+                },
+            ),
+            other => return Err(D::Error::custom(format!("unknown beam model `{other}`"))),
+        };
+        let extra = [
+            r.sigma_nm.is_some() && used != 1,
+            r.radius_nm.is_some() && used != 2,
+            (r.width_y_nm.is_some() || r.width_z_nm.is_some()) && used != 3,
+        ];
+        if extra.iter().any(|&e| e) {
+            return Err(D::Error::custom(format!("`{tag}` beam: unexpected field")));
+        }
+        Ok(spec)
+    }
 }
 
 /// Shape of a volume of `[electron.tally.exposure]`.
@@ -732,8 +807,10 @@ pub struct ExposureVolumeSpec {
 pub struct ExposureSpec {
     /// Mean number of incident electrons.
     pub lambda: f64,
-    /// Beam profile.
-    pub beam: ExposureBeamSpec,
+    /// Beam profile: `model = "point" | "gaussian" | "disc" | "rectangle"`
+    /// (the legacy `kind = "uniform-disc"` is also read).
+    #[serde(with = "exposure_beam")]
+    pub beam: BeamProfileSpec,
     /// Target volumes (a neighbour is another volume at its offset).
     pub volumes: Vec<ExposureVolumeSpec>,
     /// Histogram bins of the per-electron deposit.

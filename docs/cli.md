@@ -855,7 +855,7 @@ instead of the distribution.
 | Key | Default | Meaning |
 |---|---|---|
 | `lambda` | required | Mean number of incident electrons |
-| `beam` | required | `{ kind = "point" }`, `{ kind = "gaussian", sigma_nm }` (per axis) or `{ kind = "uniform-disc", radius_nm }` |
+| `beam` | required | `{ model = "point" }`, `{ model = "gaussian", sigma_nm }` (per axis), `{ model = "disc", radius_nm }` or `{ model = "rectangle", width_y_nm, width_z_nm }` (full widths); the same laws as `[electron.beam.profile]`. `model` is preferred; the earlier spelling `kind` is still read, with `uniform-disc` for `disc` (giving both is an error). Offsets are drawn from the tally's own stream, so exposure results do not depend on the spelling |
 | `volumes` | required | Array of `{ name, shape = "cylinder", radius_nm }` or `{ name, shape = "box", half_y_nm, half_z_nm }`, each with `depth_lo_nm`, `depth_hi_nm` and `offset_y_nm`, `offset_z_nm` (default 0) from the beam axis |
 | `bins` | 200 | Histogram bins on `(0, x_max_ev]` |
 | `x_max_ev` | beam energy | Upper edge of the histogram, eV |
