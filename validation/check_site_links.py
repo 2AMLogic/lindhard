@@ -54,7 +54,7 @@ def parse(path: Path) -> Collector:
 # One page per surface: landing, book, range calculator, simulator.
 SURFACES = ["index.html", "introduction.html", "calculator/index.html", "calculator/simulator.html"]
 # Tool pages whose own CSS and script must hold no colour literal (tokens only).
-TOOL_SOURCES = ["lindhard-wasm/web/index.html", "lindhard-wasm/web/simulator.html"]
+TOOL_SOURCES = ["lindhard-wasm/web/simulator.html"]
 HEX_COLOUR = re.compile(r"(?<![\w&\"'=/-])#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b(?![-\w])")
 
 

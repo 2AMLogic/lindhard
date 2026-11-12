@@ -2,8 +2,8 @@
 
 WebAssembly front end for [lindhard](../README.md): a single-thread ion range
 calculator (`calculate(ion, energy_ev, target, ions, seed)` returning `Rp`,
-`ΔRp` and a depth histogram) and the static page in [`web/`](web/index.html)
-that drives it. The library crate stays front-end agnostic; this crate is a
+`ΔRp` and a depth histogram) and the static simulator page in [`web/`](web/simulator.html)
+that drives it (the range calculator is the same page in its Quick range state). The library crate stays front-end agnostic; this crate is a
 thin layer over it (`wasm-bindgen` and `serde_json` are its only extra dependencies) and is never
 published to crates.io. The page ships with the book (see
 [the user-guide chapter](../book/src/guide/range-calculator.md)).

@@ -97,13 +97,16 @@
   .partition .sw { display: inline-block; width: .8rem; height: .8rem; border: 1px solid var(--line); vertical-align: -1px; margin-right: .3rem; }
   .strip { font-size: .85rem; color: var(--muted); margin: .3rem 0 .8rem; }
   .strip b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
-  #empty { border: 1px dashed var(--line); border-radius: .4rem; padding: .8rem 1rem; margin: 0 0 1rem; }
-  #empty h2 { font-size: 1.05rem; margin: 0 0 .5rem; }
-  .drawing { display: flex; height: 3.2rem; border: 1px solid var(--line); border-radius: .3rem; overflow: hidden; margin: .4rem 0; }
-  .drawing div { flex: 1 1 0; min-width: 3rem; padding: .2rem .4rem; font-size: .8rem; border-right: 1px solid var(--line); overflow: hidden; background: var(--panel); }
-  .drawing div:nth-child(even) { background: var(--bg); }
-  .stack div:last-child { border-right: 0; }
-  .stack small { display: block; }
+  /* Quick range: the one-element view (calculator/index.html sets data-view on the body). */
+  #more-options > summary { cursor: pointer; font-weight: 600; margin: 0 0 .5rem; }
+  body:not([data-view="quick"]) #quick-fields { display: none; }
+  body:not([data-view="quick"]) #more-options { border: 0; padding: 0; margin: 0; background: none; }
+  body:not([data-view="quick"]) #more-options > summary { display: none; }
+  body[data-view="quick"] #more-options { margin-top: 0; }
+  body[data-view="quick"] .tiles.second, body[data-view="quick"] .partition, body[data-view="quick"] #results-body > fieldset,
+  body[data-view="quick"] #plots h2, body[data-view="quick"] #plots-escapes, body[data-view="quick"] .plot:not([data-plot="range"]),
+  body[data-view="quick"] #caveats, body[data-view="quick"] #dl-json { display: none; }
+  #quick-fields input[aria-invalid="true"] { border-color: var(--bad); outline: 1px solid var(--bad); }
   .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 0; }
   .chips button { border-radius: 1rem; padding: .25rem .8rem; }
   #plots h2 { font-size: 1.05rem; margin: .8rem 0 .4rem; }
@@ -132,11 +135,12 @@
 <body>
 <!--SITE_HEADER-->
 <main>
-<h1>lindhard simulator</h1>
-<p>Set up a beam and a layered amorphous target, then run it. The
+<h1 id="title">lindhard simulator</h1>
+<p id="intro">Set up a beam and a layered amorphous target, then run it. The
 <a href="https://github.com/2AMLogic/lindhard">lindhard</a> binary-collision engine
 runs in your browser (WebAssembly, in a Web Worker); nothing is sent to a server.
-The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
+The page opens with an example run. <a href="index.html">Quick range</a> is the
+one-element view of this page.</p>
 
 <nav role="tablist" aria-label="View">
   <button role="tab" id="tab-setup" aria-selected="true" aria-controls="setup">Setup</button>
@@ -156,6 +160,26 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
 </div>
 
 <section id="setup" role="tabpanel" aria-labelledby="tab-setup">
+  <fieldset id="quick-fields">
+    <legend>Quick range</legend>
+    <div class="row">
+      <label>Ion <input id="q-ion" list="ions-common" required size="3" autocomplete="off"></label>
+      <label>Energy (keV) <input id="q-energy" type="number" min="0" step="any" required></label>
+      <label>Target <input id="q-target" list="targets-common" required size="3" autocomplete="off"></label>
+    </div>
+    <p class="note" id="q-note"></p>
+  </fieldset>
+
+  <details id="more-options">
+  <summary>More options</summary>
+  <div class="tools" id="examples-row">
+    <span class="note">Load an example into Setup:</span>
+    <span class="chips" id="examples">
+      <button type="button" data-example="b-si">B into Si</button>
+      <button type="button" data-example="as-sio2-si">As into SiO₂ on Si</button>
+      <button type="button" data-example="ar-cu">Ar into Cu, full cascades</button>
+    </span>
+  </div>
   <div class="pair">
   <fieldset>
     <legend>Ion</legend>
@@ -240,6 +264,7 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
   </details>
 
   </div>
+  </details>
 
   <div id="problems-box" role="alert" hidden>
     <strong class="flag">Fix before running:</strong>
@@ -248,17 +273,7 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
 </section>
 
 <section id="run" role="tabpanel" aria-labelledby="tab-run" hidden>
-  <div id="empty">
-    <h2>No run yet</h2>
-    <p class="note">The target as set up, surface at the left (the last layer is a substrate if it is semi-infinite):</p>
-    <div id="layer-drawing" class="drawing" role="img" aria-label="Target layers"></div>
-    <p class="note">Press Run, or load an example into Setup first:</p>
-    <div class="chips" id="examples">
-      <button type="button" data-example="b-si">B into Si</button>
-      <button type="button" data-example="as-sio2-si">As into SiO₂ on Si</button>
-      <button type="button" data-example="ar-cu">Ar into Cu, full cascades</button>
-    </div>
-  </div>
+  <p id="example-label" class="note" hidden>Example run: 1000 ions, seed 1.</p>
 
   <div id="results" hidden>
     <div class="tiles" id="counters">
@@ -320,6 +335,8 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
 </div>
 
 <datalist id="symbols"></datalist>
+<datalist id="ions-common"><option>H<option>He<option>B<option>C<option>N<option>O<option>F<option>Al<option>Si<option>P<option>Ar<option>Ga<option>Ge<option>As<option>In<option>Sb<option>Xe</datalist>
+<datalist id="targets-common"><option>C<option>Al<option>Si<option>Ti<option>Fe<option>Ni<option>Cu<option>Ge<option>Ag<option>W<option>Pt<option>Au</datalist>
 </main>
 <!--SITE_FOOTER-->
 <script type="module" src="simulator.js"></script>

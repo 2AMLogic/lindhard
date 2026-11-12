@@ -30,6 +30,12 @@ let setup = defaultSetup();
 let unitE = "keV";
 const unitT = []; // per-layer thickness unit
 let worker = null;
+// calculator/index.html is this page with data-view="quick": ion, energy, target
+// and Run, the rest under "More options", and only the tiles and the range plot.
+const QUICK = document.body.dataset.view === "quick";
+// The run made on load: 1000 ions, seed 1. It is labelled until the first edit or Run.
+const EXAMPLE_IONS = 1000;
+let exampleRun = false;
 
 function h(tag, props = {}, ...kids) {
   const e = document.createElement(tag);
@@ -282,7 +288,6 @@ function refresh() {
       ? ` ${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "");
   $("model-cite").textContent = `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`;
   $("strip-models").textContent = `${CITE[setup.physics.potential]}; ${CITE[setup.physics.stopping]}.`;
-  drawLayerDrawing();
   $("physics-summary").textContent = `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`;
   $("stack").replaceChildren(layerStackSvg());
   problems = validate(setup, elements);
@@ -291,23 +296,48 @@ function refresh() {
   }
   $("problems").replaceChildren(...problems.map((p) => h("li", {}, `${p.path}: ${p.message}`)));
   $("problems-box").hidden = problems.length === 0;
+  syncQuick(); // reads `problems`, so it runs after they are recomputed
   $("toml").value = toToml(setup);
-  $("btn-run").disabled = problems.length > 0 || running();
+  $("btn-run").disabled = runDisabled();
 }
 
-// The layer stack, shown before any run: widths are in proportion to the
-// thickness, the substrate taking an arbitrary share since it is unbounded.
-function drawLayerDrawing() {
-  const spans = layerSpans(setup.layers);
-  const finiteTotal = spans.reduce((t, l) => (l.bottom === Infinity ? t : l.bottom), 0);
-  const subShare = Math.max(finiteTotal / 2, 1e-9);
-  $("layer-drawing").replaceChildren(...spans.map((l) => {
-    const thick = l.bottom === Infinity ? null : l.bottom - l.top;
-    const label = thick === null ? "substrate" : `${fmt(nm(thick))} nm`;
-    const d = h("div", { style: `flex-grow:${Math.max(thick ?? subShare, finiteTotal / 20, 1e-12)}` }, l.name, h("small", {}, label));
-    return d;
-  }));
+// The Run button is unavailable while a run goes, except during the example run
+// on load, which a Run replaces.
+const runDisabled = () => problems.length > 0 || (running() && !exampleRun);
+
+// ---- Quick range fields ------------------------------------------------------
+// Three inputs that edit the same setup as the full form: the beam ion, the
+// energy in keV, and the element of a one-layer substrate target.
+
+const isSimpleTarget = () => setup.layers.length === 1 && setup.layers[0].elements.length === 1;
+const setIfIdle = (input, value) => { if (document.activeElement !== input && input.value !== value) input.value = value; };
+
+function syncQuick() {
+  setIfIdle($("q-ion"), setup.beam.ion);
+  setIfIdle($("q-energy"), String(setup.beam.energyEv / 1e3));
+  const simple = isSimpleTarget();
+  $("q-target").disabled = !simple;
+  setIfIdle($("q-target"), simple ? setup.layers[0].elements[0].symbol : "layered");
+  $("q-note").textContent = simple ? "" : "The target has more than one layer or element: edit it under More options.";
+  const at = (re) => problems.some((p) => re.test(p.path));
+  $("q-ion").toggleAttribute("aria-invalid", at(/^beam\.ion$/));
+  $("q-target").toggleAttribute("aria-invalid", simple && at(/^layers\[0\]\.elements\[0\]\.symbol$/));
+  for (const id of ["q-ion", "q-target"]) if ($(id).hasAttribute("aria-invalid")) $(id).setAttribute("aria-invalid", "true");
 }
+
+function quickInput(fn) {
+  return () => { fn(); writeScalars(); renderLayers(); refresh(); };
+}
+$("q-ion").addEventListener("input", quickInput(() => { setup.beam.ion = $("q-ion").value.trim(); }));
+$("q-energy").addEventListener("input", quickInput(() => { setup.beam.energyEv = Number($("q-energy").value) * 1e3; unitE = "keV"; }));
+$("q-target").addEventListener("input", quickInput(() => {
+  const e = setup.layers[0].elements[0];
+  e.symbol = $("q-target").value.trim();
+  setup.layers[0].name = /^[A-Za-z0-9_-]+$/.test(e.symbol) ? e.symbol : "target";
+  // The element table's displacement energy where there is one, else the 15 eV
+  // the default Si layer uses (a model parameter; the range does not depend on it).
+  e.eDEv = table.get(e.symbol)?.default_displacement_ev != null ? null : 15;
+}));
 
 // ---- examples ----------------------------------------------------------------
 
@@ -334,6 +364,7 @@ function loadExample(key) {
   writeScalars();
   renderLayers();
   refresh();
+  clearExample();
   status("Example loaded into Setup; press Run.");
 }
 
@@ -354,6 +385,7 @@ $("load").addEventListener("change", async (e) => {
     writeScalars();
     renderLayers();
     refresh();
+    clearExample();
     status(`Loaded ${file.name}.`);
   } catch (err) {
     if (!(err instanceof ModelError)) throw err;
@@ -372,7 +404,7 @@ const nm = (m) => m * 1e9;
 let runState = "idle";
 function setButtons(state) {
   runState = state;
-  $("btn-run").disabled = state !== "idle" || problems.length > 0;
+  $("btn-run").disabled = (state !== "idle" && !exampleRun) || problems.length > 0;
   $("btn-pause").disabled = state === "idle";
   $("btn-pause").textContent = state === "paused" ? "Resume" : "Pause";
   $("btn-stop").disabled = state === "idle";
@@ -645,7 +677,7 @@ function plotView(spec) {
       if (s) download(`lindhard-${s.id}.csv`, new Blob([toCsv(s.table)], { type: "text/csv" }));
     } },
   }, "CSV");
-  const box = h("div", { className: "plot" }, h("header", {}, h("h3", {}, spec.title), csv), canvas, legend, note);
+  const box = h("div", { className: "plot", "data-plot": spec.id }, h("header", {}, h("h3", {}, spec.title), csv), canvas, legend, note);
   $(spec.id.startsWith("escape-") ? "plots-escapes" : "plots-main").append(box);
   v = { canvas, legend, note };
   resizeObserver?.observe(canvas);
@@ -827,13 +859,23 @@ if ("serviceWorker" in navigator) {
   navigator.serviceWorker.register("./sw.js").catch(() => {});
 }
 
-function startRun() {
+function clearExample() {
+  exampleRun = false;
+  $("example-label").hidden = true;
+}
+
+// `example` is the run made on load: it keeps the page on the Setup tab and is
+// labelled; any other run replaces it (and its label).
+function startRun(example = false) {
   refresh();
   if (problems.length) return;
+  if (worker) { worker.terminate(); worker = null; } // a Run during the example run replaces it
+  exampleRun = example === true;
+  $("example-label").hidden = !exampleRun;
   showResults();
   // Also on wide screens (where `tab` leaves both panels shown): `current` must
   // follow the run so narrowing below 64rem keeps the results visible.
-  tab("run");
+  if (!exampleRun) tab("run");
   worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
   setButtons("running");
   status("Starting…");
@@ -898,7 +940,10 @@ function endRun() {
   setButtons("idle");
 }
 
-$("btn-run").addEventListener("click", startRun);
+$("btn-run").addEventListener("click", () => startRun());
+// The first edit to the setup makes the label stale: the page no longer shows the example.
+$("setup").addEventListener("input", clearExample);
+$("setup").addEventListener("change", clearExample);
 $("btn-pause").addEventListener("click", () => {
   if (runState === "paused") { worker.postMessage({ type: "resume" }); setButtons("running"); status("Running…"); }
   else if (runState === "running") { worker.postMessage({ type: "pause" }); setButtons("paused"); status("Paused."); }
@@ -927,9 +972,7 @@ for (const [id, other] of [["tab-setup", "tab-run"], ["tab-run", "tab-setup"]]) 
   });
 }
 
-// Before the first run the results area shows the target and the examples.
 function showResults() {
-  $("empty").hidden = true;
   $("results").hidden = false;
   $("results-body").hidden = false;
 }
@@ -961,11 +1004,25 @@ try {
     $(id).addEventListener("input", refresh);
     $(id).addEventListener("change", refresh);
   }
+  if (QUICK) {
+    document.title = "lindhard range calculator";
+    $("title").textContent = "Ion range calculator";
+    $("intro").replaceChildren(
+      "Projected range ", h("i", {}, "R"), h("sub", {}, "p"), ", straggle Δ", h("i", {}, "R"), h("sub", {}, "p"),
+      " and depth profile of an ion beam in an amorphous target, from the ",
+      h("a", { href: "https://github.com/2AMLogic/lindhard" }, "lindhard"),
+      " binary-collision engine running in your browser (WebAssembly, in a Web Worker). Nothing is sent to a server. ",
+      h("a", { href: "simulator.html" }, "Open the full simulator"), " for layered targets, full cascades and a downloadable input file.");
+  } else {
+    $("more-options").open = true;
+  }
+  setup.run.ions = EXAMPLE_IONS;
   writeScalars();
   renderLayers();
   refresh();
   setButtons("idle");
-  status("Ready: B at 10 keV into Si.");
+  // Run the default case on load, in the worker; the page stays usable meanwhile.
+  startRun(true);
 } catch (err) {
   status(`The engine could not be loaded: ${err.message ?? err}`, true);
 }
