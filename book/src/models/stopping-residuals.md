@@ -25,6 +25,8 @@ Each section below is headed by a readable title; its `File:` and `Name:` lines 
 | Section | File | Points | Systems |
 |---|---|---:|---:|
 | H on Cu, Bader 1956 | `bader1956_p_cu.csv` | 15 | 1 |
+| H on Au, Madsen 1953 | `madsen1953_p_au.csv` | 14 | 1 |
+| H on Cu, Madsen 1953 | `madsen1953_p_cu.csv` | 14 | 1 |
 | H on C8H8, Porter 1978 — srim.org | `srim_org_h_c8h8_1978-Port.csv` | 12 | 1 |
 | H on C8H8, Bednyakov 1980 — srim.org | `srim_org_h_c8h8_1980-Bedn.csv` | 7 | 1 |
 | H on C8H8, Bednyakov 1981 — srim.org | `srim_org_h_c8h8_1981-Bedn.csv` | 9 | 1 |
@@ -53,6 +55,14 @@ Relative rms of each model over all points of each dataset (uncorrected; points 
 | H on Cu, Bader 1956 | oen-robinson | 15 | 0 | 199.49 % |
 | H on Cu, Bader 1956 | equipartition-ls-or | 15 | 0 | 199.49 % |
 | H on Cu, Bader 1956 | bethe-bloch | 10 | 5 | 34.25 % |
+| H on Au, Madsen 1953 | lindhard-scharff | 14 | 0 | 590.03 % |
+| H on Au, Madsen 1953 | oen-robinson | 14 | 0 | 590.03 % |
+| H on Au, Madsen 1953 | equipartition-ls-or | 14 | 0 | 590.03 % |
+| H on Au, Madsen 1953 | bethe-bloch | 11 | 3 | 20.34 % |
+| H on Cu, Madsen 1953 | lindhard-scharff | 14 | 0 | 1293.31 % |
+| H on Cu, Madsen 1953 | oen-robinson | 14 | 0 | 1293.31 % |
+| H on Cu, Madsen 1953 | equipartition-ls-or | 14 | 0 | 1293.31 % |
+| H on Cu, Madsen 1953 | bethe-bloch | 14 | 0 | 25.29 % |
 | H on C8H8, Porter 1978 — srim.org | lindhard-scharff | 12 | 0 | 13922.54 % |
 | H on C8H8, Porter 1978 — srim.org | oen-robinson | 12 | 0 | 13922.54 % |
 | H on C8H8, Porter 1978 — srim.org | equipartition-ls-or | 12 | 0 | 13922.54 % |
@@ -183,6 +193,162 @@ Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-o
 | 19 | 500 keV | 18.100 | 73.426 | 18.065 | **held out** |
 | 20 | 550 keV | 17.500 | 77.010 | 17.394 | train |
 | 21 | 600 keV | 16.900 | 80.435 | 16.768 | train |
+
+## H on Au, Madsen 1953
+
+File: `madsen1953_p_au.csv`. Name: `madsen1953-p-au`.
+
+Stopping cross section of Au for protons, 359 to 1991 keV, from the printed Au stopping powers of Table VI of Madsen (1953): commercial Au foils and Bi-covered sandwich targets (paper converts Bi to Au by +2 percent)
+
+Source: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953)
+
+Note: the paper states no uncertainty for individual points (thicknesses 'correct within a few per cent', energy shifts to under 1 keV), so sigma is 0 (none stated)
+
+### H (1.008 u) on Au
+
+* Points: 14. Energy span: 359 keV to 1.991 MeV.
+* Stated uncertainty: none (sigma 0 on every point).
+* Method: energy shift of a p-gamma or p-n resonance through a commercial Au foil.
+* Method: energy shift through a Bi-covered sandwich target; value for Au as printed by the paper (Bi value increased by 2 percent).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (Au foil), row at E = 359 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (Au foil), row at E = 360 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (S_Au), row at E = 366 keV, Bi sandwich).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (S_Au), row at E = 651 keV, Bi sandwich).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (S_Au), row at E = 652 keV, Bi sandwich).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (S_Au), row at E = 655 keV, Bi sandwich).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (Au foil), row at E = 999 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (Au foil), row at E = 1000 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (Au foil), row at E = 1001 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (Au foil), row at E = 1009 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (S_Au), row at E = 1270 keV, Bi sandwich).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (S_Au), row at E = 1988 keV, Bi sandwich).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table VI (VI, column 6 (Au foil), row at E = 1991 keV).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---:|---:|---:|---:|---:|---:|
+| lindhard-scharff | 14 | 0 | +87.691 | 94.770 | +496.78 % | 590.03 % |
+| oen-robinson | 14 | 0 | +87.691 | 94.770 | +496.78 % | 590.03 % |
+| equipartition-ls-or | 14 | 0 | +87.691 | 94.770 | +496.78 % | 590.03 % |
+| bethe-bloch | 11 | 3 | -1.767 | 4.521 | -5.48 % | 20.34 % |
+
+Skipped points (in no statistic above):
+
+* bethe-bloch: line 9 (359 keV) skipped: bethe-bloch is not applicable at 359000 eV for this ion.
+* bethe-bloch: line 10 (360 keV) skipped: bethe-bloch is not applicable at 360000 eV for this ion.
+* bethe-bloch: line 11 (366 keV) skipped: bethe-bloch is not applicable at 366000 eV for this ion.
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Mean raw | Mean fit | rms raw | rms fit | Effect | Span |
+|---|---:|---:|---:|---:|---:|---|---|
+| lindhard-scharff | 3 | +546.59 % | +0.13 % | 653.32 % | 3.43 % | lowers | 359 keV to 1.991 MeV |
+| oen-robinson | 3 | +546.59 % | +0.13 % | 653.32 % | 3.43 % | lowers | 359 keV to 1.991 MeV |
+| equipartition-ls-or | 3 | +546.59 % | +0.13 % | 653.32 % | 3.43 % | lowers | 359 keV to 1.991 MeV |
+
+* bethe-bloch: no correction fitted (bethe-bloch is not applicable at 359000 eV for this ion).
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Raw | Fit | Split |
+|---:|---:|---:|---:|---:|---|
+| 9 | 359 keV | 27.800 | 66.843 | 27.705 | train |
+| 10 | 360 keV | 26.490 | 66.936 | 27.688 | **held out** |
+| 11 | 366 keV | 26.820 | 67.492 | 27.585 | train |
+| 12 | 651 keV | 23.220 | 90.012 | 23.302 | train |
+| 13 | 652 keV | 23.550 | 90.081 | 23.290 | train |
+| 14 | 655 keV | 24.860 | 90.288 | 23.251 | train |
+| 15 | 999 keV | 19.620 | 111.505 | 19.563 | **held out** |
+| 16 | 1 MeV | 18.970 | 111.561 | 19.554 | train |
+| 17 | 1.001 MeV | 19.950 | 111.616 | 19.545 | train |
+| 18 | 1.009 MeV | 19.300 | 112.062 | 19.474 | train |
+| 19 | 1.27 MeV | 16.350 | 125.722 | 17.412 | train |
+| 20 | 1.988 MeV | 14.060 | 157.296 | 13.520 | **held out** |
+| 21 | 1.988 MeV | 14.060 | 157.296 | 13.520 | train |
+| 22 | 1.991 MeV | 13.410 | 157.415 | 13.508 | train |
+
+## H on Cu, Madsen 1953
+
+File: `madsen1953_p_cu.csv`. Name: `madsen1953-p-cu`.
+
+Stopping cross section of Cu for protons, 376 to 2002 keV, from the printed measured stopping powers of Table IV of Madsen (1953); two rows of the table that print no stopping power are not entered
+
+Source: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953)
+
+Note: the paper states no uncertainty for individual points (thicknesses 'correct within a few per cent', energy shifts to under 1 keV), so sigma is 0 (none stated)
+
+### H (1.008 u) on Cu
+
+* Points: 14. Energy span: 376 keV to 2.002 MeV.
+* Stated uncertainty: none (sigma 0 on every point).
+* Method: energy shift of a p-gamma or p-n resonance through a commercial foil.
+* Method: energy shift of a p-gamma or p-n resonance through an evaporated sandwich target; thickness by comparison with a foil.
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 376 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 384 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 690 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 695 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 1012 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 1014 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 1278 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 1281 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 1991 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 1997 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 1994 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 2001 keV).
+* Citation: C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27, no. 13 (1953), 'Proton stopping power and energy straggling of protons', Table IV (IV, column 4, row at E = 2002 keV).
+
+| Model | Points | Skipped | Mean | rms | Rel. mean | Rel. rms |
+|---|---:|---:|---:|---:|---:|---:|
+| lindhard-scharff | 14 | 0 | +102.561 | 107.558 | +1141.00 % | 1293.31 % |
+| oen-robinson | 14 | 0 | +102.561 | 107.558 | +1141.00 % | 1293.31 % |
+| equipartition-ls-or | 14 | 0 | +102.561 | 107.558 | +1141.00 % | 1293.31 % |
+| bethe-bloch | 14 | 0 | +2.356 | 2.449 | +23.93 % | 25.29 % |
+
+#### Held-out residuals, uncorrected and corrected
+
+| Model | Held out | Mean raw | Mean fit | rms raw | rms fit | Effect | Span |
+|---|---:|---:|---:|---:|---:|---|---|
+| lindhard-scharff | 3 | +954.70 % | -4.07 % | 1106.10 % | 9.26 % | lowers | 376 keV to 2.002 MeV |
+| oen-robinson | 3 | +954.70 % | -4.07 % | 1106.10 % | 9.26 % | lowers | 376 keV to 2.002 MeV |
+| equipartition-ls-or | 3 | +954.70 % | -4.07 % | 1106.10 % | 9.26 % | lowers | 376 keV to 2.002 MeV |
+| bethe-bloch | 3 | +17.90 % | -4.27 % | 20.73 % | 9.10 % | lowers | 376 keV to 2.002 MeV |
+
+Per point, for `lindhard-scharff`, `oen-robinson`, `equipartition-ls-or`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Raw | Fit | Split |
+|---:|---:|---:|---:|---:|---|
+| 8 | 376 keV | 15.720 | 63.674 | 15.577 | train |
+| 9 | 384 keV | 16.360 | 64.348 | 15.516 | **held out** |
+| 10 | 690 keV | 12.870 | 86.257 | 13.111 | train |
+| 11 | 695 keV | 12.770 | 86.569 | 13.075 | train |
+| 12 | 1.012 MeV | 11.500 | 104.462 | 11.036 | train |
+| 13 | 1.012 MeV | 11.190 | 104.462 | 11.036 | train |
+| 14 | 1.014 MeV | 10.340 | 104.565 | 11.025 | **held out** |
+| 15 | 1.278 MeV | 9.920 | 117.391 | 9.699 | train |
+| 16 | 1.281 MeV | 9.290 | 117.528 | 9.686 | train |
+| 17 | 1.991 MeV | 7.600 | 146.522 | 7.217 | train |
+| 18 | 1.997 MeV | 8.340 | 146.743 | 7.200 | **held out** |
+| 19 | 1.994 MeV | 7.390 | 146.632 | 7.209 | train |
+| 20 | 2.001 MeV | 6.750 | 146.890 | 7.190 | train |
+| 21 | 2.002 MeV | 7.070 | 146.926 | 7.187 | train |
+
+Per point, for `bethe-bloch`: held-out points are marked **held out**; the others trained the fit.
+
+| Line | Energy | Measured | Raw | Fit | Split |
+|---:|---:|---:|---:|---:|---|
+| 8 | 376 keV | 15.720 | 17.751 | 15.455 | train |
+| 9 | 384 keV | 16.360 | 17.789 | 15.456 | **held out** |
+| 10 | 690 keV | 12.870 | 16.124 | 13.290 | train |
+| 11 | 695 keV | 12.770 | 16.083 | 13.248 | train |
+| 12 | 1.012 MeV | 11.500 | 13.718 | 10.987 | train |
+| 13 | 1.012 MeV | 11.190 | 13.718 | 10.987 | train |
+| 14 | 1.014 MeV | 10.340 | 13.704 | 10.975 | **held out** |
+| 15 | 1.278 MeV | 9.920 | 12.167 | 9.599 | train |
+| 16 | 1.281 MeV | 9.290 | 12.152 | 9.585 | train |
+| 17 | 1.991 MeV | 7.600 | 9.394 | 7.234 | train |
+| 18 | 1.997 MeV | 8.340 | 9.377 | 7.220 | **held out** |
+| 19 | 1.994 MeV | 7.390 | 9.386 | 7.227 | train |
+| 20 | 2.001 MeV | 6.750 | 9.365 | 7.210 | train |
+| 21 | 2.002 MeV | 7.070 | 9.362 | 7.208 | train |
 
 ## H on C8H8, Porter 1978 — srim.org
 
