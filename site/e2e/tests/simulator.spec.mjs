@@ -9,9 +9,10 @@ import { test, expect, canvasColours, cellNumber } from "./fixtures.mjs";
 
 const DONE = "Done (± is one standard error).";
 
+/** Open the page and wait for the example run it makes on load to finish. */
 async function open(page) {
   await page.goto("calculator/simulator.html");
-  await expect(page.locator("#status")).toHaveText("Ready: B at 10 keV into Si.");
+  await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
 }
 
 /** Fill the scalar fields of the setup. */
@@ -473,24 +474,52 @@ test("the layout follows the width and a run survives a resize across 64rem", as
   await expect(page.locator("#status")).toHaveText(DONE);
 });
 
-test("before any run the results area shows the target and the examples, not dashes", async ({ page }) => {
+test("the page runs the example on load, labelled, with the same tiles for every visitor", async ({ page, browser }) => {
+  await page.goto("calculator/simulator.html");
+  // The form stays usable while the example runs.
+  await expect(page.locator("#example-label")).toHaveText("Example run: 1000 ions, seed 1.");
+  await expect(page.locator("#ions")).toHaveValue("1000");
+  await expect(page.locator("#seed")).toHaveValue("1");
+  await expect(page.locator("#ion")).toBeEnabled();
+  await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
+  await expect(page.locator("#c-done")).toHaveText("1000 / 1000");
+  await expect(page.locator("#counters")).toBeVisible();
+  expect(await canvasColours(page.locator("#plots .plot canvas[role=img]").first())).toBeGreaterThan(2);
+  const tiles = await page.locator("#counters").innerText();
+  // A second visitor gets the same example.
+  const other = await (await browser.newContext()).newPage();
+  await other.goto(page.url());
+  await expect(other.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
+  expect(await other.locator("#counters").innerText()).toBe(tiles);
+  await other.context().close();
+});
+
+test("the first edit or a Run replaces the example label, and the examples still load", async ({ page }) => {
   await open(page);
-  await expect(page.locator("#empty")).toBeVisible();
-  await expect(page.locator("#layer-drawing")).toContainText("Si");
-  await expect(page.locator("#examples button")).toHaveText(["B into Si", "As into SiO₂ on Si", "Ar into Cu, full cascades"]);
-  await expect(page.locator("#counters")).toBeHidden();
+  await expect(page.locator("#example-label")).toBeVisible();
+  await page.locator("#seed").fill("2");
+  await expect(page.locator("#example-label")).toBeHidden();
+  await page.reload();
+  await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
+  await expect(page.locator("#example-label")).toBeVisible();
+  await page.locator("#btn-run").click();
+  await expect(page.locator("#example-label")).toBeHidden();
+  await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
   await page.locator('#examples [data-example="as-sio2-si"]').click();
   await expect(page.locator("#ion")).toHaveValue("As");
   await expect(page.locator("#layers .layer")).toHaveCount(2);
-  await expect(page.locator("#layer-drawing")).toContainText("SiO2");
   await page.locator('#examples [data-example="ar-cu"]').click();
   await expect(page.locator("#mode-full")).toBeChecked();
   await expect(page.locator("#layers .layer")).toHaveCount(1);
-  // Loading an example does not run it.
-  await expect(page.locator("#empty")).toBeVisible();
+});
+
+test("a Run during the example run replaces it", async ({ page }) => {
+  await page.goto("calculator/simulator.html");
+  await expect(page.locator("#btn-run")).toBeEnabled();
+  await page.locator("#seed").fill("2");
   await page.locator("#btn-run").click();
-  await expect(page.locator("#empty")).toBeHidden();
   await expect(page.locator("#status")).toHaveText(DONE, { timeout: 60_000 });
+  await expect(page.locator("#example-label")).toBeHidden();
 });
 
 test("a value and its error share a decimal place, the error to two figures", async ({ page }) => {

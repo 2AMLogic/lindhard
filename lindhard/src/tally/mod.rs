@@ -61,9 +61,9 @@ pub use electron::{
     SE_BSE_SPLIT_EV,
 };
 pub use exposure::{
-    BeamProfile, Bracket, CompoundDistribution, CompoundPoisson, CompoundRequest,
-    ExposureAccumulator, ExposureConfig, ExposureError, ExposureHistogram, ExposureReport,
-    ExposureVolume, ExposureVolumeReport, QuantileResult, ThresholdResult, VolumeShape,
+    Bracket, CompoundDistribution, CompoundPoisson, CompoundRequest, ExposureAccumulator,
+    ExposureConfig, ExposureError, ExposureHistogram, ExposureReport, ExposureVolume,
+    ExposureVolumeReport, QuantileResult, ThresholdResult, VolumeShape,
 };
 pub use hist::{Binning, BinningError, Histogram, WeightedHistogram};
 pub use ion::{

@@ -7,13 +7,15 @@
 //! `tests/psf.rs`; no measured or tabulated data.
 
 use lindhard::electron::data::SamplingAxis;
-use lindhard::electron::transport::{LayerTables, Primary, Transport, TransportConfig};
+use lindhard::electron::transport::{
+    BeamProfile, LayerTables, Primary, Transport, TransportConfig,
+};
 use lindhard::geometry::Stack;
 use lindhard::material::Material;
 use lindhard::rng::{stream, uniform};
 use lindhard::tally::{
-    BeamProfile, Binning, CompoundRequest, ElectronReport, ElectronTallyConfig, ExposureConfig,
-    ExposureReport, ExposureVolume, FullElectronTally, VolumeShape,
+    Binning, CompoundRequest, ElectronReport, ElectronTallyConfig, ExposureConfig, ExposureReport,
+    ExposureVolume, FullElectronTally, VolumeShape,
 };
 
 mod common;
