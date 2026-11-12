@@ -4,6 +4,26 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-11
 
+- **PR #711**: test: cover the layer stack drawing at tilt 0 and with a long layer name
+- **PR #710**: fix: reset hidden species on run start and make empty trajectory bounds 1:1
+- **PR #706**: test: consolidate duplicated test helpers into tests/common
+- **PR #705**: feat(simulator): trim plot axes, integer count ticks, species colours, radial plot, Rp marker
+- **PR #704**: feat(simulator): readable trajectory cascades with axes, 1:1 scale and species toggles
+- **PR #703**: test: assert stopping-residuals tables fit at 768 px
+- **PR #700**: test: assert Setup's visible controls fit 1440x900, skipping closed details
+- **PR #687**: feat(site): shared header, footer and design tokens across all site surfaces
+- **PR #685**: feat(simulator): two-column desktop layout, single run bar, result tiles and plot grid
+- **Issue #712** (closed): Simulator empty state: layer drawing may not span its row (flex-grow in metres)
+- **Issue #708** (closed): Simulator trajectory view: reset hidden species per run; fix empty-segment lateralScale
+- **Issue #699** (closed): Consolidate duplicated integration-test helpers into tests/common (with_threads, rel, simpson_log, close)
+- **Issue #698** (closed): Simulator Setup: one-layer target ends 1333 px down at 1440x900; fit the 900 px viewport
+- **Issue #696** (closed): docs: check stopping-residuals tables at 1440/768/390 px after #688
+- **Issue #692** (closed): Simulator: "Add element" button throws ReferenceError; 1440 px single-screen layout not met
+- **Issue #677** (closed): Simulator trajectory view: readable cascades, true aspect ratio, real axes
+- **Issue #676** (closed): Simulator plots: axes that follow the data, integer count ticks, consistent species colours
+- **Issue #667** (closed): Simulator: sharp, responsive canvases; axes that follow the data; a readable trajectory view
+- **Issue #666** (closed): Simulator: one workspace on desktop, a single Run button, result tiles, and plots in a grid
+- **Issue #664** (closed): One shared header, footer and visual system across the landing page, the book and the browser tools
 - **PR #693**: fix: export el for the simulator's Add element button; add e2e tests
 - **PR #701**: docs: regenerate screen_oxide gallery table and curve after ZBL constant change
 - **PR #697**: docs: turn the exposure output-files table into a list and drop the last wide-table exception
