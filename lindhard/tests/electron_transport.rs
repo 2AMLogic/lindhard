@@ -13,7 +13,7 @@ use lindhard::geometry::Stack;
 use lindhard::rng::{self, uniform};
 
 mod common;
-use common::{bare_si, synthetic_table};
+use common::{bare_si, synthetic_table, with_threads};
 
 /// Constant inelastic mean free path, every loss exactly `dw` eV.
 fn inelastic_const(lambda_m: f64, dw: f64) -> CrossSectionTable {
@@ -364,15 +364,11 @@ fn mixed_transport() -> Transport {
 
 fn run_threads(threads: usize) -> EventLog {
     let t = mixed_transport();
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
     let primary = Primary {
         energy_ev: 500.0,
         direction: [1.0, 0.3, -0.2],
     };
-    pool.install(|| {
+    with_threads(threads, || {
         t.run(0xBEEF, 600, 7, &primary, EventLog::default)
             .unwrap()
             .tally

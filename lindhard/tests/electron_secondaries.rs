@@ -26,7 +26,7 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, synthetic_table};
+use common::{bare_si, synthetic_table, with_threads};
 
 const PROVENANCE: &str = "synthetic, tests/electron_secondaries.rs";
 
@@ -1066,15 +1066,11 @@ fn run_threads_with(threads: usize, metal: BandStructure) -> EventLog {
         cfg,
     )
     .unwrap();
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
     let primary = Primary {
         energy_ev: 400.0,
         direction: [1.0, 0.4, -0.1],
     };
-    pool.install(|| {
+    with_threads(threads, || {
         t.run(0x5EC0, 300, 7, &primary, EventLog::default)
             .unwrap()
             .tally
@@ -1356,15 +1352,11 @@ fn capped_transport() -> Transport {
 
 fn capped_run<T: ElectronTally + Clone + Sync>(threads: usize, proto: T) -> T {
     let t = capped_transport();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| {
-            t.run(0xCA9, 400, 16, &Primary::normal(300.0), || proto.clone())
-                .unwrap()
-                .tally
-        })
+    with_threads(threads, || {
+        t.run(0xCA9, 400, 16, &Primary::normal(300.0), || proto.clone())
+            .unwrap()
+            .tally
+    })
 }
 
 #[test]
@@ -1637,16 +1629,12 @@ fn tally_threaded(threads: usize) -> ElectronReport {
         energy_ev: 400.0,
         direction: [1.0, 0.4, -0.1],
     };
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| {
-            t.run(0x5EC0, 600, 7, &primary, || proto.clone())
-                .unwrap()
-                .tally
-                .report()
-        })
+    with_threads(threads, || {
+        t.run(0x5EC0, 600, 7, &primary, || proto.clone())
+            .unwrap()
+            .tally
+            .report()
+    })
 }
 
 #[test]

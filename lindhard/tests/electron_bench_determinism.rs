@@ -15,6 +15,9 @@ mod electron_common;
 
 use electron_common as ec;
 
+mod common;
+use common::with_threads;
+
 fn digest_on(threads: usize, p: &ec::ElectronProblem) -> String {
     let dir = std::env::temp_dir().join(format!(
         "lindhard-test-electron-bench-{}-{}",
@@ -29,11 +32,7 @@ fn digest_on(threads: usize, p: &ec::ElectronProblem) -> String {
     let histories = 48;
     let path = ec::write_synthetic(&dir, p, &settings, histories).unwrap();
     let r = ec::resolve(&path).unwrap();
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    pool.install(|| {
+    with_threads(threads, || {
         let tables = ec::tables(&r).unwrap();
         let (t, proto) = ec::transport(&r, &tables).unwrap();
         let report = ec::run(&r, &t, &proto, histories).unwrap();

@@ -14,17 +14,10 @@ use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 use crate::common::si_surface_binding_if_unset as si;
 use crate::common::sio2;
+use crate::common::with_threads;
 use crate::report::{num, sci, Check};
 
 const NM: f64 = 1e-9;
-
-fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build()
-        .unwrap()
-        .install(f)
-}
 
 pub(crate) fn checks(table: &ScatteringTable, quick: bool) -> Vec<Check> {
     let ls = LindhardScharff::new();

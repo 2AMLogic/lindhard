@@ -21,6 +21,7 @@ const NM: f64 = 1e-9;
 
 mod common;
 use common::si_with_surface_binding as si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn beam(count: u64) -> Beam {
@@ -184,13 +185,7 @@ fn matches_the_ion_tally_of_the_layer_engine() {
 #[test]
 fn results_are_bit_identical_across_thread_counts() {
     let grid = column(12);
-    let run = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| run_both(&grid, 400, 16).voxel.report())
-    };
+    let run = |threads: usize| with_threads(threads, || run_both(&grid, 400, 16).voxel.report());
     let r1 = run(1);
     assert!(r1.voxels.len() > 10 && r1.totals().displacements > 0);
     for n in [2, 8] {
@@ -562,13 +557,7 @@ fn without_following_recoils_there_are_no_replacements() {
 
 #[test]
 fn per_element_defects_are_identical_across_thread_counts() {
-    let run = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| run_defects(true, 300, 16).0)
-    };
+    let run = |threads: usize| with_threads(threads, || run_defects(true, 300, 16).0);
     let r1 = run(1);
     assert!(r1.grand_defect_totals().iter().any(|d| d.vacancies > 0));
     for n in [2, 8] {

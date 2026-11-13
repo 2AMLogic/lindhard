@@ -17,6 +17,7 @@ const AS: u8 = 33;
 
 mod common;
 use common::si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn column(n_slabs: usize, slab_nm: f64, substrate: bool) -> CompositionGrid {
@@ -231,16 +232,12 @@ fn cut_through_needs_a_substrate() {
 #[test]
 fn profiles_are_bit_identical_at_1_and_8_threads() {
     let go = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| {
-                let (ct, _) = run(thin_film_beam(), &[1e20], |r| {
-                    r.run_until_cut_through(|_, _| {}).unwrap()
-                });
-                (ct.fluence_m2.to_bits(), ct.profiles.unwrap().to_csv())
-            })
+        with_threads(threads, || {
+            let (ct, _) = run(thin_film_beam(), &[1e20], |r| {
+                r.run_until_cut_through(|_, _| {}).unwrap()
+            });
+            (ct.fluence_m2.to_bits(), ct.profiles.unwrap().to_csv())
+        })
     };
     assert_eq!(go(1), go(8));
 }
