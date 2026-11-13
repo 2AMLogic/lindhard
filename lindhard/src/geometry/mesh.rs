@@ -53,10 +53,11 @@
 //! not), and `Escape` when the flight leaves every solid. [`Geometry::flight`]
 //! is overridden to report the solid a clear flight ends in. The `Face` of an
 //! escape comes from the outward unit normal `n` of the triangle crossed:
-//! [`Face::Front`] if `n_x` is negative and the largest component in
-//! magnitude, [`Face::Back`] if positive and largest, [`Face::Side`]
-//! otherwise (for flat axis-aligned faces this is the voxel convention; on a
-//! curved surface the target is split by the dominant axis).
+//! [`Face::Front`](super::Face::Front) if `n_x` is negative and the largest
+//! component in magnitude, [`Face::Back`](super::Face::Back) if positive and
+//! largest, [`Face::Side`](super::Face::Side) otherwise (for flat
+//! axis-aligned faces this is the voxel convention; on a curved surface the
+//! target is split by the dominant axis).
 //!
 //! The start state of every other solid costs one unbounded ray query, so a
 //! flight in a scene of `n` solids costs `O(n log m)`. A single solid takes
