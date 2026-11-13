@@ -19,6 +19,7 @@ validation/run.sh [--experiments] [--oracles]
 | `experiments/backscatter.py`, `experiments/backscatter/` | 3 | Electron backscatter coefficient vs measurements (#148): checks `data/backscatter/`, runs the committed `[electron]` inputs at 1 to 30 keV and the elastic-correction sensitivity; writes `experiments/backscatter_results.json` (`run.sh --backscatter`) |
 | `experiments/se_yield.py` | 3 | Secondary-electron yield δ(E) of Al, Cu, Si and Au against the measured sets of `data/se_yield/` (#149): checks them, runs `lindhard` electron runs (DHFS elastic potential), writes `experiments/se_yield_results.json`, evaluates the initial bounds (`--check`) and prints the tables spliced into `docs/validation.md` |
 | `lib/lindhard_cli.py` | 2, 3 | Builds and drives the `lindhard` command |
+| `lib/dataset_checks.py` | 3 | The dataset rules every level-3 experiment shares (required text, `id` matches the file name, a row in `docs/data-provenance.md`) and the loop that applies them |
 | `update_docs.py` | all | Splices the tables into `docs/validation.md` between marker comments |
 | `check_manual_coverage.py` | docs | Fails if a variant of a model-selecting enum is not named in the physics manual (`book/src/models/`); run in CI |
 | `book_walkthrough.py` | docs | Runs `examples/b_5keV_si.toml` once and writes (or with `--check`, compares) the output excerpts the user guide quotes; run in CI |
@@ -29,17 +30,20 @@ the harness never runs them.
 
 ## Unit tests
 
-Four stdlib `unittest` files guard the harness itself (level-3 provenance
-enforcement, secondary-electron yield evaluation, and electron table-coverage
-summing, and the ion-run resume manifest). They need no build, simulation or third-party package and run in
-under a second. CI runs them in the `validation-docs` job, and
-`validation/run.sh` runs them first:
+Stdlib `unittest` files guard the harness itself (level-3 provenance
+enforcement and the shared dataset rules, secondary-electron yield evaluation,
+electron table-coverage summing, and the ion-run resume manifest). They need no
+build, simulation or third-party package and run in under a second. CI runs
+them in the `validation-docs` job, and `validation/run.sh` runs them first:
 
 ```sh
 python3 validation/experiments/test_run.py
 python3 validation/experiments/test_se_yield.py
+python3 validation/experiments/test_se_yield_candidates.py
+python3 validation/experiments/test_backscatter.py
 python3 validation/oracles/test_run_electron.py
 python3 validation/lib/test_lindhard_cli.py
+python3 validation/lib/test_dataset_checks.py
 ```
 
 ## Resuming a sweep

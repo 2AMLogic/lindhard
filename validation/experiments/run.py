@@ -59,12 +59,13 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
+import dataset_checks  # noqa: E402
 import lindhard_cli  # noqa: E402
 
 DATA = HERE.parent / "data" / "ranges"
 SPUTTER_DATA = HERE.parent / "data" / "sputtering"
 RESULTS = HERE / "results.json"
-PROVENANCE = lindhard_cli.REPO / "docs" / "data-provenance.md"
+PROVENANCE = dataset_checks.PROVENANCE
 
 # The physics every dataset is run with: the M0 defaults. E_d does not
 # affect primary-only range runs. Recorded in results.json.
@@ -138,22 +139,16 @@ REQUIRED_TEXT = [
 ]
 
 
-def _num(x) -> bool:
-    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+_num = dataset_checks.is_number  # a finite number, and not a bool
 
 
 def check_dataset(path: Path, d: dict, provenance: str) -> list[str]:
     """Every problem with one dataset file, as messages; empty if it passes."""
-    errs = []
-    for k in REQUIRED_TEXT:
-        if not isinstance(d.get(k), str) or not d[k].strip():
-            errs.append(f"`{k}` missing or empty")
+    errs = dataset_checks.check_common(path, d, REQUIRED_TEXT, provenance)
     if "short_citation" in d and (not isinstance(d["short_citation"], str) or not d["short_citation"].strip()):
         errs.append("`short_citation`, if given, must be a non-empty string")
     if not any(isinstance(d.get(k), str) and d[k].strip() for k in ("doi", "url")):
         errs.append("needs a `doi` or a `url` for the source that was read")
-    if d.get("id") != path.stem:
-        errs.append(f"`id` {d.get('id')!r} differs from the file name {path.stem!r}")
     if not (_num(d.get("energy_ev")) and d["energy_ev"] > 0):
         errs.append("`energy_ev` must be a positive number")
     if "tilt_deg" in d and not _num(d["tilt_deg"]):
@@ -173,32 +168,13 @@ def check_dataset(path: Path, d: dict, provenance: str) -> list[str]:
                 errs.append("`measured.drp_unc_nm` given without `drp_nm`")
         elif not (_num(drp) and drp > 0 and _num(unc) and unc > 0):
             errs.append("`measured.drp_nm` and `drp_unc_nm` must both be positive numbers, or both null")
-    if isinstance(d.get("id"), str) and d["id"] not in provenance:
-        errs.append(f"no row in docs/data-provenance.md names `{d['id']}`")
     return errs
 
 
 def load_datasets() -> list[tuple[Path, dict]]:
     """All datasets, checked, ordered by ion and energy. Exits 2 on any failure."""
     files = sorted(DATA.glob("*.json")) if DATA.is_dir() else []
-    provenance = PROVENANCE.read_text()
-    out, failed = [], False
-    for f in files:
-        rel = f.relative_to(lindhard_cli.REPO)
-        try:
-            d = json.loads(f.read_text())
-        except json.JSONDecodeError as e:
-            print(f"error: {rel}: not valid JSON: {e}", file=sys.stderr)
-            failed = True
-            continue
-        errs = check_dataset(f, d, provenance)
-        for e in errs:
-            print(f"error: {rel}: {e}", file=sys.stderr)
-        failed |= bool(errs)
-        out.append((f, d))
-    if failed:
-        print("error: dataset provenance check failed (rules: validation/data/README.md)", file=sys.stderr)
-        sys.exit(2)
+    out = dataset_checks.load_checked(files, check_dataset, "dataset provenance")
     return sorted(out, key=lambda fd: (fd[1]["ion"], fd[1]["energy_ev"], fd[1]["id"]))
 
 
@@ -347,16 +323,11 @@ PROBE_E_D_EV = 1.0  # E_d of the E_s read-back probe only (sputter_problem); nev
 
 def check_sputter_dataset(path: Path, d: dict, provenance: str) -> list[str]:
     """Every problem with one sputter-yield dataset, as messages; empty if it passes."""
-    errs = []
+    errs = dataset_checks.check_common(path, d, SPUTTER_REQUIRED_TEXT, provenance)
     if d.get("kind") != "sputter_yield":
         errs.append("`kind` must be \"sputter_yield\"")
-    for k in SPUTTER_REQUIRED_TEXT:
-        if not isinstance(d.get(k), str) or not d[k].strip():
-            errs.append(f"`{k}` missing or empty")
     if not any(isinstance(d.get(k), str) and d[k].strip() for k in ("original_doi", "url")):
         errs.append("needs an `original_doi` or a `url` for the source that was read")
-    if d.get("id") != path.stem:
-        errs.append(f"`id` {d.get('id')!r} differs from the file name {path.stem!r}")
     if not (_num(d.get("compilation_pdf_page")) and d["compilation_pdf_page"] > 0):
         errs.append("`compilation_pdf_page` must be a positive number")
     if not _num(d.get("incidence_deg")):
@@ -372,33 +343,13 @@ def check_sputter_dataset(path: Path, d: dict, provenance: str) -> list[str]:
             for k in ("energy_ev", "yield", "energy_unc_rel", "yield_unc_rel"):
                 if not (_num(p.get(k)) and p[k] > 0):
                     errs.append(f"`points[{i}].{k}` must be a positive number")
-    if isinstance(d.get("id"), str) and d["id"] not in provenance:
-        errs.append(f"no row in docs/data-provenance.md names `{d['id']}`")
     return errs
 
 
 def load_sputter_datasets() -> list[tuple[Path, dict]]:
     """All sputter-yield datasets, checked. Exits 2 on any failure."""
     files = sorted(SPUTTER_DATA.glob("*.json")) if SPUTTER_DATA.is_dir() else []
-    provenance = PROVENANCE.read_text()
-    out, failed = [], False
-    for f in files:
-        rel = f.relative_to(lindhard_cli.REPO)
-        try:
-            d = json.loads(f.read_text())
-        except json.JSONDecodeError as e:
-            print(f"error: {rel}: not valid JSON: {e}", file=sys.stderr)
-            failed = True
-            continue
-        errs = check_sputter_dataset(f, d, provenance)
-        for e in errs:
-            print(f"error: {rel}: {e}", file=sys.stderr)
-        failed |= bool(errs)
-        out.append((f, d))
-    if failed:
-        print("error: dataset provenance check failed (rules: validation/data/README.md)", file=sys.stderr)
-        sys.exit(2)
-    return out
+    return dataset_checks.load_checked(files, check_sputter_dataset, "dataset provenance")
 
 
 def energy_groups(datasets: list[tuple[Path, dict]]) -> list[dict]:
