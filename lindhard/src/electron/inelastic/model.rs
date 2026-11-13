@@ -120,7 +120,7 @@ impl PennInelastic {
         }
     }
 
-    /// Set the Fermi energy, eV (see the two models).
+    /// Set the Fermi energy, eV (see the three models).
     pub fn with_fermi_energy_ev(self, fermi_ev: f64) -> Result<Self> {
         Ok(match self {
             Self::SinglePole(m) => Self::SinglePole(m.with_fermi_energy_ev(fermi_ev)?),
@@ -129,7 +129,7 @@ impl PennInelastic {
         })
     }
 
-    /// The Fermi energy, eV (see the two models).
+    /// The Fermi energy, eV (see the three models).
     pub fn fermi_energy_ev(&self) -> f64 {
         match self {
             Self::SinglePole(m) => m.fermi_energy_ev(),
@@ -161,7 +161,7 @@ impl PennInelastic {
         format!("{label}; nonrelativistic; E_F = {fermi} eV; rel tol {tol:e}")
     }
 
-    /// The DIIMFP, m⁻¹ eV⁻¹ (see the two models).
+    /// The DIIMFP, m⁻¹ eV⁻¹ (see the three models).
     pub fn diimfp_per_m_ev(&self, energy_ev: f64, loss_ev: f64) -> Result<f64> {
         match self {
             Self::SinglePole(m) => m.diimfp_per_m_ev(energy_ev, loss_ev),
