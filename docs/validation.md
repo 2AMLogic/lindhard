@@ -127,7 +127,9 @@ What it covers:
   potential-sensitive observable, which is consistent with the reference
   report's own remark (Sec. 3.2) that `sigma_tr` depends only weakly on the
   potential. Nothing has been fitted to the reference. Scope: this does not
-  establish scientific agreement, and the issue stays open.
+  establish scientific agreement; the gaps are recorded and explained as a
+  model difference rather than resolved, which is the basis on which #93 was
+  closed (2026-10-28).
   **Follow-up (#452): partly explained.** The source offers no same-potential
   option: the SRD 64 Elastic and Transport1 pages (accessed 2026-10-20)
   expose only an element choice (and the energy), no potential, exchange or
@@ -158,12 +160,16 @@ What it covers:
   (mixed): the negative gaps have the sign a longer screening
   length gives (the size matches for Au at 10 keV and Si at 1 keV, overshoots
   for Cu at 1 keV), the positive gaps do not. Tolerances and the 16 reference
-  values are unchanged and #93 stays open. Run
+  values are unchanged. This sensitivity result is what #452 recorded before it
+  closed (2026-10-20), and #93 closed on the same basis (2026-10-28): the
+  remaining gap is a documented and partly explained model difference, kept
+  visible as a standing failure of the `--ignored` completion gate rather than
+  widened away. Run
   `cargo test -p lindhard --test electron_elastic_reference -- --nocapture`
   for the per-value report; the `--ignored` completion gate fails until every
   value is within tolerance, and the fixture parser rejects malformed input
-  (blank citation, non-positive or non-finite value, missing observable,
-  duplicate or missing case, unsupported setting, loosened tolerance).
+  (a missing value or citation, blank citation, non-positive or non-finite
+  value, duplicate or missing case, unsupported setting, loosened tolerance).
 - **Inelastic mean free paths vs TPP 2011 (#99).** Full Penn IMFPs of Al and
   Cu, built from the committed Hagemann optical ELFs (#98), and of Si, built
   from the Yang et al. (2019) ELF digitized in #125, with the Fermi
