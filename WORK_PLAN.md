@@ -163,6 +163,7 @@ _None._
 
 - **#486**: [Epic #33] Digitize the measured points from the srim.org stopping plots (cited, flagged, count-checked)
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup
+- **#637**: [Epic #630] `lindhard stopping-table`: stopping and range tables over an energy grid
 
 ## Ready
 
@@ -174,23 +175,13 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-- **#664**: One shared header, footer and visual system across the landing page, the book and the browser tools
-- **#666**: Simulator: one workspace on desktop, a single Run button, result tiles, and plots in a grid
-- **#676**: Simulator plots: axes that follow the data, integer count ticks, consistent species colours
-- **#677**: Simulator trajectory view: readable cascades, true aspect ratio, real axes
-- **#696**: docs: check stopping-residuals tables at 1440/768/390 px after #688
-- **#698**: Simulator Setup: one-layer target ends 1333 px down at 1440x900; fit the 900 px viewport
-- **#699**: Consolidate duplicated integration-test helpers into tests/common (with_threads, rel, simpson_log, close)
+_None._
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#700**: test: assert Setup's visible controls fit 1440x900, skipping closed details
-- **#703**: test: assert stopping-residuals tables fit at 768 px
-- **#704**: feat(simulator): readable trajectory cascades with axes, 1:1 scale and species toggles
-- **#705**: feat(simulator): trim plot axes, integer count ticks, species colours, radial plot, Rp marker
-- **#706**: test: consolidate duplicated test helpers into tests/common
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -206,13 +197,11 @@ Issues carrying `loom:curated`.
 - **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
 - **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
 - **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
-- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
 - **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
 - **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated)*
 - **#360**: Measure the build time and peak RSS of a penn-full table with band-bottom rate refinement (operator-run) *(curated)*
-- **#483**: [Epic #33] Seed measured stopping datasets from primary papers (first batch: H/He/B/P/As in Si, H/He in Cu and Au) *(curated)*
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)*
 - **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning *(curated)*
 - **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
@@ -229,13 +218,6 @@ Issues carrying `loom:curated`.
 - **#642**: [Epic #630] TRIM.IN importer *(curated)*
 - **#643**: [Epic #630] SRIM-format output writers *(curated)*
 - **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
-- **#664**: One shared header, footer and visual system across the landing page, the book and the browser tools *(curated)*
-- **#666**: Simulator: one workspace on desktop, a single Run button, result tiles, and plots in a grid *(curated)*
-- **#676**: Simulator plots: axes that follow the data, integer count ticks, consistent species colours *(curated)*
-- **#677**: Simulator trajectory view: readable cascades, true aspect ratio, real axes *(curated)*
-- **#692**: Simulator: "Add element" button throws ReferenceError; 1440 px single-screen layout not met *(curated)*
-- **#696**: docs: check stopping-residuals tables at 1440/768/390 px after #688 *(curated)*
-- **#698**: Simulator Setup: one-layer target ends 1333 px down at 1440x900; fit the 900 px viewport *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -257,12 +239,12 @@ _None._
 |------|-------|
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
-| Important | 2 |
+| Important | 3 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 7 |
-| PRs awaiting review | 5 |
+| In Progress (`loom:building`) | 0 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 34 |
+| Curated | 25 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 7 |
 <!-- guide:plan-body:end -->
