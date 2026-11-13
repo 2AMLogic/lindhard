@@ -6,7 +6,7 @@
 //! secondary model, determinism across thread counts, and the rejection of
 //! incompatible channel tables.
 
-use lindhard::electron::boundary::{BandModel, BandStructure};
+use lindhard::electron::boundary::BandStructure;
 use lindhard::electron::data::{
     CrossSectionTable, CrossSectionTableParts, SamplingAxis, ShellChannelTable, Subshell,
 };
@@ -131,27 +131,12 @@ fn shell_for(
 
 /// Synthetic metal: `E_F = 5 eV`, `Φ = 4 eV`, so `U = 9 eV`.
 fn metal() -> BandStructure {
-    BandStructure::new(
-        BandModel::Metal {
-            fermi_ev: 5.0,
-            work_function_ev: 4.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_metal(PROVENANCE)
 }
 
 /// Synthetic insulator: `E_F = 7.5 eV`, `E_g = 3 eV`, `U = 10 eV`.
 fn insulator() -> BandStructure {
-    BandStructure::new(
-        BandModel::Insulator {
-            valence_band_width_ev: 6.0,
-            band_gap_ev: 3.0,
-            affinity_ev: 1.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_insulator(PROVENANCE)
 }
 
 fn semi_infinite() -> Stack {

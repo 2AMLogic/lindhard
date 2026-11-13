@@ -25,8 +25,7 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::synthetic_table;
-use common::with_threads;
+use common::{synthetic_scattering, synthetic_table, with_threads};
 
 const NM: f64 = 1e-9;
 const E0: f64 = 500.0;
@@ -50,19 +49,6 @@ fn material(z: u8) -> Material {
     Material::from_atom_fractions(&[(z, 1.0)], None).unwrap()
 }
 
-fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
-            (1.0 - 2.0 * p).acos()
-        }),
-        inelastic: synthetic_table(
-            SamplingAxis::InelasticEnergyLoss,
-            1.0 / lambda_inel,
-            move |e, p| frac * e * p,
-        ),
-    }
-}
-
 /// Film (0) and light substrate (1): no elastic scattering (a zero rate);
 /// heavy substrate (2): strong elastic scattering. Inelastic losses uniform
 /// on `[0, 0.1 E]`.
@@ -75,7 +61,11 @@ fn tables() -> Vec<LayerTables> {
             |e, p| 0.1 * e * p,
         ),
     };
-    vec![straight(), straight(), scattering(2.0 * NM, 15.0 * NM, 0.1)]
+    vec![
+        straight(),
+        straight(),
+        synthetic_scattering(2.0 * NM, 15.0 * NM, 0.1),
+    ]
 }
 
 fn config() -> TransportConfig {

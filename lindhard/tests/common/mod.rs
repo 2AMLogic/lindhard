@@ -6,7 +6,9 @@
 
 use std::sync::OnceLock;
 
+use lindhard::electron::boundary::{BandModel, BandStructure};
 use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
+use lindhard::electron::transport::LayerTables;
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{ScatteringTable, TableSpec};
 use lindhard::material::Material;
@@ -124,6 +126,82 @@ pub(crate) fn synthetic_table(
     row: impl Fn(f64, f64) -> f64,
 ) -> CrossSectionTable {
     synthetic_table_on(&GRID, axis, rate, row)
+}
+
+/// No elastic scattering on the standard [`GRID`]: a zero rate, so the
+/// channel never fires.
+pub(crate) fn elastic_none() -> CrossSectionTable {
+    synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
+}
+
+/// Isotropic elastic scattering at mean free path `lambda_m` (m) on the
+/// standard [`GRID`]: `cos θ = 1 - 2p`.
+pub(crate) fn elastic_isotropic(lambda_m: f64) -> CrossSectionTable {
+    synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_m, |_, p| {
+        (1.0 - 2.0 * p).acos()
+    })
+}
+
+/// Inelastic losses uniform on `[0, frac E]` at mean free path `lambda_m`
+/// (m), on the standard [`GRID`].
+pub(crate) fn inelastic_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
+    synthetic_table(
+        SamplingAxis::InelasticEnergyLoss,
+        1.0 / lambda_m,
+        move |e, p| frac * e * p,
+    )
+}
+
+/// The two channels of one layer.
+pub(crate) fn layer_pair(elastic: CrossSectionTable, inelastic: CrossSectionTable) -> LayerTables {
+    LayerTables { elastic, inelastic }
+}
+
+/// A layer with isotropic elastic scattering at mean free path `lambda_el`
+/// (m) and inelastic losses uniform on `[0, frac E]` at mean free path
+/// `lambda_inel` (m).
+pub(crate) fn synthetic_scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
+    layer_pair(
+        elastic_isotropic(lambda_el),
+        inelastic_frac(lambda_inel, frac),
+    )
+}
+
+/// A layer with no interaction at all: both channels at a zero rate.
+pub(crate) fn empty_layer() -> LayerTables {
+    layer_pair(
+        elastic_none(),
+        synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
+    )
+}
+
+/// Synthetic metal band structure: `E_F = 5 eV`, `Φ = 4 eV`, so `U = 9 eV`.
+/// Made-up numbers chosen to exercise the code, not material data; the caller
+/// passes the provenance string that says so.
+pub(crate) fn synthetic_metal(provenance: &str) -> BandStructure {
+    BandStructure::new(
+        BandModel::Metal {
+            fermi_ev: 5.0,
+            work_function_ev: 4.0,
+        },
+        provenance,
+    )
+    .unwrap()
+}
+
+/// Synthetic insulator band structure: `W_v = 6 eV`, `E_g = 3 eV`,
+/// `χ = 1 eV`, so `E_F = 7.5 eV` and `U = 10 eV`. Made-up numbers chosen to
+/// exercise the code, not material data.
+pub(crate) fn synthetic_insulator(provenance: &str) -> BandStructure {
+    BandStructure::new(
+        BandModel::Insulator {
+            valence_band_width_ev: 6.0,
+            band_gap_ev: 3.0,
+            affinity_ev: 1.0,
+        },
+        provenance,
+    )
+    .unwrap()
 }
 
 /// Run `f` inside a rayon pool of exactly `n` threads, for the
