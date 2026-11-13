@@ -16,7 +16,11 @@
 //! These are the rules of the triangle-mesh target, adopted verbatim (see the
 //! [`mesh`](super::mesh) module docs), so that a CSG solid, the same solid as
 //! a mesh and the same solid as a [`VoxelGrid`](super::VoxelGrid) agree on
-//! every shared face.
+//! every shared face. The implementation is shared too, in the geometry
+//! module's private `ownership` module: this module owns only what depends on
+//! the CSG representation, which is how a flight becomes a sorted list of
+//! span ends (below) and which end of a cluster carries the normal of an
+//! escape.
 //!
 //! 1. **Overlap.** Where solids overlap, the first listed solid owns the
 //!    space, so a mask listed before a substrate cuts into it. No overlap
@@ -119,8 +123,8 @@
 //! linear in the total number of primitives. Nothing is cached between
 //! queries and no query depends on thread count or evaluation order.
 
-use super::mesh::{face_of, TOL_REL};
-use super::{Exit, ExitOutcome, Flight, Geometry, GeometryError};
+use super::ownership::{self, Segment, TOL_REL};
+use super::{Exit, Flight, Geometry, GeometryError};
 use crate::material::Material;
 use crate::vec3::{dot, norm, scale, sub, V3};
 
@@ -699,15 +703,7 @@ impl CsgGeometry {
     /// [`Geometry::locate`] with the offset of rule 2 applied with the given
     /// sign on each axis (all +1 for `locate`).
     fn locate_shifted(&self, pos: V3, sign: V3) -> Option<usize> {
-        if !pos.iter().all(|c| c.is_finite()) {
-            return None;
-        }
-        let s = self.tol / 3f64.sqrt();
-        let p = [
-            pos[0] + sign[0] * s,
-            pos[1] + sign[1] * s,
-            pos[2] + sign[2] * s,
-        ];
+        let p = ownership::shifted(pos, sign, self.tol)?;
         self.solids.iter().position(|(c, _)| c.contains(p))
     }
 }
@@ -734,29 +730,17 @@ impl Geometry for CsgGeometry {
     }
 
     fn entry_point(&self) -> [f64; 3] {
-        [
-            self.lo[0],
-            0.5 * (self.lo[1] + self.hi[1]),
-            0.5 * (self.lo[2] + self.hi[2]),
-        ]
+        ownership::entry_point(self.lo, self.hi)
     }
 
     fn exit(&self, region: usize, pos: [f64; 3], dir: [f64; 3], limit: f64) -> Option<Exit> {
-        match self.flight(region, pos, dir, limit) {
-            Flight::Event(e) => Some(e),
-            Flight::Clear { .. } => None,
-        }
+        ownership::exit_of(self.flight(region, pos, dir, limit))
     }
 
     fn flight(&self, region: usize, pos: [f64; 3], dir: [f64; 3], limit: f64) -> Flight {
-        let clear = Flight::Clear { region };
-        if !dir.iter().all(|d| d.is_finite())
-            || dir == [0.0; 3]
-            || !pos.iter().all(|c| c.is_finite())
-            || limit.is_nan()
-        {
-            return clear;
-        }
+        let Some(seg) = Segment::new(pos, dir, limit, self.tol) else {
+            return Flight::Clear { region };
+        };
         let tol = self.tol;
         let n = self.solids.len();
 
@@ -780,77 +764,30 @@ impl Geometry for CsgGeometry {
         inside[region] = true;
         events.sort_by(|a, b| a.0.total_cmp(&b.0).then(a.1.cmp(&b.1)).then(a.2.cmp(&b.2)));
 
-        let owner_of = |inside: &[bool]| inside.iter().position(|&b| b);
-        let mut current = region;
-        // Start-state mismatch (a surface start heading into a solid that has
-        // priority or is not `region`): an event at distance 0.
-        let mut pending_start = true;
-        let mut i = 0usize;
-        loop {
-            let (t0, cluster_end) = if pending_start {
-                (0.0, i)
-            } else {
-                if i >= events.len() || events[i].0 > limit {
-                    return Flight::Clear { region: current };
-                }
-                let t0 = events[i].0;
-                let mut e = i;
-                while e < events.len() && events[e].0 - t0 <= tol {
-                    inside[events[e].1 as usize] = events[e].2;
-                    e += 1;
-                }
-                (t0, e)
-            };
-            let cluster = &events[i..cluster_end];
-            pending_start = false;
-            i = cluster_end;
-            let at = [
-                pos[0] + t0 * dir[0],
-                pos[1] + t0 * dir[1],
-                pos[2] + t0 * dir[2],
-            ];
-            match owner_of(&inside) {
-                Some(k) if k == current => {}
-                Some(k) => {
-                    if self.solids[k].1 == self.solids[current].1 {
-                        current = k;
-                    } else {
-                        return Flight::Event(Exit {
-                            distance: t0,
-                            at,
-                            outcome: ExitOutcome::Enter { region: k, pos: at },
-                        });
-                    }
-                }
-                None => {
-                    // The surface of the solid being left, else any.
-                    let normal = cluster
-                        .iter()
-                        .find(|e| e.1 as usize == current && !e.2)
-                        .or_else(|| cluster.first())
-                        .map_or(neg(dir), |e| e.3);
-                    return Flight::Event(Exit {
-                        distance: t0,
-                        at,
-                        outcome: ExitOutcome::Escape {
-                            face: face_of(normal),
-                            normal,
-                        },
-                    });
-                }
-            }
-        }
+        ownership::walk(
+            &seg,
+            region,
+            &events,
+            &mut inside,
+            |i| self.solids[i].1,
+            // The leaving end of the solid being left, else any end of the
+            // cluster; for an empty cluster (a start mismatch) the reversed
+            // flight direction.
+            |cluster: &[(f64, u32, bool, V3)], current| {
+                cluster
+                    .iter()
+                    .find(|e| e.1 as usize == current && !e.2)
+                    .or_else(|| cluster.first())
+                    .map_or(neg(dir), |e| e.3)
+            },
+        )
     }
 
     /// A point on the surface of a solid is not in vacuum, whichever of the
     /// eight diagonal offsets (the one of [`Geometry::locate`] and its mirror
     /// images) would put it outside.
     fn in_vacuum(&self, pos: [f64; 3]) -> bool {
-        (0..8).all(|m| {
-            let sign = |k: usize| if m >> k & 1 == 0 { 1.0 } else { -1.0 };
-            self.locate_shifted(pos, [sign(0), sign(1), sign(2)])
-                .is_none()
-        })
+        ownership::in_vacuum(|sign| self.locate_shifted(pos, sign))
     }
 }
 
