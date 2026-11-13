@@ -80,7 +80,7 @@
 //!
 //! Units: energies in eV, lengths in metres.
 
-use crate::electron::transport::{BeamProfile, BeamSpread};
+use crate::electron::transport::{beam_serde_module, BeamProfile, BeamSpread};
 use crate::rng::stream;
 use serde::{Deserialize, Serialize};
 
@@ -122,94 +122,17 @@ fn validate_beam(profile: BeamProfile) -> Result<(), ExposureError> {
     .or_else(|_| invalid("beam sizes must be positive and finite"))
 }
 
-/// Serde of the exposure beam: the output spelling is the historical
-/// `kind` tag with `uniform-disc` (so reports are unchanged), the input also
-/// accepts the `[electron.beam.profile]` spelling (`model`, `disc`).
-mod beam_serde {
-    use super::BeamProfile;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    #[derive(Serialize)]
-    #[serde(tag = "kind", rename_all = "kebab-case")]
-    enum Out {
-        Point,
-        Gaussian { sigma_m: f64 },
-        UniformDisc { radius_m: f64 },
-        Rectangle { width_y_m: f64, width_z_m: f64 },
-    }
-
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Raw {
-        kind: Option<String>,
-        model: Option<String>,
-        sigma_m: Option<f64>,
-        radius_m: Option<f64>,
-        width_y_m: Option<f64>,
-        width_z_m: Option<f64>,
-    }
-
-    pub(super) fn serialize<S: Serializer>(b: &BeamProfile, s: S) -> Result<S::Ok, S::Error> {
-        match *b {
-            BeamProfile::Point => Out::Point,
-            BeamProfile::Gaussian { sigma_m } => Out::Gaussian { sigma_m },
-            BeamProfile::Disc { radius_m } => Out::UniformDisc { radius_m },
-            BeamProfile::Rectangle {
-                width_y_m,
-                width_z_m,
-            } => Out::Rectangle {
-                width_y_m,
-                width_z_m,
-            },
-        }
-        .serialize(s)
-    }
-
-    pub(super) fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<BeamProfile, D::Error> {
-        use serde::de::Error;
-        let r = Raw::deserialize(d)?;
-        let tag = match (&r.kind, &r.model) {
-            (Some(_), Some(_)) => return Err(D::Error::custom("give `kind` or `model`, not both")),
-            (Some(t), None) | (None, Some(t)) => t.as_str(),
-            (None, None) => return Err(D::Error::custom("missing `model` (or legacy `kind`)")),
-        };
-        let need = |v: Option<f64>, name: &str| {
-            v.ok_or_else(|| D::Error::custom(format!("`{tag}` beam needs `{name}`")))
-        };
-        let (used, profile) = match tag {
-            "point" => (0, BeamProfile::Point),
-            "gaussian" => (
-                1,
-                BeamProfile::Gaussian {
-                    sigma_m: need(r.sigma_m, "sigma_m")?,
-                },
-            ),
-            "disc" | "uniform-disc" => (
-                2,
-                BeamProfile::Disc {
-                    radius_m: need(r.radius_m, "radius_m")?,
-                },
-            ),
-            "rectangle" => (
-                3,
-                BeamProfile::Rectangle {
-                    width_y_m: need(r.width_y_m, "width_y_m")?,
-                    width_z_m: need(r.width_z_m, "width_z_m")?,
-                },
-            ),
-            other => return Err(D::Error::custom(format!("unknown beam model `{other}`"))),
-        };
-        let extra = [
-            r.sigma_m.is_some() && used != 1,
-            r.radius_m.is_some() && used != 2,
-            (r.width_y_m.is_some() || r.width_z_m.is_some()) && used != 3,
-        ];
-        if extra.iter().any(|&e| e) {
-            return Err(D::Error::custom(format!("`{tag}` beam: unexpected field")));
-        }
-        Ok(profile)
-    }
-}
+// Serde of the exposure beam, shared with the input schema's
+// `BeamProfileSpec`: read under either tag, written under the historical
+// `kind` / `uniform-disc` one, so reports are unchanged.
+beam_serde_module!(
+    beam_serde,
+    BeamProfile,
+    sigma_m,
+    radius_m,
+    width_y_m,
+    width_z_m
+);
 
 /// Lateral shape of a target volume, centred on the volume's offset.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]

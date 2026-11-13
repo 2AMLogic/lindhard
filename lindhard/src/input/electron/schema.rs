@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
-use crate::electron::transport::TransportConfig;
+use crate::electron::transport::{beam_serde_module, TransportConfig};
 use crate::input::{DivergenceSpec, TargetSpec, VoxelTallySpec};
 use crate::material::MaterialSpec;
 use crate::tally::{PsfModel, PsfNormalization, SE_BSE_SPLIT_EV};
@@ -667,98 +667,19 @@ fn default_exposure_tail() -> f64 {
     1e-12
 }
 
-/// Serde of the beam of `[electron.tally.exposure]`: the same laws as
-/// `[electron.beam.profile]` ([`BeamProfileSpec`], `model = "disc"`), and the
-/// historical `kind` tag with `uniform-disc` is still read and still written
-/// (so an echoed input is unchanged). Giving both `kind` and `model` is an
-/// error.
-mod exposure_beam {
-    use super::BeamProfileSpec;
-    use serde::{Deserialize, Deserializer, Serialize, Serializer};
-
-    #[derive(Serialize)]
-    #[serde(tag = "kind", rename_all = "kebab-case")]
-    enum Out {
-        Point,
-        Gaussian { sigma_nm: f64 },
-        UniformDisc { radius_nm: f64 },
-        Rectangle { width_y_nm: f64, width_z_nm: f64 },
-    }
-
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Raw {
-        kind: Option<String>,
-        model: Option<String>,
-        sigma_nm: Option<f64>,
-        radius_nm: Option<f64>,
-        width_y_nm: Option<f64>,
-        width_z_nm: Option<f64>,
-    }
-
-    pub(super) fn serialize<S: Serializer>(b: &BeamProfileSpec, s: S) -> Result<S::Ok, S::Error> {
-        match *b {
-            BeamProfileSpec::Point => Out::Point,
-            BeamProfileSpec::Gaussian { sigma_nm } => Out::Gaussian { sigma_nm },
-            BeamProfileSpec::Disc { radius_nm } => Out::UniformDisc { radius_nm },
-            BeamProfileSpec::Rectangle {
-                width_y_nm,
-                width_z_nm,
-            } => Out::Rectangle {
-                width_y_nm,
-                width_z_nm,
-            },
-        }
-        .serialize(s)
-    }
-
-    pub(super) fn deserialize<'de, D: Deserializer<'de>>(
-        d: D,
-    ) -> Result<BeamProfileSpec, D::Error> {
-        use serde::de::Error;
-        let r = Raw::deserialize(d)?;
-        let tag = match (&r.kind, &r.model) {
-            (Some(_), Some(_)) => return Err(D::Error::custom("give `model` or `kind`, not both")),
-            (Some(t), None) | (None, Some(t)) => t.as_str(),
-            (None, None) => return Err(D::Error::custom("missing `model` (or legacy `kind`)")),
-        };
-        let need = |v: Option<f64>, name: &str| {
-            v.ok_or_else(|| D::Error::custom(format!("`{tag}` beam needs `{name}`")))
-        };
-        let (used, spec) = match tag {
-            "point" => (0, BeamProfileSpec::Point),
-            "gaussian" => (
-                1,
-                BeamProfileSpec::Gaussian {
-                    sigma_nm: need(r.sigma_nm, "sigma_nm")?,
-                },
-            ),
-            "disc" | "uniform-disc" => (
-                2,
-                BeamProfileSpec::Disc {
-                    radius_nm: need(r.radius_nm, "radius_nm")?,
-                },
-            ),
-            "rectangle" => (
-                3,
-                BeamProfileSpec::Rectangle {
-                    width_y_nm: need(r.width_y_nm, "width_y_nm")?,
-                    width_z_nm: need(r.width_z_nm, "width_z_nm")?,
-                },
-            ),
-            other => return Err(D::Error::custom(format!("unknown beam model `{other}`"))),
-        };
-        let extra = [
-            r.sigma_nm.is_some() && used != 1,
-            r.radius_nm.is_some() && used != 2,
-            (r.width_y_nm.is_some() || r.width_z_nm.is_some()) && used != 3,
-        ];
-        if extra.iter().any(|&e| e) {
-            return Err(D::Error::custom(format!("`{tag}` beam: unexpected field")));
-        }
-        Ok(spec)
-    }
-}
+// Serde of the beam of `[electron.tally.exposure]`: the same laws as
+// `[electron.beam.profile]` ([`BeamProfileSpec`], `model = "disc"`), and the
+// historical `kind` tag with `uniform-disc` is still read and still written
+// (so an echoed input is unchanged). Giving both `kind` and `model` is an
+// error. Shared with the report beam's `BeamProfile`.
+beam_serde_module!(
+    exposure_beam,
+    BeamProfileSpec,
+    sigma_nm,
+    radius_nm,
+    width_y_nm,
+    width_z_nm
+);
 
 /// Shape of a volume of `[electron.tally.exposure]`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

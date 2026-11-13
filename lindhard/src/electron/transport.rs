@@ -573,6 +573,118 @@ pub enum BeamProfile {
     },
 }
 
+/// Serde of an exposure beam under the two tag spellings, for one beam type.
+///
+/// The report's [`BeamProfile`] (metres) and the input's
+/// [`BeamProfileSpec`](crate::input::electron::BeamProfileSpec) (nanometres)
+/// carry the same beam laws and the same compatibility rule, so they share
+/// one implementation: the input is read under either the
+/// `[electron.beam.profile]` spelling (`model`, `disc`) or the historical
+/// one (`kind`, `uniform-disc`), but not both tags together, and the output
+/// is always the historical spelling, so reports and echoed inputs are
+/// unchanged. A missing size field, or one belonging to another profile, is
+/// an error.
+///
+/// Serde field names have to be literal identifiers, which is why this is a
+/// macro and not a generic function. It expands to a private module with the
+/// `serialize` and `deserialize` a `#[serde(with = "…")]` wants, from the
+/// module name, the beam enum (in scope where the macro is invoked) and its
+/// four size fields:
+///
+/// ```ignore
+/// beam_serde_module!(beam_serde, BeamProfile, sigma_m, radius_m, width_y_m, width_z_m);
+/// ```
+macro_rules! beam_serde_module {
+    ($name:ident, $beam:ident, $sigma:ident, $radius:ident, $width_y:ident, $width_z:ident) => {
+        mod $name {
+            use super::$beam;
+            use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+            #[derive(Serialize)]
+            #[serde(tag = "kind", rename_all = "kebab-case")]
+            enum Out {
+                Point,
+                Gaussian { $sigma: f64 },
+                UniformDisc { $radius: f64 },
+                Rectangle { $width_y: f64, $width_z: f64 },
+            }
+
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Raw {
+                kind: Option<String>,
+                model: Option<String>,
+                $sigma: Option<f64>,
+                $radius: Option<f64>,
+                $width_y: Option<f64>,
+                $width_z: Option<f64>,
+            }
+
+            pub(super) fn serialize<S: Serializer>(b: &$beam, s: S) -> Result<S::Ok, S::Error> {
+                match *b {
+                    $beam::Point => Out::Point,
+                    $beam::Gaussian { $sigma } => Out::Gaussian { $sigma },
+                    $beam::Disc { $radius } => Out::UniformDisc { $radius },
+                    $beam::Rectangle { $width_y, $width_z } => {
+                        Out::Rectangle { $width_y, $width_z }
+                    }
+                }
+                .serialize(s)
+            }
+
+            pub(super) fn deserialize<'de, D: Deserializer<'de>>(d: D) -> Result<$beam, D::Error> {
+                use serde::de::Error;
+                let r = Raw::deserialize(d)?;
+                let tag = match (&r.kind, &r.model) {
+                    (Some(_), Some(_)) => {
+                        return Err(D::Error::custom("give `model` or `kind`, not both"))
+                    }
+                    (Some(t), None) | (None, Some(t)) => t.as_str(),
+                    (None, None) => {
+                        return Err(D::Error::custom("missing `model` (or legacy `kind`)"))
+                    }
+                };
+                let need = |v: Option<f64>, name: &str| {
+                    v.ok_or_else(|| D::Error::custom(format!("`{tag}` beam needs `{name}`")))
+                };
+                let (used, beam) = match tag {
+                    "point" => (0, $beam::Point),
+                    "gaussian" => (
+                        1,
+                        $beam::Gaussian {
+                            $sigma: need(r.$sigma, stringify!($sigma))?,
+                        },
+                    ),
+                    "disc" | "uniform-disc" => (
+                        2,
+                        $beam::Disc {
+                            $radius: need(r.$radius, stringify!($radius))?,
+                        },
+                    ),
+                    "rectangle" => (
+                        3,
+                        $beam::Rectangle {
+                            $width_y: need(r.$width_y, stringify!($width_y))?,
+                            $width_z: need(r.$width_z, stringify!($width_z))?,
+                        },
+                    ),
+                    other => return Err(D::Error::custom(format!("unknown beam model `{other}`"))),
+                };
+                let extra = [
+                    r.$sigma.is_some() && used != 1,
+                    r.$radius.is_some() && used != 2,
+                    (r.$width_y.is_some() || r.$width_z.is_some()) && used != 3,
+                ];
+                if extra.iter().any(|&e| e) {
+                    return Err(D::Error::custom(format!("`{tag}` beam: unexpected field")));
+                }
+                Ok(beam)
+            }
+        }
+    };
+}
+pub(crate) use beam_serde_module;
+
 /// Where a run's primaries land and how they diverge: a finite lateral
 /// profile about a landing point on the front face, and an angular spread
 /// about the nominal [`Primary::direction`]. The default is a point beam
