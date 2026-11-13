@@ -231,7 +231,6 @@ _None._
 - **#22**: Epic: M3, dynamic composition (fluence-dependent targets)
 - **#25**: Epic: 2D/3D target geometry and layout cross-sections
 - **#28**: Epic: Python and WASM bindings
-- **#33**: Epic: Permissive stopping-power data library
 - **#548**: Photon channel for electron runs: bremsstrahlung and characteristic x-rays, and the dose they carry beyond the electron range
 
 ## Backlog Balance
@@ -247,7 +246,7 @@ _None._
 | Approved PRs awaiting merge | 1 |
 | Curated | 26 |
 | Architect / Hermit proposals | 0 |
-| Active epics | 7 |
+| Active epics | 6 |
 <!-- guide:plan-body:end -->
 
 ## Done

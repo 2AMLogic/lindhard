@@ -2,6 +2,10 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-13
+
+- **Issue #33** (closed): Epic: Permissive stopping-power data library
+
 ### 2026-11-12
 
 - **PR #724**: data: add Madsen 1953 proton stopping in Cu and Au from the paper's tables
