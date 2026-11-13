@@ -28,7 +28,8 @@ elements_json();                       // the element table, from lindhard::elem
 
 - `inputToml` is a run description as in [`docs/cli.md`](../docs/cli.md):
   compound and multi-layer targets, `tilt_deg`/`azimuth_deg`, beam divergence,
-  `physics.follow_recoils`, per-element energy overrides, the `[tally]` bins.
+  a `[beam] spectrum` of primary energies, `physics.follow_recoils`,
+  per-element energy overrides, the `[tally]` bins.
   `run.ions` is the target count, at most 1,000,000 per session.
 - `[[crystal]]` targets and `[dynamic]` composition are rejected with an error:
   the session transports an amorphous, static target.

@@ -17,7 +17,7 @@ mod session;
 pub use session::{elements_json, Simulation, MAX_IONS as MAX_SESSION_IONS};
 
 use lindhard::input::Input;
-use lindhard::ion::bca::{Bca, BcaTally, Face, Particle};
+use lindhard::ion::bca::{BcaTally, Face, Particle};
 use lindhard::tally::Moments;
 use wasm_bindgen::prelude::*;
 
@@ -158,8 +158,7 @@ pub fn range_profile(req: &Request) -> Result<Profile, String> {
 
     let table = r.scattering_table();
     let stopping = r.stopping_model();
-    let bca =
-        Bca::new(r.beam, &r.stack, r.config, &*stopping, &table).map_err(|e| e.to_string())?;
+    let bca = r.bca(&*stopping, &table).map_err(|e| e.to_string())?;
     let tally: DepthTally = bca.run(DepthTally::default).map_err(|e| e.to_string())?;
 
     let nm = 1e-9;

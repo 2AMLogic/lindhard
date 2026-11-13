@@ -6,7 +6,7 @@ use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use lindhard::input::Resolved;
-use lindhard::ion::bca::{Bca, CrystalMetadata};
+use lindhard::ion::bca::CrystalMetadata;
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::tally::{IonReport, IonTally, VoxelTally, VoxelTallyGrid};
 
@@ -23,7 +23,8 @@ pub struct Simulation {
     /// The ion tally's report.
     pub report: IonReport,
     /// Metadata of every crystal of the run, as the engine reports it
-    /// ([`Bca::crystal_metadata`]); empty for an amorphous run.
+    /// ([`Bca::crystal_metadata`](lindhard::ion::bca::Bca::crystal_metadata));
+    /// empty for an amorphous run.
     pub crystals: Vec<CrystalMetadata>,
     /// Thread count and timings (the only thread-dependent part of the output).
     pub info: RunInfo,
@@ -51,19 +52,9 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
     let table_build_s = t0.elapsed().as_secs_f64();
 
     let stopping = r.stopping_model();
-    let mut bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
+    let bca = r
+        .bca(&*stopping, &table)
         .context("setting up the transport engine")?;
-    bca = bca
-        .with_divergence(r.divergence)
-        .context("setting up the beam divergence")?;
-    if let Some(sp) = &r.spectrum {
-        bca = bca.with_spectrum(sp.clone());
-    }
-    for (i, c) in r.crystals.iter().enumerate() {
-        bca = bca
-            .with_crystal(c.target.clone(), &c.regions)
-            .with_context(|| format!("attaching crystal[{i}]"))?;
-    }
     let crystals = bca.crystal_metadata();
     let tally_spec = &r.input.tally;
     let ion_proto = IonTally::new(&r.stack, &bca.species_z(), r.ion_tally_config()?)

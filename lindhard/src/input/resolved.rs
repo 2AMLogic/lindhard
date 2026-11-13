@@ -2,7 +2,7 @@
 
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
-use crate::ion::bca::{BcaConfig, Beam, CrystalTarget, MeanFreePath};
+use crate::ion::bca::{Bca, BcaConfig, BcaError, Beam, CrystalTarget, MeanFreePath};
 use crate::ion::potential::{Potential, Screening, ScreeningLength};
 use crate::ion::scattering::{ScatteringTable, TableSpec};
 use crate::ion::stopping::bethe::BetheBloch;
@@ -242,6 +242,44 @@ impl Resolved {
             escape_energy: b(0.0, e_max, t.escape_energy_bins)?,
             escape_polar: b(0.0, std::f64::consts::FRAC_PI_2, t.escape_polar_bins)?,
         })
+    }
+
+    /// The transport engine for the run, borrowing `stopping` and `table`
+    /// (from [`Resolved::stopping_model`] and [`Resolved::scattering_table`]).
+    ///
+    /// Everything the input configures is applied: the beam divergence
+    /// (`[beam.divergence]`), the primary-energy spectrum (`[beam] spectrum`)
+    /// and every `[[crystal]]` assignment. Front ends call this instead of
+    /// assembling the engine themselves, so a new engine option reaches all of
+    /// them at once rather than only the front end that added it.
+    ///
+    /// [`Bca`] borrows the target, the stopping model and the table, so a
+    /// front end that rebuilds the engine for each chunk calls this again
+    /// instead of storing it next to the data it borrows; building it is cheap
+    /// next to the transport.
+    pub fn bca<'a>(
+        &'a self,
+        stopping: &'a (dyn ElectronicStopping + Sync),
+        table: &'a ScatteringTable,
+    ) -> Result<Bca<'a>, BcaError> {
+        let mut bca = Bca::new(self.beam, &self.stack, self.config, stopping, table)?
+            .with_divergence(self.divergence)?;
+        if let Some(sp) = &self.spectrum {
+            bca = bca.with_spectrum(sp.clone());
+        }
+        for (i, c) in self.crystals.iter().enumerate() {
+            // Name the assignment that failed: `with_crystal` reports every
+            // failure as `InvalidConfig` without saying which crystal it was.
+            bca = bca
+                .with_crystal(c.target.clone(), &c.regions)
+                .map_err(|e| match e {
+                    BcaError::InvalidConfig(m) => {
+                        BcaError::InvalidConfig(format!("crystal[{i}]: {m}"))
+                    }
+                    other => other,
+                })?;
+        }
+        Ok(bca)
     }
 
     /// Every model in use, with its published source, in a fixed order.

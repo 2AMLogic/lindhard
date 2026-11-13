@@ -3,10 +3,13 @@
 //!
 //! [`Simulation`] is plain Rust, so the native tests exercise the code the
 //! browser runs; the `#[wasm_bindgen]` wrapper in `lib.rs` only marshals
-//! arguments. A session resolves one TOML run description (`docs/cli.md`),
-//! then [`Simulation::step`] runs the next histories with
-//! [`Bca::run_range`] and merges them into the accumulated tally, so the
-//! result does not depend on how the run was cut into steps.
+//! arguments. A session resolves one TOML run description (`docs/cli.md`) and
+//! builds the engine with [`Resolved::bca`], so every engine option the input
+//! configures (the beam divergence, the primary-energy spectrum) is applied
+//! exactly as the CLI's driver applies it; then [`Simulation::step`] runs the
+//! next histories with [`Bca::run_range`](lindhard::ion::bca::Bca::run_range)
+//! and merges them into the accumulated tally, so the result does not depend
+//! on how the run was cut into steps.
 //!
 //! # Chunk invariance
 //!
@@ -28,7 +31,7 @@
 //! target.
 
 use lindhard::input::{Input, Resolved};
-use lindhard::ion::bca::{Bca, BcaTally};
+use lindhard::ion::bca::BcaTally;
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::ion::stopping::ElectronicStopping;
 use lindhard::tally::{
@@ -88,9 +91,14 @@ impl Simulation {
         let table = resolved.scattering_table();
         let stopping = resolved.stopping_model();
 
-        // A trial engine validates the beam, the configuration and the
-        // materials now, so `step` cannot fail on the input.
-        let bca = Self::engine(&resolved, &*stopping, &table)?;
+        // A trial engine validates the beam, the configuration, the
+        // materials and every engine option of the input now, so `step`
+        // cannot fail on the input. `Bca` borrows the target, the stopping
+        // model and the table, so each step rebuilds it with the same call
+        // rather than storing it next to the data it borrows.
+        let bca = resolved
+            .bca(&*stopping, &table)
+            .map_err(|e| e.to_string())?;
         let proto = IonTally::new(
             &resolved.stack,
             &bca.species_z(),
@@ -115,19 +123,6 @@ impl Simulation {
         })
     }
 
-    /// The engine for `r`. `Bca` borrows the target, the stopping model and
-    /// the table, so it is rebuilt for each step instead of being stored next
-    /// to the data it borrows; building it is cheap next to the transport.
-    fn engine<'a>(
-        r: &'a Resolved,
-        stopping: &'a (dyn ElectronicStopping + Send + Sync),
-        table: &'a ScatteringTable,
-    ) -> Result<Bca<'a>, String> {
-        Bca::new(r.beam, &r.stack, r.config, stopping, table)
-            .and_then(|b| b.with_divergence(r.divergence))
-            .map_err(|e| e.to_string())
-    }
-
     /// Run at least the next `count` histories, rounded up to a whole
     /// engine chunk (or to the end of the run), and return the histories done
     /// so far. `count = 0` runs nothing. A transport failure is returned as
@@ -139,7 +134,10 @@ impl Simulation {
         let chunk = self.resolved.config.chunk_size.max(1);
         let want = self.done + u64::from(count);
         let end = want.div_ceil(chunk).saturating_mul(chunk).min(self.total);
-        let bca = Self::engine(&self.resolved, &*self.stopping, &self.table)?;
+        let bca = self
+            .resolved
+            .bca(&*self.stopping, &self.table)
+            .map_err(|e| e.to_string())?;
         // One engine chunk per call, merged in index order. All chunks are
         // run before any is merged, so a failure changes nothing.
         let mut parts = Vec::new();
