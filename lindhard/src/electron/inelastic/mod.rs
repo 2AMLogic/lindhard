@@ -51,6 +51,7 @@ pub mod mermin_fit;
 pub mod model;
 pub mod penn;
 mod quadrature;
+mod shared;
 pub mod shell_elf;
 pub mod sum_rules;
 pub mod table;

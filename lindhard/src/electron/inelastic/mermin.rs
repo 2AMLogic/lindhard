@@ -99,10 +99,14 @@
 use super::drude::DrudeLorentzOscillator;
 use super::lindhard_gas::LindhardGas;
 use super::mermin_fit::{fit_mermin_oscillators, MerminFit, MerminFitOptions};
-use super::penn::{hartree_ev, InelasticPoint};
+use super::penn::InelasticPoint;
 use super::quadrature::{integrate_segments, GaussLegendre};
+use super::shared::{
+    check_energy, check_relative_tolerance, fermi_energy_hartree, inelastic_point_from_au,
+};
 use crate::constants::BOHR_RADIUS;
 use crate::electron::data::{ElectronDataError, OpticalElf};
+use crate::electron::elastic::HARTREE_EV;
 use std::f64::consts::PI;
 use std::ops::{Add, Div, Mul, Sub};
 
@@ -110,6 +114,10 @@ type Result<T> = std::result::Result<T, ElectronDataError>;
 
 /// Default relative tolerance of the integrals of the Mermin model.
 pub const DEFAULT_MERMIN_TOLERANCE: f64 = 1.0e-5;
+
+/// Tightest relative tolerance [`MerminPenn::with_relative_tolerance`]
+/// accepts: the model nests quadratures and does not resolve further.
+const MIN_MERMIN_TOLERANCE: f64 = 1.0e-9;
 
 /// The lower limit of the loss integrals of the inverse IMFP and the
 /// stopping power, as a fraction of the kinetic energy `T`: they integrate
@@ -324,23 +332,12 @@ impl std::fmt::Debug for MerminPenn {
     }
 }
 
-fn check_energy(what: &'static str, v: f64) -> Result<()> {
-    if v.is_finite() && v > 0.0 {
-        Ok(())
-    } else {
-        Err(ElectronDataError::Invalid {
-            what,
-            reason: format!("must be finite and positive, got {v} eV"),
-        })
-    }
-}
-
 impl MerminPenn {
     /// The model of `fit`, a fit to `elf` (Fermi energy zero, default
     /// tolerance). Oscillators of zero amplitude are carried in the fit
     /// report but do not contribute.
     pub fn new(elf: OpticalElf, fit: MerminFit) -> Result<Self> {
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let mut terms = Vec::new();
         for o in &fit.oscillators {
             check_oscillator(o)?;
@@ -380,24 +377,13 @@ impl MerminPenn {
     /// models: energies are kinetic energies above the Fermi level and the
     /// kinematics use `T' = T + E_F`.
     pub fn with_fermi_energy_ev(mut self, fermi_ev: f64) -> Result<Self> {
-        if !(fermi_ev.is_finite() && fermi_ev >= 0.0) {
-            return Err(ElectronDataError::Invalid {
-                what: "Fermi energy",
-                reason: format!("must be finite and non-negative, got {fermi_ev} eV"),
-            });
-        }
-        self.fermi = fermi_ev / hartree_ev();
+        self.fermi = fermi_energy_hartree(fermi_ev)?;
         Ok(self)
     }
 
     /// Set the relative integration tolerance, in `[1e-9, 1e-2]`.
     pub fn with_relative_tolerance(mut self, rel_tol: f64) -> Result<Self> {
-        if !(1e-9..=1e-2).contains(&rel_tol) {
-            return Err(ElectronDataError::Invalid {
-                what: "integration tolerance",
-                reason: format!("must be in [1e-9, 1e-2], got {rel_tol}"),
-            });
-        }
+        check_relative_tolerance(rel_tol, MIN_MERMIN_TOLERANCE)?;
         self.rel_tol = rel_tol;
         Ok(self)
     }
@@ -414,7 +400,7 @@ impl MerminPenn {
 
     /// The Fermi energy, eV.
     pub fn fermi_energy_ev(&self) -> f64 {
-        self.fermi * hartree_ev()
+        self.fermi * HARTREE_EV
     }
 
     /// The relative integration tolerance.
@@ -436,7 +422,7 @@ impl MerminPenn {
         if q_per_m == 0.0 {
             return self.fit.model_elf(loss_ev);
         }
-        self.loss_au(q_per_m * BOHR_RADIUS, loss_ev / hartree_ev())
+        self.loss_au(q_per_m * BOHR_RADIUS, loss_ev / HARTREE_EV)
     }
 
     /// The DIIMFP `p(T, ω)` (S2017 eq. (2), nonrelativistic) in m⁻¹ eV⁻¹ at
@@ -450,7 +436,7 @@ impl MerminPenn {
                 reason: format!("must be finite, got {loss_ev} eV"),
             });
         }
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         Ok(self.diimfp_au(energy_ev / h, loss_ev / h) / (BOHR_RADIUS * h))
     }
 
@@ -523,13 +509,8 @@ impl MerminPenn {
     /// energy `energy_ev` above the Fermi level.
     pub fn imfp_and_stopping(&self, energy_ev: f64) -> Result<InelasticPoint> {
         check_energy("electron energy", energy_ev)?;
-        let h = hartree_ev();
-        let (inv, s) = self.imfp_and_stopping_au(energy_ev / h);
-        Ok(InelasticPoint {
-            energy_ev,
-            inverse_imfp_per_m: inv / BOHR_RADIUS,
-            stopping_ev_per_m: s * h / BOHR_RADIUS,
-        })
+        let (inv, s) = self.imfp_and_stopping_au(energy_ev / HARTREE_EV);
+        Ok(inelastic_point_from_au(energy_ev, inv, s))
     }
 
     /// The inelastic mean free path `λ(E)`, m.
