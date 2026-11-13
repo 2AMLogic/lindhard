@@ -4,14 +4,13 @@
 //! or tabulated data, so the step is a physical-consistency check and not a
 //! comparison with a published measurement (see `docs/validation.md`).
 
-use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::transport::{BeamSpread, LayerTables, Primary, Transport, TransportConfig};
 use lindhard::geometry::{Boundary, VoxelGrid};
 use lindhard::material::Material;
 use lindhard::tally::{scan_landing_points, PsfScanConfig, PsfScanReport};
 
 mod common;
-use common::synthetic_table;
+use common::synthetic_scattering;
 use common::with_threads;
 
 const NM: f64 = 1e-9;
@@ -22,26 +21,13 @@ fn material(z: u8) -> Material {
     Material::from_atom_fractions(&[(z, 1.0)], None).unwrap()
 }
 
-fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
-            (1.0 - 2.0 * p).acos()
-        }),
-        inelastic: synthetic_table(
-            SamplingAxis::InelasticEnergyLoss,
-            1.0 / lambda_inel,
-            move |e, p| frac * e * p,
-        ),
-    }
-}
-
 /// Film (0), light substrate (1: few elastic events) and heavy substrate
 /// (2: many elastic events per inelastic one, hence strong backscatter).
 fn tables() -> Vec<LayerTables> {
     vec![
-        scattering(20.0 * NM, 15.0 * NM, 0.1),
-        scattering(40.0 * NM, 15.0 * NM, 0.1),
-        scattering(2.0 * NM, 15.0 * NM, 0.1),
+        synthetic_scattering(20.0 * NM, 15.0 * NM, 0.1),
+        synthetic_scattering(40.0 * NM, 15.0 * NM, 0.1),
+        synthetic_scattering(2.0 * NM, 15.0 * NM, 0.1),
     ]
 }
 

@@ -6,42 +6,21 @@
 
 use lindhard::electron::data::{CrossSectionTable, SamplingAxis};
 use lindhard::electron::transport::{
-    ElectronState, ElectronTally, EscapeRule, Face, Fate, LayerTables, Primary, SummaryTally,
-    Transport, TransportConfig, TransportError,
+    ElectronState, ElectronTally, EscapeRule, Face, Fate, Primary, SummaryTally, Transport,
+    TransportConfig, TransportError,
 };
 use lindhard::geometry::Stack;
 use lindhard::rng::{self, uniform};
 
 mod common;
-use common::{bare_si, synthetic_table, with_threads};
+use common::{
+    bare_si, elastic_isotropic, elastic_none, inelastic_frac, layer_pair, synthetic_table,
+    with_threads,
+};
 
 /// Constant inelastic mean free path, every loss exactly `dw` eV.
 fn inelastic_const(lambda_m: f64, dw: f64) -> CrossSectionTable {
     synthetic_table(SamplingAxis::InelasticEnergyLoss, 1.0 / lambda_m, |_, _| dw)
-}
-
-/// Inelastic loss uniform on `[0, frac * E]`.
-fn inelastic_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
-    synthetic_table(
-        SamplingAxis::InelasticEnergyLoss,
-        1.0 / lambda_m,
-        move |e, p| frac * e * p,
-    )
-}
-
-fn elastic_none() -> CrossSectionTable {
-    synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
-}
-
-/// Isotropic elastic scattering: `cos θ = 1 - 2p`.
-fn elastic_isotropic(lambda_m: f64) -> CrossSectionTable {
-    synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_m, |_, p| {
-        (1.0 - 2.0 * p).acos()
-    })
-}
-
-fn pair(elastic: CrossSectionTable, inelastic: CrossSectionTable) -> LayerTables {
-    LayerTables { elastic, inelastic }
 }
 
 // ---------------------------------------------------------------------------
@@ -75,7 +54,7 @@ fn first_flight_distance_is_exponential_by_ks_at_1_percent() {
     let stack = Stack::semi_infinite(bare_si());
     let t = Transport::new(
         stack,
-        vec![pair(elastic_none(), inelastic_const(lambda, 1.0))],
+        vec![layer_pair(elastic_none(), inelastic_const(lambda, 1.0))],
         // The first collision takes the electron below the cutoff, so a
         // history is one flight plus one collision.
         TransportConfig::new(99.5),
@@ -148,7 +127,7 @@ fn csda_path_length_equals_sum_of_drawn_paths() {
     let (lambda, dw, e0, cutoff) = (2.5e-9, 1.0, 100.0, 10.0);
     let t = Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![pair(elastic_none(), inelastic_const(lambda, dw))],
+        vec![layer_pair(elastic_none(), inelastic_const(lambda, dw))],
         TransportConfig::new(cutoff),
     )
     .unwrap();
@@ -234,8 +213,8 @@ fn two_layer_attenuation_matches_exp_minus_d_over_lambda() {
     let t = Transport::new(
         Stack::new(vec![(bare_si(), d1), (bare_si(), d2)], None).unwrap(),
         vec![
-            pair(elastic_none(), inelastic_const(l1, 1.0)),
-            pair(elastic_none(), inelastic_const(l2, 1.0)),
+            layer_pair(elastic_none(), inelastic_const(l1, 1.0)),
+            layer_pair(elastic_none(), inelastic_const(l2, 1.0)),
         ],
         // Any collision ends the history; only clean flights matter here.
         TransportConfig::new(99.5),
@@ -267,7 +246,7 @@ fn front_only_rule_absorbs_at_the_back_face() {
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::new(
         Stack::new(vec![(bare_si(), 1e-9)], None).unwrap(),
-        vec![pair(elastic_none(), inelastic_const(1.0, 1e-3))],
+        vec![layer_pair(elastic_none(), inelastic_const(1.0, 1e-3))],
         cfg,
     )
     .unwrap();
@@ -346,9 +325,9 @@ impl ElectronTally for EventLog {
 
 fn mixed_transport() -> Transport {
     let tables = vec![
-        pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
-        pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
-        pair(elastic_isotropic(5e-9), inelastic_frac(9e-9, 0.1)),
+        layer_pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
+        layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
+        layer_pair(elastic_isotropic(5e-9), inelastic_frac(9e-9, 0.1)),
     ];
     Transport::new(
         Stack::new(
@@ -413,7 +392,7 @@ fn cutoff_and_escape_rule_are_in_the_run_metadata() {
     cfg.max_events = 1234;
     let t = Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![pair(elastic_none(), inelastic_const(1e-9, 1.0))],
+        vec![layer_pair(elastic_none(), inelastic_const(1e-9, 1.0))],
         cfg,
     )
     .unwrap();
@@ -436,12 +415,12 @@ fn cutoff_and_escape_rule_are_in_the_run_metadata() {
 #[test]
 fn rejects_inconsistent_inputs() {
     let stack = || Stack::semi_infinite(bare_si());
-    let ok = || pair(elastic_none(), inelastic_const(1e-9, 1.0));
+    let ok = || layer_pair(elastic_none(), inelastic_const(1e-9, 1.0));
     assert!(matches!(
         Transport::new(stack(), vec![], TransportConfig::new(1.0)),
         Err(TransportError::LayerCount { .. })
     ));
-    let swapped = pair(inelastic_const(1e-9, 1.0), elastic_none());
+    let swapped = layer_pair(inelastic_const(1e-9, 1.0), elastic_none());
     assert!(matches!(
         Transport::new(stack(), vec![swapped], TransportConfig::new(1.0)),
         Err(TransportError::WrongAxis { layer: 0, .. })
@@ -464,7 +443,7 @@ fn rejects_inconsistent_inputs() {
 fn zero_rate_heading_inward_is_trapped_and_outward_escapes() {
     let t = Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![pair(
+        vec![layer_pair(
             elastic_none(),
             synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
         )],

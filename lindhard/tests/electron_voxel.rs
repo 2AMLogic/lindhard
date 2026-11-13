@@ -5,7 +5,6 @@
 //! formulas (constant mean free paths, isotropic angles), not measured or
 //! tabulated data.
 
-use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::transport::{
     BoundaryModel, LayerTables, Primary, Transport, TransportConfig,
 };
@@ -16,7 +15,7 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::synthetic_table;
+use common::synthetic_scattering;
 use common::with_threads;
 
 const NM: f64 = 1e-9;
@@ -26,25 +25,11 @@ fn material(z: u8) -> Material {
     Material::from_atom_fractions(&[(z, 1.0)], None).unwrap()
 }
 
-/// Isotropic elastic scattering and inelastic losses uniform on `[0, frac E]`.
-fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
-            (1.0 - 2.0 * p).acos()
-        }),
-        inelastic: synthetic_table(
-            SamplingAxis::InelasticEnergyLoss,
-            1.0 / lambda_inel,
-            move |e, p| frac * e * p,
-        ),
-    }
-}
-
 /// Two materials with different scattering.
 fn two_tables() -> Vec<LayerTables> {
     vec![
-        scattering(12.0 * NM, 25.0 * NM, 0.1),
-        scattering(9.0 * NM, 18.0 * NM, 0.1),
+        synthetic_scattering(12.0 * NM, 25.0 * NM, 0.1),
+        synthetic_scattering(9.0 * NM, 18.0 * NM, 0.1),
     ]
 }
 

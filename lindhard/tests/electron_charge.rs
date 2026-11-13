@@ -5,11 +5,10 @@
 //! parameters (made-up numbers chosen to exercise the code, not material
 //! data).
 
-use lindhard::electron::boundary::{BandModel, BandStructure};
-use lindhard::electron::data::SamplingAxis;
+use lindhard::electron::boundary::BandStructure;
 use lindhard::electron::secondary::SecondaryModel;
 use lindhard::electron::transport::{
-    BoundaryModel, CutoffReference, EscapeRule, LayerTables, Primary, Transport, TransportConfig,
+    BoundaryModel, CutoffReference, EscapeRule, Primary, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
 use lindhard::tally::{
@@ -18,53 +17,17 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, synthetic_table, with_threads};
+use common::{bare_si, empty_layer, synthetic_scattering, with_threads};
 
 const NM: f64 = 1e-9;
 const PROVENANCE: &str = "synthetic, tests/electron_charge.rs";
 
-/// Isotropic elastic scattering and inelastic losses uniform on `[0, frac E]`.
-fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
-            (1.0 - 2.0 * p).acos()
-        }),
-        inelastic: synthetic_table(
-            SamplingAxis::InelasticEnergyLoss,
-            1.0 / lambda_inel,
-            move |e, p| frac * e * p,
-        ),
-    }
-}
-
-fn empty() -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0),
-        inelastic: synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
-    }
-}
-
 fn metal() -> BandStructure {
-    BandStructure::new(
-        BandModel::Metal {
-            fermi_ev: 5.0,
-            work_function_ev: 4.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_metal(PROVENANCE)
 }
 
 fn insulator() -> BandStructure {
-    BandStructure::new(
-        BandModel::Insulator {
-            valence_band_width_ev: 6.0,
-            band_gap_ev: 3.0,
-            affinity_ev: 1.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_insulator(PROVENANCE)
 }
 
 fn config(e0: f64) -> ElectronTallyConfig {
@@ -151,8 +114,8 @@ fn closes_without_secondaries_in_a_multilayer_with_both_faces() {
     let t = Transport::new(
         Stack::new(vec![(bare_si(), 3.0 * NM), (bare_si(), 6.0 * NM)], None).unwrap(),
         vec![
-            scattering(2.0 * NM, 3.0 * NM, 0.3),
-            scattering(2.0 * NM, 4.0 * NM, 0.3),
+            synthetic_scattering(2.0 * NM, 3.0 * NM, 0.3),
+            synthetic_scattering(2.0 * NM, 4.0 * NM, 0.3),
         ],
         TransportConfig::new(10.0),
     )
@@ -175,7 +138,7 @@ fn closes_for_each_terminal_fate_without_secondaries() {
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::new(
         Stack::new(vec![(bare_si(), 6.0 * NM)], None).unwrap(),
-        vec![scattering(3.0 * NM, 6.0 * NM, 0.2)],
+        vec![synthetic_scattering(3.0 * NM, 6.0 * NM, 0.2)],
         cfg,
     )
     .unwrap();
@@ -190,7 +153,7 @@ fn closes_for_each_terminal_fate_without_secondaries() {
     // Trapped in an interaction-free substrate.
     let t = Transport::new(
         Stack::new(vec![(bare_si(), 5.0 * NM)], Some(bare_si())).unwrap(),
-        vec![scattering(3.0 * NM, 6.0 * NM, 0.2), empty()],
+        vec![synthetic_scattering(3.0 * NM, 6.0 * NM, 0.2), empty_layer()],
         TransportConfig::new(10.0),
     )
     .unwrap();
@@ -203,7 +166,7 @@ fn closes_for_each_terminal_fate_without_secondaries() {
     cfg.max_events = 4;
     let t = Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![scattering(2.0 * NM, 3.0 * NM, 0.05)],
+        vec![synthetic_scattering(2.0 * NM, 3.0 * NM, 0.05)],
         cfg,
     )
     .unwrap();
@@ -225,8 +188,8 @@ fn with_secondaries(cutoff_ev: f64, max_events: u64) -> Transport {
     Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 6.0 * NM)], Some(bare_si())).unwrap(),
         vec![
-            scattering(3.0 * NM, 4.0 * NM, 0.3),
-            scattering(2.0 * NM, 3.0 * NM, 0.25),
+            synthetic_scattering(3.0 * NM, 4.0 * NM, 0.3),
+            synthetic_scattering(2.0 * NM, 3.0 * NM, 0.25),
         ],
         vec![metal(), insulator()],
         cfg,
