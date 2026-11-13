@@ -3,11 +3,10 @@
 //! (range moments and fits, damage, escapes) and the final state of every
 //! primary. Every event goes to all of them.
 
-use lindhard::input::Resolved;
 use lindhard::ion::bca::{
     BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, Particle, SummaryTally,
 };
-use lindhard::tally::{Binning, IonTally, IonTallyConfig, VoxelTally};
+use lindhard::tally::{IonTally, VoxelTally};
 
 /// How a primary history ended.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -189,25 +188,4 @@ impl BcaTally for CliTally {
         }
         self.finals.extend(other.finals);
     }
-}
-
-/// The [`IonTallyConfig`] for a resolved input. Depth uses the
-/// `depth_bin_nm`/`depth_bins` grid from zero; lateral and radial use
-/// `lateral_bin_nm`/`lateral_bins` as documented in `docs/cli.md`; escape
-/// energies run from 0 to `escape_energy_max_ev` (default: the beam energy)
-/// and polar angles from 0 to 90 degrees.
-pub fn ion_tally_config(r: &Resolved) -> anyhow::Result<IonTallyConfig> {
-    let t = &r.input.tally;
-    let nm = 1e-9;
-    let depth_w = t.depth_bin_nm * nm;
-    let lat_half = t.lateral_bins as f64 * t.lateral_bin_nm * nm;
-    let e_max = t.escape_energy_max_ev.unwrap_or(r.beam.energy_ev);
-    let b = |lo: f64, hi: f64, n: usize| Binning::new(lo, hi, n);
-    Ok(IonTallyConfig {
-        depth: b(0.0, depth_w * t.depth_bins as f64, t.depth_bins)?,
-        lateral: b(-lat_half, lat_half, 2 * t.lateral_bins)?,
-        radial: b(0.0, lat_half, t.lateral_bins)?,
-        escape_energy: b(0.0, e_max, t.escape_energy_bins)?,
-        escape_polar: b(0.0, std::f64::consts::FRAC_PI_2, t.escape_polar_bins)?,
-    })
 }

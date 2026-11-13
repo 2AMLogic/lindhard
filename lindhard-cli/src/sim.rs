@@ -7,12 +7,11 @@ use std::time::Instant;
 use anyhow::{bail, Context, Result};
 use lindhard::input::Resolved;
 use lindhard::ion::bca::{Bca, CrystalMetadata};
-use lindhard::ion::potential::Potential;
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::tally::{IonReport, IonTally, VoxelTally, VoxelTallyGrid};
 
 use crate::output::RunInfo;
-use crate::tally::{ion_tally_config, CliTally};
+use crate::tally::CliTally;
 
 /// Everything a finished run produced.
 #[derive(Debug)]
@@ -47,13 +46,8 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
         .build()
         .context("building the thread pool")?;
 
-    // The angle table depends on the screening function and length only (the
-    // engine works in reduced variables), so the Z pair here is immaterial.
     let t0 = Instant::now();
-    let z2 = r.layers[0].material.components()[0].z();
-    let pot = Potential::new(r.screening, f64::from(r.beam.ion.z()), f64::from(z2))
-        .with_length(r.screening_length);
-    let table = ScatteringTable::build(&pot, &r.table_spec);
+    let table = r.scattering_table();
     let table_build_s = t0.elapsed().as_secs_f64();
 
     let stopping = r.stopping_model();
@@ -72,7 +66,7 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
     }
     let crystals = bca.crystal_metadata();
     let tally_spec = &r.input.tally;
-    let ion_proto = IonTally::new(&r.stack, &bca.species_z(), ion_tally_config(r)?)
+    let ion_proto = IonTally::new(&r.stack, &bca.species_z(), r.ion_tally_config()?)
         .context("setting up the ion tally")?;
     let voxel_proto = tally_spec
         .voxel

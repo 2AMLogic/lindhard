@@ -3,8 +3,8 @@
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
 use crate::ion::bca::{BcaConfig, Beam, CrystalTarget, MeanFreePath};
-use crate::ion::potential::{Screening, ScreeningLength};
-use crate::ion::scattering::TableSpec;
+use crate::ion::potential::{Potential, Screening, ScreeningLength};
+use crate::ion::scattering::{ScatteringTable, TableSpec};
 use crate::ion::stopping::bethe::BetheBloch;
 use crate::ion::stopping::lindhard_scharff::LindhardScharff;
 use crate::ion::stopping::none::NoStopping;
@@ -12,6 +12,7 @@ use crate::ion::stopping::srim::SrimStopping;
 use crate::ion::stopping::table::TableOverride;
 use crate::ion::stopping::ElectronicStopping;
 use crate::material::{Material, MaterialSpec};
+use crate::tally::{Binning, BinningError, IonTallyConfig};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -205,6 +206,42 @@ impl Resolved {
                 base,
             ))
         }
+    }
+
+    /// The scattering table of the run: the `[physics]` screening function
+    /// tabulated on [`Resolved::table_spec`] with the resolved screening
+    /// length. This is what to pass to the engine.
+    ///
+    /// The table is in reduced variables, so it depends on the screening
+    /// function and the screening length only; the `Z` pair of the
+    /// [`Potential`] is immaterial and is taken from the beam and the first
+    /// component of the first layer.
+    pub fn scattering_table(&self) -> ScatteringTable {
+        let z2 = self.layers[0].material.components()[0].z();
+        let pot = Potential::new(self.screening, f64::from(self.beam.ion.z()), f64::from(z2))
+            .with_length(self.screening_length);
+        ScatteringTable::build(&pot, &self.table_spec)
+    }
+
+    /// The ion tally's geometry for the run, from `[tally]`. Depth uses the
+    /// `depth_bin_nm`/`depth_bins` grid from zero; lateral and radial use
+    /// `lateral_bin_nm`/`lateral_bins` as documented in `docs/cli.md`; escape
+    /// energies run from 0 to `escape_energy_max_ev` (default: the beam
+    /// energy) and polar angles from 0 to 90 degrees.
+    pub fn ion_tally_config(&self) -> Result<IonTallyConfig, BinningError> {
+        let t = &self.input.tally;
+        let nm = 1e-9;
+        let depth_w = t.depth_bin_nm * nm;
+        let lat_half = t.lateral_bins as f64 * t.lateral_bin_nm * nm;
+        let e_max = t.escape_energy_max_ev.unwrap_or(self.beam.energy_ev);
+        let b = |lo: f64, hi: f64, n: usize| Binning::new(lo, hi, n);
+        Ok(IonTallyConfig {
+            depth: b(0.0, depth_w * t.depth_bins as f64, t.depth_bins)?,
+            lateral: b(-lat_half, lat_half, 2 * t.lateral_bins)?,
+            radial: b(0.0, lat_half, t.lateral_bins)?,
+            escape_energy: b(0.0, e_max, t.escape_energy_bins)?,
+            escape_polar: b(0.0, std::f64::consts::FRAC_PI_2, t.escape_polar_bins)?,
+        })
     }
 
     /// Every model in use, with its published source, in a fixed order.

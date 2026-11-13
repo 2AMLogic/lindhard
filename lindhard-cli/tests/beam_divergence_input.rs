@@ -15,7 +15,7 @@ use lindhard::ion::scattering::ScatteringTable;
 use lindhard::tally::IonTally;
 use lindhard_cli::output::{self, RunInfo};
 use lindhard_cli::sim::{simulate, Simulation};
-use lindhard_cli::tally::{ion_tally_config, CliTally};
+use lindhard_cli::tally::CliTally;
 use serde_json::Value;
 
 /// A 20 nm amorphous Si screen over a crystalline Si substrate.
@@ -98,7 +98,7 @@ fn direct(r: &lindhard::input::Resolved, div: Divergence, threads: usize) -> Sim
         .with_crystal(target, &[1])
         .unwrap();
     let crystals = bca.crystal_metadata();
-    let proto = IonTally::new(&r.stack, &bca.species_z(), ion_tally_config(r).unwrap()).unwrap();
+    let proto = IonTally::new(&r.stack, &bca.species_z(), r.ion_tally_config().unwrap()).unwrap();
     let t = &r.input.tally;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)

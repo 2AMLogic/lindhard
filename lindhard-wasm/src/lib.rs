@@ -18,8 +18,6 @@ pub use session::{elements_json, Simulation, MAX_IONS as MAX_SESSION_IONS};
 
 use lindhard::input::Input;
 use lindhard::ion::bca::{Bca, BcaTally, Face, Particle};
-use lindhard::ion::potential::Potential;
-use lindhard::ion::scattering::ScatteringTable;
 use lindhard::tally::Moments;
 use wasm_bindgen::prelude::*;
 
@@ -158,12 +156,7 @@ pub fn range_profile(req: &Request) -> Result<Profile, String> {
     let input = Input::from_toml_str(&input_toml(req)?).map_err(|e| e.to_string())?;
     let r = input.resolve().map_err(|e| e.to_string())?;
 
-    // The angle table depends on the screening function and length only, so
-    // the Z pair is immaterial (the same construction as the CLI's driver).
-    let z2 = r.layers[0].material.components()[0].z();
-    let pot = Potential::new(r.screening, f64::from(r.beam.ion.z()), f64::from(z2))
-        .with_length(r.screening_length);
-    let table = ScatteringTable::build(&pot, &r.table_spec);
+    let table = r.scattering_table();
     let stopping = r.stopping_model();
     let bca =
         Bca::new(r.beam, &r.stack, r.config, &*stopping, &table).map_err(|e| e.to_string())?;
