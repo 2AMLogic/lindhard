@@ -4,8 +4,7 @@
 //! cross-section tables are synthetic (constant mean free paths, isotropic
 //! angles), as in `electron_tally.rs`.
 
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
-use lindhard::electron::transport::{LayerTables, Primary, Transport, TransportConfig};
+use lindhard::electron::transport::{Primary, Transport, TransportConfig};
 use lindhard::geometry::Stack;
 use lindhard::material::Material;
 use lindhard::tally::{
@@ -16,53 +15,13 @@ use lindhard::units::J_PER_EV;
 
 mod common;
 use common::close;
+use common::synthetic_scattering;
 use common::with_threads;
 
-const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 const NM: f64 = 1e-9;
 
 fn material() -> Material {
     Material::from_atom_fractions(&[(14, 1.0)], None).unwrap()
-}
-
-fn table(axis: SamplingAxis, rate: f64, row: impl Fn(f64, f64) -> f64) -> CrossSectionTable {
-    let quantiles = GRID
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: "computed in tests/electron_tally.rs".into(),
-        axis,
-        energy_ev: GRID.to_vec(),
-        inverse_mfp_per_m: vec![rate; GRID.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
-}
-
-/// Isotropic elastic scattering (`cos θ = 1 - 2p`) and inelastic losses
-/// uniform on `[0, frac E]`.
-fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
-    LayerTables {
-        elastic: table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
-            (1.0 - 2.0 * p).acos()
-        }),
-        inelastic: table(
-            SamplingAxis::InelasticEnergyLoss,
-            1.0 / lambda_inel,
-            move |e, p| frac * e * p,
-        ),
-    }
 }
 
 fn light() -> Material {
@@ -81,9 +40,9 @@ fn transport() -> Transport {
     Transport::new(
         stack(),
         vec![
-            scattering(3.0 * NM, 5.0 * NM, 0.3),
-            scattering(4.0 * NM, 6.0 * NM, 0.3),
-            scattering(2.0 * NM, 4.0 * NM, 0.3),
+            synthetic_scattering(3.0 * NM, 5.0 * NM, 0.3),
+            synthetic_scattering(4.0 * NM, 6.0 * NM, 0.3),
+            synthetic_scattering(2.0 * NM, 4.0 * NM, 0.3),
         ],
         TransportConfig::new(5.0),
     )
@@ -254,7 +213,7 @@ fn report_is_bit_identical_across_thread_counts() {
 fn one_layer_zero_width_refinement_and_coarse_bins() {
     let t = Transport::new(
         Stack::new(vec![(material(), 10.0 * NM)], None).unwrap(),
-        vec![scattering(3.0 * NM, 5.0 * NM, 0.3)],
+        vec![synthetic_scattering(3.0 * NM, 5.0 * NM, 0.3)],
         TransportConfig::new(5.0),
     )
     .unwrap();

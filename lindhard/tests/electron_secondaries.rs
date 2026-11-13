@@ -18,7 +18,7 @@ use lindhard::electron::inelastic::{
 use lindhard::electron::secondary::{SecondaryEvent, SecondaryModel};
 use lindhard::electron::transport::{
     Boundary, BoundaryModel, CutoffReference, ElectronState, ElectronTally, EscapeRule, Face, Fate,
-    LayerTables, Primary, SummaryTally, Transport, TransportConfig,
+    Primary, SummaryTally, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
 use lindhard::tally::{
@@ -26,62 +26,26 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, synthetic_table, with_threads};
+use common::{
+    bare_si, elastic_isotropic, elastic_none, inelastic_frac, layer_pair, synthetic_table,
+    with_threads,
+};
 
 const PROVENANCE: &str = "synthetic, tests/electron_secondaries.rs";
-
-/// Inelastic loss uniform on `[0, frac * E]`.
-fn inelastic_frac(lambda_m: f64, frac: f64) -> CrossSectionTable {
-    synthetic_table(
-        SamplingAxis::InelasticEnergyLoss,
-        1.0 / lambda_m,
-        move |e, p| frac * e * p,
-    )
-}
 
 fn inelastic_none() -> CrossSectionTable {
     synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0)
 }
 
-fn elastic_none() -> CrossSectionTable {
-    synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
-}
-
-/// Isotropic elastic scattering: `cos θ = 1 - 2p`.
-fn elastic_isotropic(lambda_m: f64) -> CrossSectionTable {
-    synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_m, |_, p| {
-        (1.0 - 2.0 * p).acos()
-    })
-}
-
-fn pair(elastic: CrossSectionTable, inelastic: CrossSectionTable) -> LayerTables {
-    LayerTables { elastic, inelastic }
-}
-
 /// Synthetic metal: `E_F = 5 eV`, `Φ = 4 eV`, so `U = 9 eV`.
 fn metal() -> BandStructure {
-    BandStructure::new(
-        BandModel::Metal {
-            fermi_ev: 5.0,
-            work_function_ev: 4.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_metal(PROVENANCE)
 }
 
 /// Synthetic insulator: `W_v = 6 eV`, `E_g = 3 eV`, `χ = 1 eV`, so
 /// `E_F = 7.5 eV` and `U = 10 eV`.
 fn insulator() -> BandStructure {
-    BandStructure::new(
-        BandModel::Insulator {
-            valence_band_width_ev: 6.0,
-            band_gap_ev: 3.0,
-            affinity_ev: 1.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_insulator(PROVENANCE)
 }
 
 fn dot(a: [f64; 3], b: [f64; 3]) -> f64 {
@@ -199,8 +163,8 @@ fn metal_on_insulator(config: TransportConfig) -> Transport {
     Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 6e-9)], Some(bare_si())).unwrap(),
         vec![
-            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
-            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+            layer_pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
         ],
         vec![metal(), insulator()],
         config,
@@ -362,7 +326,10 @@ fn secondary_direction_follows_the_binary_collision_angle() {
         };
         let t = Transport::with_band_structures(
             Stack::semi_infinite(bare_si()),
-            vec![pair(elastic_isotropic(5e-9), inelastic_frac(4e-9, 0.3))],
+            vec![layer_pair(
+                elastic_isotropic(5e-9),
+                inelastic_frac(4e-9, 0.3),
+            )],
             vec![band.clone()],
             cfg,
         )
@@ -414,7 +381,7 @@ fn instantaneous_momentum_keeps_directions_unit_and_spreads_the_angle() {
     cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
-        vec![pair(elastic_none(), inelastic_frac(4e-9, 0.3))],
+        vec![layer_pair(elastic_none(), inelastic_frac(4e-9, 0.3))],
         vec![insulator()],
         cfg,
     )
@@ -451,7 +418,7 @@ fn entry_transmission_versus_normal_energy_matches_the_step_formula() {
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 1e-8)], None).unwrap(),
-        vec![pair(elastic_none(), inelastic_none())],
+        vec![layer_pair(elastic_none(), inelastic_none())],
         vec![metal()],
         cfg,
     )
@@ -536,7 +503,7 @@ fn an_electron_below_the_barrier_is_always_reflected() {
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 4e-9)], None).unwrap(),
-        vec![pair(elastic_isotropic(1e-9), inelastic_none())],
+        vec![layer_pair(elastic_isotropic(1e-9), inelastic_none())],
         vec![metal()],
         cfg,
     )
@@ -624,7 +591,10 @@ fn vacuum_cutoff_stops_electrons_below_the_inner_potential_plus_cutoff() {
     cfg.cutoff_reference = CutoffReference::VacuumLevel;
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
-        vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
+        vec![layer_pair(
+            elastic_isotropic(3e-9),
+            inelastic_frac(4e-9, 0.3),
+        )],
         vec![metal()],
         cfg,
     )
@@ -696,7 +666,7 @@ fn losses_in_metal(frac: f64, cutoff: f64) -> Losses {
     cfg.cutoff_reference = CutoffReference::VacuumLevel;
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
-        vec![pair(
+        vec![layer_pair(
             elastic_isotropic(3e-9),
             inelastic_fixed_frac(4e-9, frac),
         )],
@@ -785,7 +755,7 @@ fn penn_losses_in_metal(inelastic: CrossSectionTable) -> Losses {
     cfg.cutoff_reference = CutoffReference::VacuumLevel;
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
-        vec![pair(elastic_isotropic(3e-9), inelastic)],
+        vec![layer_pair(elastic_isotropic(3e-9), inelastic)],
         vec![metal()],
         cfg,
     )
@@ -869,8 +839,8 @@ fn band_parameters_change_nothing_while_the_models_are_off() {
     let stack = || Stack::new(vec![(bare_si(), 6e-9)], Some(bare_si())).unwrap();
     let tables = || {
         vec![
-            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
-            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+            layer_pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
         ]
     };
     let plain = Transport::new(stack(), tables(), cfg).unwrap();
@@ -888,7 +858,7 @@ fn band_parameters_change_nothing_while_the_models_are_off() {
 #[test]
 fn models_that_need_band_parameters_refuse_to_run_without_them() {
     let stack = || Stack::semi_infinite(bare_si());
-    let tables = || vec![pair(elastic_none(), inelastic_frac(1e-9, 0.1))];
+    let tables = || vec![layer_pair(elastic_none(), inelastic_frac(1e-9, 0.1))];
     let mut se = TransportConfig::new(1.0);
     se.secondaries = SecondaryModel::KIEFT_BOSCH;
     assert!(Transport::new(stack(), tables(), se).is_err());
@@ -1058,9 +1028,9 @@ fn run_threads_with(threads: usize, metal: BandStructure) -> EventLog {
     let t = Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 5e-9), (bare_si(), 8e-9)], Some(bare_si())).unwrap(),
         vec![
-            pair(elastic_isotropic(3e-9), inelastic_frac(5e-9, 0.25)),
-            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
-            pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
+            layer_pair(elastic_isotropic(3e-9), inelastic_frac(5e-9, 0.25)),
+            layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
+            layer_pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
         ],
         vec![metal.clone(), insulator(), metal],
         cfg,
@@ -1118,8 +1088,8 @@ fn valence_binding_conserves_energy_and_frees_nothing_at_or_below_it() {
     let t = Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 6e-9)], Some(bare_si())).unwrap(),
         vec![
-            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
-            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+            layer_pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
         ],
         vec![bound_metal(), bound_metal()],
         cfg,
@@ -1321,8 +1291,8 @@ fn full_tally_balances_when_primaries_and_secondaries_hit_the_event_cap() {
     let t = Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 6e-9), (bare_si(), 4e-9)], None).unwrap(),
         vec![
-            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
-            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+            layer_pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
         ],
         vec![metal(), insulator()],
         cfg,
@@ -1341,8 +1311,8 @@ fn capped_transport() -> Transport {
     Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 6e-9), (bare_si(), 4e-9)], None).unwrap(),
         vec![
-            pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
-            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
+            layer_pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3)),
+            layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.25)),
         ],
         vec![metal(), insulator()],
         cfg,
@@ -1402,7 +1372,10 @@ fn full_tally_balances_with_a_binding_below_the_band_bottom() {
     cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
-        vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
+        vec![layer_pair(
+            elastic_isotropic(3e-9),
+            inelastic_frac(4e-9, 0.3),
+        )],
         vec![deep],
         cfg,
     )
@@ -1422,7 +1395,10 @@ fn full_tally_balances_with_a_metal_valence_binding() {
     cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
-        vec![pair(elastic_isotropic(3e-9), inelastic_frac(4e-9, 0.3))],
+        vec![layer_pair(
+            elastic_isotropic(3e-9),
+            inelastic_frac(4e-9, 0.3),
+        )],
         vec![bound_metal()],
         cfg,
     )
@@ -1616,9 +1592,9 @@ fn tally_threaded(threads: usize) -> ElectronReport {
     let t = Transport::with_band_structures(
         Stack::new(vec![(bare_si(), 5e-9), (bare_si(), 8e-9)], Some(bare_si())).unwrap(),
         vec![
-            pair(elastic_isotropic(3e-9), inelastic_frac(5e-9, 0.25)),
-            pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
-            pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
+            layer_pair(elastic_isotropic(3e-9), inelastic_frac(5e-9, 0.25)),
+            layer_pair(elastic_isotropic(2e-9), inelastic_frac(3e-9, 0.3)),
+            layer_pair(elastic_isotropic(4e-9), inelastic_frac(6e-9, 0.2)),
         ],
         vec![metal(), insulator(), metal()],
         full_physics(),
