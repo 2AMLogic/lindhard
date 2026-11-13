@@ -1,9 +1,11 @@
 //! Tests of the stopping-residual report: the committed book page is current
 //! (golden), the rendering is repeatable, a modified dataset makes the page
-//! stale, skipped points are stated, and a forbidden source is refused.
+//! stale, skipped points are stated, a forbidden source is refused, and the
+//! binary's `--check` mode reports and exits as it should.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use lindhard_plots::stopping_report::render;
 use lindhard_plots::{compare, CheckOutcome};
@@ -226,4 +228,92 @@ fn an_eight_column_file_mentioning_srim_is_still_refused() {
     let dir = Scratch::new("srim-eight", &[("a.csv", text)]);
     let err = render(&dir.0, "data").unwrap_err().to_string();
     assert!(err.contains("may not enter"), "{err}");
+}
+
+/// The binary's `--check` mode: the three `CheckOutcome` messages, the exit
+/// codes, and the regenerate command named in each failure. The shared driver
+/// in `lindhard_plots` (`parse_args` / `write_or_check` / `exit_code`) is what
+/// produces these, so this is also the guard that it keeps saying the same
+/// things for this binary as for `lindhard-plots`.
+#[test]
+fn check_mode_passes_fails_and_names_the_regenerate_command() {
+    const REGENERATE: &str = "regenerate it with `cargo run -p lindhard-plots \
+                              --bin lindhard-stopping-report` and commit it";
+    let dir = Scratch::new("bin-check", &[("a.csv", synthetic(1.0))]);
+    let out = dir.0.join("page.md");
+    let run = |args: &[&std::ffi::OsStr]| {
+        Command::new(env!("CARGO_BIN_EXE_lindhard-stopping-report"))
+            .args(args)
+            .output()
+            .expect("binary runs")
+    };
+    let check = || {
+        run(&[
+            "--check".as_ref(),
+            "--input".as_ref(),
+            dir.0.as_os_str(),
+            "--output".as_ref(),
+            out.as_os_str(),
+        ])
+    };
+
+    // Missing file: exit 1, and say which command regenerates it.
+    let o = check();
+    assert_eq!(o.status.code(), Some(1));
+    let msg = String::from_utf8_lossy(&o.stderr);
+    assert!(msg.contains("is missing"), "{msg}");
+    assert!(msg.contains(REGENERATE), "{msg}");
+
+    // Write, then check: exit 0, and the file is the library's rendering with
+    // the given `--input` as the label the page records.
+    let w = run(&[
+        "--input".as_ref(),
+        dir.0.as_os_str(),
+        "--output".as_ref(),
+        out.as_os_str(),
+    ]);
+    assert!(w.status.success(), "{}", String::from_utf8_lossy(&w.stderr));
+    assert!(
+        String::from_utf8_lossy(&w.stdout).contains("wrote "),
+        "{}",
+        String::from_utf8_lossy(&w.stdout)
+    );
+    assert_eq!(
+        fs::read_to_string(&out).unwrap(),
+        render(&dir.0, &dir.0.display().to_string()).unwrap()
+    );
+    let o = check();
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&o.stdout).contains("is up to date"),
+        "{}",
+        String::from_utf8_lossy(&o.stdout)
+    );
+
+    // Altered file: exit 1 with the first differing byte, and the command.
+    let mut bytes = fs::read(&out).unwrap();
+    let at = bytes.len() / 2;
+    bytes[at] ^= 1;
+    fs::write(&out, &bytes).unwrap();
+    let o = check();
+    assert_eq!(o.status.code(), Some(1));
+    let msg = String::from_utf8_lossy(&o.stderr);
+    assert!(msg.contains("differs from a fresh render of"), "{msg}");
+    assert!(
+        msg.contains(&format!("first difference at byte {at}")),
+        "{msg}"
+    );
+    assert!(msg.contains(REGENERATE), "{msg}");
+
+    // An unexpected argument is an error (exit 2) quoting the usage line.
+    let o = run(&["--nope".as_ref()]);
+    assert_eq!(o.status.code(), Some(2));
+    let msg = String::from_utf8_lossy(&o.stderr);
+    assert!(msg.contains("unexpected argument"), "{msg}");
+    assert!(msg.contains("usage: lindhard-stopping-report"), "{msg}");
 }
