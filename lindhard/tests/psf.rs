@@ -22,7 +22,7 @@ use lindhard::tally::{
 use rand_core::Rng;
 
 mod common;
-use common::{bare_si, synthetic_table};
+use common::{bare_si, synthetic_table, with_threads};
 
 const NM: f64 = 1e-9;
 
@@ -267,16 +267,12 @@ fn config() -> ElectronTallyConfig {
 fn run(threads: usize, n: u64) -> ElectronReport {
     let t = transport();
     let proto = FullElectronTally::new(&t, config()).unwrap();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| {
-            t.run(0x95F, n, 64, &Primary::normal(2_000.0), || proto.clone())
-                .unwrap()
-                .tally
-                .report()
-        })
+    with_threads(threads, || {
+        t.run(0x95F, n, 64, &Primary::normal(2_000.0), || proto.clone())
+            .unwrap()
+            .tally
+            .report()
+    })
 }
 
 /// `∫₀^∞ E f(r) 2πr dr` by the trapezoidal rule on a fine log grid in `r`

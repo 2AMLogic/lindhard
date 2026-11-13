@@ -12,6 +12,7 @@ use lindhard::tally::{History, Recorded, TrackEnd, TrajectoryConfig, TrajectoryR
 
 mod common;
 use common::si_with_surface_binding as si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn beam(count: u64) -> Beam {
@@ -49,11 +50,7 @@ fn run<T: BcaTally>(
     // A semi-infinite target: ions stop, and recoils and ions can sputter.
     let stack = Stack::new(vec![], Some(si())).unwrap();
     let bca = Bca::new(beam(count), &stack, config(follow), &ls, table()).unwrap();
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    pool.install(|| bca.run(make).unwrap())
+    with_threads(threads, || bca.run(make).unwrap())
 }
 
 /// Records the stopping or escape state of each primary, for comparison.

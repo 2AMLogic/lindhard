@@ -20,6 +20,7 @@ use lindhard::tally::{
 
 mod common;
 use common::synthetic_table;
+use common::with_threads;
 
 const NM: f64 = 1e-9;
 const ENERGY: f64 = 2_000.0;
@@ -77,16 +78,12 @@ fn config(beam: BeamProfile, seed: u64) -> ElectronTallyConfig {
 fn run(beam: BeamProfile, threads: usize, seed: u64, n: u64) -> ElectronReport {
     let t = transport();
     let proto = FullElectronTally::new(&t, config(beam, 7)).unwrap();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| {
-            t.run(seed, n, 64, &Primary::normal(ENERGY), || proto.clone())
-                .unwrap()
-                .tally
-                .report()
-        })
+    with_threads(threads, || {
+        t.run(seed, n, 64, &Primary::normal(ENERGY), || proto.clone())
+            .unwrap()
+            .tally
+            .report()
+    })
 }
 
 fn exposure(r: &ElectronReport) -> &ExposureReport {

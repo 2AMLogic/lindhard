@@ -25,6 +25,7 @@ use lindhard::tally::{
 
 mod common;
 use common::bare_si;
+use common::with_threads;
 
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 const NM: f64 = 1e-9;
@@ -507,16 +508,12 @@ fn evaluations_equal_flights_not_collisions() {
 fn mixed_report(threads: usize) -> ElectronReport {
     let t = mixed();
     let proto = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| {
-            t.run(0x253, 400, 16, &Primary::normal(300.0), || proto.clone())
-                .unwrap()
-                .tally
-                .report()
-        })
+    with_threads(threads, || {
+        t.run(0x253, 400, 16, &Primary::normal(300.0), || proto.clone())
+            .unwrap()
+            .tally
+            .report()
+    })
 }
 
 #[test]

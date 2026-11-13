@@ -22,6 +22,7 @@ use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 const NM: f64 = 1e-9;
 
 mod common;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn elemental(z: u8) -> Material {
@@ -88,13 +89,10 @@ fn report(div: Option<Divergence>, threads: usize, n: u64) -> String {
         escape_energy: Binning::new(0.0, 5.0e4, 25).unwrap(),
         escape_polar: Binning::new(0.0, PI / 2.0, 9).unwrap(),
     };
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    let tally = pool
-        .install(|| bca.run(|| IonTally::new(&stack, &species, tc).unwrap()))
-        .unwrap();
+    let tally = with_threads(threads, || {
+        bca.run(|| IonTally::new(&stack, &species, tc).unwrap())
+    })
+    .unwrap();
     serde_json::to_string(&tally.report(false)).unwrap()
 }
 

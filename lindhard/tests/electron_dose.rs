@@ -16,6 +16,7 @@ use lindhard::units::J_PER_EV;
 
 mod common;
 use common::close;
+use common::with_threads;
 
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
@@ -236,11 +237,9 @@ fn tallies_off_leave_the_report_unchanged() {
 fn report_is_bit_identical_across_thread_counts() {
     let t = transport();
     let go = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| run(&t, config(2_000.0, Some(dose_config())), 3_000))
+        with_threads(threads, || {
+            run(&t, config(2_000.0, Some(dose_config())), 3_000)
+        })
     };
     let r1 = go(1);
     let r2 = go(2);

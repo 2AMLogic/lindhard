@@ -21,6 +21,9 @@ use lindhard::rng::{stream, uniform};
 use rayon::prelude::*;
 use std::sync::OnceLock;
 
+mod common;
+use common::with_threads;
+
 fn penn() -> &'static SinglePolePenn {
     static P: OnceLock<SinglePolePenn> = OnceLock::new();
     P.get_or_init(|| {
@@ -143,15 +146,11 @@ fn cache_round_trip() {
 #[test]
 fn table_is_bit_identical_on_any_thread_count() {
     let build = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| {
-                let mut o = InelasticTableOptions::new(vec![30.0, 120.0, 400.0]);
-                o.density_tolerance = 1e-3;
-                build_inelastic_table(penn(), &material(), &o).unwrap()
-            })
+        with_threads(threads, || {
+            let mut o = InelasticTableOptions::new(vec![30.0, 120.0, 400.0]);
+            o.density_tolerance = 1e-3;
+            build_inelastic_table(penn(), &material(), &o).unwrap()
+        })
     };
     let one = build(1);
     assert_eq!(build(3), one);
@@ -502,11 +501,9 @@ fn rate_refinement_adds_band_bottom_rows_and_keeps_the_given_ones() {
         .clone()
         .with_rate_refinement(RateRefinement::default());
     let build = |o: &InelasticTableOptions, threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| build_inelastic_table(&m, &material(), o).unwrap())
+        with_threads(threads, || {
+            build_inelastic_table(&m, &material(), o).unwrap()
+        })
     };
     let a = build(&plain, 2);
     let b = build(&refined, 1);

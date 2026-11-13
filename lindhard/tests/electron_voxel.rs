@@ -17,6 +17,7 @@ use lindhard::tally::{
 
 mod common;
 use common::synthetic_table;
+use common::with_threads;
 
 const NM: f64 = 1e-9;
 const E0: f64 = 500.0;
@@ -283,11 +284,7 @@ fn run_threads(threads: usize) -> FullElectronTally {
     let t = Transport::on_geometry(small_block(), two_tables(), config()).unwrap();
     let grid = VoxelTallyGrid::from_voxel_grid(t.geometry());
     let proto = tally(&t, grid);
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    pool.install(|| {
+    with_threads(threads, || {
         t.run(0xDE7, 3_000, 32, &Primary::normal(E0), || proto.clone())
             .unwrap()
             .tally

@@ -26,6 +26,7 @@ use lindhard::tally::{
 
 mod common;
 use common::synthetic_table;
+use common::with_threads;
 
 const NM: f64 = 1e-9;
 const E0: f64 = 500.0;
@@ -179,14 +180,6 @@ fn grid() -> Grid {
     }
 }
 
-fn in_pool<R: Send>(threads: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(f)
-}
-
 fn shots() -> Vec<Shot> {
     vec![
         Shot::point(-200.0 * NM, 0.0, 1.0),
@@ -333,7 +326,7 @@ fn rectangle_spot_fills_its_footprint_and_nothing_else() {
 fn result_is_bit_identical_for_1_2_and_4_threads() {
     let t = voxel_target(120, |j| j < 60);
     let run = |threads| {
-        in_pool(threads, || {
+        with_threads(threads, || {
             direct_dose(
                 &t,
                 &Primary::normal(E0),

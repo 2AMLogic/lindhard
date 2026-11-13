@@ -120,6 +120,7 @@ const UNIFORM_TOLERANCE: f64 = 0.05;
 
 mod common;
 use common::si_surface_binding_if_unset as si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 /// The amorphous constant-path radius of `m`, m.
@@ -315,11 +316,7 @@ fn run_tally<T: BcaTally>(
     let go = || bca.run(&new_tally).unwrap();
     match threads {
         None => go(),
-        Some(n) => rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(go),
+        Some(n) => with_threads(n, go),
     }
 }
 

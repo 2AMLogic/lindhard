@@ -2,6 +2,9 @@
 
 use lindhard::rng::{run_particles, uniform};
 
+mod common;
+use common::with_threads;
+
 #[derive(Default, PartialEq, Debug)]
 struct Tally {
     sum: f64,
@@ -10,11 +13,7 @@ struct Tally {
 }
 
 fn run(threads: usize) -> Tally {
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    pool.install(|| {
+    with_threads(threads, || {
         run_particles(
             0xC0FFEE,
             10_000,

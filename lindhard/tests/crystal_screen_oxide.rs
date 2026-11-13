@@ -48,6 +48,7 @@ const TEMPERATURE_K: f64 = 300.0;
 mod common;
 use common::si;
 use common::sio2;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn crystal_si(tilt_deg: f64, twist_deg: f64) -> CrystalTarget {
@@ -422,11 +423,7 @@ fn run(r: &Run, tail_m: &[f64], threads: Option<usize>) -> (OxideTally, serde_js
     };
     let tally = match threads {
         None => go(),
-        Some(n) => rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(go),
+        Some(n) => with_threads(n, go),
     };
     (tally, meta)
 }

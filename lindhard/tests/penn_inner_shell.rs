@@ -24,6 +24,7 @@ use rayon::prelude::*;
 
 mod common;
 use common::rel;
+use common::with_threads;
 
 const SYNTHETIC: &str = "synthetic test fixture, not physical data";
 
@@ -414,11 +415,7 @@ fn results_are_bit_identical_across_thread_counts() {
         .map(|&e| c.inverse_imfps(e).unwrap())
         .collect();
     for threads in [1usize, 2] {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        let par: Vec<_> = pool.install(|| {
+        let par: Vec<_> = with_threads(threads, || {
             energies
                 .par_iter()
                 .map(|&e| c.inverse_imfps(e).unwrap())
@@ -551,15 +548,10 @@ fn shell_channel_tables_match_the_channel_rates_and_loss_moments() {
 fn shell_channel_tables_are_deterministic_and_refuse_exchange() {
     let options = InelasticTableOptions::new(vec![150.0, 400.0, 2500.0]);
     let build = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| {
-                let c = channels(SinglePolePenn::new(fixture_elf()));
-                build_shell_channel_tables(&c, &silicon_label(), &options, BINDING_PROVENANCE)
-                    .unwrap()
-            })
+        with_threads(threads, || {
+            let c = channels(SinglePolePenn::new(fixture_elf()));
+            build_shell_channel_tables(&c, &silicon_label(), &options, BINDING_PROVENANCE).unwrap()
+        })
     };
     let one = build(1);
     assert_eq!(one, build(3));
