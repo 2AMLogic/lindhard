@@ -4,6 +4,14 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-13
 
+- **PR #738**: refactor(geometry): share the ownership walk between mesh and CSG
+- **Issue #735** (closed): Share the ownership walk between MeshGeometry and CsgGeometry (about 110 duplicated lines)
+- **PR #737**: refactor(serde): share one beam_serde_module macro between the two exposure beams
+- **Issue #733** (closed): Deduplicate the two exposure beam serde modules (beam_serde / exposure_beam)
+- **PR #736**: test: require the four elastic reference fields and drop empty-fixture paths
+- **Issue #734** (closed): Remove placeholder-fixture scaffolding and stale #93 markers from the elastic reference test
+- **PR #731**: refactor(tests): call common::with_threads for the hand-built rayon pools
+- **Issue #730** (closed): Use common::with_threads for the 48 hand-built rayon pools in lindhard/tests
 - **Issue #33** (closed): Epic: Permissive stopping-power data library
 
 ### 2026-11-12
