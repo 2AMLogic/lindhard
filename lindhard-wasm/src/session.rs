@@ -3,10 +3,13 @@
 //!
 //! [`Simulation`] is plain Rust, so the native tests exercise the code the
 //! browser runs; the `#[wasm_bindgen]` wrapper in `lib.rs` only marshals
-//! arguments. A session resolves one TOML run description (`docs/cli.md`),
-//! then [`Simulation::step`] runs the next histories with
-//! [`Bca::run_range`] and merges them into the accumulated tally, so the
-//! result does not depend on how the run was cut into steps.
+//! arguments. A session resolves one TOML run description (`docs/cli.md`) and
+//! builds the engine with [`Resolved::bca`], so every engine option the input
+//! configures (the beam divergence, the primary-energy spectrum) is applied
+//! exactly as the CLI's driver applies it; then [`Simulation::step`] runs the
+//! next histories with [`Bca::run_range`](lindhard::ion::bca::Bca::run_range)
+//! and merges them into the accumulated tally, so the result does not depend
+//! on how the run was cut into steps.
 //!
 //! # Chunk invariance
 //!
@@ -28,13 +31,11 @@
 //! target.
 
 use lindhard::input::{Input, Resolved};
-use lindhard::ion::bca::{Bca, BcaTally};
-use lindhard::ion::potential::Potential;
+use lindhard::ion::bca::BcaTally;
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::ion::stopping::ElectronicStopping;
 use lindhard::tally::{
-    Binning, History, IonTally, IonTallyConfig, Recorded, TrackEnd, TrajectoryConfig,
-    TrajectoryRecorder,
+    History, IonTally, Recorded, TrackEnd, TrajectoryConfig, TrajectoryRecorder,
 };
 use serde_json::{json, Value};
 
@@ -66,23 +67,6 @@ impl std::fmt::Debug for Simulation {
     }
 }
 
-/// The tally geometry for a resolved input (the same binning as the CLI).
-fn tally_config(r: &Resolved) -> Result<IonTallyConfig, String> {
-    let t = &r.input.tally;
-    let nm = 1e-9;
-    let depth_w = t.depth_bin_nm * nm;
-    let lat_half = t.lateral_bins as f64 * t.lateral_bin_nm * nm;
-    let e_max = t.escape_energy_max_ev.unwrap_or(r.beam.energy_ev);
-    let b = |lo: f64, hi: f64, n: usize| Binning::new(lo, hi, n).map_err(|e| e.to_string());
-    Ok(IonTallyConfig {
-        depth: b(0.0, depth_w * t.depth_bins as f64, t.depth_bins)?,
-        lateral: b(-lat_half, lat_half, 2 * t.lateral_bins)?,
-        radial: b(0.0, lat_half, t.lateral_bins)?,
-        escape_energy: b(0.0, e_max, t.escape_energy_bins)?,
-        escape_polar: b(0.0, std::f64::consts::FRAC_PI_2, t.escape_polar_bins)?,
-    })
-}
-
 impl Simulation {
     /// Resolve `input_toml` and prepare a run.
     ///
@@ -104,23 +88,23 @@ impl Simulation {
             return Err(format!("run.ions must be between 1 and {MAX_IONS}"));
         }
 
-        // The angle table depends on the screening function and length only,
-        // so the Z pair is immaterial.
-        let z2 = resolved.layers[0].material.components()[0].z();
-        let pot = Potential::new(
-            resolved.screening,
-            f64::from(resolved.beam.ion.z()),
-            f64::from(z2),
-        )
-        .with_length(resolved.screening_length);
-        let table = ScatteringTable::build(&pot, &resolved.table_spec);
+        let table = resolved.scattering_table();
         let stopping = resolved.stopping_model();
 
-        // A trial engine validates the beam, the configuration and the
-        // materials now, so `step` cannot fail on the input.
-        let bca = Self::engine(&resolved, &*stopping, &table)?;
-        let proto = IonTally::new(&resolved.stack, &bca.species_z(), tally_config(&resolved)?)
+        // A trial engine validates the beam, the configuration, the
+        // materials and every engine option of the input now, so `step`
+        // cannot fail on the input. `Bca` borrows the target, the stopping
+        // model and the table, so each step rebuilds it with the same call
+        // rather than storing it next to the data it borrows.
+        let bca = resolved
+            .bca(&*stopping, &table)
             .map_err(|e| e.to_string())?;
+        let proto = IonTally::new(
+            &resolved.stack,
+            &bca.species_z(),
+            resolved.ion_tally_config().map_err(|e| e.to_string())?,
+        )
+        .map_err(|e| e.to_string())?;
         let acc = Recorded {
             inner: proto,
             recorder: TrajectoryRecorder::new(TrajectoryConfig {
@@ -139,19 +123,6 @@ impl Simulation {
         })
     }
 
-    /// The engine for `r`. `Bca` borrows the target, the stopping model and
-    /// the table, so it is rebuilt for each step instead of being stored next
-    /// to the data it borrows; building it is cheap next to the transport.
-    fn engine<'a>(
-        r: &'a Resolved,
-        stopping: &'a (dyn ElectronicStopping + Send + Sync),
-        table: &'a ScatteringTable,
-    ) -> Result<Bca<'a>, String> {
-        Bca::new(r.beam, &r.stack, r.config, stopping, table)
-            .and_then(|b| b.with_divergence(r.divergence))
-            .map_err(|e| e.to_string())
-    }
-
     /// Run at least the next `count` histories, rounded up to a whole
     /// engine chunk (or to the end of the run), and return the histories done
     /// so far. `count = 0` runs nothing. A transport failure is returned as
@@ -163,7 +134,10 @@ impl Simulation {
         let chunk = self.resolved.config.chunk_size.max(1);
         let want = self.done + u64::from(count);
         let end = want.div_ceil(chunk).saturating_mul(chunk).min(self.total);
-        let bca = Self::engine(&self.resolved, &*self.stopping, &self.table)?;
+        let bca = self
+            .resolved
+            .bca(&*self.stopping, &self.table)
+            .map_err(|e| e.to_string())?;
         // One engine chunk per call, merged in index order. All chunks are
         // run before any is merged, so a failure changes nothing.
         let mut parts = Vec::new();

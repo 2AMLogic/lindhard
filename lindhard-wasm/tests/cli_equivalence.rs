@@ -35,3 +35,36 @@ fn page_generated_input_gives_the_cli_report() {
     // The cascade is followed, so the damage counts are populated.
     assert!(report["damage"].is_object());
 }
+
+/// `page_generated.toml` with the single `[beam] energy_ev` replaced by a
+/// two-line primary-energy spectrum spanning more than a decade, so a run that
+/// ignores the spectrum (transporting every primary at the largest line, which
+/// is what the resolver puts in `Beam::energy_ev`) cannot match a run that
+/// applies it.
+fn spectrum_toml() -> String {
+    let t = PAGE_TOML.replace(
+        "energy_ev = 50000.0",
+        "spectrum = [{ energy_ev = 2000.0, weight = 1.0 }, \
+         { energy_ev = 50000.0, weight = 1.0 }]",
+    );
+    assert!(t.contains("spectrum = ["), "the page input changed");
+    t
+}
+
+#[test]
+fn spectrum_input_gives_the_cli_report() {
+    let toml = spectrum_toml();
+    // The spectrum is what makes this input different: dropping it (every
+    // primary at the largest line) gives a different report, so this test
+    // cannot pass on a front end that never reads `Resolved::spectrum`.
+    let flat = toml.replace(
+        "spectrum = [{ energy_ev = 2000.0, weight = 1.0 }, \
+         { energy_ev = 50000.0, weight = 1.0 }]",
+        "energy_ev = 50000.0",
+    );
+    let want = cli_report(&toml, 1);
+    assert_ne!(want, cli_report(&flat, 1), "the spectrum changes nothing");
+    // The session applies it too, whatever the step size.
+    assert_eq!(session_report(&toml, 1000), want);
+    assert_eq!(session_report(&toml, 7), want);
+}

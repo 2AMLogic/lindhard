@@ -15,7 +15,7 @@ use lindhard::ion::scattering::ScatteringTable;
 use lindhard::tally::IonTally;
 use lindhard_cli::output::{self, RunInfo};
 use lindhard_cli::sim::{simulate, Simulation};
-use lindhard_cli::tally::{ion_tally_config, CliTally};
+use lindhard_cli::tally::CliTally;
 use serde_json::Value;
 
 const AMORPHOUS: &str = r#"
@@ -92,7 +92,7 @@ fn direct(r: &lindhard::input::Resolved, threads: usize) -> Simulation {
         .with_crystal(target, &[0])
         .unwrap();
     let crystals = bca.crystal_metadata();
-    let proto = IonTally::new(&r.stack, &bca.species_z(), ion_tally_config(r).unwrap()).unwrap();
+    let proto = IonTally::new(&r.stack, &bca.species_z(), r.ion_tally_config().unwrap()).unwrap();
     let t = &r.input.tally;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
@@ -184,7 +184,7 @@ fn crystal_changes_the_physics_but_amorphous_input_does_not_gain_the_field() {
     let table = ScatteringTable::build(&pot, &ra.table_spec);
     let stopping = ra.stopping_model();
     let bca = Bca::new(ra.beam, &ra.stack, ra.config, &*stopping, &table).unwrap();
-    let proto = IonTally::new(&ra.stack, &bca.species_z(), ion_tally_config(&ra).unwrap()).unwrap();
+    let proto = IonTally::new(&ra.stack, &bca.species_z(), ra.ion_tally_config().unwrap()).unwrap();
     let t = &ra.input.tally;
     let tally = bca
         .run(|| {
