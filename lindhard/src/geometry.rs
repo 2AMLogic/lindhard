@@ -77,6 +77,7 @@
 mod bvh;
 pub mod csg;
 pub mod mesh;
+mod ownership;
 mod stack;
 #[cfg(test)]
 mod test_util;
