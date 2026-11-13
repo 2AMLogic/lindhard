@@ -175,13 +175,13 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-- **#730**: Use common::with_threads for the 48 hand-built rayon pools in lindhard/tests
+_None._
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#731**: refactor(tests): call common::with_threads for the hand-built rayon pools
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -240,8 +240,8 @@ _None._
 | Very important | 0 |
 | Important | 3 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 1 |
-| PRs awaiting review | 1 |
+| In Progress (`loom:building`) | 0 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 25 |
 | Architect / Hermit proposals | 0 |
