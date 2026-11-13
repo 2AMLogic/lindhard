@@ -175,13 +175,17 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#740**: Share the write-or-check driver between the two lindhard-plots binaries
+- **#741**: Share the duplicated synthetic scattering and band-structure helpers across the electron integration tests
+- **#742**: Share the dataset loader and common provenance checks across the level-3 experiment scripts
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#743**: refactor(validation): share the level-3 dataset loader and provenance rules
+- **#744**: refactor(plots): share one write-or-check driver between the two generator binaries
+- **#746**: test: move the shared electron fixture helpers into tests/common
 
 ## Approved (Awaiting Merge)
 
@@ -221,7 +225,8 @@ Issues carrying `loom:curated`.
 
 ## Proposed (Architect / Hermit)
 
-_None._
+- **#745**: Share the duplicated energy, Fermi-energy and tolerance checks across the three inelastic models *(hermit)*
+- **#747**: Move the scattering-table and tally-binning assembly onto Resolved so the CLI and WASM front ends share it *(hermit)*
 
 ## Epics
 
@@ -240,11 +245,11 @@ _None._
 | Very important | 0 |
 | Important | 3 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 0 |
-| PRs awaiting review | 0 |
+| In Progress (`loom:building`) | 3 |
+| PRs awaiting review | 3 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 25 |
-| Architect / Hermit proposals | 0 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
 
