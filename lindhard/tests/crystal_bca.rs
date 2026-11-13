@@ -22,6 +22,7 @@ const NM: f64 = 1e-9;
 mod common;
 use common::si;
 use common::sio2;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 /// Beam of `z` at `e` eV with polar angle `tilt_deg` and azimuth `twist_deg`.
@@ -70,11 +71,7 @@ fn run_summary(
     let go = || bca.run(|| SummaryTally::new(0.5 * NM, 2000)).unwrap();
     match threads {
         None => go(),
-        Some(n) => rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(go),
+        Some(n) => with_threads(n, go),
     }
 }
 

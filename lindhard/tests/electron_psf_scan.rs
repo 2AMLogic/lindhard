@@ -12,6 +12,7 @@ use lindhard::tally::{scan_landing_points, PsfScanConfig, PsfScanReport};
 
 mod common;
 use common::synthetic_table;
+use common::with_threads;
 
 const NM: f64 = 1e-9;
 const E0: f64 = 500.0;
@@ -100,14 +101,6 @@ fn run(t: &Transport<VoxelGrid>, ys_nm: &[f64], n: u64) -> PsfScanReport {
     .unwrap()
 }
 
-fn in_pool<R: Send>(threads: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(f)
-}
-
 #[test]
 fn uniform_target_gives_position_independent_slab_energy() {
     let t = transport(grid(|_| false, Boundary::Periodic));
@@ -171,8 +164,8 @@ fn buried_heavy_edge_shows_a_monotone_step_of_the_expected_sign() {
 fn report_is_bit_identical_across_thread_counts_and_point_order_seeds() {
     let t = transport(grid(|j| j < 20, Boundary::Vacuum));
     let ys = [150.0, 200.0, 250.0];
-    let a = in_pool(1, || run(&t, &ys, 1_500));
-    let b = in_pool(2, || run(&t, &ys, 1_500));
+    let a = with_threads(1, || run(&t, &ys, 1_500));
+    let b = with_threads(2, || run(&t, &ys, 1_500));
     assert_eq!(a, b);
     assert_eq!(a.to_csv(), b.to_csv());
     // A point's result does not depend on the other points when its index

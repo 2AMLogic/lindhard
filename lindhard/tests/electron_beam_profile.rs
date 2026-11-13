@@ -13,6 +13,9 @@ use lindhard::geometry::Stack;
 use lindhard::ion::crystal::Divergence;
 use lindhard::material::Material;
 
+mod common;
+use common::with_threads;
+
 const NM: f64 = 1e-9;
 const GRID: [f64; 3] = [1.0, 100.0, 10_000.0];
 
@@ -217,13 +220,7 @@ fn starts_are_identical_at_any_thread_count() {
         divergence: Divergence::Gaussian { sigma_rad: 0.02 },
     };
     let p = Primary::normal(1_000.0);
-    let on = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| starts(&p, &b, 1_000, 21))
-    };
+    let on = |threads: usize| with_threads(threads, || starts(&p, &b, 1_000, 21));
     assert_eq!(on(1), on(2));
 }
 

@@ -17,7 +17,7 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, close, synthetic_table};
+use common::{bare_si, close, synthetic_table, with_threads};
 
 const NM: f64 = 1e-9;
 
@@ -280,11 +280,7 @@ fn threaded(threads: usize) -> ElectronReport {
         TransportConfig::new(5.0),
     )
     .unwrap();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| run(&t, 3_000, 2_000.0, 0xE1EC))
+    with_threads(threads, || run(&t, 3_000, 2_000.0, 0xE1EC))
 }
 
 #[test]

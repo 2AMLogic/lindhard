@@ -23,6 +23,7 @@ const NM: f64 = 1e-9;
 
 mod common;
 use common::si_surface_binding_if_unset as si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn beam(z: u8, e: f64, tilt_deg: f64, twist_deg: f64, count: u64) -> Beam {
@@ -78,11 +79,7 @@ fn run_summary(
     let go = || bca.run(|| SummaryTally::new(0.5 * NM, 2000)).unwrap();
     match threads {
         None => go(),
-        Some(n) => rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(go),
+        Some(n) => with_threads(n, go),
     }
 }
 
@@ -107,14 +104,10 @@ fn report_json(
         escape_energy: Binning::new(0.0, 5.0e4, 50).unwrap(),
         escape_polar: Binning::new(0.0, std::f64::consts::FRAC_PI_2, 18).unwrap(),
     };
-    let tally = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| {
-            bca.run(|| IonTally::new(st, &species, tc).unwrap())
-                .unwrap()
-        });
+    let tally = with_threads(threads, || {
+        bca.run(|| IonTally::new(st, &species, tc).unwrap())
+            .unwrap()
+    });
     serde_json::to_string(&tally.report(false)).unwrap()
 }
 

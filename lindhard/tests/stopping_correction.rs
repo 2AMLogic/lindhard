@@ -16,6 +16,9 @@ use lindhard::rng::{stream, uniform};
 use rand_core::Rng;
 use std::path::PathBuf;
 
+mod common;
+use common::with_threads;
+
 const COLUMNS: &str =
     "ion_z,ion_mass_amu,target,energy_ev,s_e_ev_1e15_cm2,sigma_ev_1e15_cm2,method,citation\n";
 const CITATION: &str = "\"Lindhard-Scharff model of this repository times a made-up factor, with made-up noise (synthetic, test)\"";
@@ -161,13 +164,7 @@ fn a_correction_that_does_not_help_is_reported_as_such() {
 #[test]
 fn same_seed_is_bit_identical_whatever_the_thread_count() {
     let ds = synthetic();
-    let on = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| fit(&ds, SETTINGS))
-    };
+    let on = |threads: usize| with_threads(threads, || fit(&ds, SETTINGS));
     let (a, b, c) = (on(1), on(2), fit(&ds, SETTINGS));
     assert_eq!(a, b);
     assert_eq!(a, c);

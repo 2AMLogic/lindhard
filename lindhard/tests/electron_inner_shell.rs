@@ -21,6 +21,7 @@ use lindhard::tally::{Binning, ElectronTallyConfig, FullElectronTally};
 
 mod common;
 use common::bare_si;
+use common::with_threads;
 
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
@@ -564,15 +565,11 @@ fn runs_with_shells_close_the_energy_balance_with_and_without_secondaries() {
 fn shell_runs_are_bit_identical_across_thread_counts() {
     let t = with_shells(metal_on_insulator());
     let run = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| {
-                t.run(9, 120, 8, &Primary::normal(1_200.0), SummaryTally::default)
-                    .unwrap()
-                    .tally
-            })
+        with_threads(threads, || {
+            t.run(9, 120, 8, &Primary::normal(1_200.0), SummaryTally::default)
+                .unwrap()
+                .tally
+        })
     };
     let one = run(1);
     assert!(one.inner_shell_events > 0);

@@ -16,6 +16,7 @@ const NM: f64 = 1e-9;
 mod common;
 use common::si_surface_binding_if_unset as si;
 use common::sio2;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn beam(count: u64) -> Beam {
@@ -350,13 +351,7 @@ fn voxel_runs_are_bit_identical_across_thread_counts() {
     let mut b = beam(300);
     b.ion = Ion::new(18).unwrap();
     let bca = Bca::new(b, &grid, cfg, &ls, table()).unwrap();
-    let run = |n: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(|| summary(&bca, 12))
-    };
+    let run = |n: usize| with_threads(n, || summary(&bca, 12));
     let r1 = run(1);
     assert!(r1.recoils > 0 && r1.lateral + r1.recoils_lateral > 0);
     for n in [2, 8] {

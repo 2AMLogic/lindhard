@@ -18,7 +18,7 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, synthetic_table};
+use common::{bare_si, synthetic_table, with_threads};
 
 const NM: f64 = 1e-9;
 const PROVENANCE: &str = "synthetic, tests/electron_charge.rs";
@@ -269,13 +269,7 @@ fn closes_at_every_cutoff() {
 #[test]
 fn report_is_bit_identical_on_1_2_and_4_threads_with_secondaries() {
     let t = with_secondaries(0.5, 100_000);
-    let go = |n: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(|| run(&t, 300, 200.0, 0xC4A9))
-    };
+    let go = |n: usize| with_threads(n, || run(&t, 300, 200.0, 0xC4A9));
     let one = go(1);
     check(&one);
     for n in [2, 4] {

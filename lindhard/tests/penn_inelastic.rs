@@ -17,7 +17,7 @@ use lindhard::electron::inelastic::{
 use rayon::prelude::*;
 
 mod common;
-use common::{rel, simpson_log};
+use common::{rel, simpson_log, with_threads};
 
 /// Plasmon energy and width of the main fixture, eV (synthetic values).
 const PLASMON_EV: f64 = 20.0;
@@ -343,11 +343,7 @@ fn tables_are_bit_identical_across_thread_counts() {
     let grid = log_grid(10.0, 5e4, 40);
     let serial = penn.tabulate(&grid).unwrap();
     for threads in [1, 2, 8] {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        let parallel: Vec<_> = pool.install(|| {
+        let parallel: Vec<_> = with_threads(threads, || {
             grid.par_iter()
                 .map(|&e| penn.imfp_and_stopping(e).unwrap())
                 .collect()

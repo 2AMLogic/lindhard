@@ -18,6 +18,9 @@ use lindhard::electron::elastic::table::{
 use lindhard::electron::elastic::{ElasticError, ScreenedPotential, SolverOptions};
 use lindhard::material::Material;
 
+mod common;
+use common::with_threads;
+
 fn test_grid() -> Vec<f64> {
     log_energy_grid(10.0, 5.0e4, 3.0).unwrap()
 }
@@ -333,11 +336,9 @@ fn table_is_bit_identical_on_one_and_two_threads() {
         ..ElasticTableOptions::default()
     };
     let run = |n: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(|| build_elastic_table(&mix, &ThomasFermiYukawa, &opts).unwrap())
+        with_threads(n, || {
+            build_elastic_table(&mix, &ThomasFermiYukawa, &opts).unwrap()
+        })
     };
     let (a, b) = (run(1), run(2));
     assert_eq!(a, b);

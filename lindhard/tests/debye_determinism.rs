@@ -3,6 +3,9 @@
 use lindhard::ion::crystal::debye::{ThermalVibration, THETA_D_GE};
 use lindhard::rng::run_particles;
 
+mod common;
+use common::with_threads;
+
 #[derive(Default, PartialEq, Debug)]
 struct Tally {
     sum: [f64; 3],
@@ -12,11 +15,7 @@ struct Tally {
 
 fn run(threads: usize) -> Tally {
     let v = ThermalVibration::new(THETA_D_GE, 72.63, 300.0).unwrap();
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    pool.install(|| {
+    with_threads(threads, || {
         run_particles(
             0xD3B7E,
             20_000,

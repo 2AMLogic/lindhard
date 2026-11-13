@@ -18,6 +18,7 @@ use lindhard::material::Material;
 use lindhard::rng::{stream, uniform};
 
 mod common;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -70,11 +71,9 @@ fn run(spectrum: Option<&[(f64, f64)]>, threads: usize, n: u64) -> Vec<Record> {
     if let Some(s) = spectrum {
         bca = bca.with_spectrum(EnergySpectrum::new(s).unwrap());
     }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    let mut recs = pool.install(|| bca.run(Recorder::default)).unwrap().0;
+    let mut recs = with_threads(threads, || bca.run(Recorder::default))
+        .unwrap()
+        .0;
     recs.sort_by_key(|r| r.index);
     recs
 }
