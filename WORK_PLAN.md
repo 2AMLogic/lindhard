@@ -175,13 +175,13 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#730**: Use common::with_threads for the 48 hand-built rayon pools in lindhard/tests
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#731**: refactor(tests): call common::with_threads for the hand-built rayon pools
 
 ## Approved (Awaiting Merge)
 
@@ -195,7 +195,6 @@ Issues carrying `loom:curated`.
 
 - **#15**: [Epic #10] Verify element and constant data against primary sources *(curated)*
 - **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
-- **#65**: Champion: Merge-Risk Hold Digest *(curated)*
 - **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
 - **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
@@ -241,10 +240,10 @@ _None._
 | Very important | 0 |
 | Important | 3 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 0 |
-| PRs awaiting review | 0 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 26 |
+| Curated | 25 |
 | Architect / Hermit proposals | 0 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
