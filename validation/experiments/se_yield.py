@@ -54,13 +54,14 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
+import dataset_checks  # noqa: E402
 import lindhard_cli  # noqa: E402
 
 REPO = lindhard_cli.REPO
 DATA = HERE.parent / "data" / "se_yield"
 OPTICAL = HERE.parent / "data" / "optical"
 RESULTS = HERE / "se_yield_results.json"
-PROVENANCE = REPO / "docs" / "data-provenance.md"
+PROVENANCE = dataset_checks.PROVENANCE
 
 MATERIALS = ["Al", "Cu", "Si", "Au"]
 # Materials that can be run: an optical ELF with provenance is committed. The Si ELF (Yang et al. 2019, #125)
@@ -184,8 +185,7 @@ BAND_BOTTOM_CUTOFF_EV = {"Al": 12.66, "Cu": 8.05, "Si": 13.91, "Au": 6.53}
 
 # --- reference data -----------------------------------------------------------------------------
 
-def _num(x) -> bool:
-    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+_num = dataset_checks.is_number  # a finite number, and not a bool
 
 
 REQUIRED_TEXT = ["id", "target", "target_state", "original_reference", "compilation", "compilation_location",
@@ -193,14 +193,9 @@ REQUIRED_TEXT = ["id", "target", "target_state", "original_reference", "compilat
 
 
 def check_dataset(path: Path, d: dict, provenance: str) -> list[str]:
-    errs = []
-    for k in REQUIRED_TEXT:
-        if not isinstance(d.get(k), str) or not d[k].strip():
-            errs.append(f"`{k}` missing or empty")
+    errs = dataset_checks.check_common(path, d, REQUIRED_TEXT, provenance)
     if d.get("kind") != "se_yield":
         errs.append("`kind` must be 'se_yield'")
-    if d.get("id") != path.stem:
-        errs.append(f"`id` {d.get('id')!r} differs from the file name {path.stem!r}")
     if d.get("target") not in MATERIALS:
         errs.append(f"`target` {d.get('target')!r} is not one of {MATERIALS}")
     if "incidence_deg" not in d:
@@ -219,31 +214,13 @@ def check_dataset(path: Path, d: dict, provenance: str) -> list[str]:
             for k in ("energy_ev", "yield"):
                 if not (_num(p.get(k)) and p[k] > 0):
                     errs.append(f"`points[{i}].{k}` must be a positive number")
-    if isinstance(d.get("id"), str) and d["id"] not in provenance:
-        errs.append(f"no row in docs/data-provenance.md names `{d['id']}`")
     return errs
 
 
 def load_datasets() -> list[dict]:
-    provenance = PROVENANCE.read_text()
-    out, failed = [], False
-    for f in sorted(DATA.glob("*.json")) if DATA.is_dir() else []:
-        rel = f.relative_to(REPO)
-        try:
-            d = json.loads(f.read_text())
-        except json.JSONDecodeError as e:
-            print(f"error: {rel}: not valid JSON: {e}", file=sys.stderr)
-            failed = True
-            continue
-        errs = check_dataset(f, d, provenance)
-        for e in errs:
-            print(f"error: {rel}: {e}", file=sys.stderr)
-        failed |= bool(errs)
-        out.append(d)
-    if failed:
-        print("error: SE-yield dataset check failed (rules: validation/data/README.md)", file=sys.stderr)
-        sys.exit(2)
-    return out
+    """All SE-yield datasets, checked. Exits 2 on any failure."""
+    files = sorted(DATA.glob("*.json")) if DATA.is_dir() else []
+    return [d for _, d in dataset_checks.load_checked(files, check_dataset, "SE-yield dataset")]
 
 
 def dataset_peak(d: dict):
