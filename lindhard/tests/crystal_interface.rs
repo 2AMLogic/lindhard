@@ -10,7 +10,7 @@ use lindhard::ion::bca::{
     LatticeDeposit, Particle, Thermal,
 };
 use lindhard::ion::crystal::debye::THETA_D_SI;
-use lindhard::ion::crystal::{Lattice, Orientation};
+use lindhard::ion::crystal::Lattice;
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
@@ -36,10 +36,9 @@ fn transparent() -> Material {
     m
 }
 
+/// [`common::crystal_si`] at zero twist with the 300 K Debye vibration.
 fn crystal_si(tilt_deg: f64) -> CrystalTarget {
-    let lat = Lattice::silicon();
-    let o = Orientation::new(&lat, [1, 0, 0], [0, 1, 0], tilt_deg.to_radians(), 0.0, 0.0).unwrap();
-    CrystalTarget::new(lat, o).with_thermal(Thermal::new(300.0, THETA_D_SI))
+    common::crystal_si(tilt_deg, 0.0).with_thermal(Thermal::new(300.0, THETA_D_SI))
 }
 
 fn bca<'a>(

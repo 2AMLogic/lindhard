@@ -9,8 +9,13 @@ use std::sync::OnceLock;
 use lindhard::electron::boundary::{BandModel, BandStructure};
 use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
 use lindhard::electron::transport::LayerTables;
+use lindhard::geometry::Stack;
+use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, SummaryTally};
+use lindhard::ion::crystal::{Lattice, Orientation};
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{ScatteringTable, TableSpec};
+use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
+use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
 
 /// One Si-Si ZBL table shared by every test in a binary (the angle depends
@@ -242,4 +247,91 @@ pub(crate) fn simpson_log(f: &impl Fn(f64) -> f64, lo: f64, hi: f64, n: usize) -
         s += w * f(x) * x;
     }
     s * h / 3.0
+}
+
+// The crystal helpers below are shared by the `crystal_*` integration tests
+// (issue #751). `crystal_si` builds only the plain static lattice: a test that
+// needs thermal vibration or an explicit search radius chains onto the result
+// rather than growing an option parameter here.
+
+/// Nanometre, m.
+const NM: f64 = 1e-9;
+
+/// Beam of `z` at `e` eV with polar angle `tilt_deg` and azimuth
+/// `twist_deg`, both in degrees.
+pub(crate) fn beam(z: u8, e: f64, tilt_deg: f64, twist_deg: f64, count: u64) -> Beam {
+    Beam {
+        ion: Ion::new(z).unwrap(),
+        energy_ev: e,
+        polar_rad: tilt_deg.to_radians(),
+        azimuth_rad: twist_deg.to_radians(),
+        count,
+    }
+}
+
+/// A silicon crystal cut on (100), with the in-plane reference direction
+/// [010], matching [`beam`]`(.., tilt_deg, twist_deg, ..)`. The static
+/// lattice only; chain `.with_thermal(..)` or set `p_max_m` on the result for
+/// the variants the individual tests need.
+pub(crate) fn crystal_si(tilt_deg: f64, twist_deg: f64) -> CrystalTarget {
+    let lat = Lattice::silicon();
+    let o = Orientation::new(
+        &lat,
+        [1, 0, 0],
+        [0, 1, 0],
+        tilt_deg.to_radians(),
+        twist_deg.to_radians(),
+        0.0,
+    )
+    .unwrap();
+    CrystalTarget::new(lat, o)
+}
+
+/// A [`SummaryTally`] run of beam `b` into `st` at `seed`, with `crystal`
+/// attached to its regions if given, `tweak` applied to the config and the
+/// run pinned to `threads` rayon threads if given.
+pub(crate) fn run_summary(
+    st: &Stack,
+    b: Beam,
+    seed: u64,
+    crystal: Option<(CrystalTarget, Vec<usize>)>,
+    tweak: impl Fn(&mut BcaConfig),
+    threads: Option<usize>,
+) -> SummaryTally {
+    let ls = LindhardScharff::new();
+    let mut cfg = BcaConfig::new(5.0, 2.0);
+    cfg.seed = seed;
+    tweak(&mut cfg);
+    let mut bca = Bca::new(b, st, cfg, &ls, zbl_si_table()).unwrap();
+    if let Some((c, regions)) = crystal {
+        bca = bca.with_crystal(c, &regions).unwrap();
+    }
+    let go = || bca.run(|| SummaryTally::new(0.5 * NM, 2000)).unwrap();
+    match threads {
+        None => go(),
+        Some(n) => with_threads(n, go),
+    }
+}
+
+/// Depth below which a fraction `q` of the stopped primaries lie, nm.
+pub(crate) fn percentile_nm(t: &SummaryTally, q: f64) -> f64 {
+    let tot: u64 = t.depth_hist.iter().sum();
+    let mut acc = 0u64;
+    for (i, &h) in t.depth_hist.iter().enumerate() {
+        acc += h;
+        if acc as f64 >= q * tot as f64 {
+            return (i as f64 + 0.5) * t.bin_width_m / NM;
+        }
+    }
+    f64::NAN
+}
+
+/// Fraction of stopped primaries deeper than `depth_m`.
+pub(crate) fn fraction_deeper(t: &SummaryTally, depth_m: f64) -> f64 {
+    let tot: u64 = t.depth_hist.iter().sum();
+    let first = (depth_m / t.bin_width_m).ceil() as usize;
+    t.depth_hist[first.min(t.depth_hist.len())..]
+        .iter()
+        .sum::<u64>() as f64
+        / tot as f64
 }

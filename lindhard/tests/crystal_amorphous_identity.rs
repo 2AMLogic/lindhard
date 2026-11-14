@@ -30,14 +30,16 @@
 //! collisions in the digest case, a layered target with an interface).
 
 use lindhard::geometry::Stack;
-use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, ElectronicLoss};
-use lindhard::ion::crystal::{Lattice, Orientation};
+use lindhard::ion::bca::{Bca, BcaConfig, Beam, ElectronicLoss};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
+/// Incident polar angle of every case here, degrees. The crystal is oriented
+/// along it, so the two must stay the same number.
+const TILT_DEG: f64 = 7.0;
 
 mod common;
 use common::zbl_si_table as table;
@@ -65,13 +67,15 @@ fn report_json(
     let beam = Beam {
         ion: Ion::new(z_ion).unwrap(),
         energy_ev,
-        polar_rad: 7f64.to_radians(),
+        polar_rad: TILT_DEG.to_radians(),
         azimuth_rad: 0.0,
         count: n,
     };
     let mut bca = Bca::new(beam, stack, cfg, &ls, table()).unwrap();
     if let Some(regions) = crystal {
-        bca = bca.with_crystal(crystal_si(), regions).unwrap();
+        bca = bca
+            .with_crystal(common::crystal_si(TILT_DEG, 0.0), regions)
+            .unwrap();
     }
     let species = bca.species_z();
     let tc = IonTallyConfig {
@@ -85,13 +89,6 @@ fn report_json(
         .run(|| IonTally::new(stack, &species, tc).unwrap())
         .unwrap();
     serde_json::to_string(&tally.report(false)).unwrap()
-}
-
-/// Silicon cut on (100), oriented along the beam's 7-degree tilt.
-fn crystal_si() -> CrystalTarget {
-    let lat = Lattice::silicon();
-    let o = Orientation::new(&lat, [1, 0, 0], [0, 1, 0], 7f64.to_radians(), 0.0, 0.0).unwrap();
-    CrystalTarget::new(lat, o)
 }
 
 #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
