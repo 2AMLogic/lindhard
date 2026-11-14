@@ -18,8 +18,11 @@
 //! LO-phonon scattering, polaron trapping). The models that fill the tables
 //! from first principles are later work. [`knock_on`] is the displacement
 //! threshold test of a beam energy against each element's `E_d` (pure
-//! kinematics, no transport).
+//! kinematics, no transport). [`beam`] holds the finite beam the loop
+//! starts its primaries from (lateral profile and angular spread) and the
+//! one deserializer the two input spellings of it share.
 
+pub mod beam;
 pub mod boundary;
 pub mod data;
 pub mod elastic;

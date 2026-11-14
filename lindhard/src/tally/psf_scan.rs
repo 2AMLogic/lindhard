@@ -38,7 +38,8 @@
 use super::electron::{ElectronTallyConfig, ElectronTallyError, FullElectronTally};
 use super::hist::Binning;
 use super::psf::{LogRadialBinning, PsfConfig, PsfError};
-use crate::electron::transport::{BeamSpread, Primary, Transport, TransportError};
+use crate::electron::beam::BeamSpread;
+use crate::electron::transport::{Primary, Transport, TransportError};
 use crate::geometry::Geometry;
 use serde::{Deserialize, Serialize};
 

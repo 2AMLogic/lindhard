@@ -5,9 +5,10 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::electron::beam::beam_serde_module;
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
-use crate::electron::transport::{beam_serde_module, TransportConfig};
+use crate::electron::transport::TransportConfig;
 use crate::input::{DivergenceSpec, TargetSpec, VoxelTallySpec};
 use crate::material::MaterialSpec;
 use crate::tally::{PsfModel, PsfNormalization, SE_BSE_SPLIT_EV};

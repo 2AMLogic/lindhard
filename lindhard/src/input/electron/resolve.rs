@@ -6,6 +6,7 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
+use crate::electron::beam::{BeamProfile, BeamSpread};
 use crate::electron::boundary::{BandModel, BandStructure};
 use crate::electron::data::{OpticalElf, Subshell, SubshellBindingTable};
 use crate::electron::elastic::corrections::{CorrelationPolarization, PolarizationCutoff};
@@ -14,7 +15,7 @@ use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, 
 use crate::electron::phonon::{FrohlichPhonon, InsulatorChannels, PolaronTrapping, Sio2LoMode};
 use crate::electron::secondary::SecondaryModel;
 use crate::electron::transport::{
-    BeamProfile, BeamSpread, BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
+    BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
 };
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
@@ -39,37 +40,49 @@ fn finite_pos(v: f64) -> bool {
     v.is_finite() && v > 0.0
 }
 
+/// `spec` as a [`BeamProfile`] in metres. Each size goes through
+/// `size(field, value_nm)`, so every caller keeps its own error key and its
+/// own strength of check: `[electron.beam.profile]` demands finite and
+/// positive sizes, while `[electron.tally.exposure]` demands only finite
+/// ones and leaves positivity to `crate::tally::exposure`'s own check.
+fn beam_profile_from_spec(
+    spec: BeamProfileSpec,
+    size: impl Fn(&str, f64) -> Result<f64, InputError>,
+) -> Result<BeamProfile, InputError> {
+    Ok(match spec {
+        BeamProfileSpec::Point => BeamProfile::Point,
+        BeamProfileSpec::Gaussian { sigma_nm } => BeamProfile::Gaussian {
+            sigma_m: size("sigma_nm", sigma_nm)?,
+        },
+        BeamProfileSpec::Disc { radius_nm } => BeamProfile::Disc {
+            radius_m: size("radius_nm", radius_nm)?,
+        },
+        BeamProfileSpec::Rectangle {
+            width_y_nm,
+            width_z_nm,
+        } => BeamProfile::Rectangle {
+            width_y_m: size("width_y_nm", width_y_nm)?,
+            width_z_m: size("width_z_nm", width_z_nm)?,
+        },
+    })
+}
+
 /// Validate the landing point, profile and divergence of `[electron.beam]`.
 fn resolve_beam_spread(b: &ElectronBeamSpec) -> Result<BeamSpread, InputError> {
     if !b.landing_nm.iter().all(|v| v.is_finite()) {
         return Err(invalid("electron.beam.landing_nm", "must be finite"));
     }
-    let size = |field: &str, v: f64| {
-        if finite_pos(v) {
-            Ok(v * NM)
-        } else {
-            Err(invalid(
-                format!("electron.beam.profile.{field}"),
-                "must be finite and positive",
-            ))
-        }
-    };
-    let profile = match b.profile {
-        None | Some(BeamProfileSpec::Point) => BeamProfile::Point,
-        Some(BeamProfileSpec::Gaussian { sigma_nm }) => BeamProfile::Gaussian {
-            sigma_m: size("sigma_nm", sigma_nm)?,
-        },
-        Some(BeamProfileSpec::Disc { radius_nm }) => BeamProfile::Disc {
-            radius_m: size("radius_nm", radius_nm)?,
-        },
-        Some(BeamProfileSpec::Rectangle {
-            width_y_nm,
-            width_z_nm,
-        }) => BeamProfile::Rectangle {
-            width_y_m: size("width_y_nm", width_y_nm)?,
-            width_z_m: size("width_z_nm", width_z_nm)?,
-        },
-    };
+    let profile =
+        beam_profile_from_spec(b.profile.unwrap_or(BeamProfileSpec::Point), |field, v| {
+            if finite_pos(v) {
+                Ok(v * NM)
+            } else {
+                Err(invalid(
+                    format!("electron.beam.profile.{field}"),
+                    "must be finite and positive",
+                ))
+            }
+        })?;
     let divergence = match &b.divergence {
         None => Divergence::None,
         Some(d) => divergence_from_spec(d, "electron.beam.divergence")?,
@@ -934,22 +947,7 @@ impl ElectronInput {
                 Err(invalid(format!("{k}.{key}"), "must be finite"))
             }
         };
-        let beam = match x.beam {
-            BeamProfileSpec::Point => BeamProfile::Point,
-            BeamProfileSpec::Gaussian { sigma_nm } => BeamProfile::Gaussian {
-                sigma_m: nm("beam.sigma_nm", sigma_nm)?,
-            },
-            BeamProfileSpec::Disc { radius_nm } => BeamProfile::Disc {
-                radius_m: nm("beam.radius_nm", radius_nm)?,
-            },
-            BeamProfileSpec::Rectangle {
-                width_y_nm,
-                width_z_nm,
-            } => BeamProfile::Rectangle {
-                width_y_m: nm("beam.width_y_nm", width_y_nm)?,
-                width_z_m: nm("beam.width_z_nm", width_z_nm)?,
-            },
-        };
+        let beam = beam_profile_from_spec(x.beam, |field, v| nm(&format!("beam.{field}"), v))?;
         let mut volumes = Vec::new();
         for (i, v) in x.volumes.iter().enumerate() {
             let key = format!("volumes[{i}]");

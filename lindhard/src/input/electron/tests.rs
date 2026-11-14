@@ -576,7 +576,7 @@ fn inner_shells_parse_validate_and_resolve() {
 /// name the field.
 #[test]
 fn beam_profile_defaults_round_trip_and_errors_name_fields() {
-    use crate::electron::transport::{BeamProfile, BeamSpread};
+    use crate::electron::beam::{BeamProfile, BeamSpread};
     use crate::ion::crystal::Divergence;
     let d = dir("beam-profile");
     std::fs::write(d.join("elf.toml"), ELF).unwrap();
@@ -746,7 +746,7 @@ spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
 
 #[test]
 fn exposure_beam_reads_legacy_and_new_spellings_and_rectangle() {
-    use crate::electron::transport::BeamProfile;
+    use crate::electron::beam::BeamProfile;
     let d = dir("exposure_beam");
     std::fs::write(d.join("elf.toml"), ELF).unwrap();
     let vol = "[[electron.tally.exposure.volumes]]\nname = \"a\"\nshape = \"cylinder\"\nradius_nm = 10.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\n";
@@ -786,4 +786,14 @@ fn exposure_beam_reads_legacy_and_new_spellings_and_rectangle() {
     ] {
         assert!(beam_of(bad).is_err(), "{bad}");
     }
+    // A non-finite size is named with the exposure beam's own error key (the
+    // `[electron.beam.profile]` resolver uses its own); positivity is not
+    // checked here but by `tally::exposure`, which is why the zero and
+    // negative sizes above fail under its message instead of these keys.
+    let e = beam_of("{ model = \"gaussian\", sigma_nm = nan }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.sigma_nm"), "{e}");
+    let e = beam_of("{ model = \"rectangle\", width_y_nm = inf, width_z_nm = 6.0 }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.width_y_nm"), "{e}");
+    let e = beam_of("{ model = \"disc\", radius_nm = nan }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.radius_nm"), "{e}");
 }
