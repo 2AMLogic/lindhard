@@ -509,6 +509,105 @@ fn user_stopping_table_runs_deterministically_and_is_recorded() {
         && m["citation"].as_str().unwrap().contains("Lindhard-Scharff")));
 }
 
+// Synthetic coefficients made up for tests, not book values: enough rows for
+// a B-into-Si run with its Si-into-Si cascade (an SRIM query for a pair with
+// no row is an error, never an extrapolation).
+const SRIM_COEFFICIENTS: &str = r#"
+format = "lindhard-srim-coefficients/1"
+
+[[row]]
+ion_z = 5
+target_z = 14
+a1 = 2.0
+a2 = 3.0
+a3 = 400.0
+a4 = 5.0
+a5 = 0.01
+e_min_kev_per_u = 1.0e-6
+e_max_kev_per_u = 1.0e4
+citation = "synthetic test data, made up for integration tests"
+
+[[row]]
+ion_z = 14
+target_z = 14
+a1 = 4.0
+a2 = 5.0
+a3 = 600.0
+a4 = 6.0
+a5 = 0.02
+e_min_kev_per_u = 1.0e-6
+e_max_kev_per_u = 1.0e4
+citation = "synthetic test data, made up for integration tests"
+"#;
+
+/// `physics.stopping = "srim"` records the coefficient file the way
+/// `[stopping]` tables are recorded: path as written, resolved path, and the
+/// SHA-256 of the bytes that produced the result (issue #752).
+#[test]
+fn srim_coefficient_file_is_recorded_in_the_summary() {
+    let dir = scratch("srim-run");
+    std::fs::create_dir_all(dir.join("data")).unwrap();
+    let coeff = dir.join("data/srim.toml");
+    std::fs::write(&coeff, SRIM_COEFFICIENTS).unwrap();
+    let input = dir.join("input.toml");
+    // The path is relative: it resolves against the input file's directory.
+    std::fs::write(
+        &input,
+        format!(
+            "{}\n[stopping]\nsrim_data = \"data/srim.toml\"\n",
+            GOOD.replace("[physics]", "[physics]\nstopping = \"srim\"")
+        ),
+    )
+    .unwrap();
+    ok(&lindhard(&["check", input.to_str().unwrap()]));
+
+    let out = dir.join("out");
+    run(&input, &out, &["--ions", "50"]);
+    let s = json(&out.join("summary.json"));
+    assert_eq!(
+        s["input"]["stopping"]["srim_data"], "data/srim.toml",
+        "echoed input carries the coefficient file path"
+    );
+    let rec = &s["physics"]["srim_data"];
+    assert_eq!(rec["path"], "data/srim.toml");
+    assert!(
+        rec["resolved_path"]
+            .as_str()
+            .unwrap()
+            .ends_with("data/srim.toml"),
+        "{rec}"
+    );
+    let sha = rec["sha256"].as_str().unwrap();
+    assert_eq!(sha.len(), 64, "{rec}");
+    assert!(sha.bytes().all(|b| b.is_ascii_hexdigit()), "{rec}");
+    // Recompute independently where `shasum` is available.
+    if let Ok(o) = Command::new("shasum")
+        .args(["-a", "256", coeff.to_str().unwrap()])
+        .output()
+    {
+        if o.status.success() {
+            assert!(String::from_utf8_lossy(&o.stdout).starts_with(sha));
+        }
+    }
+    // The hash identifies the bytes: one more byte in the file changes it,
+    // although the coefficients, and so the result, are the same.
+    std::fs::write(&coeff, format!("{SRIM_COEFFICIENTS}\n# edited\n")).unwrap();
+    let out2 = dir.join("out-edited");
+    run(&input, &out2, &["--ions", "50"]);
+    let s2 = json(&out2.join("summary.json"));
+    assert_ne!(
+        s2["physics"]["srim_data"]["sha256"], *sha,
+        "an edited coefficient file gets a different hash"
+    );
+
+    // Without `stopping = "srim"` the key is absent (no `[stopping]` file).
+    let plain = dir.join("plain.toml");
+    std::fs::write(&plain, GOOD).unwrap();
+    let out3 = dir.join("out-plain");
+    run(&plain, &out3, &["--ions", "10"]);
+    assert!(json(&out3.join("summary.json"))["physics"]["srim_data"].is_null());
+}
+
 #[test]
 fn ls_equivalent_table_matches_the_builtin_model() {
     let dir = scratch("table-equiv");

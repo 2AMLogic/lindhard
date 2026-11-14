@@ -43,6 +43,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::material::MaterialSpec;
 
+mod data_file;
 pub mod electron;
 mod resolve;
 mod resolved;
@@ -50,6 +51,8 @@ mod schema;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use data_file::read_data_file;
+pub use data_file::DataFile;
 pub(crate) use resolve::divergence_from_spec;
 pub(crate) use resolved::resolve_material;
 pub use resolved::{

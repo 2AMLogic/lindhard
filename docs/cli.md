@@ -273,7 +273,11 @@ coefficients read from the `srim_data` file (format
 `lindhard-srim-coefficients/1`, one `[[row]]` per (ion, target element) pair,
 each with a non-blank `citation`). A query for a pair with no row, or outside
 the row's `e_min_kev_per_u..e_max_kev_per_u`, is an error, never an
-extrapolation. The run record's model list names the file and its citations.
+extrapolation. The run record's model list names the file and its citations,
+and `summary.json` has `physics.srim_data` with the file's `path` (as
+written), `resolved_path` (absolute where possible) and `sha256` of its bytes,
+so a result identifies the exact coefficients it was produced from. The key is
+absent without `stopping = "srim"`.
 Agreement with SRIM is consistency, not independent validation. User
 `tables` still take precedence for the pairs they declare. The full coefficient
 data is entered in issue #633; until then supply a file.
@@ -879,6 +883,7 @@ instead of the distribution.
 - **`physics.models`**: Every model in use: `role`, `name`, `citation`
 - **`physics.crystal`**: Only with `[[crystal]]`: the engine's metadata of each crystal (see `[[crystal]]`)
 - **`physics.stopping_tables`**: Only with `[stopping]`: path, SHA-256, provenance and range of each user table (see `[stopping]`)
+- **`physics.srim_data`**: Only with `physics.stopping = "srim"`: `path`, `resolved_path` and `sha256` of the coefficient file named by `stopping.srim_data` (see `[stopping]`). Its citations are in `physics.models` (`srim`)
 - **`physics.engine`**: Cutoffs, free path, weak collisions, electronic-loss mode, seed, chunk size as passed to the engine
 - **`physics.scattering_table`**: Angle-table grid and its measured interpolation error
 - **`physics.target`**: Each layer: extent (nm; `back_nm` is `null` for a substrate), atom density, and the fully resolved material (every `E_d`, `E_b`, `E_s`)
@@ -1473,8 +1478,9 @@ keys, never by changing existing ones:
   `results.escapes` were added this way, without a version bump.
 - `physics.crystal` (the `[[crystal]]` metadata) was added this way, without
   a version bump; an amorphous run does not carry it. `physics.beam_divergence`
-  (the `[beam.divergence]` metadata) and `physics.beam_spectrum` (the
-  `[beam]` `spectrum` metadata) likewise.
+  (the `[beam.divergence]` metadata), `physics.beam_spectrum` (the
+  `[beam]` `spectrum` metadata) and `physics.srim_data` (the
+  `stopping.srim_data` file record) likewise.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes
