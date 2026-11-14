@@ -24,6 +24,17 @@ advisory; the models do not refuse energies outside them (Bethe-Bloch returns
 | Per-pair correction (opt-in) | `correction` | only inside the energy span of its training points, for the one ion and target it was fitted to; the base model unchanged elsewhere | Fitted to cited measured points; the form (exponential of a Chebyshev series in `ln E`) is ours, the bootstrap is Efron, Ann. Statist. 7, 1 (1979). See "Per-pair corrections" below |
 | Bohr straggling | `straggling` | high energy, `v >> v0 Z1^(2/3)`; overestimates below about 1 MeV/u | Bohr 1948 |
 
+Bohr straggling is opt-in in ion BCA transport (`[physics] straggling =
+"bohr"` or `"bohr-relativistic"`; default `"none"` keeps the deterministic
+mean loss): each free flight's nonlocal loss is sampled about the mean from a
+Gaussian of the Bohr standard deviation for the flight's areal density, drawn
+from the history's own stream, and truncated to `[0, E]`. The truncation
+biases the mean loss upward where the per-flight standard deviation is
+comparable to the per-flight mean loss — short flights (the constant free
+path) at any energy — see the [`physics.straggling` note in the CLI
+docs](cli.md) and the `ion::stopping::straggling` module docs for the
+measured size of the effect.
+
 **The `srim` model.** The intended range is exactly each coefficient row's
 `e_min_kev_per_u..e_max_kev_per_u`; an energy out of range, or no row for the
 pair, is an error. The form is `A1 E^0.45` below 10 keV/u and

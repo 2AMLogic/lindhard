@@ -6,6 +6,7 @@ use super::*;
 use crate::elements::element_by_symbol;
 use crate::ion::bca::{ElectronicLoss, MeanFreePath};
 use crate::ion::potential::{Screening, ScreeningLength};
+use crate::ion::stopping::straggling::StragglingModel;
 
 const B_SI: &str = r#"
 [beam]
@@ -65,6 +66,66 @@ fn minimal_input_resolves_with_defaults() {
         Some(LengthChoice::Universal)
     );
     assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[test]
+fn straggling_choice_resolves_and_echoes() {
+    let text = |s: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = 5000.0
+
+[target]
+substrate = "Si"
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    // Default: the engine draws nothing for straggling.
+    let r = Input::from_toml_str(&text("")).unwrap().resolve().unwrap();
+    assert_eq!(r.config.straggling, None);
+    // The echoed input of a default run omits the key entirely, so a
+    // default run's metadata is unchanged.
+    let echoed = Input::from_toml_str(&text("")).unwrap().echo();
+    assert!(!toml::to_string(&echoed).unwrap().contains("straggling"));
+    // Both spellings resolve to their engine models.
+    let r = Input::from_toml_str(&text("straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert_eq!(r.config.straggling, Some(StragglingModel::Bohr));
+    assert_eq!(r.input.physics.straggling, StragglingChoice::Bohr,);
+    let r = Input::from_toml_str(&text("straggling = \"bohr-relativistic\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert_eq!(r.config.straggling, Some(StragglingModel::BohrRelativistic));
+    // A set choice is echoed and round-trips.
+    let echoed = Input::from_toml_str(&text("straggling = \"bohr\"\n"))
+        .unwrap()
+        .echo();
+    assert!(toml::to_string(&echoed).unwrap().contains("straggling"));
+    // An unknown value is a parse error naming the key's accepted values.
+    let e = Input::from_toml_str(&text("straggling = \"landau\"\n")).unwrap_err();
+    match e {
+        InputError::Parse(msg) => {
+            assert!(msg.contains("unknown variant"), "{msg}");
+            assert!(msg.contains("bohr-relativistic"), "{msg}");
+        }
+        e => panic!("expected a parse error, got {e}"),
+    }
 }
 
 #[test]

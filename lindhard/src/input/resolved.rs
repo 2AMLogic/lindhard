@@ -9,6 +9,7 @@ use crate::ion::stopping::bethe::BetheBloch;
 use crate::ion::stopping::lindhard_scharff::LindhardScharff;
 use crate::ion::stopping::none::NoStopping;
 use crate::ion::stopping::srim::SrimStopping;
+use crate::ion::stopping::straggling::StragglingModel;
 use crate::ion::stopping::table::TableOverride;
 use crate::ion::stopping::ElectronicStopping;
 use crate::material::{Material, MaterialSpec};
@@ -438,6 +439,21 @@ impl Resolved {
                 name: "bragg-additivity",
                 citation: Cow::Borrowed(
                     "W. H. Bragg and R. Kleeman, Phil. Mag. 10 (1905) 318; no compound correction",
+                ),
+            });
+        }
+        // Only when straggling is on: a default run's model list is unchanged.
+        if let Some(model) = self.config.straggling {
+            v.push(ModelInfo {
+                role: "energy-loss straggling",
+                name: match model {
+                    StragglingModel::Bohr => "bohr",
+                    StragglingModel::BohrRelativistic => "bohr-relativistic",
+                },
+                citation: Cow::Borrowed(
+                    "N. Bohr, Mat. Fys. Medd. Dan. Vid. Selsk. 18 (8) (1948); \
+                       relativistic factor: H. A. Bethe and M. S. Livingston, \
+                       Rev. Mod. Phys. 9, 245 (1937); U. Fano, Ann. Rev. Nucl. Sci. 13, 1 (1963)",
                 ),
             });
         }

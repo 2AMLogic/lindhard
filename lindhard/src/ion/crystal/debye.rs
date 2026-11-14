@@ -270,6 +270,18 @@ impl ThermalVibration {
     }
 }
 
+/// One Gaussian variate of standard deviation `sigma`, by Box-Muller
+/// (module docs): the cosine branch, `sigma * sqrt(-2 ln u1) cos(2 pi u2)`
+/// with `u1` in `(0, 1]` and `u2` in `[0, 1)`. Consumes exactly two `u64`
+/// words from `rng` whatever `sigma` is; `sigma = 0` gives zero (possibly
+/// `-0.0`). [`sample_gaussian_3d`] is three independent calls of this.
+pub fn sample_gaussian_1d(sigma: f64, rng: &mut ParticleRng) -> f64 {
+    // u1 in (0, 1] so that ln is finite; u2 in [0, 1).
+    let u1 = 1.0 - uniform(rng);
+    let u2 = uniform(rng);
+    sigma * (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos()
+}
+
 /// Three independent Gaussian components of standard deviation `sigma` (m),
 /// by Box-Muller (module docs). Consumes exactly six `u64` words from `rng`
 /// whatever `sigma` is; `sigma = 0` gives components equal to zero (possibly
@@ -277,10 +289,7 @@ impl ThermalVibration {
 pub fn sample_gaussian_3d(sigma: f64, rng: &mut ParticleRng) -> [f64; 3] {
     let mut out = [0.0; 3];
     for c in &mut out {
-        // u1 in (0, 1] so that ln is finite; u2 in [0, 1).
-        let u1 = 1.0 - uniform(rng);
-        let u2 = uniform(rng);
-        *c = sigma * (-2.0 * u1.ln()).sqrt() * (std::f64::consts::TAU * u2).cos();
+        *c = sample_gaussian_1d(sigma, rng);
     }
     out
 }

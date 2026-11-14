@@ -227,11 +227,14 @@ use std::f64::consts::PI;
 use rand_core::Rng;
 
 use crate::geometry::{ExitOutcome, Flight, Geometry};
+use crate::ion::crystal::debye::sample_gaussian_1d;
 use crate::ion::crystal::Divergence;
 use crate::ion::potential::{Potential, Screening};
 use crate::ion::scattering::{closest_approach, theta_quadrature, ScatteringTable};
+use crate::ion::stopping::bethe::EffectiveCharge;
 use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
 use crate::ion::stopping::mix::EquipartitionMix;
+use crate::ion::stopping::straggling::{variance_per_atom_material, StragglingModel};
 use crate::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::material::EnergyKind;
 use crate::rng::{run_particles_range, uniform, ParticleRng};
@@ -585,6 +588,13 @@ pub struct BcaConfig {
     /// Default 0 (backscattered ions are not bound). Target atoms use the
     /// `E_s` of the material at the face (see [`Bca::new`]).
     pub primary_surface_binding_ev: f64,
+    /// Electronic energy-loss straggling of the nonlocal loss: the loss of
+    /// each free flight is sampled about its mean from a Gaussian with the
+    /// Bohr standard deviation for the path length and local composition
+    /// ([`StragglingModel`], the `ion::stopping::straggling` module docs).
+    /// `None` (the default) keeps the deterministic mean loss and draws
+    /// nothing.
+    pub straggling: Option<StragglingModel>,
     /// Run seed for [`crate::rng::stream`].
     pub seed: u64,
     /// Histories per work chunk for [`crate::rng::run_particles`]; fixes the summation
@@ -604,6 +614,7 @@ impl BcaConfig {
             primary_cutoff_ev,
             recoil_cutoff_ev,
             primary_surface_binding_ev: 0.0,
+            straggling: None,
             seed: 0,
             chunk_size: 64,
         }
@@ -1470,6 +1481,7 @@ impl<'a> Bca<'a> {
         p: &mut Particle,
         from: [f64; 3],
         len: f64,
+        rng: &mut ParticleRng,
         budget: &mut EnergyBudget,
         tally: &mut T,
     ) -> Result<(), StoppingError> {
@@ -1493,6 +1505,41 @@ impl<'a> Bca<'a> {
             }
         };
         let de = (lay.n * s * len / J_PER_EV).min(p.energy_ev);
+        // Opt-in straggling (`BcaConfig::straggling`): the flight's loss is
+        // sampled about the mean from a Gaussian of standard deviation
+        // `sqrt(n Omega^2 s)` — the Bohr variance per target atom
+        // (`variance_per_atom`, Bragg-added over the local composition and
+        // scaled by the areal density `n s` of the flight) — drawn from this
+        // history's own transport stream, so the result stays keyed on
+        // `(seed, index)` at any thread count. The effective charge is the
+        // `Bare` form, in which Bohr's expression is written; the BCA's mean
+        // loss uses no charge correction either. A disabled (`None`) run
+        // makes no draw at all, so its stream, and therefore its results,
+        // are those of a build without the option.
+        let de = match self.config.straggling {
+            Some(model) if p.energy_ev > 0.0 => {
+                let material = self.geometry.material(mi);
+                let ion = &self.species[p.species].ion;
+                let omega2 = variance_per_atom_material(
+                    model,
+                    EffectiveCharge::Bare,
+                    ion,
+                    material,
+                    p.energy_ev,
+                )?;
+                let sigma = (lay.n * omega2 * len).sqrt() / J_PER_EV;
+                let sampled = de + sample_gaussian_1d(sigma, rng);
+                // The Gaussian is unbounded below, so a draw can exceed the
+                // ion's energy or come out negative (a gain). Truncate by
+                // clamping to `[0, E]` (the mean loss is clamped to the same
+                // ceiling). This biases the mean loss upward when `sigma_E`
+                // is comparable to the mean — thin layers, low energy — the
+                // regime where Bohr is already an overestimate (the
+                // `ion::stopping::straggling` module docs).
+                sampled.clamp(0.0, p.energy_ev)
+            }
+            _ => de,
+        };
         if de > 0.0 {
             p.energy_ev -= de;
             budget.electronic_nonlocal += de;
@@ -1535,6 +1582,7 @@ impl<'a> Bca<'a> {
                     ci,
                     shifts[ci],
                     &mut p,
+                    rng,
                     pending,
                     budget,
                     tally,
@@ -1566,7 +1614,7 @@ impl<'a> Bca<'a> {
                     let from = p.pos;
                     Self::advance(&mut p, s);
                     p.layer = region;
-                    self.electronic_nonlocal(&mut p, from, s, budget, tally)?;
+                    self.electronic_nonlocal(&mut p, from, s, rng, budget, tally)?;
                     if p.energy_ev >= cutoff {
                         self.collide(&mut p, rng, scratch, pending, budget, tally)?;
                         tau = self.draw_tau(rng, false);
@@ -1578,7 +1626,7 @@ impl<'a> Bca<'a> {
             let d_b = ex.distance;
             let from = p.pos;
             p.pos = ex.at;
-            self.electronic_nonlocal(&mut p, from, d_b, budget, tally)?;
+            self.electronic_nonlocal(&mut p, from, d_b, rng, budget, tally)?;
             tau = (tau - d_b / lambda).max(0.0);
             if p.energy_ev < cutoff {
                 continue;

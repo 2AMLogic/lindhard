@@ -204,6 +204,7 @@ substrate the target has a back face and particles can be transmitted.
 | `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or`, `srim`, `none` (see below) |
 | `free_path` | `"constant"` | `constant`, `energy-dependent` |
 | `min_cm_angle_deg` | none | Required with, and only with, `energy-dependent` |
+| `straggling` | `"none"` | `none`, `bohr`, `bohr-relativistic`: electronic energy-loss straggling of the free flights (see below) |
 | `weak_collisions` | 0 | `0` to `3`: weak collisions beyond `p_max` per collision step (Moller and Eckstein, IPP 9/64 (1988)); `constant` free path only. See the `ion::bca` docs, "Weak collisions" |
 | `primary_cutoff_ev` | required | The primary stops below this energy |
 | `recoil_cutoff_ev` | required | Recoils stop below this; keep it below the smallest `E_s` |
@@ -219,6 +220,27 @@ transport comparisons against codes run with their electronic stopping off
 nuclear-only studies. It has no energy range, so no validity warning is ever
 raised for it; `physics.models` lists it as `none`, with nothing for Bragg
 additivity to sum unless `[stopping]` tables are given.
+
+**`straggling` (opt-in electronic energy-loss straggling).** With the default
+`"none"` every free flight loses exactly the mean electronic loss. `"bohr"`
+(or `"bohr-relativistic"`) samples each flight's loss about that mean from a
+Gaussian with the Bohr (1948) standard deviation for the flight's path length
+and the layer's composition (Bragg-added); the effective charge is the bare
+form. The sampled loss is truncated to `[0, E]` — the Gaussian is unbounded
+below — which biases the mean loss upward wherever the per-flight standard
+deviation is comparable to the per-flight mean loss: with the constant free
+path (`lambda = N^(-1/3)`) at MeV energies it always is, and the sampled
+variance of a transmitted spectrum then falls far short of the Bohr value
+(the `ion::stopping::straggling` module docs measure the effect). The bias is
+small when flights are long, so spectra through thin foils are best taken
+with `free_path = "energy-dependent"` and a small `min_cm_angle_deg` — a
+1 MeV proton through 100 nm of carbon there reproduces the Bohr variance to
+about two percent. Draws come from each history's own stream, so results
+stay deterministic at any thread count; a default run draws nothing and is
+unchanged. Bohr is a high-energy model, `v >> v0 Z1^(2/3)`, and an
+overestimate below about 1 MeV/u
+([stopping models](stopping-models.md)); corrections beyond Bohr (Chu;
+Yang-O'Connor-Wang) are declined, and models beyond Bohr stay with #638.
 
 `[physics.energies.<symbol>]` sets `e_d_ev`, `e_b_ev` and/or `e_s_ev` for that
 element in every layer that contains it, after (so overriding) the

@@ -538,6 +538,8 @@ impl Physics {
             stopping: enum_parse("physics.stopping", &self.stopping)?,
             free_path: enum_parse("physics.free_path", &self.free_path)?,
             min_cm_angle_deg: self.min_cm_angle_deg,
+            // Straggling is CLI/TOML-only for now; Python runs have none.
+            straggling: lindhard::input::StragglingChoice::None,
             weak_collisions: self.weak_collisions,
             primary_cutoff_ev: self.primary_cutoff_ev,
             recoil_cutoff_ev: self.recoil_cutoff_ev,

@@ -25,13 +25,32 @@ For a compound the variances add by atom fraction,
 
 ## Selecting it
 
-Library only (`variance_per_atom`, `variance_per_atom_material`). The BCA
-engine does not use it at present and there is no TOML key: the electronic
-loss along each free flight is deterministic. Checked 2026-11-10:
-`grep -rnE 'variance_per_atom|StragglingModel|straggling::' --include=*.rs .`
-finds no hit outside `straggling.rs` itself. The module is only declared by
-`pub mod straggling;` in `stopping/mod.rs`, which that pattern does not match
-and a plain `grep -rn straggling` finds.
+Ion BCA transport samples electronic straggling when the input sets
+`[physics] straggling = "bohr"` (or `"bohr-relativistic"`); the default
+`"none"` keeps the deterministic mean loss and draws nothing. Each free
+flight's nonlocal loss is then drawn from a Gaussian centred on the mean loss
+it would take anyway, with standard deviation
+`sqrt(n Omega^2 s)`: the Bragg-added variance above
+(`variance_per_atom_material`) scaled by the flight's areal atom density
+`n s`. The draw comes from the history's own random stream, so results stay
+deterministic per `(seed, index)` at any thread count, and a run with the
+option on is a different trajectory sequence than a run without it:
+comparisons between the two must be statistical over many histories, never
+per history.
+
+The Gaussian is unbounded below, so a draw can exceed the ion's energy or
+come out negative. The sampled loss is truncated by clamping to `[0, E]`,
+which biases the mean loss upward wherever the per-flight standard deviation
+is comparable to the per-flight mean loss — with the constant free path
+(`lambda = N^(-1/3)`) at MeV energies it always is, and the sampled variance
+of a transmitted spectrum then falls well below the Bohr value (measured
+about 0.42 for a 1 MeV proton in a 100 nm carbon foil; see the
+`ion::stopping::straggling` module docs). With long flights — the
+energy-dependent free path at a small `min_cm_angle_deg` — the truncation is
+inactive and the transmitted variance matches Bohr to about two percent in
+the same foil. The library entry points
+(`variance_per_atom`, `variance_per_atom_material`) remain available
+independently.
 
 ## Assumptions
 

@@ -8,6 +8,7 @@ use crate::ion::bca::{
 };
 use crate::ion::crystal::Divergence;
 use crate::ion::stopping::srim::SrimStopping;
+use crate::ion::stopping::straggling::StragglingModel;
 use crate::ion::stopping::table::StoppingTable;
 use crate::ion::stopping::Ion;
 use crate::material::{EnergyKind, Material};
@@ -643,6 +644,11 @@ impl Input {
         };
         config.follow_recoils = p.follow_recoils;
         config.primary_surface_binding_ev = p.primary_surface_binding_ev;
+        config.straggling = match p.straggling {
+            StragglingChoice::None => None,
+            StragglingChoice::Bohr => Some(StragglingModel::Bohr),
+            StragglingChoice::BohrRelativistic => Some(StragglingModel::BohrRelativistic),
+        };
         config.seed = self.run.seed;
 
         // Tally.
