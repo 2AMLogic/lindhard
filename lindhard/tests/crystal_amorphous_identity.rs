@@ -33,7 +33,6 @@ use lindhard::geometry::Stack;
 use lindhard::ion::bca::{Bca, BcaConfig, Beam, ElectronicLoss};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
@@ -42,16 +41,8 @@ const NM: f64 = 1e-9;
 const TILT_DEG: f64 = 7.0;
 
 mod common;
+use common::elemental;
 use common::zbl_si_table as table;
-
-fn elemental(z: u8) -> Material {
-    let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(z, 15.0).unwrap();
-    if m.surface_binding_energy_ev(z).is_err() {
-        m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-    }
-    m
-}
 
 /// Serialised `IonReport` of a 7-degree run; with `crystal`, a silicon
 /// crystal is attached to the given regions.

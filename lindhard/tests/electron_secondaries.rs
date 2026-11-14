@@ -27,8 +27,8 @@ use lindhard::tally::{
 
 mod common;
 use common::{
-    bare_si, elastic_isotropic, elastic_none, inelastic_frac, layer_pair, synthetic_table,
-    with_threads,
+    bare_si, elastic_isotropic, elastic_none, full_physics, inelastic_frac, layer_pair,
+    synthetic_table, with_threads,
 };
 
 const PROVENANCE: &str = "synthetic, tests/electron_secondaries.rs";
@@ -170,16 +170,6 @@ fn metal_on_insulator(config: TransportConfig) -> Transport {
         config,
     )
     .unwrap()
-}
-
-/// Secondaries and the step barrier, with the cutoff 0.5 eV above the vacuum
-/// level (thresholds 9.5 eV in the metal, 10.5 eV in the insulator).
-fn full_physics() -> TransportConfig {
-    let mut cfg = TransportConfig::new(0.5);
-    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
-    cfg.boundary = BoundaryModel::STEP_BARRIER;
-    cfg.cutoff_reference = CutoffReference::VacuumLevel;
-    cfg
 }
 
 #[test]

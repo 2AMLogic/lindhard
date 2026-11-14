@@ -14,14 +14,10 @@ use lindhard::electron::inelastic::{
 };
 use std::path::PathBuf;
 
-const TOL: f64 = 1e-4;
+mod common;
+use common::drude_plasmon_elf as fixture;
 
-fn fixture() -> OpticalElf {
-    DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
-        .unwrap()
-        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
-        .unwrap()
-}
+const TOL: f64 = 1e-4;
 
 fn two_oscillator_fixture() -> OpticalElf {
     DrudeLorentz::new(vec![
