@@ -25,6 +25,7 @@ use lindhard::tally::{
 
 mod common;
 use common::bare_si;
+use common::finite_stack as finite;
 use common::layer_pair;
 use common::synthetic_table_on;
 use common::with_threads;
@@ -68,17 +69,6 @@ fn inelastic_frac(grid: &[f64], lambda_m: f64, frac: f64) -> CrossSectionTable {
         1.0 / lambda_m,
         move |e, _| frac * e,
     )
-}
-
-fn finite(thicknesses_nm: &[f64]) -> Stack {
-    Stack::new(
-        thicknesses_nm
-            .iter()
-            .map(|&t| (bare_si(), t * NM))
-            .collect(),
-        None,
-    )
-    .unwrap()
 }
 
 /// Synthetic metal: `E_F = 5 eV`, `Φ = 4 eV`.

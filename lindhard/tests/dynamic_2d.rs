@@ -2,8 +2,8 @@
 //! against the 1-D run, finite-beam surface profile, atom conservation with
 //! redeposition, thread-count determinism and edge cases.
 
-use lindhard::geometry::{Boundary, Stack};
-use lindhard::ion::bca::{BcaConfig, Beam};
+use lindhard::geometry::Boundary;
+use lindhard::ion::bca::Beam;
 use lindhard::ion::dynamic::{
     BeamProfile, CompositionGrid, Dynamic2dConfig, DynamicConfig, DynamicRun, DynamicRun2d,
     Relaxation, Step2d, StepPolicy,
@@ -16,7 +16,7 @@ const SI: u8 = 14;
 const AS: u8 = 33;
 
 mod common;
-use common::si;
+use common::bca_config as config;
 use common::with_threads;
 use common::zbl_si_table as table;
 
@@ -26,21 +26,11 @@ fn column(
     substrate: bool,
     relaxation: Relaxation,
 ) -> CompositionGrid {
-    let layers = (0..n_slabs).map(|_| (si(), slab_nm * NM)).collect();
-    let stack = Stack::new(layers, substrate.then(si)).unwrap();
-    let mut g = CompositionGrid::from_stack(&stack, relaxation).unwrap();
-    g.seed_energies(AS, Some(15.0), None, Some(2.0));
-    g
+    common::implanted_grid(n_slabs, slab_nm, substrate, relaxation, AS)
 }
 
 fn ideal() -> Relaxation {
     Relaxation::ideal_mixing_elemental(&[SI, AS]).unwrap()
-}
-
-fn config(seed: u64) -> BcaConfig {
-    let mut c = BcaConfig::new(5.0, 2.0);
-    c.seed = seed;
-    c
 }
 
 fn beam(count: u64, polar_rad: f64) -> Beam {

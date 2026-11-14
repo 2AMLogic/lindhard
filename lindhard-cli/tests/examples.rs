@@ -7,6 +7,9 @@ use std::process::{Command, Output};
 
 const BIN: &str = env!("CARGO_BIN_EXE_lindhard");
 
+mod common;
+use common::scratch;
+
 fn examples_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples")
 }
@@ -20,15 +23,6 @@ fn examples() -> Vec<PathBuf> {
     v.sort();
     assert!(v.len() >= 3, "expected the example inputs, found {v:?}");
     v
-}
-
-fn scratch(name: &str) -> PathBuf {
-    let d = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("lindhard-cli-tests")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&d);
-    std::fs::create_dir_all(&d).unwrap();
-    d
 }
 
 fn lindhard(args: &[&str]) -> Output {

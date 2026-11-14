@@ -14,10 +14,10 @@ use lindhard::ion::bca::{
 };
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::rng::{stream, uniform};
 
 mod common;
+use common::si_with_surface_binding as si;
 use common::with_threads;
 use common::zbl_si_table as table;
 
@@ -46,13 +46,6 @@ impl BcaTally for Recorder {
     fn merge(&mut self, other: Self) {
         self.0.extend(other.0);
     }
-}
-
-fn si() -> Material {
-    let mut m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(14, 15.0).unwrap();
-    m.set_surface_binding_energy_ev(14, 2.0).unwrap();
-    m
 }
 
 fn config() -> BcaConfig {

@@ -14,14 +14,8 @@ use lindhard::material::Material;
 use lindhard::rng::{stream, uniform};
 use lindhard::units::g_cm3_to_kg_m3;
 
-fn assert_close(got: [f64; 3], want: [f64; 3], tol: f64) {
-    for i in 0..3 {
-        assert!(
-            (got[i] - want[i]).abs() <= tol,
-            "component {i}: got {got:?}, want {want:?}"
-        );
-    }
-}
+mod common;
+use common::assert_close_vec3 as assert_close;
 
 fn hexagonal_presets() -> [Lattice; 3] {
     [

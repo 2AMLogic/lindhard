@@ -11,16 +11,16 @@ use lindhard::electron::data::{
     CrossSectionTable, CrossSectionTableParts, SamplingAxis, ShellChannelTable, Subshell,
 };
 use lindhard::electron::inelastic::InnerShell;
-use lindhard::electron::secondary::{SecondaryEvent, SecondaryModel};
+use lindhard::electron::secondary::SecondaryEvent;
 use lindhard::electron::transport::{
-    BoundaryModel, CutoffReference, ElectronState, ElectronTally, LayerTables, Primary,
-    SummaryTally, Transport, TransportConfig,
+    ElectronState, ElectronTally, LayerTables, Primary, SummaryTally, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
 use lindhard::tally::{Binning, ElectronTallyConfig, FullElectronTally};
 
 mod common;
 use common::bare_si;
+use common::full_physics;
 use common::with_threads;
 
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
@@ -145,16 +145,6 @@ fn semi_infinite() -> Stack {
 
 fn off(cutoff: f64) -> TransportConfig {
     TransportConfig::new(cutoff)
-}
-
-/// Secondaries and the step barrier, cutoff 0.5 eV above the vacuum level
-/// (thresholds 9.5 eV in the metal, 10.5 eV in the insulator).
-fn full_physics() -> TransportConfig {
-    let mut cfg = TransportConfig::new(0.5);
-    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
-    cfg.boundary = BoundaryModel::STEP_BARRIER;
-    cfg.cutoff_reference = CutoffReference::VacuumLevel;
-    cfg
 }
 
 /// A 6 nm metal on an insulator substrate, valence-only.

@@ -20,7 +20,6 @@ use lindhard::ion::bca::{
 };
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::rng::stream;
 
 thread_local! {
@@ -80,16 +79,8 @@ impl BcaTally for Counts {
     }
 }
 
-fn material(z: u8) -> Material {
-    let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(z, 15.0).unwrap();
-    if m.surface_binding_energy_ev(z).is_err() {
-        m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-    }
-    m
-}
-
 mod common;
+use common::elemental as material;
 use common::zbl_si_table as table;
 
 fn check(z_ion: u8, energy_ev: f64, z_target: u8, edit: impl Fn(&mut BcaConfig)) {

@@ -5,7 +5,7 @@
 
 use lindhard::geometry::{Boundary, Geometry, Stack, VoxelGrid};
 use lindhard::ion::bca::{
-    Bca, BcaConfig, BcaError, BcaTally, Beam, LatticeDeposit, Particle, SummaryTally,
+    Bca, BcaConfig, BcaError, BcaTally, LatticeDeposit, Particle, SummaryTally,
 };
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
@@ -14,20 +14,12 @@ use lindhard::material::Material;
 const NM: f64 = 1e-9;
 
 mod common;
+use common::boron_2kev as beam;
+use common::ks_statistic as ks;
 use common::si_surface_binding_if_unset as si;
 use common::sio2;
 use common::with_threads;
 use common::zbl_si_table as table;
-
-fn beam(count: u64) -> Beam {
-    Beam {
-        ion: Ion::new(5).unwrap(),
-        energy_ev: 2.0e3,
-        polar_rad: 0.3,
-        azimuth_rad: 0.0,
-        count,
-    }
-}
 
 fn summary(bca: &Bca, bins: usize) -> SummaryTally {
     bca.run(|| SummaryTally::new(0.5 * NM, bins)).unwrap()
@@ -56,17 +48,6 @@ fn column(
         [Boundary::Vacuum, lateral, lateral],
     )
     .unwrap()
-}
-
-fn ks(a: &[u64], b: &[u64]) -> f64 {
-    let (na, nb) = (a.iter().sum::<u64>() as f64, b.iter().sum::<u64>() as f64);
-    let (mut ca, mut cb, mut d) = (0.0, 0.0, 0.0f64);
-    for (x, y) in a.iter().zip(b) {
-        ca += *x as f64 / na;
-        cb += *y as f64 / nb;
-        d = d.max((ca - cb).abs());
-    }
-    d
 }
 
 /// Same-sample-size agreement of two summaries (KS at alpha = 0.001, means
