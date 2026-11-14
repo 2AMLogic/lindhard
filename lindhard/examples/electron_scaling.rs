@@ -31,6 +31,9 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use electron_common as ec;
+use lindhard::electron::transport::LayerTables;
+use lindhard::input::electron::assemble;
+use lindhard::tally::FullElectronTally;
 
 struct Args {
     problem: Option<String>,
@@ -122,19 +125,29 @@ fn main() -> ec::Result<()> {
     let t0 = Instant::now();
     let mut elastic = Vec::new();
     for m in &r.materials {
-        elastic.push(tp.install(|| ec::elastic_table(&r, &m.material))?);
+        elastic.push(tp.install(|| assemble::elastic_table(&r, &m.material))?);
     }
     let elastic_s = t0.elapsed().as_secs_f64();
     let t1 = Instant::now();
-    let mut tables = Vec::new();
+    let mut pairs = Vec::new();
     for (m, el) in r.materials.iter().zip(elastic) {
-        tables.push(lindhard::electron::transport::LayerTables {
+        pairs.push(LayerTables {
             elastic: el,
-            inelastic: tp.install(|| ec::inelastic_table(&r, m))?,
+            inelastic: tp.install(|| assemble::inelastic_table(&r, m))?,
         });
     }
     let inelastic_s = t1.elapsed().as_secs_f64();
-    let (transport, proto) = ec::transport(&r, &tables)?;
+    // The inner-shell channels of every material (`inner_shells`), empty for
+    // the #150 problems, which ask for none.
+    let t2 = Instant::now();
+    let mut shells = Vec::new();
+    for m in &r.materials {
+        shells.push(tp.install(|| assemble::shell_tables(&r, m))?);
+    }
+    let shells_s = t2.elapsed().as_secs_f64();
+    let tables = assemble::MaterialTables::new(&r, pairs, shells)?;
+    let transport = assemble::transport(&r, &tables)?;
+    let proto = FullElectronTally::new(&transport, r.tally.clone())?;
 
     let mut rows = Vec::new();
     let mut first: Option<(usize, f64, String)> = None;
@@ -185,6 +198,7 @@ fn main() -> ec::Result<()> {
             "threads": a.table_threads,
             "elastic_s": elastic_s,
             "inelastic_s": inelastic_s,
+            "shells_s": shells_s,
             "energies": r.table_energy_ev.len(),
         },
         "runs": rows,

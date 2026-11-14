@@ -503,6 +503,25 @@ Not measured yet: no `bench-electron-*.json` summary has a Nebula timing (see th
   host that prepared #366; no result has been invented. The determinism
   statement is also from that build. The "Still to measure" run below
   replaces all six together from one current build.
+* **The fixture built its own tables until #750, so a re-run moves the
+  inelastic rows.** `lindhard/benches/electron_common` held a hand copy of
+  `lindhard-cli`'s table assembly, written on 2026-10-08 at `0942eb2` and
+  never updated, so the Criterion benches, `electron_scaling` and the
+  determinism test timed a **different** inelastic table from the one
+  `lindhard run` builds for the same input: the copy left
+  `InelasticTableOptions::rate_refinement` at its `None` default, so the
+  above-Fermi-level refinement of #339 never reached a bench table even after
+  it reached `main` (it also fitted Mermin oscillators with the default
+  options rather than the material's, #306, built no inner-shell channels, and
+  ignored the input's elastic corrections on the DHFS potential). Since #750
+  every caller builds through `lindhard::input::electron::assemble`, the one
+  implementation the CLI uses. All six materials of the fixture have a band,
+  so their inelastic tables are now on the band-bottom axis **and** rate
+  refined: they gain the rows the refinement adds between 2 and 20 eV above
+  the Fermi level. The table-build times and the report digests above are
+  therefore stale for a second, independent reason, and the inelastic column
+  in particular will move upward when the rows above are regenerated. No
+  number above was adjusted by hand.
 * **Not a quiet machine.** The lindhard rows were taken on 2026-10-08 at
   `0942eb2` (rustc 1.97.1, release profile with `lto = "fat"`,
   `codegen-units = 1`, matched inputs from cstool `0c739eb`). The host is a shared
