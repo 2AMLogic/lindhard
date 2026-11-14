@@ -72,6 +72,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "lib"))
 import lindhard_cli  # noqa: E402
 import run_electron  # noqa: E402
+from oracle import NotConfigured, git_output, round_floats  # noqa: E402
 
 FORMAT = "lindhard-electron-bench/1"
 RUNS = lindhard_cli.RUNS / "electron-bench"
@@ -178,7 +179,7 @@ def write_input(problem: dict, spec: dict, cstool: Path, histories: int) -> tupl
     path.write_text(run_electron.lindhard_input(problem, spec, mat, elf, spec["seed"], histories))
     materials = {
         "cstool_source": "https://github.com/Nebula-simulator/cstool",
-        "cstool_commit": run_electron._git(str(cstool), "rev-parse", "HEAD") or "unknown",
+        "cstool_commit": git_output(str(cstool), "rev-parse", "HEAD") or "unknown",
         "parameter_file": f"data/materials/{problem['cstool_material']}",
         "parameter_file_sha256": mat["yaml_sha256"],
         "elf_file": f"data/materials/{mat['df'].relative_to(mat['yaml'].parent)}",
@@ -247,7 +248,7 @@ def run_nebula(problem: dict, spec: dict, binary: Path, histories: int) -> dict:
         "electrons_per_s": histories / sim if sim else None,
         "nebula_reports": version.replace("This is ", "") or None,
         "material_file": problem["nebula_material"],
-        "material_sha256": run_electron.sha256(mat),
+        "material_sha256": lindhard_cli.sha256_file(mat),
     }
 
 
@@ -366,10 +367,6 @@ def update_docs(check: bool = False) -> int:
 # ---------------------------------------------------------------------------
 
 
-def _round(x):
-    return run_electron._round(x)
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--problem", action="append", help="problem id (repeatable)")
@@ -425,7 +422,7 @@ def main() -> int:
             if (os.cpu_count() or 0) not in threads:
                 print(f"note: Nebula runs on {os.cpu_count()} threads; add that count to --threads "
                       "for a like-for-like rate")
-        except run_electron.NotConfigured as e:
+        except NotConfigured as e:
             print(e)
 
     binary = scaling_binary()
@@ -488,7 +485,7 @@ def main() -> int:
             ],
         }
         path = SUMMARIES / f"bench-electron-{p['id']}.json"
-        path.write_text(json.dumps(_round(summary), indent=2, ensure_ascii=False) + "\n")
+        path.write_text(json.dumps(round_floats(summary), indent=2, ensure_ascii=False) + "\n")
         print(f"  wrote {path.relative_to(lindhard_cli.REPO)}")
         if not lin["deterministic"]:
             lindhard_cli.die(f"{p['id']}: the tally report differs between thread counts")
@@ -498,7 +495,7 @@ def main() -> int:
 def _version() -> str:
     """`lindhard <workspace version> (<git describe>)`, as `lindhard --version`."""
     m = re.search(r'^version = "([^"]+)"', (lindhard_cli.REPO / "Cargo.toml").read_text(), re.M)
-    d = run_electron._git(str(lindhard_cli.REPO), "describe", "--always", "--dirty")
+    d = git_output(str(lindhard_cli.REPO), "describe", "--always", "--dirty")
     return f"lindhard {m.group(1) if m else '?'} ({d or 'unknown'})"
 
 

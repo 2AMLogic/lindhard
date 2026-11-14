@@ -98,7 +98,7 @@ MANIFEST_NAME = "manifest.json"
 MANIFEST_VERSION = 1
 
 
-def _sha256_file(path: Path) -> str:
+def sha256_file(path: Path) -> str:
     """SHA-256 of a file's bytes; an unreadable file is an error, never a miss."""
     h = hashlib.sha256()
     try:
@@ -113,7 +113,7 @@ def _sha256_file(path: Path) -> str:
 def binary_sha256(binary: Path) -> str:
     """The executable's SHA-256. Compute once per sweep and pass it to `run`
     as `binary_id`; it is the build identity (a git description is not)."""
-    return _sha256_file(Path(binary))
+    return sha256_file(Path(binary))
 
 
 def _fingerprints(problem: dict, text: str, binary_id: str) -> dict:
@@ -122,7 +122,7 @@ def _fingerprints(problem: dict, text: str, binary_id: str) -> dict:
         "binary_sha256": binary_id,
         "input_sha256": hashlib.sha256(text.encode()).hexdigest(),
         "stopping_tables": [
-            {"path": str(t), "sha256": _sha256_file(Path(t))} for t in problem.get("stopping_tables") or []
+            {"path": str(t), "sha256": sha256_file(Path(t))} for t in problem.get("stopping_tables") or []
         ],
     }
 
@@ -203,7 +203,7 @@ def run(problem: dict, workdir: Path, binary: Path | None = None, binary_id: str
                 "manifest_version": MANIFEST_VERSION,
                 "complete": True,
                 **want,
-                "summary_sha256": _sha256_file(out / "summary.json"),
+                "summary_sha256": sha256_file(out / "summary.json"),
                 "git_describe": s["software"]["git_describe"],  # provenance
             }
             tmp = workdir / (MANIFEST_NAME + ".tmp")

@@ -60,7 +60,6 @@ from __future__ import annotations
 
 import argparse
 import datetime as _dt
-import hashlib
 import json
 import math
 import os
@@ -75,6 +74,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
 import lindhard_cli  # noqa: E402
+from oracle import NotConfigured, Oracle, git_output, round_floats  # noqa: E402
 
 SUMMARIES = HERE / "summaries"
 PROBLEMS = HERE / "electron_problems.json"
@@ -87,28 +87,6 @@ LINDHARD_FORMAT = "lindhard-electron-run/1"
 METRICS = ("eta", "delta", "primary_depth_nm", "r50_nm")
 # Absolute differences for the yields, relative ones for the lengths.
 ABSOLUTE = ("eta", "delta")
-
-
-class NotConfigured(Exception):
-    pass
-
-
-def _git(src: str | None, *args: str) -> str | None:
-    if not src:
-        return None
-    try:
-        out = subprocess.run(["git", "-C", src, *args], capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return (out.stdout.strip() or None) if out.returncode == 0 else None
-
-
-def sha256(path: Path) -> str:
-    h = hashlib.sha256()
-    with open(path, "rb") as f:
-        for chunk in iter(lambda: f.read(1 << 20), b""):
-            h.update(chunk)
-    return h.hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -169,9 +147,9 @@ def cstool_material(src: Path, name: str) -> dict:
     df_path = path.parent / df
     return {
         "yaml": path,
-        "yaml_sha256": sha256(path),
+        "yaml_sha256": lindhard_cli.sha256_file(path),
         "df": df_path,
-        "df_sha256": sha256(df_path),
+        "df_sha256": lindhard_cli.sha256_file(df_path),
         "band": lband,
         "inner_potential_ev": inner,
     }
@@ -531,43 +509,6 @@ def run_lindhard(problem: dict, spec: dict, mat: dict, binary: Path, histories: 
 # Oracles
 
 
-class Oracle:
-    name = "?"
-    env = "?"
-    prefix = "?"
-    source_url = "?"
-    license_note = ""
-
-    def _var(self, suffix: str) -> str | None:
-        return os.environ.get(self.prefix + suffix)
-
-    def binary(self) -> Path:
-        b = os.environ.get(self.env)
-        if not b:
-            raise NotConfigured(f"{self.name}: not configured (set {self.env}); skipped")
-        p = Path(b)
-        if not p.exists():
-            raise NotConfigured(f"{self.name}: {self.env}={b} does not exist; skipped")
-        self.check(p)
-        return p
-
-    def check(self, binary: Path) -> None:
-        pass
-
-    def version(self, binary: Path) -> str:
-        return self._var("_VERSION") or _git(self._var("_SRC"), "describe", "--tags", "--always") or "unknown"
-
-    def commit(self) -> str:
-        return self._var("_COMMIT") or _git(self._var("_SRC"), "rev-parse", "HEAD") or "unknown"
-
-    def build(self) -> str:
-        return self._var("_BUILD") or "unknown"
-
-    def applies(self, problem: dict) -> str | None:
-        """None if the oracle can run the problem, else the reason it cannot."""
-        return None
-
-
 class Nebula(Oracle):
     name = "Nebula"
     env = "NEBULA_BIN"
@@ -595,10 +536,11 @@ class Nebula(Oracle):
             raise NotConfigured("Nebula: set NEBULA_MATERIALS to the directory of the cstool-compiled .mat files; skipped")
 
     def version(self, binary):
+        # No `--version`: stop at `git describe` rather than run the binary.
         v = self._var("_VERSION")
         if v:
             return v
-        desc = _git(self._var("_SRC"), "describe", "--tags", "--always")
+        desc = git_output(self._var("_SRC"), "describe", "--tags", "--always")
         return desc or "unknown"
 
     def geometry(self) -> str:
@@ -690,7 +632,7 @@ class Nebula(Oracle):
                        "100 eV, interpolated between, with acoustic-phonon and atomic-recoil losses), quantum "
                        "transmission and refraction at the surface, no empirical interface absorption",
             "material_file": problem["nebula_material"],
-            "material_sha256": sha256(mat),
+            "material_sha256": lindhard_cli.sha256_file(mat),
             "energy_threshold_ev": 0.0,
             "seed": seed,
             "geometry": f"surface z = 0, detector z = +{self.DETECTOR_Z_NM} nm, terminator z = -{self.DEPTH_NM} nm, "
@@ -710,6 +652,12 @@ class Geant4MicroElec(Oracle):
         "Geant4 Software License; MicroElec run unmodified as an oracle (papers and outputs only), through our "
         "own application validation/oracles/geant4_microelec/ written from the Geant4 user guides"
     )
+
+    def version(self, binary):
+        # Our own application parses no `--version`
+        # (geant4_microelec/lindhard_microelec.cc, `parse`), so stop at
+        # `git describe` rather than record its usage error as a version.
+        return self._var("_VERSION") or git_output(self._var("_SRC"), "describe", "--tags", "--always") or "unknown"
 
     def applies(self, problem):
         if not problem.get("geant4_material"):
@@ -871,16 +819,6 @@ def tolerance(spec: dict, problem: dict, oracle: str, comparison: dict) -> dict:
     return {"applies": True, "source": t["source"], "checks": checks}
 
 
-def _round(x):
-    if isinstance(x, float):
-        return float(f"{x:.6g}")
-    if isinstance(x, dict):
-        return {k: _round(v) for k, v in x.items()}
-    if isinstance(x, list):
-        return [_round(v) for v in x]
-    return x
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--problem", action="append", help="problem id (repeatable)")
@@ -917,7 +855,7 @@ def main() -> int:
         host += ", load average {:.1f} at start".format(os.getloadavg()[0])
     materials_note = {
         "cstool_source": "https://github.com/Nebula-simulator/cstool",
-        "cstool_commit": _git(src, "rev-parse", "HEAD") or "unknown",
+        "cstool_commit": git_output(src, "rev-parse", "HEAD") or "unknown",
     }
     SUMMARIES.mkdir(exist_ok=True)
     for p in problems:
@@ -954,7 +892,7 @@ def main() -> int:
             "lindhard_settings": lsettings,
         }
         path = SUMMARIES / f"lindhard-electron-{p['id']}.json"
-        path.write_text(json.dumps(_round(lind), indent=2, ensure_ascii=False) + "\n")
+        path.write_text(json.dumps(round_floats(lind), indent=2, ensure_ascii=False) + "\n")
         print(f"  wrote {path.relative_to(lindhard_cli.REPO)}")
         print(f"  lindhard truncation: {lind['truncation_note']}")
         for o, b, v in ready:
@@ -999,7 +937,7 @@ def main() -> int:
             }
             slug = o.name.lower().replace(" ", "_")
             path = SUMMARIES / f"{slug}-{p['id']}.json"
-            path.write_text(json.dumps(_round(summary), indent=2, ensure_ascii=False) + "\n")
+            path.write_text(json.dumps(round_floats(summary), indent=2, ensure_ascii=False) + "\n")
             print(f"  wrote {path.relative_to(lindhard_cli.REPO)}")
     return 0
 

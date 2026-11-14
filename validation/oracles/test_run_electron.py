@@ -1,17 +1,22 @@
 #!/usr/bin/env python3
-"""Unit tests of the report conversion in run_electron.py that need no
-simulation: summing `results.table_coverage` over batches (#253).
+"""Unit tests of run_electron.py that need no simulation: summing
+`results.table_coverage` over batches (#253), and the identity each electron
+oracle records in a committed summary (#778).
 
     python3 validation/oracles/test_run_electron.py
 """
 
 from __future__ import annotations
 
+import subprocess
 import sys
 import unittest
 from pathlib import Path
+from unittest import mock
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "lib"))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+import oracle  # noqa: E402
 import run_electron  # noqa: E402
 
 
@@ -116,6 +121,47 @@ class EventCaps(unittest.TestCase):
         d = self.pooled([results(0, 1, 1, 2.0), {"fates": {}, "budget": {}}], [10, 10])
         self.assertEqual(d["status"], "truncated")
         self.assertIsNone(d["affected_histories"])
+
+
+class OracleIdentity(unittest.TestCase):
+    """Both electron oracles stop at `git describe`: neither `nebula_cpu_edep`
+    nor our `lindhard_microelec` answers `--version`, so the shared base's
+    last fallback (`validation/lib/oracle.py`) must stay overridden here or a
+    usage error would be recorded as the oracle's version."""
+
+    def chain(self, o, env):
+        ran = []
+
+        def fake(cmd, **kwargs):
+            ran.append(cmd)
+            return subprocess.CompletedProcess(cmd, 1, stdout="", stderr="usage: ...\n")
+
+        with mock.patch.dict(oracle.os.environ, env, clear=True):
+            with mock.patch.object(oracle.subprocess, "run", fake):
+                return o.version(Path("/bin/oracle")), ran
+
+    def test_the_binary_is_never_asked_for_its_version(self):
+        for o in (run_electron.Nebula(), run_electron.Geant4MicroElec()):
+            with self.subTest(oracle=o.name):
+                v, ran = self.chain(o, {f"{o.prefix}_SRC": "/src"})
+                self.assertEqual(v, "unknown")
+                self.assertEqual([c[0] for c in ran], ["git"])
+
+    def test_the_documented_variables_are_the_ones_read(self):
+        for o, prefix in ((run_electron.Nebula(), "NEBULA"),
+                          (run_electron.Geant4MicroElec(), "GEANT4")):
+            with self.subTest(oracle=o.name):
+                env = {f"{prefix}_VERSION": "v1", f"{prefix}_COMMIT": "c1", f"{prefix}_BUILD": "b1"}
+                with mock.patch.dict(oracle.os.environ, env, clear=True):
+                    self.assertEqual(o.version(Path("/bin/oracle")), "v1")
+                    self.assertEqual(o.commit(), "c1")
+                    self.assertEqual(o.build(), "b1")
+
+    def test_geant4_is_silicon_only_and_nebula_is_not_restricted(self):
+        si = {"geant4_material": "G4_Si"}
+        self.assertIsNone(run_electron.Geant4MicroElec().applies(si))
+        self.assertIn("silicon only", run_electron.Geant4MicroElec().applies({}))
+        self.assertIsNone(run_electron.Nebula().applies({}))
 
 
 if __name__ == "__main__":
