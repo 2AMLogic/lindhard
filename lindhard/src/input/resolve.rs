@@ -11,14 +11,13 @@ use crate::ion::stopping::srim::SrimStopping;
 use crate::ion::stopping::table::StoppingTable;
 use crate::ion::stopping::Ion;
 use crate::material::{EnergyKind, Material};
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 use std::path::Path;
 
 use super::resolved::*;
 use super::schema::*;
-use super::{invalid, Input, InputError};
+use super::{invalid, read_data_file, Input, InputError};
 
 /// Validate a [`DivergenceSpec`] found at `path` (for error messages) and
 /// convert it to the engine's [`Divergence`]; shared by the ion and electron
@@ -163,16 +162,8 @@ impl Input {
         let mut loaded: Vec<LoadedStoppingTable> = Vec::new();
         for (i, path) in self.stopping.tables.iter().enumerate() {
             let field = format!("stopping.tables[{i}]");
-            let joined = base_dir.join(path);
-            let bytes = std::fs::read(&joined)
-                .map_err(|e| invalid(&field, format!("cannot read {}: {e}", joined.display())))?;
-            let text = std::str::from_utf8(&bytes).map_err(|_| {
-                invalid(
-                    &field,
-                    format!("{} is not valid UTF-8 text", joined.display()),
-                )
-            })?;
-            let table = StoppingTable::from_toml_str(text)
+            let (text, file) = read_data_file(base_dir, &field, path)?;
+            let table = StoppingTable::from_toml_str(&text)
                 .map_err(|e| invalid(&field, format!("{path}: {e}")))?;
             if let Some(prev) = loaded
                 .iter()
@@ -188,14 +179,10 @@ impl Input {
                     ),
                 ));
             }
-            let sha256 = Sha256::digest(&bytes)
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect();
             loaded.push(LoadedStoppingTable {
-                path: path.clone(),
-                resolved_path: std::fs::canonicalize(&joined).unwrap_or(joined),
-                sha256,
+                path: file.path,
+                resolved_path: file.resolved_path,
+                sha256: file.sha256,
                 table,
             });
         }
@@ -224,25 +211,13 @@ impl Input {
             ));
         }
         let field = "stopping.srim_data";
-        let joined = base_dir.join(path);
-        let bytes = std::fs::read(&joined)
-            .map_err(|e| invalid(field, format!("cannot read {}: {e}", joined.display())))?;
-        let text = std::str::from_utf8(&bytes).map_err(|_| {
-            invalid(
-                field,
-                format!("{} is not valid UTF-8 text", joined.display()),
-            )
-        })?;
-        let model = SrimStopping::from_toml_str(text)
+        let (text, file) = read_data_file(base_dir, field, path)?;
+        let model = SrimStopping::from_toml_str(&text)
             .map_err(|e| invalid(field, format!("{path}: {e}")))?;
-        let sha256 = Sha256::digest(&bytes)
-            .iter()
-            .map(|b| format!("{b:02x}"))
-            .collect();
         Ok(Some(LoadedSrimData {
-            path: path.clone(),
-            resolved_path: std::fs::canonicalize(&joined).unwrap_or(joined),
-            sha256,
+            path: file.path,
+            resolved_path: file.resolved_path,
+            sha256: file.sha256,
             model,
         }))
     }

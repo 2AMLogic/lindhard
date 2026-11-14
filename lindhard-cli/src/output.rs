@@ -138,12 +138,29 @@ struct StoppingTableOut {
     energy_max_ev: f64,
 }
 
+/// The SRIM coefficient file, identified by file, for provenance. The file
+/// is user data, so the record is the path as given, where it was read from
+/// and the SHA-256 of its bytes — the same identification
+/// [`StoppingTableOut`] carries. Its citations are in `physics.models`
+/// (`srim`), which already quotes the dataset's own.
+#[derive(Serialize)]
+struct SrimDataOut {
+    path: String,
+    resolved_path: String,
+    sha256: String,
+}
+
 #[derive(Serialize)]
 struct Physics {
     models: Vec<ModelInfo>,
     /// Present only when the input has a `[stopping]` table.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     stopping_tables: Vec<StoppingTableOut>,
+    /// Present only with `physics.stopping = "srim"`: the coefficient file
+    /// named by `stopping.srim_data`. Added without a `format.version` bump
+    /// (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    srim_data: Option<SrimDataOut>,
     engine: Engine,
     scattering_table: Table,
     target: Vec<LayerOut>,
@@ -621,6 +638,11 @@ pub fn summary_json(
                     }
                 })
                 .collect(),
+            srim_data: r.srim.as_ref().map(|l| SrimDataOut {
+                path: l.path.clone(),
+                resolved_path: l.resolved_path.display().to_string(),
+                sha256: l.sha256.clone(),
+            }),
             engine: Engine {
                 primary_cutoff_ev: c.primary_cutoff_ev,
                 recoil_cutoff_ev: c.recoil_cutoff_ev,
@@ -722,12 +744,8 @@ pub fn export_csv<T: serde::Serialize>(
     seed: u64,
     input: &T,
 ) -> String {
-    use sha2::{Digest, Sha256};
     let echo = serde_json::to_vec(input).expect("the input serializes");
-    let hash: String = Sha256::digest(&echo)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let hash = crate::table_cache::sha256_hex(&echo);
     let p = lindhard::tally::ExportProvenance::new(engine, seed, &hash);
     report.to_export_csv(&p)
 }

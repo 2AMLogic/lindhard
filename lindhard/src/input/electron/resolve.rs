@@ -4,8 +4,6 @@
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use sha2::{Digest, Sha256};
-
 use crate::electron::boundary::{BandModel, BandStructure};
 use crate::electron::data::{OpticalElf, Subshell, SubshellBindingTable};
 use crate::electron::elastic::corrections::{CorrelationPolarization, PolarizationCutoff};
@@ -18,7 +16,9 @@ use crate::electron::transport::{
 };
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;
-use crate::input::{divergence_from_spec, invalid, resolve_material, InputError, ResolvedLayer};
+use crate::input::{
+    divergence_from_spec, invalid, read_data_file, resolve_material, InputError, ResolvedLayer,
+};
 use crate::ion::crystal::Divergence;
 use crate::material::Material;
 use crate::tally::{
@@ -90,34 +90,6 @@ fn with_valence_binding(
         None => Ok(band),
         Some(b) => band.with_valence_binding_ev(b),
     }
-}
-
-fn read_data_file(
-    base_dir: &Path,
-    field: &str,
-    path: &str,
-) -> Result<(String, DataFile), InputError> {
-    let joined = base_dir.join(path);
-    let bytes = std::fs::read(&joined)
-        .map_err(|e| invalid(field, format!("cannot read {}: {e}", joined.display())))?;
-    let text = String::from_utf8(bytes.clone()).map_err(|_| {
-        invalid(
-            field,
-            format!("{} is not valid UTF-8 text", joined.display()),
-        )
-    })?;
-    let sha256 = Sha256::digest(&bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
-    Ok((
-        text,
-        DataFile {
-            path: path.to_string(),
-            resolved_path: std::fs::canonicalize(&joined).unwrap_or(joined),
-            sha256,
-        },
-    ))
 }
 
 fn binning_nm(field: &str, b: &BinsNm) -> Result<Binning, InputError> {

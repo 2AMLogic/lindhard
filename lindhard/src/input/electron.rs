@@ -49,8 +49,8 @@ mod schema;
 #[cfg(test)]
 mod tests;
 
+pub use crate::input::DataFile;
 pub use resolved::{
-    DataFile, ElasticChoice, ResolvedEPair, ResolvedElectron, ResolvedElectronMaterial,
-    ResolvedInnerShells,
+    ElasticChoice, ResolvedEPair, ResolvedElectron, ResolvedElectronMaterial, ResolvedInnerShells,
 };
 pub use schema::*;
