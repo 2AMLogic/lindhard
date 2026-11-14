@@ -15,7 +15,7 @@ use lindhard::electron::inelastic::table::{
 use lindhard::electron::inelastic::{
     DrudeLorentz, DrudeLorentzOscillator, PennInelastic, SinglePolePenn,
 };
-use lindhard::electron::secondary::{SecondaryEvent, SecondaryModel};
+use lindhard::electron::secondary::{KieftBoschOptions, SecondaryEvent, SecondaryModel};
 use lindhard::electron::transport::{
     Boundary, BoundaryModel, CutoffReference, ElectronState, ElectronTally, EscapeRule, Face, Fate,
     Primary, SummaryTally, Transport, TransportConfig,
@@ -320,10 +320,10 @@ fn secondary_direction_follows_the_binary_collision_angle() {
         let mut cfg = TransportConfig::new(10.0);
         // The instantaneous momentum is off so the angle is exact; it would
         // vanish anyway for the metal (B = 0).
-        cfg.secondaries = SecondaryModel::KieftBosch {
+        cfg.secondaries = SecondaryModel::KieftBosch(KieftBoschOptions {
             instantaneous_momentum: false,
             momentum_conservation: true,
-        };
+        });
         let t = Transport::with_band_structures(
             Stack::semi_infinite(bare_si()),
             vec![layer_pair(

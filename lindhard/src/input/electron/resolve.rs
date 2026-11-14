@@ -12,7 +12,7 @@ use crate::electron::elastic::corrections::{CorrelationPolarization, Polarizatio
 use crate::electron::elastic::table::DEFAULT_MAX_ENERGY_EV;
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, MAX_OSCILLATORS};
 use crate::electron::phonon::{FrohlichPhonon, InsulatorChannels, PolaronTrapping, Sio2LoMode};
-use crate::electron::secondary::SecondaryModel;
+use crate::electron::secondary::{KieftBoschOptions, SecondaryModel};
 use crate::electron::transport::{
     BeamProfile, BeamSpread, BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
 };
@@ -234,10 +234,10 @@ fn resolve_transport(
             let mc = t.momentum_conservation.unwrap_or(true);
             echo.electron.transport.instantaneous_momentum = Some(im);
             echo.electron.transport.momentum_conservation = Some(mc);
-            SecondaryModel::KieftBosch {
+            SecondaryModel::KieftBosch(KieftBoschOptions {
                 instantaneous_momentum: im,
                 momentum_conservation: mc,
-            }
+            })
         }
     };
     let boundary = match t.boundary {
