@@ -10,8 +10,17 @@ use lindhard_wasm::{elements_json, Simulation};
 /// substrate) with the recoil cascade followed, at a reduced ion count.
 pub const SCREEN_TOML: &str = include_str!("../../examples/as_50keV_si_sio2.toml");
 
-fn input(ions: u32) -> String {
-    let t = SCREEN_TOML.replace("ions = 2000", &format!("ions = {ions}"));
+/// `examples/b_5keV_si_crystal.toml` (B into a Si substrate transported on the
+/// explicit cubic lattice, 7 degrees off the (001) normal). Both examples
+/// carry the same `ions = 2000` literal, so [`input`] reduces either one.
+pub const CRYSTAL_TOML: &str = include_str!("../../examples/b_5keV_si_crystal.toml");
+
+/// `toml` at a reduced ion count, with the recoil cascade followed. Forcing
+/// `follow_recoils` is compatible with `[[crystal]]`: the resolver constrains
+/// only `free_path`, `weak_collisions`, `physics.tuning` and `[dynamic]` for a
+/// crystal run, and the crystal example already sets `free_path = "constant"`.
+fn input(toml: &str, ions: u32) -> String {
+    let t = toml.replace("ions = 2000", &format!("ions = {ions}"));
     assert!(t.contains(&format!("ions = {ions}")), "example changed");
     if t.contains("follow_recoils") {
         t
@@ -20,9 +29,10 @@ fn input(ions: u32) -> String {
     }
 }
 
-/// Run `ions` histories in steps of `chunks` (the last repeats until done).
-fn run(ions: u32, chunks: &[u32]) -> (String, String) {
-    let mut sim = Simulation::new(&input(ions), 20, 400).unwrap();
+/// Run `ions` histories of `toml` in steps of `chunks` (the last repeats until
+/// done). Returns the final report and the concatenated trajectories.
+fn run(toml: &str, ions: u32, chunks: &[u32]) -> (String, String) {
+    let mut sim = Simulation::new(&input(toml, ions), 20, 400).unwrap();
     let mut trajectories = Vec::new();
     let mut i = 0;
     while !sim.done() {
@@ -46,8 +56,8 @@ fn run(ions: u32, chunks: &[u32]) -> (String, String) {
 #[test]
 fn chunking_does_not_change_the_report_or_the_trajectories() {
     let ions = 300;
-    let (one_report, one_traj) = run(ions, &[ions]);
-    let (cut_report, cut_traj) = run(ions, &[1, 7, 100, ions]);
+    let (one_report, one_traj) = run(SCREEN_TOML, ions, &[ions]);
+    let (cut_report, cut_traj) = run(SCREEN_TOML, ions, &[1, 7, 100, ions]);
     assert_eq!(one_report, cut_report, "report depends on the chunking");
     assert_eq!(one_traj, cut_traj, "trajectories depend on the chunking");
     // The cascade was followed and the trajectories are not empty.
@@ -57,9 +67,28 @@ fn chunking_does_not_change_the_report_or_the_trajectories() {
     assert_eq!(report["histories"], ions);
 }
 
+/// The crystal engine takes two extra random draws per history — the lattice
+/// shift and the Debye thermal displacements — from a clone of the history's
+/// own stream at reserved word positions, so they depend on the global history
+/// index and not on the chunking. 150 ions crosses the chunk boundaries at 64
+/// and 128 and leaves a short final chunk of 22, so the merge path runs for a
+/// crystal target too.
+#[test]
+fn chunking_does_not_change_a_crystal_run() {
+    let ions = 150;
+    let (one_report, one_traj) = run(CRYSTAL_TOML, ions, &[ions]);
+    let (cut_report, cut_traj) = run(CRYSTAL_TOML, ions, &[1, 7, 100, ions]);
+    assert_eq!(one_report, cut_report, "report depends on the chunking");
+    assert_eq!(one_traj, cut_traj, "trajectories depend on the chunking");
+    let traj: serde_json::Value = serde_json::from_str(&one_traj).unwrap();
+    assert_eq!(traj.as_array().unwrap().len(), 20);
+    let report: serde_json::Value = serde_json::from_str(&one_report).unwrap();
+    assert_eq!(report["histories"], ions);
+}
+
 #[test]
 fn trajectories_are_taken_once() {
-    let mut sim = Simulation::new(&input(50), 5, 100).unwrap();
+    let mut sim = Simulation::new(&input(SCREEN_TOML, 50), 5, 100).unwrap();
     sim.step(10).unwrap();
     let first: serde_json::Value = serde_json::from_str(&sim.take_trajectories_json()).unwrap();
     assert_eq!(first["histories"].as_array().unwrap().len(), 5);
@@ -69,7 +98,7 @@ fn trajectories_are_taken_once() {
 
 #[test]
 fn step_rounds_up_to_whole_chunks_and_stops_at_the_end() {
-    let mut sim = Simulation::new(&input(150), 0, 10).unwrap();
+    let mut sim = Simulation::new(&input(SCREEN_TOML, 150), 0, 10).unwrap();
     assert!(!sim.done());
     assert_eq!(sim.step(0).unwrap(), 0);
     assert_eq!(sim.step(1).unwrap(), 64);
@@ -85,13 +114,24 @@ fn input_errors_are_text_not_panics() {
     // Bad TOML.
     assert!(!err("this is [not toml").is_empty());
     // Unknown element.
-    let unknown = input(10).replace("ion = \"As\"", "ion = \"Xx\"");
+    let unknown = input(SCREEN_TOML, 10).replace("ion = \"As\"", "ion = \"Xx\"");
     assert!(!err(&unknown).is_empty());
     // Energy out of range.
-    let bad_energy = input(10).replace("energy_ev = 50000.0", "energy_ev = -5.0");
+    let bad_energy = input(SCREEN_TOML, 10).replace("energy_ev = 50000.0", "energy_ev = -5.0");
     assert!(!err(&bad_energy).is_empty());
-    // Unsupported sections and over-large runs.
-    let too_many = input(10).replace("ions = 10", "ions = 2000000");
+    // The one unsupported section left is `[dynamic]`, with its own message.
+    let dynamic = format!(
+        "{}\n[dynamic]\nfluence_cm2 = 1e15\nions_per_step = 100\n",
+        input(SCREEN_TOML, 10)
+    );
+    assert_eq!(
+        err(&dynamic),
+        "[dynamic] composition is not supported by the session"
+    );
+    // `[[crystal]]` is not one of them: a crystal input resolves.
+    Simulation::new(&input(CRYSTAL_TOML, 10), 0, 10).unwrap();
+    // Over-large runs.
+    let too_many = input(SCREEN_TOML, 10).replace("ions = 10", "ions = 2000000");
     assert!(err(&too_many).contains("run.ions"));
 }
 
@@ -138,7 +178,7 @@ fn summary(report: &serde_json::Value) -> [f64; 5] {
 fn golden_report() -> (serde_json::Value, u32, serde_json::Value) {
     let g: serde_json::Value = serde_json::from_str(GOLDEN).unwrap();
     let ions = u32::try_from(g["ions"].as_u64().unwrap()).unwrap();
-    let mut sim = Simulation::new(&input(ions), 0, 10).unwrap();
+    let mut sim = Simulation::new(&input(SCREEN_TOML, ions), 0, 10).unwrap();
     while !sim.done() {
         sim.step(1000).unwrap();
     }
