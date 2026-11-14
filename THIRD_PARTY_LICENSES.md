@@ -28,8 +28,9 @@ licenses are gated separately by `cargo deny` (`deny.toml`).
   inelastic table: rows at the kinetic energy above the band bottom, losses
   below that energy minus the band's minimum excitation energy), followed in
   `lindhard/src/electron/inelastic/table.rs` (`EnergyAxis::BandBottom`) and
-  `lindhard-cli/src/electron.rs` (`inelastic_axis`); the convention only,
-  no code of the compiler. No cstool data file is copied.
+  `lindhard/src/input/electron/assemble.rs` (`inelastic_axis`, re-exported as
+  `lindhard_cli::electron::inelastic_axis`); the convention only, no code of
+  the compiler. No cstool data file is copied.
 
 Both repositories carry the same licence:
 
