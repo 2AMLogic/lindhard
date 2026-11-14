@@ -16,24 +16,18 @@ use lindhard::electron::inelastic::table::{
     build_inelastic_table, build_shell_channel_tables, mean_loss_ev, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{
-    born_ochkur_factor, Channel, DrudeLorentz, DrudeLorentzOscillator, ExchangeCorrection,
-    InnerShell, ShellResolvedChannels, SinglePolePenn,
+    born_ochkur_factor, Channel, ExchangeCorrection, InnerShell, ShellResolvedChannels,
+    SinglePolePenn,
 };
 use lindhard::material::Material;
 use rayon::prelude::*;
 
 mod common;
+use common::drude_plasmon_elf as fixture_elf;
 use common::rel;
 use common::with_threads;
 
 const SYNTHETIC: &str = "synthetic test fixture, not physical data";
-
-fn fixture_elf() -> OpticalElf {
-    DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
-        .unwrap()
-        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
-        .unwrap()
-}
 
 fn shell(label: &str, ebi: f64, occ: f64) -> ShellBinding {
     ShellBinding::new(Subshell::from_label(label).unwrap(), ebi, occ).unwrap()

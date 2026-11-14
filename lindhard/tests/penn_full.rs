@@ -23,16 +23,9 @@ use lindhard::material::Material;
 use rayon::prelude::*;
 
 mod common;
-use common::{rel, simpson_log, with_threads};
+use common::{drude_plasmon_elf as fixture, rel, simpson_log, with_threads};
 
 const TOL: f64 = 1e-3;
-
-fn fixture() -> OpticalElf {
-    DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
-        .unwrap()
-        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
-        .unwrap()
-}
 
 fn full() -> FullPenn {
     FullPenn::new(fixture())

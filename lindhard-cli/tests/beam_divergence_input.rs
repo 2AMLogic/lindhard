@@ -4,19 +4,18 @@
 //! untouched, records the resolved spread, and bad settings fail with the
 //! field name (issue #285).
 
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
 use lindhard::input::Input;
 use lindhard::ion::bca::{Bca, CrystalTarget};
 use lindhard::ion::crystal::{Divergence, Lattice, Orientation};
 use lindhard::ion::potential::Potential;
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::tally::IonTally;
-use lindhard_cli::output::{self, RunInfo};
+use lindhard_cli::output::RunInfo;
 use lindhard_cli::sim::{simulate, Simulation};
 use lindhard_cli::tally::CliTally;
-use serde_json::Value;
+
+mod common;
+use common::{check, summary};
 
 /// A 20 nm amorphous Si screen over a crystalline Si substrate.
 const BASE: &str = r#"
@@ -65,13 +64,6 @@ const CONE: &str = "model = \"uniform-cone\"\nhalf_angle_deg = 1.0";
 
 fn resolve(text: &str) -> lindhard::input::Resolved {
     Input::from_toml_str(text).unwrap().resolve().unwrap()
-}
-
-fn summary(r: &lindhard::input::Resolved, s: &Simulation) -> Value {
-    let text = output::summary_json(r, &s.table, &s.tally, &s.report, &s.crystals, s.info).unwrap();
-    let mut v: Value = serde_json::from_str(&text).unwrap();
-    v.as_object_mut().unwrap().remove("run");
-    v
 }
 
 /// The engine set up by hand with the divergence given in radians.
@@ -189,32 +181,6 @@ fn absent_divergence_is_unchanged_and_present_one_is_recorded() {
     assert_eq!(v["input"]["beam"]["divergence"]["model"], "gaussian");
     assert_eq!(v["input"]["beam"]["divergence"]["sigma_deg"], 0.5);
     assert_eq!(v["format"]["version"], 1);
-}
-
-fn scratch(name: &str) -> PathBuf {
-    let d = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("lindhard-cli-tests")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&d);
-    std::fs::create_dir_all(&d).unwrap();
-    d
-}
-
-fn check(name: &str, text: &str) -> (bool, String) {
-    let p = scratch(name).join("in.toml");
-    std::fs::write(&p, text).unwrap();
-    let o = Command::new(env!("CARGO_BIN_EXE_lindhard"))
-        .args(["check", p.to_str().unwrap()])
-        .output()
-        .unwrap();
-    (
-        o.status.success(),
-        format!(
-            "{}{}",
-            String::from_utf8_lossy(&o.stdout),
-            String::from_utf8_lossy(&o.stderr)
-        ),
-    )
 }
 
 #[test]

@@ -8,12 +8,11 @@
 use lindhard::electron::boundary::BandStructure;
 use lindhard::electron::secondary::SecondaryModel;
 use lindhard::electron::transport::{
-    BoundaryModel, CutoffReference, EscapeRule, Primary, Transport, TransportConfig,
+    BoundaryModel, CutoffReference, EscapeRule, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
 use lindhard::tally::{
     Binning, CartesianGrid, ChargeCells, CylindricalGrid, ElectronReport, ElectronTallyConfig,
-    FullElectronTally,
 };
 
 mod common;
@@ -48,11 +47,7 @@ fn config(e0: f64) -> ElectronTallyConfig {
 }
 
 fn run(t: &Transport, n: u64, e0: f64, seed: u64) -> ElectronReport {
-    let proto = FullElectronTally::new(t, config(e0)).unwrap();
-    t.run(seed, n, 64, &Primary::normal(e0), || proto.clone())
-        .unwrap()
-        .tally
-        .report()
+    common::electron_report(t, n, e0, seed, config(e0))
 }
 
 fn sum_cells(c: &ChargeCells) -> (u64, u64) {
