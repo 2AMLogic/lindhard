@@ -15,7 +15,7 @@ use lindhard::electron::secondary::SecondaryModel;
 use lindhard::electron::transport::{
     BoundaryModel, CutoffReference, LayerTables, Primary, Transport, TransportConfig,
 };
-use lindhard::geometry::Stack;
+use lindhard::geometry::{Exit, ExitOutcome, Face, Geometry, Stack, TriMesh};
 use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, SummaryTally};
 use lindhard::ion::crystal::{Lattice, Orientation};
 use lindhard::ion::dynamic::{CompositionGrid, Relaxation};
@@ -468,4 +468,133 @@ pub(crate) fn electron_report(
         .unwrap()
         .tally
         .report()
+}
+
+// ---------------------------------------------------------------------------
+// Geometry helpers shared by the `csg` and `mesh` integration tests. Both
+// files predate this module and carried byte-identical copies (issue #785);
+// these are lifted verbatim from `csg.rs`.
+// ---------------------------------------------------------------------------
+
+/// Three-vector, as the geometry API passes coordinates around.
+pub(crate) type V3 = [f64; 3];
+
+/// Bare carbon (Z = 6) with no displacement or surface binding energy set,
+/// as the geometry tests use it: they never read either.
+pub(crate) fn carbon() -> Material {
+    Material::from_atom_fractions(&[(6, 1.0)], None).unwrap()
+}
+
+/// Bare xorshift64 generator. The geometry tests pin seeds so that the
+/// random-origin sweeps replay identically in both back ends.
+pub(crate) struct Rng(pub(crate) u64);
+impl Rng {
+    pub(crate) fn next(&mut self) -> f64 {
+        self.0 ^= self.0 << 13;
+        self.0 ^= self.0 >> 7;
+        self.0 ^= self.0 << 17;
+        (self.0 >> 11) as f64 / (1u64 << 53) as f64
+    }
+    pub(crate) fn dir(&mut self) -> V3 {
+        loop {
+            let d = [
+                2.0 * self.next() - 1.0,
+                2.0 * self.next() - 1.0,
+                2.0 * self.next() - 1.0,
+            ];
+            let l = (d[0] * d[0] + d[1] * d[1] + d[2] * d[2]).sqrt();
+            if l > 0.1 && l < 1.0 {
+                return [d[0] / l, d[1] / l, d[2] / l];
+            }
+        }
+    }
+}
+
+/// `true` when `a` and `b` agree to a fixed `1e-12` relative tolerance with
+/// a `1.0 +` absolute floor. Kept distinct from [`close`], whose explicit
+/// tolerance and `f64::MIN_POSITIVE` floor serve the rest of the tests:
+/// merging the two would retune one call set's assertions.
+pub(crate) fn close_geom(a: f64, b: f64) -> bool {
+    (a - b).abs() <= 1e-12 * (1.0 + a.abs().max(b.abs()))
+}
+
+/// The [`ExitOutcome::Escape`] arm of `e`, or a panic naming what came back.
+pub(crate) fn escape(e: &Exit) -> (Face, V3) {
+    match e.outcome {
+        ExitOutcome::Escape { face, normal } => (face, normal),
+        ExitOutcome::Enter { .. } => panic!("expected Escape, got {e:?}"),
+    }
+}
+
+/// The [`ExitOutcome::Enter`] arm of `e`, or a panic naming what came back.
+pub(crate) fn enter(e: &Exit) -> (usize, V3) {
+    match e.outcome {
+        ExitOutcome::Enter { region, pos } => (region, pos),
+        ExitOutcome::Escape { .. } => panic!("expected Enter, got {e:?}"),
+    }
+}
+
+/// Distance from `o` along `d` to the far side of `[lo, hi]` (slab method).
+pub(crate) fn box_chord(o: V3, d: V3, lo: V3, hi: V3) -> f64 {
+    let mut t = f64::INFINITY;
+    for k in 0..3 {
+        if d[k] > 0.0 {
+            t = t.min((hi[k] - o[k]) / d[k]);
+        } else if d[k] < 0.0 {
+            t = t.min((lo[k] - o[k]) / d[k]);
+        }
+    }
+    t
+}
+
+/// 12 counter-clockwise (outward) triangles of the box `[lo, hi]`.
+pub(crate) fn box_soup(lo: V3, hi: V3) -> Vec<[V3; 3]> {
+    let p = |x: usize, y: usize, z: usize| {
+        [
+            if x == 0 { lo[0] } else { hi[0] },
+            if y == 0 { lo[1] } else { hi[1] },
+            if z == 0 { lo[2] } else { hi[2] },
+        ]
+    };
+    let quads = [
+        [p(0, 0, 0), p(0, 0, 1), p(0, 1, 1), p(0, 1, 0)],
+        [p(1, 0, 0), p(1, 1, 0), p(1, 1, 1), p(1, 0, 1)],
+        [p(0, 0, 0), p(1, 0, 0), p(1, 0, 1), p(0, 0, 1)],
+        [p(0, 1, 0), p(0, 1, 1), p(1, 1, 1), p(1, 1, 0)],
+        [p(0, 0, 0), p(0, 1, 0), p(1, 1, 0), p(1, 0, 0)],
+        [p(0, 0, 1), p(1, 0, 1), p(1, 1, 1), p(0, 1, 1)],
+    ];
+    quads
+        .iter()
+        .flat_map(|q| [[q[0], q[1], q[2]], [q[0], q[2], q[3]]])
+        .collect()
+}
+
+/// The [`box_soup`] triangles as a [`TriMesh`].
+pub(crate) fn box_mesh(lo: V3, hi: V3) -> TriMesh {
+    TriMesh::from_triangles(&box_soup(lo, hi)).unwrap()
+}
+
+/// Follow a particle to the surface, collecting `(kind, cumulative distance,
+/// position, material)` of every event.
+pub(crate) fn trace(g: &impl Geometry, mut pos: V3, d: V3) -> Vec<(char, f64, V3, usize)> {
+    let mut region = g.locate(pos).unwrap();
+    let mut total = 0.0;
+    let mut out = Vec::new();
+    for _ in 0..16 {
+        let e = g.exit(region, pos, d, 1e9).expect("a closed target");
+        total += e.distance;
+        match e.outcome {
+            ExitOutcome::Enter { region: r, pos: p } => {
+                out.push(('E', total, p, g.material_index(r)));
+                region = r;
+                pos = p;
+            }
+            ExitOutcome::Escape { .. } => {
+                out.push(('X', total, e.at, g.material_index(region)));
+                return out;
+            }
+        }
+    }
+    panic!("too many events");
 }
