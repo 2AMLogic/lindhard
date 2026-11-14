@@ -1379,6 +1379,11 @@ Files written to the output directory:
 - `exposure_direct.csv`: with `--direct`: `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2` from transport, rows in grid order
 - `exposure_comparison.csv`: with `--direct`: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged`
 
+Re-running into a populated `--out` follows the same rules as the other modes
+("Reusing an output directory"): the optional files above are removed when the
+flag that produces them is absent, and `exposure_summary.json` is published
+last, so its presence means the whole set is this run's.
+
 The large-area dose of a uniform exposure of `w` primaries per m^2 is `w E`
 (the PSF integrates to `E`), of which the forward term gives the share
 `1 / (1 + eta [+ nu])`.
@@ -1431,14 +1436,18 @@ and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
 `tally.psf`), `electron_exposure_histogram.csv` (without `tally.exposure`),
 `damage_export.csv` (without `electron.tally.voxel`), and
 `electron_depth_dose.csv` and `electron_interface_transmission.csv` (without the
-matching `tally.dose` part).
+matching `tally.dose` part), and, for `lindhard exposure`,
+`exposure_contours.csv` and `exposure_features.csv` (without `--threshold` or
+`--threshold-fraction`) and `exposure_direct.csv` and
+`exposure_comparison.csv` (without `--direct`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
 CSV write leaves no new summary) and lists only files that exist.
 
 Once output starts, the run first removes the previous summary of its own mode
-(`summary.json`, `electron_summary.json` or `dynamic_summary.json`) and only
-then replaces CSVs. The new summary is written to a freshly created temporary
+(`summary.json`, `electron_summary.json`, `dynamic_summary.json` or
+`exposure_summary.json`) and only then replaces CSVs. The new summary is
+written to a freshly created temporary
 sibling (created exclusively, so an existing file or symlink of the same name is
 never touched; another name is used) and
 renamed into place after every other write succeeds. So, after a failed run,
@@ -1449,8 +1458,8 @@ its path before any CSV changes. A failure before output starts (simulation or
 serialization) leaves existing outputs as they were. This is not a
 transaction: the CSVs are replaced in place, and concurrent runs into one
 directory are not supported. Other files in the
-directory are never touched, and no cleanup happens between ion, electron and
-dynamic runs. Do not keep your own data under a reserved name.
+directory are never touched, and no cleanup happens between ion, electron,
+dynamic and exposure runs. Do not keep your own data under a reserved name.
 
 ## Reproducibility
 
