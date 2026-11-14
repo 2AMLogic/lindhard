@@ -786,4 +786,14 @@ fn exposure_beam_reads_legacy_and_new_spellings_and_rectangle() {
     ] {
         assert!(beam_of(bad).is_err(), "{bad}");
     }
+    // A non-finite size is named with the exposure beam's own error key (the
+    // `[electron.beam.profile]` resolver uses its own); positivity is not
+    // checked here but by `tally::exposure`, which is why the zero and
+    // negative sizes above fail under its message instead of these keys.
+    let e = beam_of("{ model = \"gaussian\", sigma_nm = nan }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.sigma_nm"), "{e}");
+    let e = beam_of("{ model = \"rectangle\", width_y_nm = inf, width_z_nm = 6.0 }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.width_y_nm"), "{e}");
+    let e = beam_of("{ model = \"disc\", radius_nm = nan }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.radius_nm"), "{e}");
 }
