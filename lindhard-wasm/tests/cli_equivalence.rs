@@ -13,6 +13,11 @@ const PAGE_TOML: &str = include_str!("page_generated.toml");
 /// explicit cubic lattice, 7 degrees off the (001) normal.
 const CRYSTAL_TOML: &str = include_str!("../../examples/b_5keV_si_crystal.toml");
 
+/// The page model's crystal setup (`tests/page_crystal.toml`, written by
+/// `web/toml_model.js` and pinned by `node/toml_model.test.mjs`): As 50 keV,
+/// 7° tilt and 22° azimuth into SiO₂/Si with the substrate on the Si lattice.
+const PAGE_CRYSTAL_TOML: &str = include_str!("page_crystal.toml");
+
 fn cli_report(toml: &str, threads: usize) -> String {
     let resolved = Input::from_toml_str(toml).unwrap().resolve().unwrap();
     let sim = lindhard_cli::sim::simulate(&resolved, Some(threads)).unwrap();
@@ -136,4 +141,32 @@ fn crystal_input_gives_the_cli_report() {
     assert_eq!(cli_report(&toml, 2), want);
     let report: serde_json::Value = serde_json::from_str(&want).unwrap();
     assert_eq!(report["histories"], 150);
+}
+
+/// The page-generated crystal input runs the same under the session as under
+/// the CLI's driver, and its lattice changes the report (the same beam,
+/// target, physics and tally on amorphous Si give a different one), so the
+/// test cannot pass on a front end that drops the crystal tables.
+#[test]
+fn page_generated_crystal_input_gives_the_cli_report() {
+    let input = Input::from_toml_str(PAGE_CRYSTAL_TOML).unwrap();
+    assert_eq!(input.crystal.len(), 1, "the page crystal input changed");
+    assert!(
+        input.beam.azimuth_deg != 0.0,
+        "the page crystal input changed"
+    );
+    let amorphous = without_crystal(PAGE_CRYSTAL_TOML);
+    let want = cli_report(PAGE_CRYSTAL_TOML, 1);
+    assert_ne!(
+        want,
+        cli_report(&amorphous, 1),
+        "the lattice changes nothing"
+    );
+    // The session applies it too, whatever the step size and the CLI thread
+    // count (the determinism-across-thread-counts invariant).
+    assert_eq!(session_report(PAGE_CRYSTAL_TOML, 1000), want);
+    assert_eq!(session_report(PAGE_CRYSTAL_TOML, 7), want);
+    assert_eq!(cli_report(PAGE_CRYSTAL_TOML, 2), want);
+    let report: serde_json::Value = serde_json::from_str(&want).unwrap();
+    assert_eq!(report["histories"], 200);
 }

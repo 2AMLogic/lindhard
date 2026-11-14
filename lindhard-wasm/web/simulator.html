@@ -109,6 +109,9 @@
   #quick-fields input[aria-invalid="true"] { border-color: var(--bad); outline: 1px solid var(--bad); }
   .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 0; }
   .chips button { border-radius: 1rem; padding: .25rem .8rem; }
+  /* hkl / uvw triples read as one control. */
+  .triple { display: flex; gap: .25rem; }
+  .triple input { width: 3.5rem; }
   #plots h2 { font-size: 1.05rem; margin: .8rem 0 .4rem; }
   .plotgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: .8rem; margin: 0 0 .6rem; }
   .plot { border: 1px solid var(--line); border-radius: .4rem; padding: .5rem .6rem; background: var(--panel); min-width: 0; }
@@ -142,7 +145,8 @@
 <!--SITE_HEADER-->
 <main>
 <h1 id="title">lindhard simulator</h1>
-<p id="intro">Set up a beam and a layered amorphous target, then run it. The
+<p id="intro">Set up a beam and a layered target — amorphous, or crystalline on
+the lattice — then run it. The
 <a href="https://github.com/2AMLogic/lindhard">lindhard</a> binary-collision engine
 runs in your browser (WebAssembly, in a Web Worker); nothing is sent to a server.
 The page opens with an example run. <a href="index.html">Quick range</a> is the
@@ -196,6 +200,7 @@ one-element view of this page.</p>
         <span class="group"><input id="energy" type="number" min="0" step="any" required>
         <select id="energy-unit" aria-label="Energy unit"><option>eV</option><option selected>keV</option><option>MeV</option></select></span></label>
       <label>Tilt from the normal (°) <input id="tilt" type="number" min="0" max="89.9" step="any" required></label>
+      <label>Azimuth (°) <input id="azimuth" type="number" step="any"></label>
     </div>
     <p class="note" id="mass-note"></p>
   </fieldset>
@@ -241,6 +246,26 @@ one-element view of this page.</p>
         parameters rather than recommendations; the GaAs preset leaves Ga and As blank, so enter them.</p>
         <p class="note" id="preset-note"></p>
       </div>
+    </div>
+  </fieldset>
+
+  <fieldset>
+    <legend>Crystal</legend>
+    <label class="inline"><input type="checkbox" id="crystal-on"> Transport chosen layers on the crystal lattice</label>
+    <div id="crystal-controls" hidden>
+      <div class="row">
+        <label>Lattice preset <select id="crystal-preset"></select></label>
+        <label>Wafer rotation (°) <input id="crystal-wafer" type="number" step="any"></label>
+        <label>Temperature (K) <input id="crystal-temp" type="number" min="0" step="any" placeholder="static"></label>
+      </div>
+      <div class="row">
+        <label>Normal (h k l)
+          <span class="triple"><input id="cn-0" type="number" step="1" aria-label="normal h"><input id="cn-1" type="number" step="1" aria-label="normal k"><input id="cn-2" type="number" step="1" aria-label="normal l"></span></label>
+        <label>Reference [u v w]
+          <span class="triple"><input id="cr-0" type="number" step="1" aria-label="reference u"><input id="cr-1" type="number" step="1" aria-label="reference v"><input id="cr-2" type="number" step="1" aria-label="reference w"></span></label>
+      </div>
+      <p class="note" id="crystal-layers"></p>
+      <p class="note" id="crystal-note"></p>
     </div>
   </fieldset>
 
@@ -311,7 +336,7 @@ one-element view of this page.</p>
   <p class="strip" id="strip">Ions done <b id="c-done">–</b>; stopped in the target <b id="c-stopped">–</b>.
   ± is one standard error. Models: <span id="strip-models"></span>
   Validation status and limits: <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md">docs/validation.md</a>.
-  Amorphous, static layered targets.</p>
+  Layered targets; layers are amorphous unless a crystal is set.</p>
 
   <div id="results-body" hidden>
     <fieldset>
