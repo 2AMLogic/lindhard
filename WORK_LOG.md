@@ -2,8 +2,30 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-14
+
+- **PR #766**: docs: roadmap as of 2026-11-13
+- **PR #772**: refactor(cli): build the summary target[] array in one shared place
+- **Issue #761** (closed): Remove the duplicate `LayerOut` summary record in the CLI: share one with `output.rs`
+- **PR #762**: refactor(electron): share one table/transport assembly with the benches
+- **Issue #750** (closed): Consolidate electron table/transport assembly: the bench copy has drifted from lindhard-cli
+- **PR #757**: test: move the shared crystal_si, beam and run-summary helpers into tests/common
+- **Issue #751** (closed): Consolidate the duplicated crystal_si, beam and run-summary helpers across the crystal integration tests
+- **PR #756**: fix(scripts): point root package.json checks at the real cargo commands
+- **Issue #755** (closed): Remove the stub root package.json: four exit-0 placeholder checks and a dangling worktree-return path
+
 ### 2026-11-13
 
+- **PR #754**: refactor(input): share the scattering table, tally binning and engine assembly via Resolved
+- **Issue #747** (closed): Move the scattering-table and tally-binning assembly onto Resolved so the CLI and WASM front ends share it
+- **PR #749**: refactor(inelastic): share the energy, Fermi and tolerance checks across the three models
+- **Issue #745** (closed): Share the duplicated energy, Fermi-energy and tolerance checks across the three inelastic models
+- **PR #746**: test: move the shared electron fixture helpers into tests/common
+- **Issue #741** (closed): Share the duplicated synthetic scattering and band-structure helpers across the electron integration tests
+- **PR #744**: refactor(plots): share one write-or-check driver between the two generator binaries
+- **Issue #740** (closed): Share the write-or-check driver between the two lindhard-plots binaries
+- **PR #743**: refactor(validation): share the level-3 dataset loader and provenance rules
+- **Issue #742** (closed): Share the dataset loader and common provenance checks across the level-3 experiment scripts
 - **PR #738**: refactor(geometry): share the ownership walk between mesh and CSG
 - **Issue #735** (closed): Share the ownership walk between MeshGeometry and CsgGeometry (about 110 duplicated lines)
 - **PR #737**: refactor(serde): share one beam_serde_module macro between the two exposure beams
