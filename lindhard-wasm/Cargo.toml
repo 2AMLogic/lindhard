@@ -1,6 +1,6 @@
 [package]
 name = "lindhard-wasm"
-description = "WebAssembly front end for lindhard: a single-thread ion range calculator for the browser"
+description = "WebAssembly front end for lindhard: the engine of the in-browser simulator"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

@@ -1,11 +1,12 @@
 # lindhard-wasm
 
-WebAssembly front end for [lindhard](../README.md): a single-thread ion range
-calculator (`calculate(ion, energy_ev, target, ions, seed)` returning `Rp`,
-`ΔRp` and a depth histogram) and the static simulator page in [`web/`](web/simulator.html)
-that drives it (the range calculator is the same page in its Quick range state). The library crate stays front-end agnostic; this crate is a
-thin layer over it (`wasm-bindgen` and `serde_json` are its only extra dependencies) and is never
-published to crates.io. The page ships with the book (see
+WebAssembly front end for [lindhard](../README.md): the steppable `Simulation`
+session behind the static simulator page in [`web/`](web/simulator.html) — the
+page's Web Worker drives the session in small steps, and the range calculator
+is the same page in its Quick range state. The library crate stays
+front-end agnostic; this crate is a thin layer over it (`wasm-bindgen` and
+`serde_json` are its only extra dependencies) and is never published to
+crates.io. The page ships with the book (see
 [the user-guide chapter](../book/src/guide/range-calculator.md)).
 
 ## Simulation session
@@ -73,14 +74,21 @@ cargo test -p lindhard-wasm                                    # native build vs
 LINDHARD_WASM_PKG=out/node node --test lindhard-wasm/tests/node/   # WASM build vs the same records
 ```
 
-Both read `tests/b_5keV_si.golden.json`: 10^4 ions of 5 keV B into Si, seed 1.
+Both native-versus-WASM parity pairs run a fixture through `Simulation` and
+compare the report against a recorded native golden:
+
+- `tests/parity.rs` and `tests/node/parity.test.mjs` run
+  `tests/b_5keV_si.toml` and check against `tests/b_5keV_si.golden.json`:
+  10^4 ions of 5 keV B into Si, seed 1, reduced to `Rp`, `ΔRp` and the
+  stopped count.
+- `tests/session.rs` (which also holds the chunk-invariance and error tests)
+  and `tests/node/session.test.mjs` run `examples/as_50keV_si_sio2.toml`
+  against `tests/as_50keV_si_sio2.golden.json`, 1000 ions of the compound
+  two-layer target with recoils followed.
+
 The tolerance (one standard error) and its reason are in `tests/parity.rs`.
-The session has the same pair: `tests/session.rs` (which also holds the
-chunk-invariance and error tests) and `tests/node/session.test.mjs` check
-`Simulation` against `tests/as_50keV_si_sio2.golden.json`, 1000 ions of the
-`examples/as_50keV_si_sio2.toml` compound two-layer target with recoils
-followed, with the same tolerance. CI runs both Node files and prints the size
-of the browser `.wasm` (raw and gzipped) in the log of `.github/workflows/wasm.yml`.
+CI runs both Node files and prints the size of the browser `.wasm` (raw and
+gzipped) in the log of `.github/workflows/wasm.yml`.
 
 ## Notes
 
