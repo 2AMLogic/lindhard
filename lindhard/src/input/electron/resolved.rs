@@ -6,6 +6,7 @@ use std::path::PathBuf;
 
 use serde::Serialize;
 
+use crate::electron::beam::BeamSpread;
 use crate::electron::boundary::BandStructure;
 use crate::electron::data::{OpticalElf, Subshell, SubshellBindingTable};
 use crate::electron::elastic::corrections::{
@@ -15,7 +16,7 @@ use crate::electron::elastic::corrections::{
 use crate::electron::inelastic::{MerminFitOptions, PennAlgorithm};
 use crate::electron::phonon::InsulatorChannels;
 use crate::electron::secondary::SecondaryModel;
-use crate::electron::transport::{BeamSpread, BoundaryModel, Primary, TransportConfig};
+use crate::electron::transport::{BoundaryModel, Primary, TransportConfig};
 use crate::geometry::Stack;
 use crate::input::{ModelInfo, ResolvedLayer};
 use crate::material::Material;

@@ -6,6 +6,7 @@ use std::path::Path;
 
 use sha2::{Digest, Sha256};
 
+use crate::electron::beam::{BeamProfile, BeamSpread};
 use crate::electron::boundary::{BandModel, BandStructure};
 use crate::electron::data::{OpticalElf, Subshell, SubshellBindingTable};
 use crate::electron::elastic::corrections::{CorrelationPolarization, PolarizationCutoff};
@@ -14,7 +15,7 @@ use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, 
 use crate::electron::phonon::{FrohlichPhonon, InsulatorChannels, PolaronTrapping, Sio2LoMode};
 use crate::electron::secondary::SecondaryModel;
 use crate::electron::transport::{
-    BeamProfile, BeamSpread, BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
+    BoundaryModel, CutoffReference, EscapeRule, Primary, TransportConfig,
 };
 use crate::elements::element_by_symbol;
 use crate::geometry::Stack;

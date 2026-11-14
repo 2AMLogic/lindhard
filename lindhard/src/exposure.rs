@@ -125,7 +125,8 @@ use std::f64::consts::PI;
 use rayon::prelude::*;
 use thiserror::Error;
 
-use crate::electron::transport::{BeamProfile, BeamSpread, Primary, Transport};
+use crate::electron::beam::{BeamProfile, BeamSpread};
+use crate::electron::transport::{Primary, Transport};
 use crate::geometry::Geometry;
 use crate::tally::psf_scan::point_seed;
 use crate::tally::{Binning, ElectronTallyConfig, FullElectronTally, GaussianPsf, VoxelTallyGrid};

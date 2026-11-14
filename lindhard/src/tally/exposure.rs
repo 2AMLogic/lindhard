@@ -80,7 +80,7 @@
 //!
 //! Units: energies in eV, lengths in metres.
 
-use crate::electron::transport::{beam_serde_module, BeamProfile, BeamSpread};
+use crate::electron::beam::{beam_serde_module, BeamProfile, BeamSpread};
 use crate::rng::stream;
 use serde::{Deserialize, Serialize};
 

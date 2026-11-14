@@ -576,7 +576,7 @@ fn inner_shells_parse_validate_and_resolve() {
 /// name the field.
 #[test]
 fn beam_profile_defaults_round_trip_and_errors_name_fields() {
-    use crate::electron::transport::{BeamProfile, BeamSpread};
+    use crate::electron::beam::{BeamProfile, BeamSpread};
     use crate::ion::crystal::Divergence;
     let d = dir("beam-profile");
     std::fs::write(d.join("elf.toml"), ELF).unwrap();
@@ -746,7 +746,7 @@ spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
 
 #[test]
 fn exposure_beam_reads_legacy_and_new_spellings_and_rectangle() {
-    use crate::electron::transport::BeamProfile;
+    use crate::electron::beam::BeamProfile;
     let d = dir("exposure_beam");
     std::fs::write(d.join("elf.toml"), ELF).unwrap();
     let vol = "[[electron.tally.exposure.volumes]]\nname = \"a\"\nshape = \"cylinder\"\nradius_nm = 10.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\n";
