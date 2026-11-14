@@ -26,7 +26,7 @@ use std::cell::OnceCell;
 use std::hint::black_box;
 
 use lindhard::electron::transport::Transport;
-use lindhard::input::electron::ResolvedElectron;
+use lindhard::input::electron::{assemble, ResolvedElectron};
 use lindhard::tally::FullElectronTally;
 
 use electron_common as ec;
@@ -59,10 +59,12 @@ fn bench_tables(c: &mut Criterion) {
         g.throughput(Throughput::Elements(r.table_energy_ev.len() as u64));
         for m in &r.materials {
             g.bench_function("elastic", |b| {
-                b.iter(|| one.install(|| ec::elastic_table(black_box(&r), &m.material).unwrap()))
+                b.iter(|| {
+                    one.install(|| assemble::elastic_table(black_box(&r), &m.material).unwrap())
+                })
             });
             g.bench_function("inelastic", |b| {
-                b.iter(|| one.install(|| ec::inelastic_table(black_box(&r), m).unwrap()))
+                b.iter(|| one.install(|| assemble::inelastic_table(black_box(&r), m).unwrap()))
             });
         }
         g.finish();
@@ -79,8 +81,11 @@ fn bench_transport(c: &mut Criterion) {
         let state: OnceCell<(ResolvedElectron, Transport, FullElectronTally)> = OnceCell::new();
         let setup = || {
             let (r, _) = ec::problem_input(p, p.bench_histories).expect("electron input");
-            let tables = one.install(|| ec::tables(&r)).expect("tables");
-            let (t, proto) = ec::transport(&r, &tables).expect("transport");
+            let tables = one
+                .install(|| assemble::material_tables(&r))
+                .expect("tables");
+            let t = assemble::transport(&r, &tables).expect("transport");
+            let proto = FullElectronTally::new(&t, r.tally.clone()).expect("tally");
             (r, t, proto)
         };
         let n = p.bench_histories;

@@ -15,25 +15,13 @@ use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use lindhard::electron::data::{CrossSectionTable, ShellChannelTable};
-use lindhard::electron::elastic::table::{
-    combine, default_probability_grid, AtomicElastic, PotentialSource, SalvatDhfsTable,
-    ThomasFermiYukawa, DEFAULT_REFINE_TOLERANCE,
-};
-use lindhard::electron::elastic::{SalvatDhfs, SolverOptions};
-use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, build_shell_channel_tables, mean_loss_ev, EnergyAxis,
-    InelasticTableOptions, RateRefinement,
-};
-use lindhard::electron::inelastic::{
-    hydrogenic_shell_elfs, PennAlgorithm, PennInelastic, ShellElfGrid, ShellResolvedChannels,
-    SinglePolePenn,
-};
+use lindhard::electron::inelastic::table::mean_loss_ev;
 use lindhard::electron::transport::{LayerTables, RunMetadata, Transport};
 use lindhard::input::electron::{
-    DataFile, ElectronInput, PotentialChoice, ResolvedElectron, ResolvedElectronMaterial,
+    assemble, DataFile, ElectronInput, ResolvedElectron, ResolvedElectronMaterial,
 };
 use lindhard::input::ModelInfo;
-use lindhard::material::{Material, MaterialSpec};
+use lindhard::material::MaterialSpec;
 use lindhard::tally::{
     fit_psf, ChargeCells, ElectronReport, FullElectronTally, Histogram, PsfFitOptions, PsfModel,
     PsfReport,
@@ -108,9 +96,11 @@ fn table(
     kind: TableKind,
     cache: Option<&TableCache>,
 ) -> Result<(CrossSectionTable, TableOrigin)> {
-    let build = || match kind {
-        TableKind::Elastic => elastic_table(r, &m.material),
-        TableKind::Inelastic => inelastic_table(r, m),
+    let build = || -> Result<CrossSectionTable> {
+        Ok(match kind {
+            TableKind::Elastic => assemble::elastic_table(r, &m.material)?,
+            TableKind::Inelastic => assemble::inelastic_table(r, m)?,
+        })
     };
     let field = format!("electron.materials.{}", m.name);
     let what = format!("{field}: the {} table", kind.label());
@@ -192,145 +182,12 @@ fn psf_outcome(r: &ResolvedElectron, report: &ElectronReport) -> Option<PsfOutco
     })
 }
 
-/// The elastic table of one material.
-///
-/// Each element's potential doubles as the electron density the optional
-/// exchange and correlation-polarization corrections need
-/// ([`AtomicElastic::compute_corrected`]): the Yukawa stand-in's own Poisson
-/// density, or the DHFS Poisson density of Salvat et al. (1987) Eq. (12)
-/// (`lindhard::electron::elastic::corrections`). Without corrections this is
-/// the plain partial-wave table of `build_elastic_table`.
-fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossSectionTable> {
-    let grid = &r.table_energy_ev;
-    let solver = SolverOptions::default();
-    let desc = match r.elastic.potential {
-        PotentialChoice::SalvatDhfs => SalvatDhfsTable.description(),
-        PotentialChoice::ThomasFermiYukawa => ThomasFermiYukawa.description(),
-    };
-    let desc = format!("{desc}{}", r.elastic.corrections_description());
-    let mut atoms = Vec::new();
-    for c in m.components() {
-        if c.atom_fraction() <= 0.0 {
-            continue;
-        }
-        let z = c.z();
-        let corrections = r.elastic.corrections(z);
-        atoms.push(match r.elastic.potential {
-            PotentialChoice::SalvatDhfs => {
-                let p = SalvatDhfs::for_element(u32::from(z))?;
-                AtomicElastic::compute_corrected(z, &p, &p, &desc, grid, &corrections, solver)?
-            }
-            PotentialChoice::ThomasFermiYukawa => {
-                let y = ThomasFermiYukawa::yukawa(z)?;
-                AtomicElastic::compute_corrected(z, &y, &y, &desc, grid, &corrections, solver)?
-            }
-        });
-    }
-    Ok(combine(
-        m,
-        &atoms,
-        &default_probability_grid(),
-        Some(DEFAULT_REFINE_TOLERANCE),
-    )?)
-}
-
-/// The inelastic table of one material, on the axis and with the Fermi
-/// energy of [`inelastic_axis`].
-fn inelastic_table(
-    r: &ResolvedElectron,
-    m: &ResolvedElectronMaterial,
-) -> Result<CrossSectionTable> {
-    let (fermi_ev, axis) = inelastic_axis(r, m);
-    // The Mermin oscillators are fitted with the material's options
-    // (`[electron.materials.<name>.mermin_fit]`, default
-    // `MerminFitOptions::default()`, #306).
-    let model = match r.inelastic {
-        PennAlgorithm::Mermin => PennInelastic::mermin(m.optical_elf.clone(), &m.mermin_fit)?,
-        other => PennInelastic::try_new(other, m.optical_elf.clone())?,
-    }
-    .with_fermi_energy_ev(fermi_ev)?;
-    let mut options = InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis);
-    options.rate_refinement = rate_refinement(r, m);
-    Ok(build_inelastic_table_for_model(
-        &model,
-        &m.material,
-        &options,
-    )?)
-}
-
-/// The inner-shell channel tables of one material (`inner_shells` given):
-/// one hydrogenic channel per requested subshell of every element, each
-/// tabulated with the valence channel's single-pole model on the axis of
-/// the inelastic table. The valence table of the result is not used: the
-/// run keeps the material's own inelastic table, which is the same build.
-fn shell_tables(
-    r: &ResolvedElectron,
-    m: &ResolvedElectronMaterial,
-) -> Result<Vec<ShellChannelTable>> {
-    let Some(i) = &m.inner_shells else {
-        return Ok(Vec::new());
-    };
-    let (fermi_ev, axis) = inelastic_axis(r, m);
-    let valence = SinglePolePenn::new(m.optical_elf.clone()).with_fermi_energy_ev(fermi_ev)?;
-    let mut wanted = Vec::new();
-    for c in m.material.components() {
-        if c.atom_fraction() <= 0.0 {
-            continue;
-        }
-        let n = m.material.number_density_of(c.z())?;
-        for &s in &i.subshells {
-            wanted.push((c.z(), s, n));
-        }
-    }
-    let shells = hydrogenic_shell_elfs(
-        m.optical_elf.material(),
-        &i.binding,
-        &wanted,
-        ShellElfGrid::default(),
-    )?;
-    let channels = ShellResolvedChannels::new(valence, shells)?;
-    let mut options = InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis);
-    options.rate_refinement = rate_refinement(r, m);
-    let built =
-        build_shell_channel_tables(&channels, &m.material, &options, i.binding.provenance())?;
-    Ok(built.shells)
-}
-
-/// The rate refinement of the inelastic table of `m` (#339): the library's
-/// default ([`RateRefinement::default`]) on the band-bottom axis of a
-/// material with a band, where the rate climbs from zero at the Fermi
-/// level; `None` on the model's own axis, whose table keeps exactly the
-/// rows of `electron.tables`. The refined table has the grid's rows and the
-/// rows the refinement adds between 2 and 20 eV above the Fermi level
-/// (`lindhard::electron::inelastic::table`, "Rate refinement"); the elastic
-/// table keeps the grid. Part of the table cache key.
-pub fn rate_refinement(
-    r: &ResolvedElectron,
-    m: &ResolvedElectronMaterial,
-) -> Option<RateRefinement> {
-    (inelastic_axis(r, m).1 == EnergyAxis::BandBottom).then(RateRefinement::default)
-}
-
-/// The model's Fermi energy and the table axis of the inelastic table of `m`.
-///
-/// For a material with a band, the table is built on the band-bottom axis
-/// the transport reads it on, with the model's Fermi energy set to the
-/// band's minimum excitation energy
-/// ([`lindhard::electron::boundary::BandStructure::min_excitation_ev`]: the
-/// Fermi energy of a metal, the conduction-band bottom of an insulator):
-/// the row at `E` is the model's at `T = E - E_F`, kinematics on `E`, losses
-/// below `E - E_F`. This is the convention of cstool's
-/// `compile_full_imfp_icdf` (Nebula-simulator/cstool commit `0c739eb`,
-/// `cstool/dielectric_function/compile.py`; module docs of
-/// `lindhard::electron::inelastic::table`, "Energy axis"). Without a band
-/// the table is on the model's own axis with
-/// `[electron.inelastic] fermi_energy_ev`, as before (#241).
-pub fn inelastic_axis(r: &ResolvedElectron, m: &ResolvedElectronMaterial) -> (f64, EnergyAxis) {
-    match &m.band {
-        Some(b) => (b.min_excitation_ev(), EnergyAxis::BandBottom),
-        None => (r.inelastic_fermi_ev, EnergyAxis::ModelFermiLevel),
-    }
-}
+/// The pure parts of the assembly live in the library
+/// ([`lindhard::input::electron::assemble`], #750) so that the library's own
+/// benches, examples and tests build the tables `lindhard run` builds. These
+/// two are part of the table cache key and are used by `lindhard-py` and the
+/// CLI examples, so they keep their `lindhard_cli::electron` path.
+pub use lindhard::input::electron::assemble::{inelastic_axis, rate_refinement};
 
 /// The cross-section tables of every material of `r` (or read from `cache`)
 /// and the transport engine built on them, with the insulator and inner-shell
@@ -342,18 +199,19 @@ pub fn build_transport(
     cache: Option<&TableCache>,
 ) -> Result<(Transport, Vec<MaterialTables>, f64)> {
     let t0 = Instant::now();
-    let tables: Vec<MaterialTables> = pool.install(|| {
+    // The table cache and the per-material `anyhow` context are the CLI's; the
+    // builds themselves are the library's.
+    let built: Vec<(LayerTables, TableOrigin, TableOrigin)> = pool.install(|| {
         r.materials
             .iter()
             .map(|m| {
                 let (elastic, elastic_origin) = table(r, m, TableKind::Elastic, cache)?;
                 let (inelastic, inelastic_origin) = table(r, m, TableKind::Inelastic, cache)?;
-                Ok(MaterialTables {
-                    elastic,
-                    inelastic,
+                Ok((
+                    LayerTables { elastic, inelastic },
                     elastic_origin,
                     inelastic_origin,
-                })
+                ))
             })
             .collect::<Result<_>>()
     })?;
@@ -361,7 +219,7 @@ pub fn build_transport(
         r.materials
             .iter()
             .map(|m| {
-                shell_tables(r, m).with_context(|| {
+                assemble::shell_tables(r, m).with_context(|| {
                     format!(
                         "electron.materials.{}.inner_shells: building the channels",
                         m.name
@@ -372,40 +230,25 @@ pub fn build_transport(
     })?;
     let table_build_s = t0.elapsed().as_secs_f64();
 
-    let layer_tables: Vec<LayerTables> = r
-        .layer_material
-        .iter()
-        .map(|&i| LayerTables {
-            elastic: tables[i].elastic.clone(),
-            inelastic: tables[i].inelastic.clone(),
+    let mut layer_tables = Vec::with_capacity(built.len());
+    let mut origins = Vec::with_capacity(built.len());
+    for (t, elastic_origin, inelastic_origin) in built {
+        layer_tables.push(t);
+        origins.push((elastic_origin, inelastic_origin));
+    }
+    let assembled = assemble::MaterialTables::new(r, layer_tables, shells)?;
+    let transport = assemble::transport(r, &assembled)?;
+    let tables = assembled
+        .tables
+        .into_iter()
+        .zip(origins)
+        .map(|(t, (elastic_origin, inelastic_origin))| MaterialTables {
+            elastic: t.elastic,
+            inelastic: t.inelastic,
+            elastic_origin,
+            inelastic_origin,
         })
         .collect();
-    let bands: Option<Vec<_>> = r
-        .layer_material
-        .iter()
-        .map(|&i| r.materials[i].band.clone())
-        .collect();
-    let mut transport = match bands {
-        Some(b) => Transport::with_band_structures(r.stack.clone(), layer_tables, b, r.config),
-        None => Transport::new(r.stack.clone(), layer_tables, r.config),
-    }
-    .context("setting up the electron transport")?;
-    for (layer, &i) in r.layer_material.iter().enumerate() {
-        let c = &r.materials[i].channels;
-        if c.any() {
-            transport = transport.with_insulator_channels(layer, c.clone())?;
-        }
-        if !shells[i].is_empty() {
-            transport = transport
-                .with_inner_shells(layer, shells[i].clone())
-                .with_context(|| {
-                    format!(
-                        "electron.materials.{}.inner_shells: layer {layer}",
-                        r.materials[i].name
-                    )
-                })?;
-        }
-    }
     Ok((transport, tables, table_build_s))
 }
 
@@ -1227,88 +1070,5 @@ mod csv_tests {
         assert_eq!(csv_field("a,b"), "\"a,b\"");
         assert_eq!(csv_field("a\"b"), "\"a\"\"b\"");
         assert_eq!(csv_field("a\r\nb\nc"), "\"a\r\nb\nc\"");
-    }
-}
-
-#[cfg(test)]
-mod elastic_tests {
-    use super::*;
-    use std::path::Path;
-
-    /// The CLI example on a two-point grid with the given potential and
-    /// exchange setting.
-    fn resolved(potential: PotentialChoice, exchange: bool) -> ResolvedElectron {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples/electron");
-        let text = std::fs::read_to_string(dir.join("e_10keV_si.toml")).unwrap();
-        let mut r = ElectronInput::from_toml_str(&text)
-            .unwrap()
-            .resolve_in(&dir)
-            .unwrap();
-        r.elastic.potential = potential;
-        r.elastic.exchange = exchange;
-        r.table_energy_ev = vec![100.0, 1000.0];
-        r
-    }
-
-    fn table(potential: PotentialChoice, exchange: bool) -> CrossSectionTable {
-        let r = resolved(potential, exchange);
-        elastic_table(&r, &r.materials[0].material).unwrap()
-    }
-
-    /// The corrections reach the DHFS table as they reach the stand-in's
-    /// (#169: they were dropped for `salvat-dhfs`).
-    #[test]
-    fn exchange_applies_to_both_potentials() {
-        for p in [
-            PotentialChoice::SalvatDhfs,
-            PotentialChoice::ThomasFermiYukawa,
-        ] {
-            let (off, on) = (table(p, false), table(p, true));
-            assert!(!off.model().contains("exchange"), "{p:?}: {}", off.model());
-            assert!(on.model().contains("exchange"), "{p:?}: {}", on.model());
-            assert_ne!(
-                off.inverse_mfp_per_m(),
-                on.inverse_mfp_per_m(),
-                "{p:?}: exchange left the table unchanged"
-            );
-        }
-        let dhfs = table(PotentialChoice::SalvatDhfs, false);
-        assert!(dhfs.model().contains("Salvat"), "{}", dhfs.model());
-    }
-}
-
-#[cfg(test)]
-mod mermin_fit_tests {
-    use super::*;
-    use std::path::Path;
-
-    /// A Cu input with `oscillators = 6` (#306) builds its inelastic table
-    /// (on a two-energy grid) with a six-oscillator fit, recorded in the
-    /// table's `model`.
-    #[test]
-    fn cu_six_oscillators_builds_its_table() {
-        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../validation/data/optical");
-        if !dir.join("cu_elf_hagemann1975.toml").is_file() {
-            eprintln!("{} not found; skipped", dir.display());
-            return;
-        }
-        let text = "[electron.beam]\nenergy_ev = 1000.0\n[electron.transport]\ncutoff_ev = 20.0\n\
-                    [electron.elastic]\npotential = \"thomas-fermi-yukawa\"\n\
-                    [electron.inelastic]\nmodel = \"mermin-melf\"\n\
-                    [electron.materials.Cu]\noptical_elf = \"cu_elf_hagemann1975.toml\"\n\
-                    [electron.materials.Cu.mermin_fit]\noscillators = 6\n\
-                    [target]\nsubstrate = \"Cu\"\n[run]\nhistories = 1\nseed = 1\n";
-        let mut r = ElectronInput::from_toml_str(text)
-            .unwrap()
-            .resolve_in(&dir)
-            .unwrap();
-        r.table_energy_ev = vec![100.0, 150.0];
-        let t = inelastic_table(&r, &r.materials[0]).unwrap();
-        assert!(t.model().contains("(6 oscillators "), "{}", t.model());
-        assert_eq!(t.energy_ev(), r.table_energy_ev.as_slice());
-        assert!(t
-            .inverse_mfp_per_m()
-            .iter()
-            .all(|&x| x.is_finite() && x > 0.0));
     }
 }

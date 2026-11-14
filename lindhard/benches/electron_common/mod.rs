@@ -11,8 +11,10 @@
 //! quantum transmission and refraction, cutoff 0.01 eV above the vacuum level,
 //! tables from 10 eV at 20 points per decade, the escape spectra and a
 //! cylindrical deposition grid. Nothing here is physics: the input goes
-//! through [`lindhard::input::electron`] and the tables are built the way
-//! `lindhard-cli` builds them (`lindhard-cli/src/electron.rs`).
+//! through [`lindhard::input::electron`] and the tables and the transport come
+//! from [`lindhard::input::electron::assemble`], the one implementation
+//! `lindhard run` also uses (#750) — this module builds no tables of its own,
+//! so the benchmarks cannot time a different table from the CLI's.
 //!
 //! **Material data.** No optical or band data of real materials is in this
 //! tree (`docs/data-provenance.md`), so by default the fixture writes a
@@ -38,21 +40,9 @@ use std::error::Error;
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 
-use lindhard::electron::data::CrossSectionTable;
-use lindhard::electron::elastic::table::{
-    build_elastic_table, combine, default_probability_grid, AtomicElastic, ElasticTableOptions,
-    PotentialSource, SalvatDhfsTable, ThomasFermiYukawa, DEFAULT_REFINE_TOLERANCE,
-};
-use lindhard::electron::elastic::SolverOptions;
-use lindhard::electron::inelastic::table::{
-    build_inelastic_table_for_model, EnergyAxis, InelasticTableOptions,
-};
-use lindhard::electron::inelastic::{DrudeLorentz, DrudeLorentzOscillator, PennInelastic};
-use lindhard::electron::transport::{LayerTables, Transport};
-use lindhard::input::electron::{
-    ElectronInput, PotentialChoice, ResolvedElectron, ResolvedElectronMaterial,
-};
-use lindhard::material::Material;
+use lindhard::electron::inelastic::{DrudeLorentz, DrudeLorentzOscillator};
+use lindhard::electron::transport::Transport;
+use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::tally::{ElectronReport, FullElectronTally};
 use sha2::{Digest, Sha256};
 
@@ -248,113 +238,6 @@ pub(crate) fn problem_input(
     let dir = std::env::temp_dir().join(format!("lindhard-bench-electron-{}", std::process::id()));
     let path = write_synthetic(&dir, p, &Settings::matched(p), histories)?;
     Ok((resolve(&path)?, false))
-}
-
-/// The elastic table of one material, as `lindhard-cli` builds it.
-pub(crate) fn elastic_table(r: &ResolvedElectron, m: &Material) -> Result<CrossSectionTable> {
-    let grid = &r.table_energy_ev;
-    match r.elastic.potential {
-        PotentialChoice::SalvatDhfs => {
-            let opts = ElasticTableOptions {
-                energy_ev: grid.clone(),
-                ..ElasticTableOptions::default()
-            };
-            Ok(build_elastic_table(m, &SalvatDhfsTable, &opts)?)
-        }
-        PotentialChoice::ThomasFermiYukawa => {
-            let desc = format!(
-                "{}{}",
-                ThomasFermiYukawa.description(),
-                r.elastic.corrections_description()
-            );
-            let mut atoms = Vec::new();
-            for c in m.components() {
-                if c.atom_fraction() <= 0.0 {
-                    continue;
-                }
-                let z = c.z();
-                let y = ThomasFermiYukawa::yukawa(z)?;
-                atoms.push(AtomicElastic::compute_corrected(
-                    z,
-                    &y,
-                    &y,
-                    &desc,
-                    grid,
-                    &r.elastic.corrections(z),
-                    SolverOptions::default(),
-                )?);
-            }
-            Ok(combine(
-                m,
-                &atoms,
-                &default_probability_grid(),
-                Some(DEFAULT_REFINE_TOLERANCE),
-            )?)
-        }
-    }
-}
-
-/// The inelastic table of one material, as `lindhard-cli` builds it: on the
-/// band-bottom axis with the band's minimum excitation energy as the model's
-/// Fermi energy for a material with a band, on the model's own axis with
-/// `[electron.inelastic] fermi_energy_ev` otherwise (#241).
-pub(crate) fn inelastic_table(
-    r: &ResolvedElectron,
-    m: &ResolvedElectronMaterial,
-) -> Result<CrossSectionTable> {
-    let (fermi_ev, axis) = match &m.band {
-        Some(b) => (b.min_excitation_ev(), EnergyAxis::BandBottom),
-        None => (r.inelastic_fermi_ev, EnergyAxis::ModelFermiLevel),
-    };
-    let model = PennInelastic::try_new(r.inelastic, m.optical_elf.clone())?
-        .with_fermi_energy_ev(fermi_ev)?;
-    Ok(build_inelastic_table_for_model(
-        &model,
-        &m.material,
-        &InelasticTableOptions::new(r.table_energy_ev.clone()).with_axis(axis),
-    )?)
-}
-
-/// Both tables of every material, in `r.materials` order.
-pub(crate) fn tables(r: &ResolvedElectron) -> Result<Vec<LayerTables>> {
-    r.materials
-        .iter()
-        .map(|m| {
-            Ok(LayerTables {
-                elastic: elastic_table(r, &m.material)?,
-                inelastic: inelastic_table(r, m)?,
-            })
-        })
-        .collect()
-}
-
-/// The transport and a fresh full tally, set up as `lindhard-cli` does.
-pub(crate) fn transport(
-    r: &ResolvedElectron,
-    tables: &[LayerTables],
-) -> Result<(Transport, FullElectronTally)> {
-    let layer_tables: Vec<LayerTables> = r
-        .layer_material
-        .iter()
-        .map(|&i| tables[i].clone())
-        .collect();
-    let bands: Option<Vec<_>> = r
-        .layer_material
-        .iter()
-        .map(|&i| r.materials[i].band.clone())
-        .collect();
-    let mut t = match bands {
-        Some(b) => Transport::with_band_structures(r.stack.clone(), layer_tables, b, r.config),
-        None => Transport::new(r.stack.clone(), layer_tables, r.config),
-    }?;
-    for (layer, &i) in r.layer_material.iter().enumerate() {
-        let c = &r.materials[i].channels;
-        if c.any() {
-            t = t.with_insulator_channels(layer, c.clone())?;
-        }
-    }
-    let proto = FullElectronTally::new(&t, r.tally.clone())?;
-    Ok((t, proto))
 }
 
 /// Run `histories` primaries on the current rayon pool and report.

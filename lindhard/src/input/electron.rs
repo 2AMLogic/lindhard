@@ -33,13 +33,16 @@
 //! files it names and checks their provenance with the loaders of
 //! [`crate::electron::data`] (an optical ELF without a provenance is refused;
 //! so are band, phonon and polaron parameters without one), and returns the
-//! engine's types ([`ResolvedElectron`]). Building the cross-section tables
-//! and running the transport is the caller's (`lindhard-cli`).
+//! engine's types ([`ResolvedElectron`]). Turning that into the cross-section
+//! tables of every material and the transport engine built on them is
+//! [`assemble`]; running the beam and writing the outputs is the caller's
+//! (`lindhard-cli`).
 //!
 //! Like the ion input, every table rejects unknown keys and the echoed input
 //! ([`ResolvedElectron::input`]) has every default filled in, so a result can be
 //! reproduced from its own header.
 
+pub mod assemble;
 mod resolve;
 mod resolved;
 mod schema;
