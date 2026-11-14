@@ -202,6 +202,15 @@ turn unrelated pull requests red. `cargo fmt` and `cargo test` stay on floating
 stable, and `rust-toolchain.toml` is unchanged. The pin is independent of the
 MSRV and of the `package` job's Cargo requirement.
 
+The root `package.json` scripts run that same pinned gate: `npm run lint`
+and `npm run check:ci` invoke `cargo +1.x.y clippy --workspace --all-targets
+-- -D warnings`, so they need the pinned toolchain installed
+(`rustup toolchain install 1.x.y --profile minimal --component clippy`).
+Without it they fail loudly with rustup's "toolchain ... is not installed"
+rather than quietly falling back to floating stable. `cargo fmt`,
+`cargo test`, `cargo doc` and `cargo build` in those scripts stay on
+floating stable, matching what CI gates for each.
+
 Drift is reported by the weekly [`clippy-canary`](.github/workflows/clippy-canary.yml)
 workflow (also runnable by `workflow_dispatch`). It runs the same
 `cargo clippy --workspace --all-targets -- -D warnings` on `stable` and `beta`,
@@ -225,7 +234,9 @@ then re-run. Never create a second tracking issue by hand.
    current stable release (check it exists with
    `rustup toolchain install 1.x.y --profile minimal --component clippy`, or at
    `https://static.rust-lang.org/dist/channel-rust-1.x.y.toml`), together with
-   the lint fixes from step 2.
+   the lint fixes from step 2. Update the `cargo +1.x.y clippy` pin in the root
+   [`package.json`](package.json) in the same commit: the `workflow-checks` job
+   (`test_clippy_canary.py`) fails the bump pull request until the two agree.
 4. Before merging the bump, confirm with that exact toolchain:
    `cargo +1.x.y clippy --workspace --all-targets -- -D warnings`, and that the
    PR's `Rust` jobs are green on all three operating systems.

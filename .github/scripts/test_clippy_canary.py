@@ -4,6 +4,7 @@
 Needs PyYAML (CI installs it); otherwise standard library only.
 Run: python3 .github/scripts/test_clippy_canary.py
 """
+import json
 import os
 import re
 import sys
@@ -16,6 +17,12 @@ sys.path.insert(0, HERE)
 import clippy_canary_report as R  # noqa: E402
 
 WF = os.path.join(HERE, "..", "workflows")
+ROOT = os.path.join(HERE, "..", "..")
+
+# A cargo invocation in a shell command: the optional +toolchain and the
+# subcommand. `cargo +1.99.0 clippy` -> ("1.99.0", "clippy"); `cargo fmt`
+# -> ("", "fmt"), because re.findall yields "" for an unmatched group.
+CARGO_CALL = re.compile(r"cargo\s+(?:\+(\S+)\s+)?([a-z][a-z-]*)")
 
 
 def load(name):
@@ -54,6 +61,49 @@ class StaticWorkflowTests(unittest.TestCase):
             self.assertNotIn("+", r)
         # nothing else in ci.yml runs clippy
         self.assertEqual(len(re.findall(r"cargo[^\n]*clippy", text)), 1)
+
+    def test_package_json_pins_clippy_and_leaves_the_rest_floating(self):
+        """package.json's clippy carries ci.yml's exact pin (issue #763).
+
+        `npm run lint` / `npm run check:ci` name the required gate, so they
+        must run the gate's clippy and not whatever floating stable the
+        machine last pulled. The pin in package.json is a second copy of
+        ci.yml's CLIPPY_TOOLCHAIN; this test is what keeps it honest, so a
+        bump that forgets package.json fails workflow-checks instead of
+        silently weakening the local pre-flight.
+        """
+        _, doc = load("ci.yml")
+        pin = doc["jobs"]["rust"]["env"]["CLIPPY_TOOLCHAIN"]
+        with open(os.path.join(ROOT, "package.json")) as f:
+            scripts = json.load(f)["scripts"]
+
+        pinned = f"cargo +{pin} clippy --workspace --all-targets -- -D warnings"
+        clippy_scripts = sorted(k for k, v in scripts.items() if "clippy" in v)
+        self.assertTrue(clippy_scripts, "no package.json script runs clippy")
+        for name in ("lint", "check:ci"):
+            self.assertIn(name, clippy_scripts)
+            self.assertIn(pinned, scripts[name],
+                          f"{name} must run the pinned clippy, not floating stable")
+
+        # Every cargo call in every script: clippy carries the pin, and nothing
+        # else carries a +toolchain at all. CONTRIBUTING.md, "Clippy pin and
+        # canary": fmt and test stay on floating stable -- and so do doc and
+        # build, which CI also gates on floating stable.
+        for name, cmd in scripts.items():
+            for toolchain, subcommand in CARGO_CALL.findall(cmd):
+                if subcommand == "clippy":
+                    self.assertEqual(toolchain, pin,
+                                     f"{name}: clippy must run on the pin {pin}")
+                else:
+                    self.assertEqual(toolchain, "",
+                                     f"{name}: cargo {subcommand} must stay floating")
+
+        # check:ci is CONTRIBUTING.md's pre-submit bullet (fmt, clippy, test,
+        # rustdoc) plus the CLI build -- not an exhaustive mirror of ci.yml.
+        self.assertEqual([sub for _, sub in CARGO_CALL.findall(scripts["check:ci"])],
+                         ["fmt", "clippy", "test", "doc", "build"])
+        self.assertIn('RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps',
+                      scripts["check:ci"])
 
     def test_ci_does_not_reference_canary(self):
         text, _ = load("ci.yml")
