@@ -155,12 +155,14 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-_None._
+- **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning
 
 ## Important
 
 `loom:important`; taken before unlabelled work.
 
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement
 - **#486**: [Epic #33] Digitize the measured points from the srim.org stopping plots (cited, flagged, count-checked)
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup
 - **#637**: [Epic #630] `lindhard stopping-table`: stopping and range tables over an energy grid
@@ -170,28 +172,40 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
+- **#773**: Finish the tests/common consolidation: 18 clusters of byte-identical test helpers remain
+- **#785**: Share the 100 duplicated helper lines of tests/csg.rs and tests/mesh.rs via tests/common
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#740**: Share the write-or-check driver between the two lindhard-plots binaries
-- **#741**: Share the duplicated synthetic scattering and band-structure helpers across the electron integration tests
-- **#742**: Share the dataset loader and common provenance checks across the level-3 experiment scripts
+- **#752**: Share one data-file loader across the input resolvers, and record the SRIM coefficient file's SHA-256 that is computed but never written
+- **#753**: Move the electron beam model (BeamProfile, BeamSpread, beam serde macro) out of electron/transport.rs into its own electron::beam module
+- **#758**: Collapse the duplicate output path in `lindhard exposure` into the shared OutputSet lifecycle
+- **#763**: Root package.json clippy scripts run floating stable, not the pinned CI gate toolchain
+- **#764**: Collapse the duplicated secondary-spawn tail in electron transport, and pass the Kieft-Bosch options as one value
+- **#765**: THIRD_PARTY_LICENSES.md still points cstool's inelastic_axis attribution at lindhard-cli/src/electron.rs
+- **#769**: [Epic #28] Accept `[[crystal]]` targets in the WASM simulation session
+- **#778**: Share the oracle-harness scaffolding the two level-2 runners duplicate (Oracle, NotConfigured, _git, _round, sha256)
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#743**: refactor(validation): share the level-3 dataset loader and provenance rules
-- **#744**: refactor(plots): share one write-or-check driver between the two generator binaries
-- **#746**: test: move the shared electron fixture helpers into tests/common
+- **#770**: refactor(cli): publish exposure outputs through the shared OutputSet
+- **#776**: build: run the pinned clippy from package.json and guard the pin
+- **#783**: docs: repoint cstool inelastic_axis attribution at assemble.rs
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
+- **#759**: refactor(input): share one data-file loader and record the SRIM file's hash
+- **#760**: refactor(electron): move the beam model out of transport.rs into electron::beam
+- **#779**: feat(wasm): accept [[crystal]] targets in the simulation session
+- **#780**: refactor(electron): share one secondary-spawn tail and one Kieft-Bosch options value
+- **#784**: refactor(validation): share the level-2 oracle scaffolding through validation/lib
 
 ## Proposed
 
@@ -222,11 +236,18 @@ Issues carrying `loom:curated`.
 - **#642**: [Epic #630] TRIM.IN importer *(curated)*
 - **#643**: [Epic #630] SRIM-format output writers *(curated)*
 - **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
+- **#763**: Root package.json clippy scripts run floating stable, not the pinned CI gate toolchain *(curated)*
+- **#765**: THIRD_PARTY_LICENSES.md still points cstool's inelastic_axis attribution at lindhard-cli/src/electron.rs *(curated)*
+- **#768**: [Epic #25] TOML input for a laterally varying ion target built from CSG solids *(curated)*
+- **#769**: [Epic #28] Accept `[[crystal]]` targets in the WASM simulation session *(curated)*
 
 ## Proposed (Architect / Hermit)
 
-- **#745**: Share the duplicated energy, Fermi-energy and tolerance checks across the three inelastic models *(hermit)*
-- **#747**: Move the scattering-table and tally-binning assembly onto Resolved so the CLI and WASM front ends share it *(hermit)*
+- **#771**: Consolidate the three copies of Gaussian elimination with partial pivoting (and their divergent singularity tests) *(hermit)*
+- **#777**: Trim never-called public API before 0.1.0 locks the surface: 8 items with zero references *(hermit)*
+- **#787**: Share one thread-pool helper across the CLI and Python crates: ten copies of the threads == Some(0) guard, two of them unreachable *(hermit)*
+- **#788**: Share the one histogram-CSV writer and the one element-symbol lookup: hist_rows exists twice, symbol() three times *(hermit)*
+- **#789**: Remove the orphaned one-shot WASM range calculator: calculate()/range_profile lost its only caller when the page folded into the simulator *(hermit)*
 
 ## Epics
 
@@ -242,14 +263,14 @@ Issues carrying `loom:curated`.
 | Bucket | Count |
 |------|-------|
 | Operator merge-risk holds | 1 |
-| Very important | 0 |
-| Important | 3 |
-| Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 3 |
+| Very important | 1 |
+| Important | 5 |
+| Ready (`loom:issue`) | 3 |
+| In Progress (`loom:building`) | 8 |
 | PRs awaiting review | 3 |
-| Approved PRs awaiting merge | 1 |
-| Curated | 25 |
-| Architect / Hermit proposals | 2 |
+| Approved PRs awaiting merge | 6 |
+| Curated | 29 |
+| Architect / Hermit proposals | 5 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
 
