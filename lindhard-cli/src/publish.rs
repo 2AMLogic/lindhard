@@ -1,4 +1,5 @@
-//! The output lifecycle shared by the ion, electron and dynamic run modes.
+//! The output lifecycle shared by the ion, electron, dynamic and exposure
+//! run modes.
 //!
 //! A run replaces its CSVs in place and publishes its summary last, so the
 //! summary certifies the completed output set. [`OutputSet::begin`] removes

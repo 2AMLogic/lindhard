@@ -15,6 +15,8 @@ use lindhard::input::electron::ElectronInput;
 use lindhard::tally::GaussianPsf;
 use serde_json::json;
 
+use crate::publish::OutputSet;
+
 /// File names written in the output directory.
 pub const DOSE_FILE: &str = "exposure_dose.csv";
 /// Contour vertices (with `--threshold` or `--threshold-fraction`).
@@ -221,7 +223,6 @@ pub fn run(a: &ExposureArgs) -> Result<()> {
         None => exposure.dose_on_grid(&grid)?,
     };
     std::fs::create_dir_all(&a.out).with_context(|| format!("creating {}", a.out.display()))?;
-    write(&a.out, DOSE_FILE, &dose.csv())?;
 
     let max = dose
         .dose_ev_per_m2
@@ -233,20 +234,27 @@ pub fn run(a: &ExposureArgs) -> Result<()> {
         (None, Some(f)) => Some(f * max),
         _ => None,
     };
+    // Every output is computed before the first write, so the summary can be
+    // serialized up front and the whole set published through `OutputSet`.
     let mut features = serde_json::Value::Null;
+    let mut contour_rows = None;
+    let mut feature_rows = None;
     if let Some(t) = threshold {
         let c = contours(&dose, t);
-        write(&a.out, CONTOURS_FILE, &Contour::csv(&c))?;
-        write(&a.out, FEATURES_FILE, &features_csv(&c))?;
+        contour_rows = Some(Contour::csv(&c));
+        feature_rows = Some(features_csv(&c));
         features = json!({
             "threshold_ev_per_m2": t,
             "contours": c.len(),
             "closed": c.iter().filter(|c| c.closed).count(),
         });
     }
-    let direct = match (&a.direct, direct_shots) {
-        (Some(toml), Some(shots)) => Some(run_direct(a, toml, &shots, &grid, &exposure)?),
-        _ => None,
+    let (direct_rows, comparison_rows, direct) = match (&a.direct, direct_shots) {
+        (Some(toml), Some(shots)) => {
+            let d = run_direct(a, toml, &shots, &grid, &exposure)?;
+            (Some(d.dose_csv), Some(d.comparison_csv), d.summary)
+        }
+        _ => (None, None, serde_json::Value::Null),
     };
     // The area dose per unit weight density: the interior value of a large
     // uniform exposure is `weight_per_m2 * E` (the forward part is its alpha share).
@@ -265,13 +273,20 @@ pub fn run(a: &ExposureArgs) -> Result<()> {
             "long_range_ev_per_m2": unit.long_range_ev_per_m2,
         },
         "contours": features,
-        "direct": direct.unwrap_or(serde_json::Value::Null),
+        "direct": direct,
     });
-    write(
+    let set = OutputSet::begin(
         &a.out,
         SUMMARY_FILE,
-        &(serde_json::to_string_pretty(&summary)? + "\n"),
+        serde_json::to_string_pretty(&summary)? + "\n",
     )?;
+    set.write(DOSE_FILE, dose.csv())?;
+    set.reconcile_optional(CONTOURS_FILE, contour_rows)?;
+    set.reconcile_optional(FEATURES_FILE, feature_rows)?;
+    set.reconcile_optional(DIRECT_FILE, direct_rows)?;
+    set.reconcile_optional(COMPARISON_FILE, comparison_rows)?;
+    // Last, so the summary describes the completed output set.
+    set.publish()?;
     eprintln!(
         "{n_shots} shots on a {}x{} grid; wrote {}",
         a.nx,
@@ -281,15 +296,24 @@ pub fn run(a: &ExposureArgs) -> Result<()> {
     Ok(())
 }
 
-/// Direct mode: transport the shot list on the target of `toml`, write the
-/// direct dose and the comparison, and return the summary block.
+/// Direct mode's outputs: the bodies of [`DIRECT_FILE`] and
+/// [`COMPARISON_FILE`], and the `direct` block of the summary.
+struct Direct {
+    dose_csv: String,
+    comparison_csv: String,
+    summary: serde_json::Value,
+}
+
+/// Direct mode: transport the shot list on the target of `toml` and return the
+/// direct dose, the comparison and the summary block. Nothing is written here;
+/// the caller publishes the whole output set.
 fn run_direct(
     a: &ExposureArgs,
     toml: &Path,
     shots: &[lindhard::exposure::Shot],
     grid: &Grid,
     exposure: &Exposure,
-) -> Result<serde_json::Value> {
+) -> Result<Direct> {
     let Some(slab_hi_m) = a.slab_hi_m else {
         bail!("--direct needs --slab-hi-m (the film's lower and upper depth bound the tally)");
     };
@@ -328,27 +352,29 @@ fn run_direct(
         a.tolerance_sigmas,
         a.floor_fraction,
     )?;
-    write(&a.out, DIRECT_FILE, &d.csv())?;
-    write(&a.out, COMPARISON_FILE, &comparison_csv(&cmp))?;
     let flagged = cmp.iter().filter(|c| c.flagged).count();
     eprintln!(
         "direct: {flagged} of {} points differ from the convolution by more than {} combined standard errors",
         cmp.len(),
         a.tolerance_sigmas
     );
-    Ok(json!({
-        "target": toml.display().to_string(),
-        "histories_per_shot": a.direct_histories,
-        "replicas": d.replicas,
-        "histories_per_shot_per_replica": d.histories_per_shot_per_replica,
-        "seed": a.direct_seed,
-        "slab_m": [a.slab_lo_m, slab_hi_m],
-        "tolerance_sigmas": a.tolerance_sigmas,
-        "conv_rel_err": a.conv_rel_err,
-        "floor_fraction": a.floor_fraction,
-        "points": cmp.len(),
-        "flagged": flagged,
-    }))
+    Ok(Direct {
+        dose_csv: d.csv(),
+        comparison_csv: comparison_csv(&cmp),
+        summary: json!({
+            "target": toml.display().to_string(),
+            "histories_per_shot": a.direct_histories,
+            "replicas": d.replicas,
+            "histories_per_shot_per_replica": d.histories_per_shot_per_replica,
+            "seed": a.direct_seed,
+            "slab_m": [a.slab_lo_m, slab_hi_m],
+            "tolerance_sigmas": a.tolerance_sigmas,
+            "conv_rel_err": a.conv_rel_err,
+            "floor_fraction": a.floor_fraction,
+            "points": cmp.len(),
+            "flagged": flagged,
+        }),
+    })
 }
 
 fn features_csv(c: &[Contour]) -> String {
@@ -365,9 +391,4 @@ fn features_csv(c: &[Contour]) -> String {
         ));
     }
     s
-}
-
-fn write(dir: &Path, name: &str, text: &str) -> Result<()> {
-    let p = dir.join(name);
-    std::fs::write(&p, text).with_context(|| format!("writing {}", p.display()))
 }
