@@ -12,7 +12,7 @@
 
 use lindhard::electron::boundary::BandStructure;
 use lindhard::electron::data::{CrossSectionTable, SamplingAxis};
-use lindhard::electron::secondary::SecondaryModel;
+use lindhard::electron::secondary::{KieftBoschOptions, SecondaryModel};
 use lindhard::electron::transport::{
     BoundaryModel, CutoffReference, ElectronState, ElectronTally, Fate, GridCoverage, Primary,
     SummaryTally, TableChannel, Transport, TransportConfig,
@@ -269,10 +269,10 @@ fn tally_config(e0: f64) -> ElectronTallyConfig {
 #[test]
 fn secondaries_are_counted_with_the_primary() {
     let mut cfg = TransportConfig::new(45.0);
-    cfg.secondaries = SecondaryModel::KieftBosch {
+    cfg.secondaries = SecondaryModel::KieftBosch(KieftBoschOptions {
         instantaneous_momentum: false,
         momentum_conservation: false,
-    };
+    });
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
         vec![layer_pair(
