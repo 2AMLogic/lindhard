@@ -21,14 +21,13 @@ use lindhard::input::electron::{
     assemble, DataFile, ElectronInput, ResolvedElectron, ResolvedElectronMaterial,
 };
 use lindhard::input::ModelInfo;
-use lindhard::material::MaterialSpec;
 use lindhard::tally::{
     fit_psf, ChargeCells, ElectronReport, FullElectronTally, Histogram, PsfFitOptions, PsfModel,
     PsfReport,
 };
 use serde::Serialize;
 
-use crate::output::{density, software, Format, Software, NM};
+use crate::output::{density, software, target_layers, Format, LayerOut, Software, NM};
 use crate::table_cache::{CacheFile, TableCache, TableKind, TableSource};
 
 /// Name of the electron summary format.
@@ -310,16 +309,6 @@ pub fn simulate_electron(
 
 // ---------------------------------------------------------------------------
 // electron_summary.json
-
-#[derive(Serialize)]
-struct LayerOut {
-    index: usize,
-    source: String,
-    front_nm: f64,
-    back_nm: Option<f64>,
-    atom_density_per_cm3: f64,
-    material: MaterialSpec,
-}
 
 #[derive(Serialize)]
 struct ElfOut<'a> {
@@ -650,21 +639,7 @@ pub fn psf_parameters_csv(sim: &ElectronSimulation) -> Option<String> {
 
 /// The `electron_summary.json` text (pretty-printed, trailing newline).
 pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<String> {
-    let target = r
-        .stack
-        .layers()
-        .iter()
-        .zip(&r.layers)
-        .enumerate()
-        .map(|(index, (g, l))| LayerOut {
-            index,
-            source: l.source.clone(),
-            front_nm: g.front_m() / NM,
-            back_nm: g.back_m().is_finite().then(|| g.back_m() / NM),
-            atom_density_per_cm3: g.material().atom_number_density() * 1e-6,
-            material: MaterialSpec::from(g.material().clone()),
-        })
-        .collect();
+    let target = target_layers(&r.stack, &r.layers);
     let materials = r
         .materials
         .iter()

@@ -9,8 +9,9 @@
 
 use std::fmt::Write as _;
 
+use lindhard::geometry::Stack;
 use lindhard::input::TuningReport;
-use lindhard::input::{ModelInfo, Resolved};
+use lindhard::input::{ModelInfo, Resolved, ResolvedLayer};
 use lindhard::ion::bca::{CrystalMetadata, EnergyBudget, MeanFreePath};
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::material::MaterialSpec;
@@ -87,8 +88,11 @@ struct Table {
     max_rel_error: f64,
 }
 
+/// One layer of the `target[]` array, shared by `summary.json` and
+/// `electron_summary.json` so the two describe the same record (built by
+/// [`target_layers`]).
 #[derive(Serialize)]
-struct LayerOut {
+pub(crate) struct LayerOut {
     index: usize,
     source: String,
     front_nm: f64,
@@ -96,6 +100,26 @@ struct LayerOut {
     back_nm: Option<f64>,
     atom_density_per_cm3: f64,
     material: MaterialSpec,
+}
+
+/// The `target[]` array of a summary: the resolved stack geometry paired with
+/// the layer sources it was resolved from. Every run mode writes this same
+/// record, so a field added here reaches all of them at once.
+pub(crate) fn target_layers(stack: &Stack, layers: &[ResolvedLayer]) -> Vec<LayerOut> {
+    stack
+        .layers()
+        .iter()
+        .zip(layers)
+        .enumerate()
+        .map(|(index, (g, l))| LayerOut {
+            index,
+            source: l.source.clone(),
+            front_nm: g.front_m() / NM,
+            back_nm: g.back_m().is_finite().then(|| g.back_m() / NM),
+            atom_density_per_cm3: g.material().atom_number_density() * 1e-6,
+            material: MaterialSpec::from(g.material().clone()),
+        })
+        .collect()
 }
 
 /// A user stopping table, identified by file, for provenance. User tables are
@@ -627,21 +651,7 @@ pub fn summary_json(
                 max_abs_error_rad: table.max_abs_error(),
                 max_rel_error: table.max_rel_error(),
             },
-            target: r
-                .stack
-                .layers()
-                .iter()
-                .zip(&r.layers)
-                .enumerate()
-                .map(|(index, (g, l))| LayerOut {
-                    index,
-                    source: l.source.clone(),
-                    front_nm: g.front_m() / NM,
-                    back_nm: g.back_m().is_finite().then(|| g.back_m() / NM),
-                    atom_density_per_cm3: g.material().atom_number_density() * 1e-6,
-                    material: MaterialSpec::from(g.material().clone()),
-                })
-                .collect(),
+            target: target_layers(&r.stack, &r.layers),
             tuning: r.tuning.clone(),
             crystal: crystals.to_vec(),
             beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
