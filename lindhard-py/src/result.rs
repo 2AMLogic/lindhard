@@ -7,9 +7,10 @@
 
 use std::path::PathBuf;
 
+use lindhard::elements::symbol;
 use lindhard::input::Resolved;
 use lindhard::tally::{Histogram as LibHistogram, WeightedHistogram};
-use lindhard_cli::output::{self, density, energy_density, symbol, NM};
+use lindhard_cli::output::{self, density, energy_density, NM};
 use lindhard_cli::sim::Simulation;
 use numpy::{IntoPyArray, PyArray1, PyArray2, PyArrayMethods};
 use pyo3::prelude::*;

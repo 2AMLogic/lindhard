@@ -9,6 +9,7 @@
 
 use std::fmt::Write as _;
 
+use lindhard::elements::symbol;
 use lindhard::geometry::Stack;
 use lindhard::input::TuningReport;
 use lindhard::input::{ModelInfo, Resolved, ResolvedLayer};
@@ -428,10 +429,6 @@ struct Escapes {
     species: Vec<SpeciesOut>,
 }
 
-pub fn symbol(z: u8) -> &'static str {
-    lindhard::elements::element(z).map_or("?", |e| e.symbol)
-}
-
 fn range_out(r: &IonReport) -> Range {
     let g = &r.range;
     Range {
@@ -822,9 +819,16 @@ pub fn lateral_csv(r: &IonReport) -> String {
     out
 }
 
-/// Append one row per bin of `h` (edges divided by `unit`) then underflow and
-/// overflow rows. `prefix` starts every row.
-fn hist_rows(out: &mut String, prefix: &str, h: &Histogram, histories: u64, unit: f64, scale: f64) {
+/// Append one row per bin of `h` (edges divided by `unit`, then multiplied
+/// by `scale`) then underflow and overflow rows. `prefix` starts every row.
+pub(crate) fn hist_rows(
+    out: &mut String,
+    prefix: &str,
+    h: &Histogram,
+    histories: u64,
+    unit: f64,
+    scale: f64,
+) {
     let b = &h.binning;
     let w = b.width() / unit * scale;
     for (i, &c) in h.counts.iter().enumerate() {
