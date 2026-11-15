@@ -51,7 +51,15 @@ resolution warns about this combination and points at the energy-dependent
 free path (see the `ion::stopping::straggling` module docs). With long
 flights — the energy-dependent free path at a small `min_cm_angle_deg` — the
 truncation is inactive and the transmitted variance matches Bohr to about
-two percent in the same foil. The library entry points
+two percent in the same foil. A crystal region is always in the short-flight
+regime: its flights are lattice flights, short by construction
+(`search_length_nm` defaults to the lattice constant), they sample through
+the same electronic-loss path, and no long-flight option exists inside a
+crystal, so with straggling on a crystal's electronic loss carries an
+unavoidable upward truncation bias — measured about 3.7x on a 1 MeV proton
+through Si — which the input resolution warns about separately (the
+energy-dependent free path is rejected while `[[crystal]]` regions are
+present). The library entry points
 (`variance_per_atom`, `variance_per_atom_material`) remain available
 independently.
 

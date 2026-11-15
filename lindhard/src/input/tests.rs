@@ -219,6 +219,105 @@ seed = 1
 }
 
 #[test]
+fn straggling_warns_on_crystal_flights_and_mixed_stacks_warn_about_both() {
+    // A 5 MeV beam sits above Bohr's floor for B (about 2.3 MeV); stopping
+    // is bethe-bloch so the lindhard-scharff validity range does not add its
+    // own advisory, and only the truncation advisories can fire here. The
+    // mixed-stack case extends the target with an amorphous C layer, so it
+    // carries its own energy override for C.
+    let text = |s: &str, target: &str, extra_energies: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = 5.0e6
+
+{target}
+
+[physics]
+stopping = "bethe-bloch"
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+{extra_energies}
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    let substrate = "[target]\nsubstrate = \"Si\"\n";
+    let crystal =
+        "[[crystal]]\nlayers = [0]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n";
+    // A crystal region with straggling on: the crystal advisory fires even
+    // though the constant free path is the only legal choice there.
+    let r = Input::from_toml_str(&text(
+        "straggling = \"bohr\"\n",
+        &format!("{substrate}{crystal}"),
+        "",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("[[crystal]]") && w.contains("unavoidable")),
+        "{:?}",
+        r.warnings
+    );
+    // A fully crystalline stack has no amorphous regions: the constant
+    // free-path advisory does not fire (other advisories, such as the
+    // stopping model's validity range at this energy, are unrelated and not
+    // pinned here).
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("free_path")),
+        "{:?}",
+        r.warnings
+    );
+    // A mixed stack warns about both halves: the amorphous layer flies the
+    // constant free path (its usual fix is unavailable), the crystal region
+    // flies the lattice. Layer 0 is the amorphous C film, layer 1 the
+    // crystalline Si substrate.
+    let mixed = format!(
+        "{substrate}[[target.layers]]\nmaterial = \"C\"\nthickness_nm = 10.0\n\
+         [[crystal]]\nlayers = [1]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n"
+    );
+    let r = Input::from_toml_str(&text(
+        "straggling = \"bohr\"\n",
+        &mixed,
+        "[physics.energies.C]\ne_d_ev = 20.0\n",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        r.warnings.iter().any(|w| w.contains("[[crystal]]")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("free_path = \"constant\"") && w.contains("amorphous regions")),
+        "{:?}",
+        r.warnings
+    );
+    // Straggling off: a crystal run says nothing about straggling.
+    let r = Input::from_toml_str(&text("", &format!("{substrate}{crystal}"), ""))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("straggling")),
+        "{:?}",
+        r.warnings
+    );
+}
+
+#[test]
 fn echo_round_trips_and_drops_threads() {
     let mut i = Input::from_toml_str(B_SI).unwrap();
     i.run.threads = Some(3);

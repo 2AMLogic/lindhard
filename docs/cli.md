@@ -310,7 +310,15 @@ factor. `lindhard check` warns about this combination and points at
 small when flights are long, so spectra through thin foils are best taken
 with `free_path = "energy-dependent"` and a small `min_cm_angle_deg` — a
 1 MeV proton through 100 nm of carbon there reproduces the Bohr variance to
-about two percent. Draws come from each history's own stream, so results
+about two percent. Crystal regions sit permanently in the biased regime:
+their flights are lattice flights, short by construction
+(`search_length_nm` defaults to the lattice constant), they sample like any
+other flight, and no long-flight option exists inside a crystal, so with
+straggling on the crystal's electronic loss carries an unavoidable upward
+truncation bias (measured about 3.7x for a 1 MeV proton through Si), which
+`lindhard check` warns about; the energy-dependent free path that fixes
+amorphous flights is rejected while `[[crystal]]` regions are present.
+Draws come from each history's own stream, so results
 stay deterministic at any thread count; a default run draws nothing and is
 unchanged. Bohr is a high-energy model, `v >> v0 Z1^(2/3)`, and an
 overestimate below about 1 MeV/u

@@ -12,9 +12,11 @@
 //!
 //! # Use in transport
 //!
-//! The amorphous BCA engine samples electronic straggling when it is enabled
-//! with `[physics] straggling = "bohr"` (or `"bohr-relativistic"`; input key
-//! `StragglingChoice`, engine setting `BcaConfig::straggling`). Every free
+//! The ion BCA engine samples electronic straggling when it is enabled with
+//! `[physics] straggling = "bohr"` (or `"bohr-relativistic"`; input key
+//! `StragglingChoice`, engine setting `BcaConfig::straggling`) — in the
+//! amorphous engine per free flight, and in a crystal region per lattice
+//! flight. In amorphous material every free
 //! flight's nonlocal loss is then drawn from a Gaussian centred on the mean
 //! loss `N S_e s` it would take anyway, with standard deviation
 //! `sqrt(n Omega^2 s)`: the Bragg-added variance of this module
@@ -42,7 +44,15 @@
 //! draws (measured 2026-11-14 while building this feature). The input
 //! resolution warns when `[physics] straggling` is combined with the
 //! constant free path, and when the beam energy sits below Bohr's
-//! `v >> v0 Z1^(2/3)` floor. With flights tens of
+//! `v >> v0 Z1^(2/3)` floor. A crystal region is always in the short-flight
+//! regime: its flights are lattice flights, short by construction
+//! (`search_length_nm` defaults to the lattice constant, 0.543 nm in Si),
+//! they sample through the same electronic-loss path, and no long-flight
+//! option exists inside a crystal, so with straggling on a crystal's
+//! electronic loss carries an unavoidable upward truncation bias — measured
+//! about 3.7x on a 1 MeV proton through Si (2026-11-15, same foil protocol
+//! as the amorphous figure above) — which the input resolution warns about
+//! separately. With flights tens of
 //! nanometres long (`free_path = "energy-dependent"` at a small
 //! `min_cm_angle_deg`) the truncation is inactive and the same foil
 //! reproduces the Bohr variance to about two percent;

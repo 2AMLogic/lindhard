@@ -31,7 +31,9 @@ Gaussian of the Bohr standard deviation for the flight's areal density, drawn
 from the history's own stream, and truncated to `[0, E]`. The truncation
 biases the mean loss upward where the per-flight standard deviation is
 comparable to the per-flight mean loss — short flights (the constant free
-path) at any energy — see the [`physics.straggling` note in the CLI
+path) at any energy; crystal regions are permanently in that regime, since
+their lattice flights are short by construction and no long-flight option
+exists inside a crystal. See the [`physics.straggling` note in the CLI
 docs](cli.md) and the `ion::stopping::straggling` module docs for the
 measured size of the effect.
 
