@@ -91,7 +91,7 @@ use std::io::{self, Write};
 use serde::{Deserialize, Serialize};
 
 use super::ion::ReplacementTracker;
-use crate::elements::{element, element_by_symbol};
+use crate::elements::{element_by_symbol, symbol};
 use crate::geometry::VoxelGrid;
 use crate::ion::bca::{BcaTally, ElectronicChannel, Face, LatticeDeposit, Particle};
 
@@ -702,10 +702,6 @@ impl<'a> Tokens<'a> {
             Err(parse_err(n, format!("expected `{word}`, found `{t}`")))
         }
     }
-}
-
-fn symbol(z: u8) -> &'static str {
-    element(z).map_or("?", |e| e.symbol)
 }
 
 /// `0:Ar,1:Si`: the species of a v2 file, named by element symbol.
