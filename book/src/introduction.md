@@ -1,4 +1,4 @@
-# Introduction
+# Introduction.
 
 lindhard is a clean-room, MIT-licensed Rust engine for Monte Carlo transport
 of ions in matter, in the binary-collision approximation (BCA). For a beam of
