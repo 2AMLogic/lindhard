@@ -195,6 +195,77 @@ or an inline material table with the same keys as `[materials.<name>]`. A
 `[materials]` key wins over an element symbol of the same name. Without a
 substrate the target has a back face and particles can be transmitted.
 
+#### CSG solids: `[[target.solids]]`
+
+Optional. Describes a laterally varying target as constructive solid
+geometry: an ordered list of solids, each with a `material` (in the same
+three forms as a layer's) and a `shape` selected by a `shape` key. Lengths
+are in nm; `x` is depth from the front surface. `[[target.solids]]` may not
+be combined with `[[target.layers]]`, `target.substrate`, `[[crystal]]` or
+`[dynamic]`; every combination is an error naming the key.
+
+```toml
+[[target.solids]]
+shape = "cuboid"            # the axis-aligned box [lo_nm, hi_nm]
+material = "SiO2"
+lo_nm = [0.0, 0.0, -500.0]
+hi_nm = [40.0, 500.0, 500.0]
+
+[[target.solids]]
+shape = "cylinder"          # a finite cylinder with flat end caps
+material = "Si"
+base_nm = [100.0, 0.0, 0.0] # centre of the first end cap
+axis = [1.0, 0.0, 0.0]      # any non-zero direction; normalised
+radius_nm = 50.0
+height_nm = 200.0
+
+[[target.solids]]
+shape = "half_space"        # { p : normal . p <= offset_nm }
+material = "Si"
+normal = [0.0, 0.0, -1.0]   # any non-zero direction; normalised
+offset_nm = 100.0           # plane distance from the origin, nm
+```
+
+A `half_space` is unbounded on its own, so it must be bounded by a
+combination; a lone one is an error:
+
+```toml
+[[target.solids]]
+shape = "intersection"      # points inside every operand
+material = "Si"
+of = [
+  { shape = "half_space", normal = [0.0, 0.0, -1.0], offset_nm = 100.0 },
+  { shape = "cuboid", lo_nm = [0.0, -50.0, -50.0], hi_nm = [200.0, 50.0, 50.0] },
+]
+```
+
+The other combinations are `union` (`of`, at least one operand) and
+`difference` (`keep` and `cut`; points inside `keep` and not inside `cut`),
+whose operands are the same shapes. Invalid values (a non-finite or
+inverted box, a zero axis or normal, a non-positive radius or height) are
+errors naming the offending key.
+
+**Listing order is priority order.** One region is one top-level solid, in
+the order listed; where solids overlap, the first listed owns the space, so
+a mask listed before the block it patterns cuts into it (the
+[`b_5keV_si_masked.toml`](../examples/b_5keV_si_masked.toml) example). Two
+solids of the same material share one material index: crossing between them
+is not an event.
+
+**Beam entry.** The beam enters at the centre of the front face of the
+scene's bounding box. If no solid contains that point, resolution is an
+error naming `target.solids`; reshape the scene (or make the first solid
+cover the point) to run it.
+
+**Lateral escapes.** Unlike a layer stack, a solid target has lateral
+vacuum faces, and a particle can leave through one. Such escapes count in
+the energy budget (`results.energy_budget_ev_per_ion` reports the lateral
+energy), but `escape_spectra.csv` records front and back escapes only; a
+side escape appears in no spectrum. Size the target so that side escapes do
+not matter: make the solids wide enough that neither the beam's lateral
+straggle nor a cascade reaches a side face, and check that the budget's
+lateral energy is zero.
+
 ### `[physics]`
 
 | Key | Default | Choices |

@@ -104,7 +104,7 @@ impl Simulation {
             .bca(&*stopping, &table)
             .map_err(|e| e.to_string())?;
         let proto = IonTally::new(
-            &resolved.stack,
+            resolved.geometry(),
             &bca.species_z(),
             resolved.ion_tally_config().map_err(|e| e.to_string())?,
         )
