@@ -13,6 +13,11 @@ density is (Bohr 1948)
 
 independent of energy in the non-relativistic regime, with \\( z \\) the
 projectile charge from an [effective-charge model](stopping-bethe-bloch.md).
+The engine computes it for the bare charge \\( z = Z_1 \\) regardless of the
+mean loss's effective charge, so a `bethe-bloch` mean loss configured with a
+non-bare charge samples against a bare-charge variance — a known
+inconsistency between mean loss and variance, not a fitted or corrected
+model.
 The relativistic variant multiplies it by
 \\( (1 - \beta^2/2)/(1 - \beta^2) \\) (Bethe and Livingston 1937; Fano 1963).
 For a compound the variances add by atom fraction,
@@ -41,6 +46,10 @@ the flight convention; and at the closing criterion the Gaussian sits 4
 standard deviations above zero, so the probability of a draw below it is
 `Phi(-4) ~ 3.2e-5` and the clamp — which keeps every history's energy exact
 and non-negative — is essentially inactive. The mean loss stays unbiased.
+Because the bare-charge Bohr variance does not depend on energy, the
+engine precomputes it per layer alongside its mean-loss coefficient (the
+relativistic variant keeps its energy dependence and is evaluated per
+flight).
 
 The segment, not the flight, is the sampling unit because Bohr's variance
 is a many-collisions result: a Gaussian describes the loss of a path that

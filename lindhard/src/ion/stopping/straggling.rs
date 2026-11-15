@@ -65,12 +65,26 @@
 //!
 //! The effective charge is `EffectiveCharge::Bare`, the form in which the
 //! Bohr expression is written above; the engine's mean loss applies no
-//! charge correction either. Turning the option on shifts every subsequent
-//! transport draw of a history, so a run with straggling is a different
-//! trajectory sequence than a run without it, not a per-history perturbation
-//! of one; comparisons between the two must be statistical over many
-//! histories. A default (`"none"`) run makes no draw at all, so its results
-//! are bit-identical to a build without the option. Before 2026-11-14 this
+//! charge correction either. The variance stays pinned to that charge
+//! regardless of the caller's stopping model: a `bethe-bloch` mean loss
+//! configured with a non-bare effective charge
+//! (`BetheBloch::with_effective_charge`) samples against a variance
+//! computed for a bare projectile, so the pairing is not self-consistent —
+//! the mean loss carries the charge correction, the variance does not.
+//! That is a known limitation, recorded here rather than fixed: threading
+//! the mean loss's charge into the variance would change sampled physics.
+//! Because the bare-charge variance does not depend on energy, the BCA
+//! engine hoists it per layer beside its mean-loss coefficient and reads
+//! the precomputed value while accumulating a segment's variance in the
+//! amorphous free-flight path; the relativistic variant keeps its beta²
+//! dependence and is evaluated per flight.
+//!
+//! Turning the option on shifts every subsequent transport draw of a
+//! history, so a run with straggling is a different trajectory sequence
+//! than a run without it, not a per-history perturbation of one;
+//! comparisons between the two must be statistical over many histories. A
+//! default (`"none"`) run makes no draw at all, so its results are
+//! bit-identical to a build without the option. Before 2026-11-14 this
 //! module was library-only: nothing sampled it (checked with
 //! `grep -rnE 'variance_per_atom|StragglingModel|straggling::' --include=*.rs .`
 //! piped through `grep -v 'stopping/straggling.rs'`, which printed nothing).
