@@ -593,8 +593,10 @@ impl BcaTally for IonTally {
         let acc = match face {
             Face::Front => &mut pair.0,
             Face::Back => &mut pair.1,
-            // Lateral faces exist only on voxel grids, which this stack
-            // tally does not describe.
+            // A side escape — a voxel-grid side wall or a CSG solid's
+            // lateral face — is counted in `EnergyBudget::lateral` but
+            // deliberately left out of the face-escape spectra
+            // (escape_spectra.csv); see docs/cli.md, "Lateral escapes".
             Face::Side => return,
         };
         acc.count += 1;
