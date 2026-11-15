@@ -13,6 +13,91 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Path gate: a prose-only pull request skips the expensive suites.
+  #
+  # The `changes` job classifies the PR diff into code=true/false; only the
+  # `rust` (all three matrix legs) and `python` jobs consult it. Every other
+  # job in this file runs unconditionally, on every event.
+  #
+  # The allowlist's predicate is "no gated check reads this path", NOT "this
+  # path is prose". No test or check inside the gated jobs reads any
+  # allowlisted path, so skipping the suite on a prose-only diff cannot hide
+  # a break. Generated artifacts do not satisfy that predicate, so they are
+  # EXCLUDED from the allowlist even where they sit under an allowlisted
+  # prefix (the case match below tests the exclusions before the docs/** and
+  # book/** prefixes, or the prefixes would swallow them):
+  #   docs/img/**                            backscatter.rs reads
+  #                                          docs/img/backscatter-eta.svg
+  #   book/src/models/stopping-residuals.md  stopping_report.rs reads it
+  #   docs/validation.md, docs/benchmarks.md checked by validation-docs
+  # A diff touching any of them reports code=true and runs the full suite.
+  #
+  # Invariants this filter depends on — do not break them silently:
+  #   * pull_request-only. The `push: branches: [main]` trigger always runs
+  #     every job unfiltered; that run on each merge commit is the payback
+  #     that keeps an unedited-path break from going unnoticed for long.
+  #   * Fail closed. A gate that errors, is cancelled, or sees an empty or
+  #     unreadable diff reports code=true, and `needs.changes.result !=
+  #     'success'` in the gated jobs' `if` runs the suite anyway: a check
+  #     that cannot run must not look like a check that passed.
+  #   * `figures` and `validation-docs` stay unconditional. They run the same
+  #     byte-equality checks on the excluded artifacts, so they are the
+  #     backstop if an artifact is ever mis-allowlisted. Gating, moving or
+  #     narrowing either job voids this filter's safety argument.
+  #   * `clean-room` stays unconditional: a copyleft notice can land in a
+  #     markdown file as easily as in a .rs one.
+  #
+  # Standing premise check. If a future change makes a gated test read an
+  # allowlisted path, the premise is void and the allowlist must gain another
+  # exclusion. Re-run the scan after such changes; it must show no gated test
+  # reading an allowlisted path:
+  #   git grep -nE 'fs::read|read_to_string|include_str!' origin/main -- '*.rs'
+  # ---------------------------------------------------------------------------
+  changes:
+    name: Diff classification (prose gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.classify.outputs.code }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: classify
+        name: code=true unless every changed path is allowlisted prose
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set -euo pipefail
+          # Any event other than pull_request (the push: [main] run) is
+          # never filtered.
+          code=true
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            if base="$(git merge-base "origin/$BASE_REF" HEAD)" &&
+               list="$(git diff --name-only "$base" HEAD)" &&
+               [ -n "$list" ]; then
+              code=false
+              while IFS= read -r path; do
+                case "$path" in
+                  docs/img/*|book/src/models/stopping-residuals.md|docs/validation.md|docs/benchmarks.md)
+                    code=true
+                    break
+                    ;;
+                  WORK_LOG.md|WORK_PLAN.md|CHANGELOG.md|README.md|CLAUDE.md|AGENTS.md|CONTRIBUTING.md|THIRD_PARTY_LICENSES.md)
+                    ;;
+                  docs/*|book/*|site/*|.loom/*|.claude/*|.agents/*)
+                    ;;
+                  *)
+                    code=true
+                    break
+                    ;;
+                esac
+              done <<< "$list"
+            fi
+          fi
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
   clean-room:
     name: Clean-room check (no copyleft code)
     runs-on: ubuntu-latest
@@ -122,6 +207,16 @@ jobs:
 
   rust:
     name: Rust (${{ matrix.os }})
+    needs: changes
+    # Fail closed: run unless this is a pull_request the gate classified as
+    # prose-only — and run whenever the gate itself failed or was cancelled.
+    # See the comment block above the `changes` job for the invariants.
+    if: >-
+      always() && (
+        github.event_name != 'pull_request' ||
+        needs.changes.result != 'success' ||
+        needs.changes.outputs.code == 'true'
+      )
     runs-on: ${{ matrix.os }}
     # The slowest green leg takes ~27 min (macOS ~26 min, of which the test
     # step is ~24 min), so 30 min cancels on small growth. 45 min leaves
@@ -234,6 +329,15 @@ jobs:
 
   python:
     name: Python bindings (lindhard-py)
+    needs: changes
+    # Same fail-closed gate as the `rust` job; see the comment block above
+    # the `changes` job for the invariants.
+    if: >-
+      always() && (
+        github.event_name != 'pull_request' ||
+        needs.changes.result != 'success' ||
+        needs.changes.outputs.code == 'true'
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
