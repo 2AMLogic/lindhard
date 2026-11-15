@@ -551,11 +551,16 @@ fn segment_close_at_history_end_conserves_energy() {
         t.max_rel_residual
     );
     // Transmitted accumulates only the exit energies of the primary and the
-    // recoils, so `>= 0` holds by construction and does not test the clamp;
-    // the bound that bites is the upper one. A negative sampled loss would
-    // be an energy gain, and a history that gained energy would leave with
-    // more than the beam put in (the relative slack covers float
-    // accumulation over the additions).
+    // recoils, so `>= 0` holds by construction and does not test the clamp.
+    // The upper bound is the live one: it asserts the observable invariant
+    // that no history leaves with more than the beam put in. Two mechanisms
+    // defend that invariant — the `[0, E]` clamp and the `if de > 0.0`
+    // guard in `electronic_nonlocal` that silently drops a negative draw —
+    // so relaxing the lower clamp alone leaves this test green. The
+    // assertion was seen to fail only when the guard was relaxed too, with
+    // transmitted energies reaching ~14.6 keV against the 5 keV beam
+    // (PR #832, negative control 2). The relative slack covers float
+    // accumulation over the additions.
     assert!(
         t.energies
             .iter()
