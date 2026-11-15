@@ -176,33 +176,30 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
-- **#814**: CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#767**: Opt-in Bohr energy-loss straggling in ion BCA transport
-- **#768**: [Epic #25] TOML input for a laterally varying ion target built from CSG solids
 - **#782**: Simulator page: crystal orientation controls, now that the session transports [[crystal]]
-- **#806**: Five element-symbol copies survive #788: the inline copies its `fn symbol` grep could not see
-- **#811**: Remove unused rayon dependency from lindhard-py
+- **#814**: CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent
+- **#815**: Hoist Bohr variance per layer out of the per-flight path (straggling perf)
+- **#829**: Straggling: the per-flight [0, E] truncation inflates the mean electronic loss 2.5-3.7x at short flights
+- **#830**: Straggling test coverage: no committed crystal+straggling test, and the clamp test does not test the clamp
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
 - **#798**: feat(wasm): crystal controls and beam azimuth on the simulator page
-- **#799**: feat: sample opt-in Bohr energy-loss straggling in BCA transport
-- **#820**: refactor: call elements::symbol at the five inline fallback copies
+- **#825**: docs: collapse repeated Unreleased sub-sections in CHANGELOG.md and name the two published crates
+- **#832**: test: cover crystal-path Bohr straggling and make the clamp test bite
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
-- **#805**: feat(input): CSG ion targets through TOML ([[target.solids]])
-- **#816**: chore: remove unused rayon dependency from lindhard-py
 
 ## Proposed
 
@@ -232,19 +229,16 @@ Issues carrying `loom:curated`.
 - **#642**: [Epic #630] TRIM.IN importer *(curated)*
 - **#643**: [Epic #630] SRIM-format output writers *(curated)*
 - **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
-- **#767**: Opt-in Bohr energy-loss straggling in ion BCA transport *(curated)*
-- **#768**: [Epic #25] TOML input for a laterally varying ion target built from CSG solids *(curated)*
 - **#782**: Simulator page: crystal orientation controls, now that the session transports [[crystal]] *(curated)*
-- **#806**: Five element-symbol copies survive #788: the inline copies its `fn symbol` grep could not see *(curated)*
-- **#809**: CI: ci.yml has no path filtering, so a docs-only PR runs the full Rust matrix (~98 runner-minutes measured) *(curated)*
 - **#814**: CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent *(curated)*
+- **#815**: Hoist Bohr variance per layer out of the per-flight path (straggling perf) *(curated)*
+- **#829**: Straggling: the per-flight [0, E] truncation inflates the mean electronic loss 2.5-3.7x at short flights *(curated)*
+- **#830**: Straggling test coverage: no committed crystal+straggling test, and the clamp test does not test the clamp *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#771**: Consolidate the three copies of Gaussian elimination with partial pivoting (and their divergent singularity tests) *(hermit)*
 - **#777**: Trim never-called public API before 0.1.0 locks the surface: 8 items with zero references *(hermit)*
-- **#817**: Remove unused rayon dependency from lindhard-py *(hermit)*
-- **#821**: Remove unused rayon dependency from lindhard-py *(hermit)*
 
 ## Epics
 
@@ -262,12 +256,12 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 5 |
-| Ready (`loom:issue`) | 2 |
+| Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 5 |
 | PRs awaiting review | 3 |
-| Approved PRs awaiting merge | 3 |
-| Curated | 30 |
-| Architect / Hermit proposals | 4 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 29 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
 

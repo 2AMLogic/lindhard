@@ -51,7 +51,9 @@ runs, and the first edit or Run replaces the label.
 ## Setup
 
 - **Ion**: element, mass (the standard atomic weight unless set), energy in
-  eV, keV or MeV, and the tilt from the surface normal (7° by default).
+  eV, keV or MeV, and the beam direction: the tilt from the surface normal
+  (7° by default) and the azimuth about it, measured from the crystal
+  reference direction when one is set.
 - **Target layers**, surface first: a name, a thickness (Å, nm or µm) or
   "semi-infinite" for the last layer, a composition by atom fraction, a density
   and the displacement, lattice-binding and surface-binding energies of each
@@ -68,6 +70,8 @@ runs, and the first edit or Run replaces the label.
   or "full cascades" (`follow_recoils = true`), the ion count and the seed.
 - **Physics**: the potential and the electronic-stopping model, each with its
   citation, and the two energy cutoffs.
+- **Crystal** (off by default): transports chosen layers on the lattice — see
+  Limits below for the models and the cost.
 
 ## The input file
 
@@ -75,12 +79,23 @@ The page shows the [TOML input](input.md) its setup produces, with Download and
 Load buttons. The file runs unchanged under `lindhard run`, and gives the same
 report for the same seed and ion count (checked natively in
 `lindhard-wasm/tests/cli_equivalence.rs`). Loading a file fills the form. The
-form exposes a subset of the input keys; a key it cannot represent (a crystal,
-a dynamic target, a beam azimuth, `mass_fraction`, and so on) is reported by
+form exposes a subset of the input keys; a key it cannot represent (a dynamic
+target, a second `[[crystal]]` table, `mass_fraction`, and so on) is reported by
 name and the file is not loaded, rather than silently dropped.
 
 ## Limits
 
-Amorphous, static targets only. Results carry statistical error (one standard
+Layered targets, amorphous by default. One crystal assignment transports
+chosen layers (front to back, the substrate last) on a cubic lattice — Si, Ge,
+GaAs or 3C-SiC — with the beam azimuth as the twist about the in-plane
+reference direction, an optional wafer rotation, and optional Debye vibration
+at a set temperature (a blank temperature is a static lattice). A crystal run
+takes about 17 times longer per ion than an amorphous one on the WASM build
+(measured on the shipped B-into-Si example, 2026-11-14: about 5.1 ms per ion
+crystalline against 0.29 ms amorphous), so a crystal setup is best kept to a
+few thousand ions: 2000, about 10 s, is a sensible count. The form refuses an
+orientation the engine would reject — a reference direction off the surface
+plane, a zero index triple, an empty or out-of-range layer list — before a
+run starts. Results carry statistical error (one standard
 error is shown) and the models listed on the page; the validation status is in
 [`docs/validation.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md).

@@ -22,17 +22,20 @@
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
     Bca, BcaConfig, BcaTally, Beam, CrystalTarget, EnergyBudget, MeanFreePath, SummaryTally,
+    Thermal,
 };
+use lindhard::ion::crystal::debye::THETA_D_SI;
 use lindhard::ion::stopping::bethe::BetheBloch;
 use lindhard::ion::stopping::bethe::EffectiveCharge;
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::straggling::{variance_per_atom, StragglingModel};
 use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
+use lindhard::tally::{Binning, IonReport, IonTally, IonTallyConfig};
 use lindhard::units::J_PER_EV;
 
 mod common;
-use common::with_threads;
+use common::{beam, crystal_si, si, with_threads};
 
 const NM: f64 = 1e-9;
 
@@ -432,6 +435,89 @@ fn straggling_run_is_bit_identical_across_thread_counts() {
     }
 }
 
+/// The complete serialised `IonReport` of a 10 keV As beam (40 ions, tilt
+/// 7 deg, twist 22 deg) into a semi-infinite Si crystal, with `straggling`
+/// and `thermal` switched and the run pinned to `threads` rayon threads —
+/// the same whole-report comparison `crystal_thermal.rs` uses. The stopping
+/// model is Lindhard-Scharff, valid here for the beam and every recoil
+/// (Bethe-Bloch is not, at these energies).
+fn crystal_report_json(
+    straggling: Option<StragglingModel>,
+    thermal: Option<Thermal>,
+    threads: usize,
+) -> String {
+    let st = Stack::semi_infinite(si());
+    let mut cfg = BcaConfig::new(5.0, 2.0);
+    cfg.seed = 11;
+    cfg.straggling = straggling;
+    let crystal = match thermal {
+        Some(t) => crystal_si(7.0, 22.0).with_thermal(t),
+        None => crystal_si(7.0, 22.0),
+    };
+    let ls = LindhardScharff::new();
+    let bca = Bca::new(
+        beam(33, 1.0e4, 7.0, 22.0, 40),
+        &st,
+        cfg,
+        &ls,
+        common::zbl_si_table(),
+    )
+    .unwrap()
+    .with_crystal(crystal, &[0])
+    .unwrap();
+    let species = bca.species_z();
+    let tc = IonTallyConfig {
+        depth: Binning::new(0.0, 400.0 * NM, 400).unwrap(),
+        lateral: Binning::new(-100.0 * NM, 100.0 * NM, 100).unwrap(),
+        radial: Binning::new(0.0, 100.0 * NM, 50).unwrap(),
+        escape_energy: Binning::new(0.0, 5.0e4, 50).unwrap(),
+        escape_polar: Binning::new(0.0, std::f64::consts::FRAC_PI_2, 18).unwrap(),
+    };
+    let tally = with_threads(threads, || {
+        bca.run(|| IonTally::new(&st, &species, tc).unwrap())
+            .unwrap()
+    });
+    serde_json::to_string(&tally.report(false)).unwrap()
+}
+
+/// The lattice flight path samples straggling from the history's own
+/// transport stream (the `electronic_nonlocal` call sites in `bca::crystal`,
+/// which receive the transport `rng`, not the thermal one). Regression
+/// guard for that plumbing: the complete report of a static and a thermal
+/// Si lattice is bit-identical at 1, 2 and 4 threads, and switching
+/// straggling on changes the report. A refactor of `crystal_step` that
+/// silently stopped sampling fails the last assertions; one that reached
+/// for the thermal stream on the static lattice fails loudly, because with
+/// no thermal crystal there is no thermal stream to draw from. (A
+/// wrong-stream swap on a *thermal* lattice is not caught here — the
+/// thermal stream is as deterministic per history as the transport one —
+/// that guard was deliberately rejected as a golden-tally baseline;
+/// issue #830.)
+#[test]
+fn crystal_straggling_run_is_bit_identical_across_thread_counts() {
+    let thermal = Thermal::new(300.0, THETA_D_SI);
+    for (label, thermal) in [("static lattice", None), ("thermal lattice", Some(thermal))] {
+        let on1 = crystal_report_json(Some(StragglingModel::Bohr), thermal, 1);
+        // Histories ran and lost energy electronically: the comparisons are
+        // not short-circuiting on an empty tally.
+        let rep: IonReport = serde_json::from_str(&on1).unwrap();
+        assert_eq!(rep.histories, 40, "{label}: histories ran");
+        assert!(rep.budget.electronic_nonlocal > 0.0, "{label}: lost energy");
+        for n in [2, 4] {
+            assert_eq!(
+                on1,
+                crystal_report_json(Some(StragglingModel::Bohr), thermal, n),
+                "{label}: straggling run differed at {n} threads"
+            );
+        }
+        assert_ne!(
+            on1,
+            crystal_report_json(None, thermal, 1),
+            "{label}: straggling changed nothing"
+        );
+    }
+}
+
 /// A 2 nm foil ends a history (stopped below cutoff or escaped) long before
 /// its pending segment reaches the closing criterion, so the deviation is
 /// drawn once at the end of the transport, from the whole segment, with the
@@ -446,6 +532,7 @@ fn straggling_run_is_bit_identical_across_thread_counts() {
 fn segment_close_at_history_end_conserves_energy() {
     let ls = LindhardScharff::new();
     let stack = foil(2.0);
+    let e0 = 5.0e3;
     let mut cfg = BcaConfig::new(50.0, 1.0);
     cfg.seed = 7;
     cfg.straggling = Some(StragglingModel::Bohr);
@@ -455,7 +542,7 @@ fn segment_close_at_history_end_conserves_energy() {
     // closing criterion and closes only when the history ends.
     // Lindhard-Scharff is valid here for the proton and every recoil energy.
     cfg.mean_free_path = MeanFreePath::Constant;
-    let beam = Beam::normal(Ion::proton(), 5.0e3, 2_000);
+    let beam = Beam::normal(Ion::proton(), e0, 2_000);
     let bca = Bca::new(beam, &stack, cfg, &ls, common::zbl_si_table()).unwrap();
     let t = bca.run(Transmitted::default).unwrap();
     assert!(
@@ -463,6 +550,17 @@ fn segment_close_at_history_end_conserves_energy() {
         "clamped straggling broke conservation: {}",
         t.max_rel_residual
     );
-    // No sampled loss can drive a history below zero energy.
-    assert!(t.energies.iter().all(|&e| e.is_finite() && e >= 0.0));
+    // Transmitted accumulates only the exit energies of the primary and the
+    // recoils, so `>= 0` holds by construction and does not test the clamp;
+    // the bound that bites is the upper one. A negative sampled loss would
+    // be an energy gain, and a history that gained energy would leave with
+    // more than the beam put in (the relative slack covers float
+    // accumulation over the additions).
+    assert!(
+        t.energies
+            .iter()
+            .all(|&e| e.is_finite() && e >= 0.0 && e <= e0 * (1.0 + 1e-9)),
+        "a history left with more than the beam energy: {:?}",
+        t.energies.iter().filter(|&&e| e > e0).collect::<Vec<_>>()
+    );
 }
