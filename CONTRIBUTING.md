@@ -157,7 +157,7 @@ Do not describe the operator's downstream applications in this repo either.
 
 Releases are cut by the operator; the workflow in
 [`.github/workflows/release.yml`](.github/workflows/release.yml) does the rest.
-Both crates share one version.
+`lindhard` and `lindhard-cli` share one version.
 
 1. Set `version` under `[workspace.package]` in `Cargo.toml` and the `version`
    of the `lindhard` entry under `[workspace.dependencies]` to the new
