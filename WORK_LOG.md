@@ -2,8 +2,31 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-15
+
+- **PR #804**: refactor: one adaptive step-size policy for the 1-D and 2-D dynamic runs
+- **Issue #793** (closed): Share the adaptive step-size policy between the 1-D and 2-D dynamic runs: four rules written twice, and the 1-D/2-D equivalence #559 requires rests on them matching
+- **PR #780**: refactor(electron): share one secondary-spawn tail and one Kieft-Bosch options value
+- **Issue #764** (closed): Collapse the duplicated secondary-spawn tail in electron transport, and pass the Kieft-Bosch options as one value
+- **PR #800**: refactor(tests): share the csg/mesh geometry helpers through tests/common
+- **Issue #785** (closed): Share the 100 duplicated helper lines of tests/csg.rs and tests/mesh.rs via tests/common
+- **PR #794**: refactor(electron): state the Eq. 3.145 step-transmission formula once
+- **Issue #791** (closed): Call one helper for the step-transmission formula: Eq. 3.145 is written twice in electron::boundary and only the unused copy is tested
+- **PR #776**: build: run the pinned clippy from package.json and guard the pin
+- **Issue #763** (closed): Root package.json clippy scripts run floating stable, not the pinned CI gate toolchain
+
 ### 2026-11-14
 
+- **PR #792**: refactor(tests): share 17 duplicated integration-test fixtures through common
+- **PR #784**: refactor(validation): share the level-2 oracle scaffolding through validation/lib
+- **Issue #778** (closed): Share the oracle-harness scaffolding the two level-2 runners duplicate (Oracle, NotConfigured, _git, _round, sha256)
+- **PR #779**: feat(wasm): accept [[crystal]] targets in the simulation session
+- **Issue #769** (closed): [Epic #28] Accept `[[crystal]]` targets in the WASM simulation session
+- **PR #770**: refactor(cli): publish exposure outputs through the shared OutputSet
+- **Issue #758** (closed): Collapse the duplicate output path in `lindhard exposure` into the shared OutputSet lifecycle
+- **PR #759**: refactor(input): share one data-file loader and record the SRIM file's hash
+- **Issue #752** (closed): Share one data-file loader across the input resolvers, and record the SRIM coefficient file's SHA-256 that is computed but never written
+- **Issue #511** (closed): [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning
 - **PR #766**: docs: roadmap as of 2026-11-13
 - **PR #772**: refactor(cli): build the summary target[] array in one shared place
 - **Issue #761** (closed): Remove the duplicate `LayerOut` summary record in the CLI: share one with `output.rs`

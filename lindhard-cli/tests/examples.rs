@@ -7,6 +7,9 @@ use std::process::{Command, Output};
 
 const BIN: &str = env!("CARGO_BIN_EXE_lindhard");
 
+mod common;
+use common::scratch;
+
 fn examples_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples")
 }
@@ -20,15 +23,6 @@ fn examples() -> Vec<PathBuf> {
     v.sort();
     assert!(v.len() >= 3, "expected the example inputs, found {v:?}");
     v
-}
-
-fn scratch(name: &str) -> PathBuf {
-    let d = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("lindhard-cli-tests")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&d);
-    std::fs::create_dir_all(&d).unwrap();
-    d
 }
 
 fn lindhard(args: &[&str]) -> Output {
@@ -479,6 +473,25 @@ fn user_stopping_table_runs_deterministically_and_is_recorded() {
         "echoed input carries the table path"
     );
     let rec = &s["physics"]["stopping_tables"][0];
+    // Exact key set: the record's wire format is pinned (issue #774) — no
+    // key added, renamed or dropped without a `format.version` step.
+    let mut keys: Vec<_> = rec.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        [
+            "energy_max_ev",
+            "energy_min_ev",
+            "ion_mass_amu",
+            "ion_z",
+            "path",
+            "provenance",
+            "resolved_path",
+            "sha256",
+            "target_z"
+        ],
+        "stopping_tables[0] wire format moved"
+    );
     assert_eq!(rec["path"], "tables/b_in_si.toml");
     assert!(rec["resolved_path"]
         .as_str()
@@ -569,6 +582,14 @@ fn srim_coefficient_file_is_recorded_in_the_summary() {
         "echoed input carries the coefficient file path"
     );
     let rec = &s["physics"]["srim_data"];
+    // Exact key set: the record's wire format is pinned (issue #774).
+    let mut keys: Vec<_> = rec.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        ["path", "resolved_path", "sha256"],
+        "srim_data wire format moved"
+    );
     assert_eq!(rec["path"], "data/srim.toml");
     assert!(
         rec["resolved_path"]

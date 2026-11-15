@@ -10,9 +10,10 @@
 
 use std::path::PathBuf;
 
+use lindhard::elements::symbol;
 use lindhard::input::Resolved;
 use lindhard_cli::dynamic::DynamicSimulation;
-use lindhard_cli::output::{self, symbol, NM};
+use lindhard_cli::output::{self, NM};
 use numpy::{IntoPyArray, PyArrayMethods};
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList};

@@ -15,7 +15,7 @@ use lindhard::electron::inelastic::table::{
 use lindhard::electron::inelastic::{
     DrudeLorentz, DrudeLorentzOscillator, PennInelastic, SinglePolePenn,
 };
-use lindhard::electron::secondary::{SecondaryEvent, SecondaryModel};
+use lindhard::electron::secondary::{KieftBoschOptions, SecondaryEvent, SecondaryModel};
 use lindhard::electron::transport::{
     Boundary, BoundaryModel, CutoffReference, ElectronState, ElectronTally, EscapeRule, Face, Fate,
     Primary, SummaryTally, Transport, TransportConfig,
@@ -27,8 +27,8 @@ use lindhard::tally::{
 
 mod common;
 use common::{
-    bare_si, elastic_isotropic, elastic_none, inelastic_frac, layer_pair, synthetic_table,
-    with_threads,
+    bare_si, elastic_isotropic, elastic_none, full_physics, inelastic_frac, layer_pair,
+    synthetic_table, with_threads,
 };
 
 const PROVENANCE: &str = "synthetic, tests/electron_secondaries.rs";
@@ -172,16 +172,6 @@ fn metal_on_insulator(config: TransportConfig) -> Transport {
     .unwrap()
 }
 
-/// Secondaries and the step barrier, with the cutoff 0.5 eV above the vacuum
-/// level (thresholds 9.5 eV in the metal, 10.5 eV in the insulator).
-fn full_physics() -> TransportConfig {
-    let mut cfg = TransportConfig::new(0.5);
-    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
-    cfg.boundary = BoundaryModel::STEP_BARRIER;
-    cfg.cutoff_reference = CutoffReference::VacuumLevel;
-    cfg
-}
-
 #[test]
 fn secondary_energy_is_conserved_per_event_to_machine_precision() {
     let cfg = full_physics();
@@ -320,10 +310,10 @@ fn secondary_direction_follows_the_binary_collision_angle() {
         let mut cfg = TransportConfig::new(10.0);
         // The instantaneous momentum is off so the angle is exact; it would
         // vanish anyway for the metal (B = 0).
-        cfg.secondaries = SecondaryModel::KieftBosch {
+        cfg.secondaries = SecondaryModel::KieftBosch(KieftBoschOptions {
             instantaneous_momentum: false,
             momentum_conservation: true,
-        };
+        });
         let t = Transport::with_band_structures(
             Stack::semi_infinite(bare_si()),
             vec![layer_pair(

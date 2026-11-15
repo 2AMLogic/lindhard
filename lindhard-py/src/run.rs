@@ -323,9 +323,6 @@ impl Run {
                 1,
             )?;
         }
-        if input.run.threads == Some(0) {
-            return Err(errors::input("threads must be at least 1"));
-        }
         Ok((input, resolved))
     }
 

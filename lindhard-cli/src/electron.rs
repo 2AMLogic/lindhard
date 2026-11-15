@@ -13,7 +13,7 @@
 use std::fmt::Write as _;
 use std::time::Instant;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use lindhard::electron::data::{CrossSectionTable, ShellChannelTable};
 use lindhard::electron::inelastic::table::mean_loss_ev;
 use lindhard::electron::transport::{LayerTables, RunMetadata, Transport};
@@ -22,12 +22,11 @@ use lindhard::input::electron::{
 };
 use lindhard::input::ModelInfo;
 use lindhard::tally::{
-    fit_psf, ChargeCells, ElectronReport, FullElectronTally, Histogram, PsfFitOptions, PsfModel,
-    PsfReport,
+    fit_psf, ChargeCells, ElectronReport, FullElectronTally, PsfFitOptions, PsfModel, PsfReport,
 };
 use serde::Serialize;
 
-use crate::output::{density, software, target_layers, Format, LayerOut, Software, NM};
+use crate::output::{hist_rows, software, target_layers, Format, LayerOut, Software, NM};
 use crate::table_cache::{CacheFile, TableCache, TableKind, TableSource};
 
 /// Name of the electron summary format.
@@ -260,13 +259,7 @@ pub fn simulate_electron(
     threads: Option<usize>,
     cache: Option<&TableCache>,
 ) -> Result<ElectronSimulation> {
-    if threads == Some(0) {
-        bail!("threads must be at least 1");
-    }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
+    let pool = crate::pool::build(threads)?;
 
     let (transport, tables, table_build_s) = build_transport(r, &pool, cache)?;
     let mut proto = FullElectronTally::new(&transport, r.tally.clone())
@@ -730,25 +723,6 @@ pub fn damage_export_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> Opti
     ))
 }
 
-/// One row per bin (edges scaled by `scale`), then underflow and overflow
-/// rows with empty densities. `prefix` starts every row.
-fn hist_rows(out: &mut String, prefix: &str, h: &Histogram, histories: u64, scale: f64) {
-    let b = &h.binning;
-    let w = b.width() * scale;
-    for (i, &c) in h.counts.iter().enumerate() {
-        writeln!(
-            out,
-            "{prefix}{:?},{:?},{c},{:?}",
-            b.edge(i) * scale,
-            b.edge(i + 1) * scale,
-            density(c, histories, w)
-        )
-        .unwrap();
-    }
-    writeln!(out, "{prefix}-inf,{:?},{},", b.lo * scale, h.underflow).unwrap();
-    writeln!(out, "{prefix}{:?},inf,{},", b.hi * scale, h.overflow).unwrap();
-}
-
 /// `electron_escape_spectra.csv`: per face, the energy spectrum of all
 /// escaping electrons (eV) and the polar-angle spectrum of each class
 /// (degrees from the outward normal). Densities are per primary per eV or per
@@ -764,6 +738,7 @@ pub fn spectra_csv(report: &ElectronReport) -> String {
             &f.energy_histogram,
             n,
             1.0,
+            1.0,
         );
         for (class, c) in [("slow", &f.slow), ("fast", &f.fast)] {
             hist_rows(
@@ -771,6 +746,7 @@ pub fn spectra_csv(report: &ElectronReport) -> String {
                 &format!("{face},polar_deg,{class},"),
                 &c.polar_histogram,
                 n,
+                1.0,
                 deg,
             );
         }

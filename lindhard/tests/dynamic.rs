@@ -4,15 +4,13 @@ use lindhard::geometry::Stack;
 use lindhard::ion::dynamic::{
     atomic_volume_from_density, CompositionGrid, DynamicError, InventoryDelta, Relaxation,
 };
-use lindhard::material::Material;
+
+mod common;
+use common::bare_si as si;
 
 const SI: u8 = 14;
 const O: u8 = 8;
 const AR: u8 = 18;
-
-fn si() -> Material {
-    Material::from_atom_fractions(&[(SI, 1.0)], None).unwrap()
-}
 
 fn d(slab: usize, z: u8, delta: f64) -> InventoryDelta {
     InventoryDelta {

@@ -60,7 +60,10 @@ no longer waiting on them; Epic #33 and #483 are closed, so the stopping-data
 library is no longer "after 0.1.0" as a whole; the SRIM/TRIM parity epic
 (#630) was missing and is added; #549, #552, #553, #555, #563 and #572 are
 closed and left the "alongside" table; the photon data question moved from
-"which attenuation source" to the angular data in PR #631.
+"which attenuation source" to the angular data in PR #631. This revision
+dropped the "still wants a comparison" caveat from the M1 Done cell, so #546
+was added to "Blocked and waiting" afterwards (2026-11-14, #786): the charge
+tally is delivered (#578) and the issue still waits on a validation source.
 
 ## Now
 
@@ -125,6 +128,7 @@ other open issue waits on one of these.
 | An openable measured resist PSF; a ruling on the CXRO tables for the PMMA ELF | #151 (release gate), #162 |
 | A ruling on a Si core-region ELF source (Henke tables) and on running the #457 comparison | #148 (release gate) |
 | A readable electron depth-dose or interface measurement | #557 |
+| A readable stopped-charge depth-profile measurement (thick conductor, two energies) | #546 |
 | Oliva-Florio et al., Phys. Rev. B 35, 2198 (1987), or another measured yield against angle | #565; #561 is operator-held |
 | Primary stopping papers (H, He, B, P, As in Si; He in Cu and Au) | #503, #723 |
 | Chu (1976), Yang, O'Connor and Wang (1991), or the SRIM book's straggling text | #638 |

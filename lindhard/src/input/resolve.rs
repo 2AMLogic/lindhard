@@ -181,12 +181,7 @@ impl Input {
                     ),
                 ));
             }
-            loaded.push(LoadedStoppingTable {
-                path: file.path,
-                resolved_path: file.resolved_path,
-                sha256: file.sha256,
-                table,
-            });
+            loaded.push(LoadedStoppingTable { file, table });
         }
         Ok(loaded)
     }
@@ -216,12 +211,7 @@ impl Input {
         let (text, file) = read_data_file(base_dir, field, path)?;
         let model = SrimStopping::from_toml_str(&text)
             .map_err(|e| invalid(field, format!("{path}: {e}")))?;
-        Ok(Some(LoadedSrimData {
-            path: file.path,
-            resolved_path: file.resolved_path,
-            sha256: file.sha256,
-            model,
-        }))
+        Ok(Some(LoadedSrimData { file, model }))
     }
 
     /// Checks of the loaded tables against the rest of the run.
@@ -300,7 +290,7 @@ impl Input {
                              which have the standard atomic weight {} u; a table serves one \
                              mass per pair (use the standard weight in the table and the beam, \
                              drop the table, or set physics.follow_recoils = false)",
-                            l.path,
+                            l.file.path,
                             t.ion_mass_amu(),
                             symbol(t.ion_z()),
                             recoil.mass_amu()
@@ -317,7 +307,7 @@ impl Input {
                              the {} recoils, which slow down to the recoil cutoff, so the run \
                              would stop outside the table range (extend the table down to the \
                              cutoff or raise physics.recoil_cutoff_ev)",
-                            l.path,
+                            l.file.path,
                             symbol(t.ion_z()),
                         ),
                     ));
@@ -344,7 +334,7 @@ impl Input {
                     format!(
                         "{}: table is for an ion of mass {} u but the beam ion has mass {} u \
                          (set `ion_mass_amu` in the table, or beam.mass_amu)",
-                        l.path,
+                        l.file.path,
                         t.ion_mass_amu(),
                         ion.mass_amu()
                     ),
@@ -355,7 +345,7 @@ impl Input {
                     &field,
                     format!(
                         "{}: beam energy {e} eV is outside the table range [{lo}, {hi}] eV",
-                        l.path
+                        l.file.path
                     ),
                 ));
             }
