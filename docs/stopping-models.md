@@ -26,16 +26,20 @@ advisory; the models do not refuse energies outside them (Bethe-Bloch returns
 
 Bohr straggling is opt-in in ion BCA transport (`[physics] straggling =
 "bohr"` or `"bohr-relativistic"`; default `"none"` keeps the deterministic
-mean loss): each free flight's nonlocal loss is sampled about the mean from a
-Gaussian of the Bohr standard deviation for the flight's areal density, drawn
-from the history's own stream, and truncated to `[0, E]`. The truncation
-biases the mean loss upward where the per-flight standard deviation is
-comparable to the per-flight mean loss — short flights (the constant free
-path) at any energy; crystal regions are permanently in that regime, since
-their lattice flights are short by construction and no long-flight option
-exists inside a crystal. See the [`physics.straggling` note in the CLI
-docs](cli.md) and the `ion::stopping::straggling` module docs for the
-measured size of the effect.
+mean loss): every flight still loses its mean, and the fluctuation is drawn
+once per accumulated path segment — when the segment's mean loss reaches 4
+of its accumulated standard deviations, or the particle's transport ends —
+from a Gaussian of the segment's accumulated Bohr standard deviation,
+clamped to `[-mu_acc, E]`. Because Bohr's variance is linear in path
+length, the segment's accumulated variance is exactly Bohr's variance for
+the segment, and at the closing criterion the Gaussian sits far enough
+above zero (`Phi(-4) ~ 3.2e-5` truncation probability) that the clamp is
+essentially inactive and the mean loss unbiased. Bohr's variance is a
+many-collisions result, which is why the sampling waits for many: the
+per-flight sampling this replaced truncated short-flight Gaussians (the
+constant free path, crystal lattice flights) into a badly biased mean. See
+the [`physics.straggling` note in the CLI docs](cli.md) and the
+`ion::stopping::straggling` module docs.
 
 **The `srim` model.** The intended range is exactly each coefficient row's
 `e_min_kev_per_u..e_max_kev_per_u`; an energy out of range, or no row for the

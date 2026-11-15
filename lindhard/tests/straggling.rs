@@ -1,23 +1,28 @@
 //! Opt-in electronic-loss straggling in BCA transport
 //! ([`BcaConfig::straggling`], input `physics.straggling`).
 //!
-//! The Bohr variance is sampled per free flight and clamped to `[0, E]`
-//! (`ion::stopping::straggling` module docs). The clamp depresses the sampled
-//! variance whenever the per-flight standard deviation is comparable to the
-//! per-flight mean loss, which for the constant free-path convention
-//! (`lambda = N^(-1/3)`, here about 0.21 nm for carbon) it always is at MeV
-//! energies: a probe of this setup with the constant convention measured
-//! about 0.42 of the Bohr variance. The transmission test below therefore
-//! uses the energy-dependent free path at `min_cm_angle_deg = 0.05`, whose
-//! flights in this foil are tens of nanometres long, so a flight's Gaussian
-//! sits far from the clamp and the sampled variance reproduces the Bohr
-//! value to about two percent. That dependence is the documented truncation
-//! bias of the model, not a defect of the sampling: the variance per unit
-//! path length is the same either way.
+//! The Bohr variance is sampled per accumulated path segment, not per free
+//! flight: each flight adds its mean loss and its Bohr variance to the
+//! particle's pending segment, and one deviation is drawn when the segment's
+//! mean loss reaches 4 standard deviations (or when the particle's transport
+//! ends), clamped to `[-mu_acc, E]` (`ion::stopping::straggling` module
+//! docs). The cadence keeps the mean loss unbiased where per-flight draws,
+//! truncated to `[0, E]`, inflated it — with the constant free path
+//! (`lambda = N^(-1/3)`, about 0.21 nm for carbon) a flight's Gaussian sits
+//! a fraction of a sigma above the clamp, and the old per-flight sampling
+//! measured about 2.5x inflation of the mean loss there, 3.7x on crystal
+//! lattice flights, and a transmitted variance of about 0.42 of the Bohr
+//! value. These tests pin the per-segment sampling: the transmitted variance
+//! recovers the Bohr value with the constant free path as with long flights,
+//! the mean nonlocal loss agrees with a `straggling = "none"` run in
+//! amorphous C, amorphous Si and a crystal Si foil (and with the
+//! relativistic variant), and energy conservation and thread-count
+//! determinism hold at the new cadence.
 
 use lindhard::geometry::Stack;
 use lindhard::ion::bca::{
-    Bca, BcaConfig, BcaTally, Beam, EnergyBudget, MeanFreePath, SummaryTally, Thermal,
+    Bca, BcaConfig, BcaTally, Beam, CrystalTarget, EnergyBudget, MeanFreePath, SummaryTally,
+    Thermal,
 };
 use lindhard::ion::crystal::debye::THETA_D_SI;
 use lindhard::ion::stopping::bethe::BetheBloch;
@@ -115,6 +120,65 @@ fn bohr_variance_ev2(
     omega2 * n_density * thickness_nm * NM / (J_PER_EV * J_PER_EV)
 }
 
+/// Mean nonlocal electronic loss per history, eV, of a 1 MeV proton run
+/// through `stack` (Bethe-Bloch, recoils not followed, seed `seed`) with
+/// `straggling` selected; `crystal` attaches a crystal target to the given
+/// regions first. Also asserts exact energy conservation of the run.
+/// The 1 MeV proton through a 100 nm foil is the configuration whose cost
+/// dominates this file (the constant free path flies ~480 flights per
+/// history here), so every count below is a stated trade: at
+/// [`MEAN_LOSS_HISTORIES`] the statistical bounds are several standard
+/// errors, while a broken cadence biases the mean by factors.
+fn mean_loss(
+    stack: &Stack,
+    crystal: Option<(CrystalTarget, &[usize])>,
+    straggling: Option<StragglingModel>,
+    count: u64,
+    seed: u64,
+) -> f64 {
+    let bb = BetheBloch::new();
+    let mut cfg = BcaConfig::new(1.0e5, 1.0);
+    cfg.seed = seed;
+    cfg.straggling = straggling;
+    cfg.follow_recoils = false;
+    let beam = Beam::normal(Ion::proton(), 1.0e6, count);
+    let mut bca = Bca::new(beam, stack, cfg, &bb, common::zbl_si_table()).unwrap();
+    if let Some((c, regions)) = crystal {
+        bca = bca.with_crystal(c, regions).unwrap();
+    }
+    let s = bca.run(|| SummaryTally::new(NM, 10)).unwrap();
+    assert!(
+        s.budget.residual().abs() < 1e-12 * s.budget.incident,
+        "broke conservation: {} of {}",
+        s.budget.residual(),
+        s.budget.incident
+    );
+    s.budget.electronic_nonlocal / s.histories as f64
+}
+
+/// History count of the 1 MeV proton mean-loss runs below. 500 gives a
+/// standard error of about 1% on a mean whose per-history spread is about
+/// 1.3 keV (Bohr), so the 5% bounds are roughly five standard errors, while
+/// a broken cadence biases the mean by factors, not percent — the
+/// per-flight sampling this replaced measured 2.55x in carbon, 2.81x in
+/// silicon and 3.73x on crystal lattice flights. (The pre-2026-11-15 CI
+/// budget measured these runs at 1500 histories; 500 is the documented
+/// trade that keeps `tests/straggling.rs` off the 75-minute job budget.)
+const MEAN_LOSS_HISTORIES: u64 = 500;
+
+/// The `straggling = "none"` baseline of the 100 nm carbon foil at 1 MeV,
+/// computed once per process and shared by every mean-loss test that
+/// compares against it (the carbon leg of
+/// `mean_loss_is_unbiased_with_constant_free_path` and
+/// `relativistic_variant_mean_loss_is_unbiased`): the configuration is
+/// identical, so re-running it per test pays twice for the same number.
+static CARBON_NONE: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+
+fn carbon_none() -> f64 {
+    let stack = foil(100.0);
+    *CARBON_NONE.get_or_init(|| mean_loss(&stack, None, None, MEAN_LOSS_HISTORIES, 2026))
+}
+
 #[test]
 fn transmitted_variance_matches_bohr_in_a_thin_foil() {
     let bb = BetheBloch::new();
@@ -182,23 +246,235 @@ fn transmitted_variance_matches_bohr_in_a_thin_foil() {
     );
 }
 
+/// With the constant free path (`lambda = N^(-1/3)`, 0.21 nm in carbon) a
+/// 100 nm foil is one straggling segment for most of its histories: the
+/// accumulated mean loss reaches 4 accumulated standard deviations only near
+/// the exit. The one drawn deviation then carries the whole foil's Bohr
+/// variance, so the transmitted variance recovers the Bohr value where the
+/// old per-flight sampling (each draw clamped to `[0, E]`, the Gaussian a
+/// fraction of a sigma above the lower bound) measured about 0.42 of it.
 #[test]
-fn straggling_run_is_bit_identical_across_thread_counts() {
+fn transmitted_variance_matches_bohr_with_constant_free_path() {
     let bb = BetheBloch::new();
-    let stack = foil(100.0);
+    let thickness_nm = 100.0;
+    let stack = foil(thickness_nm);
+    let n_density = carbon().atom_number_density();
     let mut cfg = BcaConfig::new(1.0e5, 1.0);
     cfg.seed = 2026;
     cfg.straggling = Some(StragglingModel::Bohr);
     cfg.follow_recoils = false;
-    cfg.mean_free_path = MeanFreePath::EnergyDependent {
-        min_cm_angle_rad: 0.05f64.to_radians(),
-    };
-    let beam = Beam::normal(Ion::proton(), 1.0e6, 2_000);
+    cfg.mean_free_path = MeanFreePath::Constant;
+    let beam = Beam::normal(Ion::proton(), 1.0e6, 3_000);
     let bca = Bca::new(beam, &stack, cfg, &bb, common::zbl_si_table()).unwrap();
-    let r1 = with_threads(1, || bca.run(Transmitted::default).unwrap());
-    for n in [2, 4] {
-        let r = with_threads(n, || bca.run(Transmitted::default).unwrap());
-        assert_eq!(r1, r, "straggling run differed at {n} threads");
+    let t = bca.run(Transmitted::default).unwrap();
+
+    // Every primary is transmitted (the C range at 1 MeV is tens of um).
+    assert_eq!(t.energies.len(), 3_000);
+    assert!(
+        t.energies.iter().all(|&e| e > 0.0),
+        "some primary not transmitted"
+    );
+    assert!(t.max_rel_residual < 1e-12, "{}", t.max_rel_residual);
+
+    let measured = t.variance();
+    let bohr = bohr_variance_ev2(&Ion::proton(), 6, 1.0e6, n_density, thickness_nm);
+    // Statistical: the standard error of a variance estimated from 3_000
+    // samples is sqrt(2/(N-1)) = 2.6% of the value (3_000 rather than the
+    // 5_000 of the pre-2026-11-15 budget keeps the 10% bound at almost four
+    // standard errors while this file stays off the job budget). Systematic: the nuclear
+    // transfers of the collision-per-flight convention, and the partial
+    // segment still pending at the exit (its whole-foil mean loss sits 4.3
+    // standard deviations above zero, so its clamp is inactive to a
+    // probability of about 7e-6). The bound is stated at 10%.
+    let rel = measured / bohr;
+    assert!(
+        (rel - 1.0).abs() < 0.10,
+        "measured variance {measured:.3e} eV^2, Bohr {bohr:.3e} eV^2, ratio {rel}"
+    );
+}
+
+/// The mean nonlocal loss with straggling on must agree with a
+/// `straggling = "none"` run: the per-segment draw is centred on the mean
+/// (the clamp truncates a probability of about `Phi(-4) ~ 3e-5` per
+/// segment), so the 2.55x and 2.81x inflations the per-flight sampling
+/// measured in these two configurations are gone. Both foils are one or a
+/// few segments, so the agreement here is dominated by the end-of-history
+/// draw being unbiased.
+#[test]
+fn mean_loss_is_unbiased_with_constant_free_path() {
+    let count = MEAN_LOSS_HISTORIES;
+    // Amorphous carbon, 1 MeV proton: the configuration whose per-flight
+    // sampling inflated the mean loss 5830 -> 14864 eV. The per-history
+    // spread of the loss is about 1.3 keV (Bohr), so the standard error of
+    // a mean over 500 histories is about 1% (see `MEAN_LOSS_HISTORIES`),
+    // and 5% is roughly five standard errors; a broken cadence biases the
+    // mean by factors, not percent.
+    let c_stack = foil(100.0);
+    let on_c = mean_loss(&c_stack, None, Some(StragglingModel::Bohr), count, 2026);
+    let off_c = carbon_none();
+    let rel_c = on_c / off_c - 1.0;
+    assert!(
+        rel_c.abs() < 0.05,
+        "carbon mean loss with straggling {on_c:.1} eV, without {off_c:.1} eV (ratio {rel_c:+.4})"
+    );
+    // Amorphous silicon: 4552 -> 12782 eV under per-flight sampling.
+    let si_stack = Stack::new(vec![(common::si(), 100.0 * NM)], None).unwrap();
+    let on_si = mean_loss(&si_stack, None, Some(StragglingModel::Bohr), count, 2026);
+    let off_si = mean_loss(&si_stack, None, None, count, 2026);
+    let rel_si = on_si / off_si - 1.0;
+    assert!(
+        rel_si.abs() < 0.05,
+        "silicon mean loss with straggling {on_si:.1} eV, without {off_si:.1} eV (ratio {rel_si:+.4})"
+    );
+}
+
+/// Same agreement for a crystal Si foil on lattice flights
+/// (`search_length_nm` defaults to the lattice constant, 0.543 nm in Si, and
+/// no long-flight option exists inside a crystal): the per-flight sampling
+/// measured 4551 -> 16981 eV in this configuration (100 nm Si foil, beam 5
+/// degrees off the Si(100) axis so the ion samples the amorphous-like
+/// stopping). The two runs share their trajectories up to the first segment
+/// close, so the difference of the means is dominated by the deviation
+/// draws themselves: a per-history spread of about 1.4 keV gives a standard
+/// error of about 1.4% at 500 histories (the pre-2026-11-15 budget ran
+/// 1500), and the bound is stated at 5% — roughly three and a half standard
+/// errors, three orders of magnitude below the 3.7x inflation a broken
+/// cadence would reintroduce. Crystal lattice flights are the most
+/// expensive per-history transport in the file, which is why this test
+/// carries the lowest count.
+#[test]
+fn crystal_lattice_flight_mean_loss_is_unbiased() {
+    let stack = Stack::new(vec![(common::si(), 100.0 * NM)], None).unwrap();
+    let on = mean_loss(
+        &stack,
+        Some((common::crystal_si(5.0, 0.0), &[0])),
+        Some(StragglingModel::Bohr),
+        MEAN_LOSS_HISTORIES,
+        2026,
+    );
+    let off = mean_loss(
+        &stack,
+        Some((common::crystal_si(5.0, 0.0), &[0])),
+        None,
+        MEAN_LOSS_HISTORIES,
+        2026,
+    );
+    let rel = on / off - 1.0;
+    assert!(
+        rel.abs() < 0.05,
+        "crystal mean loss with straggling {on:.1} eV, without {off:.1} eV (ratio {rel:+.4})"
+    );
+}
+
+/// The relativistic variant shares the clamp and the segment cadence, so it
+/// is unbiased too — measured against the shared `"none"` carbon baseline
+/// (`carbon_none`), not the Bohr numbers (no inflation factor was ever
+/// quoted for it).
+#[test]
+fn relativistic_variant_mean_loss_is_unbiased() {
+    let stack = foil(100.0);
+    let on = mean_loss(
+        &stack,
+        None,
+        Some(StragglingModel::BohrRelativistic),
+        MEAN_LOSS_HISTORIES,
+        2026,
+    );
+    let off = carbon_none();
+    let rel = on / off - 1.0;
+    assert!(
+        rel.abs() < 0.05,
+        "bohr-relativistic mean loss {on:.1} eV, without straggling {off:.1} eV (ratio {rel:+.4})"
+    );
+}
+
+/// A straggling segment spans layer boundaries: a flight contributes its own
+/// material's variance, so a segment crossing from carbon into silicon
+/// accumulates Bohr's total for both, and no close is forced at the
+/// boundary. Whatever the crossing does to the path, the books must stay
+/// exact and no history may gain energy. (The residual bound is exact, not
+/// statistical, so 800 histories — down from 2000 in the pre-2026-11-15
+/// budget — test it as well as 2000 did.)
+#[test]
+fn segment_crosses_a_layer_boundary_and_conserves_energy() {
+    let ls = LindhardScharff::new();
+    let stack = Stack::new(vec![(carbon(), 50.0 * NM), (common::si(), 50.0 * NM)], None).unwrap();
+    let mut cfg = BcaConfig::new(50.0, 1.0);
+    cfg.seed = 11;
+    cfg.straggling = Some(StragglingModel::Bohr);
+    // The constant free path at 100 keV: the segment criterion is nowhere in
+    // sight across a 100 nm stack, so the boundary is crossed mid-segment
+    // and the segment closes only at the history's end. Lindhard-Scharff is
+    // valid here for the proton and every recoil energy.
+    cfg.mean_free_path = MeanFreePath::Constant;
+    let beam = Beam::normal(Ion::proton(), 1.0e5, 800);
+    let bca = Bca::new(beam, &stack, cfg, &ls, common::zbl_si_table()).unwrap();
+    let t = bca.run(Transmitted::default).unwrap();
+    assert!(
+        t.max_rel_residual < 1e-12,
+        "segment across a boundary broke conservation: {}",
+        t.max_rel_residual
+    );
+    assert!(t.energies.iter().all(|&e| e.is_finite() && e >= 0.0));
+}
+
+/// A `straggling = "none"` run must draw nothing, so its stream — and with
+/// it every result — is the one a build without the option produces: the
+/// default configuration and an explicit `None` are bit-identical, and a
+/// run with straggling on is a different sequence.
+#[test]
+fn straggling_none_makes_no_draw() {
+    let bb = BetheBloch::new();
+    let stack = foil(100.0);
+    let run = |straggling: Option<StragglingModel>| {
+        let mut cfg = BcaConfig::new(1.0e5, 1.0);
+        cfg.seed = 2026;
+        cfg.straggling = straggling;
+        cfg.follow_recoils = false;
+        let beam = Beam::normal(Ion::proton(), 1.0e6, 500);
+        Bca::new(beam, &stack, cfg, &bb, common::zbl_si_table())
+            .unwrap()
+            .run(Transmitted::default)
+            .unwrap()
+    };
+    let none = run(None);
+    let bohr = run(Some(StragglingModel::Bohr));
+    let rel = run(Some(StragglingModel::BohrRelativistic));
+    assert_eq!(none, run(None), "a None run was not reproducible");
+    assert_ne!(none, bohr, "a None run matched a straggling run");
+    assert_ne!(none, rel, "a None run matched a relativistic run");
+    assert_ne!(bohr, rel, "the variants sampled identically");
+}
+
+#[test]
+fn straggling_run_is_bit_identical_across_thread_counts() {
+    let bb = BetheBloch::new();
+    // Both free-path conventions: the energy-dependent one closes segments
+    // mid-transport, the constant one closes at the history's end.
+    for mean_free_path in [
+        MeanFreePath::EnergyDependent {
+            min_cm_angle_rad: 0.05f64.to_radians(),
+        },
+        MeanFreePath::Constant,
+    ] {
+        let stack = foil(100.0);
+        let mut cfg = BcaConfig::new(1.0e5, 1.0);
+        cfg.seed = 2026;
+        cfg.straggling = Some(StragglingModel::Bohr);
+        cfg.follow_recoils = false;
+        cfg.mean_free_path = mean_free_path;
+        // Thread-count identity is an exact per-history equality, not a
+        // statistical estimate, so 300 histories (spread across the thread
+        // counts under test) exercise it as well as more would; the count is
+        // down from 1000 in the pre-2026-11-15 budget to keep the constant
+        // free path's ~480 flights per history off the job budget.
+        let beam = Beam::normal(Ion::proton(), 1.0e6, 300);
+        let bca = Bca::new(beam, &stack, cfg, &bb, common::zbl_si_table()).unwrap();
+        let r1 = with_threads(1, || bca.run(Transmitted::default).unwrap());
+        for n in [2, 4] {
+            let r = with_threads(n, || bca.run(Transmitted::default).unwrap());
+            assert_eq!(r1, r, "straggling run differed at {n} threads");
+        }
     }
 }
 
@@ -285,12 +561,18 @@ fn crystal_straggling_run_is_bit_identical_across_thread_counts() {
     }
 }
 
-/// Where the per-flight standard deviation is comparable to the per-flight
-/// mean loss (short flights, low energy) the clamp binds on most flights.
-/// The truncated loss still never leaves the ion's energy: every history
-/// conserves energy exactly, and the sampled losses stay non-negative.
+/// A 2 nm foil ends a history (stopped below cutoff or escaped) long before
+/// its pending segment reaches the closing criterion, so the deviation is
+/// drawn once at the end of the transport, from the whole segment, with the
+/// clamp to `[-mu_acc, E]` genuinely able to bind. The books must stay
+/// exact whatever the clamp does: every history conserves energy exactly,
+/// and no history ends with negative energy. (This test kept the
+/// conservation assertions of the per-flight era's
+/// `clamp_binds_on_short_flights_and_energy_is_conserved`; that test's
+/// premise — the lower clamp binding almost always — is gone with the
+/// per-segment cadence, so it was renamed rather than deleted.)
 #[test]
-fn clamp_binds_on_short_flights_and_energy_is_conserved() {
+fn segment_close_at_history_end_conserves_energy() {
     let ls = LindhardScharff::new();
     let stack = foil(2.0);
     let e0 = 5.0e3;
@@ -299,7 +581,8 @@ fn clamp_binds_on_short_flights_and_energy_is_conserved() {
     cfg.straggling = Some(StragglingModel::Bohr);
     // Constant free path (lambda = N^(-1/3), about 0.2 nm): at 5 keV the
     // mean loss per flight is under 1 eV while the Bohr standard deviation
-    // per flight is tens of eV, so the lower clamp binds almost always.
+    // per flight is tens of eV, so the pending segment sits far below the
+    // closing criterion and closes only when the history ends.
     // Lindhard-Scharff is valid here for the proton and every recoil energy.
     cfg.mean_free_path = MeanFreePath::Constant;
     let beam = Beam::normal(Ion::proton(), e0, 2_000);

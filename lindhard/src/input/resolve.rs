@@ -813,61 +813,12 @@ impl Input {
             StragglingChoice::Bohr => Some(StragglingModel::Bohr),
             StragglingChoice::BohrRelativistic => Some(StragglingModel::BohrRelativistic),
         };
-        // Bohr's Gaussian is sampled per free flight, and short flights make
-        // the [0, E] truncation bias the sampled mean upward (sizes below are
-        // measured; see the straggling module docs). The two region kinds need
-        // separate advisories: an amorphous region flies the chosen free path,
-        // while a crystal region flies the lattice — short by construction
-        // (`search_length_nm` defaults to the lattice constant, 0.543 nm in
-        // Si) with no long-flight option, so its truncation bias is
-        // unavoidable while straggling is on and larger than the amorphous
-        // one (measured ~3.7x on a 1 MeV proton through Si). The advisories
-        // key on the regions that actually exist, so a mixed stack warns
-        // about both halves.
-        let mut crystal_region = vec![false; layers.len()];
-        for c in &self.crystal {
-            for &l in &c.layers {
-                if l < layers.len() {
-                    crystal_region[l] = true;
-                }
-            }
-        }
-        let has_crystal = crystal_region.iter().any(|&c| c);
-        let has_amorphous = crystal_region.iter().any(|&c| !c);
-        if p.straggling != StragglingChoice::None && has_crystal {
-            warnings.push(
-                "physics.straggling with [[crystal]]: lattice flights are short by \
-                 construction (search_length_nm defaults to the lattice constant), so every \
-                 crystal flight sits in the short-flight regime where the [0, E] truncation \
-                 of the sampled Gaussian inflates the mean electronic loss — measured about \
-                 3.7x for a 1 MeV proton through Si — and there is no long-flight option \
-                 inside a crystal, so the bias is unavoidable while straggling is on"
-                    .to_string(),
-            );
-        }
-        if p.straggling != StragglingChoice::None
-            && p.free_path == FreePathChoice::Constant
-            && has_amorphous
-        {
-            warnings.push(if has_crystal {
-                // Crystal regions pin the run to the constant free path, so
-                // the usual fix is unavailable while they are present.
-                "physics.straggling with free_path = \"constant\": the amorphous regions' \
-                 flights of N^(-1/3) are so short that the [0, E] truncation of the sampled \
-                 Gaussian inflates their mean electronic loss by roughly 2.5x and depresses \
-                 the sampled variance to ~0.42 of the Bohr value; free_path = \
-                 \"energy-dependent\" would fix them but is rejected while [[crystal]] \
-                 regions are present (the lattice replaces the free path there)"
-                    .to_string()
-            } else {
-                "physics.straggling with free_path = \"constant\": flights of N^(-1/3) are so \
-                 short that the [0, E] truncation of the sampled Gaussian inflates the mean \
-                 electronic loss by roughly 2.5x and depresses the sampled variance to ~0.42 \
-                 of the Bohr value; use free_path = \"energy-dependent\" (with \
-                 physics.min_cm_angle_deg) for meaningful straggling"
-                    .to_string()
-            });
-        }
+        // The engine draws the straggling fluctuation per accumulated path
+        // segment, not per free flight, so short flights (the constant free
+        // path, or a crystal's lattice flights) no longer bias the sampled
+        // mean — there is nothing to warn about for either region kind (the
+        // `ion::stopping::straggling` module docs). The Bohr validity floor
+        // below is a different limit and still applies.
         config.seed = self.run.seed;
 
         // Tally.

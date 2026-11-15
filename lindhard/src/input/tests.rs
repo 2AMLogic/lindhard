@@ -130,7 +130,7 @@ seed = 1
 }
 
 #[test]
-fn straggling_warns_on_constant_free_path_and_below_bohr_floor() {
+fn straggling_warns_below_bohr_floor() {
     let text = |e: f64, s: &str| {
         format!(
             r#"
@@ -154,7 +154,9 @@ seed = 1
 "#
         )
     };
-    // 5 keV B with the default constant free path: both advisories fire.
+    // 5 keV B with the constant free path: only the validity advisory fires —
+    // the fluctuation is drawn per accumulated segment, so short flights no
+    // longer bias anything and there is no truncation advisory to clear.
     let r = Input::from_toml_str(&text(5000.0, "straggling = \"bohr\"\n"))
         .unwrap()
         .resolve()
@@ -162,51 +164,27 @@ seed = 1
     assert!(
         r.warnings
             .iter()
-            .any(|w| w.contains("straggling") && w.contains("free_path = \"constant\"")),
-        "{:?}",
-        r.warnings
-    );
-    assert!(
-        r.warnings
-            .iter()
             .any(|w| w.contains("validity floor") && w.contains("Bohr")),
         "{:?}",
         r.warnings
     );
-    // The energy-dependent free path clears the truncation advisory, but the
-    // 5 keV beam is still far below Bohr's v >> v0 Z1^(2/3) floor.
-    let r = Input::from_toml_str(&text(
-        5000.0,
-        "straggling = \"bohr\"\nfree_path = \"energy-dependent\"\nmin_cm_angle_deg = 1.0\n",
-    ))
-    .unwrap()
-    .resolve()
-    .unwrap();
     assert!(
         !r.warnings.iter().any(|w| w.contains("free_path")),
         "{:?}",
         r.warnings
     );
     assert!(
-        r.warnings.iter().any(|w| w.contains("validity floor")),
+        !r.warnings.iter().any(|w| w.contains("[[crystal]]")),
         "{:?}",
         r.warnings
     );
-    // 5 MeV is above the floor for B (about 2.3 MeV): the validity advisory
-    // goes, the truncation one stays.
+    // 5 MeV is above the floor for B (about 2.3 MeV): straggling is silent.
     let r = Input::from_toml_str(&text(5.0e6, "straggling = \"bohr\"\n"))
         .unwrap()
         .resolve()
         .unwrap();
     assert!(
-        !r.warnings.iter().any(|w| w.contains("validity floor")),
-        "{:?}",
-        r.warnings
-    );
-    assert!(
-        r.warnings
-            .iter()
-            .any(|w| w.contains("free_path = \"constant\"")),
+        !r.warnings.iter().any(|w| w.contains("straggling")),
         "{:?}",
         r.warnings
     );
@@ -219,12 +197,15 @@ seed = 1
 }
 
 #[test]
-fn straggling_warns_on_crystal_flights_and_mixed_stacks_warn_about_both() {
+fn straggling_is_silent_on_crystals_and_constant_free_paths() {
     // A 5 MeV beam sits above Bohr's floor for B (about 2.3 MeV); stopping
     // is bethe-bloch so the lindhard-scharff validity range does not add its
-    // own advisory, and only the truncation advisories can fire here. The
-    // mixed-stack case extends the target with an amorphous C layer, so it
-    // carries its own energy override for C.
+    // own advisory, and only a straggling advisory could fire here. None
+    // does: the fluctuation is drawn per accumulated path segment, so the
+    // lattice flights of a crystal region and the N^(-1/3) flights of the
+    // constant free path no longer bias the sampled mean. The mixed-stack
+    // case extends the target with an amorphous C layer, so it carries its
+    // own energy override for C.
     let text = |s: &str, target: &str, extra_energies: &str| {
         format!(
             r#"
@@ -251,8 +232,9 @@ seed = 1
     let substrate = "[target]\nsubstrate = \"Si\"\n";
     let crystal =
         "[[crystal]]\nlayers = [0]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n";
-    // A crystal region with straggling on: the crystal advisory fires even
-    // though the constant free path is the only legal choice there.
+    // A crystal region with straggling on: silent (other advisories, such
+    // as the stopping model's validity range at this energy, are unrelated
+    // and not pinned here).
     let r = Input::from_toml_str(&text(
         "straggling = \"bohr\"\n",
         &format!("{substrate}{crystal}"),
@@ -262,25 +244,12 @@ seed = 1
     .resolve()
     .unwrap();
     assert!(
-        r.warnings
-            .iter()
-            .any(|w| w.contains("[[crystal]]") && w.contains("unavoidable")),
+        !r.warnings.iter().any(|w| w.contains("straggling")),
         "{:?}",
         r.warnings
     );
-    // A fully crystalline stack has no amorphous regions: the constant
-    // free-path advisory does not fire (other advisories, such as the
-    // stopping model's validity range at this energy, are unrelated and not
-    // pinned here).
-    assert!(
-        !r.warnings.iter().any(|w| w.contains("free_path")),
-        "{:?}",
-        r.warnings
-    );
-    // A mixed stack warns about both halves: the amorphous layer flies the
-    // constant free path (its usual fix is unavailable), the crystal region
-    // flies the lattice. Layer 0 is the amorphous C film, layer 1 the
-    // crystalline Si substrate.
+    // A mixed stack (layer 0 the amorphous C film, layer 1 the crystalline
+    // Si substrate) is silent too.
     let mixed = format!(
         "{substrate}[[target.layers]]\nmaterial = \"C\"\nthickness_nm = 10.0\n\
          [[crystal]]\nlayers = [1]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n"
@@ -294,14 +263,7 @@ seed = 1
     .resolve()
     .unwrap();
     assert!(
-        r.warnings.iter().any(|w| w.contains("[[crystal]]")),
-        "{:?}",
-        r.warnings
-    );
-    assert!(
-        r.warnings
-            .iter()
-            .any(|w| w.contains("free_path = \"constant\"") && w.contains("amorphous regions")),
+        !r.warnings.iter().any(|w| w.contains("straggling")),
         "{:?}",
         r.warnings
     );
