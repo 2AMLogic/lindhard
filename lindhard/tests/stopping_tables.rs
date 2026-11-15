@@ -164,14 +164,14 @@ fn relative_paths_resolve_against_the_base_directory_and_are_recorded() {
     std::fs::write(d.join("sub/b.toml"), &text).unwrap();
     let r = with_tables(&["sub/b.toml"]).resolve_in(&d).unwrap();
     let l = &r.stopping_tables[0];
-    assert_eq!(l.path, "sub/b.toml");
-    assert!(l.resolved_path.is_absolute());
-    assert_eq!(l.sha256.len(), 64);
-    assert!(l.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
+    assert_eq!(l.file.path, "sub/b.toml");
+    assert!(l.file.resolved_path.is_absolute());
+    assert_eq!(l.file.sha256.len(), 64);
+    assert!(l.file.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
     // Same bytes, same hash; different bytes, different hash.
     std::fs::write(d.join("sub/c.toml"), format!("{text}\n# edited\n")).unwrap();
     let r2 = with_tables(&["sub/c.toml"]).resolve_in(&d).unwrap();
-    assert_ne!(l.sha256, r2.stopping_tables[0].sha256);
+    assert_ne!(l.file.sha256, r2.stopping_tables[0].file.sha256);
     // Listed as a model with its provenance.
     let m = r
         .models()
@@ -179,6 +179,22 @@ fn relative_paths_resolve_against_the_base_directory_and_are_recorded() {
         .find(|m| m.name == "user-table")
         .expect("table model listed");
     assert!(m.citation.contains("sub/b.toml") && m.citation.contains("Lindhard-Scharff"));
+}
+
+/// A path with a `..` component resolves against the base directory too, and
+/// the provenance record keeps the path as written while identifying the
+/// file it names (issue #774: the record rides through the `file` field).
+#[test]
+fn dot_dot_path_components_resolve_against_the_base_directory() {
+    let d = scratch("dotdot");
+    std::fs::create_dir_all(d.join("sub")).unwrap();
+    std::fs::write(d.join("b.toml"), ls_table(5, 14, 1.0, 1.0e4, "")).unwrap();
+    let r = with_tables(&["sub/../b.toml"]).resolve_in(&d).unwrap();
+    let l = &r.stopping_tables[0];
+    assert_eq!(l.file.path, "sub/../b.toml");
+    assert!(l.file.resolved_path.is_absolute());
+    assert!(l.file.resolved_path.ends_with("b.toml"));
+    assert_eq!(l.file.sha256.len(), 64);
 }
 
 #[test]
@@ -475,7 +491,7 @@ fn srim_is_accepted_resolved_listed_and_serves_the_pair() {
     let i = srim_input(&d, Some(SRIM_FIXTURE), "");
     let r = i.resolve_in(&d).unwrap();
     let l = r.srim.as_ref().unwrap();
-    assert_eq!(l.sha256.len(), 64);
+    assert_eq!(l.file.sha256.len(), 64);
     let m = r.models();
     let info = m.iter().find(|m| m.name == "srim").unwrap();
     assert!(info.citation.contains("not independent validation"));
@@ -505,21 +521,21 @@ fn srim_relative_path_resolves_against_the_base_directory_and_is_recorded() {
     i.stopping.srim_data = Some("sub/srim.toml".to_string());
     let r = i.resolve_in(&d).unwrap();
     let l = r.srim.as_ref().unwrap();
-    assert_eq!(l.path, "sub/srim.toml");
-    assert!(l.resolved_path.is_absolute());
-    assert!(l.resolved_path.ends_with("sub/srim.toml"));
-    assert_eq!(l.sha256.len(), 64);
-    assert!(l.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
+    assert_eq!(l.file.path, "sub/srim.toml");
+    assert!(l.file.resolved_path.is_absolute());
+    assert!(l.file.resolved_path.ends_with("sub/srim.toml"));
+    assert_eq!(l.file.sha256.len(), 64);
+    assert!(l.file.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
     // Same bytes, same hash; different bytes, different hash.
     let again = i.resolve_in(&d).unwrap();
-    assert_eq!(l.sha256, again.srim.as_ref().unwrap().sha256);
+    assert_eq!(l.file.sha256, again.srim.as_ref().unwrap().file.sha256);
     std::fs::write(
         d.join("sub/srim.toml"),
         format!("{SRIM_FIXTURE}\n# edited\n"),
     )
     .unwrap();
     let edited = i.resolve_in(&d).unwrap();
-    assert_ne!(l.sha256, edited.srim.as_ref().unwrap().sha256);
+    assert_ne!(l.file.sha256, edited.srim.as_ref().unwrap().file.sha256);
 }
 
 #[test]
