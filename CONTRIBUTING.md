@@ -290,8 +290,12 @@ A pull request whose diff touches only prose and documentation paths, per the
 allowlist in the `changes` job of [`ci.yml`](.github/workflows/ci.yml), skips
 the three `Rust (…)` matrix legs and the Python bindings job — roughly half an
 hour of wall-clock wait on docs-only maintenance PRs. The skip is fail closed:
-the full suite still runs whenever the gate itself fails or is cancelled, and
-on every `push` to `main` after merge. The authoritative record — the
+the full suite still runs whenever the gate itself fails, whenever it dies on
+its own `timeout-minutes` while the run carries on, and on every `push` to
+`main` after merge. A run cancelled *as a whole* — a superseded pull-request
+run, or a manual cancel on either event — is the exception, and not a skip:
+the gated jobs are cancelled with it, and the run is no verdict at all rather
+than a pass. The authoritative record — the
 allowlist, its generated-artifact exclusions and the invariants the filter
 depends on — is the comment block above that job in `ci.yml`; do not restate
 it here.
