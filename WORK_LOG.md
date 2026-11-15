@@ -4,6 +4,16 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-14
 
+- **PR #792**: refactor(tests): share 17 duplicated integration-test fixtures through common
+- **PR #784**: refactor(validation): share the level-2 oracle scaffolding through validation/lib
+- **Issue #778** (closed): Share the oracle-harness scaffolding the two level-2 runners duplicate (Oracle, NotConfigured, _git, _round, sha256)
+- **PR #779**: feat(wasm): accept [[crystal]] targets in the simulation session
+- **Issue #769** (closed): [Epic #28] Accept `[[crystal]]` targets in the WASM simulation session
+- **PR #770**: refactor(cli): publish exposure outputs through the shared OutputSet
+- **Issue #758** (closed): Collapse the duplicate output path in `lindhard exposure` into the shared OutputSet lifecycle
+- **PR #759**: refactor(input): share one data-file loader and record the SRIM file's hash
+- **Issue #752** (closed): Share one data-file loader across the input resolvers, and record the SRIM coefficient file's SHA-256 that is computed but never written
+- **Issue #511** (closed): [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning
 - **PR #766**: docs: roadmap as of 2026-11-13
 - **PR #772**: refactor(cli): build the summary target[] array in one shared place
 - **Issue #761** (closed): Remove the duplicate `LayerOut` summary record in the CLI: share one with `output.rs`
