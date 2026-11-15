@@ -1,6 +1,6 @@
 //! Validation and resolution: turns an [`Input`] into the engine's types.
 
-use crate::elements::element_by_symbol;
+use crate::elements::{element_by_symbol, symbol};
 use crate::geometry::{Csg, CsgGeometry, Geometry, GeometryError, Stack};
 use crate::ion::bca::{
     BcaConfig, Beam, CrystalTarget, ElectronicLoss, EnergySpectrum, MeanFreePath, Thermal,
@@ -340,7 +340,6 @@ impl Input {
             .iter()
             .flat_map(|ly| ly.material.components().iter().map(|c| c.z()))
             .collect();
-        let symbol = |z: u8| crate::elements::element(z).map_or("?", |e| e.symbol);
         for (i, l) in tables.iter().enumerate() {
             let field = format!("stopping.tables[{i}]");
             let t = &l.table;
