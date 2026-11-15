@@ -116,7 +116,15 @@ function layerView(l, i) {
       h("button", { type: "button", on: { click: () => { l.elements.push(el("Si")); renderLayers(); refresh(); } } }, "Add element"),
       iconBtn("↑", "Move up", i === 0, () => move(i, -1)),
       iconBtn("↓", "Move down", last, () => move(i, 1)),
-      iconBtn("×", "Delete layer", false, () => { setup.layers.splice(i, 1); unitT.splice(i, 1); renderLayers(); refresh(); })),
+      iconBtn("×", "Delete layer", false, () => {
+        setup.layers.splice(i, 1);
+        unitT.splice(i, 1);
+        // Positional crystal indices follow the stack: drop the deleted layer
+        // and renumber the ones that sat above it.
+        if (setup.crystal) setup.crystal.layers = setup.crystal.layers.filter((j) => j !== i).map((j) => (j > i ? j - 1 : j));
+        renderLayers();
+        refresh();
+      })),
     h("div", { className: "layer-head" },
       h("label", {}, "Name", h("input", { value: l.name, "aria-label": `name of layer ${i + 1}`, on: { input: upd((t) => (l.name = t.value.trim())) } })),
       h("label", {}, "Thickness", h("span", { className: "group" }, thick, unit)),
@@ -137,6 +145,10 @@ function move(i, d) {
   const L = setup.layers;
   [L[i], L[i + d]] = [L[i + d], L[i]];
   [unitT[i], unitT[i + d]] = [unitT[i + d], unitT[i]];
+  // The crystal's layer indices are positional: a swap must keep each index
+  // pointing at the same material it named before the move.
+  const c = setup.crystal;
+  if (c) c.layers = c.layers.map((j) => (j === i ? i + d : j === i + d ? i : j));
   // Only the last layer can be a substrate.
   for (const [k, l] of L.entries()) if (l.thicknessNm == null && k !== L.length - 1) l.thicknessNm = 100;
   renderLayers();
@@ -260,6 +272,19 @@ function renderCrystal() {
   }
   for (const box of $("crystal-layers").querySelectorAll("input")) {
     box.checked = setup.crystal.layers.includes(Number(box.dataset.layer));
+  }
+  // An index the stack no longer has ("layer N does not exist" in the
+  // problems list) has no checkbox to untick: give it a chip with a remove
+  // button, so the message is actionable without restarting the crystal.
+  for (const chip of $("crystal-layers").querySelectorAll("[data-stale]")) chip.remove();
+  for (const j of setup.crystal.layers.filter((l) => l >= setup.layers.length)) {
+    $("crystal-layers").append(h("label", { className: "inline", "data-stale": "" },
+      ` ${j + 1}: no such layer `,
+      h("button", {
+        type: "button", className: "icon", title: `Remove layer ${j + 1} from the lattice`,
+        "aria-label": `remove nonexistent layer ${j + 1} from the lattice`,
+        on: { click: () => { setup.crystal.layers = setup.crystal.layers.filter((l) => l !== j); refresh(); } },
+      }, "×")));
   }
 }
 
