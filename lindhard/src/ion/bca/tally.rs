@@ -60,9 +60,11 @@ pub struct EnergyBudget {
     pub sputtered: f64,
     /// Energy carried out of the back face (primary and recoils).
     pub transmitted: f64,
-    /// Energy carried out of a lateral face of a voxel grid ([`Face::Side`];
-    /// primary and recoils). Always zero for a stack, and omitted from the
-    /// serialised form when zero.
+    /// Energy carried out of a lateral face ([`Face::Side`]; primary and
+    /// recoils) — a voxel-grid side wall, or a lateral face of a CSG solid.
+    /// A side escape is recorded in no face-escape spectrum; this field is
+    /// where its energy is accounted. Always zero for a stack, and omitted
+    /// from the serialised form when zero.
     #[serde(default, skip_serializing_if = "is_zero")]
     pub lateral: f64,
     /// Kinetic energy of particles when they stopped (below their cutoff, or
@@ -180,9 +182,13 @@ pub struct SummaryTally {
     pub sputtered: u64,
     /// Recoils that left through the back face.
     pub recoils_transmitted: u64,
-    /// Primaries that left through a lateral face of a voxel grid.
+    /// Primaries that left through a lateral face (a voxel-grid side wall
+    /// or a CSG solid's lateral face; counted in [`EnergyBudget::lateral`],
+    /// absent from the face-escape spectra).
     pub lateral: u64,
-    /// Recoils that left through a lateral face of a voxel grid.
+    /// Recoils that left through a lateral face (a voxel-grid side wall or
+    /// a CSG solid's lateral face; counted in [`EnergyBudget::lateral`],
+    /// absent from the face-escape spectra).
     pub recoils_lateral: u64,
     /// Displaced atoms (recoils created).
     pub recoils: u64,
