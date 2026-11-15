@@ -54,11 +54,15 @@
 //! voxels of that material. The surface barrier of an escaping atom uses the
 //! `E_s` of the material it leaves from and the actual outward normal of the
 //! face (see [`kinematics::refract_out_normal`]); a particle that cannot
-//! escape is reflected specularly about that normal. Escapes through the
-//! lateral faces of a voxel grid are reported as [`Face::Side`] and counted
-//! in [`EnergyBudget::lateral`]. [`crate::tally::ion::IonTally`] and the CLI
-//! tallies describe stacks only; use [`crate::tally::voxel::VoxelTally`],
-//! [`SummaryTally`] or a custom [`BcaTally`] for voxel runs.
+//! escape is reflected specularly about that normal. Escapes through a
+//! lateral face — a voxel-grid side wall, or a lateral face of a
+//! `[[target.solids]]` CSG scene — are reported as [`Face::Side`] and
+//! counted in [`EnergyBudget::lateral`], but are deliberately left out of
+//! the face-escape spectra (see `docs/cli.md`, "Lateral escapes").
+//! [`crate::tally::ion::IonTally`] describes any [`Geometry`] — a stack, a
+//! CSG scene or a voxel grid — and the CLI tallies are built on it and
+//! [`SummaryTally`]; [`crate::tally::voxel::VoxelTally`], which bins by
+//! position on its own grid, remains the tally of choice for voxel runs.
 //!
 //! A flight is drawn as a dimensionless number of mean free paths `tau` and
 //! converted to a length with the local `lambda`. When a flight reaches a

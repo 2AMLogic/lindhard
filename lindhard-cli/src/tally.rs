@@ -17,7 +17,9 @@ pub enum Fate {
     Backscattered,
     /// Left through the back face.
     Transmitted,
-    /// Left through a lateral face (voxel grids only).
+    /// Left through a lateral face (a voxel-grid side wall or a
+    /// `[[target.solids]]` CSG solid's lateral face; counted in the energy
+    /// budget's lateral energy, recorded in no face-escape spectrum).
     Lateral,
 }
 

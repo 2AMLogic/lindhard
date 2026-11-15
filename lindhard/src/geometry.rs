@@ -242,10 +242,15 @@ pub enum Face {
     Front,
     /// The back face, `x = Lx` of a finite stack or voxel grid (transmission).
     Back,
-    /// A lateral face of a voxel grid, `y = 0`, `y = Ly`, `z = 0` or
-    /// `z = Lz` (only reachable with a [`Boundary::Vacuum`] lateral axis).
-    /// For electrons it releases the particle whatever the `EscapeRule`,
-    /// which only governs the back face.
+    /// A lateral face of the target: on a voxel grid, `y = 0`, `y = Ly`,
+    /// `z = 0` or `z = Lz` (only reachable with a [`Boundary::Vacuum`]
+    /// lateral axis); on a CSG solid target, any face whose outward normal
+    /// is not x-dominant (see the [`csg`] module docs). A side escape is
+    /// counted in
+    /// [`EnergyBudget::lateral`](crate::ion::bca::EnergyBudget) but
+    /// deliberately left out of the face-escape spectra. For electrons it
+    /// releases the particle whatever the `EscapeRule`, which only governs
+    /// the back face.
     Side,
 }
 
