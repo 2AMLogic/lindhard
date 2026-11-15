@@ -306,8 +306,9 @@ impl Csg {
     }
 
     /// Conservative axis-aligned bounds `(lo, hi)` (module docs), possibly
-    /// infinite. Requires a validated tree.
-    fn bounds(&self) -> (V3, V3) {
+    /// infinite. Requires a validated tree; a solid of a built
+    /// [`CsgGeometry`] is validated and bounded.
+    pub fn bounds(&self) -> ([f64; 3], [f64; 3]) {
         match self {
             Self::Primitive(Primitive::Cuboid { lo, hi }) => (*lo, *hi),
             Self::Primitive(Primitive::Cylinder {

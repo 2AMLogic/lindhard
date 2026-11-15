@@ -9,7 +9,8 @@
 
 use std::fmt::Write as _;
 
-use lindhard::geometry::Stack;
+use lindhard::geometry::{CsgGeometry, Geometry, Stack};
+use lindhard::input::Target;
 use lindhard::input::TuningReport;
 use lindhard::input::{ModelInfo, Resolved, ResolvedLayer};
 use lindhard::ion::bca::{CrystalMetadata, EnergyBudget, MeanFreePath};
@@ -118,6 +119,26 @@ pub(crate) fn target_layers(stack: &Stack, layers: &[ResolvedLayer]) -> Vec<Laye
             back_nm: g.back_m().is_finite().then(|| g.back_m() / NM),
             atom_density_per_cm3: g.material().atom_number_density() * 1e-6,
             material: MaterialSpec::from(g.material().clone()),
+        })
+        .collect()
+}
+
+/// The `target[]` array for a `[[target.solids]]` run: one record per region
+/// (top-level solid), with the solid's `x` extent in place of the layer's
+/// front/back faces and the material its region is filled with.
+pub(crate) fn target_solids(g: &CsgGeometry, layers: &[ResolvedLayer]) -> Vec<LayerOut> {
+    (0..g.n_regions())
+        .map(|i| {
+            let m = g.material(g.material_index(i));
+            let (lo, hi) = g.solid(i).bounds();
+            LayerOut {
+                index: i,
+                source: layers[i].source.clone(),
+                front_nm: lo[0] / NM,
+                back_nm: Some(hi[0] / NM),
+                atom_density_per_cm3: m.atom_number_density() * 1e-6,
+                material: MaterialSpec::from(m.clone()),
+            }
         })
         .collect()
 }
@@ -673,7 +694,10 @@ pub fn summary_json(
                 max_abs_error_rad: table.max_abs_error(),
                 max_rel_error: table.max_rel_error(),
             },
-            target: target_layers(&r.stack, &r.layers),
+            target: match &r.target {
+                Target::Stack(stack) => target_layers(stack, &r.layers),
+                Target::Csg(g) => target_solids(g, &r.layers),
+            },
             tuning: r.tuning.clone(),
             crystal: crystals.to_vec(),
             beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),

@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
+use lindhard::geometry::Geometry;
 use lindhard::input::electron::{ElectronInput, ResolvedElectron};
 use lindhard::input::{Input, Resolved};
 use lindhard_cli::publish::{self, OutputSet};
@@ -251,27 +252,54 @@ fn check(path: &Path) -> Result<()> {
         "  beam: {} at {}, tilt {} deg, azimuth {} deg; {} ions, seed {}",
         b.ion, energy, b.tilt_deg, b.azimuth_deg, r.input.run.ions, r.input.run.seed
     );
-    for (i, (g, l)) in r.stack.layers().iter().zip(&r.layers).enumerate() {
-        let extent = if g.back_m().is_finite() {
-            format!("{} nm", g.thickness_m() * 1e9)
-        } else {
-            "semi-infinite".to_string()
-        };
-        println!(
-            "  layer {i}: {} ({}), {extent}, {:.4e} atoms/cm^3",
-            l.source,
-            l.material
-                .components()
-                .iter()
-                .map(|c| format!(
-                    "{} {:.4}",
-                    lindhard::elements::element(c.z()).expect("valid").symbol,
-                    c.atom_fraction()
-                ))
-                .collect::<Vec<_>>()
-                .join(", "),
-            g.material().atom_number_density() * 1e-6
-        );
+    match &r.target {
+        lindhard::input::Target::Stack(stack) => {
+            for (i, (g, l)) in stack.layers().iter().zip(&r.layers).enumerate() {
+                let extent = if g.back_m().is_finite() {
+                    format!("{} nm", g.thickness_m() * 1e9)
+                } else {
+                    "semi-infinite".to_string()
+                };
+                println!(
+                    "  layer {i}: {} ({}), {extent}, {:.4e} atoms/cm^3",
+                    l.source,
+                    l.material
+                        .components()
+                        .iter()
+                        .map(|c| format!(
+                            "{} {:.4}",
+                            lindhard::elements::element(c.z()).expect("valid").symbol,
+                            c.atom_fraction()
+                        ))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    g.material().atom_number_density() * 1e-6
+                );
+            }
+        }
+        lindhard::input::Target::Csg(g) => {
+            for (i, l) in r.layers.iter().enumerate() {
+                let m = g.material(g.material_index(i));
+                let (lo, hi) = g.solid(i).bounds();
+                println!(
+                    "  solid {i}: {} ({}), depth {} to {} nm, {:.4e} atoms/cm^3",
+                    l.source,
+                    l.material
+                        .components()
+                        .iter()
+                        .map(|c| format!(
+                            "{} {:.4}",
+                            lindhard::elements::element(c.z()).expect("valid").symbol,
+                            c.atom_fraction()
+                        ))
+                        .collect::<Vec<_>>()
+                        .join(", "),
+                    lo[0] * 1e9,
+                    hi[0] * 1e9,
+                    m.atom_number_density() * 1e-6
+                );
+            }
+        }
     }
     if let Some(d) = &r.input.dynamic {
         println!(

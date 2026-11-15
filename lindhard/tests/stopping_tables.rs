@@ -420,7 +420,7 @@ fn none_run_has_zero_electronic_loss_and_matches_the_library_model() {
     assert_eq!(r.screening, Screening::ZblUniversal);
     let table = ScatteringTable::build(&pot, &r.table_spec);
     let run = |stopping: &(dyn ElectronicStopping + Sync)| {
-        Bca::new(r.beam, &r.stack, r.config, stopping, &table)
+        Bca::new(r.beam, r.geometry(), r.config, stopping, &table)
             .unwrap()
             .run(|| SummaryTally::new(1e-9, 100))
             .unwrap()

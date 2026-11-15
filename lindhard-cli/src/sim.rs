@@ -57,7 +57,7 @@ pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
         .context("setting up the transport engine")?;
     let crystals = bca.crystal_metadata();
     let tally_spec = &r.input.tally;
-    let ion_proto = IonTally::new(&r.stack, &bca.species_z(), r.ion_tally_config()?)
+    let ion_proto = IonTally::new(r.geometry(), &bca.species_z(), r.ion_tally_config()?)
         .context("setting up the ion tally")?;
     let voxel_proto = tally_spec
         .voxel

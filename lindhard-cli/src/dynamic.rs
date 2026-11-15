@@ -174,7 +174,10 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         s.into_iter().collect()
     };
 
-    let stack = split_stack(&r.stack, d.slab_nm.map(|nm| nm * 1e-9))?;
+    let stack = split_stack(
+        r.stack().expect("a [dynamic] target is a layer stack (resolution rejects [[target.solids]])"),
+        d.slab_nm.map(|nm| nm * 1e-9),
+    )?;
     let mut grid = CompositionGrid::from_stack(&stack, relaxation(d, &species)?)
         .context("building the grid")?;
     // An element that enters a slab by implantation or recoil mixing needs the

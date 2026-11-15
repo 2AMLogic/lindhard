@@ -46,7 +46,7 @@ fn minimal_input_resolves_with_defaults() {
     let r = i.resolve().unwrap();
     assert_eq!(r.beam.ion.z(), 5);
     assert!((r.beam.polar_rad - 7f64.to_radians()).abs() < 1e-15);
-    assert_eq!(r.stack.layers().len(), 1);
+    assert_eq!(r.stack().unwrap().layers().len(), 1);
     assert_eq!(r.config.mean_free_path, MeanFreePath::Constant);
     assert_eq!(r.config.electronic, ElectronicLoss::NonLocal);
     assert_eq!(r.config.seed, 1);
@@ -116,7 +116,7 @@ ions = 10
 seed = 2
 "#;
     let r = Input::from_toml_str(text).unwrap().resolve().unwrap();
-    assert_eq!(r.stack.layers().len(), 3);
+    assert_eq!(r.stack().unwrap().layers().len(), 3);
     assert_eq!(r.layers[0].source, "SiO2");
     assert_eq!(r.layers[1].source, "inline");
     assert_eq!(r.layers[2].source, "Si");
@@ -129,7 +129,7 @@ seed = 2
         r.config.mean_free_path,
         MeanFreePath::EnergyDependent { .. }
     ));
-    assert!((r.stack.layers()[1].back_m() - 15e-9).abs() < 1e-20);
+    assert!((r.stack().unwrap().layers()[1].back_m() - 15e-9).abs() < 1e-20);
     // Echo of a mixed input round-trips through TOML.
     let back = Input::from_toml_str(&toml::to_string(&r.input).unwrap()).unwrap();
     assert_eq!(back, r.input);

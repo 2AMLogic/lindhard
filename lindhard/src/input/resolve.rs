@@ -737,7 +737,7 @@ impl Input {
             beam,
             divergence,
             spectrum,
-            stack,
+            target: Target::Stack(stack),
             layers,
             config,
             screening,

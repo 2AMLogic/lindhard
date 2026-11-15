@@ -1,7 +1,7 @@
 //! The resolved run: [`Resolved`], its parts and the shared material resolver.
 
 use crate::elements::element_by_symbol;
-use crate::geometry::Stack;
+use crate::geometry::{CsgGeometry, Geometry, Stack};
 use crate::ion::bca::{Bca, BcaConfig, BcaError, Beam, CrystalTarget, MeanFreePath};
 use crate::ion::potential::{Potential, Screening, ScreeningLength};
 use crate::ion::scattering::{ScatteringTable, TableSpec};
@@ -65,9 +65,10 @@ pub struct Resolved {
     /// then every primary has `beam.energy_ev`). With a spectrum,
     /// `beam.energy_ev` is the largest line.
     pub spectrum: Option<crate::ion::bca::EnergySpectrum>,
-    /// The target.
-    pub stack: Stack,
-    /// Layers in stack order, with where each material came from.
+    /// The target: a layer stack or CSG solids.
+    pub target: Target,
+    /// Regions in region order — the stack's layers, or the CSG solids —
+    /// with where each material came from.
     pub layers: Vec<ResolvedLayer>,
     /// Engine configuration (including the seed).
     pub config: BcaConfig,
@@ -87,6 +88,38 @@ pub struct Resolved {
     pub warnings: Vec<String>,
     /// The tuning applied, if `[physics] tuning` named a set.
     pub tuning: Option<TuningReport>,
+}
+
+/// The resolved target: the geometry the engine transports through.
+#[derive(Debug, Clone)]
+pub enum Target {
+    /// A laterally uniform layer stack (`[[target.layers]]` /
+    /// `target.substrate`), semi-infinite in depth with a substrate.
+    Stack(Stack),
+    /// Constructive solid geometry (`[[target.solids]]`): one region per
+    /// top-level solid, in listing order; the first listed owns overlaps.
+    Csg(CsgGeometry),
+}
+
+impl Target {
+    /// The engine-facing [`Geometry`]. This is what [`Bca::new`](crate::ion::bca::Bca::new)
+    /// and [`IonTally::new`](crate::tally::IonTally::new) take.
+    pub fn geometry(&self) -> &dyn Geometry {
+        match self {
+            Self::Stack(s) => s,
+            Self::Csg(g) => g,
+        }
+    }
+
+    /// The layer stack, when the target is one. `None` for a
+    /// `[[target.solids]]` target: paths that need layers (the `[dynamic]`
+    /// composition loop) use this and reject the rest.
+    pub fn stack(&self) -> Option<&Stack> {
+        match self {
+            Self::Stack(s) => Some(s),
+            Self::Csg(_) => None,
+        }
+    }
 }
 
 /// Scattering-table grid used for every run: `per_decade` points per decade
@@ -187,6 +220,18 @@ pub fn stopping_model_with(
 }
 
 impl Resolved {
+    /// The engine-facing target geometry: what [`Bca::new`](crate::ion::bca::Bca::new)
+    /// and [`IonTally::new`](crate::tally::IonTally::new) take.
+    pub fn geometry(&self) -> &dyn Geometry {
+        self.target.geometry()
+    }
+
+    /// The layer stack, when the target is one. `None` for a
+    /// `[[target.solids]]` target.
+    pub fn stack(&self) -> Option<&Stack> {
+        self.target.stack()
+    }
+
     /// The electronic stopping model of the run: the `[physics] stopping`
     /// choice, with any `[stopping]` tables layered over it for the pairs
     /// they declare. This is what to pass to the engine.
@@ -262,7 +307,7 @@ impl Resolved {
         stopping: &'a (dyn ElectronicStopping + Sync),
         table: &'a ScatteringTable,
     ) -> Result<Bca<'a>, BcaError> {
-        let mut bca = Bca::new(self.beam, &self.stack, self.config, stopping, table)?
+        let mut bca = Bca::new(self.beam, self.target.geometry(), self.config, stopping, table)?
             .with_divergence(self.divergence)?;
         if let Some(sp) = &self.spectrum {
             bca = bca.with_spectrum(sp.clone());
