@@ -65,7 +65,7 @@ impl ElasticChoice {
                 .correlation_polarization
                 .iter()
                 .map(|(z, c)| {
-                    let sym = crate::elements::element(*z).map_or("?", |e| e.symbol);
+                    let sym = crate::elements::symbol(*z);
                     let cut = match c.cutoff {
                         PolarizationCutoff::Seltzer => "Seltzer b_pol^2".to_string(),
                         PolarizationCutoff::BPolSquared(b) => format!("b_pol^2 = {b}"),

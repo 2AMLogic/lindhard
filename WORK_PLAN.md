@@ -159,7 +159,7 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-- **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning
+_None._
 
 ## Important
 
@@ -176,40 +176,33 @@ Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a h
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
-- **#773**: Finish the tests/common consolidation: 18 clusters of byte-identical test helpers remain
-- **#785**: Share the 100 duplicated helper lines of tests/csg.rs and tests/mesh.rs via tests/common
+- **#814**: CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#752**: Share one data-file loader across the input resolvers, and record the SRIM coefficient file's SHA-256 that is computed but never written
-- **#753**: Move the electron beam model (BeamProfile, BeamSpread, beam serde macro) out of electron/transport.rs into its own electron::beam module
-- **#758**: Collapse the duplicate output path in `lindhard exposure` into the shared OutputSet lifecycle
-- **#763**: Root package.json clippy scripts run floating stable, not the pinned CI gate toolchain
-- **#764**: Collapse the duplicated secondary-spawn tail in electron transport, and pass the Kieft-Bosch options as one value
-- **#765**: THIRD_PARTY_LICENSES.md still points cstool's inelastic_axis attribution at lindhard-cli/src/electron.rs
-- **#769**: [Epic #28] Accept `[[crystal]]` targets in the WASM simulation session
-- **#778**: Share the oracle-harness scaffolding the two level-2 runners duplicate (Oracle, NotConfigured, _git, _round, sha256)
+- **#767**: Opt-in Bohr energy-loss straggling in ion BCA transport
+- **#768**: [Epic #25] TOML input for a laterally varying ion target built from CSG solids
+- **#782**: Simulator page: crystal orientation controls, now that the session transports [[crystal]]
+- **#806**: Five element-symbol copies survive #788: the inline copies its `fn symbol` grep could not see
+- **#811**: Remove unused rayon dependency from lindhard-py
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#770**: refactor(cli): publish exposure outputs through the shared OutputSet
-- **#776**: build: run the pinned clippy from package.json and guard the pin
-- **#783**: docs: repoint cstool inelastic_axis attribution at assemble.rs
+- **#798**: feat(wasm): crystal controls and beam azimuth on the simulator page
+- **#799**: feat: sample opt-in Bohr energy-loss straggling in BCA transport
+- **#820**: refactor: call elements::symbol at the five inline fallback copies
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
-- **#759**: refactor(input): share one data-file loader and record the SRIM file's hash
-- **#760**: refactor(electron): move the beam model out of transport.rs into electron::beam
-- **#779**: feat(wasm): accept [[crystal]] targets in the simulation session
-- **#780**: refactor(electron): share one secondary-spawn tail and one Kieft-Bosch options value
-- **#784**: refactor(validation): share the level-2 oracle scaffolding through validation/lib
+- **#805**: feat(input): CSG ion targets through TOML ([[target.solids]])
+- **#816**: chore: remove unused rayon dependency from lindhard-py
 
 ## Proposed
 
@@ -225,7 +218,6 @@ Issues carrying `loom:curated`.
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated)*
 - **#360**: Measure the build time and peak RSS of a penn-full table with band-bottom rate refinement (operator-run) *(curated)*
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)*
-- **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning *(curated)*
 - **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
 - **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)*
 - **#557**: Electron depth-dose and interface-enhancement validation against published measurements *(curated)*
@@ -240,18 +232,19 @@ Issues carrying `loom:curated`.
 - **#642**: [Epic #630] TRIM.IN importer *(curated)*
 - **#643**: [Epic #630] SRIM-format output writers *(curated)*
 - **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
-- **#763**: Root package.json clippy scripts run floating stable, not the pinned CI gate toolchain *(curated)*
-- **#765**: THIRD_PARTY_LICENSES.md still points cstool's inelastic_axis attribution at lindhard-cli/src/electron.rs *(curated)*
+- **#767**: Opt-in Bohr energy-loss straggling in ion BCA transport *(curated)*
 - **#768**: [Epic #25] TOML input for a laterally varying ion target built from CSG solids *(curated)*
-- **#769**: [Epic #28] Accept `[[crystal]]` targets in the WASM simulation session *(curated)*
+- **#782**: Simulator page: crystal orientation controls, now that the session transports [[crystal]] *(curated)*
+- **#806**: Five element-symbol copies survive #788: the inline copies its `fn symbol` grep could not see *(curated)*
+- **#809**: CI: ci.yml has no path filtering, so a docs-only PR runs the full Rust matrix (~98 runner-minutes measured) *(curated)*
+- **#814**: CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#771**: Consolidate the three copies of Gaussian elimination with partial pivoting (and their divergent singularity tests) *(hermit)*
 - **#777**: Trim never-called public API before 0.1.0 locks the surface: 8 items with zero references *(hermit)*
-- **#787**: Share one thread-pool helper across the CLI and Python crates: ten copies of the threads == Some(0) guard, two of them unreachable *(hermit)*
-- **#788**: Share the one histogram-CSV writer and the one element-symbol lookup: hist_rows exists twice, symbol() three times *(hermit)*
-- **#789**: Remove the orphaned one-shot WASM range calculator: calculate()/range_profile lost its only caller when the page folded into the simulator *(hermit)*
+- **#817**: Remove unused rayon dependency from lindhard-py *(hermit)*
+- **#821**: Remove unused rayon dependency from lindhard-py *(hermit)*
 
 ## Epics
 
@@ -267,14 +260,14 @@ Issues carrying `loom:curated`.
 | Bucket | Count |
 |------|-------|
 | Operator merge-risk holds | 1 |
-| Very important | 1 |
+| Very important | 0 |
 | Important | 5 |
-| Ready (`loom:issue`) | 3 |
-| In Progress (`loom:building`) | 8 |
+| Ready (`loom:issue`) | 2 |
+| In Progress (`loom:building`) | 5 |
 | PRs awaiting review | 3 |
-| Approved PRs awaiting merge | 6 |
-| Curated | 29 |
-| Architect / Hermit proposals | 5 |
+| Approved PRs awaiting merge | 3 |
+| Curated | 30 |
+| Architect / Hermit proposals | 4 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
 

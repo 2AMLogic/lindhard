@@ -1080,6 +1080,7 @@ impl<'a> Bca<'a> {
         ci: usize,
         shift: [f64; 3],
         p: &mut Particle,
+        rng: &mut ParticleRng,
         pending: &mut Vec<Particle>,
         budget: &mut EnergyBudget,
         tally: &mut T,
@@ -1200,7 +1201,7 @@ impl<'a> Bca<'a> {
             Flight::Event(ex) => {
                 let from = p.pos;
                 p.pos = ex.at;
-                self.electronic_nonlocal(p, from, ex.distance, budget, tally)?;
+                self.electronic_nonlocal(p, from, ex.distance, rng, budget, tally)?;
                 if p.energy_ev < cutoff {
                     return Ok(false);
                 }
@@ -1210,7 +1211,7 @@ impl<'a> Bca<'a> {
                 let from = p.pos;
                 Self::advance(p, limit);
                 p.layer = region;
-                self.electronic_nonlocal(p, from, limit, budget, tally)?;
+                self.electronic_nonlocal(p, from, limit, rng, budget, tally)?;
             }
         }
         let Some(hit) = hit else {
