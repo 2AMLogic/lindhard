@@ -592,12 +592,12 @@ pub struct BcaConfig {
     /// Default 0 (backscattered ions are not bound). Target atoms use the
     /// `E_s` of the material at the face (see [`Bca::new`]).
     pub primary_surface_binding_ev: f64,
-    /// Electronic energy-loss straggling of the nonlocal loss: the loss of
-    /// each free flight is sampled about its mean from a Gaussian with the
-    /// Bohr standard deviation for the path length and local composition
-    /// ([`StragglingModel`], the `ion::stopping::straggling` module docs).
-    /// `None` (the default) keeps the deterministic mean loss and draws
-    /// nothing.
+    /// Electronic energy-loss straggling of the nonlocal loss: the
+    /// fluctuation of the accumulated electronic loss is drawn once per path
+    /// segment, from a Gaussian with the Bohr variance accumulated over that
+    /// segment ([`StragglingModel`], the `ion::stopping::straggling` module
+    /// docs). `None` (the default) keeps the deterministic mean loss and
+    /// draws nothing.
     pub straggling: Option<StragglingModel>,
     /// Run seed for [`crate::rng::stream`].
     pub seed: u64,
@@ -873,6 +873,34 @@ impl HistoryBuffers {
         Self::default()
     }
 }
+
+/// One particle's pending straggling segment: the mean nonlocal loss and the
+/// Bohr variance accumulated since the last deviation was drawn
+/// (`ion::stopping::straggling` module docs). Empty after every close.
+#[derive(Default)]
+struct StraggleSegment {
+    /// Mean nonlocal loss taken along the segment so far, eV.
+    mu: f64,
+    /// Accumulated Bohr variance along the segment so far, eV².
+    sigma2: f64,
+}
+
+impl StraggleSegment {
+    fn is_empty(&self) -> bool {
+        self.mu == 0.0 && self.sigma2 == 0.0
+    }
+}
+
+/// A segment closes (and its one deviation is drawn) once the accumulated
+/// mean loss reaches [`STRAGGLE_SEGMENT_K`] standard deviations. Bohr's
+/// Gaussian describes a many-collision loss, so the draw is deferred until
+/// the Gaussian sits `k` sigmas above zero and the `[0, E']` safety clamp is
+/// essentially inactive: the probability of a standard normal draw below
+/// `-k` is `Phi(-k)`, about 3.2e-5 at `k = 4` (Abramowitz & Stegun 26.2.17,
+/// first term of the erfc asymptotic). Both accumulators grow linearly with
+/// path length, so the criterion is reached after about
+/// `(k sigma_1 / mu_1)^2` flights of one material.
+const STRAGGLE_SEGMENT_K: f64 = 4.0;
 
 /// The nonlocal half of [`EquipartitionMix`] as an [`ElectronicStopping`]
 /// model, so the Bragg sum can be reused.
@@ -1480,6 +1508,11 @@ impl<'a> Bca<'a> {
         }
     }
 
+    /// Take the flight's mean nonlocal electronic loss and accumulate the
+    /// flight's mean and Bohr variance into `seg`, closing the segment (one
+    /// deviation drawn and applied) at the criterion of
+    /// [`STRAGGLE_SEGMENT_K`].
+    #[allow(clippy::too_many_arguments)]
     fn electronic_nonlocal<T: BcaTally>(
         &self,
         p: &mut Particle,
@@ -1488,6 +1521,7 @@ impl<'a> Bca<'a> {
         rng: &mut ParticleRng,
         budget: &mut EnergyBudget,
         tally: &mut T,
+        seg: &mut StraggleSegment,
     ) -> Result<(), StoppingError> {
         if len <= 0.0 {
             return Ok(());
@@ -1509,19 +1543,37 @@ impl<'a> Bca<'a> {
             }
         };
         let de = (lay.n * s * len / J_PER_EV).min(p.energy_ev);
-        // Opt-in straggling (`BcaConfig::straggling`): the flight's loss is
-        // sampled about the mean from a Gaussian of standard deviation
-        // `sqrt(n Omega^2 s)` — the Bohr variance per target atom
-        // (`variance_per_atom`, Bragg-added over the local composition and
-        // scaled by the areal density `n s` of the flight) — drawn from this
-        // history's own transport stream, so the result stays keyed on
-        // `(seed, index)` at any thread count. The effective charge is the
-        // `Bare` form, in which Bohr's expression is written; the BCA's mean
-        // loss uses no charge correction either. A disabled (`None`) run
-        // makes no draw at all, so its stream, and therefore its results,
-        // are those of a build without the option.
-        let de = match self.config.straggling {
-            Some(model) if p.energy_ev > 0.0 => {
+        if de > 0.0 {
+            p.energy_ev -= de;
+            budget.electronic_nonlocal += de;
+            tally.electronic(p, from, ElectronicChannel::NonLocal, de);
+        }
+        // Opt-in straggling (`BcaConfig::straggling`): the flight's mean loss
+        // is taken as above, and the flight also contributes to this
+        // particle's pending straggling segment — its mean loss and its Bohr
+        // variance `n Omega^2 s` (the variance per target atom
+        // `variance_per_atom`, Bragg-added over the local composition,
+        // computed at the flight's energy and scaled by the areal
+        // density `n s`). Because Bohr's variance is linear in path length,
+        // the accumulated variance of a segment of any number of flights is
+        // exactly Bohr's variance for the whole segment, so drawing **one**
+        // deviation when the segment closes reproduces the published result
+        // per unit path length. Drawing per flight instead would put every
+        // draw in the regime `sigma_E >= mu` — a flight of the constant free
+        // path is 0.21 nm in carbon — where the Gaussian does not describe
+        // the loss distribution and clamping it to `[0, E]` left-censors it
+        // into a badly biased mean (the `ion::stopping::straggling` module
+        // docs carry the measured size of that old bias). The segment closes
+        // at `STRAGGLE_SEGMENT_K`, or when the particle's transport ends
+        // (`close_straggle_segment`); the draw comes from this history's own
+        // transport stream, so the result stays keyed on `(seed, index)` at
+        // any thread count. The effective charge is the `Bare` form, in
+        // which Bohr's expression is written; the BCA's mean loss uses no
+        // charge correction either. A disabled (`None`) run makes no draw at
+        // all, so its stream, and therefore its results, are those of a
+        // build without the option.
+        if let Some(model) = self.config.straggling {
+            if p.energy_ev > 0.0 {
                 let material = self.geometry.material(mi);
                 let ion = &self.species[p.species].ion;
                 let omega2 = variance_per_atom_material(
@@ -1531,25 +1583,45 @@ impl<'a> Bca<'a> {
                     material,
                     p.energy_ev,
                 )?;
-                let sigma = (lay.n * omega2 * len).sqrt() / J_PER_EV;
-                let sampled = de + sample_gaussian_1d(sigma, rng);
-                // The Gaussian is unbounded below, so a draw can exceed the
-                // ion's energy or come out negative (a gain). Truncate by
-                // clamping to `[0, E]` (the mean loss is clamped to the same
-                // ceiling). This biases the mean loss upward when `sigma_E`
-                // is comparable to the mean — thin layers, low energy — the
-                // regime where Bohr is already an overestimate (the
-                // `ion::stopping::straggling` module docs).
-                sampled.clamp(0.0, p.energy_ev)
+                seg.mu += de;
+                seg.sigma2 += lay.n * omega2 * len / (J_PER_EV * J_PER_EV);
+                if seg.mu >= STRAGGLE_SEGMENT_K * seg.sigma2.sqrt() {
+                    self.close_straggle_segment(seg, p, from, rng, budget, tally);
+                }
             }
-            _ => de,
-        };
-        if de > 0.0 {
-            p.energy_ev -= de;
-            budget.electronic_nonlocal += de;
-            tally.electronic(p, from, ElectronicChannel::NonLocal, de);
         }
         Ok(())
+    }
+
+    /// Draw and apply the one straggling deviation of the pending segment
+    /// (`StraggleSegment`), and empty it. The deviation is clamped to
+    /// `[-mu, E]`: the sampled loss of the segment, `mu + dev`, can then
+    /// never fall below zero (no history gains energy relative to the start
+    /// of its segment) and never exceeds the ion's energy. At
+    /// [`STRAGGLE_SEGMENT_K`] the lower clamp is essentially inactive
+    /// (`Phi(-k)` of segments); it matters only on a partial segment closed
+    /// at the end of a transport, where it keeps the books exact. The
+    /// deviation is tallied on the flight that closes the segment — the
+    /// fluctuation is localized at the segment's end rather than spread
+    /// along it, a second-order effect on the deposition profile next to
+    /// the mean bias it removes (module docs).
+    fn close_straggle_segment<T: BcaTally>(
+        &self,
+        seg: &mut StraggleSegment,
+        p: &mut Particle,
+        from: [f64; 3],
+        rng: &mut ParticleRng,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) {
+        let dev = sample_gaussian_1d(seg.sigma2.sqrt(), rng).clamp(-seg.mu, p.energy_ev);
+        seg.mu = 0.0;
+        seg.sigma2 = 0.0;
+        if dev != 0.0 {
+            p.energy_ev -= dev;
+            budget.electronic_nonlocal += dev;
+            tally.electronic(p, from, ElectronicChannel::NonLocal, dev);
+        }
     }
 
     fn advance(p: &mut Particle, len: f64) {
@@ -1573,13 +1645,25 @@ impl<'a> Bca<'a> {
     ) -> Result<(), StoppingError> {
         let cutoff = self.species[p.species].cutoff_ev;
         let mut tau = self.draw_tau(rng, p.is_primary());
+        let mut seg = StraggleSegment::default();
         scratch.last.clear();
         scratch.new_line();
         loop {
             if p.energy_ev < cutoff {
-                budget.rest += p.energy_ev;
-                tally.stopped(&p);
-                return Ok(());
+                // This particle's transport ends here. A pending straggling
+                // segment closes first: its deviation belongs to the loss
+                // already taken, and a negative deviation (less than the
+                // mean loss along the segment) can lift the energy back
+                // above the cutoff, so the stop is decided after the draw.
+                if !seg.is_empty() {
+                    let at = p.pos;
+                    self.close_straggle_segment(&mut seg, &mut p, at, rng, budget, tally);
+                }
+                if p.energy_ev < cutoff {
+                    budget.rest += p.energy_ev;
+                    tally.stopped(&p);
+                    return Ok(());
+                }
             }
             if let Some(ci) = self.crystal_at(p.layer) {
                 if self.crystal_step(
@@ -1592,6 +1676,7 @@ impl<'a> Bca<'a> {
                     tally,
                     scratch,
                     thermal_rng,
+                    &mut seg,
                 )? {
                     return Ok(());
                 }
@@ -1618,7 +1703,7 @@ impl<'a> Bca<'a> {
                     let from = p.pos;
                     Self::advance(&mut p, s);
                     p.layer = region;
-                    self.electronic_nonlocal(&mut p, from, s, rng, budget, tally)?;
+                    self.electronic_nonlocal(&mut p, from, s, rng, budget, tally, &mut seg)?;
                     if p.energy_ev >= cutoff {
                         self.collide(&mut p, rng, scratch, pending, budget, tally)?;
                         tau = self.draw_tau(rng, false);
@@ -1630,12 +1715,12 @@ impl<'a> Bca<'a> {
             let d_b = ex.distance;
             let from = p.pos;
             p.pos = ex.at;
-            self.electronic_nonlocal(&mut p, from, d_b, rng, budget, tally)?;
+            self.electronic_nonlocal(&mut p, from, d_b, rng, budget, tally, &mut seg)?;
             tau = (tau - d_b / lambda).max(0.0);
             if p.energy_ev < cutoff {
                 continue;
             }
-            if self.apply_event(&mut p, ex.outcome, budget, tally) {
+            if self.apply_event(&mut p, ex.outcome, budget, tally, &mut seg, rng) {
                 return Ok(());
             }
         }
@@ -1645,12 +1730,18 @@ impl<'a> Bca<'a> {
     /// event point with the electronic loss of the segment taken: enter the
     /// next region, or reach a surface and escape (returns `true`, the
     /// particle is finished) or reflect specularly (returns `false`).
+    /// Escaping closes the particle's pending straggling segment first: the
+    /// fluctuation happened inside the target, so it belongs in the energy
+    /// the particle carries out.
+    #[allow(clippy::too_many_arguments)]
     fn apply_event<T: BcaTally>(
         &self,
         p: &mut Particle,
         outcome: ExitOutcome,
         budget: &mut EnergyBudget,
         tally: &mut T,
+        seg: &mut StraggleSegment,
+        rng: &mut ParticleRng,
     ) -> bool {
         match outcome {
             ExitOutcome::Enter { region, pos } => {
@@ -1658,6 +1749,9 @@ impl<'a> Bca<'a> {
                 p.pos = pos;
             }
             ExitOutcome::Escape { face, normal } => {
+                if !seg.is_empty() {
+                    self.close_straggle_segment(seg, p, p.pos, rng, budget, tally);
+                }
                 let mi = self.geometry.material_index(p.layer);
                 let e_s = self.barriers[mi * self.species.len() + p.species];
                 match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {

@@ -14,59 +14,73 @@
 //!
 //! The ion BCA engine samples electronic straggling when it is enabled with
 //! `[physics] straggling = "bohr"` (or `"bohr-relativistic"`; input key
-//! `StragglingChoice`, engine setting `BcaConfig::straggling`) — in the
-//! amorphous engine per free flight, and in a crystal region per lattice
-//! flight. In amorphous material every free
-//! flight's nonlocal loss is then drawn from a Gaussian centred on the mean
-//! loss `N S_e s` it would take anyway, with standard deviation
-//! `sqrt(n Omega^2 s)`: the Bragg-added variance of this module
-//! (`variance_per_atom_material`) scaled by the flight's areal density
-//! `n s`. The draw comes from the history's own transport random stream,
-//! so results stay deterministic per `(seed, index)` at any thread count.
+//! `StragglingChoice`, engine setting `BcaConfig::straggling`). Every free
+//! flight still takes its **mean** nonlocal loss `N S_e s` unchanged, so
+//! layer attribution and deposition profiles keep their deterministic
+//! backbone; the flight also adds to that particle's pending straggling
+//! segment both its mean loss and its Bohr variance `n Omega^2 s`, with the
+//! variance Bragg-added over the flight's own material
+//! (`variance_per_atom_material`). Because Bohr's variance is linear in path
+//! length, the variance accumulated over any stretch of flights is exactly
+//! the Bohr variance of that stretch. When the accumulated mean loss has
+//! grown to `k = 4` times the accumulated standard deviation, the segment
+//! closes and **one** deviation is drawn from a Gaussian of the segment's
+//! accumulated standard deviation, from the history's own transport stream
+//! (so results stay deterministic per `(seed, index)` at any thread count).
+//! At `k = 4` a standard normal draw falls below zero with probability
+//! `Phi(-4) ~ 3.2e-5` (about one segment in 31,000), so the safety clamp of
+//! the draw to `[-mu_acc, E]` — which keeps the segment's sampled loss
+//! non-negative and within the ion's energy — is essentially inactive, and
+//! the mean loss stays unbiased to that truncation probability.
+//!
+//! The segment, not the flight, is the sampling unit because Bohr's variance
+//! is a many-collisions result: a Gaussian describes the loss over a path
+//! long enough that it sits many standard deviations above zero, which a
+//! single free flight is not (the constant free path flies `lambda =
+//! N^(-1/3)`, 0.21 nm in carbon, where a flight's mean loss is a small
+//! fraction of its Bohr standard deviation; a crystal region flies the
+//! lattice, `search_length_nm` defaulting to the lattice constant, 0.543 nm
+//! in Si, and has no long-flight option). Sampling per flight and truncating
+//! each draw to `[0, E]` left-censored the Gaussian and inflated the mean
+//! electronic loss — measured, before 2026-11-15, at about 2.5x on a 1 MeV
+//! proton through 100 nm of carbon with the constant free path (variance
+//! depressed to about 0.42 of the Bohr value) and about 3.7x through crystal
+//! Si on lattice flights; the per-segment cadence removes that bias, which
+//! is why those numbers are stated as history, not as current behaviour.
+//!
+//! A segment also closes — with the same draw and clamp — when the
+//! particle's transport ends: it stops below its cutoff, escapes through any
+//! face, or reflects at a surface. A partial segment closed at the end of a
+//! transport can sit closer to zero than `k` standard deviations, so there
+//! the clamp is not necessarily inactive; it affects one partial segment out
+//! of the many of a history. Layer boundaries do **not** close a segment:
+//! each flight already contributes its own material's variance, so a
+//! segment spanning a boundary carries Bohr's total variance across it. The
+//! closing deviation is tallied on the flight that closes the segment — the
+//! fluctuation is localized at the segment's end rather than spread along
+//! it — a second-order effect on the deposition profile next to the mean
+//! bias the cadence removes. The deviation draw changes the draw cadence of
+//! a straggling run, so its numbers move relative to per-flight sampling;
+//! the option is opt-in, so no released behaviour is affected.
+//!
 //! The effective charge is `EffectiveCharge::Bare`, the form in which the
 //! Bohr expression is written above; the engine's mean loss applies no
-//! charge correction either.
-//!
-//! Because the Gaussian is unbounded below, a draw can exceed the ion's
-//! energy or come out negative (an energy gain). The sampled loss is
-//! truncated by clamping to `[0, E]`, the same ceiling the mean loss is
-//! clamped to. This biases the mean loss upward when the standard deviation
-//! is comparable to the mean loss per flight — thin layers, low energy —
-//! which is also the regime where Bohr's variance is an overestimate
-//! ("Not implemented" below), so the two errors reinforce rather than
-//! cancel. The bias is not cosmetic at short flights: with the constant
-//! free path (flights of `N^(-1/3)`, 0.21 nm in carbon) the per-flight
-//! standard deviation at MeV energies is several times the per-flight mean
-//! loss, and the sampled transmitted variance of a 1 MeV proton through
-//! 100 nm of carbon then measures about 0.42 of the Bohr value while the
-//! mean loss inflates about 2.5x — 5.8 keV to 14.9 keV of electronic loss
-//! per history, energy conservation delivering the rest into the clamped
-//! draws (measured 2026-11-14 while building this feature). The input
-//! resolution warns when `[physics] straggling` is combined with the
-//! constant free path, and when the beam energy sits below Bohr's
-//! `v >> v0 Z1^(2/3)` floor. A crystal region is always in the short-flight
-//! regime: its flights are lattice flights, short by construction
-//! (`search_length_nm` defaults to the lattice constant, 0.543 nm in Si),
-//! they sample through the same electronic-loss path, and no long-flight
-//! option exists inside a crystal, so with straggling on a crystal's
-//! electronic loss carries an unavoidable upward truncation bias — measured
-//! about 3.7x on a 1 MeV proton through Si (2026-11-15, same foil protocol
-//! as the amorphous figure above) — which the input resolution warns about
-//! separately. With flights tens of
-//! nanometres long (`free_path = "energy-dependent"` at a small
-//! `min_cm_angle_deg`) the truncation is inactive and the same foil
-//! reproduces the Bohr variance to about two percent;
-//! `lindhard/tests/straggling.rs` pins that configuration.
-//!
-//! Turning the option on shifts every subsequent transport draw of a
-//! history, so a run with straggling is a different trajectory sequence
-//! than a run without it, not a per-history perturbation of one; comparisons
-//! between the two must be statistical over many histories. A default
-//! (`"none"`) run makes no draw at all, so its results are bit-identical to
-//! a build without the option. Before 2026-11-14 this module was
-//! library-only: nothing sampled it (checked with
+//! charge correction either. Turning the option on shifts every subsequent
+//! transport draw of a history, so a run with straggling is a different
+//! trajectory sequence than a run without it, not a per-history perturbation
+//! of one; comparisons between the two must be statistical over many
+//! histories. A default (`"none"`) run makes no draw at all, so its results
+//! are bit-identical to a build without the option. Before 2026-11-14 this
+//! module was library-only: nothing sampled it (checked with
 //! `grep -rnE 'variance_per_atom|StragglingModel|straggling::' --include=*.rs .`
 //! piped through `grep -v 'stopping/straggling.rs'`, which printed nothing).
+//!
+//! `lindhard/tests/straggling.rs` pins the sampling: the transmitted-energy
+//! variance of a 1 MeV proton through 100 nm of carbon recovers the Bohr
+//! value with the constant free path (as with long flights), the mean
+//! nonlocal loss agrees with a `straggling = "none"` run in amorphous C, Si
+//! and a crystal Si foil, and energy conservation and thread-count
+//! determinism hold with the new cadence.
 //!
 //! # Not implemented
 //!

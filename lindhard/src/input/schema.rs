@@ -559,11 +559,11 @@ pub struct PhysicsSpec {
     pub min_cm_angle_deg: Option<f64>,
     /// Electronic energy-loss straggling of the nonlocal loss. Default
     /// `"none"`: every free flight loses the mean electronic loss and no
-    /// random draw is made. `"bohr"` (or `"bohr-relativistic"`) samples each
-    /// flight's loss about that mean from a Gaussian with the Bohr standard
-    /// deviation for the flight's path length and the layer's composition
-    /// ([`crate::ion::stopping::straggling`]); the sampled loss is truncated
-    /// to `[0, E]` (see there for the bias this adds in thin layers).
+    /// random draw is made. `"bohr"` (or `"bohr-relativistic"`) draws the
+    /// fluctuation of the accumulated loss once per path segment, from a
+    /// Gaussian with the Bohr variance accumulated over that segment
+    /// ([`crate::ion::stopping::straggling`]); the draw is clamped so a
+    /// history never gains energy (see there for the closing criterion).
     #[serde(default, skip_serializing_if = "StragglingChoice::is_none")]
     pub straggling: StragglingChoice,
     /// Weak collisions per collision step, `0..=3`
