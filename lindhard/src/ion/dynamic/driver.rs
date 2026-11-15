@@ -194,6 +194,101 @@ pub enum DynamicRunError {
     Transport(#[from] BcaError),
 }
 
+/// The step size a run starts with, after validating `policy`. Both the 1-D
+/// and the 2-D run call this in their constructors, so the two runs reject
+/// the same policies and start at the same size.
+pub(super) fn initial_n(policy: StepPolicy) -> Result<u64, DynamicRunError> {
+    match policy {
+        StepPolicy::Fixed { ions_per_step } => {
+            if ions_per_step == 0 {
+                return Err(DynamicRunError::Invalid(
+                    "ions_per_step must be at least 1".to_string(),
+                ));
+            }
+            Ok(ions_per_step)
+        }
+        StepPolicy::Adaptive {
+            max_ions_per_step,
+            min_ions_per_step,
+            max_change,
+        } => {
+            if min_ions_per_step == 0 || max_ions_per_step < min_ions_per_step {
+                return Err(DynamicRunError::Invalid(
+                    "need 1 <= min_ions_per_step <= max_ions_per_step".to_string(),
+                ));
+            }
+            if !(max_change.is_finite() && max_change > 0.0) {
+                return Err(DynamicRunError::Invalid(
+                    "max_change must be finite and positive".to_string(),
+                ));
+            }
+            Ok(max_ions_per_step)
+        }
+    }
+}
+
+/// The step size to retry a step whose composition change exceeded
+/// `max_change`: `Some(smaller)` when an adaptive run can still shrink `n`,
+/// `None` otherwise (a [`StepPolicy::Fixed`] policy, a run already at
+/// `min_ions_per_step`, or a change within budget). Shared by both runs.
+pub(super) fn shrink(policy: StepPolicy, n: u64, change: f64) -> Option<u64> {
+    let StepPolicy::Adaptive {
+        min_ions_per_step,
+        max_change,
+        ..
+    } = policy
+    else {
+        return None;
+    };
+    if n <= min_ions_per_step {
+        return None;
+    }
+    // The reject condition, exactly as both runs wrote it: `change >
+    // max_change`, which is false for a NaN change (then nothing shrinks).
+    let over_budget = change > max_change;
+    if !over_budget {
+        return None;
+    }
+    let scaled = (n as f64 * max_change / change).floor() as u64;
+    // The upper clamp is reachable: with n = 3 and a `change` one ulp above
+    // `max_change`, double rounding puts the scaled value at `n` itself.
+    Some(scaled.clamp(min_ions_per_step, n - 1))
+}
+
+/// The step size to retry a failed grid update at: half of `n`, floored at
+/// `min_ions_per_step`; `None` when no smaller step exists (a
+/// [`StepPolicy::Fixed`] policy, or an adaptive run already at the floor).
+/// Shared by both runs.
+pub(super) fn halve(policy: StepPolicy, n: u64) -> Option<u64> {
+    let StepPolicy::Adaptive {
+        min_ions_per_step, ..
+    } = policy
+    else {
+        return None;
+    };
+    (n > min_ions_per_step).then(|| (n / 2).max(min_ions_per_step))
+}
+
+/// The next step size after an accepted step: `n` doubled when the change
+/// stayed below half the budget, capped at `max_ions_per_step`; `None` for a
+/// [`StepPolicy::Fixed`] policy, whose step size never changes (the caller
+/// leaves its `current_n` alone). Shared by both runs.
+pub(super) fn grow(policy: StepPolicy, n: u64, change: f64) -> Option<u64> {
+    let StepPolicy::Adaptive {
+        max_ions_per_step,
+        max_change,
+        ..
+    } = policy
+    else {
+        return None;
+    };
+    Some(if change < 0.5 * max_change {
+        n.saturating_mul(2).min(max_ions_per_step)
+    } else {
+        n
+    })
+}
+
 /// What one accepted step did.
 #[derive(Debug, Clone, PartialEq)]
 pub struct StepRecord {
@@ -279,27 +374,7 @@ impl<'a> DynamicRun<'a> {
         if !(cfg.fluence_m2.is_finite() && cfg.fluence_m2 > 0.0) {
             return bad("fluence must be finite and positive");
         }
-        let current_n = match cfg.policy {
-            StepPolicy::Fixed { ions_per_step } => {
-                if ions_per_step == 0 {
-                    return bad("ions_per_step must be at least 1");
-                }
-                ions_per_step
-            }
-            StepPolicy::Adaptive {
-                max_ions_per_step,
-                min_ions_per_step,
-                max_change,
-            } => {
-                if min_ions_per_step == 0 || max_ions_per_step < min_ions_per_step {
-                    return bad("need 1 <= min_ions_per_step <= max_ions_per_step");
-                }
-                if !(max_change.is_finite() && max_change > 0.0) {
-                    return bad("max_change must be finite and positive");
-                }
-                max_ions_per_step
-            }
-        };
+        let current_n = initial_n(cfg.policy)?;
         Ok(Self {
             grid,
             beam,
@@ -427,22 +502,7 @@ impl<'a> DynamicRun<'a> {
             let (deltas, re_emitted) = self.retention_deltas(deltas);
             let change = self.max_change(&deltas);
 
-            let shrink = match self.cfg.policy {
-                StepPolicy::Adaptive {
-                    min_ions_per_step,
-                    max_change,
-                    ..
-                } if n > min_ions_per_step => {
-                    if change > max_change {
-                        let scaled = (n as f64 * max_change / change).floor() as u64;
-                        Some(scaled.clamp(min_ions_per_step, n - 1))
-                    } else {
-                        None
-                    }
-                }
-                _ => None,
-            };
-            if let Some(smaller) = shrink {
+            if let Some(smaller) = shrink(self.cfg.policy, n, change) {
                 n = smaller;
                 continue;
             }
@@ -451,15 +511,14 @@ impl<'a> DynamicRun<'a> {
             let outcome = match self.grid.apply(&deltas) {
                 Ok(o) => o,
                 Err(e) => {
-                    let StepPolicy::Adaptive {
-                        min_ions_per_step, ..
-                    } = self.cfg.policy
-                    else {
-                        return Err(e.into());
-                    };
-                    if n > min_ions_per_step {
-                        n = (n / 2).max(min_ions_per_step);
+                    if let Some(smaller) = halve(self.cfg.policy, n) {
+                        n = smaller;
                         continue;
+                    }
+                    // No smaller step: a Fixed run returns the error; the
+                    // smallest adaptive step caps the removal below.
+                    if !matches!(self.cfg.policy, StepPolicy::Adaptive { .. }) {
+                        return Err(e.into());
                     }
                     // Smallest step: a removal beyond what a slab holds is
                     // capped at what it holds.
@@ -495,17 +554,8 @@ impl<'a> DynamicRun<'a> {
             for (&z, &a) in &re_emitted {
                 *self.re_emitted_m2.entry(z).or_insert(0.0) += a;
             }
-            if let StepPolicy::Adaptive {
-                max_ions_per_step,
-                max_change,
-                ..
-            } = self.cfg.policy
-            {
-                self.current_n = if change < 0.5 * max_change {
-                    n.saturating_mul(2).min(max_ions_per_step)
-                } else {
-                    n
-                };
+            if let Some(next) = grow(self.cfg.policy, n, change) {
+                self.current_n = next;
             }
             return Ok(Some(StepRecord {
                 step: self.steps,
@@ -672,5 +722,143 @@ impl<'a> DynamicRun<'a> {
             on_step(&rec, &self.grid);
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn adaptive(max_ions_per_step: u64, min_ions_per_step: u64, max_change: f64) -> StepPolicy {
+        StepPolicy::Adaptive {
+            max_ions_per_step,
+            min_ions_per_step,
+            max_change,
+        }
+    }
+
+    fn invalid(policy: StepPolicy) -> String {
+        let DynamicRunError::Invalid(m) = initial_n(policy).unwrap_err() else {
+            panic!("expected Invalid");
+        };
+        m
+    }
+
+    #[test]
+    fn initial_n_validates_and_starts_the_run() {
+        assert_eq!(
+            initial_n(StepPolicy::Fixed { ions_per_step: 7 }).unwrap(),
+            7
+        );
+        assert_eq!(initial_n(adaptive(100, 10, 0.1)).unwrap(), 100);
+    }
+
+    #[test]
+    fn initial_n_rejects_a_zero_fixed_step() {
+        assert_eq!(
+            invalid(StepPolicy::Fixed { ions_per_step: 0 }),
+            "ions_per_step must be at least 1"
+        );
+    }
+
+    #[test]
+    fn initial_n_rejects_an_empty_adaptive_range() {
+        assert_eq!(
+            invalid(adaptive(10, 0, 0.1)),
+            "need 1 <= min_ions_per_step <= max_ions_per_step"
+        );
+        assert_eq!(
+            invalid(adaptive(10, 11, 0.1)),
+            "need 1 <= min_ions_per_step <= max_ions_per_step"
+        );
+    }
+
+    #[test]
+    fn initial_n_rejects_a_non_finite_or_non_positive_max_change() {
+        assert_eq!(
+            invalid(adaptive(100, 1, f64::NAN)),
+            "max_change must be finite and positive"
+        );
+        assert_eq!(
+            invalid(adaptive(100, 1, f64::INFINITY)),
+            "max_change must be finite and positive"
+        );
+        assert_eq!(
+            invalid(adaptive(100, 1, 0.0)),
+            "max_change must be finite and positive"
+        );
+        assert_eq!(
+            invalid(adaptive(100, 1, -0.5)),
+            "max_change must be finite and positive"
+        );
+    }
+
+    #[test]
+    fn shrink_leaves_a_within_budget_change_alone() {
+        let p = adaptive(1000, 10, 0.1);
+        assert_eq!(shrink(p, 1000, 0.1), None);
+        assert_eq!(shrink(p, 1000, 0.05), None);
+        // At the floor there is nothing smaller to retry.
+        assert_eq!(shrink(p, 10, 100.0), None);
+        // A non-finite change is never above the budget (`NaN > x` is
+        // false), so nothing shrinks.
+        assert_eq!(shrink(p, 1000, f64::NAN), None);
+    }
+
+    #[test]
+    fn shrink_scales_and_clamps_at_min_ions_per_step() {
+        let p = adaptive(1000, 5, 0.1);
+        // 1000 * 0.1 / 1000.0 floors to 0, clamped up to the floor of 5.
+        assert_eq!(shrink(p, 1000, 1000.0), Some(5));
+    }
+
+    #[test]
+    fn shrink_clamps_at_n_minus_one() {
+        let p = adaptive(100, 1, 0.1);
+        // One ulp above max_change: double rounding floors 3 * 0.1 / change
+        // to 3 itself, so without the clamp the "smaller" step would not
+        // shrink at all.
+        let one_ulp_up = f64::from_bits(0.1_f64.to_bits() + 1);
+        assert_eq!(shrink(p, 3, one_ulp_up), Some(2));
+    }
+
+    #[test]
+    fn shrink_and_halve_do_nothing_for_a_fixed_policy() {
+        let p = StepPolicy::Fixed { ions_per_step: 4 };
+        assert_eq!(shrink(p, 4, 100.0), None);
+        assert_eq!(halve(p, 4), None);
+    }
+
+    #[test]
+    fn halve_floors_at_min_ions_per_step() {
+        let p = adaptive(1000, 3, 0.1);
+        assert_eq!(halve(p, 7), Some(3));
+        assert_eq!(halve(p, 5), Some(3));
+        // Halving above the floor stays above it.
+        let q = adaptive(1000, 2, 0.1);
+        assert_eq!(halve(q, 6), Some(3));
+        // Already at the floor: the caller falls back to the cap path.
+        assert_eq!(halve(p, 3), None);
+    }
+
+    #[test]
+    fn grow_doubles_and_caps_at_max_ions_per_step() {
+        let p = adaptive(100, 10, 0.1);
+        assert_eq!(grow(p, 40, 0.01), Some(80));
+        assert_eq!(grow(p, 60, 0.01), Some(100));
+        assert_eq!(grow(p, 100, 0.01), Some(100));
+    }
+
+    #[test]
+    fn grow_keeps_the_size_when_the_change_used_half_the_budget() {
+        let p = adaptive(100, 10, 0.1);
+        assert_eq!(grow(p, 40, 0.05), Some(40));
+        assert_eq!(grow(p, 40, 0.5), Some(40));
+    }
+
+    #[test]
+    fn grow_leaves_a_fixed_policy_alone() {
+        let p = StepPolicy::Fixed { ions_per_step: 4 };
+        assert_eq!(grow(p, 2, 0.0), None);
     }
 }
