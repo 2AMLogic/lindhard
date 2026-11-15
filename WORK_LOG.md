@@ -4,6 +4,7 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-15
 
+- **Issue #827**: live verification of #809's CI prose gate — criterion 6: prose-only scratch PR #837, run 43722391248 (gate success, `Rust (${{ matrix.os }})` + Python `skipped`, 2m20s); criterion 3: forced `exit 1` atop the classify step, run 43722764412 (gate `failure`, all four gated jobs still ran and passed, run red — rule 6 holds); criterion 5: scratch PR #838, run 43722425806 (gate success, gated jobs ran, red in `figures` at the SVG byte-check and all three Rust legs at `backscatter.rs::committed_docs_figure_is_current`); criterion 4: scratch PR #839, run 43726035282 (gate success, gated jobs ran, red in `figures` at the page byte-check and all three Rust legs at `stopping_report.rs::committed_page_is_what_the_generator_renders`); criteria 1/2/7/8 were observed off runs 43718734512, 43715171750, 43706905404, 43714952941; scratch PRs closed unmerged, branches deleted
 - **PR #828**: chore: gate Rust/Python CI jobs behind a fail-closed prose filter
 - **Issue #809** (closed): CI: ci.yml has no path filtering, so a docs-only PR runs the full Rust matrix (~98 runner-minutes measured)
 - **PR #820**: refactor: call elements::symbol at the five inline fallback copies
