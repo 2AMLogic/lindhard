@@ -4,6 +4,7 @@ use std::path::Path;
 
 use super::*;
 use crate::elements::element_by_symbol;
+use crate::geometry::{Csg, Geometry};
 use crate::ion::bca::{ElectronicLoss, MeanFreePath};
 use crate::ion::potential::{Screening, ScreeningLength};
 
@@ -689,4 +690,179 @@ fn beam_spectrum_input_errors_name_the_field() {
         "spectrum = [{ energy_ev = 1000.0, weight = 1.0, tilt = 1.0 }]"
     ))
     .is_err());
+}
+
+// --- [[target.solids]] ---
+
+/// A layer-stack-free input with the given `[[target.solids]]` body.
+fn with_solids(solids: &str) -> String {
+    format!(
+        r#"
+[beam]
+ion = "B"
+energy_ev = 5000.0
+tilt_deg = 7.0
+
+[target]
+{solids}
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+    )
+}
+
+const MASKED_SI: &str = r#"
+[[target.solids]]
+shape = "cuboid"
+material = "Si"
+lo_nm = [0.0, -500.0, -500.0]
+hi_nm = [300.0, 500.0, 500.0]
+"#;
+
+#[test]
+fn solids_parse_every_shape() {
+    // Cuboid.
+    let r = Input::from_toml_str(&with_solids(MASKED_SI))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    let g = match &r.target {
+        Target::Csg(g) => g,
+        Target::Stack(_) => panic!("expected a CSG target"),
+    };
+    assert_eq!(g.n_regions(), 1);
+    assert_eq!(r.layers.len(), 1);
+    assert_eq!(r.layers[0].source, "Si");
+    let (lo, hi) = g.bounds();
+    assert_eq!(lo, [0.0, -500.0 * 1e-9, -500.0 * 1e-9]);
+    assert_eq!(hi, [300.0 * 1e-9, 500.0 * 1e-9, 500.0 * 1e-9]);
+
+    // Cylinder with an axis that is not a coordinate axis: accepted (next
+    // to a cuboid that holds the scene's default entry point), and the axis
+    // arrives at the engine normalised.
+    let cyl = with_solids(&format!(
+        "{MASKED_SI}[[target.solids]]\nshape = \"cylinder\"\nmaterial = \"Si\"\nbase_nm = [400.0, 0.0, 0.0]\naxis = [1.0, 2.0, 3.0]\nradius_nm = 50.0\nheight_nm = 200.0"
+    ));
+    let r = Input::from_toml_str(&cyl).unwrap().resolve().unwrap();
+    let g = match &r.target {
+        Target::Csg(g) => g,
+        Target::Stack(_) => panic!("expected a CSG target"),
+    };
+    assert_eq!(g.n_regions(), 2);
+    let axis = match g.solid(1) {
+        Csg::Primitive(crate::geometry::Primitive::Cylinder { axis, .. }) => *axis,
+        s => panic!("expected a cylinder, got {s:?}"),
+    };
+    let l = (14.0f64).sqrt();
+    assert!(
+        (axis[0] - 1.0 / l).abs() < 1e-12 && (axis[2] - 3.0 / l).abs() < 1e-12,
+        "{axis:?}"
+    );
+
+    // Half-space bounded only by an intersection with a cuboid: accepted.
+    let bounded = with_solids(
+        r#"[[target.solids]]
+shape = "intersection"
+material = "Si"
+of = [
+  { shape = "half_space", normal = [0.0, 0.0, -1.0], offset_nm = 100.0 },
+  { shape = "cuboid", lo_nm = [0.0, -50.0, -50.0], hi_nm = [200.0, 50.0, 50.0] },
+]"#,
+    );
+    let r = Input::from_toml_str(&bounded).unwrap().resolve().unwrap();
+    assert_eq!(r.geometry().n_regions(), 1);
+
+    // Echo of a solids input round-trips through TOML.
+    let i = Input::from_toml_str(&bounded).unwrap();
+    let back = Input::from_toml_str(&toml::to_string(&i).unwrap()).unwrap();
+    assert_eq!(back, i);
+    let r = i.resolve().unwrap();
+    let back = Input::from_toml_str(&toml::to_string(&r.input).unwrap()).unwrap();
+    assert_eq!(back, r.input);
+}
+
+#[test]
+fn solids_errors_name_the_key() {
+    // An unknown material reference.
+    let e = err(&with_solids(
+        &MASKED_SI.replace("material = \"Si\"", "material = \"Bananium\""),
+    ));
+    assert_eq!(field(&e), "target.solids[0].material");
+    // A lone half-space is unbounded.
+    let e = err(&with_solids(
+        "[[target.solids]]\nshape = \"half_space\"\nmaterial = \"Si\"\nnormal = [0.0, 0.0, -1.0]\noffset_nm = 100.0",
+    ));
+    assert_eq!(field(&e), "target.solids[0]");
+    assert!(e.to_string().contains("unbounded"), "{e}");
+    // A zero cylinder axis.
+    let e = err(&with_solids(
+        "[[target.solids]]\nshape = \"cylinder\"\nmaterial = \"Si\"\nbase_nm = [0.0, 0.0, 0.0]\naxis = [0.0, 0.0, 0.0]\nradius_nm = 50.0\nheight_nm = 200.0",
+    ));
+    assert_eq!(field(&e), "target.solids[0].axis");
+    // An inverted cuboid.
+    let e = err(&with_solids(
+        &MASKED_SI.replace("hi_nm = [300.0", "hi_nm = [-300.0"),
+    ));
+    assert_eq!(field(&e), "target.solids[0]");
+    // An entry point in vacuum: two disjoint solids, so the scene's
+    // front-face centre (the hull's) misses every solid.
+    let e = err(&with_solids(
+        r#"[[target.solids]]
+shape = "cuboid"
+material = "Si"
+lo_nm = [0.0, -50.0, -50.0]
+hi_nm = [100.0, 50.0, 50.0]
+
+[[target.solids]]
+shape = "cuboid"
+material = "Si"
+lo_nm = [0.0, 200.0, 200.0]
+hi_nm = [100.0, 300.0, 300.0]"#,
+    ));
+    assert_eq!(field(&e), "target.solids");
+    assert!(e.to_string().contains("entry point"), "{e}");
+
+    // Combinations with the other target kinds are refused.
+    let both = with_solids(&format!(
+        "{MASKED_SI}\n[[target.layers]]\nmaterial = \"Si\"\nthickness_nm = 10.0"
+    ));
+    assert_eq!(field(&err(&both)), "target.solids");
+    let substrate = with_solids(&format!("substrate = \"Si\"\n\n{MASKED_SI}"));
+    assert_eq!(field(&err(&substrate)), "target.solids");
+    let crystal = with_solids(&format!(
+        "{MASKED_SI}\n[[crystal]]\nlayers = [0]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [1, 0, 0]"
+    ));
+    assert_eq!(field(&err(&crystal)), "crystal");
+    let dynamic = with_solids(&format!(
+        "{MASKED_SI}\n[dynamic]\nfluence_cm2 = 1e13\nions_per_step = 100"
+    ));
+    assert_eq!(field(&err(&dynamic)), "target.solids");
+    // Neither layers/substrate nor solids.
+    let e = err(&with_solids(""));
+    assert_eq!(field(&e), "target");
+    // Unknown keys inside a solid are refused (deny_unknown_fields).
+    let unknown = Input::from_toml_str(&with_solids(&format!("{MASKED_SI}width_nm = 1.0")));
+    assert!(unknown.is_err(), "unknown solid key must be a parse error");
+}
+
+#[test]
+fn solids_share_one_material_per_two_solids() {
+    // Two solids, one material: one region each, and one shared material
+    // index, so crossing between them is not an event.
+    let two = with_solids(&format!(
+        "{MASKED_SI}[[target.solids]]\nshape = \"cuboid\"\nmaterial = \"Si\"\nlo_nm = [300.0, -500.0, -500.0]\nhi_nm = [600.0, 500.0, 500.0]"
+    ));
+    let r = Input::from_toml_str(&two).unwrap().resolve().unwrap();
+    let g = r.geometry();
+    assert_eq!(g.n_regions(), 2);
+    assert_eq!(g.n_materials(), 1);
+    assert_eq!(g.material_index(0), g.material_index(1));
 }

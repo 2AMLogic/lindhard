@@ -307,8 +307,14 @@ impl Resolved {
         stopping: &'a (dyn ElectronicStopping + Sync),
         table: &'a ScatteringTable,
     ) -> Result<Bca<'a>, BcaError> {
-        let mut bca = Bca::new(self.beam, self.target.geometry(), self.config, stopping, table)?
-            .with_divergence(self.divergence)?;
+        let mut bca = Bca::new(
+            self.beam,
+            self.target.geometry(),
+            self.config,
+            stopping,
+            table,
+        )?
+        .with_divergence(self.divergence)?;
         if let Some(sp) = &self.spectrum {
             bca = bca.with_spectrum(sp.clone());
         }

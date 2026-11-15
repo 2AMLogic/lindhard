@@ -175,7 +175,8 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
     };
 
     let stack = split_stack(
-        r.stack().expect("a [dynamic] target is a layer stack (resolution rejects [[target.solids]])"),
+        r.stack()
+            .expect("a [dynamic] target is a layer stack (resolution rejects [[target.solids]])"),
         d.slab_nm.map(|nm| nm * 1e-9),
     )?;
     let mut grid = CompositionGrid::from_stack(&stack, relaxation(d, &species)?)
