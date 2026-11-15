@@ -93,9 +93,30 @@ use rand_core::Rng;
 use serde::Serialize;
 
 use crate::electron::boundary::BandStructure;
-use crate::electron::transport::deflect_cs;
+use crate::electron::transport::{deflect_cs, ElectronState};
 use crate::rng::uniform;
 use crate::vec3::normalize;
+
+/// The two options of the Kieft-Bosch model (module docs). One value, so the
+/// pair travels together from the input to the event that uses it instead of
+/// being re-threaded argument by argument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub struct KieftBoschOptions {
+    /// Add the instantaneous momentum of the bound electron to the
+    /// secondary's direction (Verduin Eq. 3.108).
+    pub instantaneous_momentum: bool,
+    /// Deflect the primary to conserve momentum (Verduin Eq. 3.111).
+    pub momentum_conservation: bool,
+}
+
+impl KieftBoschOptions {
+    /// Both options on, Nebula's defaults (`kieft_inelastic` template
+    /// arguments at the commit in the module docs).
+    pub const NEBULA: Self = Self {
+        instantaneous_momentum: true,
+        momentum_conservation: true,
+    };
+}
 
 /// Whether and how inelastic events make secondary electrons.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
@@ -104,24 +125,17 @@ pub enum SecondaryModel {
     /// No secondaries; the inelastic event only takes `W` from the primary
     /// and keeps its direction.
     Off,
-    /// Kieft and Bosch (module docs).
-    KieftBosch {
-        /// Add the instantaneous momentum of the bound electron to the
-        /// secondary's direction (Verduin Eq. 3.108).
-        instantaneous_momentum: bool,
-        /// Deflect the primary to conserve momentum (Verduin Eq. 3.111).
-        momentum_conservation: bool,
-    },
+    /// Kieft and Bosch (module docs), with its options. Serializes with the
+    /// options' fields beside the `model` tag, as when they were fields of
+    /// this variant.
+    KieftBosch(KieftBoschOptions),
 }
 
 impl SecondaryModel {
     /// Kieft and Bosch with both options on, Nebula's defaults
     /// (`kieft_inelastic` template arguments at the commit in the module
     /// docs).
-    pub const KIEFT_BOSCH: Self = Self::KieftBosch {
-        instantaneous_momentum: true,
-        momentum_conservation: true,
-    };
+    pub const KIEFT_BOSCH: Self = Self::KieftBosch(KieftBoschOptions::NEBULA);
 }
 
 /// The energy bookkeeping of one inelastic event under a secondary model, all
@@ -160,19 +174,17 @@ pub(crate) struct Outcome {
 /// ported from Nebula's `kieft_inelastic::execute` (file and commit in the
 /// module docs).
 ///
-/// `dir` is the primary's unit direction and `e_ev` its energy before the
-/// loss `w_ev`; `threshold_ev` is the stopping threshold of the layer (a
-/// secondary below it is not followed). The binding energy comes from the
-/// band (module docs, "Energy"). Draws, in order, only when an electron is
-/// liberated: the azimuth of the secondary, then (with
-/// `instantaneous_momentum`) `U1` and `U2` of Verduin Eq. 3.108.
-#[allow(clippy::too_many_arguments)]
+/// `primary` is the primary's state before the loss `w_ev` — its direction
+/// and energy set the kinematics; `threshold_ev` is the stopping threshold of
+/// the layer (a secondary below it is not followed). The binding energy comes
+/// from the band (module docs, "Energy"). Draws, in order, only when an
+/// electron is liberated: the azimuth of the secondary, then (with
+/// [`KieftBoschOptions::instantaneous_momentum`]) `U1` and `U2` of Verduin
+/// Eq. 3.108.
 pub(crate) fn kieft_bosch<R: Rng>(
-    instantaneous_momentum: bool,
-    momentum_conservation: bool,
+    opts: KieftBoschOptions,
     band: &BandStructure,
-    dir: [f64; 3],
-    e_ev: f64,
+    primary: &ElectronState,
     w_ev: f64,
     threshold_ev: f64,
     rng: &mut R,
@@ -195,52 +207,38 @@ pub(crate) fn kieft_bosch<R: Rng>(
                 binding_ev: 0.0,
                 deposited_ev: w_ev,
             },
-            primary_dir: dir,
+            primary_dir: primary.dir,
             secondary: None,
         };
     };
-    liberate(
-        instantaneous_momentum,
-        momentum_conservation,
-        band.fermi_ev(),
-        b,
-        dir,
-        e_ev,
-        w_ev,
-        threshold_ev,
-        rng,
-    )
+    liberate(opts, band.fermi_ev(), b, primary, w_ev, threshold_ev, rng)
 }
 
 /// Apply the Kieft-Bosch secondary model to one **inner-shell** ionisation:
 /// a loss `w_ev` in the channel of a shell with binding energy
 /// `shell_binding_ev` (module docs, "Inner-shell events").
 ///
-/// The caller guarantees `shell_binding_ev <= w_ev <= e_ev - E_F` (the
-/// channel's kinematic limits on the band-bottom axis), so the secondary
-/// energy `E_F + w - B` is at least `E_F` and at most `e_ev - B`. The event
-/// always liberates an electron; it is followed only if its energy reaches
-/// `threshold_ev`. Draws as [`kieft_bosch`] does for a liberated electron.
-#[allow(clippy::too_many_arguments)]
+/// The caller guarantees `shell_binding_ev <= w_ev <= E - E_F` for the
+/// primary's energy `E` (the channel's kinematic limits on the band-bottom
+/// axis), so the secondary energy `E_F + w - B` is at least `E_F` and at most
+/// `E - B`. The event always liberates an electron; it is followed only if
+/// its energy reaches `threshold_ev`. Draws as [`kieft_bosch`] does for a
+/// liberated electron.
 pub(crate) fn kieft_bosch_shell<R: Rng>(
-    instantaneous_momentum: bool,
-    momentum_conservation: bool,
+    opts: KieftBoschOptions,
     band: &BandStructure,
     shell_binding_ev: f64,
-    dir: [f64; 3],
-    e_ev: f64,
+    primary: &ElectronState,
     w_ev: f64,
     threshold_ev: f64,
     rng: &mut R,
 ) -> Outcome {
     debug_assert!(w_ev >= shell_binding_ev && shell_binding_ev > 0.0);
     liberate(
-        instantaneous_momentum,
-        momentum_conservation,
+        opts,
         band.fermi_ev(),
         shell_binding_ev,
-        dir,
-        e_ev,
+        primary,
         w_ev,
         threshold_ev,
         rng,
@@ -250,18 +248,16 @@ pub(crate) fn kieft_bosch_shell<R: Rng>(
 /// The event of a loss `w_ev` that lifts an electron of binding energy `b`
 /// (below the Fermi level `fermi`) into the conduction band: Verduin
 /// Eqs. 3.86 and 3.100-3.111 as ported from Nebula (module docs).
-#[allow(clippy::too_many_arguments)]
 fn liberate<R: Rng>(
-    instantaneous_momentum: bool,
-    momentum_conservation: bool,
+    opts: KieftBoschOptions,
     fermi: f64,
     b: f64,
-    dir: [f64; 3],
-    e_ev: f64,
+    primary: &ElectronState,
     w_ev: f64,
     threshold_ev: f64,
     rng: &mut R,
 ) -> Outcome {
+    let (dir, e_ev) = (primary.dir, primary.energy_ev);
     // Verduin Eqs. 3.105, 3.106 and 3.100. `dk > 0` because `w > 0` and
     // `b >= 0`; the ratio is clamped to [0, 1] (a loss near the full energy,
     // or an energy below the Fermi level, would otherwise leave it).
@@ -278,7 +274,7 @@ fn liberate<R: Rng>(
     // Eq. 3.107: about the primary, uniform azimuth.
     let phi = std::f64::consts::TAU * uniform(rng);
     let mut sdir = deflect_cs(dir, cos_b, sin_b, phi);
-    if instantaneous_momentum {
+    if opts.instantaneous_momentum {
         // Eq. 3.108: cos(theta) = 2 U1 - 1, azimuth 2 pi U2.
         let ct = 2.0 * uniform(rng) - 1.0;
         let st = (1.0 - ct * ct).max(0.0).sqrt();
@@ -291,7 +287,7 @@ fn liberate<R: Rng>(
         ]);
     }
 
-    let primary_dir = if momentum_conservation {
+    let primary_dir = if opts.momentum_conservation {
         // Eq. 3.111, up to normalisation.
         let p = [
             dir[0] - cos_b * sdir[0],
