@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, MAX_OSCILLATORS};
-use crate::electron::secondary::SecondaryModel;
+use crate::electron::secondary::{KieftBoschOptions, SecondaryModel};
 use crate::electron::transport::BoundaryModel;
 use crate::tally::{PsfModel, PsfNormalization};
 
@@ -466,10 +466,10 @@ seed = 3
     assert_eq!(r.inelastic, PennAlgorithm::Mermin);
     assert_eq!(
         r.config.secondaries,
-        SecondaryModel::KieftBosch {
+        SecondaryModel::KieftBosch(KieftBoschOptions {
             instantaneous_momentum: false,
             momentum_conservation: true
-        }
+        })
     );
     assert_eq!(
         r.config.boundary,

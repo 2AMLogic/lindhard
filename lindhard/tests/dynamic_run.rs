@@ -2,8 +2,7 @@
 //! convergence under step refinement, index continuity, determinism at any
 //! thread count, adaptive reject/retry and conservation.
 
-use lindhard::geometry::Stack;
-use lindhard::ion::bca::{Bca, BcaConfig, BcaTally, Beam, SummaryTally};
+use lindhard::ion::bca::{Bca, BcaTally, Beam, SummaryTally};
 use lindhard::ion::dynamic::{
     CompositionGrid, DynamicConfig, DynamicRun, InventoryTally, Relaxation, StepPolicy, StepRecord,
 };
@@ -15,7 +14,7 @@ const SI: u8 = 14;
 const AS: u8 = 33;
 
 mod common;
-use common::si;
+use common::bca_config as config;
 use common::with_threads;
 use common::zbl_si_table as table;
 
@@ -35,22 +34,11 @@ fn grid_with(
     substrate: bool,
     relaxation: Relaxation,
 ) -> CompositionGrid {
-    let layers = (0..n_slabs).map(|_| (si(), slab_nm * NM)).collect();
-    let stack = Stack::new(layers, substrate.then(si)).unwrap();
-    let mut g = CompositionGrid::from_stack(&stack, relaxation).unwrap();
-    // The beam species enters the slabs by implantation.
-    g.seed_energies(AS, Some(15.0), None, Some(2.0));
-    g
+    common::implanted_grid(n_slabs, slab_nm, substrate, relaxation, AS)
 }
 
 fn beam(count: u64) -> Beam {
     Beam::normal(Ion::new(AS).unwrap(), 1000.0, count)
-}
-
-fn config(seed: u64) -> BcaConfig {
-    let mut c = BcaConfig::new(5.0, 2.0);
-    c.seed = seed;
-    c
 }
 
 struct Outcome {

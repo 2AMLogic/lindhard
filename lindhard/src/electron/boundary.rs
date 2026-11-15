@@ -672,6 +672,20 @@ pub fn free_electron_density_per_m3(fermi_ev: f64) -> f64 {
         * (ELECTRON_MASS * e / (HBAR * HBAR)).powf(1.5)
 }
 
+/// The step factor `s = sqrt(1 + ΔU / E_n)` and the transmission probability
+/// `T` computed from it, for a normal energy that can clear the step
+/// (`normal_energy_ev > 0`, `normal_energy_ev + delta_u_ev > 0`; Verduin
+/// Eq. 3.145, p. 102). This helper is the one place the formula is computed:
+/// [`step_transmission`] (whose doc comment states it in full) and
+/// [`cross_step`] both take it from here, so the two cannot drift apart.
+/// [`cross_step`] needs `s` itself for the Eq. 3.139 refraction, and sharing
+/// it saves a second `sqrt` per crossing.
+fn step_factor_and_transmission(normal_energy_ev: f64, delta_u_ev: f64) -> (f64, f64) {
+    let s = (1.0 + delta_u_ev / normal_energy_ev).sqrt();
+    let t = 4.0 * s / ((1.0 + s) * (1.0 + s));
+    (s, t)
+}
+
 /// Transmission probability through a potential step `delta_u_ev` for an
 /// electron of normal energy `normal_energy_ev = E cos²θ` (Verduin Eq. 3.145,
 /// p. 102): zero when `E_n + ΔU <= 0` (the electron cannot get over), else
@@ -682,8 +696,7 @@ pub fn step_transmission(normal_energy_ev: f64, delta_u_ev: f64) -> f64 {
     {
         return 0.0;
     }
-    let s = (1.0 + delta_u_ev / normal_energy_ev).sqrt();
-    4.0 * s / ((1.0 + s) * (1.0 + s))
+    step_factor_and_transmission(normal_energy_ev, delta_u_ev).1
 }
 
 /// The outcome of [`cross_step`].
@@ -725,12 +738,8 @@ pub fn cross_step(
     let mu = dir[0];
     let normal = energy_ev * mu * mu;
     if normal + delta_u_ev > 0.0 {
-        let s = (1.0 + delta_u_ev / normal).sqrt();
-        let t = if quantum_transmission {
-            4.0 * s / ((1.0 + s) * (1.0 + s))
-        } else {
-            1.0
-        };
+        let (s, quantum_t) = step_factor_and_transmission(normal, delta_u_ev);
+        let t = if quantum_transmission { quantum_t } else { 1.0 };
         if u < t {
             // Verduin Eq. 3.139 in Nebula's vector form: the normal component
             // is scaled by `s`, the parallel ones are kept.
@@ -765,6 +774,67 @@ mod tests {
             let up = step_transmission(en, du);
             let down = step_transmission(en + du, -du);
             assert!((up - down).abs() < 1e-14, "{up} vs {down}");
+            // The same up/down pair through the transport path: a mid draw
+            // must give the same verdict on both legs, since `cross_step`
+            // consults the probability `step_transmission` states (asserted
+            // pointwise in
+            // `cross_step_transmits_exactly_when_u_is_below_step_transmission`).
+            let d = [1.0, 0.0, 0.0];
+            let up_got = matches!(
+                cross_step(d, en, du, true, true, 0.5),
+                StepOutcome::Transmitted { .. }
+            );
+            let down_got = matches!(
+                cross_step(d, en + du, -du, true, true, 0.5),
+                StepOutcome::Transmitted { .. }
+            );
+            assert_eq!(up_got, down_got, "{en}, {du}: {up_got} vs {down_got}");
+        }
+    }
+
+    #[test]
+    fn cross_step_transmits_exactly_when_u_is_below_step_transmission() {
+        // The transport path must consult exactly the probability
+        // `step_transmission` states for the same normal energy and step:
+        // transmitted iff `u < T`, pointwise in the draw. This pins the
+        // inputs where only `step_transmission` carries the NaN and
+        // non-positive normal-energy guards, too — there the outcomes must
+        // still coincide: a NaN normal energy fails `cross_step`'s
+        // `normal + ΔU > 0` gate, and a non-positive normal energy with a
+        // positive step makes `s` infinite or NaN, so `t` is NaN and no draw
+        // is ever below it — the same outcome `T = 0` gives.
+        let dirs = [[0.6, 0.8, 0.0], [-1.0, 0.0, 0.0], [-0.5, 0.0, -0.866_025_4]];
+        // Over and under the barrier, no step, a step down, and the
+        // degenerate energies exercising the guard asymmetry.
+        let cases = [
+            (10.0, 4.0),
+            (10.0, -4.0),
+            (3.0, 0.0),
+            (2.0, 5.0),
+            (5.0, -3.0),
+            (f64::NAN, 4.0),
+            (0.0, 4.0),
+            (-10.0, 15.0),
+        ];
+        for dir in dirs {
+            for (e, du) in cases {
+                let normal = e * dir[0] * dir[0];
+                let t = step_transmission(normal, du);
+                // Draws probing both sides of the exact decision boundary,
+                // plus `u = t` itself (the comparison is strict).
+                let draws = [0.0, 0.5, t * 0.5, t, t + (1.0 - t) * 0.5, 1.0 - 1e-9];
+                for u in draws {
+                    let got = matches!(
+                        cross_step(dir, e, du, true, true, u),
+                        StepOutcome::Transmitted { .. }
+                    );
+                    assert_eq!(
+                        got,
+                        u < t,
+                        "dir {dir:?} e {e} du {du} u {u}: got {got}, T {t}"
+                    );
+                }
+            }
         }
     }
 

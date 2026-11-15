@@ -12,6 +12,7 @@ use lindhard::material::{EnergyKind, Material};
 const NM: f64 = 1e-9;
 
 mod common;
+use common::ks_statistic;
 use common::si_surface_binding_if_unset as si;
 use common::sio2;
 use common::with_threads;
@@ -89,18 +90,6 @@ fn energy_is_conserved_per_history_with_cascades() {
             t.histories
         );
     }
-}
-
-/// Two-sample Kolmogorov-Smirnov statistic between two histograms.
-fn ks_statistic(a: &[u64], b: &[u64]) -> f64 {
-    let (na, nb) = (a.iter().sum::<u64>() as f64, b.iter().sum::<u64>() as f64);
-    let (mut ca, mut cb, mut d) = (0.0, 0.0, 0.0f64);
-    for (x, y) in a.iter().zip(b) {
-        ca += *x as f64 / na;
-        cb += *y as f64 / nb;
-        d = d.max((ca - cb).abs());
-    }
-    d
 }
 
 #[test]

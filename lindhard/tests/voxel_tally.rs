@@ -7,10 +7,9 @@ use std::path::PathBuf;
 
 use lindhard::geometry::{Boundary, Stack, VoxelGrid};
 use lindhard::ion::bca::{
-    Bca, BcaConfig, BcaTally, Beam, ElectronicChannel, EnergyBudget, Particle, SummaryTally,
+    Bca, BcaConfig, BcaTally, ElectronicChannel, EnergyBudget, Particle, SummaryTally,
 };
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
-use lindhard::ion::stopping::Ion;
 use lindhard::tally::Binning;
 use lindhard::tally::{
     ExportProvenance, IonTally, IonTallyConfig, SpeciesDefects, VoxelCell, VoxelRecord,
@@ -20,19 +19,10 @@ use lindhard::tally::{
 const NM: f64 = 1e-9;
 
 mod common;
+use common::boron_2kev as beam;
 use common::si_with_surface_binding as si;
 use common::with_threads;
 use common::zbl_si_table as table;
-
-fn beam(count: u64) -> Beam {
-    Beam {
-        ion: Ion::new(5).unwrap(),
-        energy_ev: 2.0e3,
-        polar_rad: 0.3,
-        azimuth_rad: 0.0,
-        count,
-    }
-}
 
 /// `nx` voxels of 1 nm along depth in front of vacuum, `2 x 2` transverse
 /// voxels of 20 nm with periodic sides: laterally uniform.
