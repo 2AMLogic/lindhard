@@ -272,7 +272,9 @@ use crate::electron::inelastic::InnerShell;
 use crate::electron::phonon::{
     sample_cos_theta, FrohlichPhonon, InsulatorChannels, PolaronTrapping,
 };
-use crate::electron::secondary::{kieft_bosch, kieft_bosch_shell, SecondaryEvent, SecondaryModel};
+use crate::electron::secondary::{
+    kieft_bosch, kieft_bosch_shell, Outcome, SecondaryEvent, SecondaryModel,
+};
 use crate::geometry::{ExitOutcome, Flight, Geometry, Stack};
 use crate::ion::crystal::Divergence;
 use crate::rng::{run_particles, uniform};
@@ -1614,7 +1616,7 @@ impl<G: Geometry> Transport<G> {
     /// without a secondary model, `E - E_F` (the Fermi-level clamp) with one.
     fn max_loss_ev(&self, st: &ElectronState) -> f64 {
         match (&self.config.secondaries, &self.bands) {
-            (SecondaryModel::KieftBosch { .. }, Some(b)) => st.energy_ev - b[st.layer].fermi_ev(),
+            (SecondaryModel::KieftBosch(_), Some(b)) => st.energy_ev - b[st.layer].fermi_ev(),
             _ => st.energy_ev,
         }
     }
@@ -1983,10 +1985,7 @@ impl<G: Geometry> Transport<G> {
                                 st.energy_ev -= w;
                                 tally.inelastic(st, w);
                             }
-                            SecondaryModel::KieftBosch {
-                                instantaneous_momentum,
-                                momentum_conservation,
-                            } => {
+                            SecondaryModel::KieftBosch(opts) => {
                                 let band =
                                     &self.bands.as_ref().expect("checked in build")[st.layer];
                                 // The primary cannot end below the Fermi level:
@@ -1995,29 +1994,11 @@ impl<G: Geometry> Transport<G> {
                                 // `electron::boundary`). The threshold exceeds
                                 // E_F, so the bound is positive.
                                 let w = w.min(st.energy_ev - band.fermi_ev());
-                                let out = kieft_bosch(
-                                    instantaneous_momentum,
-                                    momentum_conservation,
-                                    band,
-                                    st.dir,
-                                    st.energy_ev,
-                                    w,
-                                    threshold,
-                                    rng,
-                                );
+                                let out = kieft_bosch(opts, band, st, w, threshold, rng);
                                 st.energy_ev -= w;
                                 st.dir = out.primary_dir;
                                 tally.inelastic(st, w);
-                                let created = out.secondary.map(|(dir, energy_ev)| ElectronState {
-                                    pos: st.pos,
-                                    dir,
-                                    energy_ev,
-                                    layer: st.layer,
-                                });
-                                tally.secondary(st, &out.event, created.as_ref());
-                                if let Some(s) = created {
-                                    pending.push((s, region, generation + 1));
-                                }
+                                spawn_secondary(tally, st, &out, region, generation, pending);
                             }
                         }
                         if st.energy_ev < threshold {
@@ -2069,37 +2050,15 @@ impl<G: Geometry> Transport<G> {
                                 tally.inelastic(st, w);
                                 tally.inner_shell(st, &shell, w);
                             }
-                            SecondaryModel::KieftBosch {
-                                instantaneous_momentum,
-                                momentum_conservation,
-                            } => {
+                            SecondaryModel::KieftBosch(opts) => {
                                 let band =
                                     &self.bands.as_ref().expect("checked in build")[st.layer];
-                                let out = kieft_bosch_shell(
-                                    instantaneous_momentum,
-                                    momentum_conservation,
-                                    band,
-                                    b,
-                                    st.dir,
-                                    st.energy_ev,
-                                    w,
-                                    threshold,
-                                    rng,
-                                );
+                                let out = kieft_bosch_shell(opts, band, b, st, w, threshold, rng);
                                 st.energy_ev -= w;
                                 st.dir = out.primary_dir;
                                 tally.inelastic(st, w);
                                 tally.inner_shell(st, &shell, w);
-                                let created = out.secondary.map(|(dir, energy_ev)| ElectronState {
-                                    pos: st.pos,
-                                    dir,
-                                    energy_ev,
-                                    layer: st.layer,
-                                });
-                                tally.secondary(st, &out.event, created.as_ref());
-                                if let Some(s) = created {
-                                    pending.push((s, region, generation + 1));
-                                }
+                                spawn_secondary(tally, st, &out, region, generation, pending);
                             }
                         }
                         if st.energy_ev < threshold {
@@ -2178,6 +2137,35 @@ impl<G: Geometry> Transport<G> {
                 }
             }
         }
+    }
+}
+
+/// Hand the secondary of one inelastic event to the tally and, if it is to be
+/// followed, onto the queue: the tail shared by the valence and inner-shell
+/// [`SecondaryModel::KieftBosch`] arms of `follow`.
+///
+/// `st` is the primary **after** its loss and deflection, as every tally hook
+/// takes it; the secondary starts at the primary's position and in its layer
+/// (no delocalisation, [`crate::electron::secondary`] module docs). One
+/// `pending.push` for both channels keeps the queue in a single order — the
+/// order the thread-count determinism invariant depends on.
+fn spawn_secondary<T: ElectronTally>(
+    tally: &mut T,
+    st: &ElectronState,
+    out: &Outcome,
+    region: usize,
+    generation: u32,
+    pending: &mut Vec<Pending>,
+) {
+    let created = out.secondary.map(|(dir, energy_ev)| ElectronState {
+        pos: st.pos,
+        dir,
+        energy_ev,
+        layer: st.layer,
+    });
+    tally.secondary(st, &out.event, created.as_ref());
+    if let Some(s) = created {
+        pending.push((s, region, generation + 1));
     }
 }
 

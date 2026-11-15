@@ -21,7 +21,7 @@ use std::fmt::Write as _;
 use std::path::Path;
 
 use anyhow::{bail, Context, Result};
-use lindhard::elements::element;
+use lindhard::elements::symbol;
 use lindhard::ion::stopping::bethe::BetheBloch;
 use lindhard::ion::stopping::bragg::NoCorrection;
 use lindhard::ion::stopping::correction::{fit_correction, FitSettings, ResidualStats};
@@ -147,10 +147,6 @@ fn systems_of(ds: &StoppingDataset) -> Vec<System> {
         }
     }
     out
-}
-
-fn symbol(z: u8) -> &'static str {
-    element(z).map_or("?", |e| e.symbol)
 }
 
 /// A table cell must not break the row.

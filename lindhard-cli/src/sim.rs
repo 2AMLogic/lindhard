@@ -33,19 +33,13 @@ pub struct Simulation {
 /// Run `r` on `threads` workers (`None`: all available cores). The thread
 /// count never changes the results.
 pub fn simulate(r: &Resolved, threads: Option<usize>) -> Result<Simulation> {
-    if threads == Some(0) {
-        bail!("threads must be at least 1");
-    }
     if r.input.dynamic.is_some() {
         bail!(
             "the input has a [dynamic] section; run it with \
              lindhard_cli::dynamic::simulate_dynamic"
         );
     }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
+    let pool = crate::pool::build(threads)?;
 
     let t0 = Instant::now();
     let table = r.scattering_table();

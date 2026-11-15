@@ -9,7 +9,8 @@ use crate::material::MaterialSpec;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+
+use super::DataFile;
 
 // Only for intra-doc links.
 #[cfg(doc)]
@@ -436,12 +437,9 @@ impl StoppingSpec {
 /// identify the exact file.
 #[derive(Debug, Clone)]
 pub struct LoadedSrimData {
-    /// The path as written in the input (`stopping.srim_data`).
-    pub path: String,
-    /// The path the file was read from.
-    pub resolved_path: PathBuf,
-    /// SHA-256 of the file's bytes, lowercase hex.
-    pub sha256: String,
+    /// The file's provenance record (path as written in the input, resolved
+    /// path, SHA-256).
+    pub file: DataFile,
     /// The validated coefficients.
     pub model: SrimStopping,
 }
@@ -450,13 +448,9 @@ pub struct LoadedSrimData {
 /// identify the exact file.
 #[derive(Debug, Clone)]
 pub struct LoadedStoppingTable {
-    /// The path as written in the input (`stopping.tables[i]`).
-    pub path: String,
-    /// The path the file was read from (the input directory joined with
-    /// `path`, made absolute when possible).
-    pub resolved_path: PathBuf,
-    /// SHA-256 of the file's bytes, lowercase hex.
-    pub sha256: String,
+    /// The file's provenance record (path as written in the input, resolved
+    /// path, SHA-256).
+    pub file: DataFile,
     /// The validated table.
     pub table: StoppingTable,
 }

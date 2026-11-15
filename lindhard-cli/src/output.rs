@@ -9,6 +9,7 @@
 
 use std::fmt::Write as _;
 
+use lindhard::elements::symbol;
 use lindhard::geometry::{CsgGeometry, Geometry, Stack};
 use lindhard::input::Target;
 use lindhard::input::TuningReport;
@@ -449,10 +450,6 @@ struct Escapes {
     species: Vec<SpeciesOut>,
 }
 
-pub fn symbol(z: u8) -> &'static str {
-    lindhard::elements::element(z).map_or("?", |e| e.symbol)
-}
-
 fn range_out(r: &IonReport) -> Range {
     let g = &r.range;
     Range {
@@ -647,9 +644,9 @@ pub fn summary_json(
                 .map(|l| {
                     let (lo, hi) = l.table.energy_range_ev();
                     StoppingTableOut {
-                        path: l.path.clone(),
-                        resolved_path: l.resolved_path.display().to_string(),
-                        sha256: l.sha256.clone(),
+                        path: l.file.path.clone(),
+                        resolved_path: l.file.resolved_path.display().to_string(),
+                        sha256: l.file.sha256.clone(),
                         provenance: l.table.provenance().to_string(),
                         ion_z: l.table.ion_z(),
                         ion_mass_amu: l.table.ion_mass_amu(),
@@ -660,9 +657,9 @@ pub fn summary_json(
                 })
                 .collect(),
             srim_data: r.srim.as_ref().map(|l| SrimDataOut {
-                path: l.path.clone(),
-                resolved_path: l.resolved_path.display().to_string(),
-                sha256: l.sha256.clone(),
+                path: l.file.path.clone(),
+                resolved_path: l.file.resolved_path.display().to_string(),
+                sha256: l.file.sha256.clone(),
             }),
             engine: Engine {
                 primary_cutoff_ev: c.primary_cutoff_ev,
@@ -846,9 +843,16 @@ pub fn lateral_csv(r: &IonReport) -> String {
     out
 }
 
-/// Append one row per bin of `h` (edges divided by `unit`) then underflow and
-/// overflow rows. `prefix` starts every row.
-fn hist_rows(out: &mut String, prefix: &str, h: &Histogram, histories: u64, unit: f64, scale: f64) {
+/// Append one row per bin of `h` (edges divided by `unit`, then multiplied
+/// by `scale`) then underflow and overflow rows. `prefix` starts every row.
+pub(crate) fn hist_rows(
+    out: &mut String,
+    prefix: &str,
+    h: &Histogram,
+    histories: u64,
+    unit: f64,
+    scale: f64,
+) {
     let b = &h.binning;
     let w = b.width() / unit * scale;
     for (i, &c) in h.counts.iter().enumerate() {

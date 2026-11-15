@@ -197,9 +197,6 @@ fn read_psf(a: &ExposureArgs) -> Result<GaussianPsf> {
 
 /// Runs the command.
 pub fn run(a: &ExposureArgs) -> Result<()> {
-    if a.threads == Some(0) {
-        bail!("--threads must be at least 1");
-    }
     let psf = read_psf(a)?;
     let text = std::fs::read_to_string(&a.shots)
         .with_context(|| format!("reading {}", a.shots.display()))?;
@@ -215,13 +212,7 @@ pub fn run(a: &ExposureArgs) -> Result<()> {
         nx: a.nx,
         ny: a.ny,
     };
-    let dose = match a.threads {
-        Some(n) => rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()?
-            .install(|| exposure.dose_on_grid(&grid))?,
-        None => exposure.dose_on_grid(&grid)?,
-    };
+    let dose = crate::pool::with_threads(a.threads, || exposure.dose_on_grid(&grid))??;
     std::fs::create_dir_all(&a.out).with_context(|| format!("creating {}", a.out.display()))?;
 
     let max = dose
@@ -331,9 +322,7 @@ fn run_direct(
     for w in &resolved.warnings {
         eprintln!("warning: {w}");
     }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(a.threads.unwrap_or(0))
-        .build()?;
+    let pool = crate::pool::build(a.threads)?;
     let (transport, _tables, _secs) = crate::electron::build_transport(&resolved, &pool, None)?;
     let cfg = DirectConfig {
         histories_per_shot: a.direct_histories,

@@ -458,7 +458,7 @@ impl Resolved {
                          validation): five-coefficient fit of H. H. Andersen and J. F. Ziegler \
                          (1977) / J. F. Ziegler, J. P. Biersack, U. Littmark (1985) ch. 3; \
                          coefficients from {}: {}",
-                        s.path,
+                        s.file.path,
                         s.model.citations().join("; ")
                     ),
                     None => "SRIM-data-sourced (no coefficient file loaded)".to_string(),
@@ -479,7 +479,7 @@ impl Resolved {
             v.push(ModelInfo {
                 role: "electronic stopping (user table)",
                 name: "user-table",
-                citation: Cow::Owned(format!("{}: {}", l.path, l.table.provenance())),
+                citation: Cow::Owned(format!("{}: {}", l.file.path, l.table.provenance())),
             });
         }
         // With no electronic stopping and no tables there is nothing to add up.

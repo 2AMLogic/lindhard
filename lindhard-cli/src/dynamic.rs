@@ -153,13 +153,7 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         .dynamic
         .as_ref()
         .context("the input has no [dynamic] section")?;
-    if threads == Some(0) {
-        bail!("threads must be at least 1");
-    }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
+    let pool = crate::pool::build(threads)?;
 
     let t0 = Instant::now();
     let table = r.scattering_table();
