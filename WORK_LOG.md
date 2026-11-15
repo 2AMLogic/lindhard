@@ -4,6 +4,14 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-15
 
+- **Issue #823** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #821** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #817** (closed): Remove unused rayon dependency from lindhard-py
+- **PR #816**: chore: remove unused rayon dependency from lindhard-py
+- **Issue #811** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #818** (closed): IonTally::escaped's Face::Side comment is stale for [[target.solids]] targets
+- **PR #805**: feat(input): CSG ion targets through TOML ([[target.solids]])
+- **Issue #768** (closed): [Epic #25] TOML input for a laterally varying ion target built from CSG solids
 - **PR #810**: docs: name all three synthetic SRIM coefficient fixtures in provenance record
 - **Issue #775** (closed): Name the SRIM integration-test fixture in docs/data-provenance.md's SRIM section
 - **PR #807**: docs: record the wasm session's crystal support and widen the changelog scope
