@@ -42,13 +42,16 @@ The Gaussian is unbounded below, so a draw can exceed the ion's energy or
 come out negative. The sampled loss is truncated by clamping to `[0, E]`,
 which biases the mean loss upward wherever the per-flight standard deviation
 is comparable to the per-flight mean loss — with the constant free path
-(`lambda = N^(-1/3)`) at MeV energies it always is, and the sampled variance
-of a transmitted spectrum then falls well below the Bohr value (measured
-about 0.42 for a 1 MeV proton in a 100 nm carbon foil; see the
-`ion::stopping::straggling` module docs). With long flights — the
-energy-dependent free path at a small `min_cm_angle_deg` — the truncation is
-inactive and the transmitted variance matches Bohr to about two percent in
-the same foil. The library entry points
+(`lambda = N^(-1/3)`) at MeV energies it always is. Measured in that
+configuration (1 MeV proton through a 100 nm carbon foil), the sampled
+variance falls to about 0.42 of the Bohr value and the mean electronic loss
+itself inflates about 2.5x (5.8 keV to 14.9 keV per history) — ranges and
+deposition profiles come out wrong by about that factor. The input
+resolution warns about this combination and points at the energy-dependent
+free path (see the `ion::stopping::straggling` module docs). With long
+flights — the energy-dependent free path at a small `min_cm_angle_deg` — the
+truncation is inactive and the transmitted variance matches Bohr to about
+two percent in the same foil. The library entry points
 (`variance_per_atom`, `variance_per_atom_material`) remain available
 independently.
 
@@ -61,7 +64,7 @@ independently.
 
 High energy, \\( v \gg v_0 Z_1^{2/3} \\). Below about 1 MeV/u Bohr's value
 is an overestimate, because the bound electrons contribute less than free
-ones. The corrections that reduce it at intermediate energy (Chu;
+ones; `lindhard check` warns when the beam energy sits below this floor. The corrections that reduce it at intermediate energy (Chu;
 Yang-O'Connor-Wang) are declined, and the Lindhard-Scharff low-velocity
 correction is omitted (not verified); see
 [Validity ranges and declined terms](stopping-validity.md).

@@ -36,8 +36,13 @@
 //! free path (flights of `N^(-1/3)`, 0.21 nm in carbon) the per-flight
 //! standard deviation at MeV energies is several times the per-flight mean
 //! loss, and the sampled transmitted variance of a 1 MeV proton through
-//! 100 nm of carbon then measures about 0.42 of the Bohr value (measured
-//! 2026-11-14 while building this feature). With flights tens of
+//! 100 nm of carbon then measures about 0.42 of the Bohr value while the
+//! mean loss inflates about 2.5x — 5.8 keV to 14.9 keV of electronic loss
+//! per history, energy conservation delivering the rest into the clamped
+//! draws (measured 2026-11-14 while building this feature). The input
+//! resolution warns when `[physics] straggling` is combined with the
+//! constant free path, and when the beam energy sits below Bohr's
+//! `v >> v0 Z1^(2/3)` floor. With flights tens of
 //! nanometres long (`free_path = "energy-dependent"` at a small
 //! `min_cm_angle_deg`) the truncation is inactive and the same foil
 //! reproduces the Bohr variance to about two percent;

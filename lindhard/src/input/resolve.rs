@@ -10,6 +10,7 @@ use crate::ion::crystal::Divergence;
 use crate::ion::stopping::srim::SrimStopping;
 use crate::ion::stopping::straggling::StragglingModel;
 use crate::ion::stopping::table::StoppingTable;
+use crate::ion::stopping::velocity_scale_energy_per_amu_ev;
 use crate::ion::stopping::Ion;
 use crate::material::{EnergyKind, Material};
 use std::collections::BTreeMap;
@@ -649,6 +650,25 @@ impl Input {
             StragglingChoice::Bohr => Some(StragglingModel::Bohr),
             StragglingChoice::BohrRelativistic => Some(StragglingModel::BohrRelativistic),
         };
+        // Bohr's Gaussian is sampled per free flight, and the constant free
+        // path is far too short for it: the [0, E] truncation then inflates
+        // the mean electronic loss by roughly 2.5x (measured, see the
+        // straggling module docs) while depressing the variance to ~0.42 of
+        // the Bohr value. Crystals are exempt: the lattice replaces the free
+        // path, and the amorphous energy-dependent free path does not apply.
+        if p.straggling != StragglingChoice::None
+            && p.free_path == FreePathChoice::Constant
+            && self.crystal.is_empty()
+        {
+            warnings.push(
+                "physics.straggling with free_path = \"constant\": flights of N^(-1/3) are so \
+                 short that the [0, E] truncation of the sampled Gaussian inflates the mean \
+                 electronic loss by roughly 2.5x and depresses the sampled variance to ~0.42 \
+                 of the Bohr value; use free_path = \"energy-dependent\" (with \
+                 physics.min_cm_angle_deg) for meaningful straggling"
+                    .to_string(),
+            );
+        }
         config.seed = self.run.seed;
 
         // Tally.
@@ -735,6 +755,21 @@ impl Input {
                 validity.min_energy_ev,
                 validity.max_energy_ev
             ));
+        }
+        // Bohr's straggling is derived for v >> v0 Z1^(2/3) (Bohr 1948); the
+        // stopping model above has its own advisory range, but nothing warns
+        // for the straggling variance itself when the beam sits far below
+        // that floor, where it is an overestimate.
+        if p.straggling != StragglingChoice::None {
+            let bohr_floor_ev = ion.mass_amu() * velocity_scale_energy_per_amu_ev(ion.z(), 1.0);
+            if let Some(e) = [e_min, e_max].into_iter().find(|&e| e < bohr_floor_ev) {
+                warnings.push(format!(
+                    "beam energy {e} eV is below the advisory validity floor of Bohr \
+                     straggling (v >> v0 Z1^(2/3), above about {bohr_floor_ev:.3e} eV for \
+                     {}); the Bohr variance is an overestimate there",
+                    b.ion
+                ));
+            }
         }
         self.check_stopping_tables(&stopping_tables, &ion, &layers, &mut warnings)?;
 

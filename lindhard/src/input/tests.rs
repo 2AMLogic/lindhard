@@ -129,6 +129,95 @@ seed = 1
 }
 
 #[test]
+fn straggling_warns_on_constant_free_path_and_below_bohr_floor() {
+    let text = |e: f64, s: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = {e}
+
+[target]
+substrate = "Si"
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    // 5 keV B with the default constant free path: both advisories fire.
+    let r = Input::from_toml_str(&text(5000.0, "straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("straggling") && w.contains("free_path = \"constant\"")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("validity floor") && w.contains("Bohr")),
+        "{:?}",
+        r.warnings
+    );
+    // The energy-dependent free path clears the truncation advisory, but the
+    // 5 keV beam is still far below Bohr's v >> v0 Z1^(2/3) floor.
+    let r = Input::from_toml_str(&text(
+        5000.0,
+        "straggling = \"bohr\"\nfree_path = \"energy-dependent\"\nmin_cm_angle_deg = 1.0\n",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("free_path")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings.iter().any(|w| w.contains("validity floor")),
+        "{:?}",
+        r.warnings
+    );
+    // 5 MeV is above the floor for B (about 2.3 MeV): the validity advisory
+    // goes, the truncation one stays.
+    let r = Input::from_toml_str(&text(5.0e6, "straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("validity floor")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("free_path = \"constant\"")),
+        "{:?}",
+        r.warnings
+    );
+    // Straggling off is silent on both.
+    let r = Input::from_toml_str(&text(5000.0, ""))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[test]
 fn echo_round_trips_and_drops_threads() {
     let mut i = Input::from_toml_str(B_SI).unwrap();
     i.run.threads = Some(3);

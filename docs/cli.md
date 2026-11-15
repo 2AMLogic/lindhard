@@ -229,9 +229,13 @@ and the layer's composition (Bragg-added); the effective charge is the bare
 form. The sampled loss is truncated to `[0, E]` — the Gaussian is unbounded
 below — which biases the mean loss upward wherever the per-flight standard
 deviation is comparable to the per-flight mean loss: with the constant free
-path (`lambda = N^(-1/3)`) at MeV energies it always is, and the sampled
-variance of a transmitted spectrum then falls far short of the Bohr value
-(the `ion::stopping::straggling` module docs measure the effect). The bias is
+path (`lambda = N^(-1/3)`) at MeV energies it always is. Measured in that
+configuration (1 MeV proton through 100 nm of carbon), the sampled variance
+of a transmitted spectrum falls to about 0.42 of the Bohr value **and the
+mean electronic loss inflates about 2.5x** (5.8 keV without straggling, 14.9
+keV with it) — ranges and deposition profiles come out wrong by about that
+factor. `lindhard check` warns about this combination and points at
+`free_path = "energy-dependent"`. The bias is
 small when flights are long, so spectra through thin foils are best taken
 with `free_path = "energy-dependent"` and a small `min_cm_angle_deg` — a
 1 MeV proton through 100 nm of carbon there reproduces the Bohr variance to
@@ -239,7 +243,8 @@ about two percent. Draws come from each history's own stream, so results
 stay deterministic at any thread count; a default run draws nothing and is
 unchanged. Bohr is a high-energy model, `v >> v0 Z1^(2/3)`, and an
 overestimate below about 1 MeV/u
-([stopping models](stopping-models.md)); corrections beyond Bohr (Chu;
+([stopping models](stopping-models.md)); `lindhard check` also warns when
+the beam energy sits below that floor. Corrections beyond Bohr (Chu;
 Yang-O'Connor-Wang) are declined, and models beyond Bohr stay with #638.
 
 `[physics.energies.<symbol>]` sets `e_d_ev`, `e_b_ev` and/or `e_s_ev` for that
