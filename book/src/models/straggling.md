@@ -13,6 +13,11 @@ density is (Bohr 1948)
 
 independent of energy in the non-relativistic regime, with \\( z \\) the
 projectile charge from an [effective-charge model](stopping-bethe-bloch.md).
+The engine computes it for the bare charge \\( z = Z_1 \\) regardless of the
+mean loss's effective charge, so a `bethe-bloch` mean loss configured with a
+non-bare charge samples against a bare-charge variance — a known
+inconsistency between mean loss and variance, not a fitted or corrected
+model.
 The relativistic variant multiplies it by
 \\( (1 - \beta^2/2)/(1 - \beta^2) \\) (Bethe and Livingston 1937; Fano 1963).
 For a compound the variances add by atom fraction,
@@ -32,8 +37,11 @@ flight's nonlocal loss is then drawn from a Gaussian centred on the mean loss
 it would take anyway, with standard deviation
 `sqrt(n Omega^2 s)`: the Bragg-added variance above
 (`variance_per_atom_material`) scaled by the flight's areal atom density
-`n s`. The draw comes from the history's own random stream, so results stay
-deterministic per `(seed, index)` at any thread count, and a run with the
+`n s`. Because the bare-charge Bohr variance does not depend on energy, the
+engine precomputes it per layer alongside its mean-loss coefficient (the
+relativistic variant keeps its energy dependence and is evaluated per
+flight). The draw comes from the history's own random stream, so results
+stay deterministic per `(seed, index)` at any thread count, and a run with the
 option on is a different trajectory sequence than a run without it:
 comparisons between the two must be statistical over many histories, never
 per history.
