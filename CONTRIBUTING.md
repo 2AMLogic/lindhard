@@ -284,6 +284,18 @@ comment and closure. The reporting logic and the workflow wiring have offline
 tests: `python3 .github/scripts/test_advisories_report.py` (needs PyYAML). They
 are not run by `ci.yml`.
 
+## Prose-only pull requests skip the Rust and Python suites
+
+A pull request whose diff touches only prose and documentation paths, per the
+allowlist in the `changes` job of [`ci.yml`](.github/workflows/ci.yml), skips
+the three `Rust (…)` matrix legs and the Python bindings job — roughly half an
+hour of wall-clock wait on docs-only maintenance PRs. The skip is fail closed:
+the full suite still runs whenever the gate itself fails or is cancelled, and
+on every `push` to `main` after merge. The authoritative record — the
+allowlist, its generated-artifact exclusions and the invariants the filter
+depends on — is the comment block above that job in `ci.yml`; do not restate
+it here.
+
 ## Everything else
 
 - Rust stable, `cargo fmt`, `cargo test` green, `cargo clippy -- -D warnings` clean on
