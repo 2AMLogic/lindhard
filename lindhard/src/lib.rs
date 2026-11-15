@@ -37,4 +37,3 @@ mod vec3;
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // scratch #831 measurement push 1: forces code=true; reverted in push 2
-
