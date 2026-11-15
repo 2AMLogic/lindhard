@@ -23,7 +23,7 @@ use serde::{Deserialize, Serialize};
 use super::hist::{Binning, Histogram, WeightedHistogram};
 use super::moments::{MomentSummary, Moments};
 use super::pearson::{DualPearson, DualPearsonFit, PearsonError, PearsonIv};
-use crate::geometry::Stack;
+use crate::geometry::Geometry;
 use crate::ion::bca::{BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, Particle};
 use crate::ion::damage::{damage_energy_ev, kinchin_pease, nrt_displacements};
 use crate::material::MaterialError;
@@ -288,20 +288,27 @@ pub struct IonTally {
 }
 
 impl IonTally {
-    /// Empty tally for `stack`, with the particle species of the engine
+    /// Empty tally for `geometry`, with the particle species of the engine
     /// (`species_z`, as returned by [`crate::ion::bca::Bca::species_z`]:
     /// index 0 is the beam).
     ///
-    /// Every element of every layer must have `E_d` and `E_b` set (the engine
-    /// requires the same).
+    /// One accumulator is built per **region** (`Particle.layer` is the
+    /// region index: a stack layer, the flat voxel index of a grid, or a
+    /// top-level solid of a CSG target), with the material the geometry
+    /// fills it with — for a CSG target, regions and materials are not 1:1,
+    /// so indexing by material would merge solids.
+    ///
+    /// Every element of every region's material must have `E_d` and `E_b`
+    /// set (the engine requires the same).
     pub fn new(
-        stack: &Stack,
+        geometry: &dyn Geometry,
         species_z: &[u8],
         config: IonTallyConfig,
     ) -> Result<Self, MaterialError> {
-        let mut consts = Vec::with_capacity(stack.layers().len());
-        for l in stack.layers() {
-            let m = l.material();
+        let n = geometry.n_regions();
+        let mut consts = Vec::with_capacity(n);
+        for region in 0..n {
+            let m = geometry.material(geometry.material_index(region));
             let mut elems = Vec::new();
             let mut mean_z = 0.0;
             for (z, x) in m.atom_fractions() {

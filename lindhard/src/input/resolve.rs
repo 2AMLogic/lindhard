@@ -1,7 +1,7 @@
 //! Validation and resolution: turns an [`Input`] into the engine's types.
 
 use crate::elements::element_by_symbol;
-use crate::geometry::Stack;
+use crate::geometry::{Csg, CsgGeometry, Geometry, GeometryError, Stack};
 use crate::ion::bca::{
     BcaConfig, Beam, CrystalTarget, ElectronicLoss, EnergySpectrum, MeanFreePath, Thermal,
     MAX_WEAK_COLLISIONS,
@@ -49,6 +49,103 @@ pub(crate) fn divergence_from_spec(
         DivergenceSpec::UniformCone { .. } => Divergence::UniformCone {
             half_angle_rad: rad,
         },
+    })
+}
+
+/// Convert a solid's [`SolidShape`] (lengths in nm) into the engine's
+/// [`Csg`] (lengths in m), checking every value. `field` is the dotted key
+/// of the solid, so an error names the offending key.
+fn solid_csg(shape: &SolidShape, field: &str) -> Result<Csg, InputError> {
+    const NM: f64 = 1e-9;
+    let scale3 = |v: &[f64; 3]| [v[0] * NM, v[1] * NM, v[2] * NM];
+    let finite3 = |key: &str, v: &[f64; 3]| -> Result<(), InputError> {
+        if v.iter().all(|c| c.is_finite()) {
+            Ok(())
+        } else {
+            Err(invalid(format!("{field}.{key}"), "must be finite"))
+        }
+    };
+    let unit = |key: &str, v: &[f64; 3]| -> Result<[f64; 3], InputError> {
+        finite3(key, v)?;
+        let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        if !(l > 0.0 && l.is_finite()) {
+            return Err(invalid(
+                format!("{field}.{key}"),
+                "must be a non-zero direction",
+            ));
+        }
+        Ok([v[0] / l, v[1] / l, v[2] / l])
+    };
+    Ok(match shape {
+        SolidShape::Cuboid { lo_nm, hi_nm } => {
+            finite3("lo_nm", lo_nm)?;
+            finite3("hi_nm", hi_nm)?;
+            if (0..3).any(|k| lo_nm[k] >= hi_nm[k]) {
+                return Err(invalid(field, "a cuboid needs lo_nm < hi_nm on every axis"));
+            }
+            Csg::cuboid(scale3(lo_nm), scale3(hi_nm))
+        }
+        SolidShape::Cylinder {
+            base_nm,
+            axis,
+            radius_nm,
+            height_nm,
+        } => {
+            finite3("base_nm", base_nm)?;
+            let axis = unit("axis", axis)?;
+            if !(radius_nm.is_finite() && *radius_nm > 0.0) {
+                return Err(invalid(
+                    format!("{field}.radius_nm"),
+                    format!("{radius_nm} nm must be finite and positive"),
+                ));
+            }
+            if !(height_nm.is_finite() && *height_nm > 0.0) {
+                return Err(invalid(
+                    format!("{field}.height_nm"),
+                    format!("{height_nm} nm must be finite and positive"),
+                ));
+            }
+            Csg::cylinder(scale3(base_nm), axis, radius_nm * NM, height_nm * NM)
+        }
+        SolidShape::HalfSpace { normal, offset_nm } => {
+            let normal = unit("normal", normal)?;
+            if !offset_nm.is_finite() {
+                return Err(invalid(format!("{field}.offset_nm"), "must be finite"));
+            }
+            Csg::half_space(normal, offset_nm * NM)
+        }
+        SolidShape::Union { of } => {
+            if of.is_empty() {
+                return Err(invalid(
+                    format!("{field}.of"),
+                    "a union needs at least one shape",
+                ));
+            }
+            Csg::Union(
+                of.iter()
+                    .enumerate()
+                    .map(|(i, s)| solid_csg(s, &format!("{field}.of[{i}]")))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        }
+        SolidShape::Intersection { of } => {
+            if of.is_empty() {
+                return Err(invalid(
+                    format!("{field}.of"),
+                    "an intersection needs at least one shape",
+                ));
+            }
+            Csg::Intersection(
+                of.iter()
+                    .enumerate()
+                    .map(|(i, s)| solid_csg(s, &format!("{field}.of[{i}]")))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        }
+        SolidShape::Difference { keep, cut } => Csg::Difference(
+            Box::new(solid_csg(keep, &format!("{field}.keep"))?),
+            Box::new(solid_csg(cut, &format!("{field}.cut"))?),
+        ),
     })
 }
 
@@ -439,14 +536,38 @@ impl Input {
 
         // Target.
         let t = &self.target;
-        if t.layers.is_empty() && t.substrate.is_none() {
+        let solids_target = !t.solids.is_empty();
+        if solids_target {
+            if !t.layers.is_empty() || t.substrate.is_some() {
+                return Err(invalid(
+                    "target.solids",
+                    "not supported together with [[target.layers]] or \
+                     target.substrate; give one target kind",
+                ));
+            }
+            if !self.crystal.is_empty() {
+                return Err(invalid(
+                    "crystal",
+                    "not supported with [[target.solids]]; crystal regions are \
+                     layer indices of a stack",
+                ));
+            }
+            if self.dynamic.is_some() {
+                return Err(invalid(
+                    "target.solids",
+                    "not supported with a [dynamic] target; use a static run",
+                ));
+            }
+        } else if t.layers.is_empty() && t.substrate.is_none() {
             return Err(invalid(
                 "target",
-                "needs at least one [[target.layers]] entry or a substrate",
+                "needs at least one [[target.layers]] entry, a substrate, or \
+                 [[target.solids]]",
             ));
         }
-        let mut layers = Vec::with_capacity(t.layers.len() + 1);
-        let mut fields = Vec::with_capacity(t.layers.len() + 1);
+        let mut shapes = Vec::with_capacity(t.solids.len());
+        let mut layers = Vec::with_capacity(t.layers.len() + t.solids.len() + 1);
+        let mut fields = Vec::with_capacity(t.layers.len() + t.solids.len() + 1);
         let mut thick = Vec::with_capacity(t.layers.len());
         for (i, l) in t.layers.iter().enumerate() {
             let field = format!("target.layers[{i}]");
@@ -463,6 +584,12 @@ impl Input {
         if let Some(s) = &t.substrate {
             layers.push(self.material("target.substrate", s)?);
             fields.push("target.substrate".to_string());
+        }
+        for (i, s) in t.solids.iter().enumerate() {
+            let field = format!("target.solids[{i}]");
+            shapes.push(solid_csg(&s.shape(), &field)?);
+            layers.push(self.material(&format!("{field}.material"), s.material())?);
+            fields.push(format!("{field}.material"));
         }
 
         if let Some(d) = &self.dynamic {
@@ -521,13 +648,60 @@ impl Input {
 
         let tuning = self.apply_tuning(sets, &mut layers, &mut warnings)?;
 
-        let mut finite = Vec::with_capacity(thick.len());
-        let mut it = layers.iter();
-        for &th in &thick {
-            finite.push((it.next().expect("one per layer").material.clone(), th));
-        }
-        let substrate = it.next().map(|l| l.material.clone());
-        let stack = Stack::new(finite, substrate).map_err(|e| invalid("target", e.to_string()))?;
+        let target = if solids_target {
+            // One region per solid; two solids that resolve to an equal
+            // material share one material index, so crossing between them is
+            // not an event (the same rule as for solids of one material in
+            // the engine's own tests).
+            let mut materials: Vec<Material> = Vec::new();
+            let mut solids = Vec::with_capacity(shapes.len());
+            for (shape, l) in shapes.iter().zip(&layers) {
+                let idx = materials
+                    .iter()
+                    .position(|m| *m == l.material)
+                    .unwrap_or_else(|| {
+                        materials.push(l.material.clone());
+                        materials.len() - 1
+                    });
+                solids.push((shape.clone(), idx as u32));
+            }
+            let g = CsgGeometry::new(materials, solids).map_err(|e| match e {
+                GeometryError::CsgInvalid { solid, reason } => invalid(
+                    format!("target.solids[{solid}]"),
+                    format!("invalid shape: {reason}"),
+                ),
+                GeometryError::CsgUnbounded { solid } => invalid(
+                    format!("target.solids[{solid}]"),
+                    "unbounded: a lone half-space has no back face; bound it with \
+                     shape = \"intersection\" or \"difference\" (e.g. with a cuboid), \
+                     or use a cuboid",
+                ),
+                other => invalid("target.solids", other.to_string()),
+            })?;
+            // The engine rejects an entry point in vacuum, but without naming
+            // the key; pre-check here so the error does.
+            let ep = g.entry_point();
+            if g.locate(ep).is_none() {
+                return Err(invalid(
+                    "target.solids",
+                    format!(
+                        "the default entry point {ep:?} (the centre of the scene's \
+                         front face) lies in vacuum: no solid contains it"
+                    ),
+                ));
+            }
+            Target::Csg(g)
+        } else {
+            let mut finite = Vec::with_capacity(thick.len());
+            let mut it = layers.iter();
+            for &th in &thick {
+                finite.push((it.next().expect("one per layer").material.clone(), th));
+            }
+            let substrate = it.next().map(|l| l.material.clone());
+            let stack =
+                Stack::new(finite, substrate).map_err(|e| invalid("target", e.to_string()))?;
+            Target::Stack(stack)
+        };
 
         // Physics.
         let mean_free_path = match (p.free_path, p.min_cm_angle_deg) {
@@ -768,7 +942,7 @@ impl Input {
             beam,
             divergence,
             spectrum,
-            stack,
+            target,
             layers,
             config,
             screening,

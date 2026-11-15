@@ -57,7 +57,7 @@ pub(crate) use resolve::divergence_from_spec;
 pub(crate) use resolved::resolve_material;
 pub use resolved::{
     stopping_model, stopping_model_with, ModelInfo, Resolved, ResolvedCrystal, ResolvedLayer,
-    TABLE_SPEC,
+    Target, TABLE_SPEC,
 };
 pub use schema::*;
 
