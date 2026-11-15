@@ -1,9 +1,10 @@
 name: wasm
 
 # Builds the WebAssembly package of lindhard-wasm and tests it under Node
-# against the native build: the same 10^4-ion B into Si case and seed, checked
-# against lindhard-wasm/tests/b_5keV_si.golden.json with the tolerance stated
-# in lindhard-wasm/tests/parity.rs (the native side of the test runs in the
+# against the native build: the same 10^4-ion B into Si case
+# (lindhard-wasm/tests/b_5keV_si.toml) and seed, checked against
+# lindhard-wasm/tests/b_5keV_si.golden.json with the tolerance stated in
+# lindhard-wasm/tests/parity.rs (the native side of the test runs in the
 # `rust` job of ci.yml). The same step runs the Simulation session through the
 # WASM build against lindhard-wasm/tests/as_50keV_si_sio2.golden.json
 # (tests/session.rs is the native side), and the log reports the size of the
