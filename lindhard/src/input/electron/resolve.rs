@@ -1195,7 +1195,7 @@ fn resolve_inner_shells(
             continue;
         }
         let z = c.z();
-        let sym = crate::elements::element(z).map_or("?", |e| e.symbol);
+        let sym = crate::elements::symbol(z);
         if binding.atom(z).is_none() {
             return Err(invalid(
                 format!("{field}.binding"),

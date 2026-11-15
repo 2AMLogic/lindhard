@@ -105,7 +105,7 @@ use super::{
 use crate::electron::data::{
     CrossSectionTable, CrossSectionTableParts, ElectronDataError, SamplingAxis,
 };
-use crate::elements::element;
+use crate::elements::symbol;
 use crate::material::{Material, MaterialError};
 use rayon::prelude::*;
 use std::f64::consts::PI;
@@ -789,7 +789,7 @@ pub(crate) fn material_identity(material: &Material) -> String {
         .components()
         .iter()
         .map(|c| {
-            let sym = element(c.z()).map_or("?", |e| e.symbol);
+            let sym = symbol(c.z());
             format!("{sym}:{}", c.atom_fraction())
         })
         .collect();
