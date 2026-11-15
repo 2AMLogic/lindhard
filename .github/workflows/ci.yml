@@ -70,6 +70,7 @@ jobs:
           BASE_REF: ${{ github.base_ref }}
         run: |
           set -euo pipefail
+          exit 1  # scratch #827 criterion 3: forced gate failure, above any $GITHUB_OUTPUT write
           # Any event other than pull_request (the push: [main] run) is
           # never filtered.
           code=true
