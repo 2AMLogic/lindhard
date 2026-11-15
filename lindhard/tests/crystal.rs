@@ -12,19 +12,11 @@ use lindhard::rng::{run_particles, stream};
 use lindhard::units::g_cm3_to_kg_m3;
 
 mod common;
+use common::assert_close_vec3 as assert_close;
 use common::with_threads;
 
 fn deg(x: f64) -> f64 {
     x.to_radians()
-}
-
-fn assert_close(got: [f64; 3], want: [f64; 3], tol: f64) {
-    for i in 0..3 {
-        assert!(
-            (got[i] - want[i]).abs() <= tol,
-            "component {i}: got {got:?}, want {want:?}"
-        );
-    }
 }
 
 /// At zero tilt the beam travels along the inward surface normal, so a wafer

@@ -3,9 +3,9 @@
   "description": "Loom-managed workspace with AI development orchestration",
   "private": true,
   "scripts": {
-    "check:ci": "cargo fmt --all --check && cargo clippy --workspace --all-targets -- -D warnings && cargo test --workspace && cargo build -p lindhard-cli",
+    "check:ci": "cargo fmt --all --check && cargo +1.99.0 clippy --workspace --all-targets -- -D warnings && cargo test --workspace && RUSTDOCFLAGS=\"-D warnings\" cargo doc --workspace --no-deps && cargo build -p lindhard-cli",
     "check:all": "npm run check:ci",
     "test": "cargo test --workspace",
-    "lint": "cargo clippy --workspace --all-targets -- -D warnings"
+    "lint": "cargo +1.99.0 clippy --workspace --all-targets -- -D warnings"
   }
 }

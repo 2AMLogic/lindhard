@@ -15,20 +15,11 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, close, empty_layer, synthetic_scattering, with_threads};
+use common::{
+    bare_si, close, empty_layer, finite_stack as finite, synthetic_scattering, with_threads,
+};
 
 const NM: f64 = 1e-9;
-
-fn finite(thicknesses_nm: &[f64]) -> Stack {
-    Stack::new(
-        thicknesses_nm
-            .iter()
-            .map(|&t| (bare_si(), t * NM))
-            .collect(),
-        None,
-    )
-    .unwrap()
-}
 
 fn config(e0: f64) -> ElectronTallyConfig {
     let mut c = ElectronTallyConfig::new(
@@ -48,11 +39,7 @@ fn config(e0: f64) -> ElectronTallyConfig {
 }
 
 fn run(t: &Transport, n: u64, e0: f64, seed: u64) -> ElectronReport {
-    let proto = FullElectronTally::new(t, config(e0)).unwrap();
-    t.run(seed, n, 64, &Primary::normal(e0), || proto.clone())
-        .unwrap()
-        .tally
-        .report()
+    common::electron_report(t, n, e0, seed, config(e0))
 }
 
 /// The invariants every report must satisfy.
