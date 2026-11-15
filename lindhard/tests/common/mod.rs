@@ -7,11 +7,24 @@
 use std::sync::OnceLock;
 
 use lindhard::electron::boundary::{BandModel, BandStructure};
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
-use lindhard::electron::transport::LayerTables;
+use lindhard::electron::data::{
+    CrossSectionTable, CrossSectionTableParts, OpticalElf, SamplingAxis,
+};
+use lindhard::electron::inelastic::{DrudeLorentz, DrudeLorentzOscillator};
+use lindhard::electron::secondary::SecondaryModel;
+use lindhard::electron::transport::{
+    BoundaryModel, CutoffReference, LayerTables, Primary, Transport, TransportConfig,
+};
+use lindhard::geometry::Stack;
+use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, SummaryTally};
+use lindhard::ion::crystal::{Lattice, Orientation};
+use lindhard::ion::dynamic::{CompositionGrid, Relaxation};
 use lindhard::ion::potential::{Potential, Screening};
 use lindhard::ion::scattering::{ScatteringTable, TableSpec};
+use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
+use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
+use lindhard::tally::{ElectronReport, ElectronTallyConfig, FullElectronTally};
 
 /// One Si-Si ZBL table shared by every test in a binary (the angle depends
 /// on the screening function only, so one table serves every pair). The grid
@@ -70,6 +83,17 @@ pub(crate) fn sio2() -> Material {
         if m.surface_binding_energy_ev(z).is_err() {
             m.set_surface_binding_energy_ev(z, 2.0).unwrap();
         }
+    }
+    m
+}
+
+/// Element `z` with `E_d` = 15 eV and `E_s` = 2 eV only where it is not
+/// already set: [`si_surface_binding_if_unset`] for an arbitrary element.
+pub(crate) fn elemental(z: u8) -> Material {
+    let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();
+    m.set_displacement_energy_ev(z, 15.0).unwrap();
+    if m.surface_binding_energy_ev(z).is_err() {
+        m.set_surface_binding_energy_ev(z, 2.0).unwrap();
     }
     m
 }
@@ -242,4 +266,206 @@ pub(crate) fn simpson_log(f: &impl Fn(f64) -> f64, lo: f64, hi: f64, n: usize) -
         s += w * f(x) * x;
     }
     s * h / 3.0
+}
+
+// The crystal helpers below are shared by the `crystal_*` integration tests
+// (issue #751). `crystal_si` builds only the plain static lattice: a test that
+// needs thermal vibration or an explicit search radius chains onto the result
+// rather than growing an option parameter here.
+
+/// Nanometre, m.
+const NM: f64 = 1e-9;
+
+/// Beam of `z` at `e` eV with polar angle `polar_rad` and azimuth
+/// `azimuth_rad`, both in radians.
+pub(crate) fn beam_rad(z: u8, e: f64, polar_rad: f64, azimuth_rad: f64, count: u64) -> Beam {
+    Beam {
+        ion: Ion::new(z).unwrap(),
+        energy_ev: e,
+        polar_rad,
+        azimuth_rad,
+        count,
+    }
+}
+
+/// Beam of `z` at `e` eV with polar angle `tilt_deg` and azimuth
+/// `twist_deg`, both in degrees.
+pub(crate) fn beam(z: u8, e: f64, tilt_deg: f64, twist_deg: f64, count: u64) -> Beam {
+    beam_rad(z, e, tilt_deg.to_radians(), twist_deg.to_radians(), count)
+}
+
+/// The 2 keV boron beam 0.3 rad off the surface normal shared by the
+/// trajectory and voxel tests. The angle is given in radians, so it is the
+/// exact value those tests have always used, not a degree round-trip.
+pub(crate) fn boron_2kev(count: u64) -> Beam {
+    beam_rad(5, 2.0e3, 0.3, 0.0, count)
+}
+
+/// A silicon crystal cut on (100), with the in-plane reference direction
+/// [010], matching [`beam`]`(.., tilt_deg, twist_deg, ..)`. The static
+/// lattice only; chain `.with_thermal(..)` or set `p_max_m` on the result for
+/// the variants the individual tests need.
+pub(crate) fn crystal_si(tilt_deg: f64, twist_deg: f64) -> CrystalTarget {
+    let lat = Lattice::silicon();
+    let o = Orientation::new(
+        &lat,
+        [1, 0, 0],
+        [0, 1, 0],
+        tilt_deg.to_radians(),
+        twist_deg.to_radians(),
+        0.0,
+    )
+    .unwrap();
+    CrystalTarget::new(lat, o)
+}
+
+/// A [`SummaryTally`] run of beam `b` into `st` at `seed`, with `crystal`
+/// attached to its regions if given, `tweak` applied to the config and the
+/// run pinned to `threads` rayon threads if given.
+pub(crate) fn run_summary(
+    st: &Stack,
+    b: Beam,
+    seed: u64,
+    crystal: Option<(CrystalTarget, Vec<usize>)>,
+    tweak: impl Fn(&mut BcaConfig),
+    threads: Option<usize>,
+) -> SummaryTally {
+    let ls = LindhardScharff::new();
+    let mut cfg = BcaConfig::new(5.0, 2.0);
+    cfg.seed = seed;
+    tweak(&mut cfg);
+    let mut bca = Bca::new(b, st, cfg, &ls, zbl_si_table()).unwrap();
+    if let Some((c, regions)) = crystal {
+        bca = bca.with_crystal(c, &regions).unwrap();
+    }
+    let go = || bca.run(|| SummaryTally::new(0.5 * NM, 2000)).unwrap();
+    match threads {
+        None => go(),
+        Some(n) => with_threads(n, go),
+    }
+}
+
+/// Depth below which a fraction `q` of the stopped primaries lie, nm.
+pub(crate) fn percentile_nm(t: &SummaryTally, q: f64) -> f64 {
+    let tot: u64 = t.depth_hist.iter().sum();
+    let mut acc = 0u64;
+    for (i, &h) in t.depth_hist.iter().enumerate() {
+        acc += h;
+        if acc as f64 >= q * tot as f64 {
+            return (i as f64 + 0.5) * t.bin_width_m / NM;
+        }
+    }
+    f64::NAN
+}
+
+/// Fraction of stopped primaries deeper than `depth_m`.
+pub(crate) fn fraction_deeper(t: &SummaryTally, depth_m: f64) -> f64 {
+    let tot: u64 = t.depth_hist.iter().sum();
+    let first = (depth_m / t.bin_width_m).ceil() as usize;
+    t.depth_hist[first.min(t.depth_hist.len())..]
+        .iter()
+        .sum::<u64>() as f64
+        / tot as f64
+}
+
+// ---------------------------------------------------------------------------
+// Fixtures shared by more than one test binary but by no particular family:
+// each was defined identically in two or three files before issue #773.
+// ---------------------------------------------------------------------------
+
+/// A [`BcaConfig`] with the 5 eV primary and 2 eV recoil cutoffs the ion
+/// tests use, at `seed`.
+pub(crate) fn bca_config(seed: u64) -> BcaConfig {
+    let mut c = BcaConfig::new(5.0, 2.0);
+    c.seed = seed;
+    c
+}
+
+/// `n_slabs` slabs of `slab_nm` of [`si`], with a Si substrate if asked, as a
+/// composition grid relaxed by `relaxation` and with element `z` seeded as an
+/// implanted species (`E_d` = 15 eV, `E_s` = 2 eV).
+pub(crate) fn implanted_grid(
+    n_slabs: usize,
+    slab_nm: f64,
+    substrate: bool,
+    relaxation: Relaxation,
+    z: u8,
+) -> CompositionGrid {
+    let layers = (0..n_slabs).map(|_| (si(), slab_nm * NM)).collect();
+    let stack = Stack::new(layers, substrate.then(si)).unwrap();
+    let mut g = CompositionGrid::from_stack(&stack, relaxation).unwrap();
+    g.seed_energies(z, Some(15.0), None, Some(2.0));
+    g
+}
+
+/// Two-sample Kolmogorov-Smirnov statistic between two histograms.
+pub(crate) fn ks_statistic(a: &[u64], b: &[u64]) -> f64 {
+    let (na, nb) = (a.iter().sum::<u64>() as f64, b.iter().sum::<u64>() as f64);
+    let (mut ca, mut cb, mut d) = (0.0, 0.0, 0.0f64);
+    for (x, y) in a.iter().zip(b) {
+        ca += *x as f64 / na;
+        cb += *y as f64 / nb;
+        d = d.max((ca - cb).abs());
+    }
+    d
+}
+
+/// Assert `got` and `want` agree component by component to absolute
+/// tolerance `tol`.
+pub(crate) fn assert_close_vec3(got: [f64; 3], want: [f64; 3], tol: f64) {
+    for i in 0..3 {
+        assert!(
+            (got[i] - want[i]).abs() <= tol,
+            "component {i}: got {got:?}, want {want:?}"
+        );
+    }
+}
+
+/// A synthetic single-plasmon optical ELF (Drude-Lorentz, 20 eV at 5 eV
+/// width, tabulated on [0.05, 2e4] eV): made-up parameters chosen to
+/// exercise the inelastic models, not a material.
+pub(crate) fn drude_plasmon_elf() -> OpticalElf {
+    DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
+        .unwrap()
+        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
+        .unwrap()
+}
+
+/// A stack of [`bare_si`] layers of the given thicknesses (nm) in front of
+/// vacuum: no substrate, so an electron can leave through the back.
+pub(crate) fn finite_stack(thicknesses_nm: &[f64]) -> Stack {
+    Stack::new(
+        thicknesses_nm
+            .iter()
+            .map(|&t| (bare_si(), t * NM))
+            .collect(),
+        None,
+    )
+    .unwrap()
+}
+
+/// Secondaries and the step barrier, cutoff 0.5 eV above the vacuum level
+/// (thresholds 9.5 eV in the metal, 10.5 eV in the insulator).
+pub(crate) fn full_physics() -> TransportConfig {
+    let mut cfg = TransportConfig::new(0.5);
+    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
+    cfg.boundary = BoundaryModel::STEP_BARRIER;
+    cfg.cutoff_reference = CutoffReference::VacuumLevel;
+    cfg
+}
+
+/// The [`ElectronReport`] of `n` normally incident primaries of `e0` eV into
+/// `t` at `seed`, tallied by a [`FullElectronTally`] over `config`.
+pub(crate) fn electron_report(
+    t: &Transport,
+    n: u64,
+    e0: f64,
+    seed: u64,
+    config: ElectronTallyConfig,
+) -> ElectronReport {
+    let proto = FullElectronTally::new(t, config).unwrap();
+    t.run(seed, n, 64, &Primary::normal(e0), || proto.clone())
+        .unwrap()
+        .tally
+        .report()
 }

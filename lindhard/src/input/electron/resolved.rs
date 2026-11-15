@@ -2,9 +2,6 @@
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
-
-use serde::Serialize;
 
 use crate::electron::beam::BeamSpread;
 use crate::electron::boundary::BandStructure;
@@ -18,23 +15,12 @@ use crate::electron::phonon::InsulatorChannels;
 use crate::electron::secondary::SecondaryModel;
 use crate::electron::transport::{BoundaryModel, Primary, TransportConfig};
 use crate::geometry::Stack;
-use crate::input::{ModelInfo, ResolvedLayer};
+use crate::input::{DataFile, ModelInfo, ResolvedLayer};
 use crate::material::Material;
 use crate::tally::electron::SE_BSE_SPLIT_SOURCE;
 use crate::tally::{ElectronTallyConfig, PsfModel, PsfNormalization, VoxelTallyGrid};
 
 use super::schema::*;
-
-/// A data file a run read, identified for provenance.
-#[derive(Debug, Clone, PartialEq, Serialize)]
-pub struct DataFile {
-    /// The path as written in the input.
-    pub path: String,
-    /// Where it was read from (absolute where possible).
-    pub resolved_path: PathBuf,
-    /// SHA-256 of the file's bytes, lowercase hex.
-    pub sha256: String,
-}
 
 /// The elastic choices after validation.
 #[derive(Debug, Clone, PartialEq)]

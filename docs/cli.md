@@ -273,7 +273,11 @@ coefficients read from the `srim_data` file (format
 `lindhard-srim-coefficients/1`, one `[[row]]` per (ion, target element) pair,
 each with a non-blank `citation`). A query for a pair with no row, or outside
 the row's `e_min_kev_per_u..e_max_kev_per_u`, is an error, never an
-extrapolation. The run record's model list names the file and its citations.
+extrapolation. The run record's model list names the file and its citations,
+and `summary.json` has `physics.srim_data` with the file's `path` (as
+written), `resolved_path` (absolute where possible) and `sha256` of its bytes,
+so a result identifies the exact coefficients it was produced from. The key is
+absent without `stopping = "srim"`.
 Agreement with SRIM is consistency, not independent validation. User
 `tables` still take precedence for the pairs they declare. The full coefficient
 data is entered in issue #633; until then supply a file.
@@ -879,6 +883,7 @@ instead of the distribution.
 - **`physics.models`**: Every model in use: `role`, `name`, `citation`
 - **`physics.crystal`**: Only with `[[crystal]]`: the engine's metadata of each crystal (see `[[crystal]]`)
 - **`physics.stopping_tables`**: Only with `[stopping]`: path, SHA-256, provenance and range of each user table (see `[stopping]`)
+- **`physics.srim_data`**: Only with `physics.stopping = "srim"`: `path`, `resolved_path` and `sha256` of the coefficient file named by `stopping.srim_data` (see `[stopping]`). Its citations are in `physics.models` (`srim`)
 - **`physics.engine`**: Cutoffs, free path, weak collisions, electronic-loss mode, seed, chunk size as passed to the engine
 - **`physics.scattering_table`**: Angle-table grid and its measured interpolation error
 - **`physics.target`**: Each layer: extent (nm; `back_nm` is `null` for a substrate), atom density, and the fully resolved material (every `E_d`, `E_b`, `E_s`)
@@ -1374,6 +1379,11 @@ Files written to the output directory:
 - `exposure_direct.csv`: with `--direct`: `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2` from transport, rows in grid order
 - `exposure_comparison.csv`: with `--direct`: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged`
 
+Re-running into a populated `--out` follows the same rules as the other modes
+("Reusing an output directory"): the optional files above are removed when the
+flag that produces them is absent, and `exposure_summary.json` is published
+last, so its presence means the whole set is this run's.
+
 The large-area dose of a uniform exposure of `w` primaries per m^2 is `w E`
 (the PSF integrates to `E`), of which the forward term gives the share
 `1 / (1 + eta [+ nu])`.
@@ -1426,14 +1436,18 @@ and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
 `tally.psf`), `electron_exposure_histogram.csv` (without `tally.exposure`),
 `damage_export.csv` (without `electron.tally.voxel`), and
 `electron_depth_dose.csv` and `electron_interface_transmission.csv` (without the
-matching `tally.dose` part).
+matching `tally.dose` part), and, for `lindhard exposure`,
+`exposure_contours.csv` and `exposure_features.csv` (without `--threshold` or
+`--threshold-fraction`) and `exposure_direct.csv` and
+`exposure_comparison.csv` (without `--direct`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
 CSV write leaves no new summary) and lists only files that exist.
 
 Once output starts, the run first removes the previous summary of its own mode
-(`summary.json`, `electron_summary.json` or `dynamic_summary.json`) and only
-then replaces CSVs. The new summary is written to a freshly created temporary
+(`summary.json`, `electron_summary.json`, `dynamic_summary.json` or
+`exposure_summary.json`) and only then replaces CSVs. The new summary is
+written to a freshly created temporary
 sibling (created exclusively, so an existing file or symlink of the same name is
 never touched; another name is used) and
 renamed into place after every other write succeeds. So, after a failed run,
@@ -1444,8 +1458,8 @@ its path before any CSV changes. A failure before output starts (simulation or
 serialization) leaves existing outputs as they were. This is not a
 transaction: the CSVs are replaced in place, and concurrent runs into one
 directory are not supported. Other files in the
-directory are never touched, and no cleanup happens between ion, electron and
-dynamic runs. Do not keep your own data under a reserved name.
+directory are never touched, and no cleanup happens between ion, electron,
+dynamic and exposure runs. Do not keep your own data under a reserved name.
 
 ## Reproducibility
 
@@ -1473,8 +1487,9 @@ keys, never by changing existing ones:
   `results.escapes` were added this way, without a version bump.
 - `physics.crystal` (the `[[crystal]]` metadata) was added this way, without
   a version bump; an amorphous run does not carry it. `physics.beam_divergence`
-  (the `[beam.divergence]` metadata) and `physics.beam_spectrum` (the
-  `[beam]` `spectrum` metadata) likewise.
+  (the `[beam.divergence]` metadata), `physics.beam_spectrum` (the
+  `[beam]` `spectrum` metadata) and `physics.srim_data` (the
+  `stopping.srim_data` file record) likewise.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes

@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """Tests of the completion-manifest resume contract in lindhard_cli.run
-(validation/README.md, "Resuming a sweep"). Temporary files and a mocked
-subprocess only; standard library only:
+(validation/README.md, "Resuming a sweep") and of the file fingerprinting both
+level-2 runners share (#778). Temporary files and a mocked subprocess only;
+standard library only:
 
     python3 validation/lib/test_lindhard_cli.py
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import tempfile
@@ -157,6 +159,33 @@ class ResumeContract(Fixture):
             lc.run(problem(), self.work, self.exe)
         self.assertEqual(self.calls, 2)
         self.assertFalse((self.work / lc.MANIFEST_NAME).exists())
+
+
+class Sha256File(unittest.TestCase):
+    """`sha256_file` is the harness's only file fingerprint: both level-2
+    runners hash the oracle inputs they record with it."""
+
+    def setUp(self):
+        self._tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self._tmp.cleanup)
+        self.tmp = Path(self._tmp.name)
+
+    def test_it_is_the_sha256_of_the_bytes_whatever_the_size(self):
+        # Straddle the 1 MiB read chunk: the digest must not depend on it.
+        for n in (0, 1, (1 << 20) - 1, 1 << 20, (1 << 20) + 7):
+            with self.subTest(size=n):
+                p = self.tmp / f"f{n}"
+                data = bytes(range(256)) * (n // 256) + bytes(range(n % 256))
+                p.write_bytes(data)
+                self.assertEqual(lc.sha256_file(p), hashlib.sha256(data).hexdigest())
+
+    def test_an_unreadable_file_is_an_error_never_a_miss(self):
+        # A silent "unknown" hash would put a wrong fingerprint in a committed
+        # summary; the harness exits with its own message instead.
+        with self.assertRaises(SystemExit):
+            lc.sha256_file(self.tmp)  # a directory: open() raises OSError
+        with self.assertRaises(SystemExit):
+            lc.sha256_file(self.tmp / "absent")
 
 
 if __name__ == "__main__":

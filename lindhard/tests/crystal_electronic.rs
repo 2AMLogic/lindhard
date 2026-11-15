@@ -60,10 +60,9 @@ use lindhard::ion::bca::{
     Particle, Thermal,
 };
 use lindhard::ion::crystal::debye::THETA_D_SI;
-use lindhard::ion::crystal::{Lattice, Orientation};
+use lindhard::ion::crystal::Lattice;
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::oen_robinson::OR_CONSTANTS_UNVERIFIED;
-use lindhard::ion::stopping::Ion;
 use lindhard::material::Material;
 
 /// The loss events of a primary are counted while its energy is at least this
@@ -119,6 +118,7 @@ const P2_BINS: usize = 10;
 const UNIFORM_TOLERANCE: f64 = 0.05;
 
 mod common;
+use common::beam;
 use common::si_surface_binding_if_unset as si;
 use common::with_threads;
 use common::zbl_si_table as table;
@@ -133,30 +133,10 @@ fn si_nn() -> f64 {
     Lattice::silicon().lattice_constant() * 3f64.sqrt() / 4.0
 }
 
-fn beam(z: u8, e: f64, tilt_deg: f64, twist_deg: f64, count: u64) -> Beam {
-    Beam {
-        ion: Ion::new(z).unwrap(),
-        energy_ev: e,
-        polar_rad: tilt_deg.to_radians(),
-        azimuth_rad: twist_deg.to_radians(),
-        count,
-    }
-}
-
-/// Si cut on (100), reference [010], matching `beam(.., tilt, twist, ..)`,
-/// with search radius `p_max`.
+/// [`common::crystal_si`] with search radius `p_max` and, with `thermal`, the
+/// 300 K Debye vibration.
 fn crystal_si(tilt_deg: f64, twist_deg: f64, p_max: f64, thermal: bool) -> CrystalTarget {
-    let lat = Lattice::silicon();
-    let o = Orientation::new(
-        &lat,
-        [1, 0, 0],
-        [0, 1, 0],
-        tilt_deg.to_radians(),
-        twist_deg.to_radians(),
-        0.0,
-    )
-    .unwrap();
-    let mut c = CrystalTarget::new(lat, o);
+    let mut c = common::crystal_si(tilt_deg, twist_deg);
     c.p_max_m = Some(p_max);
     if thermal {
         c = c.with_thermal(Thermal::new(300.0, THETA_D_SI));

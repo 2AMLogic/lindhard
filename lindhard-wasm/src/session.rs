@@ -24,11 +24,18 @@
 //! trajectories are byte-identical for any sequence of step sizes. The price
 //! is that a step rounds up to the next chunk boundary.
 //!
-//! # Not supported
+//! # Targets
 //!
-//! Crystal targets (`[[crystal]]`) and dynamic composition (`[dynamic]`) are
-//! rejected with an error: the session transports an amorphous, static
-//! target.
+//! The session transports amorphous targets and `[[crystal]]` targets alike:
+//! [`Resolved::bca`] applies every `[[crystal]]` assignment, and the lattice
+//! transport is inline in the history the session already steps, so a
+//! crystal run needs no separate path. Its two extra random draws (the
+//! per-history lattice shift and the Debye thermal displacements) are taken
+//! from the history's own stream at reserved word positions, so they depend
+//! on the global history index alone and chunk invariance above still holds.
+//!
+//! Dynamic composition (`[dynamic]`) is rejected with an error: the session
+//! transports a static target.
 
 use lindhard::input::{Input, Resolved};
 use lindhard::ion::bca::BcaTally;
@@ -78,9 +85,6 @@ impl Simulation {
         let input = Input::from_toml_str(input_toml).map_err(|e| e.to_string())?;
         if input.dynamic.is_some() {
             return Err("[dynamic] composition is not supported by the session".into());
-        }
-        if !input.crystal.is_empty() {
-            return Err("[[crystal]] targets are not supported by the session".into());
         }
         let resolved = input.resolve().map_err(|e| e.to_string())?;
         let total = resolved.input.run.ions;

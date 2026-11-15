@@ -61,6 +61,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
 import dataset_checks  # noqa: E402
 import lindhard_cli  # noqa: E402
+from oracle import round_floats  # noqa: E402
 
 DATA = HERE.parent / "data" / "ranges"
 SPUTTER_DATA = HERE.parent / "data" / "sputtering"
@@ -601,9 +602,9 @@ def run_rustbca_context(ions: int, binary: Path, groups: list[dict], targets: li
             "lindhard_version": lindhard_cli.version(binary),
             "date": _dt.date.today().isoformat(),
             "ions": ions,
-            "oracle_settings": orc._round(settings),
+            "oracle_settings": round_floats(settings),
             "mismatches": mismatches,
-            "rows": orc._round(rows),
+            "rows": round_floats(rows),
         }
         path = HERE.parent / "oracles" / "summaries" / f"rustbca-sputter_ar_{target.lower()}.json"
         path.write_text(json.dumps(out, indent=2) + "\n")

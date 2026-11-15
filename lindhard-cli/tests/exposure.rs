@@ -131,3 +131,44 @@ fn direct_mode_writes_dose_and_comparison_identically_at_any_thread_count() {
     a.direct = Some(dir.join("target.toml"));
     assert!(run(&a).is_err());
 }
+
+/// Re-running into a populated `--out` without a threshold removes the
+/// previous run's optional contour files and leaves the new summary, which
+/// reports no contours. Unrelated files in the directory are untouched.
+#[test]
+fn rerun_without_a_threshold_removes_the_stale_contour_files() {
+    let dir = std::env::temp_dir().join(format!("lindhard-exposure-rerun-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("params.csv"), PARAMS).unwrap();
+    std::fs::write(dir.join("shots.csv"), "x_m,y_m,weight\n0,0,1\n5e-8,0,2\n").unwrap();
+
+    let mut a = args(&dir, Some(1));
+    a.threshold_fraction = None;
+    a.threshold = Some(1e10);
+    run(&a).unwrap();
+    for f in [DOSE_FILE, CONTOURS_FILE, FEATURES_FILE, SUMMARY_FILE] {
+        assert!(a.out.join(f).exists(), "{f}");
+    }
+    let first: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(a.out.join(SUMMARY_FILE)).unwrap()).unwrap();
+    assert_eq!(first["contours"]["threshold_ev_per_m2"], 1e10);
+    std::fs::write(a.out.join("notes.txt"), "mine").unwrap();
+
+    a.threshold = None;
+    run(&a).unwrap();
+    assert!(!a.out.join(CONTOURS_FILE).exists());
+    assert!(!a.out.join(FEATURES_FILE).exists());
+    assert!(a.out.join(DOSE_FILE).exists());
+    let second: serde_json::Value =
+        serde_json::from_str(&std::fs::read_to_string(a.out.join(SUMMARY_FILE)).unwrap()).unwrap();
+    assert!(second["contours"].is_null());
+    assert_eq!(
+        std::fs::read_to_string(a.out.join("notes.txt")).unwrap(),
+        "mine"
+    );
+    // The summary is renamed into place, so no temporary sibling is left.
+    assert!(!a.out.join(format!(".{SUMMARY_FILE}.tmp")).exists());
+
+    std::fs::remove_dir_all(&dir).unwrap();
+}

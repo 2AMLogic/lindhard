@@ -492,6 +492,36 @@ fn srim_is_accepted_resolved_listed_and_serves_the_pair() {
     assert_eq!(back, r.input);
 }
 
+/// The SRIM coefficient file is identified the way a user table is: the path
+/// as written, an absolute resolved path, and a hash of the bytes that
+/// changes with them (issue #752; the user-table case is
+/// `relative_paths_resolve_against_the_base_directory_and_are_recorded`).
+#[test]
+fn srim_relative_path_resolves_against_the_base_directory_and_is_recorded() {
+    let d = scratch("srim_paths");
+    std::fs::create_dir_all(d.join("sub")).unwrap();
+    std::fs::write(d.join("sub/srim.toml"), SRIM_FIXTURE).unwrap();
+    let mut i = srim_input(&d, None, "");
+    i.stopping.srim_data = Some("sub/srim.toml".to_string());
+    let r = i.resolve_in(&d).unwrap();
+    let l = r.srim.as_ref().unwrap();
+    assert_eq!(l.path, "sub/srim.toml");
+    assert!(l.resolved_path.is_absolute());
+    assert!(l.resolved_path.ends_with("sub/srim.toml"));
+    assert_eq!(l.sha256.len(), 64);
+    assert!(l.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
+    // Same bytes, same hash; different bytes, different hash.
+    let again = i.resolve_in(&d).unwrap();
+    assert_eq!(l.sha256, again.srim.as_ref().unwrap().sha256);
+    std::fs::write(
+        d.join("sub/srim.toml"),
+        format!("{SRIM_FIXTURE}\n# edited\n"),
+    )
+    .unwrap();
+    let edited = i.resolve_in(&d).unwrap();
+    assert_ne!(l.sha256, edited.srim.as_ref().unwrap().sha256);
+}
+
 #[test]
 fn srim_mixes_with_a_user_table_for_another_pair() {
     let d = scratch("srim_mixed");

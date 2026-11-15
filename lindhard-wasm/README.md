@@ -31,8 +31,11 @@ elements_json();                       // the element table, from lindhard::elem
   a `[beam] spectrum` of primary energies, `physics.follow_recoils`,
   per-element energy overrides, the `[tally]` bins.
   `run.ions` is the target count, at most 1,000,000 per session.
-- `[[crystal]]` targets and `[dynamic]` composition are rejected with an error:
-  the session transports an amorphous, static target.
+- Targets may be amorphous or crystalline: `[[crystal]]` is accepted and
+  applied, so a session transports the lattice (channeling under the beam's
+  tilt and twist) exactly as the CLI does for the same input.
+- `[dynamic]` composition is rejected with an error: the session transports a
+  static target.
 - `step(count)` runs at least `count` more histories, **rounded up to a whole
   engine chunk** (`chunk_size`, 64 by default; the last chunk may be shorter)
   and returns the total done. This is what makes the result independent of the
