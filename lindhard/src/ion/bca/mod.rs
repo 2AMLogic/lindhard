@@ -238,7 +238,9 @@ use crate::ion::scattering::{closest_approach, theta_quadrature, ScatteringTable
 use crate::ion::stopping::bethe::EffectiveCharge;
 use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
 use crate::ion::stopping::mix::EquipartitionMix;
-use crate::ion::stopping::straggling::{variance_per_atom_material, StragglingModel};
+use crate::ion::stopping::straggling::{
+    variance_per_atom, variance_per_atom_material, StragglingModel,
+};
 use crate::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::material::EnergyKind;
 use crate::rng::{run_particles_range, uniform, ParticleRng};
@@ -746,6 +748,16 @@ struct LayerData {
     /// powers in the coefficient depend only on the ion and target, so they
     /// are evaluated here once instead of at every flight.
     loss_coef: Vec<Option<f64>>,
+    /// Per projectile species: the Bragg-added straggling variance
+    /// `Σ_j x_j Ω_j²` over the layer's elements, when it cannot depend on
+    /// energy — `StragglingModel::Bohr` with the `EffectiveCharge::Bare`
+    /// charge the per-flight site passes (`electronic_nonlocal`; `charge`
+    /// ignores its beta argument for `Bare`, and the `Bohr` arm never looks
+    /// at beta). `None` otherwise — `BohrRelativistic` carries a real beta²
+    /// factor and any non-`Bare` charge is beta-dependent — which keeps
+    /// those on the per-flight path. Hoisted beside `loss_coef` for the
+    /// same reason: the per-flight Bragg sum is a setup-time constant.
+    straggle_var: Vec<Option<f64>>,
 }
 
 /// `ln beta_max` on a grid uniform in `ln eps`, for the energy-dependent
@@ -891,6 +903,29 @@ impl ElectronicStopping for MixNonLocal {
     fn sqrt_energy_coefficient(&self, ion: &Ion, target_z: u8) -> Option<f64> {
         self.0.nonlocal_sqrt_energy_coefficient(ion, target_z)
     }
+}
+
+/// Bragg-added straggling variance `Σ_j x_j Ω_j²` over a layer's elements,
+/// hoisted beside `loss_coef` when the variance cannot depend on energy
+/// ([`StragglingModel::Bohr`] with [`EffectiveCharge::Bare`], the charge the
+/// per-flight site passes). Sums over `elems` in order — the same order and
+/// the same `z` and `fraction` values `variance_per_atom_material` sums
+/// over — so the result is bit-identical to the per-flight call it replaces,
+/// which is what keeps the determinism-across-thread-counts invariant.
+fn hoisted_variance(
+    elems: &[ElemData],
+    ion: &Ion,
+    charge: EffectiveCharge,
+) -> Result<f64, StoppingError> {
+    let mut sum = 0.0;
+    // Same order as the Bragg sum.
+    for e in elems {
+        // The energy argument is arbitrary: for Bohr + Bare the variance of
+        // `variance_per_atom` does not depend on it, so any finite positive
+        // energy passes `check_energy` and yields identical bits.
+        sum += e.fraction * variance_per_atom(StragglingModel::Bohr, charge, ion, e.z, 1.0)?;
+    }
+    Ok(sum)
 }
 
 /// The BCA engine for one beam, target and configuration.
@@ -1071,6 +1106,7 @@ impl<'a> Bca<'a> {
                 p_const: 1.0 / (PI * n.powf(2.0 / 3.0)).sqrt(),
                 elems,
                 loss_coef: Vec::new(),
+                straggle_var: Vec::new(),
             });
         }
         let mix = MixNonLocal(EquipartitionMix::new());
@@ -1092,6 +1128,42 @@ impl<'a> Bca<'a> {
                     })
                     .collect();
             }
+        }
+        // Hoist the straggling variance beside `loss_coef` when it cannot
+        // depend on energy. The per-flight site (`electronic_nonlocal`)
+        // passes `EffectiveCharge::Bare`, for which `charge` ignores its
+        // beta argument; with `StragglingModel::Bohr` the returned variance
+        // is then energy-independent, so the Bragg-added value is a
+        // per-layer constant and the per-flight `components()` loop the
+        // sampling would otherwise pay disappears. `BohrRelativistic`
+        // carries a real beta^2 factor and a non-`Bare` charge is
+        // beta-dependent; the gate names both conditions rather than
+        // assuming them, so if a configurable charge or model ever reaches
+        // the per-flight site the hoist re-gates on the configured value
+        // instead of silently freezing one that varies.
+        let straggle_charge = EffectiveCharge::Bare;
+        let straggle_hoist = matches!(config.straggling, Some(StragglingModel::Bohr))
+            && straggle_charge == EffectiveCharge::Bare;
+        for lay in &mut layers {
+            lay.straggle_var = if straggle_hoist {
+                species
+                    .iter()
+                    .map(|sp| {
+                        // A target-table failure surfaces here, at
+                        // construction, instead of collapsing into `None`
+                        // and hiding until the first flight.
+                        hoisted_variance(&lay.elems, &sp.ion, straggle_charge)
+                            .map_err(|e| {
+                                BcaError::InvalidConfig(format!(
+                                    "straggling variance precompute: {e}"
+                                ))
+                            })
+                            .map(Some)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            } else {
+                vec![None; species.len()]
+            };
         }
         // Surface barriers by exit material; the beam always uses its own.
         let mut barriers = Vec::with_capacity(n_materials * species.len());
@@ -1521,16 +1593,25 @@ impl<'a> Bca<'a> {
         // makes no draw at all, so its stream, and therefore its results,
         // are those of a build without the option.
         let de = match self.config.straggling {
-            Some(model) if p.energy_ev > 0.0 => {
+            Some(model) => {
                 let material = self.geometry.material(mi);
                 let ion = &self.species[p.species].ion;
-                let omega2 = variance_per_atom_material(
-                    model,
-                    EffectiveCharge::Bare,
-                    ion,
-                    material,
-                    p.energy_ev,
-                )?;
+                // Hoisted beside `loss_coef` when it cannot depend on energy
+                // (`Bohr` with the `Bare` charge below); the hoisted arm
+                // contains no `components()` loop. The `E > 0` and finite
+                // test keeps a non-physical energy on the general path,
+                // which reports it — same reasoning as the `lay.loss_coef`
+                // arm above.
+                let omega2 = match lay.straggle_var[p.species] {
+                    Some(v) if p.energy_ev > 0.0 && p.energy_ev.is_finite() => v,
+                    _ => variance_per_atom_material(
+                        model,
+                        EffectiveCharge::Bare,
+                        ion,
+                        material,
+                        p.energy_ev,
+                    )?,
+                };
                 let sigma = (lay.n * omega2 * len).sqrt() / J_PER_EV;
                 let sampled = de + sample_gaussian_1d(sigma, rng);
                 // The Gaussian is unbounded below, so a draw can exceed the
@@ -2072,5 +2153,199 @@ mod tests {
             mk(Beam::normal(ion, 1e3, 1), c),
             Err(BcaError::InvalidConfig(_))
         ));
+    }
+
+    /// Quartz-like two-element target with unequal atom fractions, so the
+    /// Bragg sum has more than one term. A multi-element material has no
+    /// tabulated density or surface binding energy, so both are given.
+    fn sio2() -> Material {
+        let mut m = Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2650.0)).unwrap();
+        m.set_displacement_energy_ev(14, 15.0).unwrap();
+        m.set_displacement_energy_ev(8, 20.0).unwrap();
+        m.set_surface_binding_energy_ev(14, 4.7).unwrap();
+        m.set_surface_binding_energy_ev(8, 3.0).unwrap();
+        m
+    }
+
+    fn straggling_bca<'a>(
+        model: Option<StragglingModel>,
+        stack: &'a Stack,
+        table: &'a ScatteringTable,
+        stopping: &'a (dyn ElectronicStopping + Sync),
+    ) -> Bca<'a> {
+        let mut cfg = BcaConfig::new(5.0, 2.0);
+        cfg.straggling = model;
+        Bca::new(
+            Beam::normal(Ion::proton(), 1e6, 1),
+            stack,
+            cfg,
+            stopping,
+            table,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn hoisted_straggling_variance_equals_the_per_flight_bragg_sum() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        for (m, label) in [
+            (si(), "single element"),
+            (sio2(), "Bragg sum over two elements"),
+        ] {
+            let stack = Stack::semi_infinite(m);
+            let bca = straggling_bca(Some(StragglingModel::Bohr), &stack, &table, &ls);
+            // Species 0 is the beam proton; species 1 the first target
+            // element as a recoil species. The hoisted entry is per species.
+            for (si, ion) in [(0, Ion::proton()), (1, Ion::new(14).unwrap())] {
+                let hoisted = bca.layers[0].straggle_var[si]
+                    .expect("Bohr + Bare is hoisted, one entry per species");
+                let material = bca.geometry.material(0);
+                assert_eq!(
+                    hoisted,
+                    variance_per_atom_material(
+                        StragglingModel::Bohr,
+                        EffectiveCharge::Bare,
+                        &ion,
+                        material,
+                        5e5,
+                    )
+                    .unwrap(),
+                    "{label}, species {si}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn hoisted_straggling_variance_is_energy_invariant() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        for (m, label) in [(si(), "single element"), (sio2(), "Bragg (SiO2)")] {
+            let stack = Stack::semi_infinite(m);
+            let bca = straggling_bca(Some(StragglingModel::Bohr), &stack, &table, &ls);
+            let hoisted = bca.layers[0].straggle_var[0].unwrap();
+            let material = bca.geometry.material(0);
+            let ion = Ion::proton();
+            for &energy_ev in &[1e3, 1e7] {
+                assert_eq!(
+                    hoisted,
+                    variance_per_atom_material(
+                        StragglingModel::Bohr,
+                        EffectiveCharge::Bare,
+                        &ion,
+                        material,
+                        energy_ev,
+                    )
+                    .unwrap(),
+                    "{label} at {energy_ev} eV"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bohr_relativistic_is_not_hoisted_and_still_varies_with_energy() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        let m = si();
+        let stack = Stack::semi_infinite(m);
+        let bca = straggling_bca(Some(StragglingModel::BohrRelativistic), &stack, &table, &ls);
+        assert!(
+            bca.layers[0].straggle_var.iter().all(|v| v.is_none()),
+            "BohrRelativistic carries a real beta^2 dependence and must stay per-flight"
+        );
+        // The fall-through value it will be evaluated at per flight still
+        // varies with energy.
+        let material = bca.geometry.material(0);
+        let ion = Ion::proton();
+        assert_ne!(
+            variance_per_atom_material(
+                StragglingModel::BohrRelativistic,
+                EffectiveCharge::Bare,
+                &ion,
+                material,
+                1e3,
+            )
+            .unwrap(),
+            variance_per_atom_material(
+                StragglingModel::BohrRelativistic,
+                EffectiveCharge::Bare,
+                &ion,
+                material,
+                1e7,
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn straggling_disabled_is_not_hoisted() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        let m = si();
+        let stack = Stack::semi_infinite(m);
+        let bca = straggling_bca(None, &stack, &table, &ls);
+        assert!(bca.layers[0].straggle_var.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn straggling_reports_an_invalid_flight_energy_via_fall_through() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        let m = si();
+        let stack = Stack::semi_infinite(m);
+        let bca = straggling_bca(Some(StragglingModel::Bohr), &stack, &table, &ls);
+        let from = [0.0, 0.0, 0.0];
+        // A hoisted constant must never be applied to a non-physical energy:
+        // the guard drops the flight onto the general paths, which report
+        // `InvalidEnergy` — the mean loss first, then the straggling
+        // fall-through, so the guarantee holds even if a future stopping
+        // model accepted such an energy.
+        for energy_ev in [-1.0, 0.0, f64::NAN, f64::INFINITY] {
+            let mut p = Particle {
+                species: 0,
+                z: 1,
+                mass_amu: Ion::proton().mass_amu(),
+                energy_ev,
+                pos: [1e-9, 0.0, 0.0],
+                dir: [1.0, 0.0, 0.0],
+                layer: 0,
+                origin_layer: 0,
+                generation: 0,
+            };
+            let mut rng = crate::rng::stream(1, 0);
+            let mut budget = EnergyBudget {
+                incident: 1e6,
+                ..EnergyBudget::default()
+            };
+            let mut tally = SummaryTally::new(1e-9, 4);
+            let r = bca.electronic_nonlocal(&mut p, from, 1e-9, &mut rng, &mut budget, &mut tally);
+            assert!(
+                matches!(r, Err(StoppingError::InvalidEnergy(e)) if e == energy_ev || energy_ev.is_nan()),
+                "energy {energy_ev}: {r:?}"
+            );
+        }
+        // A physical energy still draws on the hoisted path without error.
+        let mut p = Particle {
+            species: 0,
+            z: 1,
+            mass_amu: Ion::proton().mass_amu(),
+            energy_ev: 1e6,
+            pos: [1e-9, 0.0, 0.0],
+            dir: [1.0, 0.0, 0.0],
+            layer: 0,
+            origin_layer: 0,
+            generation: 0,
+        };
+        let mut rng = crate::rng::stream(1, 0);
+        let mut budget = EnergyBudget {
+            incident: 1e6,
+            ..EnergyBudget::default()
+        };
+        let mut tally = SummaryTally::new(1e-9, 4);
+        assert!(bca
+            .electronic_nonlocal(&mut p, from, 1e-9, &mut rng, &mut budget, &mut tally)
+            .is_ok());
     }
 }
