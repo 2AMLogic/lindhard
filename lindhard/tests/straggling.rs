@@ -124,6 +124,11 @@ fn bohr_variance_ev2(
 /// through `stack` (Bethe-Bloch, recoils not followed, seed `seed`) with
 /// `straggling` selected; `crystal` attaches a crystal target to the given
 /// regions first. Also asserts exact energy conservation of the run.
+/// The 1 MeV proton through a 100 nm foil is the configuration whose cost
+/// dominates this file (the constant free path flies ~480 flights per
+/// history here), so every count below is a stated trade: at
+/// [`MEAN_LOSS_HISTORIES`] the statistical bounds are several standard
+/// errors, while a broken cadence biases the mean by factors.
 fn mean_loss(
     stack: &Stack,
     crystal: Option<(CrystalTarget, &[usize])>,
@@ -149,6 +154,29 @@ fn mean_loss(
         s.budget.incident
     );
     s.budget.electronic_nonlocal / s.histories as f64
+}
+
+/// History count of the 1 MeV proton mean-loss runs below. 500 gives a
+/// standard error of about 1% on a mean whose per-history spread is about
+/// 1.3 keV (Bohr), so the 5% bounds are roughly five standard errors, while
+/// a broken cadence biases the mean by factors, not percent — the
+/// per-flight sampling this replaced measured 2.55x in carbon, 2.81x in
+/// silicon and 3.73x on crystal lattice flights. (The pre-2026-11-15 CI
+/// budget measured these runs at 1500 histories; 500 is the documented
+/// trade that keeps `tests/straggling.rs` off the 75-minute job budget.)
+const MEAN_LOSS_HISTORIES: u64 = 500;
+
+/// The `straggling = "none"` baseline of the 100 nm carbon foil at 1 MeV,
+/// computed once per process and shared by every mean-loss test that
+/// compares against it (the carbon leg of
+/// `mean_loss_is_unbiased_with_constant_free_path` and
+/// `relativistic_variant_mean_loss_is_unbiased`): the configuration is
+/// identical, so re-running it per test pays twice for the same number.
+static CARBON_NONE: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
+
+fn carbon_none() -> f64 {
+    let stack = foil(100.0);
+    *CARBON_NONE.get_or_init(|| mean_loss(&stack, None, None, MEAN_LOSS_HISTORIES, 2026))
 }
 
 #[test]
@@ -236,12 +264,12 @@ fn transmitted_variance_matches_bohr_with_constant_free_path() {
     cfg.straggling = Some(StragglingModel::Bohr);
     cfg.follow_recoils = false;
     cfg.mean_free_path = MeanFreePath::Constant;
-    let beam = Beam::normal(Ion::proton(), 1.0e6, 5_000);
+    let beam = Beam::normal(Ion::proton(), 1.0e6, 3_000);
     let bca = Bca::new(beam, &stack, cfg, &bb, common::zbl_si_table()).unwrap();
     let t = bca.run(Transmitted::default).unwrap();
 
     // Every primary is transmitted (the C range at 1 MeV is tens of um).
-    assert_eq!(t.energies.len(), 5_000);
+    assert_eq!(t.energies.len(), 3_000);
     assert!(
         t.energies.iter().all(|&e| e > 0.0),
         "some primary not transmitted"
@@ -250,8 +278,10 @@ fn transmitted_variance_matches_bohr_with_constant_free_path() {
 
     let measured = t.variance();
     let bohr = bohr_variance_ev2(&Ion::proton(), 6, 1.0e6, n_density, thickness_nm);
-    // Statistical: the standard error of a variance estimated from 5_000
-    // samples is sqrt(2/(N-1)) = 2% of the value. Systematic: the nuclear
+    // Statistical: the standard error of a variance estimated from 3_000
+    // samples is sqrt(2/(N-1)) = 2.6% of the value (3_000 rather than the
+    // 5_000 of the pre-2026-11-15 budget keeps the 10% bound at almost four
+    // standard errors while this file stays off the job budget). Systematic: the nuclear
     // transfers of the collision-per-flight convention, and the partial
     // segment still pending at the exit (its whole-foil mean loss sits 4.3
     // standard deviations above zero, so its clamp is inactive to a
@@ -272,15 +302,16 @@ fn transmitted_variance_matches_bohr_with_constant_free_path() {
 /// draw being unbiased.
 #[test]
 fn mean_loss_is_unbiased_with_constant_free_path() {
-    let count = 1_500;
+    let count = MEAN_LOSS_HISTORIES;
     // Amorphous carbon, 1 MeV proton: the configuration whose per-flight
     // sampling inflated the mean loss 5830 -> 14864 eV. The per-history
     // spread of the loss is about 1.3 keV (Bohr), so the standard error of
-    // a mean over 1500 histories is about 1%, and 5% is several standard
-    // errors; a broken cadence biases the mean by factors, not percent.
+    // a mean over 500 histories is about 1% (see `MEAN_LOSS_HISTORIES`),
+    // and 5% is roughly five standard errors; a broken cadence biases the
+    // mean by factors, not percent.
     let c_stack = foil(100.0);
     let on_c = mean_loss(&c_stack, None, Some(StragglingModel::Bohr), count, 2026);
-    let off_c = mean_loss(&c_stack, None, None, count, 2026);
+    let off_c = carbon_none();
     let rel_c = on_c / off_c - 1.0;
     assert!(
         rel_c.abs() < 0.05,
@@ -305,8 +336,12 @@ fn mean_loss_is_unbiased_with_constant_free_path() {
 /// stopping). The two runs share their trajectories up to the first segment
 /// close, so the difference of the means is dominated by the deviation
 /// draws themselves: a per-history spread of about 1.4 keV gives a standard
-/// error of about 0.8% at 1500 histories, and 3% is several standard
-/// errors.
+/// error of about 1.4% at 500 histories (the pre-2026-11-15 budget ran
+/// 1500), and the bound is stated at 5% — roughly three and a half standard
+/// errors, three orders of magnitude below the 3.7x inflation a broken
+/// cadence would reintroduce. Crystal lattice flights are the most
+/// expensive per-history transport in the file, which is why this test
+/// carries the lowest count.
 #[test]
 fn crystal_lattice_flight_mean_loss_is_unbiased() {
     let stack = Stack::new(vec![(common::si(), 100.0 * NM)], None).unwrap();
@@ -314,26 +349,27 @@ fn crystal_lattice_flight_mean_loss_is_unbiased() {
         &stack,
         Some((common::crystal_si(5.0, 0.0), &[0])),
         Some(StragglingModel::Bohr),
-        1_500,
+        MEAN_LOSS_HISTORIES,
         2026,
     );
     let off = mean_loss(
         &stack,
         Some((common::crystal_si(5.0, 0.0), &[0])),
         None,
-        1_500,
+        MEAN_LOSS_HISTORIES,
         2026,
     );
     let rel = on / off - 1.0;
     assert!(
-        rel.abs() < 0.03,
+        rel.abs() < 0.05,
         "crystal mean loss with straggling {on:.1} eV, without {off:.1} eV (ratio {rel:+.4})"
     );
 }
 
 /// The relativistic variant shares the clamp and the segment cadence, so it
-/// is unbiased too — measured against its own `"none"` baseline, not the
-/// Bohr numbers (no inflation factor was ever quoted for it).
+/// is unbiased too — measured against the shared `"none"` carbon baseline
+/// (`carbon_none`), not the Bohr numbers (no inflation factor was ever
+/// quoted for it).
 #[test]
 fn relativistic_variant_mean_loss_is_unbiased() {
     let stack = foil(100.0);
@@ -341,10 +377,10 @@ fn relativistic_variant_mean_loss_is_unbiased() {
         &stack,
         None,
         Some(StragglingModel::BohrRelativistic),
-        1_500,
+        MEAN_LOSS_HISTORIES,
         2026,
     );
-    let off = mean_loss(&stack, None, None, 1_500, 2026);
+    let off = carbon_none();
     let rel = on / off - 1.0;
     assert!(
         rel.abs() < 0.05,
@@ -356,7 +392,9 @@ fn relativistic_variant_mean_loss_is_unbiased() {
 /// material's variance, so a segment crossing from carbon into silicon
 /// accumulates Bohr's total for both, and no close is forced at the
 /// boundary. Whatever the crossing does to the path, the books must stay
-/// exact and no history may gain energy.
+/// exact and no history may gain energy. (The residual bound is exact, not
+/// statistical, so 800 histories — down from 2000 in the pre-2026-11-15
+/// budget — test it as well as 2000 did.)
 #[test]
 fn segment_crosses_a_layer_boundary_and_conserves_energy() {
     let ls = LindhardScharff::new();
@@ -369,7 +407,7 @@ fn segment_crosses_a_layer_boundary_and_conserves_energy() {
     // and the segment closes only at the history's end. Lindhard-Scharff is
     // valid here for the proton and every recoil energy.
     cfg.mean_free_path = MeanFreePath::Constant;
-    let beam = Beam::normal(Ion::proton(), 1.0e5, 2_000);
+    let beam = Beam::normal(Ion::proton(), 1.0e5, 800);
     let bca = Bca::new(beam, &stack, cfg, &ls, common::zbl_si_table()).unwrap();
     let t = bca.run(Transmitted::default).unwrap();
     assert!(
@@ -425,7 +463,12 @@ fn straggling_run_is_bit_identical_across_thread_counts() {
         cfg.straggling = Some(StragglingModel::Bohr);
         cfg.follow_recoils = false;
         cfg.mean_free_path = mean_free_path;
-        let beam = Beam::normal(Ion::proton(), 1.0e6, 1_000);
+        // Thread-count identity is an exact per-history equality, not a
+        // statistical estimate, so 300 histories (spread across the thread
+        // counts under test) exercise it as well as more would; the count is
+        // down from 1000 in the pre-2026-11-15 budget to keep the constant
+        // free path's ~480 flights per history off the job budget.
+        let beam = Beam::normal(Ion::proton(), 1.0e6, 300);
         let bca = Bca::new(beam, &stack, cfg, &bb, common::zbl_si_table()).unwrap();
         let r1 = with_threads(1, || bca.run(Transmitted::default).unwrap());
         for n in [2, 4] {

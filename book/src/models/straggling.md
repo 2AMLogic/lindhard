@@ -46,6 +46,11 @@ the flight convention; and at the closing criterion the Gaussian sits 4
 standard deviations above zero, so the probability of a draw below it is
 `Phi(-4) ~ 3.2e-5` and the clamp — which keeps every history's energy exact
 and non-negative — is essentially inactive. The mean loss stays unbiased.
+Both statements describe a segment closed at the criterion: a history whose
+transport ends before its segment does — an ion stopped in a layer thinner
+than the closing distance — draws its only deviation from a partial segment
+that can sit closer to zero than 4 standard deviations, and there the clamp
+biases the history's mean loss upward.
 Because the bare-charge Bohr variance does not depend on energy, the
 engine precomputes it per layer alongside its mean-loss coefficient (the
 relativistic variant keeps its energy dependence and is evaluated per

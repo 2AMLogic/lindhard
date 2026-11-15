@@ -52,8 +52,11 @@
 //! particle's transport ends: it stops below its cutoff, escapes through any
 //! face, or reflects at a surface. A partial segment closed at the end of a
 //! transport can sit closer to zero than `k` standard deviations, so there
-//! the clamp is not necessarily inactive; it affects one partial segment out
-//! of the many of a history. Layer boundaries do **not** close a segment:
+//! the clamp is not necessarily inactive: for a history made of many
+//! segments it affects only the last, partial one, while for a history that
+//! *is* a single partial segment — an ion stopped in a layer thinner than
+//! the closing distance — it affects the history's only draw and biases its
+//! mean loss upward. Layer boundaries do **not** close a segment:
 //! each flight already contributes its own material's variance, so a
 //! segment spanning a boundary carries Bohr's total variance across it. The
 //! closing deviation is tallied on the flight that closes the segment — the

@@ -314,7 +314,12 @@ transmitted variance depressed to about 0.42 of the Bohr value). At the
 closing criterion a draw falls below zero with probability `Phi(-4) ~
 3.2e-5`, so the safety clamp of the deviation to `[-mu_acc, E]` — which
 keeps every history's energy exact and non-negative — is essentially
-inactive and the mean loss stays unbiased. The deviation is tallied on the
+inactive and the mean loss stays unbiased. That statement covers a segment
+closed at the criterion: a history whose transport ends before its segment
+does — an ion stopped in a layer thinner than the closing distance — draws
+its only deviation from a partial segment that can sit closer to zero than
+4 standard deviations, and there the clamp biases the history's mean loss
+upward. The deviation is tallied on the
 flight that closes the segment (the fluctuation is localized at the
 segment's end rather than spread along it), and layer boundaries do not
 close a segment, so thin layers do not reintroduce short segments. Crystal
