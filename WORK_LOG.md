@@ -2,6 +2,19 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-15
+
+- **PR #804**: refactor: one adaptive step-size policy for the 1-D and 2-D dynamic runs
+- **Issue #793** (closed): Share the adaptive step-size policy between the 1-D and 2-D dynamic runs: four rules written twice, and the 1-D/2-D equivalence #559 requires rests on them matching
+- **PR #780**: refactor(electron): share one secondary-spawn tail and one Kieft-Bosch options value
+- **Issue #764** (closed): Collapse the duplicated secondary-spawn tail in electron transport, and pass the Kieft-Bosch options as one value
+- **PR #800**: refactor(tests): share the csg/mesh geometry helpers through tests/common
+- **Issue #785** (closed): Share the 100 duplicated helper lines of tests/csg.rs and tests/mesh.rs via tests/common
+- **PR #794**: refactor(electron): state the Eq. 3.145 step-transmission formula once
+- **Issue #791** (closed): Call one helper for the step-transmission formula: Eq. 3.145 is written twice in electron::boundary and only the unused copy is tested
+- **PR #776**: build: run the pinned clippy from package.json and guard the pin
+- **Issue #763** (closed): Root package.json clippy scripts run floating stable, not the pinned CI gate toolchain
+
 ### 2026-11-14
 
 - **PR #792**: refactor(tests): share 17 duplicated integration-test fixtures through common
