@@ -2,7 +2,7 @@
 // The Worker (worker.js) owns the WASM session; this file only draws.
 
 import init, { elements_json } from "./pkg/lindhard_wasm.js";
-import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, PRESETS, el, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
+import { POTENTIALS, STOPPINGS, CRYSTAL_PRESETS, MAX_IONS, ModelError, PRESETS, el, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
 import { buildPlots, caveatLines, dashForSeries, niceTicks, plotExtent, reportJson, toCsv } from "./plots.js";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
@@ -116,7 +116,15 @@ function layerView(l, i) {
       h("button", { type: "button", on: { click: () => { l.elements.push(el("Si")); renderLayers(); refresh(); } } }, "Add element"),
       iconBtn("↑", "Move up", i === 0, () => move(i, -1)),
       iconBtn("↓", "Move down", last, () => move(i, 1)),
-      iconBtn("×", "Delete layer", false, () => { setup.layers.splice(i, 1); unitT.splice(i, 1); renderLayers(); refresh(); })),
+      iconBtn("×", "Delete layer", false, () => {
+        setup.layers.splice(i, 1);
+        unitT.splice(i, 1);
+        // Positional crystal indices follow the stack: drop the deleted layer
+        // and renumber the ones that sat above it.
+        if (setup.crystal) setup.crystal.layers = setup.crystal.layers.filter((j) => j !== i).map((j) => (j > i ? j - 1 : j));
+        renderLayers();
+        refresh();
+      })),
     h("div", { className: "layer-head" },
       h("label", {}, "Name", h("input", { value: l.name, "aria-label": `name of layer ${i + 1}`, on: { input: upd((t) => (l.name = t.value.trim())) } })),
       h("label", {}, "Thickness", h("span", { className: "group" }, thick, unit)),
@@ -137,6 +145,10 @@ function move(i, d) {
   const L = setup.layers;
   [L[i], L[i + d]] = [L[i + d], L[i]];
   [unitT[i], unitT[i + d]] = [unitT[i + d], unitT[i]];
+  // The crystal's layer indices are positional: a swap must keep each index
+  // pointing at the same material it named before the move.
+  const c = setup.crystal;
+  if (c) c.layers = c.layers.map((j) => (j === i ? i + d : j === i + d ? i : j));
   // Only the last layer can be a substrate.
   for (const [k, l] of L.entries()) if (l.thicknessNm == null && k !== L.length - 1) l.thicknessNm = 100;
   renderLayers();
@@ -176,6 +188,14 @@ function readScalars() {
   unitE = $("energy-unit").value;
   b.energyEv = Number($("energy").value) * UNIT_EV[unitE];
   b.tiltDeg = Number($("tilt").value);
+  b.azimuthDeg = Number($("azimuth").value);
+  if (setup.crystal) {
+    setup.crystal.preset = $("crystal-preset").value;
+    setup.crystal.normal = [0, 1, 2].map((i) => Number($(`cn-${i}`).value));
+    setup.crystal.reference = [0, 1, 2].map((i) => Number($(`cr-${i}`).value));
+    setup.crystal.waferRotationDeg = Number($("crystal-wafer").value);
+    setup.crystal.temperatureK = numOrNull($("crystal-temp").value);
+  }
   const p = setup.physics;
   p.followRecoils = $("mode-full").checked;
   p.potential = $("potential").value;
@@ -195,6 +215,16 @@ function writeScalars() {
   $("energy-unit").value = unitE;
   $("energy").value = String(b.energyEv / UNIT_EV[unitE]);
   $("tilt").value = String(b.tiltDeg);
+  $("azimuth").value = String(b.azimuthDeg ?? 0);
+  $("crystal-on").checked = setup.crystal != null;
+  $("crystal-controls").hidden = setup.crystal == null;
+  if (setup.crystal) {
+    $("crystal-preset").value = setup.crystal.preset;
+    $("crystal-wafer").value = String(setup.crystal.waferRotationDeg);
+    $("crystal-temp").value = show(setup.crystal.temperatureK);
+    for (const [i, v] of setup.crystal.normal.entries()) $(`cn-${i}`).value = String(v);
+    for (const [i, v] of setup.crystal.reference.entries()) $(`cr-${i}`).value = String(v);
+  }
   $("mode-full").checked = p.followRecoils;
   $("mode-quick").checked = !p.followRecoils;
   $("potential").value = p.potential;
@@ -206,6 +236,72 @@ function writeScalars() {
   $("bin").value = String(setup.tally.depthBinNm);
   $("bins").value = String(setup.tally.depthBins);
 }
+
+// ---- crystal controls ------------------------------------------------------
+
+// One crystal filling chosen stack layers (front to back, the substrate last),
+// or none: every layer stays amorphous.
+let crystalStackKey = null;
+
+function renderCrystal() {
+  const on = setup.crystal != null;
+  $("crystal-controls").hidden = !on;
+  if (!on) return;
+  setText("crystal-note",
+    "Layer indices run front to back with the substrate last. A crystal run takes about 17 times longer per ion than an amorphous one, so keep the ion count modest (2000 is sensible). " +
+    "The azimuth is measured from the reference direction; equipartition-ls-or stopping warns under a crystal that its electronic constants are unverified.");
+  // The layer checkboxes follow the stack; rebuilt only when the stack changes.
+  const key = `${setup.layers.length}|${setup.layers.map((l) => l.name).join("|")}`;
+  if (key !== crystalStackKey) {
+    crystalStackKey = key;
+    $("crystal-layers").replaceChildren(
+      "Layers on the lattice: ",
+      ...setup.layers.map((l, i) =>
+        h("label", { className: "inline" },
+          h("input", {
+            type: "checkbox", "data-layer": i,
+            on: { change: (e) => {
+              const s = new Set(setup.crystal.layers);
+              if (e.target.checked) s.add(i); else s.delete(i);
+              setup.crystal.layers = [...s].sort((a, b) => a - b);
+              refresh();
+            } },
+          }),
+          ` ${i + 1}: ${l.name}`)),
+    );
+  }
+  for (const box of $("crystal-layers").querySelectorAll("input")) {
+    box.checked = setup.crystal.layers.includes(Number(box.dataset.layer));
+  }
+  // An index the stack no longer has ("layer N does not exist" in the
+  // problems list) has no checkbox to untick: give it a chip with a remove
+  // button, so the message is actionable without restarting the crystal.
+  for (const chip of $("crystal-layers").querySelectorAll("[data-stale]")) chip.remove();
+  for (const j of setup.crystal.layers.filter((l) => l >= setup.layers.length)) {
+    $("crystal-layers").append(h("label", { className: "inline", "data-stale": "" },
+      ` ${j + 1}: no such layer `,
+      h("button", {
+        type: "button", className: "icon", title: `Remove layer ${j + 1} from the lattice`,
+        "aria-label": `remove nonexistent layer ${j + 1} from the lattice`,
+        on: { click: () => { setup.crystal.layers = setup.crystal.layers.filter((l) => l !== j); refresh(); } },
+      }, "×")));
+  }
+}
+
+$("crystal-on").addEventListener("change", () => {
+  if ($("crystal-on").checked) {
+    if (!setup.crystal) {
+      setup.crystal = { layers: [setup.layers.length - 1], preset: "Si", normal: [0, 0, 1], reference: [0, 1, 0], waferRotationDeg: 0, temperatureK: 300 };
+      // A crystal run costs ~17x per ion; drop the amorphous default of
+      // 10000 to a usable 2000, but never a count the user chose.
+      if (setup.run.ions === 10000) setup.run.ions = 2000;
+    }
+  } else {
+    setup.crystal = null;
+  }
+  writeScalars();
+  refresh();
+});
 
 // ---- layer stack drawing ---------------------------------------------------
 
@@ -297,6 +393,7 @@ function refresh() {
   setText("model-cite", `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`);
   setText("strip-models", `${CITE[setup.physics.potential]}; ${CITE[setup.physics.stopping]}.`);
   setText("physics-summary", `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`);
+  renderCrystal();
   const drawing = layerStackSvg();
   if (drawing.outerHTML !== $("stack").firstElementChild?.outerHTML) $("stack").replaceChildren(drawing);
   problems = validate(setup, elements);
@@ -1171,6 +1268,7 @@ try {
   $("symbols").replaceChildren(...elements.map((e) => h("option", { value: e.symbol })));
   $("potential").replaceChildren(...POTENTIALS.map((p) => h("option", {}, p)));
   $("stopping").replaceChildren(...STOPPINGS.map((p) => h("option", {}, p)));
+  $("crystal-preset").replaceChildren(...CRYSTAL_PRESETS.map((p) => h("option", {}, p)));
   $("preset").replaceChildren(...[CUSTOM, ...Object.keys(PRESETS)].map((p) => h("option", {}, p)));
   $("ions").max = String(Math.min(MAX_IONS, INTERACTIVE_MAX_IONS));
   $("cap-note").textContent = `The page runs up to ${INTERACTIVE_MAX_IONS} ions and records the paths of the first ${RECORDED_HISTORIES}, so a run stays responsive; the command-line tool has no such limit.`;
@@ -1184,7 +1282,7 @@ try {
   $("preset").addEventListener("change", () => showPresetNote($("preset").value));
   showPresetNote($("preset").value);
   $("add-layer").addEventListener("click", () => addPreset($("preset").value));
-  for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "mode-quick", "mode-full", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut"]) {
+  for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "azimuth", "mode-quick", "mode-full", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut", "crystal-preset", "crystal-wafer", "crystal-temp", "cn-0", "cn-1", "cn-2", "cr-0", "cr-1", "cr-2"]) {
     $(id).addEventListener("input", refresh);
     $(id).addEventListener("change", refresh);
   }
@@ -1193,7 +1291,7 @@ try {
     $("title").textContent = "Ion range calculator";
     $("intro").replaceChildren(
       "Projected range ", h("i", {}, "R"), h("sub", {}, "p"), ", straggle Δ", h("i", {}, "R"), h("sub", {}, "p"),
-      " and depth profile of an ion beam in an amorphous target, from the ",
+      " and depth profile of an ion beam in a target, from the ",
       h("a", { href: "https://github.com/2AMLogic/lindhard" }, "lindhard"),
       " binary-collision engine running in your browser (WebAssembly, in a Web Worker). Nothing is sent to a server. ",
       h("a", { href: "simulator.html" }, "Open the full simulator"), " for layered targets, full cascades and a downloadable input file.");

@@ -204,6 +204,94 @@ test("the repository's two-layer example loads from its file and runs", async ({
   await expectResults(page, 300);
 });
 
+// The crystal fieldset, driven as a reader would: enable it, read the TOML it
+// writes, load the repository's crystal example back, and keep the lattice on
+// the same material while the stack around it changes. The crystal's layer
+// indices are positional, so every layer mutation must remap them: a move
+// that silently re-pointed the lattice at another material would run
+// end-to-end without a single warning (the defect this guards against).
+test("the crystal fieldset writes the crystal tables and drops the ion count", async ({ page }) => {
+  await open(page);
+  // A crystal run costs ~17x per ion: enabling the crystal drops the
+  // amorphous default of 10000 to a usable 2000, but keeps a count the user
+  // chose. The page opens on its 1000-ion example, so restore the default.
+  await expect(page.locator("#ions")).toHaveValue("1000");
+  await page.locator("#ions").fill("10000");
+  await page.locator("#crystal-on").check();
+  await expect(page.locator("#ions")).toHaveValue("2000");
+  await expect(page.locator("#crystal-controls")).toBeVisible();
+  await page.locator("#crystal-preset").selectOption("Si");
+  await page.locator("#cn-0").fill("0");
+  await page.locator("#cn-1").fill("0");
+  await page.locator("#cn-2").fill("1");
+  await page.locator("#cr-0").fill("0");
+  await page.locator("#cr-1").fill("1");
+  await page.locator("#cr-2").fill("0");
+  await page.locator("#crystal-wafer").fill("45");
+  await page.locator("#crystal-temp").fill("150");
+  await page.locator("#azimuth").fill("22");
+  await expect(page.locator("#toml")).toHaveValue(/azimuth_deg = 22/);
+  await expect(page.locator("#toml")).toHaveValue(
+    /\[\[crystal\]\]\nlayers = \[0\]\npreset = "Si"\nnormal = \[0, 0, 1\]\nreference = \[0, 1, 0\]\nwafer_rotation_deg = 45\.0\n\n\[crystal\.thermal\]\ntemperature_k = 150\.0/);
+  await page.locator("#crystal-on").uncheck();
+  await expect(page.locator("#toml")).not.toHaveValue(/\[\[crystal\]\]/);
+});
+
+test("the crystal example loads from its file and the controls round-trip it", async ({ page }) => {
+  await open(page);
+  const example = new URL("../../../examples/b_5keV_si_crystal.toml", import.meta.url);
+  await page.locator("#load").setInputFiles({
+    name: "b_5keV_si_crystal.toml", mimeType: "text/plain", buffer: readFileSync(example),
+  });
+  await expect(page.locator("#status")).toHaveText("Loaded b_5keV_si_crystal.toml.");
+  await expect(page.locator("#crystal-on")).toBeChecked();
+  await expect(page.locator("#crystal-controls")).toBeVisible();
+  await expect(page.locator("#crystal-preset")).toHaveValue("Si");
+  await expect(page.locator("#azimuth")).toHaveValue("22");
+  await expect(page.locator("#crystal-wafer")).toHaveValue("0");
+  await expect(page.locator("#crystal-temp")).toHaveValue("300");
+  await expect(page.locator("#cn-2")).toHaveValue("1");
+  await expect(page.locator("#cr-1")).toHaveValue("1");
+  await expect(page.locator('#crystal-layers input[data-layer="0"]')).toBeChecked();
+  // The regenerated tables carry the file's values, so Run gets the same setup.
+  const toml = await page.locator("#toml").inputValue();
+  for (const line of [
+    "azimuth_deg = 22.0", "[[crystal]]", "layers = [0]", 'preset = "Si"',
+    "normal = [0, 0, 1]", "reference = [0, 1, 0]", "wafer_rotation_deg = 0.0",
+    "[crystal.thermal]", "temperature_k = 300.0",
+  ]) {
+    expect(toml, line).toContain(line);
+  }
+});
+
+test("moving or deleting a layer keeps the lattice on the same material", async ({ page }) => {
+  await open(page);
+  const example = new URL("../../../examples/as_50keV_si_sio2.toml", import.meta.url);
+  await page.locator("#load").setInputFiles({
+    name: "as_50keV_si_sio2.toml", mimeType: "text/plain", buffer: readFileSync(example),
+  });
+  await expect(page.locator("#layers .layer")).toHaveCount(2);
+  await page.locator("#crystal-on").check();
+  // The handler picks the substrate: layer 2, Si.
+  await expect(page.locator('#crystal-layers input[data-layer="1"]')).toBeChecked();
+  await expect(page.locator('#crystal-layers label:has(input[data-layer="1"])')).toHaveText(/2: Si$/);
+  // Moving the Si substrate up: the lattice must follow the Si, not the
+  // position it held (which is SiO2 after the swap).
+  await page.locator("#layers .layer").nth(1).getByRole("button", { name: "Move up" }).click();
+  await expect(page.locator("#toml")).toHaveValue(/^layers = \[0\]$/m);
+  await expect(page.locator('#crystal-layers input[data-layer="0"]')).toBeChecked();
+  await expect(page.locator('#crystal-layers label:has(input[data-layer="0"])')).toHaveText(/1: Si$/);
+  // Deleting the SiO2 layer below it keeps the Si on the lattice.
+  await page.locator("#layers .layer").nth(1).getByRole("button", { name: "Delete layer" }).click();
+  await expect(page.locator("#toml")).toHaveValue(/^layers = \[0\]$/m);
+  await expect(page.locator('#crystal-layers input[data-layer="0"]')).toBeChecked();
+  // Deleting the crystallized layer itself drops the index and says so.
+  await page.locator("#layers .layer").nth(0).getByRole("button", { name: "Delete layer" }).click();
+  await expect(page.locator("#problems-box")).toBeVisible();
+  await expect(page.locator("#problems")).toContainText("crystal.layers");
+  await expect(page.locator("#btn-run")).toBeDisabled();
+});
+
 test("a file that is not a lindhard input is refused with a message", async ({ page }) => {
   await open(page);
   await page.locator("#load").setInputFiles({ name: "notes.toml", mimeType: "text/plain", buffer: Buffer.from("this is = = not toml") });
