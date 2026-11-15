@@ -313,6 +313,7 @@ impl Target {
         TargetSpec {
             layers: self.layers.clone(),
             substrate: self.substrate.clone(),
+            solids: Vec::new(),
         }
     }
 

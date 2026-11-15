@@ -150,7 +150,8 @@ pub struct LayerSpec {
 }
 
 /// `[target]`: finite layers front to back, then an optional semi-infinite
-/// substrate. At least one of the two must be given.
+/// substrate, or instead a set of CSG solids. Exactly one of the three forms
+/// must be given.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TargetSpec {
@@ -161,6 +162,184 @@ pub struct TargetSpec {
     /// a back face and particles can be transmitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub substrate: Option<MaterialRef>,
+    /// CSG solids, in listing order. Not allowed together with `layers`,
+    /// `substrate`, `[[crystal]]` or `[dynamic]`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solids: Vec<SolidSpec>,
+}
+
+/// One `[[target.solids]]` entry: a material and a shape, selected by the
+/// `shape` key (`cuboid`, `cylinder`, `half_space`, or the combinations
+/// `union`, `intersection`, `difference`). Lengths are in nm.
+///
+/// **Listing order is priority order**: where solids overlap, the first
+/// listed owns the space, so a mask listed before the block it patterns cuts
+/// into it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "shape", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum SolidSpec {
+    /// The axis-aligned box `[lo_nm, hi_nm]` (each `lo_nm[k] < hi_nm[k]`).
+    Cuboid {
+        /// The solid's material.
+        material: MaterialRef,
+        /// Lower corner, nm.
+        lo_nm: [f64; 3],
+        /// Upper corner, nm.
+        hi_nm: [f64; 3],
+    },
+    /// A finite cylinder with flat end caps, along `axis` from `base_nm`.
+    Cylinder {
+        /// The solid's material.
+        material: MaterialRef,
+        /// Centre of the first end cap, nm.
+        base_nm: [f64; 3],
+        /// Direction of the axis (any non-zero length; normalised).
+        axis: [f64; 3],
+        /// Radius, nm.
+        radius_nm: f64,
+        /// Length along the axis, nm.
+        height_nm: f64,
+    },
+    /// The half-space `{p : normal . p <= offset_nm}`, with `normal` its
+    /// outward direction (any non-zero length; normalised, so `offset_nm` is
+    /// the plane's signed distance from the origin in nm). Unbounded on its
+    /// own: bound it with `intersection` (or `difference`), or it is an
+    /// error.
+    #[serde(rename = "half_space")]
+    HalfSpace {
+        /// The solid's material.
+        material: MaterialRef,
+        /// Outward normal direction (any non-zero length; normalised).
+        normal: [f64; 3],
+        /// Signed distance of the plane from the origin along the normalised
+        /// normal, nm.
+        offset_nm: f64,
+    },
+    /// Points inside every operand (at least one). Bounds a half-space.
+    Intersection {
+        /// The solid's material.
+        material: MaterialRef,
+        /// The intersected shapes.
+        of: Vec<SolidShape>,
+    },
+    /// Points inside `keep` and not inside `cut`.
+    Difference {
+        /// The solid's material.
+        material: MaterialRef,
+        /// The shape kept.
+        keep: Box<SolidShape>,
+        /// The shape cut away.
+        cut: Box<SolidShape>,
+    },
+    /// Points inside any operand (at least one).
+    Union {
+        /// The solid's material.
+        material: MaterialRef,
+        /// The united shapes.
+        of: Vec<SolidShape>,
+    },
+}
+
+impl SolidSpec {
+    /// The entry's material reference.
+    pub fn material(&self) -> &MaterialRef {
+        match self {
+            Self::Cuboid { material, .. }
+            | Self::Cylinder { material, .. }
+            | Self::HalfSpace { material, .. }
+            | Self::Intersection { material, .. }
+            | Self::Difference { material, .. }
+            | Self::Union { material, .. } => material,
+        }
+    }
+
+    /// The entry's shape without its material: what the engine's
+    /// [`Csg`](crate::geometry::Csg) tree is built from.
+    pub fn shape(&self) -> SolidShape {
+        match self {
+            Self::Cuboid { lo_nm, hi_nm, .. } => SolidShape::Cuboid {
+                lo_nm: *lo_nm,
+                hi_nm: *hi_nm,
+            },
+            Self::Cylinder {
+                base_nm,
+                axis,
+                radius_nm,
+                height_nm,
+                ..
+            } => SolidShape::Cylinder {
+                base_nm: *base_nm,
+                axis: *axis,
+                radius_nm: *radius_nm,
+                height_nm: *height_nm,
+            },
+            Self::HalfSpace {
+                normal, offset_nm, ..
+            } => SolidShape::HalfSpace {
+                normal: *normal,
+                offset_nm: *offset_nm,
+            },
+            Self::Intersection { of, .. } => SolidShape::Intersection { of: of.clone() },
+            Self::Difference { keep, cut, .. } => SolidShape::Difference {
+                keep: keep.clone(),
+                cut: cut.clone(),
+            },
+            Self::Union { of, .. } => SolidShape::Union { of: of.clone() },
+        }
+    }
+}
+
+/// A shape of a `[[target.solids]]` entry without its material: the leaves
+/// and combinations a solid's `shape` (or an operand of `union`,
+/// `intersection` or `difference`) is built from. The same shapes as
+/// [`SolidSpec`]; see there for the keys and the bounds rules.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "shape", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum SolidShape {
+    /// The axis-aligned box `[lo_nm, hi_nm]`.
+    Cuboid {
+        /// Lower corner, nm.
+        lo_nm: [f64; 3],
+        /// Upper corner, nm.
+        hi_nm: [f64; 3],
+    },
+    /// A finite cylinder with flat end caps.
+    Cylinder {
+        /// Centre of the first end cap, nm.
+        base_nm: [f64; 3],
+        /// Direction of the axis (any non-zero length; normalised).
+        axis: [f64; 3],
+        /// Radius, nm.
+        radius_nm: f64,
+        /// Length along the axis, nm.
+        height_nm: f64,
+    },
+    /// The half-space `{p : normal . p <= offset_nm}`.
+    #[serde(rename = "half_space")]
+    HalfSpace {
+        /// Outward normal direction (any non-zero length; normalised).
+        normal: [f64; 3],
+        /// Signed distance of the plane from the origin along the normalised
+        /// normal, nm.
+        offset_nm: f64,
+    },
+    /// Points inside every operand (at least one).
+    Intersection {
+        /// The intersected shapes.
+        of: Vec<SolidShape>,
+    },
+    /// Points inside `keep` and not inside `cut`.
+    Difference {
+        /// The shape kept.
+        keep: Box<SolidShape>,
+        /// The shape cut away.
+        cut: Box<SolidShape>,
+    },
+    /// Points inside any operand (at least one).
+    Union {
+        /// The united shapes.
+        of: Vec<SolidShape>,
+    },
 }
 
 /// Screening function choice.

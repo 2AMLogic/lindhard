@@ -272,8 +272,13 @@ fn deterministic_part(summary: &str) -> &str {
 #[test]
 fn output_is_byte_identical_across_thread_counts() {
     // The layered example exercises an interface, cascades and sputtering;
-    // 300 ions are five chunks of 64, so threads really interleave.
-    for name in ["as_50keV_si_sio2.toml", "ar_1keV_cu.toml"] {
+    // 300 ions are five chunks of 64, so threads really interleave. The
+    // masked CSG example covers the same for a `[[target.solids]]` input.
+    for name in [
+        "as_50keV_si_sio2.toml",
+        "ar_1keV_cu.toml",
+        "b_5keV_si_masked.toml",
+    ] {
         let ex = examples_dir().join(name);
         let mut outs = Vec::new();
         for threads in ["1", "4"] {

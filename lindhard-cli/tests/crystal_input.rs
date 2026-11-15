@@ -79,12 +79,17 @@ fn direct(r: &lindhard::input::Resolved, threads: usize) -> Simulation {
     let target =
         CrystalTarget::new(lattice, orientation).with_thermal(Thermal::new(300.0, THETA_D_SI));
     let stopping = r.stopping_model();
-    let bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
+    let bca = Bca::new(r.beam, r.geometry(), r.config, &*stopping, &table)
         .unwrap()
         .with_crystal(target, &[0])
         .unwrap();
     let crystals = bca.crystal_metadata();
-    let proto = IonTally::new(&r.stack, &bca.species_z(), r.ion_tally_config().unwrap()).unwrap();
+    let proto = IonTally::new(
+        r.geometry(),
+        &bca.species_z(),
+        r.ion_tally_config().unwrap(),
+    )
+    .unwrap();
     let t = &r.input.tally;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
@@ -175,8 +180,13 @@ fn crystal_changes_the_physics_but_amorphous_input_does_not_gain_the_field() {
     let pot = Potential::new(ra.screening, 5.0, 14.0).with_length(ra.screening_length);
     let table = ScatteringTable::build(&pot, &ra.table_spec);
     let stopping = ra.stopping_model();
-    let bca = Bca::new(ra.beam, &ra.stack, ra.config, &*stopping, &table).unwrap();
-    let proto = IonTally::new(&ra.stack, &bca.species_z(), ra.ion_tally_config().unwrap()).unwrap();
+    let bca = Bca::new(ra.beam, ra.geometry(), ra.config, &*stopping, &table).unwrap();
+    let proto = IonTally::new(
+        ra.geometry(),
+        &bca.species_z(),
+        ra.ion_tally_config().unwrap(),
+    )
+    .unwrap();
     let t = &ra.input.tally;
     let tally = bca
         .run(|| {
