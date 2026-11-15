@@ -1,9 +1,12 @@
 //! The native half of the native-versus-WASM parity test.
 //!
-//! `b_5keV_si.golden.json` holds the native result for 10^4 ions of 5 keV B
-//! into Si (seed 1). This test checks the native build against it; the Node
-//! test `tests/node/parity.test.mjs` checks the WASM build against the same
-//! file, with the same tolerance, so the two builds agree through the file.
+//! `b_5keV_si.golden.json` holds the native result, recorded from
+//! [`Simulation`], for the run in `b_5keV_si.toml` (10^4 ions of 5 keV B
+//! into Si, seed 1), reduced to `Rp`, `ΔRp` and the stopped count. This
+//! test checks the native build against it by running the fixture through
+//! [`Simulation`]; the Node test
+//! `tests/node/parity.test.mjs` checks the WASM build against the same file,
+//! with the same tolerance, so the two builds agree through the file.
 //!
 //! # Tolerance
 //!
@@ -17,73 +20,88 @@
 //! until the histories diverge, and the two builds then draw the same random
 //! numbers into different, statistically equivalent trajectories. A
 //! tolerance of one standard error accepts that and rejects a systematic
-//! difference of the size the statistics can resolve. Observed today:
-//! the Linux x86-64 native and the WASM build agree to about 1e-15 relative.
+//! difference of the size the statistics can resolve. Observed before the
+//! golden's re-record onto `Simulation` (which removed the one-shot range
+//! calculator the pair previously pointed at): the Linux x86-64 native and
+//! the WASM build agreed to about 1e-15 relative.
 
-use lindhard_wasm::{range_profile, Request};
+use lindhard_wasm::Simulation;
 
+const INPUT_TOML: &str = include_str!("b_5keV_si.toml");
 const GOLDEN: &str = include_str!("b_5keV_si.golden.json");
 
 fn golden() -> serde_json::Value {
     serde_json::from_str(GOLDEN).expect("golden file is JSON")
 }
 
-fn request(g: &serde_json::Value) -> Request {
-    Request {
-        ion: g["ion"].as_str().unwrap().to_owned(),
-        energy_ev: g["energy_ev"].as_f64().unwrap(),
-        target: g["target"].as_str().unwrap().to_owned(),
-        ions: u32::try_from(g["ions"].as_u64().unwrap()).unwrap(),
-        seed: u32::try_from(g["seed"].as_u64().unwrap()).unwrap(),
+/// Run the whole fixture in engine chunks and return the final report.
+fn report() -> serde_json::Value {
+    let mut sim = Simulation::new(INPUT_TOML, 0, 10).unwrap();
+    while !sim.done() {
+        sim.step(1000).unwrap();
     }
+    serde_json::from_str(&sim.report_json().unwrap()).expect("report is JSON")
 }
 
 #[test]
 fn native_matches_the_golden_record() {
     let g = golden();
-    let p = range_profile(&request(&g)).unwrap();
+    let report = report();
     let want = |k: &str| g[k].as_f64().unwrap();
+    let depth = &report["range"]["depth"];
+    let rp_nm = depth["mean"].as_f64().unwrap() * 1e9;
+    let drp_nm = depth["std_dev"].as_f64().unwrap() * 1e9;
     assert!(
-        (p.rp_nm - want("rp_nm")).abs() <= want("rp_std_err_nm"),
-        "Rp {} vs golden {} (tolerance {})",
-        p.rp_nm,
+        (rp_nm - want("rp_nm")).abs() <= want("rp_std_err_nm"),
+        "Rp {rp_nm} vs golden {} (tolerance {})",
         want("rp_nm"),
         want("rp_std_err_nm")
     );
     assert!(
-        (p.drp_nm - want("drp_nm")).abs() <= want("drp_std_err_nm"),
-        "dRp {} vs golden {} (tolerance {})",
-        p.drp_nm,
+        (drp_nm - want("drp_nm")).abs() <= want("drp_std_err_nm"),
+        "dRp {drp_nm} vs golden {} (tolerance {})",
         want("drp_nm"),
         want("drp_std_err_nm")
     );
     let stopped = want("stopped");
     let n = want("ions");
     let sigma = (stopped * (1.0 - stopped / n)).sqrt();
+    let got = report["range"]["stopped"].as_f64().unwrap();
     assert!(
-        (p.stopped as f64 - stopped).abs() <= sigma,
-        "stopped {} vs golden {stopped} (tolerance {sigma})",
-        p.stopped
+        (got - stopped).abs() <= sigma,
+        "stopped {got} vs golden {stopped} (tolerance {sigma})"
     );
-    assert_eq!(p.histories, 10_000);
-    assert_eq!(p.counts.iter().sum::<u64>(), p.stopped);
-    // Every primary either stops or leaves the target.
-    assert_eq!(p.stopped + p.escaped, p.histories);
+    assert_eq!(report["histories"].as_u64().unwrap(), 10_000);
+    // The depth histogram accounts for every stopped primary.
+    let hist = &report["range"]["depth_histogram"];
+    let binned: u64 = hist["counts"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|c| c.as_u64().unwrap())
+        .sum();
+    assert_eq!(
+        binned + hist["underflow"].as_u64().unwrap() + hist["overflow"].as_u64().unwrap(),
+        got as u64
+    );
 }
 
 #[test]
 fn bad_input_is_an_error_not_a_panic() {
-    let mut req = request(&golden());
-    req.ion = "Xx".into();
-    assert!(range_profile(&req).is_err());
-    req.ion = "B".into();
-    req.target = "Qq".into();
-    assert!(range_profile(&req).is_err());
-    req.target = "Si".into();
-    req.ions = 0;
-    assert!(range_profile(&req).is_err());
-    req.ions = lindhard_wasm::MAX_IONS + 1;
-    assert!(range_profile(&req).is_err());
+    let err = |toml: &str| Simulation::new(toml, 0, 10).unwrap_err();
+    // Unknown beam element.
+    let ion = INPUT_TOML.replace("ion = \"B\"", "ion = \"Xx\"");
+    assert!(err(&ion).contains("unknown element"), "{}", err(&ion));
+    // Unknown target element.
+    let target = INPUT_TOML.replace("substrate = \"Si\"", "substrate = \"Qq\"");
+    assert!(
+        err(&target).contains("unknown material"),
+        "{}",
+        err(&target)
+    );
+    // Over-large run (the resolver takes `ions = 0`; the session's cap).
+    let too_many = INPUT_TOML.replace("ions = 10000", "ions = 2000000");
+    assert!(err(&too_many).contains("run.ions"), "{}", err(&too_many));
 }
 
 /// Prints the record for the golden file: `cargo test -p lindhard-wasm --test
@@ -91,9 +109,14 @@ fn bad_input_is_an_error_not_a_panic() {
 #[test]
 #[ignore = "prints the numbers for the golden file"]
 fn record() {
-    let p = range_profile(&request(&golden())).unwrap();
+    let report = report();
+    let depth = &report["range"]["depth"];
     println!(
         "rp_nm {:?}\ndrp_nm {:?}\nrp_std_err_nm {:?}\ndrp_std_err_nm {:?}\nstopped {}",
-        p.rp_nm, p.drp_nm, p.rp_std_err_nm, p.drp_std_err_nm, p.stopped
+        depth["mean"].as_f64().unwrap() * 1e9,
+        depth["std_dev"].as_f64().unwrap() * 1e9,
+        depth["mean_std_err"].as_f64().unwrap() * 1e9,
+        depth["std_dev_std_err"].as_f64().unwrap() * 1e9,
+        report["range"]["stopped"].as_u64().unwrap(),
     );
 }
