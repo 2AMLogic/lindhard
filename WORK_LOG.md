@@ -4,6 +4,14 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-15
 
+- **PR #828**: chore: gate Rust/Python CI jobs behind a fail-closed prose filter
+- **Issue #809** (closed): CI: ci.yml has no path filtering, so a docs-only PR runs the full Rust matrix (~98 runner-minutes measured)
+- **PR #820**: refactor: call elements::symbol at the five inline fallback copies
+- **Issue #806** (closed): Five element-symbol copies survive #788: the inline copies its `fn symbol` grep could not see
+- **PR #799**: feat: sample opt-in Bohr energy-loss straggling in BCA transport
+- **Issue #767** (closed): Opt-in Bohr energy-loss straggling in ion BCA transport
+- **PR #824**: docs: record the #768 CSG-target API change and correct stale lateral-face comments
+- **Issue #819** (closed): CHANGELOG: no ### Changed entry for the breaking Resolved/IonTally ion-target API change
 - **Issue #823** (closed): Remove unused rayon dependency from lindhard-py
 - **Issue #821** (closed): Remove unused rayon dependency from lindhard-py
 - **Issue #817** (closed): Remove unused rayon dependency from lindhard-py
