@@ -1,9 +1,10 @@
 //! The native half of the native-versus-WASM parity test.
 //!
-//! `b_5keV_si.golden.json` holds the native result for the run in
-//! `b_5keV_si.toml` (10^4 ions of 5 keV B into Si, seed 1), reduced to `Rp`,
-//! `ΔRp` and the stopped count. This test checks the native build against it
-//! by running the fixture through [`Simulation`]; the Node test
+//! `b_5keV_si.golden.json` holds the native result, recorded from
+//! [`Simulation`], for the run in `b_5keV_si.toml` (10^4 ions of 5 keV B
+//! into Si, seed 1), reduced to `Rp`, `ΔRp` and the stopped count. This
+//! test checks the native build against it by running the fixture through
+//! [`Simulation`]; the Node test
 //! `tests/node/parity.test.mjs` checks the WASM build against the same file,
 //! with the same tolerance, so the two builds agree through the file.
 //!
@@ -19,8 +20,10 @@
 //! until the histories diverge, and the two builds then draw the same random
 //! numbers into different, statistically equivalent trajectories. A
 //! tolerance of one standard error accepts that and rejects a systematic
-//! difference of the size the statistics can resolve. Observed today:
-//! the Linux x86-64 native and the WASM build agree to about 1e-15 relative.
+//! difference of the size the statistics can resolve. Observed before the
+//! golden's re-record onto `Simulation` (which removed the one-shot range
+//! calculator the pair previously pointed at): the Linux x86-64 native and
+//! the WASM build agreed to about 1e-15 relative.
 
 use lindhard_wasm::Simulation;
 
