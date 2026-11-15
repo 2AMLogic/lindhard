@@ -5,6 +5,12 @@ Chronological record of notable decisions and merges.
 ### 2026-11-15
 
 - **Issue #831** (measured, scratch PR #836 deleted unmerged): `always()` in the prose gate's `if` **defeats `cancel-in-progress`** — on superseded run 43721980560 all four gated jobs kept running after the superseding push: `Rust (ubuntu-24.04)` `success` (+40 min), `Rust (ubuntu-24.04-arm)` `success` (+41 min), `Python bindings (lindhard-py)` `success` (+6 min), `Rust (macos-latest)` `cancelled` by its own 45-min `timeout-minutes` overrun (+43 min); ≈130 runner-minutes after the supersede, above the ~95-min ceiling #831 estimated. Second-order effect: replacement run 43722473563 sat pending ~43 min in the concurrency group — the newer push's CI did not start until the doomed run's jobs vacated. Corroborated on run 43721484232 (Python bindings ran to `success` across a supersede). `always()` stays as written for now — the rule-6 fail-closed reason stands until #841 measures whether `!cancelled()` preserves it.
+- **PR #832**: test: cover crystal-path Bohr straggling and make the clamp test bite
+- **Issue #830** (closed): Straggling test coverage: no committed crystal+straggling test, and the clamp test does not test the clamp
+- **PR #825**: docs: collapse repeated Unreleased sub-sections in CHANGELOG.md and name the two published crates
+- **Issue #814** (closed): CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent
+- **PR #798**: feat(wasm): crystal controls and beam azimuth on the simulator page
+- **Issue #782** (closed): Simulator page: crystal orientation controls, now that the session transports [[crystal]]
 - **PR #828**: chore: gate Rust/Python CI jobs behind a fail-closed prose filter
 - **Issue #809** (closed): CI: ci.yml has no path filtering, so a docs-only PR runs the full Rust matrix (~98 runner-minutes measured)
 - **PR #820**: refactor: call elements::symbol at the five inline fallback copies
