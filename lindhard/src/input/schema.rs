@@ -491,6 +491,31 @@ pub enum FreePathChoice {
     EnergyDependent,
 }
 
+/// Electronic energy-loss straggling of the BCA's nonlocal loss.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum StragglingChoice {
+    /// No straggling: every free flight loses exactly the mean electronic
+    /// loss, and the engine draws nothing for it.
+    #[default]
+    None,
+    /// Bohr's (1948) variance, non-relativistic. Valid at high energy,
+    /// `v >> v0 Z1^(2/3)`; an overestimate below about 1 MeV/u
+    /// ([`crate::ion::stopping::straggling`]).
+    Bohr,
+    /// Bohr's variance with the relativistic factor
+    /// `(1 - beta^2/2) / (1 - beta^2)` (Bethe and Livingston 1937; Fano 1963).
+    BohrRelativistic,
+}
+
+impl StragglingChoice {
+    /// The default `None`: the echoed input omits the key, so a run with the
+    /// default echoes exactly as before the option existed.
+    pub fn is_none(&self) -> bool {
+        matches!(self, StragglingChoice::None)
+    }
+}
+
 /// Per-element energy overrides, eV.
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -532,6 +557,15 @@ pub struct PhysicsSpec {
     /// required with `free_path = "energy-dependent"`, rejected otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_cm_angle_deg: Option<f64>,
+    /// Electronic energy-loss straggling of the nonlocal loss. Default
+    /// `"none"`: every free flight loses the mean electronic loss and no
+    /// random draw is made. `"bohr"` (or `"bohr-relativistic"`) samples each
+    /// flight's loss about that mean from a Gaussian with the Bohr standard
+    /// deviation for the flight's path length and the layer's composition
+    /// ([`crate::ion::stopping::straggling`]); the sampled loss is truncated
+    /// to `[0, E]` (see there for the bias this adds in thin layers).
+    #[serde(default, skip_serializing_if = "StragglingChoice::is_none")]
+    pub straggling: StragglingChoice,
     /// Weak collisions per collision step, `0..=3`
     /// ([`crate::ion::bca::BcaConfig::weak_collisions`]); constant free path
     /// only. Default 0.

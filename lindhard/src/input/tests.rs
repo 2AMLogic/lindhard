@@ -7,6 +7,7 @@ use crate::elements::element_by_symbol;
 use crate::geometry::{Csg, Geometry};
 use crate::ion::bca::{ElectronicLoss, MeanFreePath};
 use crate::ion::potential::{Screening, ScreeningLength};
+use crate::ion::stopping::straggling::StragglingModel;
 
 const B_SI: &str = r#"
 [beam]
@@ -66,6 +67,254 @@ fn minimal_input_resolves_with_defaults() {
         Some(LengthChoice::Universal)
     );
     assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[test]
+fn straggling_choice_resolves_and_echoes() {
+    let text = |s: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = 5000.0
+
+[target]
+substrate = "Si"
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    // Default: the engine draws nothing for straggling.
+    let r = Input::from_toml_str(&text("")).unwrap().resolve().unwrap();
+    assert_eq!(r.config.straggling, None);
+    // The echoed input of a default run omits the key entirely, so a
+    // default run's metadata is unchanged.
+    let echoed = Input::from_toml_str(&text("")).unwrap().echo();
+    assert!(!toml::to_string(&echoed).unwrap().contains("straggling"));
+    // Both spellings resolve to their engine models.
+    let r = Input::from_toml_str(&text("straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert_eq!(r.config.straggling, Some(StragglingModel::Bohr));
+    assert_eq!(r.input.physics.straggling, StragglingChoice::Bohr,);
+    let r = Input::from_toml_str(&text("straggling = \"bohr-relativistic\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert_eq!(r.config.straggling, Some(StragglingModel::BohrRelativistic));
+    // A set choice is echoed and round-trips.
+    let echoed = Input::from_toml_str(&text("straggling = \"bohr\"\n"))
+        .unwrap()
+        .echo();
+    assert!(toml::to_string(&echoed).unwrap().contains("straggling"));
+    // An unknown value is a parse error naming the key's accepted values.
+    let e = Input::from_toml_str(&text("straggling = \"landau\"\n")).unwrap_err();
+    match e {
+        InputError::Parse(msg) => {
+            assert!(msg.contains("unknown variant"), "{msg}");
+            assert!(msg.contains("bohr-relativistic"), "{msg}");
+        }
+        e => panic!("expected a parse error, got {e}"),
+    }
+}
+
+#[test]
+fn straggling_warns_on_constant_free_path_and_below_bohr_floor() {
+    let text = |e: f64, s: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = {e}
+
+[target]
+substrate = "Si"
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    // 5 keV B with the default constant free path: both advisories fire.
+    let r = Input::from_toml_str(&text(5000.0, "straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("straggling") && w.contains("free_path = \"constant\"")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("validity floor") && w.contains("Bohr")),
+        "{:?}",
+        r.warnings
+    );
+    // The energy-dependent free path clears the truncation advisory, but the
+    // 5 keV beam is still far below Bohr's v >> v0 Z1^(2/3) floor.
+    let r = Input::from_toml_str(&text(
+        5000.0,
+        "straggling = \"bohr\"\nfree_path = \"energy-dependent\"\nmin_cm_angle_deg = 1.0\n",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("free_path")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings.iter().any(|w| w.contains("validity floor")),
+        "{:?}",
+        r.warnings
+    );
+    // 5 MeV is above the floor for B (about 2.3 MeV): the validity advisory
+    // goes, the truncation one stays.
+    let r = Input::from_toml_str(&text(5.0e6, "straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("validity floor")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("free_path = \"constant\"")),
+        "{:?}",
+        r.warnings
+    );
+    // Straggling off is silent on both.
+    let r = Input::from_toml_str(&text(5000.0, ""))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[test]
+fn straggling_warns_on_crystal_flights_and_mixed_stacks_warn_about_both() {
+    // A 5 MeV beam sits above Bohr's floor for B (about 2.3 MeV); stopping
+    // is bethe-bloch so the lindhard-scharff validity range does not add its
+    // own advisory, and only the truncation advisories can fire here. The
+    // mixed-stack case extends the target with an amorphous C layer, so it
+    // carries its own energy override for C.
+    let text = |s: &str, target: &str, extra_energies: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = 5.0e6
+
+{target}
+
+[physics]
+stopping = "bethe-bloch"
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+{extra_energies}
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    let substrate = "[target]\nsubstrate = \"Si\"\n";
+    let crystal =
+        "[[crystal]]\nlayers = [0]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n";
+    // A crystal region with straggling on: the crystal advisory fires even
+    // though the constant free path is the only legal choice there.
+    let r = Input::from_toml_str(&text(
+        "straggling = \"bohr\"\n",
+        &format!("{substrate}{crystal}"),
+        "",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("[[crystal]]") && w.contains("unavoidable")),
+        "{:?}",
+        r.warnings
+    );
+    // A fully crystalline stack has no amorphous regions: the constant
+    // free-path advisory does not fire (other advisories, such as the
+    // stopping model's validity range at this energy, are unrelated and not
+    // pinned here).
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("free_path")),
+        "{:?}",
+        r.warnings
+    );
+    // A mixed stack warns about both halves: the amorphous layer flies the
+    // constant free path (its usual fix is unavailable), the crystal region
+    // flies the lattice. Layer 0 is the amorphous C film, layer 1 the
+    // crystalline Si substrate.
+    let mixed = format!(
+        "{substrate}[[target.layers]]\nmaterial = \"C\"\nthickness_nm = 10.0\n\
+         [[crystal]]\nlayers = [1]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n"
+    );
+    let r = Input::from_toml_str(&text(
+        "straggling = \"bohr\"\n",
+        &mixed,
+        "[physics.energies.C]\ne_d_ev = 20.0\n",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        r.warnings.iter().any(|w| w.contains("[[crystal]]")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("free_path = \"constant\"") && w.contains("amorphous regions")),
+        "{:?}",
+        r.warnings
+    );
+    // Straggling off: a crystal run says nothing about straggling.
+    let r = Input::from_toml_str(&text("", &format!("{substrate}{crystal}"), ""))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("straggling")),
+        "{:?}",
+        r.warnings
+    );
 }
 
 #[test]

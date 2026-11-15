@@ -12,15 +12,61 @@
 //!
 //! # Use in transport
 //!
-//! BCA transport does not sample electronic straggling: outside this module
-//! nothing references `variance_per_atom`, `StragglingModel` or
-//! `straggling::` (checked 2026-11-10 with
+//! The ion BCA engine samples electronic straggling when it is enabled with
+//! `[physics] straggling = "bohr"` (or `"bohr-relativistic"`; input key
+//! `StragglingChoice`, engine setting `BcaConfig::straggling`) — in the
+//! amorphous engine per free flight, and in a crystal region per lattice
+//! flight. In amorphous material every free
+//! flight's nonlocal loss is then drawn from a Gaussian centred on the mean
+//! loss `N S_e s` it would take anyway, with standard deviation
+//! `sqrt(n Omega^2 s)`: the Bragg-added variance of this module
+//! (`variance_per_atom_material`) scaled by the flight's areal density
+//! `n s`. The draw comes from the history's own transport random stream,
+//! so results stay deterministic per `(seed, index)` at any thread count.
+//! The effective charge is `EffectiveCharge::Bare`, the form in which the
+//! Bohr expression is written above; the engine's mean loss applies no
+//! charge correction either.
+//!
+//! Because the Gaussian is unbounded below, a draw can exceed the ion's
+//! energy or come out negative (an energy gain). The sampled loss is
+//! truncated by clamping to `[0, E]`, the same ceiling the mean loss is
+//! clamped to. This biases the mean loss upward when the standard deviation
+//! is comparable to the mean loss per flight — thin layers, low energy —
+//! which is also the regime where Bohr's variance is an overestimate
+//! ("Not implemented" below), so the two errors reinforce rather than
+//! cancel. The bias is not cosmetic at short flights: with the constant
+//! free path (flights of `N^(-1/3)`, 0.21 nm in carbon) the per-flight
+//! standard deviation at MeV energies is several times the per-flight mean
+//! loss, and the sampled transmitted variance of a 1 MeV proton through
+//! 100 nm of carbon then measures about 0.42 of the Bohr value while the
+//! mean loss inflates about 2.5x — 5.8 keV to 14.9 keV of electronic loss
+//! per history, energy conservation delivering the rest into the clamped
+//! draws (measured 2026-11-14 while building this feature). The input
+//! resolution warns when `[physics] straggling` is combined with the
+//! constant free path, and when the beam energy sits below Bohr's
+//! `v >> v0 Z1^(2/3)` floor. A crystal region is always in the short-flight
+//! regime: its flights are lattice flights, short by construction
+//! (`search_length_nm` defaults to the lattice constant, 0.543 nm in Si),
+//! they sample through the same electronic-loss path, and no long-flight
+//! option exists inside a crystal, so with straggling on a crystal's
+//! electronic loss carries an unavoidable upward truncation bias — measured
+//! about 3.7x on a 1 MeV proton through Si (2026-11-15, same foil protocol
+//! as the amorphous figure above) — which the input resolution warns about
+//! separately. With flights tens of
+//! nanometres long (`free_path = "energy-dependent"` at a small
+//! `min_cm_angle_deg`) the truncation is inactive and the same foil
+//! reproduces the Bohr variance to about two percent;
+//! `lindhard/tests/straggling.rs` pins that configuration.
+//!
+//! Turning the option on shifts every subsequent transport draw of a
+//! history, so a run with straggling is a different trajectory sequence
+//! than a run without it, not a per-history perturbation of one; comparisons
+//! between the two must be statistical over many histories. A default
+//! (`"none"`) run makes no draw at all, so its results are bit-identical to
+//! a build without the option. Before 2026-11-14 this module was
+//! library-only: nothing sampled it (checked with
 //! `grep -rnE 'variance_per_atom|StragglingModel|straggling::' --include=*.rs .`
-//! piped through `grep -v 'stopping/straggling.rs'` prints nothing; the module
-//! is only declared by `pub mod straggling;` in `stopping/mod.rs`, which that
-//! pattern does not match and a plain `grep -rn straggling` finds). The
-//! electronic loss along each free flight is deterministic; this module is
-//! library-only.
+//! piped through `grep -v 'stopping/straggling.rs'`, which printed nothing).
 //!
 //! # Not implemented
 //!
