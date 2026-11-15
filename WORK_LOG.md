@@ -4,6 +4,7 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-15
 
+- **Scratch #831**: measurement branch for the `always()` vs `cancel-in-progress` experiment (issue #831); this branch is never merged
 - **PR #828**: chore: gate Rust/Python CI jobs behind a fail-closed prose filter
 - **Issue #809** (closed): CI: ci.yml has no path filtering, so a docs-only PR runs the full Rust matrix (~98 runner-minutes measured)
 - **PR #820**: refactor: call elements::symbol at the five inline fallback copies

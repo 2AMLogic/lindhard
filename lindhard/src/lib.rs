@@ -35,3 +35,6 @@ mod vec3;
 
 /// Crate version, as stamped by Cargo.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// scratch #831 measurement push 1: forces code=true; reverted in push 2
+
