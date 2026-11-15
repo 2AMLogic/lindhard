@@ -83,14 +83,19 @@ fn direct(r: &lindhard::input::Resolved, div: Divergence, threads: usize) -> Sim
     .unwrap();
     let target = CrystalTarget::new(lattice, orientation);
     let stopping = r.stopping_model();
-    let bca = Bca::new(r.beam, &r.stack, r.config, &*stopping, &table)
+    let bca = Bca::new(r.beam, r.geometry(), r.config, &*stopping, &table)
         .unwrap()
         .with_divergence(div)
         .unwrap()
         .with_crystal(target, &[1])
         .unwrap();
     let crystals = bca.crystal_metadata();
-    let proto = IonTally::new(&r.stack, &bca.species_z(), r.ion_tally_config().unwrap()).unwrap();
+    let proto = IonTally::new(
+        r.geometry(),
+        &bca.species_z(),
+        r.ion_tally_config().unwrap(),
+    )
+    .unwrap();
     let t = &r.input.tally;
     let pool = rayon::ThreadPoolBuilder::new()
         .num_threads(threads)
