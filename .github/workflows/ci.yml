@@ -218,10 +218,20 @@ jobs:
         needs.changes.outputs.code == 'true'
       )
     runs-on: ${{ matrix.os }}
-    # The slowest green leg takes ~27 min (macOS ~26 min, of which the test
-    # step is ~24 min), so 30 min cancels on small growth. 45 min leaves
-    # headroom while a hung run still stops.
-    timeout-minutes: 45
+    # This cap is a hang detector: it must clear the healthy worst case, not
+    # the average. Measured 2026-11-15 on green `main` runs (a28ec55 =
+    # 43729507043, ee7765a = 43722959840, and three older same-day runs; main
+    # @ e6b16c1) — re-measure before trusting these figures:
+    # - green job totals: macOS 36m26s-44m06s (worst: 44m06s @ ee7765a),
+    #   ubuntu-24.04-arm up to 42m17s, ubuntu-24.04 up to 41m22s;
+    # - the `test` step is ~96% of each job (macOS 40m40s of 42m11s @ a28ec55);
+    # - macOS swings ~13 min run-to-run (test step 29m20s-42m23s across 9
+    #   green runs on 2026-11-15).
+    # Derivation: the cap must absorb worst-case total + spread ≈ 44m06s + 13m
+    # ≈ 57m, so 75 min leaves ~70% headroom over the observed max while a
+    # genuinely hung run still stops. Precedent: #462 raised this same cap
+    # 30 -> 45 for the same reason (#847).
+    timeout-minutes: 75
     env:
       # Exact Rust release for the required clippy gate (rustc 1.99.0,
       # released 2026-10-01). Bump deliberately; see CONTRIBUTING.md.
