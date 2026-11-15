@@ -4,6 +4,27 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-15
 
+- **PR #810**: docs: name all three synthetic SRIM coefficient fixtures in provenance record
+- **Issue #775** (closed): Name the SRIM integration-test fixture in docs/data-provenance.md's SRIM section
+- **PR #807**: docs: record the wasm session's crystal support and widen the changelog scope
+- **Issue #781** (closed): CHANGELOG: record that the wasm session accepts [[crystal]] targets
+- **PR #797**: refactor(wasm): remove the orphaned one-shot range calculator
+- **Issue #789** (closed): Remove the orphaned one-shot WASM range calculator
+- **PR #760**: refactor(electron): move the beam model out of transport.rs into electron::beam
+- **Issue #753** (closed): Move the electron beam model out of electron/transport.rs into its own electron::beam module
+- **PR #803**: refactor: hold DataFile in LoadedStoppingTable and LoadedSrimData
+- **Issue #774** (closed): Fold the path/resolved_path/sha256 triple into a `file: DataFile` field
+- **PR #783**: docs: repoint cstool inelastic_axis attribution at assemble.rs
+- **Issue #765** (closed): THIRD_PARTY_LICENSES.md still points cstool's inelastic_axis attribution at the old file
+- **PR #802**: docs: add #546 to the WORK_PLAN blocked-and-waiting table
+- **Issue #786** (closed): WORK_PLAN.md: account for #546, open but listed only as done
+- **PR #795**: refactor: share one hist_rows writer and one element-symbol lookup
+- **Issue #788** (closed): Share the one histogram-CSV writer and the one element-symbol lookup
+- **PR #796**: refactor(cli,py): share one thread-pool helper across front ends
+- **Issue #787** (closed): Share one thread-pool helper across the CLI and Python crates
+- **Issue #773** (closed): Finish the tests/common consolidation: 18 clusters of byte-identical test helpers remain
+- **Issue #812** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #813** (closed): Remove unused rayon dependency from lindhard-py
 - **PR #804**: refactor: one adaptive step-size policy for the 1-D and 2-D dynamic runs
 - **Issue #793** (closed): Share the adaptive step-size policy between the 1-D and 2-D dynamic runs: four rules written twice, and the 1-D/2-D equivalence #559 requires rests on them matching
 - **PR #780**: refactor(electron): share one secondary-spawn tail and one Kieft-Bosch options value
