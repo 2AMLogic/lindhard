@@ -623,9 +623,9 @@ pub fn summary_json(
                 .map(|l| {
                     let (lo, hi) = l.table.energy_range_ev();
                     StoppingTableOut {
-                        path: l.path.clone(),
-                        resolved_path: l.resolved_path.display().to_string(),
-                        sha256: l.sha256.clone(),
+                        path: l.file.path.clone(),
+                        resolved_path: l.file.resolved_path.display().to_string(),
+                        sha256: l.file.sha256.clone(),
                         provenance: l.table.provenance().to_string(),
                         ion_z: l.table.ion_z(),
                         ion_mass_amu: l.table.ion_mass_amu(),
@@ -636,9 +636,9 @@ pub fn summary_json(
                 })
                 .collect(),
             srim_data: r.srim.as_ref().map(|l| SrimDataOut {
-                path: l.path.clone(),
-                resolved_path: l.resolved_path.display().to_string(),
-                sha256: l.sha256.clone(),
+                path: l.file.path.clone(),
+                resolved_path: l.file.resolved_path.display().to_string(),
+                sha256: l.file.sha256.clone(),
             }),
             engine: Engine {
                 primary_cutoff_ev: c.primary_cutoff_ev,

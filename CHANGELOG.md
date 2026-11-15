@@ -1,7 +1,7 @@
 # Changelog
 
-All notable changes to `lindhard` and `lindhard-cli` are recorded here. The
-format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
+All notable user-visible changes to this workspace's crates are recorded here.
+The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the crates use [Semantic Versioning](https://semver.org/) (both crates share
 one version).
 
@@ -10,6 +10,7 @@ one version).
 ### Added
 
 - The simulator page gains crystal controls: a setup can transport chosen stack layers on a cubic lattice (Si, Ge, GaAs, 3C-SiC) with the surface normal (hkl), the in-plane reference [uvw], the wafer rotation, an optional lattice temperature, and the beam azimuth as the twist; the page now emits and loads `[[crystal]]`/`[crystal.thermal]` and `beam.azimuth_deg`, refuses orientations the engine would reject (zone law, zero triples, bad layer indices), keeps `p_max_nm`/`q_max_nm`/`search_length_nm` rejected by name, and documents that a crystal run costs about 17 times more per ion on WASM (#782).
+- `lindhard-wasm`: the `Simulation` session accepts `[[crystal]]` targets and applies every assignment, so an in-browser run transports the lattice — channeling under the beam's tilt and twist — and gives the same report as the CLI for the same input. A crystal run cut into steps is still byte-identical, and `[dynamic]` composition is still rejected (#769).
 - The exposure tally takes the electron beam profile type, so `[electron.tally.exposure]` gains `beam = { model = "rectangle", width_y_nm, width_z_nm }`; the `model = "disc"` spelling is accepted beside the historical `kind = "uniform-disc"`, and exposure outputs and landing-offset draws are unchanged (#608).
 - Energy by depth for ion runs: `energy_profile.csv`, `IonReport::energy` (`EnergyProfileReport`, built on the new `WeightedHistogram`) and the Python `RunResult.energy_profile` give the electronic loss, the lattice energy and the energy transferred to primary recoils on the depth grid; each sums to the matching energy-budget total (#639).
 - 2-D dynamic run: lateral implanted-species and displacement-damage profiles on a `VoxelTallyGrid` at chosen fluences (`DynamicRun2d::with_profiles`, `ProfileSnapshot` CSV export), a film cut-through run mode (`run_until_cut_through`) that reports the fluence bracket and the damage left in the substrate, and `compare_profile` for comparing a milled profile with published points (RMS depth difference, tolerance, per-point discrepancies). No published trench cross-section is committed yet (#561).

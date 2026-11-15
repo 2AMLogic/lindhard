@@ -1,5 +1,5 @@
 // The WASM half of the native-versus-WASM parity test, and the smoke test
-// that the built package loads and returns a profile.
+// that the built package loads and runs the golden fixture.
 //
 // Run by `lindhard-wasm/build.sh nodejs <dir>` followed by
 //   LINDHARD_WASM_PKG=<dir> node --test lindhard-wasm/tests/node/parity.test.mjs
@@ -19,47 +19,54 @@ import test from "node:test";
 const pkg = process.env.LINDHARD_WASM_PKG;
 assert.ok(pkg, "set LINDHARD_WASM_PKG to the directory build.sh wrote");
 const wasm = createRequire(import.meta.url)(resolve(pkg, "lindhard_wasm.js"));
-const golden = JSON.parse(
-  readFileSync(new URL("../b_5keV_si.golden.json", import.meta.url), "utf8"),
-);
+const read = (rel) => readFileSync(new URL(rel, import.meta.url), "utf8");
+const inputToml = read("../b_5keV_si.toml");
+const golden = JSON.parse(read("../b_5keV_si.golden.json"));
+
+// Run `toml` to completion and return its final report.
+function runAll(toml) {
+  const sim = new wasm.Simulation(toml, 0, 10);
+  try {
+    while (!sim.done()) sim.step(1000);
+    return JSON.parse(sim.report_json());
+  } finally {
+    sim.free();
+  }
+}
 
 test("the package loads and reports the library version", () => {
   assert.match(wasm.version(), /^\d+\.\d+\.\d+/);
 });
 
 test("B into Si matches the native golden record", () => {
-  const r = wasm.calculate(
-    golden.ion,
-    golden.energy_ev,
-    golden.target,
-    golden.ions,
-    golden.seed,
+  const report = runAll(inputToml);
+  const depth = report.range.depth;
+  assert.ok(
+    Math.abs(depth.mean * 1e9 - golden.rp_nm) <= golden.rp_std_err_nm,
+    `Rp ${depth.mean * 1e9} vs ${golden.rp_nm}`,
   );
   assert.ok(
-    Math.abs(r.rp_nm - golden.rp_nm) <= golden.rp_std_err_nm,
-    `Rp ${r.rp_nm} vs ${golden.rp_nm}`,
-  );
-  assert.ok(
-    Math.abs(r.drp_nm - golden.drp_nm) <= golden.drp_std_err_nm,
-    `dRp ${r.drp_nm} vs ${golden.drp_nm}`,
+    Math.abs(depth.std_dev * 1e9 - golden.drp_nm) <= golden.drp_std_err_nm,
+    `dRp ${depth.std_dev * 1e9} vs ${golden.drp_nm}`,
   );
   const sigma = Math.sqrt(golden.stopped * (1 - golden.stopped / golden.ions));
-  assert.ok(Math.abs(r.stopped - golden.stopped) <= sigma);
-  assert.equal(r.histories, golden.ions);
-});
-
-test("the profile is a histogram of the stopped ions", () => {
-  const r = wasm.calculate("B", 5000, "Si", 2000, 7);
-  const counts = Array.from(r.counts);
-  assert.equal(counts.length, 100);
-  assert.equal(
-    counts.reduce((a, b) => a + b, 0),
-    r.stopped,
-  );
-  assert.ok(r.bin_nm > 0);
+  assert.ok(Math.abs(report.range.stopped - golden.stopped) <= sigma);
+  assert.equal(report.histories, golden.ions);
+  // The depth histogram accounts for every stopped primary.
+  const h = report.range.depth_histogram;
+  const binned = h.counts.reduce((a, b) => a + b, 0) + h.underflow + h.overflow;
+  assert.equal(binned, report.range.stopped);
 });
 
 test("invalid input throws an Error with the library's message", () => {
-  assert.throws(() => wasm.calculate("Xx", 5000, "Si", 100, 1), /unknown element/);
-  assert.throws(() => wasm.calculate("B", 5000, "Si", 0, 1), /ions must be/);
+  assert.throws(
+    () => new wasm.Simulation(inputToml.replace('ion = "B"', 'ion = "Xx"'), 0, 10),
+    /unknown element/,
+  );
+  assert.throws(
+    () => new wasm.Simulation(inputToml.replace("ions = 10000", "ions = 2000000"), 0, 10),
+    /ions must be/,
+  );
+  // The module is still usable after the errors.
+  assert.equal(runAll(inputToml).histories, golden.ions);
 });

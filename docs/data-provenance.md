@@ -617,11 +617,15 @@ check of the digitizer, not of a per-paper file.
 `stopping = "srim"` reads a versioned coefficient file
 (`lindhard-srim-coefficients/1`, see `docs/cli.md`). The loader rejects any
 row without a non-blank `citation` (edition, table, page), so no value can be
-loaded without a provenance string. This change ships **no book values**: the
-unit-test fixture is synthetic numbers made up for tests. The real
-coefficient and effective-charge tables, with one row here per printed table
-(origin: published table, origin class 5 above; entered twice and diffed),
-arrive in #633.
+loaded without a provenance string. This change ships **no book values**:
+the three coefficient fixtures in the tree are synthetic numbers made up for
+tests — `FIXTURE` in `lindhard/src/ion/stopping/srim.rs` (two rows, H into Si
+and H into O), `SRIM_FIXTURE` in `lindhard/tests/stopping_tables.rs` (one
+row, B into Si) and `SRIM_COEFFICIENTS` in `lindhard-cli/tests/examples.rs`
+(two rows, B into Si and Si into Si) — and every row of each carries a
+`citation` saying so. The real coefficient and effective-charge tables, with
+one row here per printed table (origin: published table, origin class 5
+above; entered twice and diffed), arrive in #633.
 
 ## Tuning factor sets (opt-in, #80)
 
