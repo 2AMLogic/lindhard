@@ -13,7 +13,7 @@
 use std::fmt::Write as _;
 use std::time::Instant;
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result};
 use lindhard::electron::data::{CrossSectionTable, ShellChannelTable};
 use lindhard::electron::inelastic::table::mean_loss_ev;
 use lindhard::electron::transport::{LayerTables, RunMetadata, Transport};
@@ -260,13 +260,7 @@ pub fn simulate_electron(
     threads: Option<usize>,
     cache: Option<&TableCache>,
 ) -> Result<ElectronSimulation> {
-    if threads == Some(0) {
-        bail!("threads must be at least 1");
-    }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
+    let pool = crate::pool::build(threads)?;
 
     let (transport, tables, table_build_s) = build_transport(r, &pool, cache)?;
     let mut proto = FullElectronTally::new(&transport, r.tally.clone())

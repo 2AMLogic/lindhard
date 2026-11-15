@@ -66,15 +66,7 @@ fn parse_shots(obj: &Bound<'_, PyAny>) -> PyResult<Vec<Shot>> {
 }
 
 fn with_threads<T: Send>(threads: Option<usize>, f: impl FnOnce() -> T + Send) -> PyResult<T> {
-    match threads {
-        None => Ok(f()),
-        Some(0) => Err(errors::input("threads must be at least 1")),
-        Some(n) => Ok(rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .map_err(|e| errors::run(&e))?
-            .install(f)),
-    }
+    lindhard_cli::pool::with_threads(threads, f).map_err(errors::input)
 }
 
 /// Dose, eV/m², at the points `(x_m[i], y_m[i])` of the exposure of `shots`.
@@ -232,9 +224,6 @@ pub(crate) fn exposure_direct<'py>(
     };
     grid.validate().map_err(errors::input)?;
     let resolved = run.borrow().resolve_input()?;
-    if threads == Some(0) {
-        return Err(errors::input("threads must be at least 1"));
-    }
     let cfg = DirectConfig {
         histories_per_shot,
         replicas,
@@ -244,10 +233,7 @@ pub(crate) fn exposure_direct<'py>(
         depth_hi_m: slab_hi_m,
     };
     let (direct, cmp) = py.detach(|| -> PyResult<_> {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads.unwrap_or(0))
-            .build()
-            .map_err(|e| errors::run(&e))?;
+        let pool = lindhard_cli::pool::build(threads).map_err(errors::input)?;
         let (transport, _tables, _secs) =
             lindhard_cli::electron::build_transport(&resolved, &pool, None)
                 .map_err(|e| errors::run(&e))?;

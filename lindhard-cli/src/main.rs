@@ -341,9 +341,6 @@ fn run(
         input.run.threads = threads;
     }
     let r = resolve(path, &input)?;
-    if input.run.threads == Some(0) {
-        bail!("--threads must be at least 1");
-    }
 
     if r.input.dynamic.is_some() {
         return run_dynamic(&r, input.run.threads, out);
