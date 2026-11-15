@@ -209,10 +209,13 @@ jobs:
     name: Rust (${{ matrix.os }})
     needs: changes
     # Fail closed: run unless this is a pull_request the gate classified as
-    # prose-only — and run whenever the gate itself failed or was cancelled.
-    # See the comment block above the `changes` job for the invariants.
+    # prose-only — and run whenever the gate did not succeed, provided the
+    # run itself was not cancelled (a cancelled run is no verdict; a gate
+    # that died on its own timeout still dispatches this job, measured in
+    # #841). See the comment block above the `changes` job for the
+    # invariants.
     if: >-
-      always() && (
+      !cancelled() && (
         github.event_name != 'pull_request' ||
         needs.changes.result != 'success' ||
         needs.changes.outputs.code == 'true'
@@ -340,10 +343,10 @@ jobs:
   python:
     name: Python bindings (lindhard-py)
     needs: changes
-    # Same fail-closed gate as the `rust` job; see the comment block above
-    # the `changes` job for the invariants.
+    # Same fail-closed gate as the `rust` job: runs whenever the gate did
+    # not succeed and the run itself was not cancelled.
     if: >-
-      always() && (
+      !cancelled() && (
         github.event_name != 'pull_request' ||
         needs.changes.result != 'success' ||
         needs.changes.outputs.code == 'true'
