@@ -208,6 +208,7 @@ Issues carrying `loom:curated`.
 - **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated)*
 - **#360**: Measure the build time and peak RSS of a penn-full table with band-bottom rate refinement (operator-run) *(curated)*
+- **#409**: CI: clippy canary failing on latest stable or beta Rust *(curated)*
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)*
 - **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
 - **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)*
@@ -252,7 +253,7 @@ Issues carrying `loom:curated`.
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 27 |
+| Curated | 28 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
