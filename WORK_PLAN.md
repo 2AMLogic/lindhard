@@ -181,8 +181,7 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-- **#850**: CONTRIBUTING.md's prose-gate paragraph still describes the pre-#841 `always()` semantics
-- **#851**: CI: A/B the test profile opt-level on macos-latest — #849's ledger shows execute (94%) dominates and is concentrated in 3 targets
+- **#861**: ci.yml cap comment: re-ground the macOS spread term and worst-leg identity at -O3 (n=2 runs disagree)
 
 ## PRs Awaiting Review
 
@@ -195,7 +194,7 @@ _None._
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
-- **#853**: docs: distinguish whole-run cancels from gate failures in prose-gate fail-closed sentence
+- **#863**: ci: restate the rust cap comment across five green -O3 runs
 
 ## Proposed
 
@@ -228,8 +227,7 @@ Issues carrying `loom:curated`.
 - **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
 - **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
 - **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
-- **#850**: CONTRIBUTING.md's prose-gate paragraph still describes the pre-#841 `always()` semantics *(curated)*
-- **#851**: CI: A/B the test profile opt-level on macos-latest — #849's ledger shows execute (94%) dominates and is concentrated in 3 targets *(curated)*
+- **#861**: ci.yml cap comment: re-ground the macOS spread term and worst-leg identity at -O3 (n=2 runs disagree) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -253,10 +251,10 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 5 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 2 |
+| In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
-| Curated | 29 |
+| Curated | 28 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
