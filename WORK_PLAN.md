@@ -181,25 +181,21 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-- **#782**: Simulator page: crystal orientation controls, now that the session transports [[crystal]]
-- **#814**: CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent
-- **#815**: Hoist Bohr variance per layer out of the per-flight path (straggling perf)
-- **#829**: Straggling: the per-flight [0, E] truncation inflates the mean electronic loss 2.5-3.7x at short flights
-- **#830**: Straggling test coverage: no committed crystal+straggling test, and the clamp test does not test the clamp
+- **#850**: CONTRIBUTING.md's prose-gate paragraph still describes the pre-#841 `always()` semantics
+- **#851**: CI: A/B the test profile opt-level on macos-latest — #849's ledger shows execute (94%) dominates and is concentrated in 3 targets
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#798**: feat(wasm): crystal controls and beam azimuth on the simulator page
-- **#825**: docs: collapse repeated Unreleased sub-sections in CHANGELOG.md and name the two published crates
-- **#832**: test: cover crystal-path Bohr straggling and make the clamp test bite
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
+- **#853**: docs: distinguish whole-run cancels from gate failures in prose-gate fail-closed sentence
 
 ## Proposed
 
@@ -229,11 +225,11 @@ Issues carrying `loom:curated`.
 - **#642**: [Epic #630] TRIM.IN importer *(curated)*
 - **#643**: [Epic #630] SRIM-format output writers *(curated)*
 - **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
-- **#782**: Simulator page: crystal orientation controls, now that the session transports [[crystal]] *(curated)*
-- **#814**: CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent *(curated)*
-- **#815**: Hoist Bohr variance per layer out of the per-flight path (straggling perf) *(curated)*
-- **#829**: Straggling: the per-flight [0, E] truncation inflates the mean electronic loss 2.5-3.7x at short flights *(curated)*
-- **#830**: Straggling test coverage: no committed crystal+straggling test, and the clamp test does not test the clamp *(curated)*
+- **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
+- **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
+- **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
+- **#850**: CONTRIBUTING.md's prose-gate paragraph still describes the pre-#841 `always()` semantics *(curated)*
+- **#851**: CI: A/B the test profile opt-level on macos-latest — #849's ledger shows execute (94%) dominates and is concentrated in 3 targets *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -257,9 +253,9 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 5 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 5 |
-| PRs awaiting review | 3 |
-| Approved PRs awaiting merge | 1 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 0 |
+| Approved PRs awaiting merge | 2 |
 | Curated | 29 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 6 |
