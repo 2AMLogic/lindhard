@@ -22,7 +22,7 @@ no layers, compounds, crystals or electron mode.
 
 ```sh
 rustup target add wasm32-unknown-unknown
-# wasm-bindgen command-line tool, release 0.2.129 (the version pinned in
+# wasm-bindgen command-line tool, release 0.2.130 (the version pinned in
 # lindhard-wasm/Cargo.toml)
 lindhard-wasm/build.sh web out/pkg
 cp lindhard-wasm/web/*.js lindhard-wasm/web/simulator.html out/

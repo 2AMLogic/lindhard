@@ -35,8 +35,8 @@ jobs:
       MDBOOK_VERSION: "0.5.4"
       MDBOOK_SHA256: "5222beabd3e37dc5be0d18ff99b79058469354db5c220153a1b92db5ba12be89"
       # Same pin as wasm.yml and the `=` pin in lindhard-wasm/Cargo.toml.
-      WASM_BINDGEN_VERSION: "0.2.129"
-      WASM_BINDGEN_SHA256: "82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e"
+      WASM_BINDGEN_VERSION: "0.2.130"
+      WASM_BINDGEN_SHA256: "9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306c3227f"
     steps:
       - uses: actions/checkout@v7
       - name: Every model enum variant is named in the manual
