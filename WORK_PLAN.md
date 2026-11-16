@@ -181,7 +181,7 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-- **#861**: ci.yml cap comment: re-ground the macOS spread term and worst-leg identity at -O3 (n=2 runs disagree)
+_None._
 
 ## PRs Awaiting Review
 
@@ -194,7 +194,6 @@ _None._
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
-- **#863**: ci: restate the rust cap comment across five green -O3 runs
 
 ## Proposed
 
@@ -227,7 +226,6 @@ Issues carrying `loom:curated`.
 - **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
 - **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
 - **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
-- **#861**: ci.yml cap comment: re-ground the macOS spread term and worst-leg identity at -O3 (n=2 runs disagree) *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -251,10 +249,10 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 5 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 1 |
+| In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
-| Curated | 28 |
+| Approved PRs awaiting merge | 1 |
+| Curated | 27 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
