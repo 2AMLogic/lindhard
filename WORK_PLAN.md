@@ -176,6 +176,7 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
+- **#868**: CI gate: assert the wasm-bindgen CLI pin in workflows matches lindhard-wasm/Cargo.toml
 
 ## In Progress
 
@@ -227,6 +228,7 @@ Issues carrying `loom:curated`.
 - **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
 - **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
 - **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
+- **#868**: CI gate: assert the wasm-bindgen CLI pin in workflows matches lindhard-wasm/Cargo.toml *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -249,11 +251,11 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 5 |
-| Ready (`loom:issue`) | 1 |
+| Ready (`loom:issue`) | 2 |
 | In Progress (`loom:building`) | 0 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 28 |
+| Curated | 29 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
