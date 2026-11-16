@@ -421,7 +421,13 @@ fn segment_crosses_a_layer_boundary_and_conserves_energy() {
 /// A `straggling = "none"` run must draw nothing, so its stream — and with
 /// it every result — is the one a build without the option produces: the
 /// default configuration and an explicit `None` are bit-identical, and a
-/// run with straggling on is a different sequence.
+/// run with straggling on is a different sequence. Every assertion here is
+/// an exact bit-equality or bit-difference, not a statistical estimate, so
+/// 300 histories per run exercise them as well as more would — the same
+/// trade `straggling_run_is_bit_identical_across_thread_counts` states
+/// below. (Down from 500 in the pre-2026-11-15 budget: four runs at the
+/// constant free path's ~480 flights per history made this one of the
+/// file's dearest tests, measured per test in issue #855.)
 #[test]
 fn straggling_none_makes_no_draw() {
     let bb = BetheBloch::new();
@@ -431,7 +437,7 @@ fn straggling_none_makes_no_draw() {
         cfg.seed = 2026;
         cfg.straggling = straggling;
         cfg.follow_recoils = false;
-        let beam = Beam::normal(Ion::proton(), 1.0e6, 500);
+        let beam = Beam::normal(Ion::proton(), 1.0e6, 300);
         Bca::new(beam, &stack, cfg, &bb, common::zbl_si_table())
             .unwrap()
             .run(Transmitted::default)

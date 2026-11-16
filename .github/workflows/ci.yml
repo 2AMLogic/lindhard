@@ -222,18 +222,37 @@ jobs:
       )
     runs-on: ${{ matrix.os }}
     # This cap is a hang detector: it must clear the healthy worst case, not
-    # the average. Measured 2026-11-15 on green `main` runs (a28ec55 =
-    # 43729507043, ee7765a = 43722959840, and three older same-day runs; main
-    # @ e6b16c1) — re-measure before trusting these figures:
-    # - green job totals: macOS 36m26s-44m06s (worst: 44m06s @ ee7765a),
-    #   ubuntu-24.04-arm up to 42m17s, ubuntu-24.04 up to 41m22s;
-    # - the `test` step is ~96% of each job (macOS 40m40s of 42m11s @ a28ec55);
-    # - macOS swings ~13 min run-to-run (test step 29m20s-42m23s across 9
-    #   green runs on 2026-11-15).
-    # Derivation: the cap must absorb worst-case total + spread ≈ 44m06s + 13m
-    # ≈ 57m, so 75 min leaves ~70% headroom over the observed max while a
-    # genuinely hung run still stops. Precedent: #462 raised this same cap
-    # 30 -> 45 for the same reason (#847).
+    # the average. Figures restated 2026-11-15 from this PR's own green run
+    # (43772463891 @ e916859), a tree carrying both #844 (the straggling
+    # resample) and #859 (`[profile.test] opt-level = 3`, which landed in
+    # this PR's base after the 764d756 measurement below was taken) —
+    # re-measure before trusting these figures:
+    # - green job totals @ e916859: macOS 15m39s (worst; test step 14m13s),
+    #   ubuntu-24.04-arm 11m41s (test step 10m38s), ubuntu-24.04 10m41s
+    #   (test step 9m44s). The same-day pre-`-O3` #844 tree measured
+    #   ubuntu-24.04 49m18s (worst), ubuntu-24.04-arm 47m34s, macOS 45m24s
+    #   (run 43748757639 @ 764d756, whose lindhard/tests/straggling.rs is
+    #   byte-identical to main @ b0818ac) — the ~3x drop is #859's
+    #   opt-level = 3 landing between the two measurements, not a test
+    #   change;
+    # - tests/straggling.rs: 13.78s per ubuntu leg before #844 (run
+    #   43733776929 @ e6b16c1), 482.80s at opt-level 0 on the #844 tree
+    #   (run 43748757639 @ 764d756), 39.96s (10 passed) at -O3 here — ~7%
+    #   of the ubuntu test step, so no longer the step's driver. Most of
+    #   that swing is #859's -O3, not the exact-assertion history-count
+    #   reduction (issue #855, whose per-test measurements identified the
+    #   constant-free-path tests as the cost);
+    # - the `test` step is ~91% of each job (macOS 14m13s of 15m39s @
+    #   e916859);
+    # - macOS spread: ~13 min run-to-run (test step 29m20s-42m23s across 9
+    #   green runs on 2026-11-15) was measured at opt-level 0 and is not
+    #   re-measured at -O3 (one green run so far); it is carried into the
+    #   derivation below as an unmeasured upper bound from the opt-level-0
+    #   regime.
+    # Derivation: the cap must absorb worst-case total + spread ≈ 15m39s +
+    # ~13m ≈ 29m, so the 75-min cap clears it with ~46 min of margin while
+    # a genuinely hung run still stops. Precedent: #462 raised this same
+    # cap 30 -> 45 for the same reason (#847).
     timeout-minutes: 75
     env:
       # Exact Rust release for the required clippy gate (rustc 1.99.0,
