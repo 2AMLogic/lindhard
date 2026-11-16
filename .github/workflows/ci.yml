@@ -222,14 +222,22 @@ jobs:
       )
     runs-on: ${{ matrix.os }}
     # This cap is a hang detector: it must clear the healthy worst case, not
-    # the average. Figures restated 2026-11-15 from this PR's own green run
-    # (43772463891 @ e916859), a tree carrying both #844 (the straggling
-    # resample) and #859 (`[profile.test] opt-level = 3`, which landed in
-    # this PR's base after the 764d756 measurement below was taken) —
-    # re-measure before trusting these figures:
-    # - green job totals @ e916859: macOS 15m39s (worst; test step 14m13s),
-    #   ubuntu-24.04-arm 11m41s (test step 10m38s), ubuntu-24.04 10m41s
-    #   (test step 9m44s). The same-day pre-`-O3` #844 tree measured
+    # the average. Figures restated 2026-11-16 from five green -O3 runs
+    # (three on main, two on PR #860's feature/issue-855 branch — its test
+    # tree is byte-identical to main @ 11c86ad's, while the two earlier
+    # main runs predate the #855 history-count cut to straggling.rs) — a
+    # tree carrying both #844 (the straggling resample) and #859
+    # (`[profile.test] opt-level = 3`, b6cc5d3) — re-measure before
+    # trusting these figures:
+    # - green job totals per leg across the five runs (run id @ head, all
+    #   2026-11-15/16): 43770337253 @ f18e015 main, 43772463891 @ e916859
+    #   and 43775944627 @ b8a686f PR #860, 43778248787 @ 7a0b938 main,
+    #   43779864274 @ 11c86ad main. Ranges: macOS 7m48s-19m06s (swing
+    #   11m18s), ubuntu-24.04 10m41s-17m13s (6m32s), ubuntu-24.04-arm
+    #   11m41s-12m36s (55s). The worst leg alternates run to run (macOS,
+    #   macOS, ubuntu-24.04, ubuntu-24.04, macOS) — no single leg is the
+    #   one to watch; worst observed total 19m06s (macOS, run 43779864274
+    #   @ 11c86ad). For scale, the same-day pre-`-O3` #844 tree measured
     #   ubuntu-24.04 49m18s (worst), ubuntu-24.04-arm 47m34s, macOS 45m24s
     #   (run 43748757639 @ 764d756, whose lindhard/tests/straggling.rs is
     #   byte-identical to main @ b0818ac) — the ~3x drop is #859's
@@ -237,20 +245,23 @@ jobs:
     #   change;
     # - tests/straggling.rs: 13.78s per ubuntu leg before #844 (run
     #   43733776929 @ e6b16c1), 482.80s at opt-level 0 on the #844 tree
-    #   (run 43748757639 @ 764d756), 39.96s (10 passed) at -O3 here — ~7%
+    #   (run 43748757639 @ 764d756), 39.96s (10 passed) at -O3 (run
+    #   43772463891 @ e916859) — ~7%
     #   of the ubuntu test step, so no longer the step's driver. Most of
     #   that swing is #859's -O3, not the exact-assertion history-count
     #   reduction (issue #855, whose per-test measurements identified the
     #   constant-free-path tests as the cost);
     # - the `test` step is ~91% of each job (macOS 14m13s of 15m39s @
-    #   e916859);
-    # - macOS spread: ~13 min run-to-run (test step 29m20s-42m23s across 9
-    #   green runs on 2026-11-15) was measured at opt-level 0 and is not
-    #   re-measured at -O3 (one green run so far); it is carried into the
-    #   derivation below as an unmeasured upper bound from the opt-level-0
-    #   regime.
-    # Derivation: the cap must absorb worst-case total + spread ≈ 15m39s +
-    # ~13m ≈ 29m, so the 75-min cap clears it with ~46 min of margin while
+    #   e916859, run 43772463891);
+    # - whole-matrix run-to-run spread at -O3: both x86 legs swing (macOS
+    #   11m18s, ubuntu-24.04 6m32s across the five 2026-11-15/16 runs
+    #   above) while the arm leg is nearly flat (55s) — spread is not a
+    #   macOS property. The ~13 min run-to-run bound carried from
+    #   opt-level 0 (test step 29m20s-42m23s across 9 green runs on
+    #   2026-11-15, measured before #859) is measured adequate at -O3:
+    #   the largest observed swing (macOS 11m18s) stays inside it.
+    # Derivation: the cap must absorb worst-case total + spread ≈ 19m06s +
+    # ~13m ≈ 32m, so the 75-min cap clears it with ~43 min of margin while
     # a genuinely hung run still stops. Precedent: #462 raised this same
     # cap 30 -> 45 for the same reason (#847).
     timeout-minutes: 75
