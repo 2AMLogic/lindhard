@@ -156,13 +156,21 @@ jobs:
         run: python3 validation/experiments/test_sb_si_dynamic.py
 
   workflow-checks:
-    name: Workflow checks (clippy pin, canary reporting)
+    name: Workflow checks (clippy pin, canary reporting, wasm-bindgen pin)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - run: python3 -m pip install pyyaml
       - run: python3 .github/scripts/test_clippy_canary.py
+      - name: wasm-bindgen CLI pin matches lindhard-wasm/Cargo.toml
+        # Python standard library only. Dependabot bumps the `=` pin on
+        # wasm-bindgen in lindhard-wasm/Cargo.toml alone; the WASM_BINDGEN_VERSION
+        # env pins in wasm.yml and book.yml must follow by hand or every WASM
+        # build dies 40 s in with an opaque schema-mismatch error (issue #868).
+        # This job is not gated by `changes`, so it also catches a
+        # workflow-only edit of either file.
+        run: python3 .github/scripts/check_wasm_bindgen_pin.py
 
   figures:
     name: Validation figures match the committed results
