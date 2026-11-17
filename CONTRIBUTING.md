@@ -258,7 +258,14 @@ RustSec database, with the policy in the `[advisories]` table of `deny.toml`. It
 is not a pull-request workflow and not a required check, on purpose: the
 database changes without any commit here, so a PR-time check would fail
 unrelated PRs on a newly published advisory. `ci.yml` runs only
-`cargo deny check licenses sources`.
+`cargo deny check licenses sources`. That constraint is enforced by a
+static guard: the `BANNED_TOKENS` check in `test_advisories_report.py`
+(run in ci.yml's `workflow-checks` job) fails any step or `env` in
+`ci.yml` mentioning the common spellings — the `cargo deny check
+advisories` family, `cargo audit`, the hyphenated `cargo-audit` binary,
+or the `rustsec/audit-check` action. The guard is defence-in-depth, not
+an adversarial sandbox: it catches these spellings and no others, and
+further spellings are not chased — this list is final.
 
 The workflow pins its own cargo-deny (`CARGO_DENY_VERSION` in `advisories.yml`),
 newer than the one in `ci.yml`: 0.18.2 cannot load the current database
