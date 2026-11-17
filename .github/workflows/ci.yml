@@ -323,11 +323,25 @@ jobs:
         # part of the cache key, so bumping it invalidates the cache
         # instead of restoring a stale link path.
         uses: actions/setup-python@v7
+        id: setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: Swatinem/rust-cache@v2
         with:
-          key: py-${{ env.PYTHON_VERSION }}
+          # Key on the interpreter setup-python actually resolved (the exact
+          # 3.12.x), not on the requested minor: pyo3's build-script output —
+          # which this cache stores and restores — bakes the patch-qualified
+          # toolcache lib dir on the Linux legs (measured for #878:
+          # -L /opt/hostedtoolcache/Python/3.12.16/<arch>/lib), so a cache
+          # saved under one patch would otherwise link against a directory a
+          # runner resolving the next patch does not have — the #872
+          # mechanism. macOS is currently immune (it bakes the minor-qualified
+          # framework path /Library/Frameworks/Python.framework/Versions/3.12/lib)
+          # but shares the key anyway. Cost: the cache rotates once per
+          # upstream 3.12.x release a leg resolves — one cold rust job per
+          # leg per bump. Do not simplify this back to env.PYTHON_VERSION
+          # (the minor): that reopens the window (#878).
+          key: py-${{ steps.setup-python.outputs.python-version }}
       - name: fmt
         run: cargo fmt --all --check
       - name: clippy (pinned toolchain)
