@@ -2,6 +2,11 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-17
+
+- **PR #870**: ci: assert the workflows' wasm-bindgen pin matches the crate pin
+- **Issue #868** (closed): CI gate: assert the wasm-bindgen CLI pin in workflows matches lindhard-wasm/Cargo.toml
+
 ### 2026-11-16
 
 - **PR #863**: ci: restate the rust cap comment across five green -O3 runs
