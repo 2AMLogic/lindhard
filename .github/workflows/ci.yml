@@ -323,6 +323,7 @@ jobs:
         # part of the cache key, so bumping it invalidates the cache
         # instead of restoring a stale link path.
         uses: actions/setup-python@v7
+        id: setup-python
         with:
           python-version: ${{ env.PYTHON_VERSION }}
       - uses: Swatinem/rust-cache@v2
@@ -334,6 +335,19 @@ jobs:
         run: cargo +"$CLIPPY_TOOLCHAIN" clippy --workspace --all-targets -- -D warnings
       - name: test
         run: cargo test --workspace
+      - name: Dump pyo3 build-script output (#878 measurement)
+        # Issue #878: show whether pyo3's build-script output carries a
+        # patch-qualified `cargo:rustc-link-search` on this leg. Read after
+        # the build — on a cache hit this is the restored file the linker
+        # actually consumed, which is exactly the artifact the suspected
+        # failure mechanism turns stale. Remove once #878 is resolved.
+        if: always()
+        env:
+          RESOLVED_PY: ${{ steps.setup-python.outputs.python-version }}
+        run: |
+          set -euo pipefail
+          echo "#878 measurement: setup-python resolved python-version=${RESOLVED_PY}"
+          find target -path '*/build/pyo3-*/output' -type f -print -exec cat {} \; || true
 
   msrv:
     name: MSRV (cargo check at the declared rust-version)
