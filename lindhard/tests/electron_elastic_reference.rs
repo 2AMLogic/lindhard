@@ -11,12 +11,14 @@
 //! the comparison test records them, and the `#[ignore]`d test
 //! `complete_validation_requires_all_sixteen_values` fails until all 16 are
 //! within tolerance (run it with `--ignored`). A skipped or absent value is
-//! never a pass: the report states `checked N of 16`. Filling a case in the fixture activates
-//! it; the tolerances are read from the fixture and pinned here so they cannot
-//! be loosened without touching this file. The fixture is validated strictly
-//! (`parse_fixture`): unknown keys (for example an unsupported
-//! `correlation_polarization` setting), blank citations, non-positive or
-//! non-finite values, and duplicate or missing cases are rejected.
+//! never a pass, and cannot occur: all four reference fields of a case are
+//! required, so a case missing a value or a citation fails to parse and the
+//! report always covers all 16. The tolerances are read from the fixture and
+//! pinned here so they cannot be loosened without touching this file. The
+//! fixture is validated strictly (`parse_fixture`): unknown keys (for example
+//! an unsupported `correlation_polarization` setting), missing values or
+//! citations, blank citations, non-positive or non-finite values, and
+//! duplicate or missing cases are rejected.
 
 use lindhard::electron::elastic::corrections::{solve_corrected, Corrections, ElectronDensity};
 use lindhard::electron::elastic::{SalvatDhfs, ScreenedPotential, SolverOptions};
@@ -40,10 +42,10 @@ const EXPECTED_VALUES: usize = 16;
 struct Case {
     z: u32,
     energy_ev: f64,
-    sigma_el_a02: Option<f64>,
-    sigma_tr1_a02: Option<f64>,
-    sigma_el_cite: Option<String>,
-    sigma_tr1_cite: Option<String>,
+    sigma_el_a02: f64,
+    sigma_tr1_a02: f64,
+    sigma_el_cite: String,
+    sigma_tr1_cite: String,
     #[serde(default)]
     exchange: bool,
 }
@@ -100,36 +102,18 @@ fn parse_fixture(text: &str) -> Result<Fixture, String> {
             ("sigma_el", c.sigma_el_a02, &c.sigma_el_cite),
             ("sigma_tr1", c.sigma_tr1_a02, &c.sigma_tr1_cite),
         ] {
-            match (v, cite) {
-                (None, None) => {}
-                (Some(x), Some(t)) => {
-                    if !(x.is_finite() && x > 0.0) {
-                        return Err(format!(
-                            "Z={} E={} {name}: invalid value {x}",
-                            c.z, c.energy_ev
-                        ));
-                    }
-                    if t.trim().is_empty() {
-                        return Err(format!(
-                            "Z={} E={} {name}: blank citation",
-                            c.z, c.energy_ev
-                        ));
-                    }
-                }
-                _ => {
-                    return Err(format!(
-                        "Z={} E={} {name}: value and citation must come together",
-                        c.z, c.energy_ev
-                    ))
-                }
+            if !(v.is_finite() && v > 0.0) {
+                return Err(format!(
+                    "Z={} E={} {name}: invalid value {v}",
+                    c.z, c.energy_ev
+                ));
             }
-        }
-        // Both observables or neither: a half-populated case is not a case.
-        if c.sigma_el_a02.is_some() != c.sigma_tr1_a02.is_some() {
-            return Err(format!(
-                "Z={} E={}: exactly one of sigma_el / sigma_tr1 present",
-                c.z, c.energy_ev
-            ));
+            if cite.trim().is_empty() {
+                return Err(format!(
+                    "Z={} E={} {name}: blank citation",
+                    c.z, c.energy_ev
+                ));
+            }
         }
     }
     Ok(f)
@@ -162,6 +146,26 @@ mod malformed {
 
     const HEAD: &str = "[[case]]\nz = 6\nenergy_ev = 1000.0\n";
 
+    /// The four reference fields, all of them required.
+    const FIELDS: [(&str, &str); 4] = [
+        ("sigma_el_a02", "1.0"),
+        ("sigma_el_cite", "\"x\""),
+        ("sigma_tr1_a02", "1.0"),
+        ("sigma_tr1_cite", "\"x\""),
+    ];
+
+    /// A well-formed case block with every reference field except `omitted`
+    /// (pass `""` to keep all four).
+    fn case_without(omitted: &str) -> String {
+        let mut b = String::from(HEAD);
+        for (k, v) in FIELDS {
+            if k != omitted {
+                b.push_str(&format!("{k} = {v}\n"));
+            }
+        }
+        b
+    }
+
     fn err(text: String) -> String {
         match parse_fixture(&text) {
             Ok(_) => panic!("malformed fixture accepted"),
@@ -175,16 +179,21 @@ mod malformed {
         assert!(err(with_first_case(&b)).contains("blank citation"));
     }
 
+    /// All four reference fields are required, so an unpopulated or
+    /// half-populated case is a parse error rather than a case the comparison
+    /// silently skips.
     #[test]
-    fn rejects_value_without_citation() {
-        let b = format!("{HEAD}sigma_el_a02 = 1.0\nsigma_tr1_a02 = 1.0\nsigma_tr1_cite = \"x\"");
-        assert!(err(with_first_case(&b)).contains("together"));
-    }
-
-    #[test]
-    fn rejects_missing_observable() {
-        let b = format!("{HEAD}sigma_el_a02 = 1.0\nsigma_el_cite = \"x\"");
-        assert!(err(with_first_case(&b)).contains("exactly one"));
+    fn rejects_missing_value_or_citation() {
+        for (omitted, _) in FIELDS {
+            let e = err(with_first_case(&case_without(omitted)));
+            assert!(
+                e.contains("missing field") && e.contains(omitted),
+                "{omitted}: {e}"
+            );
+        }
+        // The empty case the placeholder-era harness accepted.
+        let e = err(with_first_case(HEAD));
+        assert!(e.contains("missing field"), "{e}");
     }
 
     #[test]
@@ -197,7 +206,7 @@ mod malformed {
 
     #[test]
     fn rejects_duplicate_and_missing_cases() {
-        let dup = format!("{}\n[[case]]\nz = 6\nenergy_ev = 1000.0\n", good());
+        let dup = format!("{}\n{}", good(), case_without(""));
         assert!(err(dup).contains("expected exactly 1"));
         let t = good();
         let start = t.find("[[case]]").unwrap();
@@ -215,7 +224,7 @@ mod malformed {
     }
 }
 
-/// Outcome of comparing every populated value.
+/// Outcome of comparing all 16 reference values.
 struct Outcome {
     /// Values compared.
     checked: usize,
@@ -223,7 +232,7 @@ struct Outcome {
     out_of_tolerance: Vec<String>,
 }
 
-/// Compares every populated case and reports every gap (one line per value,
+/// Compares every case and reports every gap (one line per value,
 /// `WITHIN` or `OUT OF TOLERANCE`); a failing value does not stop the run, so
 /// all 16 gaps are always reported.
 /// Uses the Salvat et al. (1987) Table I potential of `z`
@@ -235,13 +244,6 @@ fn run_comparisons(f: &Fixture) -> Outcome {
         out_of_tolerance: Vec::new(),
     };
     for c in &f.case {
-        if c.sigma_el_a02.is_none() && c.sigma_tr1_a02.is_none() {
-            eprintln!(
-                "SKIPPED Z={} E={} eV: no published reference value committed (placeholder)",
-                c.z, c.energy_ev
-            );
-            continue;
-        }
         let tol = if c.energy_ev >= 10000.0 {
             TOL_10KEV
         } else {
@@ -266,75 +268,64 @@ fn run_comparisons(f: &Fixture) -> Outcome {
             ("sigma_el", r.sigma_el, c.sigma_el_a02),
             ("sigma_tr1", r.sigma_tr1, c.sigma_tr1_a02),
         ] {
-            if let Some(t) = theirs {
-                let gap = ours / t - 1.0;
-                let verdict = if gap.abs() <= tol {
-                    "WITHIN"
-                } else {
-                    "OUT OF TOLERANCE"
-                };
-                let line = format!(
-                    "Z={} E={} {name}: ours {ours:.6e} ref {t:.6e} gap {gap:+.4} (tol {tol}) {verdict}",
-                    c.z, c.energy_ev
-                );
-                eprintln!("{line}");
-                if gap.abs() > tol {
-                    out.out_of_tolerance.push(line);
-                }
-                out.checked += 1;
+            let gap = ours / theirs - 1.0;
+            let verdict = if gap.abs() <= tol {
+                "WITHIN"
+            } else {
+                "OUT OF TOLERANCE"
+            };
+            let line = format!(
+                "Z={} E={} {name}: ours {ours:.6e} ref {theirs:.6e} gap {gap:+.4} (tol {tol}) {verdict}",
+                c.z, c.energy_ev
+            );
+            eprintln!("{line}");
+            if gap.abs() > tol {
+                out.out_of_tolerance.push(line);
             }
+            out.checked += 1;
         }
     }
     out
 }
 
-fn populated(f: &Fixture) -> usize {
-    f.case
-        .iter()
-        .map(|c| c.sigma_el_a02.is_some() as usize + c.sigma_tr1_a02.is_some() as usize)
-        .sum()
-}
-
-/// Every populated value is compared (no silent skip) and every gap is
-/// reported. Out-of-tolerance values are recorded in the report, not hidden
-/// and not relaxed; they fail the `--ignored` completion gate below. Zero
-/// comparisons is reported as INCOMPLETE, never as a validation.
+/// All 16 values are compared (no silent skip) and every gap is reported.
+/// Out-of-tolerance values are recorded in the report, not hidden and not
+/// relaxed; they fail the `--ignored` completion gate below.
 #[test]
 fn elastic_cross_sections_match_published_partial_waves() {
     let f = fixture();
-    let expected = populated(&f);
     let o = run_comparisons(&f);
-    assert_eq!(o.checked, expected, "a populated value was not compared");
+    assert_eq!(
+        o.checked, EXPECTED_VALUES,
+        "a reference value was not compared"
+    );
     eprintln!(
         "{} of {EXPECTED_VALUES} reference values checked; {} within tolerance, {} OUT OF TOLERANCE",
         o.checked,
         o.checked - o.out_of_tolerance.len(),
         o.out_of_tolerance.len()
     );
-    if o.checked != EXPECTED_VALUES {
-        eprintln!("INCOMPLETE: this is NOT a completed validation (issue #93 stays open)");
-    } else if !o.out_of_tolerance.is_empty() {
-        eprintln!(
-            "FAILED VALIDATION: the gaps above exceed the pinned tolerances (issue #93 stays open)"
-        );
-    } else {
+    if o.out_of_tolerance.is_empty() {
         eprintln!("COMPLETE: all {EXPECTED_VALUES} values within tolerance");
+    } else {
+        eprintln!(
+            "FAILED VALIDATION: the gaps above exceed the pinned tolerances; they are a \
+             recorded and explained model difference (docs/validation.md; #93 closed \
+             2026-10-28 on that basis, sensitivity result in #452), gated by the \
+             --ignored completion test, never relaxed"
+        );
     }
 }
 
-/// Fails until all 16 values (8 cases x 2 observables) are populated and
-/// within tolerance. Ignored by default so CI records the measured gaps
+/// Fails until all 16 values (8 cases x 2 observables) are within tolerance
+/// (coverage itself is guaranteed by the parser: the four reference fields of
+/// a case are required). Ignored by default so CI records the measured gaps
 /// without blocking on a model difference; run with `--ignored` to gate the
 /// issue's completion.
 #[test]
 #[ignore = "fails while any of the 16 values is outside its pinned tolerance (#93)"]
 fn complete_validation_requires_all_sixteen_values() {
     let f = fixture();
-    assert_eq!(
-        populated(&f),
-        EXPECTED_VALUES,
-        "fixture coverage incomplete"
-    );
     let o = run_comparisons(&f);
     assert_eq!(o.checked, EXPECTED_VALUES);
     assert!(
@@ -458,8 +449,8 @@ fn potential_sensitivity_of_the_eight_cases() {
         };
         let base = run(c, 1.0, c.exchange);
         assert_eq!(base, direct, "unit rescale must equal the plain potential");
-        let gap_el = base.0 / c.sigma_el_a02.unwrap() - 1.0;
-        let gap_tr = base.1 / c.sigma_tr1_a02.unwrap() - 1.0;
+        let gap_el = base.0 / c.sigma_el_a02 - 1.0;
+        let gap_tr = base.1 / c.sigma_tr1_a02 - 1.0;
         eprintln!(
             "Z={} E={}: ref gap sigma_el {gap_el:+.4} sigma_tr1 {gap_tr:+.4}",
             c.z, c.energy_ev

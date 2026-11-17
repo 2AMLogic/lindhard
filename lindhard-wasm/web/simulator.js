@@ -2,11 +2,11 @@
 // The Worker (worker.js) owns the WASM session; this file only draws.
 
 import init, { elements_json } from "./pkg/lindhard_wasm.js";
-import { POTENTIALS, STOPPINGS, MAX_IONS, ModelError, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
+import { POTENTIALS, STOPPINGS, CRYSTAL_PRESETS, MAX_IONS, ModelError, PRESETS, el, defaultSetup, fromToml, toToml, validate } from "./toml_model.js";
 import { buildPlots, caveatLines, dashForSeries, niceTicks, plotExtent, reportJson, toCsv } from "./plots.js";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, MAX_POINTS_PER_TRACK, anyTruncated, dashFor, deriveCounters,
-  layerSpans, segmentBounds, speciesLabels, trajectorySegments,
+  boxBounds, boxEdges, clampPitch, layerSpans, orbitProjector, ORBIT_HOME, roundToError, segmentBounds, speciesLabels, trajectorySegments,
 } from "./run_view.js";
 
 const $ = (id) => document.getElementById(id);
@@ -24,26 +24,18 @@ const CITE = {
   "equipartition-ls-or": "Lindhard-Scharff and Oen-Robinson equipartition mix: Oen and Robinson (1976); see the stopping-model notes",
 };
 
-// Presets. SiO2 density: the usual handbook density of vitreous silica (CRC
-// Handbook; docs/data-provenance.md, example inputs). GaAs: 5.321 g/cm^3,
-// NBS Monograph 25 sec. 3 (docs/data-provenance.md, lattice constants). Si,
-// Cu, Au: the element table's densities. The O energies are the illustrative
-// model parameters of examples/as_50keV_si_sio2.toml, not recommendations.
-const el = (symbol, fraction = 1, eDEv = null, eSEv = null) => ({ symbol, fraction, eDEv, eBEv: null, eSEv });
-const PRESETS = {
-  Si: { density: null, elements: [el("Si")] },
-  Cu: { density: null, elements: [el("Cu")] },
-  Au: { density: null, elements: [el("Au")] },
-  SiO2: { density: 2.2, elements: [el("Si"), el("O", 2, 20, 2)], note: "O energies are illustrative model parameters" },
-  GaAs: { density: 5.321, elements: [el("Ga"), el("As")] },
-};
-
 let elements = [];
 let table = new Map();
 let setup = defaultSetup();
 let unitE = "keV";
 const unitT = []; // per-layer thickness unit
 let worker = null;
+// calculator/index.html is this page with data-view="quick": ion, energy, target
+// and Run, the rest under "More options", and only the tiles and the range plot.
+const QUICK = document.body.dataset.view === "quick";
+// The run made on load: 1000 ions, seed 1. It is labelled until the first edit or Run.
+const EXAMPLE_IONS = 1000;
+let exampleRun = false;
 
 function h(tag, props = {}, ...kids) {
   const e = document.createElement(tag);
@@ -81,7 +73,7 @@ function layerView(l, i) {
     on: { input: upd((t) => (l.thicknessNm = Number(t.value) * UNIT_NM[unitT[i]])) },
   });
   const unit = h("select", {
-    id: `tunit-${i}`,
+    id: `tunit-${i}`, "aria-label": `thickness unit of layer ${i + 1}`,
     on: { change: (e) => { unitT[i] = e.target.value; if (l.thicknessNm != null) thick.value = String(l.thicknessNm / UNIT_NM[unitT[i]]); } },
   }, ...Object.keys(UNIT_NM).map((k) => h("option", { selected: k === u }, k)));
   const semi = h("input", {
@@ -95,52 +87,68 @@ function layerView(l, i) {
     placeholder: pure && tab?.density_g_cm3 != null ? String(tab.density_g_cm3) : "required",
     on: { input: upd((t) => (l.densityGcm3 = numOrNull(t.value))) },
   });
-  const densSource = pure && l.densityGcm3 == null && tab?.density_g_cm3 != null
-    ? "tabulated density of the element (X-Ray Data Booklet, via the element table)"
-    : l.densityGcm3 != null ? "entered" : "none: enter one";
 
+  const cell = (cap, input) => h("div", { className: "cell" }, h("span", { className: "cap", "aria-hidden": "true" }, ...cap), input);
   const rows = l.elements.map((e, j) => {
     const row = table.get(e.symbol);
-    const field = (key, tabKey, label) => h("td", {}, h("input", {
+    const field = (key, tabKey, label, cap) => cell(cap, h("input", {
       type: "number", min: 0, step: "any", "aria-label": `${label} of ${e.symbol} in ${l.name}`,
       value: show(e[key]), placeholder: tabKey === null ? "0" : row?.[tabKey] != null ? String(row[tabKey]) : "required",
       on: { input: upd((t) => (e[key] = numOrNull(t.value))) },
     }));
-    return h("tr", {},
-      h("td", {}, h("input", { value: e.symbol, size: 3, list: "symbols", "aria-label": `element ${j + 1} of ${l.name}`, on: { input: upd((t) => { e.symbol = t.value.trim(); renderLayers(); }) } })),
-      h("td", {}, h("input", { type: "number", min: 0, step: "any", value: String(e.fraction), "aria-label": `amount of ${e.symbol} in ${l.name}`, on: { input: upd((t) => (e.fraction = Number(t.value))) } })),
-      field("eDEv", "default_displacement_ev", "displacement energy"),
-      field("eBEv", null, "lattice binding energy"),
-      field("eSEv", "default_surface_binding_ev", "surface binding energy"),
-      h("td", {}, h("button", { type: "button", "aria-label": `remove ${e.symbol} from ${l.name}`, on: { click: () => { l.elements.splice(j, 1); renderLayers(); refresh(); } } }, "×")),
+    return h("div", { className: "el-row" },
+      cell(["Element"], h("input", { value: e.symbol, size: 3, list: "symbols", "aria-label": `element ${j + 1} of ${l.name}`, on: { input: upd((t) => { e.symbol = t.value.trim(); renderLayers(); }) } })),
+      cell(["Atom fraction"], h("input", { type: "number", min: 0, step: "any", value: String(e.fraction), "aria-label": `amount of ${e.symbol} in ${l.name}`, on: { input: upd((t) => (e.fraction = Number(t.value))) } })),
+      field("eDEv", "default_displacement_ev", "displacement energy", edCap("d")),
+      field("eBEv", null, "lattice binding energy", edCap("b")),
+      field("eSEv", "default_surface_binding_ev", "surface binding energy", edCap("s")),
+      h("button", { type: "button", className: "icon rm", title: `Remove ${e.symbol}`, "aria-label": `remove ${e.symbol} from ${l.name}`, on: { click: () => { l.elements.splice(j, 1); renderLayers(); refresh(); } } }, "×"),
     );
   });
+  const head = h("div", { className: "el-head", "aria-hidden": "true" },
+    h("span", {}, "Element"), h("span", {}, "Fraction"),
+    h("span", {}, ...edCap("d")), h("span", {}, ...edCap("b")), h("span", {}, ...edCap("s")), h("span"));
 
+  const iconBtn = (text, name, disabled, fn) => h("button", { type: "button", className: "icon", title: name, "aria-label": name, disabled, on: { click: fn } }, text);
   return h("div", { className: "layer" },
-    h("h3", {}, `Layer ${i + 1}`),
-    h("div", { className: "row" },
+    h("div", { className: "layer-title" },
+      h("h3", {}, `Layer ${i + 1}`),
+      h("button", { type: "button", on: { click: () => { l.elements.push(el("Si")); renderLayers(); refresh(); } } }, "Add element"),
+      iconBtn("↑", "Move up", i === 0, () => move(i, -1)),
+      iconBtn("↓", "Move down", last, () => move(i, 1)),
+      iconBtn("×", "Delete layer", false, () => {
+        setup.layers.splice(i, 1);
+        unitT.splice(i, 1);
+        // Positional crystal indices follow the stack: drop the deleted layer
+        // and renumber the ones that sat above it.
+        if (setup.crystal) setup.crystal.layers = setup.crystal.layers.filter((j) => j !== i).map((j) => (j > i ? j - 1 : j));
+        renderLayers();
+        refresh();
+      })),
+    h("div", { className: "layer-head" },
       h("label", {}, "Name", h("input", { value: l.name, "aria-label": `name of layer ${i + 1}`, on: { input: upd((t) => (l.name = t.value.trim())) } })),
-      h("label", {}, "Thickness", thick),
-      h("label", {}, "Unit", unit),
+      h("label", {}, "Thickness", h("span", { className: "group" }, thick, unit)),
       h("label", { className: "inline" }, semi, "Semi-infinite (substrate)"),
       h("label", {}, "Density (g/cm³)", density),
     ),
-    h("p", { className: "note" }, `Density source: ${densSource}.`),
-    h("table", { className: "elements" },
-      h("tr", {}, ...["Element", "Atom fraction", "E_d (eV)", "E_b (eV)", "E_s (eV)", ""].map((t) => h("th", { scope: "col" }, t))),
-      ...rows),
-    h("div", { className: "tools" },
-      h("button", { type: "button", on: { click: () => { l.elements.push(el("Si")); renderLayers(); refresh(); } } }, "Add element"),
-      h("button", { type: "button", disabled: i === 0, on: { click: () => move(i, -1) } }, "Move up"),
-      h("button", { type: "button", disabled: last, on: { click: () => move(i, 1) } }, "Move down"),
-      h("button", { type: "button", on: { click: () => { setup.layers.splice(i, 1); unitT.splice(i, 1); renderLayers(); refresh(); } } }, "Delete layer")),
+    head,
+    ...rows,
   );
+}
+
+// E_d / E_b / E_s with subscripts; the legend under the layers names them.
+function edCap(sub) {
+  return ["E", h("sub", {}, sub), " (eV)"];
 }
 
 function move(i, d) {
   const L = setup.layers;
   [L[i], L[i + d]] = [L[i + d], L[i]];
   [unitT[i], unitT[i + d]] = [unitT[i + d], unitT[i]];
+  // The crystal's layer indices are positional: a swap must keep each index
+  // pointing at the same material it named before the move.
+  const c = setup.crystal;
+  if (c) c.layers = c.layers.map((j) => (j === i ? i + d : j === i + d ? i : j));
   // Only the last layer can be a substrate.
   for (const [k, l] of L.entries()) if (l.thicknessNm == null && k !== L.length - 1) l.thicknessNm = 100;
   renderLayers();
@@ -153,14 +161,22 @@ function uniqueName(base) {
   return n;
 }
 
+function showPresetNote(key) {
+  const note = PRESETS[key]?.note;
+  $("preset-note").textContent = note ? `${key}: ${note}.` : "";
+}
+
+const CUSTOM = "Custom";
+
 function addPreset(key) {
-  const p = PRESETS[key];
+  const p = PRESETS[key === CUSTOM ? "Si" : key];
   const last = setup.layers[setup.layers.length - 1];
   if (last && last.thicknessNm == null) last.thicknessNm = 100; // a new layer goes below
   setup.layers.push({
-    name: uniqueName(key), thicknessNm: null, densityGcm3: p.density,
+    name: uniqueName(key === CUSTOM ? "layer" : key), thicknessNm: null, densityGcm3: p.density,
     elements: p.elements.map((e) => ({ ...e })),
   });
+  showPresetNote(key);
   renderLayers();
   refresh();
 }
@@ -172,8 +188,16 @@ function readScalars() {
   unitE = $("energy-unit").value;
   b.energyEv = Number($("energy").value) * UNIT_EV[unitE];
   b.tiltDeg = Number($("tilt").value);
+  b.azimuthDeg = Number($("azimuth").value);
+  if (setup.crystal) {
+    setup.crystal.preset = $("crystal-preset").value;
+    setup.crystal.normal = [0, 1, 2].map((i) => Number($(`cn-${i}`).value));
+    setup.crystal.reference = [0, 1, 2].map((i) => Number($(`cr-${i}`).value));
+    setup.crystal.waferRotationDeg = Number($("crystal-wafer").value);
+    setup.crystal.temperatureK = numOrNull($("crystal-temp").value);
+  }
   const p = setup.physics;
-  p.followRecoils = $("mode").value === "full";
+  p.followRecoils = $("mode-full").checked;
   p.potential = $("potential").value;
   p.stopping = $("stopping").value;
   p.primaryCutoffEv = Number($("pcut").value);
@@ -191,7 +215,18 @@ function writeScalars() {
   $("energy-unit").value = unitE;
   $("energy").value = String(b.energyEv / UNIT_EV[unitE]);
   $("tilt").value = String(b.tiltDeg);
-  $("mode").value = p.followRecoils ? "full" : "quick";
+  $("azimuth").value = String(b.azimuthDeg ?? 0);
+  $("crystal-on").checked = setup.crystal != null;
+  $("crystal-controls").hidden = setup.crystal == null;
+  if (setup.crystal) {
+    $("crystal-preset").value = setup.crystal.preset;
+    $("crystal-wafer").value = String(setup.crystal.waferRotationDeg);
+    $("crystal-temp").value = show(setup.crystal.temperatureK);
+    for (const [i, v] of setup.crystal.normal.entries()) $(`cn-${i}`).value = String(v);
+    for (const [i, v] of setup.crystal.reference.entries()) $(`cr-${i}`).value = String(v);
+  }
+  $("mode-full").checked = p.followRecoils;
+  $("mode-quick").checked = !p.followRecoils;
   $("potential").value = p.potential;
   $("stopping").value = p.stopping;
   $("pcut").value = String(p.primaryCutoffEv);
@@ -202,22 +237,243 @@ function writeScalars() {
   $("bins").value = String(setup.tally.depthBins);
 }
 
+// ---- crystal controls ------------------------------------------------------
+
+// One crystal filling chosen stack layers (front to back, the substrate last),
+// or none: every layer stays amorphous.
+let crystalStackKey = null;
+
+function renderCrystal() {
+  const on = setup.crystal != null;
+  $("crystal-controls").hidden = !on;
+  if (!on) return;
+  setText("crystal-note",
+    "Layer indices run front to back with the substrate last. A crystal run takes about 17 times longer per ion than an amorphous one, so keep the ion count modest (2000 is sensible). " +
+    "The azimuth is measured from the reference direction; equipartition-ls-or stopping warns under a crystal that its electronic constants are unverified.");
+  // The layer checkboxes follow the stack; rebuilt only when the stack changes.
+  const key = `${setup.layers.length}|${setup.layers.map((l) => l.name).join("|")}`;
+  if (key !== crystalStackKey) {
+    crystalStackKey = key;
+    $("crystal-layers").replaceChildren(
+      "Layers on the lattice: ",
+      ...setup.layers.map((l, i) =>
+        h("label", { className: "inline" },
+          h("input", {
+            type: "checkbox", "data-layer": i,
+            on: { change: (e) => {
+              const s = new Set(setup.crystal.layers);
+              if (e.target.checked) s.add(i); else s.delete(i);
+              setup.crystal.layers = [...s].sort((a, b) => a - b);
+              refresh();
+            } },
+          }),
+          ` ${i + 1}: ${l.name}`)),
+    );
+  }
+  for (const box of $("crystal-layers").querySelectorAll("input")) {
+    box.checked = setup.crystal.layers.includes(Number(box.dataset.layer));
+  }
+  // An index the stack no longer has ("layer N does not exist" in the
+  // problems list) has no checkbox to untick: give it a chip with a remove
+  // button, so the message is actionable without restarting the crystal.
+  for (const chip of $("crystal-layers").querySelectorAll("[data-stale]")) chip.remove();
+  for (const j of setup.crystal.layers.filter((l) => l >= setup.layers.length)) {
+    $("crystal-layers").append(h("label", { className: "inline", "data-stale": "" },
+      ` ${j + 1}: no such layer `,
+      h("button", {
+        type: "button", className: "icon", title: `Remove layer ${j + 1} from the lattice`,
+        "aria-label": `remove nonexistent layer ${j + 1} from the lattice`,
+        on: { click: () => { setup.crystal.layers = setup.crystal.layers.filter((l) => l !== j); refresh(); } },
+      }, "×")));
+  }
+}
+
+$("crystal-on").addEventListener("change", () => {
+  if ($("crystal-on").checked) {
+    if (!setup.crystal) {
+      setup.crystal = { layers: [setup.layers.length - 1], preset: "Si", normal: [0, 0, 1], reference: [0, 1, 0], waferRotationDeg: 0, temperatureK: 300 };
+      // A crystal run costs ~17x per ion; drop the amorphous default of
+      // 10000 to a usable 2000, but never a count the user chose.
+      if (setup.run.ions === 10000) setup.run.ions = 2000;
+    }
+  } else {
+    setup.crystal = null;
+  }
+  writeScalars();
+  refresh();
+});
+
+// ---- layer stack drawing ---------------------------------------------------
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+function svg(tag, attrs = {}, ...kids) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, String(v));
+  e.append(...kids);
+  return e;
+}
+
+const STACK = { x0: 64, top: 20, height: 80, minW: 62, finiteW: 210, substrateW: 74, beamLen: 50 };
+const thicknessText = (nmValue) => (nmValue >= 1000 ? `${+(nmValue / 1000).toPrecision(3)} µm` : `${+nmValue.toPrecision(3)} nm`);
+
+// Layers left to right from the surface at x0, beam arriving at the tilt angle
+// from the normal (horizontal here). Widths follow thickness, with a minimum so
+// a thin layer stays readable; then the drawing says it is not to scale.
+function layerStackSvg() {
+  const { x0, top, height, minW, finiteW, substrateW, beamLen } = STACK;
+  const layers = setup.layers;
+  const finite = layers.filter((l) => l.thicknessNm != null);
+  const total = finite.reduce((a, l) => a + (Number.isFinite(l.thicknessNm) ? Math.max(l.thicknessNm, 0) : 0), 0);
+  let notToScale = false;
+  const widths = layers.map((l) => {
+    if (l.thicknessNm == null) return substrateW;
+    const t = Number.isFinite(l.thicknessNm) ? Math.max(l.thicknessNm, 0) : 0;
+    const w = total > 0 ? (t / total) * finiteW : minW;
+    if (w < minW) { notToScale = true; return minW; }
+    return w;
+  });
+  const sumW = widths.reduce((a, b) => a + b, 0);
+  const tilt = Number.isFinite(setup.beam.tiltDeg) ? Math.min(Math.max(setup.beam.tiltDeg, 0), 89.9) : 0;
+  const rad = (tilt * Math.PI) / 180;
+  const yMid = top + height / 2;
+  const vbW = x0 + Math.max(sumW, 40) + 12;
+  const text = layers.length === 0
+    ? "No layers."
+    : layers.map((l, i) => `${i + 1}: ${l.name || "unnamed"}, ${l.thicknessNm == null ? "substrate (semi-infinite)" : thicknessText(l.thicknessNm)}`).join("; ") + ".";
+  const desc = `Beam at ${tilt}° from the surface normal, entering the surface first. Layers from the surface: ${text}${notToScale ? " Not to scale." : ""}`;
+
+  const root = svg("svg", { viewBox: `0 0 ${vbW} ${top + height + 24}`, role: "img", "aria-labelledby": "stack-title", "aria-describedby": "stack-desc" },
+    svg("title", { id: "stack-title" }, "Layer stack"),
+    svg("desc", { id: "stack-desc" }, desc),
+    svg("defs", {}, svg("marker", { id: "stack-arrow", viewBox: "0 0 8 8", refX: 7, refY: 4, markerWidth: 7, markerHeight: 7, orient: "auto" },
+      svg("path", { d: "M0 0 L8 4 L0 8 z", class: "stack-beam" }))));
+  root.append(svg("line", {
+    x1: x0 - beamLen * Math.cos(rad), y1: yMid - beamLen * Math.sin(rad), x2: x0 - 1, y2: yMid,
+    class: "stack-beam", "marker-end": "url(#stack-arrow)",
+  }));
+  let x = x0;
+  layers.forEach((l, i) => {
+    const w = widths[i], sub = l.thicknessNm == null;
+    const edge = sub
+      ? `L${x + w} ${top} ` + Array.from({ length: 6 }, (_, k) => `L${x + w - (k % 2 ? 0 : 7)} ${top + ((k + 1) * height) / 6}`).join(" ") + ` L${x} ${top + height} Z`
+      : `L${x + w} ${top} L${x + w} ${top + height} L${x} ${top + height} Z`;
+    root.append(svg("path", { d: `M${x} ${top} ${edge}`, class: `stack-block${i % 2 ? " alt" : ""}` }));
+    // ~6.5 px per character at 11px, and 14 px kept clear for the substrate's
+    // 3 px label offset and its 7 px zigzag edge, so the label stays in the block.
+    const fit = Math.max(3, Math.floor((w - 14) / 6.5));
+    const name = l.name || "unnamed";
+    const short = name.length > fit ? `${name.slice(0, fit - 1)}…` : name;
+    const label = svg("text", { x: x + w / 2 - (sub ? 3 : 0), y: yMid - 2, class: "stack-text" }, short);
+    label.append(svg("title", {}, name));
+    root.append(label);
+    root.append(svg("text", { x: x + w / 2 - (sub ? 3 : 0), y: yMid + 13, class: "stack-text" }, sub ? "substrate" : thicknessText(l.thicknessNm)));
+    x += w;
+  });
+  if (layers.length === 0) root.append(svg("text", { x: x0 + 20, y: yMid + 4, class: "stack-text", "text-anchor": "start" }, "No layers"));
+  if (notToScale) root.append(svg("text", { x: vbW - 4, y: top + height + 16, class: "stack-text", style: "text-anchor:end" }, "not to scale"));
+  return root;
+}
+
 let problems = [];
+// refresh() runs on every input and change event, mostly with nothing new to
+// show. It writes only what changed: rewriting unchanged content makes WebKit
+// re-clamp the Setup scroller, and the panel then jumps under the pointer
+// between a press and its release (a field's change event fires on the press).
+function setText(id, text) {
+  if ($(id).textContent !== text) $(id).textContent = text;
+}
+
 function refresh() {
   readScalars();
   const row = table.get(setup.beam.ion);
-  $("mass").placeholder = row ? `${row.atomic_weight} (standard atomic weight)` : "";
-  $("mass-note").textContent = row?.weight_is_mass_number
-    ? `${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : "";
-  $("model-cite").textContent = `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`;
+  $("mass").placeholder = row ? String(row.atomic_weight) : "";
+  setText("mass-note", "Leave the mass blank to use the element's standard atomic weight (the placeholder); enter a mass to simulate one isotope." +
+    (row?.weight_is_mass_number
+      ? ` ${row.symbol} has no standard atomic weight; the mass number of its longest-lived isotope is used.` : ""));
+  setText("model-cite", `${CITE[setup.physics.potential]}. ${CITE[setup.physics.stopping]}.`);
+  setText("strip-models", `${CITE[setup.physics.potential]}; ${CITE[setup.physics.stopping]}.`);
+  setText("physics-summary", `${setup.physics.potential} potential, ${setup.physics.stopping} stopping. ${$("model-cite").textContent}`);
+  renderCrystal();
+  const drawing = layerStackSvg();
+  if (drawing.outerHTML !== $("stack").firstElementChild?.outerHTML) $("stack").replaceChildren(drawing);
   problems = validate(setup, elements);
   if (setup.run.ions > INTERACTIVE_MAX_IONS) {
     problems.push({ path: "run.ions", message: `the page runs at most ${INTERACTIVE_MAX_IONS} ions; use lindhard-cli for more` });
   }
-  $("problems").replaceChildren(...problems.map((p) => h("li", {}, `${p.path}: ${p.message}`)));
+  const lines = problems.map((p) => `${p.path}: ${p.message}`);
+  if (lines.join("\n") !== [...$("problems").children].map((li) => li.textContent).join("\n")) $("problems").replaceChildren(...lines.map((t) => h("li", {}, t)));
   $("problems-box").hidden = problems.length === 0;
-  $("toml").value = toToml(setup);
-  $("btn-run").disabled = problems.length > 0 || running();
+  syncQuick(); // reads `problems`, so it runs after they are recomputed
+  const toml = toToml(setup);
+  if ($("toml").value !== toml) $("toml").value = toml;
+  $("btn-run").disabled = runDisabled();
+}
+
+// The Run button is unavailable while a run goes, except during the example run
+// on load, which a Run replaces.
+const runDisabled = () => problems.length > 0 || (running() && !exampleRun);
+
+// ---- Quick range fields ------------------------------------------------------
+// Three inputs that edit the same setup as the full form: the beam ion, the
+// energy in keV, and the element of a one-layer substrate target.
+
+const isSimpleTarget = () => setup.layers.length === 1 && setup.layers[0].elements.length === 1;
+const setIfIdle = (input, value) => { if (document.activeElement !== input && input.value !== value) input.value = value; };
+
+function syncQuick() {
+  setIfIdle($("q-ion"), setup.beam.ion);
+  setIfIdle($("q-energy"), String(setup.beam.energyEv / 1e3));
+  const simple = isSimpleTarget();
+  $("q-target").disabled = !simple;
+  setIfIdle($("q-target"), simple ? setup.layers[0].elements[0].symbol : "layered");
+  setText("q-note", simple ? "" : "The target has more than one layer or element: edit it under More options.");
+  const at = (re) => problems.some((p) => re.test(p.path));
+  $("q-ion").toggleAttribute("aria-invalid", at(/^beam\.ion$/));
+  $("q-target").toggleAttribute("aria-invalid", simple && at(/^layers\[0\]\.elements\[0\]\.symbol$/));
+  for (const id of ["q-ion", "q-target"]) if ($(id).hasAttribute("aria-invalid")) $(id).setAttribute("aria-invalid", "true");
+}
+
+function quickInput(fn) {
+  return () => { fn(); writeScalars(); renderLayers(); refresh(); };
+}
+$("q-ion").addEventListener("input", quickInput(() => { setup.beam.ion = $("q-ion").value.trim(); }));
+$("q-energy").addEventListener("input", quickInput(() => { setup.beam.energyEv = Number($("q-energy").value) * 1e3; unitE = "keV"; }));
+$("q-target").addEventListener("input", quickInput(() => {
+  const e = setup.layers[0].elements[0];
+  e.symbol = $("q-target").value.trim();
+  setup.layers[0].name = /^[A-Za-z0-9_-]+$/.test(e.symbol) ? e.symbol : "target";
+  // The element table's displacement energy where there is one, else the 15 eV
+  // the default Si layer uses (a model parameter; the range does not depend on it).
+  e.eDEv = table.get(e.symbol)?.default_displacement_ev != null ? null : 15;
+}));
+
+// ---- examples ----------------------------------------------------------------
+
+const EXAMPLES = {
+  "b-si": () => defaultSetup(),
+  "as-sio2-si": () => {
+    const s = defaultSetup();
+    s.beam = { ion: "As", massAmu: null, energyEv: 50000, tiltDeg: 7 };
+    s.layers.unshift({ name: "SiO2", thicknessNm: 10, densityGcm3: PRESETS.SiO2.density, elements: PRESETS.SiO2.elements.map((e) => ({ ...e })) });
+    return s;
+  },
+  "ar-cu": () => {
+    const s = defaultSetup();
+    s.beam = { ion: "Ar", massAmu: null, energyEv: 1000, tiltDeg: 0 };
+    s.layers = [{ name: "Cu", thicknessNm: null, densityGcm3: PRESETS.Cu.density, elements: PRESETS.Cu.elements.map((e) => ({ ...e })) }];
+    s.physics.followRecoils = true;
+    return s;
+  },
+};
+
+function loadExample(key) {
+  setup = EXAMPLES[key]();
+  unitT.length = 0;
+  writeScalars();
+  renderLayers();
+  refresh();
+  clearExample();
+  status("Example loaded into Setup; press Run.");
 }
 
 // ---- input file ------------------------------------------------------------
@@ -237,6 +493,7 @@ $("load").addEventListener("change", async (e) => {
     writeScalars();
     renderLayers();
     refresh();
+    clearExample();
     status(`Loaded ${file.name}.`);
   } catch (err) {
     if (!(err instanceof ModelError)) throw err;
@@ -251,45 +508,82 @@ const running = () => worker !== null;
 const fmt = (x) => (x >= 100 ? x.toFixed(1) : x >= 10 ? x.toFixed(2) : x.toPrecision(3));
 const nm = (m) => m * 1e9;
 
+// "idle", "running" or "paused". One button pauses and resumes.
+let runState = "idle";
 function setButtons(state) {
-  $("btn-run").disabled = state !== "idle" || problems.length > 0;
-  $("btn-pause").disabled = state !== "running";
-  $("btn-resume").disabled = state !== "paused";
+  runState = state;
+  $("btn-run").disabled = (state !== "idle" && !exampleRun) || problems.length > 0;
+  $("btn-pause").disabled = state === "idle";
+  $("btn-pause").textContent = state === "paused" ? "Resume" : "Pause";
   $("btn-stop").disabled = state === "idle";
 }
 
-const pm = (x, e) => `${fmt(nm(x))} nm (± ${fmt(nm(e))})`;
-const dash = (m) => (m ? pm(m.mean, m.err) : "–");
+// A tile value: the number large, the unit beside it, "± err unit" below.
+function setTile(id, m) {
+  const el = $(id);
+  if (!m) { el.textContent = "–"; return; }
+  const r = roundToError(nm(m.mean), nm(m.err));
+  el.replaceChildren(r.value, h("span", { className: "unit" }, "nm"));
+  if (r.err !== null) el.append(h("span", { className: "err" }, `± ${r.err} nm`));
+}
 const pct = (f) => (f == null ? "–" : `${(100 * f).toFixed(1)} %`);
 const perIon = (x) => (x == null ? "–" : x.toPrecision(3));
+
+const PARTITION = [["eion", "ionization", "var(--lh-plot-1)"], ["enuc", "nuclear", "var(--lh-plot-2)"], ["eesc", "escaped", "var(--lh-plot-3)"], ["erec", "recoilsNotFollowed", "var(--lh-plot-4)"], ["eoth", "other", "var(--lh-plot-5)"]];
 
 function counters(done, total, report) {
   const c = deriveCounters(report, { done, total, followRecoils: setup.physics.followRecoils });
   $("progress").value = c.fraction;
-  $("progress-text").textContent = `${done} of ${total} ions`;
   $("c-done").textContent = `${done} / ${total}`;
-  $("c-rp").textContent = dash(c.depth);
-  $("c-drp").textContent = c.depth ? pm(c.depth.sd, c.depth.sdErr) : "–";
-  $("c-ly").textContent = c.lateralY ? `${fmt(nm(c.lateralY.sd))} nm (± ${fmt(nm(c.lateralY.sdErr))})` : "–";
-  $("c-lz").textContent = c.lateralZ ? `${fmt(nm(c.lateralZ.sd))} nm (± ${fmt(nm(c.lateralZ.sdErr))})` : "–";
-  $("c-rad").textContent = dash(c.radial);
+  setTile("c-rp", c.depth && { mean: c.depth.mean, err: c.depth.err });
+  setTile("c-drp", c.depth && { mean: c.depth.sd, err: c.depth.sdErr });
+  setTile("c-ly", c.lateralY && { mean: c.lateralY.sd, err: c.lateralY.sdErr });
+  setTile("c-lz", c.lateralZ && { mean: c.lateralZ.sd, err: c.lateralZ.sdErr });
+  setTile("c-rad", c.radial && { mean: c.radial.mean, err: c.radial.err });
   $("c-stopped").textContent = c.stopped == null ? "–" : String(c.stopped);
   $("c-back").textContent = perIon(c.backscatter);
   $("c-trans").textContent = perIon(c.transmission);
   $("c-sput").textContent = perIon(c.sputterYield);
   $("c-vac").textContent = perIon(c.vacancies);
-  $("c-vac-mode").textContent = report ? `(${c.modeLabel})` : "";
-  $("c-eion").textContent = pct(c.partition?.ionization);
-  $("c-enuc").textContent = pct(c.partition?.nuclear);
-  $("c-eesc").textContent = pct(c.partition?.escaped);
-  $("c-eoth").textContent = pct(c.partition?.other);
+  $("c-vac-mode").textContent = report ? c.modeLabel : "";
+  for (const [id, key] of PARTITION) $(`c-${id}`).textContent = pct(c.partition?.[key]);
+  $("partition-bar").replaceChildren(...PARTITION.map(([id, key, colour]) => {
+    const f = c.partition?.[key] ?? 0;
+    return h("span", { style: `width:${100 * f}%;background:${colour}`, title: `${key}: ${pct(f)}` });
+  }));
+  $("r-erec").hidden = c.partition?.recoilsNotFollowed == null;
 }
 
 // ---- trajectory view -------------------------------------------------------
 
-// Okabe-Ito colours, safe for the common colour-vision deficiencies; the
-// second cue is the dash pattern (generation) and an end marker (species).
-const SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
+// Series colours are the shared Okabe-Ito plot tokens (--lh-plot-1..6 in
+// site/tokens.css), safe for the common colour-vision deficiencies; the second
+// cue is the dash pattern (generation) and an end marker (species).
+// `SPECIES_COLOURS` is re-read from the page at the start of every draw.
+const SERIES_COUNT = 6;
+let SPECIES_COLOURS = ["#0072B2", "#D55E00", "#009E73", "#CC79A7", "#E69F00", "#56B4E9"];
+function readPalette() {
+  const css = getComputedStyle(document.documentElement);
+  SPECIES_COLOURS = SPECIES_COLOURS.map((old, i) => css.getPropertyValue(`--lh-plot-${i + 1}`).trim() || old);
+}
+
+/**
+ * Size a canvas bitmap from its CSS box and devicePixelRatio and scale the
+ * context so callers draw in CSS pixels. Returns {w, h} in CSS pixels, or null
+ * when the canvas has no size (hidden or collapsed); nothing is drawn then.
+ */
+function fitCanvas(canvas) {
+  const w = canvas.clientWidth, h = canvas.clientHeight; // content box, border excluded
+  if (w < 1 || h < 1) return null;
+  const dpr = window.devicePixelRatio || 1;
+  const bw = Math.round(w * dpr), bh = Math.round(h * dpr);
+  if (canvas.width !== bw) canvas.width = bw;
+  if (canvas.height !== bh) canvas.height = bh;
+  canvas.getContext("2d").setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { w, h };
+}
+
+const EXPORT_W = 900, EXPORT_H = 360, EXPORT_H_3D = 540, EXPORT_SCALE = 2; // PNG export size in CSS px and pixel ratio
 const MARKERS = ["circle", "square", "triangle", "diamond", "cross", "plus"];
 let histories = []; // recorded so far in this run
 let symbolOfZ = () => undefined;
@@ -307,80 +601,330 @@ function marker(ctx, kind, x, y, r) {
 }
 
 function drawTrajectories() {
-  const cv = $("traj"), ctx = cv.getContext("2d");
+  readPalette();
+  const cv = $("traj");
+  const size = fitCanvas(cv);
+  if (size) paintTrajectories(cv.getContext("2d"), size.w, size.h);
+  updateTrajectoryNote();
+}
+
+const hiddenSpecies = new Set(); // species whose tracks the legend toggles have hidden
+
+// Paint the trajectory view into a W x H box of CSS pixels. Draw order: layer
+// bands (to the canvas edges), recoils (thin, translucent), primaries, then
+// markers on the primaries' end points only.
+function paintTrajectories(ctx, W, H) {
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const panel = css.getPropertyValue("--panel").trim() || "#eee", muted = css.getPropertyValue("--muted").trim() || "#666";
   const view = $("traj-view").value;
-  const segs = trajectorySegments(histories, { view, cascades: $("traj-cascades").checked });
-  const bd = segmentBounds(segs, view);
-  const W = cv.width, H = cv.height, pad = 28;
-  const sx = (u) => pad + ((u - bd.u0) / (bd.u1 - bd.u0)) * (W - 2 * pad);
-  const sy = (v) => pad + ((v - bd.v0) / (bd.v1 - bd.v0)) * (H - 2 * pad);
+  if (view === "3d") return paintOrbit(ctx, W, H, { fg, bg, panel, muted });
+  const cascades = $("traj-cascades").checked;
+  const segs = trajectorySegments(histories, { view, cascades, hidden: hiddenSpecies });
+  const L = 50, R = 12, T = 20, B = 30; // margins hold the tick labels and axis titles
+  const pw = Math.max(W - L - R, 1), ph = Math.max(H - T - B, 1);
+  const bd = segmentBounds(segs, view, pw / ph);
+  const sx = (u) => L + ((u - bd.u0) / (bd.u1 - bd.u0)) * pw;
+  const sy = (v) => T + ((v - bd.v0) / (bd.v1 - bd.v0)) * ph;
+  const clampX = (x) => Math.min(Math.max(x, 0), W);
   ctx.setLineDash([]);
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
   ctx.font = "12px system-ui, sans-serif";
   ctx.lineWidth = 1;
+  ctx.textAlign = "left";
   if (view === "side") {
-    // Layers shaded alternately, boundaries as lines, names at the top.
-    layerSpans(setup.layers).forEach((l, i) => {
-      const x0 = sx(Math.max(l.top, bd.u0)), x1 = sx(Math.min(l.bottom, bd.u1));
+    // Bands run the full height and out to the canvas edges: vacuum in front of
+    // the surface, then the layers shaded alternately, names at the top.
+    const spans = layerSpans(setup.layers);
+    ctx.fillStyle = muted;
+    if (spans.length && sx(0) >= 44) ctx.fillText("vacuum", 4, 14);
+    spans.forEach((l, i) => {
+      const x0 = clampX(sx(l.top)), x1 = clampX(sx(l.bottom));
       if (x1 <= x0) return;
-      ctx.fillStyle = i % 2 ? bg : panel;
+      ctx.fillStyle = panel;
       ctx.fillRect(x0, 0, x1 - x0, H);
+      if (i % 2) { ctx.globalAlpha = 0.5; ctx.fillStyle = bg; ctx.fillRect(x0, 0, x1 - x0, H); ctx.globalAlpha = 1; }
       ctx.strokeStyle = muted;
       ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, H); ctx.stroke();
       ctx.fillStyle = muted;
-      ctx.fillText(l.name, x0 + 4, 14);
+      ctx.fillText(l.name, x0 + 4, 14, Math.max(x1 - x0 - 8, 0));
     });
+    const last = spans[spans.length - 1];
+    if (last && Number.isFinite(last.bottom) && sx(last.bottom) < W - 44) ctx.fillText("vacuum", sx(last.bottom) + 4, 14);
   }
-  const axes = view === "side" ? ["depth", "y"] : ["y", "z"];
-  ctx.fillStyle = muted;
-  ctx.fillText(`${axes[0]} → ${fmt(nm(bd.u1))} nm`, W - 160, H - 8);
-  ctx.fillText(`${axes[1]} ±${fmt(nm(bd.v1))} nm`, 4, H - 8);
-  ctx.lineWidth = 1.2;
+  // Axes with ticks, in nm.
+  const [uName, vName] = view === "side" ? ["depth", "y"] : ["y", "z"];
+  ctx.strokeStyle = muted; ctx.fillStyle = muted;
+  ctx.beginPath(); ctx.moveTo(L, T); ctx.lineTo(L, T + ph); ctx.lineTo(L + pw, T + ph); ctx.stroke();
+  ctx.textAlign = "center";
+  for (const t of niceTicks(nm(bd.u0), nm(bd.u1), Math.max(Math.floor(pw / 80), 2))) {
+    const x = sx(t * 1e-9);
+    ctx.beginPath(); ctx.moveTo(x, T + ph); ctx.lineTo(x, T + ph + 4); ctx.stroke();
+    ctx.fillText(String(t), x, T + ph + 16);
+  }
+  ctx.textAlign = "right";
+  for (const t of niceTicks(nm(bd.v0), nm(bd.v1), Math.max(Math.floor(ph / 40), 2))) {
+    const y = sy(t * 1e-9);
+    ctx.beginPath(); ctx.moveTo(L - 4, y); ctx.lineTo(L, y); ctx.stroke();
+    ctx.fillText(String(t), L - 7, y + 4);
+  }
+  ctx.textAlign = "center";
+  ctx.fillText(`${uName} (nm)`, L + pw / 2, H - 4);
+  ctx.save(); ctx.translate(11, T + ph / 2); ctx.rotate(-Math.PI / 2); ctx.fillText(`${vName} (nm)`, 0, 0); ctx.restore();
+  ctx.textAlign = "right";
+  ctx.fillText(bd.lateralScale >= 0.999 ? "scale 1:1" : `lateral scale ×${bd.lateralScale.toPrecision(2)} (not 1:1)`, W - R, 14);
+  ctx.textAlign = "left";
+  // Tracks: one path per species and generation, clipped to the plot area.
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  const groups = new Map();
   for (const s of segs) {
-    ctx.strokeStyle = SPECIES_COLOURS[s.species % SPECIES_COLOURS.length];
-    ctx.setLineDash(dashFor(s.generation));
-    ctx.beginPath(); ctx.moveTo(sx(s.a[0]), sy(s.a[1])); ctx.lineTo(sx(s.b[0]), sy(s.b[1])); ctx.stroke();
+    const key = s.generation * 1000 + s.species;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(s);
   }
+  // Later generations first, so the primaries are on top.
+  for (const key of [...groups.keys()].sort((a, b) => b - a)) {
+    const list = groups.get(key), generation = Math.floor(key / 1000), species = key % 1000;
+    ctx.strokeStyle = SPECIES_COLOURS[species % SPECIES_COLOURS.length];
+    ctx.globalAlpha = generation ? 0.45 : 1;
+    ctx.lineWidth = generation ? 0.8 : 2;
+    ctx.setLineDash(dashFor(generation));
+    ctx.beginPath();
+    for (const s of list) { ctx.moveTo(sx(s.a[0]), sy(s.a[1])); ctx.lineTo(sx(s.b[0]), sy(s.b[1])); }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
   ctx.setLineDash([]);
-  // End markers: one per track, shape by species.
-  for (const h of histories) for (const t of h.tracks) {
-    if (t.generation > 0 && !$("traj-cascades").checked) continue;
+  ctx.lineWidth = 1;
+  // Markers on the end points of primary tracks only.
+  for (const hist of histories) for (const t of hist.tracks) {
+    if (t.generation > 0 || hiddenSpecies.has(t.species)) continue;
     const q = t.points[t.points.length - 1];
     if (!q) continue;
     const [u, v] = view === "side" ? [q[0], q[1]] : [q[1], q[2]];
     ctx.fillStyle = SPECIES_COLOURS[t.species % SPECIES_COLOURS.length];
     ctx.strokeStyle = fg;
-    marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), t.generation ? 2.5 : 4);
+    marker(ctx, MARKERS[t.species % MARKERS.length], sx(u), sy(v), 4);
   }
+  ctx.restore();
+}
+
+// ---- 3D trajectory view ----------------------------------------------------
+
+let orbit = { ...ORBIT_HOME }; // the viewing angles, kept across runs
+const is3d = () => $("traj-view").value === "3d";
+
+// Paint the 3D view into a W x H box of CSS pixels: an orthographic drawing at
+// one scale on all three axes. Draw order: layer interfaces, the box and its
+// ticks, tracks (far to near, fainter with distance), primary end markers.
+function paintOrbit(ctx, W, H, { fg, bg, panel, muted }) {
+  const segs = trajectorySegments(histories, { view: "3d", cascades: $("traj-cascades").checked, hidden: hiddenSpecies });
+  const box = boxBounds(segs);
+  const M = Math.min(56, W / 6); // margin for the tick labels and axis titles
+  const pw = Math.max(W - 2 * M, 1), ph = Math.max(H - 2 * M, 1);
+  const pr = orbitProjector(orbit, box, pw, ph);
+  const P = (p) => { const q = pr.project(p); return [M + q[0], M + q[1], q[2]]; };
+  const path = (pts) => { ctx.beginPath(); pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y))); };
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+  ctx.font = "12px system-ui, sans-serif";
+  ctx.lineWidth = 1;
+  ctx.textBaseline = "middle";
+
+  // Layer interfaces as translucent sheets across the box, named at a corner.
+  const sheet = (x, name) => {
+    if (!(x >= box.x0 && x <= box.x1)) return;
+    const w = box.w, quad = [[x, -w, -w], [x, w, -w], [x, w, w], [x, -w, w]].map(P);
+    path(quad); ctx.closePath();
+    ctx.globalAlpha = 0.55; ctx.fillStyle = panel; ctx.fill();
+    ctx.globalAlpha = 1; ctx.strokeStyle = muted; ctx.stroke();
+    if (name) {
+      const top = quad.reduce((a, b) => (b[1] < a[1] ? b : a));
+      ctx.fillStyle = muted; ctx.textAlign = "left";
+      ctx.fillText(name, top[0] + 4, top[1] - 8);
+    }
+  };
+  const spans = layerSpans(setup.layers);
+  for (const l of spans) sheet(l.top, l.name);
+  const last = spans[spans.length - 1];
+  if (last && Number.isFinite(last.bottom)) sheet(last.bottom, "vacuum");
+
+  // The box, and the beam axis through it.
+  const edges = boxEdges(box).map((e) => ({ ...e, pa: P(e.a), pb: P(e.b) }));
+  ctx.strokeStyle = muted;
+  ctx.globalAlpha = 0.5;
+  ctx.beginPath();
+  for (const e of edges) { ctx.moveTo(e.pa[0], e.pa[1]); ctx.lineTo(e.pb[0], e.pb[1]); }
+  ctx.stroke();
+  ctx.setLineDash([2, 4]);
+  path([P([box.x0, 0, 0]), P([box.x1, 0, 0])]); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 1;
+
+  // Ticks in nm on one edge per axis: the lowest edge for depth and y, the
+  // leftmost for z. An edge seen nearly end-on is left unlabelled.
+  const cx = M + pw / 2, cy = M + ph / 2;
+  const names = ["depth", "y", "z"];
+  ctx.fillStyle = muted; ctx.textAlign = "center";
+  for (let axis = 0; axis < 3; axis++) {
+    const rank = (e) => (axis === 2 ? -(e.pa[0] + e.pb[0]) : e.pa[1] + e.pb[1]);
+    const e = edges.filter((x) => x.axis === axis).reduce((a, b) => (rank(b) > rank(a) ? b : a));
+    const ex = e.pb[0] - e.pa[0], ey = e.pb[1] - e.pa[1], len = Math.hypot(ex, ey);
+    if (len < 40) continue;
+    // Unit normal to the edge on screen, pointing away from the box centre.
+    let nx = -ey / len, ny = ex / len;
+    if (nx * ((e.pa[0] + e.pb[0]) / 2 - cx) + ny * ((e.pa[1] + e.pb[1]) / 2 - cy) < 0) { nx = -nx; ny = -ny; }
+    const lo = nm(e.a[axis]), hi = nm(e.b[axis]);
+    for (const t of niceTicks(lo, hi, Math.max(Math.floor(len / 60), 2))) {
+      if (t < lo || t > hi) continue;
+      const f = (t - lo) / (hi - lo), x = e.pa[0] + f * ex, y = e.pa[1] + f * ey;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 4 * nx, y + 4 * ny); ctx.stroke();
+      ctx.fillText(String(t), x + 15 * nx, y + 15 * ny);
+    }
+    const off = 30 + 24 * Math.abs(nx); // clear of the tick labels, which are wider than tall
+    ctx.fillText(`${names[axis]} (nm)`, (e.pa[0] + e.pb[0]) / 2 + off * nx, (e.pa[1] + e.pb[1]) / 2 + off * ny);
+  }
+  ctx.textAlign = "right";
+  ctx.fillText("scale 1:1:1", W - 8, 12);
+
+  // Tracks: one path per generation, species and distance band, far bands
+  // first and later generations first, so near primaries are on top.
+  const reach = Math.hypot(box.x1 - box.x0, 2 * box.w, 2 * box.w) / 2;
+  const groups = new Map();
+  for (const s of segs) {
+    const a = P(s.a), b = P(s.b), away = (a[2] + b[2]) / 2;
+    const band = away > reach / 4 ? 2 : away > -reach / 4 ? 1 : 0; // 2 is the far band
+    const key = band * 1e6 + s.generation * 1000 + s.species;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(a, b);
+  }
+  for (const key of [...groups.keys()].sort((a, b) => b - a)) {
+    const pts = groups.get(key), band = Math.floor(key / 1e6), generation = Math.floor((key % 1e6) / 1000), species = key % 1000;
+    ctx.strokeStyle = SPECIES_COLOURS[species % SPECIES_COLOURS.length];
+    ctx.globalAlpha = (generation ? 0.45 : 1) * [1, 0.75, 0.5][band];
+    ctx.lineWidth = generation ? 0.8 : 2;
+    ctx.setLineDash(dashFor(generation));
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i += 2) { ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[i + 1][0], pts[i + 1][1]); }
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+  ctx.setLineDash([]);
+  ctx.lineWidth = 1;
+  for (const hist of histories) for (const t of hist.tracks) {
+    if (t.generation > 0 || hiddenSpecies.has(t.species)) continue;
+    const q = t.points[t.points.length - 1];
+    if (!q) continue;
+    const [x, y] = P(q);
+    ctx.fillStyle = SPECIES_COLOURS[t.species % SPECIES_COLOURS.length];
+    ctx.strokeStyle = fg;
+    marker(ctx, MARKERS[t.species % MARKERS.length], x, y, 4);
+  }
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
+// The 3D view turns with a drag or the arrow keys; Home (or the button) resets it.
+let orbitDrawQueued = false;
+function queueOrbitDraw() {
+  if (orbitDrawQueued) return;
+  orbitDrawQueued = true;
+  requestAnimationFrame(() => { orbitDrawQueued = false; drawTrajectories(); });
+}
+function turn(dYaw, dPitch) {
+  orbit = { yaw: orbit.yaw + dYaw, pitch: clampPitch(orbit.pitch + dPitch) };
+  queueOrbitDraw();
+}
+function resetOrbit() {
+  orbit = { ...ORBIT_HOME };
+  queueOrbitDraw();
+}
+function setTrajectoryView() {
+  const cv = $("traj"), on = is3d();
+  cv.classList.toggle("orbit", on);
+  $("traj-reset").hidden = !on;
+  if (on) cv.tabIndex = 0; else cv.removeAttribute("tabindex");
+  cv.setAttribute("aria-label", on
+    ? "Recorded ion and recoil trajectories in 3D; drag or use the arrow keys to rotate"
+    : "Recorded ion and recoil trajectories");
+  drawTrajectories();
+}
+function wireOrbit() {
+  const cv = $("traj");
+  let drag = null;
+  cv.addEventListener("pointerdown", (e) => {
+    if (!is3d() || e.button !== 0) return;
+    drag = { x: e.clientX, y: e.clientY };
+    cv.setPointerCapture?.(e.pointerId);
+    cv.classList.add("dragging");
+  });
+  cv.addEventListener("pointermove", (e) => {
+    if (!drag) return;
+    turn((e.clientX - drag.x) * 0.01, (e.clientY - drag.y) * 0.01);
+    drag = { x: e.clientX, y: e.clientY };
+  });
+  const end = () => { drag = null; cv.classList.remove("dragging"); };
+  cv.addEventListener("pointerup", end);
+  cv.addEventListener("pointercancel", end);
+  cv.addEventListener("dblclick", () => is3d() && resetOrbit());
+  const KEYS = { ArrowLeft: [-0.1, 0], ArrowRight: [0.1, 0], ArrowUp: [0, -0.1], ArrowDown: [0, 0.1] };
+  cv.addEventListener("keydown", (e) => {
+    if (!is3d()) return;
+    if (KEYS[e.key]) { e.preventDefault(); turn(...KEYS[e.key]); }
+    else if (e.key === "Home") { e.preventDefault(); resetOrbit(); }
+  });
+  $("traj-reset").addEventListener("click", resetOrbit);
+}
+
+function updateTrajectoryNote() {
+  const segs = trajectorySegments(histories, { view: $("traj-view").value, cascades: $("traj-cascades").checked, hidden: hiddenSpecies });
   const n = histories.length;
   $("traj-note").textContent = n === 0
     ? `No trajectories yet. The first ${RECORDED_HISTORIES} ion histories of a run are recorded.`
     : `${n} recorded histor${n === 1 ? "y" : "ies"} (the first ${RECORDED_HISTORIES} of the run), ${segs.length} segments.` +
-      (anyTruncated(histories) ? " Some histories were cut at the point limit of each track, so their tails are missing." : "");
+      (anyTruncated(histories) ? " Some histories were cut at the point limit of each track, so their tails are missing." : "") +
+      (is3d() ? " Equal scale on all three axes; drag, or use the arrow keys, to rotate." : "");
+}
+
+let legendReport = null;
+function swatchCanvas() {
+  const c = document.createElement("canvas");
+  const dpr = window.devicePixelRatio || 1;
+  c.width = Math.round(34 * dpr); c.height = Math.round(12 * dpr);
+  c.style.cssText = "width:34px;height:12px;border:0";
+  c.setAttribute("aria-hidden", "true");
+  const x = c.getContext("2d");
+  x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return [c, x];
 }
 
 function drawLegend(report) {
+  readPalette();
+  legendReport = report;
   const names = speciesLabels(report, symbolOfZ);
   const item = (text, swatch) => h("li", {}, swatch, ` ${text}`);
   const line = (i, g) => {
-    const c = document.createElement("canvas");
-    c.width = 34; c.height = 12;
-    c.style.cssText = "width:34px;height:12px;border:0";
-    const x = c.getContext("2d");
-    x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.fillStyle = x.strokeStyle; x.lineWidth = 2;
+    const [c, x] = swatchCanvas();
+    x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.lineWidth = 2;
     x.setLineDash(dashFor(g));
-    x.beginPath(); x.moveTo(0, 6); x.lineTo(26, 6); x.stroke();
-    x.setLineDash([]);
-    x.strokeStyle = "#888";
-    marker(x, MARKERS[i % MARKERS.length], 29, 6, 3);
+    x.beginPath(); x.moveTo(0, 6); x.lineTo(32, 6); x.stroke();
     return c;
   };
+  // Each species has a checkbox: unchecking hides its tracks (the non-colour cue
+  // between species); the dash patterns below tell the generations apart.
+  const toggle = (n, i) => {
+    const box = h("input", { type: "checkbox", checked: !hiddenSpecies.has(i), on: { change: (e) => {
+      if (e.target.checked) hiddenSpecies.delete(i); else hiddenSpecies.add(i);
+      drawTrajectories();
+    } } });
+    return h("li", {}, h("label", { className: "inline" }, box, " ", line(i, 0), ` ${n}`));
+  };
   $("traj-legend").replaceChildren(
-    ...names.map((n, i) => item(`${n}: ${MARKERS[i % MARKERS.length]} at the track's end`, line(i, 0))),
+    ...names.map(toggle),
     item("solid: primary ion", line(0, 0)),
     item("dashed: first recoils", line(0, 1)),
     item("dotted: later generations", line(0, 2)),
@@ -402,43 +946,42 @@ function download(name, blob) {
 function plotView(spec) {
   let v = plotViews.get(spec.id);
   if (v) return v;
-  const canvas = h("canvas", { width: 900, height: 300, role: "img", "aria-label": spec.title });
+  const canvas = h("canvas", { role: "img", "aria-label": spec.title });
   const legend = h("ul", { className: "legend" });
   const note = h("p", { className: "note" });
   const csv = h("button", {
-    type: "button",
+    type: "button", "aria-label": "Download CSV", title: "Download CSV",
     on: { click: () => {
       const s = plotSpecs.find((p) => p.id === spec.id);
       if (s) download(`lindhard-${s.id}.csv`, new Blob([toCsv(s.table)], { type: "text/csv" }));
     } },
-  }, "Download CSV");
-  const box = h("div", { className: "plot" }, h("h3", {}, spec.title), canvas, legend, note, h("div", { className: "tools" }, csv));
-  $("plots").append(box);
+  }, "CSV");
+  const box = h("div", { className: "plot", "data-plot": spec.id }, h("header", {}, h("h3", {}, spec.title), csv), canvas, legend, note);
+  $(spec.id.startsWith("escape-") ? "plots-escapes" : "plots-main").append(box);
   v = { canvas, legend, note };
+  resizeObserver?.observe(canvas);
   plotViews.set(spec.id, v);
   return v;
 }
 
-function legendSwatch(i) {
-  const c = document.createElement("canvas");
-  c.width = 34; c.height = 12;
-  c.style.cssText = "width:34px;height:12px;border:0";
-  const x = c.getContext("2d");
+function legendSwatch(i, dash = i) {
+  const [c, x] = swatchCanvas();
   x.strokeStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length]; x.lineWidth = 2;
-  x.setLineDash(dashForSeries(i));
+  x.setLineDash(dashForSeries(dash));
   x.beginPath(); x.moveTo(0, 6); x.lineTo(32, 6); x.stroke();
   return c;
 }
 
 function drawPlot(spec) {
   const { canvas, legend, note } = plotView(spec);
+  const size = fitCanvas(canvas);
   const ctx = canvas.getContext("2d");
   const css = getComputedStyle(document.documentElement);
   const fg = css.getPropertyValue("--fg").trim() || "#000", bg = css.getPropertyValue("--bg").trim() || "#fff";
   const muted = css.getPropertyValue("--muted").trim() || "#666";
-  const W = canvas.width, H = canvas.height, L = 64, R = 12, T = 12, B = 40;
+  const W = size ? size.w : 900, H = size ? size.h : 300, L = 64, R = 28, T = 12, B = 40;
   const ext = plotExtent(spec);
-  const yTicks = niceTicks(0, ext.y1, 5);
+  const yTicks = niceTicks(0, ext.y1, 5, { integer: true }); // counts are whole numbers
   const y1 = Math.max(ext.y1, yTicks[yTicks.length - 1]);
   const sx = (x) => L + ((x - ext.x0) / (ext.x1 - ext.x0)) * (W - L - R);
   const sy = (y) => H - B - (y / y1) * (H - B - T);
@@ -446,7 +989,11 @@ function drawPlot(spec) {
   ctx.fillStyle = bg; ctx.fillRect(0, 0, W, H);
   ctx.font = "12px system-ui, sans-serif";
   ctx.lineWidth = 1; ctx.strokeStyle = muted; ctx.fillStyle = muted;
+  const gridLine = (x0, y0, x1, y1b) => {
+    ctx.save(); ctx.globalAlpha = 0.2; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1b); ctx.stroke(); ctx.restore();
+  };
   for (const t of yTicks) {
+    gridLine(L, sy(t), W - R, sy(t));
     ctx.beginPath(); ctx.moveTo(L - 4, sy(t)); ctx.lineTo(L, sy(t)); ctx.stroke();
     ctx.textAlign = "right"; ctx.fillText(String(t), L - 7, sy(t) + 4);
   }
@@ -457,21 +1004,27 @@ function drawPlot(spec) {
     spec.categories.forEach((c, i) => {
       ctx.fillStyle = muted;
       ctx.fillText(c, L + (i + 0.5) * bw, H - B + 16, bw - 4);
-      ctx.fillStyle = SPECIES_COLOURS[i % SPECIES_COLOURS.length];
+      const sp = spec.speciesOf?.[i] ?? i;
+      ctx.fillStyle = SPECIES_COLOURS[sp % SPECIES_COLOURS.length];
       const top = sy(spec.series[0].y[i]);
       ctx.fillRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
       ctx.strokeStyle = fg; ctx.strokeRect(L + i * bw + bw * 0.15, top, bw * 0.7, H - B - top);
+      ctx.fillStyle = fg;
+      ctx.fillText(String(spec.series[0].y[i]), L + (i + 0.5) * bw, top - 4, bw - 4);
     });
   } else {
     for (const t of niceTicks(ext.x0, ext.x1, 6)) {
       ctx.strokeStyle = muted; ctx.fillStyle = muted;
+      gridLine(sx(t), T, sx(t), H - B);
       ctx.beginPath(); ctx.moveTo(sx(t), H - B); ctx.lineTo(sx(t), H - B + 4); ctx.stroke();
       ctx.fillText(String(t), sx(t), H - B + 16);
     }
     ctx.lineWidth = 1.6;
+    // Clip series to the plot area: the x range is trimmed below the data's full range.
+    ctx.save(); ctx.beginPath(); ctx.rect(L, T, W - L - R, H - T - B); ctx.clip();
     for (const s of spec.series) {
       ctx.strokeStyle = SPECIES_COLOURS[s.style % SPECIES_COLOURS.length];
-      ctx.setLineDash(dashForSeries(s.style));
+      ctx.setLineDash(dashForSeries(s.dashIndex ?? s.style));
       ctx.beginPath();
       if (s.line) {
         s.y.forEach((y, i) => {
@@ -486,7 +1039,16 @@ function drawPlot(spec) {
       }
       ctx.stroke();
     }
+    ctx.restore();
     ctx.setLineDash([]);
+    for (const m of spec.markers ?? []) {
+      if (!(m.x >= ext.x0 && m.x <= ext.x1)) continue;
+      ctx.strokeStyle = fg; ctx.fillStyle = fg; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+      ctx.beginPath(); ctx.moveTo(sx(m.x), T); ctx.lineTo(sx(m.x), H - B); ctx.stroke();
+      ctx.setLineDash([]); ctx.textAlign = "left";
+      ctx.fillText(`${m.label} = ${Number(m.x.toPrecision(3))} nm`, sx(m.x) + 4, T + 10);
+      ctx.textAlign = "center";
+    }
   }
   ctx.fillStyle = fg; ctx.textAlign = "center";
   ctx.fillText(spec.xLabel, (L + W - R) / 2, H - 6);
@@ -494,16 +1056,22 @@ function drawPlot(spec) {
   ctx.fillText(spec.yLabel, 0, 0); ctx.restore();
   if (spec.empty) { ctx.fillStyle = muted; ctx.fillText("No data yet", (L + W - R) / 2, (T + H - B) / 2); }
   legend.replaceChildren(...(spec.kind === "hist"
-    ? spec.series.map((s) => h("li", {}, legendSwatch(s.style), ` ${s.label}`)) : []));
+    ? spec.series.map((s) => h("li", {}, legendSwatch(s.style, s.dashIndex ?? s.style), ` ${s.label}`)) : []));
   const flows = spec.series.filter((s) => s.bins && !s.overlay && (s.bins.underflow || s.bins.overflow))
     .map((s) => `${s.label}: ${s.bins.underflow} below, ${s.bins.overflow} above the plotted range`);
-  note.textContent = [spec.note, ...flows].filter(Boolean).join(" ");
+  const trim = ext.trimmed
+    ? `The x axis is trimmed to ${ext.x1}; the tally extends to ${ext.full} and the CSV holds all of it.` : "";
+  note.textContent = [spec.note, trim, ...flows].filter(Boolean).join(" ");
 }
+
+const PLOT_ORDER = ["range", "damage", "lateral", "escape-species", "escape-energy", "escape-polar"];
 
 function drawPlots(report) {
   lastReport = report;
-  if (report === null) { $("plots").replaceChildren(); plotViews.clear(); }
-  plotSpecs = buildPlots(report, { layerNames: setup.layers.map((l) => l.name), symbolOfZ });
+  if (report === null) { $("plots-main").replaceChildren(); $("plots-escapes").replaceChildren(); plotViews.clear(); }
+  readPalette();
+  plotSpecs = buildPlots(report, { layerNames: setup.layers.map((l) => l.name), symbolOfZ })
+    .sort((a, b) => PLOT_ORDER.indexOf(a.id) - PLOT_ORDER.indexOf(b.id));
   for (const s of plotSpecs) drawPlot(s);
   $("caveats").replaceChildren(...caveatLines(report, setup.physics).map((t) => h("li", {}, t)));
   $("dl-json").disabled = report === null;
@@ -513,12 +1081,81 @@ $("dl-json").addEventListener("click", () => {
   if (lastReport) download("lindhard-report.json", new Blob([reportJson(lastReport)], { type: "application/json" }));
 });
 $("dl-png").addEventListener("click", () => {
-  $("traj").toBlob((b) => b && download("lindhard-trajectories.png", b), "image/png");
+  // Fixed size (1800 x 720 px; 1800 x 1080 for the 3D view), independent of the window and the pixel ratio.
+  readPalette();
+  const out = document.createElement("canvas");
+  const exportH = is3d() ? EXPORT_H_3D : EXPORT_H; // the 3D view is exported as it is turned
+  out.width = EXPORT_W * EXPORT_SCALE; out.height = exportH * EXPORT_SCALE;
+  const ctx = out.getContext("2d");
+  ctx.setTransform(EXPORT_SCALE, 0, 0, EXPORT_SCALE, 0, 0);
+  paintTrajectories(ctx, EXPORT_W, exportH);
+  out.toBlob((b) => b && download("lindhard-trajectories.png", b), "image/png");
 });
 
-function startRun() {
+// ---- redraw on resize, colour-scheme change and when a hidden view is shown ----
+
+function redrawAll() {
+  drawTrajectories();
+  if (legendReport) drawLegend(legendReport);
+  readPalette();
+  for (const s of plotSpecs) drawPlot(s);
+}
+
+// Latest unpainted progress message; painted by the next animation frame.
+let pendingProgress = null, progressDrawQueued = false;
+// Paint the unpainted progress report, if any, and clear it. Called by the
+// animation frame and, synchronously, by `finished` and `stopped` so the last
+// batch (legend, trajectories, plots) is never dropped.
+function flushProgress() {
+  const p = pendingProgress;
+  if (!p) return;
+  pendingProgress = null;
+  drawPlots(p.report);
+  if (p.firstTrajectories) drawLegend(p.report);
+  if (p.newTrajectories) drawTrajectories();
+}
+function queueProgressDraw() {
+  if (progressDrawQueued) return;
+  progressDrawQueued = true;
+  requestAnimationFrame(() => {
+    progressDrawQueued = false;
+    flushProgress();
+  });
+}
+
+let redrawQueued = false;
+function queueRedraw() {
+  if (redrawQueued) return;
+  redrawQueued = true;
+  requestAnimationFrame(() => { redrawQueued = false; redrawAll(); });
+}
+const resizeObserver = typeof ResizeObserver === "function" ? new ResizeObserver(queueRedraw) : null;
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", queueRedraw);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) queueRedraw(); });
+
+if ("serviceWorker" in navigator) {
+  // Offline support: see sw.js. Relative URL so the scope is this directory on
+  // both hosts (site root and the GitHub Pages path prefix).
+  navigator.serviceWorker.register("./sw.js").catch(() => {});
+}
+
+function clearExample() {
+  exampleRun = false;
+  $("example-label").hidden = true;
+}
+
+// `example` is the run made on load: it keeps the page on the Setup tab and is
+// labelled; any other run replaces it (and its label).
+function startRun(example = false) {
   refresh();
   if (problems.length) return;
+  if (worker) { worker.terminate(); worker = null; } // a Run during the example run replaces it
+  exampleRun = example === true;
+  $("example-label").hidden = !exampleRun;
+  showResults();
+  // Also on wide screens (where `tab` leaves both panels shown): `current` must
+  // follow the run so narrowing below 64rem keeps the results visible.
+  if (!exampleRun) tab("run");
   worker = new Worker(new URL("./worker.js", import.meta.url), { type: "module" });
   setButtons("running");
   status("Starting…");
@@ -530,19 +1167,28 @@ function startRun() {
         status("Running…");
         break;
       case "progress":
+        // Counting and recording are cheap and happen for every message; the
+        // drawing is coalesced to one per animation frame, so a slow draw
+        // cannot let progress messages queue up behind it (which would keep
+        // the counters moving after Pause).
         counters(m.done, m.total, m.report);
-        drawPlots(m.report);
         histories.push(...m.trajectories);
-        if (histories.length === m.trajectories.length) drawLegend(m.report);
-        if (m.trajectories.length) drawTrajectories();
+        pendingProgress = {
+          report: m.report,
+          firstTrajectories: pendingProgress?.firstTrajectories || histories.length === m.trajectories.length,
+          newTrajectories: (pendingProgress?.newTrajectories || 0) + m.trajectories.length,
+        };
+        queueProgressDraw();
         break;
       case "finished":
+        flushProgress();
         counters(m.done, m.total, m.report);
         drawPlots(m.report);
         status("Done (± is one standard error).");
         endRun();
         break;
       case "stopped":
+        flushProgress();
         status(`Stopped after ${m.done} of ${m.total} ions.`);
         endRun();
         break;
@@ -552,9 +1198,17 @@ function startRun() {
         break;
     }
   };
-  worker.onerror = (e) => { status(`The worker failed: ${e.message}`, true); endRun(); };
+  worker.onerror = (e) => {
+    status(e.message
+      ? `The worker failed: ${e.message}`
+      : "The worker script could not be loaded; if you are offline, reload the page once online.", true);
+    endRun();
+  };
   worker.postMessage({ type: "init", toml: toToml(setup), ions: setup.run.ions, recordHistories: RECORDED_HISTORIES, maxPoints: MAX_POINTS_PER_TRACK });
-  histories = [];
+  histories = []; pendingProgress = null;
+  // Species indices are per-run: show every species again, and re-sync the legend checkboxes.
+  hiddenSpecies.clear();
+  if (legendReport) drawLegend(legendReport);
   counters(0, setup.run.ions, null);
   drawTrajectories();
   drawPlots(null);
@@ -566,19 +1220,30 @@ function endRun() {
   setButtons("idle");
 }
 
-$("btn-run").addEventListener("click", startRun);
-$("btn-pause").addEventListener("click", () => { worker.postMessage({ type: "pause" }); setButtons("paused"); status("Paused."); });
-$("btn-resume").addEventListener("click", () => { worker.postMessage({ type: "resume" }); setButtons("running"); status("Running…"); });
+$("btn-run").addEventListener("click", () => startRun());
+// The first edit to the setup makes the label stale: the page no longer shows the example.
+$("setup").addEventListener("input", clearExample);
+$("setup").addEventListener("change", clearExample);
+$("btn-pause").addEventListener("click", () => {
+  if (runState === "paused") { worker.postMessage({ type: "resume" }); setButtons("running"); status("Running…"); }
+  else if (runState === "running") { worker.postMessage({ type: "pause" }); setButtons("paused"); status("Paused."); }
+});
 $("btn-stop").addEventListener("click", () => worker.postMessage({ type: "stop" }));
 
-// ---- tabs ------------------------------------------------------------------
+// ---- tabs and layout ---------------------------------------------------------
 
+// From 64rem both panels show side by side and the tabs are hidden (CSS);
+// below it only the selected tab's panel shows. The `hidden` attributes follow.
+const wide = matchMedia("(min-width: 64rem)");
+let current = "setup";
 function tab(which) {
+  current = which;
   for (const t of ["setup", "run"]) {
-    $(t).hidden = t !== which;
+    $(t).hidden = !wide.matches && t !== which;
     $(`tab-${t}`).setAttribute("aria-selected", String(t === which));
   }
 }
+wide.addEventListener("change", () => tab(current));
 $("tab-setup").addEventListener("click", () => tab("setup"));
 $("tab-run").addEventListener("click", () => tab("run"));
 for (const [id, other] of [["tab-setup", "tab-run"], ["tab-run", "tab-setup"]]) {
@@ -586,6 +1251,13 @@ for (const [id, other] of [["tab-setup", "tab-run"], ["tab-run", "tab-setup"]]) 
     if (e.key === "ArrowRight" || e.key === "ArrowLeft") { $(other).focus(); $(other).click(); }
   });
 }
+
+function showResults() {
+  $("results").hidden = false;
+  $("results-body").hidden = false;
+}
+for (const b of document.querySelectorAll("[data-example]")) b.addEventListener("click", () => loadExample(b.dataset.example));
+tab("setup");
 
 // ---- start -----------------------------------------------------------------
 
@@ -596,25 +1268,43 @@ try {
   $("symbols").replaceChildren(...elements.map((e) => h("option", { value: e.symbol })));
   $("potential").replaceChildren(...POTENTIALS.map((p) => h("option", {}, p)));
   $("stopping").replaceChildren(...STOPPINGS.map((p) => h("option", {}, p)));
-  $("preset").replaceChildren(...Object.keys(PRESETS).map((p) => h("option", {}, p)));
+  $("crystal-preset").replaceChildren(...CRYSTAL_PRESETS.map((p) => h("option", {}, p)));
+  $("preset").replaceChildren(...[CUSTOM, ...Object.keys(PRESETS)].map((p) => h("option", {}, p)));
   $("ions").max = String(Math.min(MAX_IONS, INTERACTIVE_MAX_IONS));
   $("cap-note").textContent = `The page runs up to ${INTERACTIVE_MAX_IONS} ions and records the paths of the first ${RECORDED_HISTORIES}, so a run stays responsive; the command-line tool has no such limit.`;
   symbolOfZ = (z) => elements.find((e) => e.z === z)?.symbol;
-  $("traj-view").addEventListener("change", drawTrajectories);
+  resizeObserver?.observe($("traj"));
+  $("traj-view").addEventListener("change", setTrajectoryView);
+  wireOrbit();
   $("traj-cascades").addEventListener("change", drawTrajectories);
-  drawTrajectories();
+  setTrajectoryView(); // not just a draw: a reload can restore the select to "3d"
   drawPlots(null);
-  $("add-layer").addEventListener("click", () => addPreset("Si"));
-  $("add-preset").addEventListener("click", () => addPreset($("preset").value));
-  for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "mode", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut"]) {
+  $("preset").addEventListener("change", () => showPresetNote($("preset").value));
+  showPresetNote($("preset").value);
+  $("add-layer").addEventListener("click", () => addPreset($("preset").value));
+  for (const id of ["ion", "mass", "energy", "energy-unit", "tilt", "azimuth", "mode-quick", "mode-full", "ions", "seed", "bin", "bins", "potential", "stopping", "pcut", "rcut", "crystal-preset", "crystal-wafer", "crystal-temp", "cn-0", "cn-1", "cn-2", "cr-0", "cr-1", "cr-2"]) {
     $(id).addEventListener("input", refresh);
     $(id).addEventListener("change", refresh);
   }
+  if (QUICK) {
+    document.title = "lindhard range calculator";
+    $("title").textContent = "Ion range calculator";
+    $("intro").replaceChildren(
+      "Projected range ", h("i", {}, "R"), h("sub", {}, "p"), ", straggle Δ", h("i", {}, "R"), h("sub", {}, "p"),
+      " and depth profile of an ion beam in a target, from the ",
+      h("a", { href: "https://github.com/2AMLogic/lindhard" }, "lindhard"),
+      " binary-collision engine running in your browser (WebAssembly, in a Web Worker). Nothing is sent to a server. ",
+      h("a", { href: "simulator.html" }, "Open the full simulator"), " for layered targets, full cascades and a downloadable input file.");
+  } else {
+    $("more-options").open = true;
+  }
+  setup.run.ions = EXAMPLE_IONS;
   writeScalars();
   renderLayers();
   refresh();
   setButtons("idle");
-  status("Ready: B at 10 keV into Si.");
+  // Run the default case on load, in the worker; the page stays usable meanwhile.
+  startRun(true);
 } catch (err) {
   status(`The engine could not be loaded: ${err.message ?? err}`, true);
 }

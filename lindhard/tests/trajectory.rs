@@ -3,26 +3,15 @@
 //! truncation, and the output does not depend on the thread count.
 
 use lindhard::geometry::Stack;
-use lindhard::ion::bca::{
-    Bca, BcaConfig, BcaTally, Beam, EnergyBudget, Face, Particle, SummaryTally,
-};
+use lindhard::ion::bca::{Bca, BcaConfig, BcaTally, EnergyBudget, Face, Particle, SummaryTally};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
-use lindhard::ion::stopping::Ion;
 use lindhard::tally::{History, Recorded, TrackEnd, TrajectoryConfig, TrajectoryRecorder};
 
 mod common;
+use common::boron_2kev as beam;
 use common::si_with_surface_binding as si;
+use common::with_threads;
 use common::zbl_si_table as table;
-
-fn beam(count: u64) -> Beam {
-    Beam {
-        ion: Ion::new(5).unwrap(),
-        energy_ev: 2.0e3,
-        polar_rad: 0.3,
-        azimuth_rad: 0.0,
-        count,
-    }
-}
 
 fn config(follow_recoils: bool) -> BcaConfig {
     let mut cfg = BcaConfig::new(5.0, 2.0);
@@ -49,11 +38,7 @@ fn run<T: BcaTally>(
     // A semi-infinite target: ions stop, and recoils and ions can sputter.
     let stack = Stack::new(vec![], Some(si())).unwrap();
     let bca = Bca::new(beam(count), &stack, config(follow), &ls, table()).unwrap();
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    pool.install(|| bca.run(make).unwrap())
+    with_threads(threads, || bca.run(make).unwrap())
 }
 
 /// Records the stopping or escape state of each primary, for comparison.

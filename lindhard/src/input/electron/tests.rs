@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use super::*;
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, MAX_OSCILLATORS};
-use crate::electron::secondary::SecondaryModel;
+use crate::electron::secondary::{KieftBoschOptions, SecondaryModel};
 use crate::electron::transport::BoundaryModel;
 use crate::tally::{PsfModel, PsfNormalization};
 
@@ -466,10 +466,10 @@ seed = 3
     assert_eq!(r.inelastic, PennAlgorithm::Mermin);
     assert_eq!(
         r.config.secondaries,
-        SecondaryModel::KieftBosch {
+        SecondaryModel::KieftBosch(KieftBoschOptions {
             instantaneous_momentum: false,
             momentum_conservation: true
-        }
+        })
     );
     assert_eq!(
         r.config.boundary,
@@ -576,7 +576,7 @@ fn inner_shells_parse_validate_and_resolve() {
 /// name the field.
 #[test]
 fn beam_profile_defaults_round_trip_and_errors_name_fields() {
-    use crate::electron::transport::{BeamProfile, BeamSpread};
+    use crate::electron::beam::{BeamProfile, BeamSpread};
     use crate::ion::crystal::Divergence;
     let d = dir("beam-profile");
     std::fs::write(d.join("elf.toml"), ELF).unwrap();
@@ -742,4 +742,58 @@ spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
         let e = resolve(&format!("{GOOD}{}", sec.replace(from, to))).unwrap_err();
         assert!(e.contains(&format!("electron.tally.{field}")), "{e}");
     }
+}
+
+#[test]
+fn exposure_beam_reads_legacy_and_new_spellings_and_rectangle() {
+    use crate::electron::beam::BeamProfile;
+    let d = dir("exposure_beam");
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let vol = "[[electron.tally.exposure.volumes]]\nname = \"a\"\nshape = \"cylinder\"\nradius_nm = 10.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\n";
+    let beam_of = |beam: &str| {
+        let sec = format!("\n[electron.tally.exposure]\nlambda = 5.0\nbeam = {beam}\n{vol}");
+        ElectronInput::from_toml_str(&format!("{GOOD}{sec}"))
+            .map_err(|e| e.to_string())
+            .and_then(|i| i.resolve_in(&d).map_err(|e| e.to_string()))
+            .map(|r| r.tally.exposure.unwrap().beam)
+    };
+    let disc = BeamProfile::Disc {
+        radius_m: 3.0 * 1e-9,
+    };
+    assert_eq!(
+        beam_of("{ kind = \"uniform-disc\", radius_nm = 3.0 }"),
+        Ok(disc)
+    );
+    assert_eq!(beam_of("{ model = \"disc\", radius_nm = 3.0 }"), Ok(disc));
+    assert_eq!(
+        beam_of("{ model = \"rectangle\", width_y_nm = 4.0, width_z_nm = 6.0 }"),
+        Ok(BeamProfile::Rectangle {
+            width_y_m: 4.0 * 1e-9,
+            width_z_m: 6.0 * 1e-9
+        })
+    );
+    for bad in [
+        "{ kind = \"disc\", model = \"disc\", radius_nm = 3.0 }",
+        "{ model = \"disc\", sigma_nm = 3.0 }",
+        "{ model = \"disc\", radius_nm = 3.0, extra = 1 }",
+    ] {
+        assert!(beam_of(bad).is_err(), "{bad}");
+    }
+    for bad in [
+        "{ model = \"rectangle\", width_y_nm = 0.0, width_z_nm = 6.0 }",
+        "{ model = \"disc\", radius_nm = -1.0 }",
+        "{ model = \"gaussian\", sigma_nm = nan }",
+    ] {
+        assert!(beam_of(bad).is_err(), "{bad}");
+    }
+    // A non-finite size is named with the exposure beam's own error key (the
+    // `[electron.beam.profile]` resolver uses its own); positivity is not
+    // checked here but by `tally::exposure`, which is why the zero and
+    // negative sizes above fail under its message instead of these keys.
+    let e = beam_of("{ model = \"gaussian\", sigma_nm = nan }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.sigma_nm"), "{e}");
+    let e = beam_of("{ model = \"rectangle\", width_y_nm = inf, width_z_nm = 6.0 }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.width_y_nm"), "{e}");
+    let e = beam_of("{ model = \"disc\", radius_nm = nan }").unwrap_err();
+    assert!(e.contains("electron.tally.exposure.beam.radius_nm"), "{e}");
 }

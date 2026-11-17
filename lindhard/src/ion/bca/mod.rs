@@ -54,11 +54,15 @@
 //! voxels of that material. The surface barrier of an escaping atom uses the
 //! `E_s` of the material it leaves from and the actual outward normal of the
 //! face (see [`kinematics::refract_out_normal`]); a particle that cannot
-//! escape is reflected specularly about that normal. Escapes through the
-//! lateral faces of a voxel grid are reported as [`Face::Side`] and counted
-//! in [`EnergyBudget::lateral`]. [`crate::tally::ion::IonTally`] and the CLI
-//! tallies describe stacks only; use [`crate::tally::voxel::VoxelTally`],
-//! [`SummaryTally`] or a custom [`BcaTally`] for voxel runs.
+//! escape is reflected specularly about that normal. Escapes through a
+//! lateral face — a voxel-grid side wall, or a lateral face of a
+//! `[[target.solids]]` CSG scene — are reported as [`Face::Side`] and
+//! counted in [`EnergyBudget::lateral`], but are deliberately left out of
+//! the face-escape spectra (see `docs/cli.md`, "Lateral escapes").
+//! [`crate::tally::ion::IonTally`] describes any [`Geometry`] — a stack, a
+//! CSG scene or a voxel grid — and the CLI tallies are built on it and
+//! [`SummaryTally`]; [`crate::tally::voxel::VoxelTally`], which bins by
+//! position on its own grid, remains the tally of choice for voxel runs.
 //!
 //! A flight is drawn as a dimensionless number of mean free paths `tau` and
 //! converted to a length with the local `lambda`. When a flight reaches a
@@ -227,11 +231,16 @@ use std::f64::consts::PI;
 use rand_core::Rng;
 
 use crate::geometry::{ExitOutcome, Flight, Geometry};
+use crate::ion::crystal::debye::sample_gaussian_1d;
 use crate::ion::crystal::Divergence;
 use crate::ion::potential::{Potential, Screening};
 use crate::ion::scattering::{closest_approach, theta_quadrature, ScatteringTable};
+use crate::ion::stopping::bethe::EffectiveCharge;
 use crate::ion::stopping::bragg::{bragg_cross_section_per_atom, NoCorrection};
 use crate::ion::stopping::mix::EquipartitionMix;
+use crate::ion::stopping::straggling::{
+    variance_per_atom, variance_per_atom_material, StragglingModel,
+};
 use crate::ion::stopping::{ElectronicStopping, Ion, StoppingError, ValidityRange};
 use crate::material::EnergyKind;
 use crate::rng::{run_particles_range, uniform, ParticleRng};
@@ -284,6 +293,134 @@ impl Beam {
 /// next), so enabling divergence leaves every other draw of the history
 /// unchanged.
 pub const DIVERGENCE_STREAM_WORD: u128 = 1u128 << 65;
+
+/// Word position of the segment of a history's random stream that the
+/// primary-energy draw of a [`EnergySpectrum`] comes from: `2^64`.
+///
+/// The transport draws start at word 0 and never reach it; it is disjoint
+/// from the divergence (`2^65`), thermal (`2^66`) and crystal-shift (`2^67`)
+/// segments (each is far shorter than the gap to the next). `2^68` words is
+/// the ChaCha period, so the segments cannot go higher than `2^67`; `2^64`
+/// is the free slot below them. A run without a spectrum never touches it.
+pub const ENERGY_STREAM_WORD: u128 = 1u128 << 64;
+
+/// A discrete, weighted spectrum of primary energies (a recoil, or PKA,
+/// spectrum). Each history selects one line with probability proportional to
+/// its weight, from a copy of its own stream at [`ENERGY_STREAM_WORD`], so the
+/// choice is independent of the thread count and changes no other draw.
+///
+/// Lines are discrete: there is no interpolation and no continuous spectrum.
+/// Selection is by inversion of the cumulative normalised weights with one
+/// [`uniform`] draw.
+#[derive(Debug, Clone, PartialEq)]
+pub struct EnergySpectrum {
+    /// `(energy_ev, normalised weight)` in input order.
+    lines: Vec<(f64, f64)>,
+    /// Running sum of the normalised weights, last entry forced to 1.
+    cumulative: Vec<f64>,
+}
+
+impl EnergySpectrum {
+    /// Build from `(energy_ev, weight)` lines. Needs at least one line;
+    /// energies and weights must be finite and positive. Weights are
+    /// normalised to sum to 1.
+    pub fn new(lines: &[(f64, f64)]) -> Result<Self, String> {
+        if lines.is_empty() {
+            return Err("needs at least one line".to_string());
+        }
+        for (i, &(e, w)) in lines.iter().enumerate() {
+            if !(e.is_finite() && e > 0.0) {
+                return Err(format!(
+                    "line {i}: energy {e} eV must be finite and positive"
+                ));
+            }
+            if !(w.is_finite() && w > 0.0) {
+                return Err(format!("line {i}: weight {w} must be finite and positive"));
+            }
+        }
+        let total: f64 = lines.iter().map(|l| l.1).sum();
+        if !(total.is_finite() && total > 0.0) {
+            return Err("the weights do not sum to a finite positive number".to_string());
+        }
+        let norm: Vec<(f64, f64)> = lines.iter().map(|&(e, w)| (e, w / total)).collect();
+        let mut acc = 0.0;
+        let mut cumulative: Vec<f64> = norm
+            .iter()
+            .map(|l| {
+                acc += l.1;
+                acc
+            })
+            .collect();
+        if let Some(last) = cumulative.last_mut() {
+            *last = 1.0;
+        }
+        Ok(Self {
+            lines: norm,
+            cumulative,
+        })
+    }
+
+    /// `(energy_ev, normalised weight)` of each line, in input order.
+    pub fn lines(&self) -> &[(f64, f64)] {
+        &self.lines
+    }
+
+    /// Smallest line energy, eV.
+    pub fn min_energy_ev(&self) -> f64 {
+        self.lines.iter().map(|l| l.0).fold(f64::INFINITY, f64::min)
+    }
+
+    /// Largest line energy, eV.
+    pub fn max_energy_ev(&self) -> f64 {
+        self.lines.iter().map(|l| l.0).fold(0.0, f64::max)
+    }
+
+    /// Draw a line index with one uniform variate from `rng`.
+    pub fn sample_index<R: Rng + ?Sized>(&self, rng: &mut R) -> usize {
+        let u = uniform(rng);
+        self.cumulative
+            .iter()
+            .position(|&c| u < c)
+            .unwrap_or(self.lines.len() - 1)
+    }
+
+    /// Draw a primary energy, eV.
+    pub fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> f64 {
+        self.lines[self.sample_index(rng)].0
+    }
+}
+
+/// One line of [`EnergySpectrumMetadata`].
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SpectrumLineMetadata {
+    /// Line energy, eV.
+    pub energy_ev: f64,
+    /// Normalised weight (the lines sum to 1).
+    pub weight: f64,
+}
+
+/// Run metadata of a primary-energy spectrum ([`Bca::spectrum_metadata`]).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct EnergySpectrumMetadata {
+    /// The lines with normalised weights, in input order.
+    pub lines: Vec<SpectrumLineMetadata>,
+    /// Word position of the random-stream segment the draw comes from.
+    pub stream_word: &'static str,
+}
+
+impl EnergySpectrumMetadata {
+    /// Metadata of `spectrum`.
+    pub fn new(spectrum: &EnergySpectrum) -> Self {
+        Self {
+            lines: spectrum
+                .lines()
+                .iter()
+                .map(|&(energy_ev, weight)| SpectrumLineMetadata { energy_ev, weight })
+                .collect(),
+            stream_word: "2^64",
+        }
+    }
+}
 
 /// Most deflected directions drawn for one primary before
 /// [`Bca::with_divergence`]'s inward conditioning gives up with
@@ -457,6 +594,13 @@ pub struct BcaConfig {
     /// Default 0 (backscattered ions are not bound). Target atoms use the
     /// `E_s` of the material at the face (see [`Bca::new`]).
     pub primary_surface_binding_ev: f64,
+    /// Electronic energy-loss straggling of the nonlocal loss: the
+    /// fluctuation of the accumulated electronic loss is drawn once per path
+    /// segment, from a Gaussian with the Bohr variance accumulated over that
+    /// segment ([`StragglingModel`], the `ion::stopping::straggling` module
+    /// docs). `None` (the default) keeps the deterministic mean loss and
+    /// draws nothing.
+    pub straggling: Option<StragglingModel>,
     /// Run seed for [`crate::rng::stream`].
     pub seed: u64,
     /// Histories per work chunk for [`crate::rng::run_particles`]; fixes the summation
@@ -476,6 +620,7 @@ impl BcaConfig {
             primary_cutoff_ev,
             recoil_cutoff_ev,
             primary_surface_binding_ev: 0.0,
+            straggling: None,
             seed: 0,
             chunk_size: 64,
         }
@@ -603,6 +748,16 @@ struct LayerData {
     /// powers in the coefficient depend only on the ion and target, so they
     /// are evaluated here once instead of at every flight.
     loss_coef: Vec<Option<f64>>,
+    /// Per projectile species: the Bragg-added straggling variance
+    /// `Σ_j x_j Ω_j²` over the layer's elements, when it cannot depend on
+    /// energy — `StragglingModel::Bohr` with the `EffectiveCharge::Bare`
+    /// charge the per-flight site passes (`electronic_nonlocal`; `charge`
+    /// ignores its beta argument for `Bare`, and the `Bohr` arm never looks
+    /// at beta). `None` otherwise — `BohrRelativistic` carries a real beta²
+    /// factor and any non-`Bare` charge is beta-dependent — which keeps
+    /// those on the per-flight path. Hoisted beside `loss_coef` for the
+    /// same reason: the per-flight Bragg sum is a setup-time constant.
+    straggle_var: Vec<Option<f64>>,
 }
 
 /// `ln beta_max` on a grid uniform in `ln eps`, for the energy-dependent
@@ -731,6 +886,34 @@ impl HistoryBuffers {
     }
 }
 
+/// One particle's pending straggling segment: the mean nonlocal loss and the
+/// Bohr variance accumulated since the last deviation was drawn
+/// (`ion::stopping::straggling` module docs). Empty after every close.
+#[derive(Default)]
+struct StraggleSegment {
+    /// Mean nonlocal loss taken along the segment so far, eV.
+    mu: f64,
+    /// Accumulated Bohr variance along the segment so far, eV².
+    sigma2: f64,
+}
+
+impl StraggleSegment {
+    fn is_empty(&self) -> bool {
+        self.mu == 0.0 && self.sigma2 == 0.0
+    }
+}
+
+/// A segment closes (and its one deviation is drawn) once the accumulated
+/// mean loss reaches [`STRAGGLE_SEGMENT_K`] standard deviations. Bohr's
+/// Gaussian describes a many-collision loss, so the draw is deferred until
+/// the Gaussian sits `k` sigmas above zero and the `[0, E']` safety clamp is
+/// essentially inactive: the probability of a standard normal draw below
+/// `-k` is `Phi(-k)`, about 3.2e-5 at `k = 4` (Abramowitz & Stegun 26.2.17,
+/// first term of the erfc asymptotic). Both accumulators grow linearly with
+/// path length, so the criterion is reached after about
+/// `(k sigma_1 / mu_1)^2` flights of one material.
+const STRAGGLE_SEGMENT_K: f64 = 4.0;
+
 /// The nonlocal half of [`EquipartitionMix`] as an [`ElectronicStopping`]
 /// model, so the Bragg sum can be reused.
 struct MixNonLocal(EquipartitionMix);
@@ -748,6 +931,29 @@ impl ElectronicStopping for MixNonLocal {
     fn sqrt_energy_coefficient(&self, ion: &Ion, target_z: u8) -> Option<f64> {
         self.0.nonlocal_sqrt_energy_coefficient(ion, target_z)
     }
+}
+
+/// Bragg-added straggling variance `Σ_j x_j Ω_j²` over a layer's elements,
+/// hoisted beside `loss_coef` when the variance cannot depend on energy
+/// ([`StragglingModel::Bohr`] with [`EffectiveCharge::Bare`], the charge the
+/// per-flight site passes). Sums over `elems` in order — the same order and
+/// the same `z` and `fraction` values `variance_per_atom_material` sums
+/// over — so the result is bit-identical to the per-flight call it replaces,
+/// which is what keeps the determinism-across-thread-counts invariant.
+fn hoisted_variance(
+    elems: &[ElemData],
+    ion: &Ion,
+    charge: EffectiveCharge,
+) -> Result<f64, StoppingError> {
+    let mut sum = 0.0;
+    // Same order as the Bragg sum.
+    for e in elems {
+        // The energy argument is arbitrary: for Bohr + Bare the variance of
+        // `variance_per_atom` does not depend on it, so any finite positive
+        // energy passes `check_energy` and yields identical bits.
+        sum += e.fraction * variance_per_atom(StragglingModel::Bohr, charge, ion, e.z, 1.0)?;
+    }
+    Ok(sum)
 }
 
 /// The BCA engine for one beam, target and configuration.
@@ -780,6 +986,9 @@ pub struct Bca<'a> {
     /// Beam divergence about the nominal direction ([`Bca::with_divergence`]);
     /// [`Divergence::None`] (the default) draws nothing.
     divergence: Divergence,
+    /// Primary-energy spectrum ([`Bca::with_spectrum`]); `None` (the default)
+    /// gives every primary [`Beam::energy_ev`] and draws nothing.
+    spectrum: Option<EnergySpectrum>,
 }
 
 fn finite_nonneg(v: f64) -> bool {
@@ -925,6 +1134,7 @@ impl<'a> Bca<'a> {
                 p_const: 1.0 / (PI * n.powf(2.0 / 3.0)).sqrt(),
                 elems,
                 loss_coef: Vec::new(),
+                straggle_var: Vec::new(),
             });
         }
         let mix = MixNonLocal(EquipartitionMix::new());
@@ -946,6 +1156,42 @@ impl<'a> Bca<'a> {
                     })
                     .collect();
             }
+        }
+        // Hoist the straggling variance beside `loss_coef` when it cannot
+        // depend on energy. The per-flight site (`electronic_nonlocal`)
+        // passes `EffectiveCharge::Bare`, for which `charge` ignores its
+        // beta argument; with `StragglingModel::Bohr` the returned variance
+        // is then energy-independent, so the Bragg-added value is a
+        // per-layer constant and the per-flight `components()` loop the
+        // sampling would otherwise pay disappears. `BohrRelativistic`
+        // carries a real beta^2 factor and a non-`Bare` charge is
+        // beta-dependent; the gate names both conditions rather than
+        // assuming them, so if a configurable charge or model ever reaches
+        // the per-flight site the hoist re-gates on the configured value
+        // instead of silently freezing one that varies.
+        let straggle_charge = EffectiveCharge::Bare;
+        let straggle_hoist = matches!(config.straggling, Some(StragglingModel::Bohr))
+            && straggle_charge == EffectiveCharge::Bare;
+        for lay in &mut layers {
+            lay.straggle_var = if straggle_hoist {
+                species
+                    .iter()
+                    .map(|sp| {
+                        // A target-table failure surfaces here, at
+                        // construction, instead of collapsing into `None`
+                        // and hiding until the first flight.
+                        hoisted_variance(&lay.elems, &sp.ion, straggle_charge)
+                            .map_err(|e| {
+                                BcaError::InvalidConfig(format!(
+                                    "straggling variance precompute: {e}"
+                                ))
+                            })
+                            .map(Some)
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+            } else {
+                vec![None; species.len()]
+            };
         }
         // Surface barriers by exit material; the beam always uses its own.
         let mut barriers = Vec::with_capacity(n_materials * species.len());
@@ -1001,6 +1247,7 @@ impl<'a> Bca<'a> {
             crystals: Vec::new(),
             region_crystal: Vec::new(),
             divergence: Divergence::None,
+            spectrum: None,
         })
     }
 
@@ -1030,6 +1277,36 @@ impl<'a> Bca<'a> {
             .map_err(|e| BcaError::InvalidBeam(format!("divergence: {e}")))?;
         self.divergence = divergence;
         Ok(self)
+    }
+
+    /// Give the primaries a weighted energy spectrum (opt-in; the default is
+    /// none, which changes nothing). Each history draws its primary energy
+    /// from [`EnergySpectrum`] using a copy of its own stream at
+    /// [`ENERGY_STREAM_WORD`]; the energy budget's incident energy and the
+    /// primary's start energy are that draw. [`Beam::energy_ev`] is then not
+    /// used as the primary energy, but it must still be valid (the callers
+    /// set it to the largest line).
+    pub fn with_spectrum(mut self, spectrum: EnergySpectrum) -> Self {
+        self.spectrum = Some(spectrum);
+        self
+    }
+
+    /// Metadata of the primary-energy spectrum; `None` without one.
+    pub fn spectrum_metadata(&self) -> Option<EnergySpectrumMetadata> {
+        self.spectrum.as_ref().map(EnergySpectrumMetadata::new)
+    }
+
+    /// The incident energy of the history with stream `rng`: the beam energy,
+    /// or the spectrum draw (see [`Bca::with_spectrum`]).
+    fn initial_energy(&self, rng: &ParticleRng) -> f64 {
+        match &self.spectrum {
+            None => self.beam.energy_ev,
+            Some(sp) => {
+                let mut erng = rng.clone();
+                erng.set_word_pos(ENERGY_STREAM_WORD);
+                sp.sample(&mut erng)
+            }
+        }
     }
 
     /// Metadata of the beam divergence; `None` without one.
@@ -1187,8 +1464,9 @@ impl<'a> Bca<'a> {
         index: u64,
     ) -> Result<EnergyBudget, HistoryError> {
         tally.begin_history(index);
+        let e_primary = self.initial_energy(rng);
         let mut budget = EnergyBudget {
-            incident: self.beam.energy_ev,
+            incident: e_primary,
             ..EnergyBudget::default()
         };
         let HistoryBuffers {
@@ -1236,7 +1514,7 @@ impl<'a> Bca<'a> {
             species: 0,
             z: self.beam.ion.z(),
             mass_amu: self.beam.ion.mass_amu(),
-            energy_ev: self.beam.energy_ev,
+            energy_ev: e_primary,
             pos: self.entry_pos,
             dir,
             layer: self.entry_region,
@@ -1302,13 +1580,20 @@ impl<'a> Bca<'a> {
         }
     }
 
+    /// Take the flight's mean nonlocal electronic loss and accumulate the
+    /// flight's mean and Bohr variance into `seg`, closing the segment (one
+    /// deviation drawn and applied) at the criterion of
+    /// [`STRAGGLE_SEGMENT_K`].
+    #[allow(clippy::too_many_arguments)]
     fn electronic_nonlocal<T: BcaTally>(
         &self,
         p: &mut Particle,
         from: [f64; 3],
         len: f64,
+        rng: &mut ParticleRng,
         budget: &mut EnergyBudget,
         tally: &mut T,
+        seg: &mut StraggleSegment,
     ) -> Result<(), StoppingError> {
         if len <= 0.0 {
             return Ok(());
@@ -1335,7 +1620,90 @@ impl<'a> Bca<'a> {
             budget.electronic_nonlocal += de;
             tally.electronic(p, from, ElectronicChannel::NonLocal, de);
         }
+        // Opt-in straggling (`BcaConfig::straggling`): the flight's mean loss
+        // is taken as above, and the flight also contributes to this
+        // particle's pending straggling segment — its mean loss and its Bohr
+        // variance `n Omega^2 s` (the variance per target atom
+        // `variance_per_atom`, Bragg-added over the local composition,
+        // computed at the flight's energy — or read from the per-layer hoist
+        // below when it cannot depend on energy — and scaled by the areal
+        // density `n s`). Because Bohr's variance is linear in path length,
+        // the accumulated variance of a segment of any number of flights is
+        // exactly Bohr's variance for the whole segment, so drawing **one**
+        // deviation when the segment closes reproduces the published result
+        // per unit path length. Drawing per flight instead would put every
+        // draw in the regime `sigma_E >= mu` — a flight of the constant free
+        // path is 0.21 nm in carbon — where the Gaussian does not describe
+        // the loss distribution and clamping it to `[0, E]` left-censors it
+        // into a badly biased mean (the `ion::stopping::straggling` module
+        // docs carry the measured size of that old bias). The segment closes
+        // at `STRAGGLE_SEGMENT_K`, or when the particle's transport ends
+        // (`close_straggle_segment`); the draw comes from this history's own
+        // transport stream, so the result stays keyed on `(seed, index)` at
+        // any thread count. The effective charge is the `Bare` form, in
+        // which Bohr's expression is written; the BCA's mean loss uses no
+        // charge correction either. A disabled (`None`) run makes no draw at
+        // all, so its stream, and therefore its results, are those of a
+        // build without the option.
+        if let Some(model) = self.config.straggling {
+            if p.energy_ev > 0.0 {
+                let material = self.geometry.material(mi);
+                let ion = &self.species[p.species].ion;
+                // Hoisted beside `loss_coef` when it cannot depend on energy
+                // (`Bohr` with the `Bare` charge below); the hoisted arm
+                // contains no `components()` loop. The `E > 0` and finite
+                // test keeps a non-physical energy on the general path,
+                // which reports it — same reasoning as the `lay.loss_coef`
+                // arm above, which already rejected one before this block.
+                let omega2 = match lay.straggle_var[p.species] {
+                    Some(v) if p.energy_ev > 0.0 && p.energy_ev.is_finite() => v,
+                    _ => variance_per_atom_material(
+                        model,
+                        EffectiveCharge::Bare,
+                        ion,
+                        material,
+                        p.energy_ev,
+                    )?,
+                };
+                seg.mu += de;
+                seg.sigma2 += lay.n * omega2 * len / (J_PER_EV * J_PER_EV);
+                if seg.mu >= STRAGGLE_SEGMENT_K * seg.sigma2.sqrt() {
+                    self.close_straggle_segment(seg, p, from, rng, budget, tally);
+                }
+            }
+        }
         Ok(())
+    }
+
+    /// Draw and apply the one straggling deviation of the pending segment
+    /// (`StraggleSegment`), and empty it. The deviation is clamped to
+    /// `[-mu, E]`: the sampled loss of the segment, `mu + dev`, can then
+    /// never fall below zero (no history gains energy relative to the start
+    /// of its segment) and never exceeds the ion's energy. At
+    /// [`STRAGGLE_SEGMENT_K`] the lower clamp is essentially inactive
+    /// (`Phi(-k)` of segments); it matters only on a partial segment closed
+    /// at the end of a transport, where it keeps the books exact. The
+    /// deviation is tallied on the flight that closes the segment — the
+    /// fluctuation is localized at the segment's end rather than spread
+    /// along it, a second-order effect on the deposition profile next to
+    /// the mean bias it removes (module docs).
+    fn close_straggle_segment<T: BcaTally>(
+        &self,
+        seg: &mut StraggleSegment,
+        p: &mut Particle,
+        from: [f64; 3],
+        rng: &mut ParticleRng,
+        budget: &mut EnergyBudget,
+        tally: &mut T,
+    ) {
+        let dev = sample_gaussian_1d(seg.sigma2.sqrt(), rng).clamp(-seg.mu, p.energy_ev);
+        seg.mu = 0.0;
+        seg.sigma2 = 0.0;
+        if dev != 0.0 {
+            p.energy_ev -= dev;
+            budget.electronic_nonlocal += dev;
+            tally.electronic(p, from, ElectronicChannel::NonLocal, dev);
+        }
     }
 
     fn advance(p: &mut Particle, len: f64) {
@@ -1359,24 +1727,38 @@ impl<'a> Bca<'a> {
     ) -> Result<(), StoppingError> {
         let cutoff = self.species[p.species].cutoff_ev;
         let mut tau = self.draw_tau(rng, p.is_primary());
+        let mut seg = StraggleSegment::default();
         scratch.last.clear();
         scratch.new_line();
         loop {
             if p.energy_ev < cutoff {
-                budget.rest += p.energy_ev;
-                tally.stopped(&p);
-                return Ok(());
+                // This particle's transport ends here. A pending straggling
+                // segment closes first: its deviation belongs to the loss
+                // already taken, and a negative deviation (less than the
+                // mean loss along the segment) can lift the energy back
+                // above the cutoff, so the stop is decided after the draw.
+                if !seg.is_empty() {
+                    let at = p.pos;
+                    self.close_straggle_segment(&mut seg, &mut p, at, rng, budget, tally);
+                }
+                if p.energy_ev < cutoff {
+                    budget.rest += p.energy_ev;
+                    tally.stopped(&p);
+                    return Ok(());
+                }
             }
             if let Some(ci) = self.crystal_at(p.layer) {
                 if self.crystal_step(
                     ci,
                     shifts[ci],
                     &mut p,
+                    rng,
                     pending,
                     budget,
                     tally,
                     scratch,
                     thermal_rng,
+                    &mut seg,
                 )? {
                     return Ok(());
                 }
@@ -1403,7 +1785,7 @@ impl<'a> Bca<'a> {
                     let from = p.pos;
                     Self::advance(&mut p, s);
                     p.layer = region;
-                    self.electronic_nonlocal(&mut p, from, s, budget, tally)?;
+                    self.electronic_nonlocal(&mut p, from, s, rng, budget, tally, &mut seg)?;
                     if p.energy_ev >= cutoff {
                         self.collide(&mut p, rng, scratch, pending, budget, tally)?;
                         tau = self.draw_tau(rng, false);
@@ -1415,12 +1797,12 @@ impl<'a> Bca<'a> {
             let d_b = ex.distance;
             let from = p.pos;
             p.pos = ex.at;
-            self.electronic_nonlocal(&mut p, from, d_b, budget, tally)?;
+            self.electronic_nonlocal(&mut p, from, d_b, rng, budget, tally, &mut seg)?;
             tau = (tau - d_b / lambda).max(0.0);
             if p.energy_ev < cutoff {
                 continue;
             }
-            if self.apply_event(&mut p, ex.outcome, budget, tally) {
+            if self.apply_event(&mut p, ex.outcome, budget, tally, &mut seg, rng) {
                 return Ok(());
             }
         }
@@ -1430,12 +1812,18 @@ impl<'a> Bca<'a> {
     /// event point with the electronic loss of the segment taken: enter the
     /// next region, or reach a surface and escape (returns `true`, the
     /// particle is finished) or reflect specularly (returns `false`).
+    /// Escaping closes the particle's pending straggling segment first: the
+    /// fluctuation happened inside the target, so it belongs in the energy
+    /// the particle carries out.
+    #[allow(clippy::too_many_arguments)]
     fn apply_event<T: BcaTally>(
         &self,
         p: &mut Particle,
         outcome: ExitOutcome,
         budget: &mut EnergyBudget,
         tally: &mut T,
+        seg: &mut StraggleSegment,
+        rng: &mut ParticleRng,
     ) -> bool {
         match outcome {
             ExitOutcome::Enter { region, pos } => {
@@ -1443,6 +1831,9 @@ impl<'a> Bca<'a> {
                 p.pos = pos;
             }
             ExitOutcome::Escape { face, normal } => {
+                if !seg.is_empty() {
+                    self.close_straggle_segment(seg, p, p.pos, rng, budget, tally);
+                }
                 let mi = self.geometry.material_index(p.layer);
                 let e_s = self.barriers[mi * self.species.len() + p.species];
                 match kinematics::refract_out_normal(p.energy_ev, p.dir, normal, e_s) {
@@ -1857,5 +2248,217 @@ mod tests {
             mk(Beam::normal(ion, 1e3, 1), c),
             Err(BcaError::InvalidConfig(_))
         ));
+    }
+
+    /// Quartz-like two-element target with unequal atom fractions, so the
+    /// Bragg sum has more than one term. A multi-element material has no
+    /// tabulated density or surface binding energy, so both are given.
+    fn sio2() -> Material {
+        let mut m = Material::from_atom_fractions(&[(14, 1.0), (8, 2.0)], Some(2650.0)).unwrap();
+        m.set_displacement_energy_ev(14, 15.0).unwrap();
+        m.set_displacement_energy_ev(8, 20.0).unwrap();
+        m.set_surface_binding_energy_ev(14, 4.7).unwrap();
+        m.set_surface_binding_energy_ev(8, 3.0).unwrap();
+        m
+    }
+
+    fn straggling_bca<'a>(
+        model: Option<StragglingModel>,
+        stack: &'a Stack,
+        table: &'a ScatteringTable,
+        stopping: &'a (dyn ElectronicStopping + Sync),
+    ) -> Bca<'a> {
+        let mut cfg = BcaConfig::new(5.0, 2.0);
+        cfg.straggling = model;
+        Bca::new(
+            Beam::normal(Ion::proton(), 1e6, 1),
+            stack,
+            cfg,
+            stopping,
+            table,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn hoisted_straggling_variance_equals_the_per_flight_bragg_sum() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        for (m, label) in [
+            (si(), "single element"),
+            (sio2(), "Bragg sum over two elements"),
+        ] {
+            let stack = Stack::semi_infinite(m);
+            let bca = straggling_bca(Some(StragglingModel::Bohr), &stack, &table, &ls);
+            // Species 0 is the beam proton; species 1 the first target
+            // element as a recoil species. The hoisted entry is per species.
+            for (si, ion) in [(0, Ion::proton()), (1, Ion::new(14).unwrap())] {
+                let hoisted = bca.layers[0].straggle_var[si]
+                    .expect("Bohr + Bare is hoisted, one entry per species");
+                let material = bca.geometry.material(0);
+                assert_eq!(
+                    hoisted,
+                    variance_per_atom_material(
+                        StragglingModel::Bohr,
+                        EffectiveCharge::Bare,
+                        &ion,
+                        material,
+                        5e5,
+                    )
+                    .unwrap(),
+                    "{label}, species {si}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn hoisted_straggling_variance_is_energy_invariant() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        for (m, label) in [(si(), "single element"), (sio2(), "Bragg (SiO2)")] {
+            let stack = Stack::semi_infinite(m);
+            let bca = straggling_bca(Some(StragglingModel::Bohr), &stack, &table, &ls);
+            let hoisted = bca.layers[0].straggle_var[0].unwrap();
+            let material = bca.geometry.material(0);
+            let ion = Ion::proton();
+            for &energy_ev in &[1e3, 1e7] {
+                assert_eq!(
+                    hoisted,
+                    variance_per_atom_material(
+                        StragglingModel::Bohr,
+                        EffectiveCharge::Bare,
+                        &ion,
+                        material,
+                        energy_ev,
+                    )
+                    .unwrap(),
+                    "{label} at {energy_ev} eV"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn bohr_relativistic_is_not_hoisted_and_still_varies_with_energy() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        let m = si();
+        let stack = Stack::semi_infinite(m);
+        let bca = straggling_bca(Some(StragglingModel::BohrRelativistic), &stack, &table, &ls);
+        assert!(
+            bca.layers[0].straggle_var.iter().all(|v| v.is_none()),
+            "BohrRelativistic carries a real beta^2 dependence and must stay per-flight"
+        );
+        // The fall-through value it will be evaluated at per flight still
+        // varies with energy.
+        let material = bca.geometry.material(0);
+        let ion = Ion::proton();
+        assert_ne!(
+            variance_per_atom_material(
+                StragglingModel::BohrRelativistic,
+                EffectiveCharge::Bare,
+                &ion,
+                material,
+                1e3,
+            )
+            .unwrap(),
+            variance_per_atom_material(
+                StragglingModel::BohrRelativistic,
+                EffectiveCharge::Bare,
+                &ion,
+                material,
+                1e7,
+            )
+            .unwrap()
+        );
+    }
+
+    #[test]
+    fn straggling_disabled_is_not_hoisted() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        let m = si();
+        let stack = Stack::semi_infinite(m);
+        let bca = straggling_bca(None, &stack, &table, &ls);
+        assert!(bca.layers[0].straggle_var.iter().all(|v| v.is_none()));
+    }
+
+    #[test]
+    fn straggling_reports_an_invalid_flight_energy_via_fall_through() {
+        let table = small_table();
+        let ls = crate::ion::stopping::lindhard_scharff::LindhardScharff::new();
+        let m = si();
+        let stack = Stack::semi_infinite(m);
+        let bca = straggling_bca(Some(StragglingModel::Bohr), &stack, &table, &ls);
+        let from = [0.0, 0.0, 0.0];
+        // A hoisted constant must never be applied to a non-physical energy:
+        // the guard drops the flight onto the general paths, which report
+        // `InvalidEnergy` — the mean loss first, then the straggling
+        // fall-through, so the guarantee holds even if a future stopping
+        // model accepted such an energy.
+        for energy_ev in [-1.0, 0.0, f64::NAN, f64::INFINITY] {
+            let mut p = Particle {
+                species: 0,
+                z: 1,
+                mass_amu: Ion::proton().mass_amu(),
+                energy_ev,
+                pos: [1e-9, 0.0, 0.0],
+                dir: [1.0, 0.0, 0.0],
+                layer: 0,
+                origin_layer: 0,
+                generation: 0,
+            };
+            let mut rng = crate::rng::stream(1, 0);
+            let mut budget = EnergyBudget {
+                incident: 1e6,
+                ..EnergyBudget::default()
+            };
+            let mut tally = SummaryTally::new(1e-9, 4);
+            let mut seg = StraggleSegment::default();
+            let r = bca.electronic_nonlocal(
+                &mut p,
+                from,
+                1e-9,
+                &mut rng,
+                &mut budget,
+                &mut tally,
+                &mut seg,
+            );
+            assert!(
+                matches!(r, Err(StoppingError::InvalidEnergy(e)) if e == energy_ev || energy_ev.is_nan()),
+                "energy {energy_ev}: {r:?}"
+            );
+        }
+        // A physical energy still draws on the hoisted path without error.
+        let mut p = Particle {
+            species: 0,
+            z: 1,
+            mass_amu: Ion::proton().mass_amu(),
+            energy_ev: 1e6,
+            pos: [1e-9, 0.0, 0.0],
+            dir: [1.0, 0.0, 0.0],
+            layer: 0,
+            origin_layer: 0,
+            generation: 0,
+        };
+        let mut rng = crate::rng::stream(1, 0);
+        let mut budget = EnergyBudget {
+            incident: 1e6,
+            ..EnergyBudget::default()
+        };
+        let mut tally = SummaryTally::new(1e-9, 4);
+        let mut seg = StraggleSegment::default();
+        assert!(bca
+            .electronic_nonlocal(
+                &mut p,
+                from,
+                1e-9,
+                &mut rng,
+                &mut budget,
+                &mut tally,
+                &mut seg
+            )
+            .is_ok());
     }
 }

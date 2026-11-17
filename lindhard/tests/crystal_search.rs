@@ -6,6 +6,9 @@ use lindhard::ion::crystal::search::{compare, path_metrics, site_position};
 use lindhard::ion::crystal::{Candidate, CrystalError, Lattice, LatticeSearch};
 use lindhard::rng::{stream, uniform};
 
+mod common;
+use common::with_threads;
+
 /// O(N) reference: scan every site of the cell block `lo..hi` per axis.
 fn brute(
     lat: &Lattice,
@@ -263,11 +266,7 @@ fn identical_across_thread_counts() {
     let a = lat.lattice_constant();
     let search = LatticeSearch::new(&lat);
     let run = |threads: usize| {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        pool.install(|| {
+        with_threads(threads, || {
             use rayon::prelude::*;
             (0..200u64)
                 .into_par_iter()

@@ -16,7 +16,7 @@ are in `lindhard-py/python/lindhard/`.
 | `Physics` | The `[physics]` table: models (as the TOML names), cutoffs, energy overrides |
 | `Tally` | The `[tally]` table (CLI defaults) |
 | `Run` | Beam, target, physics, tally, `ions`, `seed`, `threads`, named `materials` and `stopping_tables`; `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`, `run_dynamic()` |
-| `RunResult` | `depth`, `lateral_y`, `lateral_z`, `radial`, `vacancies`, `interstitials`, `replacements` (each a `Histogram` with `edges`, `counts`, `density`, `underflow`, `overflow`), `escapes`, `ions` (final state of each primary), `summary()` (dict), `write(dir)` |
+| `RunResult` | `depth`, `lateral_y`, `lateral_z`, `radial`, `vacancies`, `interstitials`, `replacements` (each a `Histogram` with `edges`, `counts`, `density`, `underflow`, `overflow`), `energy_profile` (`{"electronic", "lattice", "recoil"}`, each an `EnergyHistogram` with `edges`, `energy`, `density`, `underflow`, `overflow`: energy by depth as in `energy_profile.csv`), `escapes`, `ions` (final state of each primary), `summary()` (dict), `write(dir)` |
 | `ElectronRun` | An electron input (an `[electron]` table): `from_toml()`, `from_toml_file()`, `to_toml()`, `validate()`, `run()`; settable `histories`, `seed`, `threads`, `base_dir` |
 | `ElectronRunResult` | Result of `ElectronRun.run()`: `escape_spectra`, `cartesian`, `cylindrical`, `damage_export()`, `summary()` (dict), `summary_json()` |
 | `DynamicRunResult` | Result of `Run.run_dynamic()`: `species`, `steps` (per-step arrays), `composition` (per-step slab profiles), `summary()` (dict), `write(dir)` |

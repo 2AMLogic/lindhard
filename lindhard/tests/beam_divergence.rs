@@ -15,23 +15,15 @@ use lindhard::ion::bca::{Bca, BcaConfig, BcaError, Beam, CrystalTarget, DIVERGEN
 use lindhard::ion::crystal::{Divergence, Lattice, Orientation};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::rng::stream;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
 
 mod common;
+use common::elemental;
+use common::with_threads;
 use common::zbl_si_table as table;
-
-fn elemental(z: u8) -> Material {
-    let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(z, 15.0).unwrap();
-    if m.surface_binding_energy_ev(z).is_err() {
-        m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-    }
-    m
-}
 
 /// A 20 nm amorphous Si screen over a crystalline Si substrate.
 fn mixed_stack() -> Stack {
@@ -88,13 +80,10 @@ fn report(div: Option<Divergence>, threads: usize, n: u64) -> String {
         escape_energy: Binning::new(0.0, 5.0e4, 25).unwrap(),
         escape_polar: Binning::new(0.0, PI / 2.0, 9).unwrap(),
     };
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    let tally = pool
-        .install(|| bca.run(|| IonTally::new(&stack, &species, tc).unwrap()))
-        .unwrap();
+    let tally = with_threads(threads, || {
+        bca.run(|| IonTally::new(&stack, &species, tc).unwrap())
+    })
+    .unwrap();
     serde_json::to_string(&tally.report(false)).unwrap()
 }
 

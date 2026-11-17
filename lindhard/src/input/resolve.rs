@@ -1,22 +1,25 @@
 //! Validation and resolution: turns an [`Input`] into the engine's types.
 
-use crate::elements::element_by_symbol;
-use crate::geometry::Stack;
+use crate::elements::{element_by_symbol, symbol};
+use crate::geometry::{Csg, CsgGeometry, Geometry, GeometryError, Stack};
 use crate::ion::bca::{
-    BcaConfig, Beam, CrystalTarget, ElectronicLoss, MeanFreePath, Thermal, MAX_WEAK_COLLISIONS,
+    BcaConfig, Beam, CrystalTarget, ElectronicLoss, EnergySpectrum, MeanFreePath, Thermal,
+    MAX_WEAK_COLLISIONS,
 };
 use crate::ion::crystal::Divergence;
+use crate::ion::stopping::srim::SrimStopping;
+use crate::ion::stopping::straggling::StragglingModel;
 use crate::ion::stopping::table::StoppingTable;
+use crate::ion::stopping::velocity_scale_energy_per_amu_ev;
 use crate::ion::stopping::Ion;
 use crate::material::{EnergyKind, Material};
-use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::f64::consts::PI;
 use std::path::Path;
 
 use super::resolved::*;
 use super::schema::*;
-use super::{invalid, Input, InputError};
+use super::{invalid, read_data_file, Input, InputError};
 
 /// Validate a [`DivergenceSpec`] found at `path` (for error messages) and
 /// convert it to the engine's [`Divergence`]; shared by the ion and electron
@@ -46,6 +49,103 @@ pub(crate) fn divergence_from_spec(
         DivergenceSpec::UniformCone { .. } => Divergence::UniformCone {
             half_angle_rad: rad,
         },
+    })
+}
+
+/// Convert a solid's [`SolidShape`] (lengths in nm) into the engine's
+/// [`Csg`] (lengths in m), checking every value. `field` is the dotted key
+/// of the solid, so an error names the offending key.
+fn solid_csg(shape: &SolidShape, field: &str) -> Result<Csg, InputError> {
+    const NM: f64 = 1e-9;
+    let scale3 = |v: &[f64; 3]| [v[0] * NM, v[1] * NM, v[2] * NM];
+    let finite3 = |key: &str, v: &[f64; 3]| -> Result<(), InputError> {
+        if v.iter().all(|c| c.is_finite()) {
+            Ok(())
+        } else {
+            Err(invalid(format!("{field}.{key}"), "must be finite"))
+        }
+    };
+    let unit = |key: &str, v: &[f64; 3]| -> Result<[f64; 3], InputError> {
+        finite3(key, v)?;
+        let l = (v[0] * v[0] + v[1] * v[1] + v[2] * v[2]).sqrt();
+        if !(l > 0.0 && l.is_finite()) {
+            return Err(invalid(
+                format!("{field}.{key}"),
+                "must be a non-zero direction",
+            ));
+        }
+        Ok([v[0] / l, v[1] / l, v[2] / l])
+    };
+    Ok(match shape {
+        SolidShape::Cuboid { lo_nm, hi_nm } => {
+            finite3("lo_nm", lo_nm)?;
+            finite3("hi_nm", hi_nm)?;
+            if (0..3).any(|k| lo_nm[k] >= hi_nm[k]) {
+                return Err(invalid(field, "a cuboid needs lo_nm < hi_nm on every axis"));
+            }
+            Csg::cuboid(scale3(lo_nm), scale3(hi_nm))
+        }
+        SolidShape::Cylinder {
+            base_nm,
+            axis,
+            radius_nm,
+            height_nm,
+        } => {
+            finite3("base_nm", base_nm)?;
+            let axis = unit("axis", axis)?;
+            if !(radius_nm.is_finite() && *radius_nm > 0.0) {
+                return Err(invalid(
+                    format!("{field}.radius_nm"),
+                    format!("{radius_nm} nm must be finite and positive"),
+                ));
+            }
+            if !(height_nm.is_finite() && *height_nm > 0.0) {
+                return Err(invalid(
+                    format!("{field}.height_nm"),
+                    format!("{height_nm} nm must be finite and positive"),
+                ));
+            }
+            Csg::cylinder(scale3(base_nm), axis, radius_nm * NM, height_nm * NM)
+        }
+        SolidShape::HalfSpace { normal, offset_nm } => {
+            let normal = unit("normal", normal)?;
+            if !offset_nm.is_finite() {
+                return Err(invalid(format!("{field}.offset_nm"), "must be finite"));
+            }
+            Csg::half_space(normal, offset_nm * NM)
+        }
+        SolidShape::Union { of } => {
+            if of.is_empty() {
+                return Err(invalid(
+                    format!("{field}.of"),
+                    "a union needs at least one shape",
+                ));
+            }
+            Csg::Union(
+                of.iter()
+                    .enumerate()
+                    .map(|(i, s)| solid_csg(s, &format!("{field}.of[{i}]")))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        }
+        SolidShape::Intersection { of } => {
+            if of.is_empty() {
+                return Err(invalid(
+                    format!("{field}.of"),
+                    "an intersection needs at least one shape",
+                ));
+            }
+            Csg::Intersection(
+                of.iter()
+                    .enumerate()
+                    .map(|(i, s)| solid_csg(s, &format!("{field}.of[{i}]")))
+                    .collect::<Result<Vec<_>, _>>()?,
+            )
+        }
+        SolidShape::Difference { keep, cut } => Csg::Difference(
+            Box::new(solid_csg(keep, &format!("{field}.keep"))?),
+            Box::new(solid_csg(cut, &format!("{field}.cut"))?),
+        ),
     })
 }
 
@@ -161,16 +261,8 @@ impl Input {
         let mut loaded: Vec<LoadedStoppingTable> = Vec::new();
         for (i, path) in self.stopping.tables.iter().enumerate() {
             let field = format!("stopping.tables[{i}]");
-            let joined = base_dir.join(path);
-            let bytes = std::fs::read(&joined)
-                .map_err(|e| invalid(&field, format!("cannot read {}: {e}", joined.display())))?;
-            let text = std::str::from_utf8(&bytes).map_err(|_| {
-                invalid(
-                    &field,
-                    format!("{} is not valid UTF-8 text", joined.display()),
-                )
-            })?;
-            let table = StoppingTable::from_toml_str(text)
+            let (text, file) = read_data_file(base_dir, &field, path)?;
+            let table = StoppingTable::from_toml_str(&text)
                 .map_err(|e| invalid(&field, format!("{path}: {e}")))?;
             if let Some(prev) = loaded
                 .iter()
@@ -186,18 +278,37 @@ impl Input {
                     ),
                 ));
             }
-            let sha256 = Sha256::digest(&bytes)
-                .iter()
-                .map(|b| format!("{b:02x}"))
-                .collect();
-            loaded.push(LoadedStoppingTable {
-                path: path.clone(),
-                resolved_path: std::fs::canonicalize(&joined).unwrap_or(joined),
-                sha256,
-                table,
-            });
+            loaded.push(LoadedStoppingTable { file, table });
         }
         Ok(loaded)
+    }
+
+    /// Read and validate the `stopping.srim_data` file: required exactly
+    /// when `physics.stopping = "srim"`.
+    fn load_srim_data(&self, base_dir: &Path) -> Result<Option<LoadedSrimData>, InputError> {
+        let wants = self.physics.stopping == StoppingChoice::Srim;
+        let Some(path) = &self.stopping.srim_data else {
+            return if wants {
+                Err(invalid(
+                    "stopping.srim_data",
+                    "required with physics.stopping = \"srim\": the path of an SRIM \
+                     coefficient file (format lindhard-srim-coefficients/1)",
+                ))
+            } else {
+                Ok(None)
+            };
+        };
+        if !wants {
+            return Err(invalid(
+                "stopping.srim_data",
+                "only used with physics.stopping = \"srim\"",
+            ));
+        }
+        let field = "stopping.srim_data";
+        let (text, file) = read_data_file(base_dir, field, path)?;
+        let model = SrimStopping::from_toml_str(&text)
+            .map_err(|e| invalid(field, format!("{path}: {e}")))?;
+        Ok(Some(LoadedSrimData { file, model }))
     }
 
     /// Checks of the loaded tables against the rest of the run.
@@ -219,7 +330,8 @@ impl Input {
                  use \"lindhard-scharff\" (or another model) as the fallback",
             ));
         }
-        let e0 = self.beam.energy_ev;
+        let energies = self.beam_energies();
+        let e0 = energies.iter().copied().fold(0.0, f64::max);
         let cutoff = self.physics.primary_cutoff_ev;
         let recoil_cutoff = self.physics.recoil_cutoff_ev;
         let follow = self.physics.follow_recoils;
@@ -228,7 +340,6 @@ impl Input {
             .iter()
             .flat_map(|ly| ly.material.components().iter().map(|c| c.z()))
             .collect();
-        let symbol = |z: u8| crate::elements::element(z).map_or("?", |e| e.symbol);
         for (i, l) in tables.iter().enumerate() {
             let field = format!("stopping.tables[{i}]");
             let t = &l.table;
@@ -275,7 +386,7 @@ impl Input {
                              which have the standard atomic weight {} u; a table serves one \
                              mass per pair (use the standard weight in the table and the beam, \
                              drop the table, or set physics.follow_recoils = false)",
-                            l.path,
+                            l.file.path,
                             t.ion_mass_amu(),
                             symbol(t.ion_z()),
                             recoil.mass_amu()
@@ -292,7 +403,7 @@ impl Input {
                              the {} recoils, which slow down to the recoil cutoff, so the run \
                              would stop outside the table range (extend the table down to the \
                              cutoff or raise physics.recoil_cutoff_ev)",
-                            l.path,
+                            l.file.path,
                             symbol(t.ion_z()),
                         ),
                     ));
@@ -319,18 +430,18 @@ impl Input {
                     format!(
                         "{}: table is for an ion of mass {} u but the beam ion has mass {} u \
                          (set `ion_mass_amu` in the table, or beam.mass_amu)",
-                        l.path,
+                        l.file.path,
                         t.ion_mass_amu(),
                         ion.mass_amu()
                     ),
                 ));
             }
-            if e0 < lo || e0 > hi {
+            if let Some(&e) = energies.iter().find(|&&e| e < lo || e > hi) {
                 return Err(invalid(
                     &field,
                     format!(
-                        "{}: beam energy {e0} eV is outside the table range [{lo}, {hi}] eV",
-                        l.path
+                        "{}: beam energy {e} eV is outside the table range [{lo}, {hi}] eV",
+                        l.file.path
                     ),
                 ));
             }
@@ -385,9 +496,13 @@ impl Input {
             Some(m) => Ion::with_mass(el.z, m),
         }
         .map_err(|e| invalid("beam.mass_amu", e.to_string()))?;
-        if !finite_pos(b.energy_ev) {
-            return Err(invalid("beam.energy_ev", "must be finite and positive"));
-        }
+        let spectrum = self.resolve_spectrum()?;
+        let e_max = spectrum
+            .as_ref()
+            .map_or_else(|| b.energy_ev.unwrap_or(0.0), EnergySpectrum::max_energy_ev);
+        let e_min = spectrum
+            .as_ref()
+            .map_or(e_max, EnergySpectrum::min_energy_ev);
         if !(b.tilt_deg.is_finite() && (0.0..90.0).contains(&b.tilt_deg)) {
             return Err(invalid("beam.tilt_deg", "must be in [0, 90) degrees"));
         }
@@ -406,7 +521,7 @@ impl Input {
         let divergence = self.resolve_divergence()?;
         let beam = Beam {
             ion,
-            energy_ev: b.energy_ev,
+            energy_ev: e_max,
             polar_rad: b.tilt_deg.to_radians(),
             azimuth_rad: b.azimuth_deg.to_radians(),
             count: self.run.ions,
@@ -420,14 +535,38 @@ impl Input {
 
         // Target.
         let t = &self.target;
-        if t.layers.is_empty() && t.substrate.is_none() {
+        let solids_target = !t.solids.is_empty();
+        if solids_target {
+            if !t.layers.is_empty() || t.substrate.is_some() {
+                return Err(invalid(
+                    "target.solids",
+                    "not supported together with [[target.layers]] or \
+                     target.substrate; give one target kind",
+                ));
+            }
+            if !self.crystal.is_empty() {
+                return Err(invalid(
+                    "crystal",
+                    "not supported with [[target.solids]]; crystal regions are \
+                     layer indices of a stack",
+                ));
+            }
+            if self.dynamic.is_some() {
+                return Err(invalid(
+                    "target.solids",
+                    "not supported with a [dynamic] target; use a static run",
+                ));
+            }
+        } else if t.layers.is_empty() && t.substrate.is_none() {
             return Err(invalid(
                 "target",
-                "needs at least one [[target.layers]] entry or a substrate",
+                "needs at least one [[target.layers]] entry, a substrate, or \
+                 [[target.solids]]",
             ));
         }
-        let mut layers = Vec::with_capacity(t.layers.len() + 1);
-        let mut fields = Vec::with_capacity(t.layers.len() + 1);
+        let mut shapes = Vec::with_capacity(t.solids.len());
+        let mut layers = Vec::with_capacity(t.layers.len() + t.solids.len() + 1);
+        let mut fields = Vec::with_capacity(t.layers.len() + t.solids.len() + 1);
         let mut thick = Vec::with_capacity(t.layers.len());
         for (i, l) in t.layers.iter().enumerate() {
             let field = format!("target.layers[{i}]");
@@ -444,6 +583,12 @@ impl Input {
         if let Some(s) = &t.substrate {
             layers.push(self.material("target.substrate", s)?);
             fields.push("target.substrate".to_string());
+        }
+        for (i, s) in t.solids.iter().enumerate() {
+            let field = format!("target.solids[{i}]");
+            shapes.push(solid_csg(&s.shape(), &field)?);
+            layers.push(self.material(&format!("{field}.material"), s.material())?);
+            fields.push(format!("{field}.material"));
         }
 
         if let Some(d) = &self.dynamic {
@@ -502,13 +647,60 @@ impl Input {
 
         let tuning = self.apply_tuning(sets, &mut layers, &mut warnings)?;
 
-        let mut finite = Vec::with_capacity(thick.len());
-        let mut it = layers.iter();
-        for &th in &thick {
-            finite.push((it.next().expect("one per layer").material.clone(), th));
-        }
-        let substrate = it.next().map(|l| l.material.clone());
-        let stack = Stack::new(finite, substrate).map_err(|e| invalid("target", e.to_string()))?;
+        let target = if solids_target {
+            // One region per solid; two solids that resolve to an equal
+            // material share one material index, so crossing between them is
+            // not an event (the same rule as for solids of one material in
+            // the engine's own tests).
+            let mut materials: Vec<Material> = Vec::new();
+            let mut solids = Vec::with_capacity(shapes.len());
+            for (shape, l) in shapes.iter().zip(&layers) {
+                let idx = materials
+                    .iter()
+                    .position(|m| *m == l.material)
+                    .unwrap_or_else(|| {
+                        materials.push(l.material.clone());
+                        materials.len() - 1
+                    });
+                solids.push((shape.clone(), idx as u32));
+            }
+            let g = CsgGeometry::new(materials, solids).map_err(|e| match e {
+                GeometryError::CsgInvalid { solid, reason } => invalid(
+                    format!("target.solids[{solid}]"),
+                    format!("invalid shape: {reason}"),
+                ),
+                GeometryError::CsgUnbounded { solid } => invalid(
+                    format!("target.solids[{solid}]"),
+                    "unbounded: a lone half-space has no back face; bound it with \
+                     shape = \"intersection\" or \"difference\" (e.g. with a cuboid), \
+                     or use a cuboid",
+                ),
+                other => invalid("target.solids", other.to_string()),
+            })?;
+            // The engine rejects an entry point in vacuum, but without naming
+            // the key; pre-check here so the error does.
+            let ep = g.entry_point();
+            if g.locate(ep).is_none() {
+                return Err(invalid(
+                    "target.solids",
+                    format!(
+                        "the default entry point {ep:?} (the centre of the scene's \
+                         front face) lies in vacuum: no solid contains it"
+                    ),
+                ));
+            }
+            Target::Csg(g)
+        } else {
+            let mut finite = Vec::with_capacity(thick.len());
+            let mut it = layers.iter();
+            for &th in &thick {
+                finite.push((it.next().expect("one per layer").material.clone(), th));
+            }
+            let substrate = it.next().map(|l| l.material.clone());
+            let stack =
+                Stack::new(finite, substrate).map_err(|e| invalid("target", e.to_string()))?;
+            Target::Stack(stack)
+        };
 
         // Physics.
         let mean_free_path = match (p.free_path, p.min_cm_angle_deg) {
@@ -554,12 +746,18 @@ impl Input {
                 "must be finite and non-negative",
             ));
         }
-        if p.primary_cutoff_ev >= b.energy_ev {
+        if p.primary_cutoff_ev >= e_min {
             return Err(invalid(
                 "physics.primary_cutoff_ev",
                 format!(
-                    "{} eV is not below the beam energy {} eV",
-                    p.primary_cutoff_ev, b.energy_ev
+                    "{} eV is not below the beam energy {} eV{}",
+                    p.primary_cutoff_ev,
+                    e_min,
+                    if spectrum.is_some() {
+                        " (the smallest spectrum line)"
+                    } else {
+                        ""
+                    }
                 ),
             ));
         }
@@ -603,12 +801,24 @@ impl Input {
             StoppingChoice::EquipartitionLsOr => ElectronicLoss::EquipartitionLsOr,
             // `None` is nonlocal loss with a zero model: no energy is taken
             // along the flight, and no local loss is added at collisions.
-            StoppingChoice::LindhardScharff | StoppingChoice::BetheBloch | StoppingChoice::None => {
-                ElectronicLoss::NonLocal
-            }
+            StoppingChoice::LindhardScharff
+            | StoppingChoice::BetheBloch
+            | StoppingChoice::Srim
+            | StoppingChoice::None => ElectronicLoss::NonLocal,
         };
         config.follow_recoils = p.follow_recoils;
         config.primary_surface_binding_ev = p.primary_surface_binding_ev;
+        config.straggling = match p.straggling {
+            StragglingChoice::None => None,
+            StragglingChoice::Bohr => Some(StragglingModel::Bohr),
+            StragglingChoice::BohrRelativistic => Some(StragglingModel::BohrRelativistic),
+        };
+        // The engine draws the straggling fluctuation per accumulated path
+        // segment, not per free flight, so short flights (the constant free
+        // path, or a crystal's lattice flights) no longer bias the sampled
+        // mean — there is nothing to warn about for either region kind (the
+        // `ion::stopping::straggling` module docs). The Bohr validity floor
+        // below is a different limit and still applies.
         config.seed = self.run.seed;
 
         // Tally.
@@ -671,7 +881,8 @@ impl Input {
             .screening_length
             .map_or(screening.default_length(), LengthChoice::length);
         let stopping_tables = self.load_stopping_tables(base_dir)?;
-        let fallback = stopping_model(p.stopping);
+        let srim = self.load_srim_data(base_dir)?;
+        let fallback = stopping_model_with(p.stopping, srim.as_ref().map(|s| &s.model));
         let validity = fallback.validity(&ion);
         // The advisory range of the fallback model only matters for the pairs
         // it actually serves; a beam pair with a table has its range checked
@@ -683,16 +894,32 @@ impl Input {
                     .any(|t| t.table.covers_pair(ion.z(), c.z()))
             })
         });
-        if beam_pair_uncovered && !validity.contains(b.energy_ev) {
+        let outside = [e_min, e_max].into_iter().find(|&e| !validity.contains(e));
+        if let (true, Some(e)) = (beam_pair_uncovered, outside) {
             warnings.push(format!(
                 "beam energy {} eV is outside the advisory validity range of the {} \
                  stopping model for {} ([{}, {}] eV)",
-                b.energy_ev,
+                e,
                 fallback.name(),
                 b.ion,
                 validity.min_energy_ev,
                 validity.max_energy_ev
             ));
+        }
+        // Bohr's straggling is derived for v >> v0 Z1^(2/3) (Bohr 1948); the
+        // stopping model above has its own advisory range, but nothing warns
+        // for the straggling variance itself when the beam sits far below
+        // that floor, where it is an overestimate.
+        if p.straggling != StragglingChoice::None {
+            let bohr_floor_ev = ion.mass_amu() * velocity_scale_energy_per_amu_ev(ion.z(), 1.0);
+            if let Some(e) = [e_min, e_max].into_iter().find(|&e| e < bohr_floor_ev) {
+                warnings.push(format!(
+                    "beam energy {e} eV is below the advisory validity floor of Bohr \
+                     straggling (v >> v0 Z1^(2/3), above about {bohr_floor_ev:.3e} eV for \
+                     {}); the Bohr variance is an overestimate there",
+                    b.ion
+                ));
+            }
         }
         self.check_stopping_tables(&stopping_tables, &ion, &layers, &mut warnings)?;
 
@@ -700,17 +927,83 @@ impl Input {
             input: self.echo(),
             beam,
             divergence,
-            stack,
+            spectrum,
+            target,
             layers,
             config,
             screening,
             screening_length,
             table_spec: TABLE_SPEC,
             stopping_tables,
+            srim,
             crystals,
             warnings,
             tuning,
         })
+    }
+
+    /// The primary energies the beam can have: the spectrum's lines, or the
+    /// single `energy_ev`. Unvalidated (callers run after
+    /// [`Self::resolve_spectrum`]).
+    fn beam_energies(&self) -> Vec<f64> {
+        match &self.beam.spectrum {
+            Some(lines) => lines.iter().map(|l| l.energy_ev).collect(),
+            None => self.beam.energy_ev.into_iter().collect(),
+        }
+    }
+
+    /// Validate `[beam]`'s `energy_ev` / `spectrum` pair and build the
+    /// engine's [`EnergySpectrum`] (`None` for a plain `energy_ev`). Exactly
+    /// one of the two keys is required. A spectrum is for static ion runs: a
+    /// `[dynamic]` target is rejected.
+    fn resolve_spectrum(&self) -> Result<Option<EnergySpectrum>, InputError> {
+        let b = &self.beam;
+        match (&b.spectrum, b.energy_ev) {
+            (None, None) => Err(invalid(
+                "beam",
+                "needs either energy_ev or a spectrum (list of { energy_ev, weight })",
+            )),
+            (Some(_), Some(_)) => Err(invalid(
+                "beam",
+                "energy_ev and spectrum are mutually exclusive; give exactly one",
+            )),
+            (None, Some(e)) => {
+                if !finite_pos(e) {
+                    return Err(invalid("beam.energy_ev", "must be finite and positive"));
+                }
+                Ok(None)
+            }
+            (Some(lines), None) => {
+                if self.dynamic.is_some() {
+                    return Err(invalid(
+                        "beam.spectrum",
+                        "not supported with a [dynamic] target; use a static run",
+                    ));
+                }
+                if lines.is_empty() {
+                    return Err(invalid("beam.spectrum", "needs at least one line"));
+                }
+                for (i, l) in lines.iter().enumerate() {
+                    if !finite_pos(l.energy_ev) {
+                        return Err(invalid(
+                            format!("beam.spectrum[{i}].energy_ev"),
+                            "must be finite and positive",
+                        ));
+                    }
+                    if !finite_pos(l.weight) {
+                        return Err(invalid(
+                            format!("beam.spectrum[{i}].weight"),
+                            "must be finite and positive",
+                        ));
+                    }
+                }
+                let pairs: Vec<(f64, f64)> =
+                    lines.iter().map(|l| (l.energy_ev, l.weight)).collect();
+                EnergySpectrum::new(&pairs)
+                    .map(Some)
+                    .map_err(|e| invalid("beam.spectrum", e))
+            }
+        }
     }
 
     /// Validate `[beam.divergence]` and convert it to the engine's
@@ -923,11 +1216,12 @@ impl Input {
                 ),
             ));
         }
-        let e = self.beam.energy_ev;
-        if !(e_lo..=e_hi).contains(&e) {
-            warnings.push(format!(
+        for e in self.beam_energies() {
+            if !(e_lo..=e_hi).contains(&e) {
+                warnings.push(format!(
                 "tuning set {name:?} was fitted at {e_lo}..{e_hi} eV; {e} eV is an extrapolation"
             ));
+            }
         }
         if self.beam.tilt_deg != 0.0 {
             warnings.push(format!(

@@ -153,7 +153,7 @@ use crate::material::Material;
 use crate::tally::voxel::{VoxelTally, VoxelTallyGrid};
 
 use super::adapter::Yields;
-use super::driver::{DynamicRunError, StepPolicy};
+use super::driver::{grow, halve, initial_n, shrink, DynamicRunError, StepPolicy};
 use super::profiles::{CutThrough, ProfileAccumulator, ProfileSnapshot};
 use super::{CompositionGrid, DynamicError, InventoryDelta};
 
@@ -942,27 +942,7 @@ impl<'a> DynamicRun2d<'a> {
         if weights.iter().all(|&w| w == 0.0) {
             return bad("the beam illuminates no column");
         }
-        let current_n = match cfg.policy {
-            StepPolicy::Fixed { ions_per_step } => {
-                if ions_per_step == 0 {
-                    return bad("ions_per_step must be at least 1");
-                }
-                ions_per_step
-            }
-            StepPolicy::Adaptive {
-                max_ions_per_step,
-                min_ions_per_step,
-                max_change,
-            } => {
-                if min_ions_per_step == 0 || max_ions_per_step < min_ions_per_step {
-                    return bad("need 1 <= min_ions_per_step <= max_ions_per_step");
-                }
-                if !(max_change.is_finite() && max_change > 0.0) {
-                    return bad("max_change must be finite and positive");
-                }
-                max_ions_per_step
-            }
-        };
+        let current_n = initial_n(cfg.policy)?;
         Ok(Self {
             surface: vec![0.0; n],
             grids: columns,
@@ -1318,32 +1298,24 @@ impl<'a> DynamicRun2d<'a> {
             delta.retain(|_, d| *d != 0.0);
             let change = self.max_change(&delta);
 
-            if let StepPolicy::Adaptive {
-                min_ions_per_step,
-                max_change,
-                ..
-            } = self.cfg.policy
-            {
-                if n > min_ions_per_step && change > max_change {
-                    let scaled = (n as f64 * max_change / change).floor() as u64;
-                    n = scaled.clamp(min_ions_per_step, n - 1);
-                    continue;
-                }
+            if let Some(smaller) = shrink(self.cfg.policy, n, change) {
+                n = smaller;
+                continue;
             }
 
             let mut clamped = 0u32;
             let new_grids = match self.apply_all(&delta) {
                 Ok(g) => g,
                 Err(e) => {
-                    let StepPolicy::Adaptive {
-                        min_ions_per_step, ..
-                    } = self.cfg.policy
-                    else {
-                        return Err(e.into());
-                    };
-                    if n > min_ions_per_step {
-                        n = (n / 2).max(min_ions_per_step);
+                    if let Some(smaller) = halve(self.cfg.policy, n) {
+                        n = smaller;
                         continue;
+                    }
+                    // No smaller step: a Fixed run returns the error; the
+                    // smallest adaptive step caps the removal below (as in
+                    // the 1-D run).
+                    if !matches!(self.cfg.policy, StepPolicy::Adaptive { .. }) {
+                        return Err(e.into());
                     }
                     // Smallest step: a removal beyond what a slab holds is
                     // capped at what it holds (as in the 1-D run).
@@ -1383,17 +1355,8 @@ impl<'a> DynamicRun2d<'a> {
             let redeposited_apm = per_m(&deposited);
             self.sputtered_atoms_per_m += sputtered_apm;
             self.redeposited_atoms_per_m += redeposited_apm;
-            if let StepPolicy::Adaptive {
-                max_ions_per_step,
-                max_change,
-                ..
-            } = self.cfg.policy
-            {
-                self.current_n = if change < 0.5 * max_change {
-                    n.saturating_mul(2).min(max_ions_per_step)
-                } else {
-                    n
-                };
+            if let Some(next) = grow(self.cfg.policy, n, change) {
+                self.current_n = next;
             }
             if let Some(p) = &mut self.profiles {
                 if p.at.binary_search(&self.next_index).is_ok() {

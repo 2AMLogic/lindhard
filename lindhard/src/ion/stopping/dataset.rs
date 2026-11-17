@@ -133,7 +133,7 @@ impl Target {
     pub fn label(&self) -> &str {
         match self {
             // `parse` only builds elements that exist.
-            Self::Element(z) => element(*z).map_or("?", |e| e.symbol),
+            Self::Element(z) => crate::elements::symbol(*z),
             Self::Compound { formula, .. } => formula,
         }
     }

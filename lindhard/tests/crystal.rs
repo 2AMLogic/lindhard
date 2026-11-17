@@ -11,17 +11,12 @@ use lindhard::material::Material;
 use lindhard::rng::{run_particles, stream};
 use lindhard::units::g_cm3_to_kg_m3;
 
+mod common;
+use common::assert_close_vec3 as assert_close;
+use common::with_threads;
+
 fn deg(x: f64) -> f64 {
     x.to_radians()
-}
-
-fn assert_close(got: [f64; 3], want: [f64; 3], tol: f64) {
-    for i in 0..3 {
-        assert!(
-            (got[i] - want[i]).abs() <= tol,
-            "component {i}: got {got:?}, want {want:?}"
-        );
-    }
 }
 
 /// At zero tilt the beam travels along the inward surface normal, so a wafer
@@ -261,11 +256,7 @@ fn divergence_is_thread_count_independent() {
     let si = Lattice::silicon();
     let o = Orientation::new(&si, [1, 0, 0], [0, 1, 1], deg(7.0), deg(22.0), 0.0).unwrap();
     let run = |threads: usize| {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        pool.install(|| {
+        with_threads(threads, || {
             run_particles(
                 77,
                 2_000,

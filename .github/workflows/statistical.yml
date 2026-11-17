@@ -33,5 +33,13 @@ jobs:
           cargo test -p lindhard --release -- --ignored \
             --skip complete_validation_requires_all_sixteen_values
           # --skip complete_validation_requires_all_sixteen_values
-          #   needs all 16 published reference values, tracked in #93 and #130
-          #   (lindhard/tests/electron_elastic_reference.rs)
+          #   Standing known failure, not a missing-data gap: all 16 published
+          #   reference values are committed, and 9 of them are outside the
+          #   pinned tolerance. The cause is the difference between the
+          #   reference potential (numerical DHF) and ours (analytic DHFS
+          #   fit), recorded and partly explained in docs/validation.md
+          #   ("Elastic cross sections vs NIST SRD 64"); the originating
+          #   issues #93 and #452 closed on that basis, so this entry has no
+          #   open tracking issue. Whether it should get one, or stay a
+          #   standing known failure with none, is left to the operator
+          #   (#734). (lindhard/tests/electron_elastic_reference.rs)

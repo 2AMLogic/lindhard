@@ -1,10 +1,11 @@
 //! The momentum-transfer sampler of the inelastic table (parent module
 //! docs).
 
-use super::super::penn::{hartree_ev, SinglePolePenn};
+use super::super::penn::SinglePolePenn;
 use super::density::{adaptive_density, LinearDensity};
 use super::{check_no_exchange, invalid, InelasticTableError, DEFAULT_Q_TOLERANCE};
 use crate::constants::BOHR_RADIUS;
+use crate::electron::elastic::HARTREE_EV;
 
 /// Samples the momentum transfer `q` of an inelastic collision with incident
 /// kinetic energy `E` and loss `W` (module docs). Built once per `(E, W)`.
@@ -52,7 +53,7 @@ impl MomentumTransferSampler {
                 format!("{tol} (need 1e-9 ..= 1e-2)"),
             ));
         }
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let (t, w) = (energy_ev / h, loss_ev / h);
         let breaks = penn.q_slice_breaks_au(t, w).ok_or_else(|| {
             invalid(
@@ -115,7 +116,7 @@ impl MomentumTransferSampler {
     /// the integral of the density over `ln q`, divided by `π T'`. It agrees
     /// with [`SinglePolePenn::diimfp_per_m_ev`] to the model tolerance.
     pub fn diimfp_per_m_ev(&self) -> f64 {
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         self.density.total() / (std::f64::consts::PI * self.tp) / (BOHR_RADIUS * h)
     }
 }

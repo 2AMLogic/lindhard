@@ -4,8 +4,10 @@ use std::path::Path;
 
 use super::*;
 use crate::elements::element_by_symbol;
+use crate::geometry::{Csg, Geometry};
 use crate::ion::bca::{ElectronicLoss, MeanFreePath};
 use crate::ion::potential::{Screening, ScreeningLength};
+use crate::ion::stopping::straggling::StragglingModel;
 
 const B_SI: &str = r#"
 [beam]
@@ -46,7 +48,7 @@ fn minimal_input_resolves_with_defaults() {
     let r = i.resolve().unwrap();
     assert_eq!(r.beam.ion.z(), 5);
     assert!((r.beam.polar_rad - 7f64.to_radians()).abs() < 1e-15);
-    assert_eq!(r.stack.layers().len(), 1);
+    assert_eq!(r.stack().unwrap().layers().len(), 1);
     assert_eq!(r.config.mean_free_path, MeanFreePath::Constant);
     assert_eq!(r.config.electronic, ElectronicLoss::NonLocal);
     assert_eq!(r.config.seed, 1);
@@ -65,6 +67,216 @@ fn minimal_input_resolves_with_defaults() {
         Some(LengthChoice::Universal)
     );
     assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[test]
+fn straggling_choice_resolves_and_echoes() {
+    let text = |s: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = 5000.0
+
+[target]
+substrate = "Si"
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    // Default: the engine draws nothing for straggling.
+    let r = Input::from_toml_str(&text("")).unwrap().resolve().unwrap();
+    assert_eq!(r.config.straggling, None);
+    // The echoed input of a default run omits the key entirely, so a
+    // default run's metadata is unchanged.
+    let echoed = Input::from_toml_str(&text("")).unwrap().echo();
+    assert!(!toml::to_string(&echoed).unwrap().contains("straggling"));
+    // Both spellings resolve to their engine models.
+    let r = Input::from_toml_str(&text("straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert_eq!(r.config.straggling, Some(StragglingModel::Bohr));
+    assert_eq!(r.input.physics.straggling, StragglingChoice::Bohr,);
+    let r = Input::from_toml_str(&text("straggling = \"bohr-relativistic\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert_eq!(r.config.straggling, Some(StragglingModel::BohrRelativistic));
+    // A set choice is echoed and round-trips.
+    let echoed = Input::from_toml_str(&text("straggling = \"bohr\"\n"))
+        .unwrap()
+        .echo();
+    assert!(toml::to_string(&echoed).unwrap().contains("straggling"));
+    // An unknown value is a parse error naming the key's accepted values.
+    let e = Input::from_toml_str(&text("straggling = \"landau\"\n")).unwrap_err();
+    match e {
+        InputError::Parse(msg) => {
+            assert!(msg.contains("unknown variant"), "{msg}");
+            assert!(msg.contains("bohr-relativistic"), "{msg}");
+        }
+        e => panic!("expected a parse error, got {e}"),
+    }
+}
+
+#[test]
+fn straggling_warns_below_bohr_floor() {
+    let text = |e: f64, s: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = {e}
+
+[target]
+substrate = "Si"
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    // 5 keV B with the constant free path: only the validity advisory fires —
+    // the fluctuation is drawn per accumulated segment, so short flights no
+    // longer bias anything and there is no truncation advisory to clear.
+    let r = Input::from_toml_str(&text(5000.0, "straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        r.warnings
+            .iter()
+            .any(|w| w.contains("validity floor") && w.contains("Bohr")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("free_path")),
+        "{:?}",
+        r.warnings
+    );
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("[[crystal]]")),
+        "{:?}",
+        r.warnings
+    );
+    // 5 MeV is above the floor for B (about 2.3 MeV): straggling is silent.
+    let r = Input::from_toml_str(&text(5.0e6, "straggling = \"bohr\"\n"))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("straggling")),
+        "{:?}",
+        r.warnings
+    );
+    // Straggling off is silent on both.
+    let r = Input::from_toml_str(&text(5000.0, ""))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(r.warnings.is_empty(), "{:?}", r.warnings);
+}
+
+#[test]
+fn straggling_is_silent_on_crystals_and_constant_free_paths() {
+    // A 5 MeV beam sits above Bohr's floor for B (about 2.3 MeV); stopping
+    // is bethe-bloch so the lindhard-scharff validity range does not add its
+    // own advisory, and only a straggling advisory could fire here. None
+    // does: the fluctuation is drawn per accumulated path segment, so the
+    // lattice flights of a crystal region and the N^(-1/3) flights of the
+    // constant free path no longer bias the sampled mean. The mixed-stack
+    // case extends the target with an amorphous C layer, so it carries its
+    // own energy override for C.
+    let text = |s: &str, target: &str, extra_energies: &str| {
+        format!(
+            r#"
+[beam]
+ion = "B"
+energy_ev = 5.0e6
+
+{target}
+
+[physics]
+stopping = "bethe-bloch"
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+{s}
+[physics.energies.Si]
+e_d_ev = 15.0
+{extra_energies}
+[run]
+ions = 10
+seed = 1
+"#
+        )
+    };
+    let substrate = "[target]\nsubstrate = \"Si\"\n";
+    let crystal =
+        "[[crystal]]\nlayers = [0]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n";
+    // A crystal region with straggling on: silent (other advisories, such
+    // as the stopping model's validity range at this energy, are unrelated
+    // and not pinned here).
+    let r = Input::from_toml_str(&text(
+        "straggling = \"bohr\"\n",
+        &format!("{substrate}{crystal}"),
+        "",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("straggling")),
+        "{:?}",
+        r.warnings
+    );
+    // A mixed stack (layer 0 the amorphous C film, layer 1 the crystalline
+    // Si substrate) is silent too.
+    let mixed = format!(
+        "{substrate}[[target.layers]]\nmaterial = \"C\"\nthickness_nm = 10.0\n\
+         [[crystal]]\nlayers = [1]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [0, 1, 0]\n"
+    );
+    let r = Input::from_toml_str(&text(
+        "straggling = \"bohr\"\n",
+        &mixed,
+        "[physics.energies.C]\ne_d_ev = 20.0\n",
+    ))
+    .unwrap()
+    .resolve()
+    .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("straggling")),
+        "{:?}",
+        r.warnings
+    );
+    // Straggling off: a crystal run says nothing about straggling.
+    let r = Input::from_toml_str(&text("", &format!("{substrate}{crystal}"), ""))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    assert!(
+        !r.warnings.iter().any(|w| w.contains("straggling")),
+        "{:?}",
+        r.warnings
+    );
 }
 
 #[test]
@@ -116,7 +328,7 @@ ions = 10
 seed = 2
 "#;
     let r = Input::from_toml_str(text).unwrap().resolve().unwrap();
-    assert_eq!(r.stack.layers().len(), 3);
+    assert_eq!(r.stack().unwrap().layers().len(), 3);
     assert_eq!(r.layers[0].source, "SiO2");
     assert_eq!(r.layers[1].source, "inline");
     assert_eq!(r.layers[2].source, "Si");
@@ -129,7 +341,7 @@ seed = 2
         r.config.mean_free_path,
         MeanFreePath::EnergyDependent { .. }
     ));
-    assert!((r.stack.layers()[1].back_m() - 15e-9).abs() < 1e-20);
+    assert!((r.stack().unwrap().layers()[1].back_m() - 15e-9).abs() < 1e-20);
     // Echo of a mixed input round-trips through TOML.
     let back = Input::from_toml_str(&toml::to_string(&r.input).unwrap()).unwrap();
     assert_eq!(back, r.input);
@@ -619,4 +831,249 @@ fn bad_beam_divergence_is_diagnosed_with_the_field() {
         "[dynamic]\nfluence_cm2 = 1e14\nions_per_step = 5\n[run]",
     );
     assert_eq!(field(&err(&dynamic)), "beam.divergence");
+}
+
+fn with_spectrum(lines: &str) -> String {
+    B_SI.replace("energy_ev = 5000.0\n", &format!("{lines}\n"))
+}
+
+const TWO_LINES: &str = "spectrum = [{ energy_ev = 1000.0, weight = 3.0 }, \
+                         { energy_ev = 2000.0, weight = 1.0 }]";
+
+#[test]
+fn beam_spectrum_resolves_normalises_and_echoes() {
+    assert!(Input::from_toml_str(B_SI)
+        .unwrap()
+        .resolve()
+        .unwrap()
+        .spectrum
+        .is_none());
+    let i = Input::from_toml_str(&with_spectrum(TWO_LINES)).unwrap();
+    let r = i.resolve().unwrap();
+    let sp = r.spectrum.as_ref().expect("spectrum");
+    assert_eq!(sp.lines(), &[(1000.0, 0.75), (2000.0, 0.25)]);
+    // The engine beam carries the largest line.
+    assert_eq!(r.beam.energy_ev, 2000.0);
+    // The echo keeps the input spelling (raw weights) and round-trips.
+    assert_eq!(r.input.beam.spectrum, i.beam.spectrum);
+    assert_eq!(r.input.beam.energy_ev, None);
+    assert_eq!(
+        Input::from_toml_str(&i.to_toml_string().unwrap()).unwrap(),
+        i
+    );
+}
+
+#[test]
+fn beam_spectrum_input_errors_name_the_field() {
+    // Both, or neither, of energy_ev and spectrum.
+    let both = B_SI.replace("tilt_deg", &format!("{TWO_LINES}\ntilt_deg"));
+    assert_eq!(field(&err(&both)), "beam");
+    let neither = B_SI.replace("energy_ev = 5000.0\n", "");
+    assert_eq!(field(&err(&neither)), "beam");
+    // Empty list, bad weight, bad energy.
+    assert_eq!(
+        field(&err(&with_spectrum("spectrum = []"))),
+        "beam.spectrum"
+    );
+    for (lines, f) in [
+        (
+            "spectrum = [{ energy_ev = 1000.0, weight = 0.0 }]",
+            "beam.spectrum[0].weight",
+        ),
+        (
+            "spectrum = [{ energy_ev = 1000.0, weight = -1.0 }]",
+            "beam.spectrum[0].weight",
+        ),
+        (
+            "spectrum = [{ energy_ev = 1000.0, weight = 1.0 }, { energy_ev = -5.0, weight = 1.0 }]",
+            "beam.spectrum[1].energy_ev",
+        ),
+    ] {
+        assert_eq!(field(&err(&with_spectrum(lines))), f, "{lines}");
+    }
+    // The primary cutoff is checked against the smallest line.
+    let low = with_spectrum(
+        "spectrum = [{ energy_ev = 4.0, weight = 1.0 }, { energy_ev = 9000.0, weight = 1.0 }]",
+    );
+    assert_eq!(field(&err(&low)), "physics.primary_cutoff_ev");
+    // Unknown keys in a line are refused.
+    assert!(Input::from_toml_str(&with_spectrum(
+        "spectrum = [{ energy_ev = 1000.0, weight = 1.0, tilt = 1.0 }]"
+    ))
+    .is_err());
+}
+
+// --- [[target.solids]] ---
+
+/// A layer-stack-free input with the given `[[target.solids]]` body.
+fn with_solids(solids: &str) -> String {
+    format!(
+        r#"
+[beam]
+ion = "B"
+energy_ev = 5000.0
+tilt_deg = 7.0
+
+[target]
+{solids}
+
+[physics]
+primary_cutoff_ev = 5.0
+recoil_cutoff_ev = 2.0
+[physics.energies.Si]
+e_d_ev = 15.0
+
+[run]
+ions = 10
+seed = 1
+"#
+    )
+}
+
+const MASKED_SI: &str = r#"
+[[target.solids]]
+shape = "cuboid"
+material = "Si"
+lo_nm = [0.0, -500.0, -500.0]
+hi_nm = [300.0, 500.0, 500.0]
+"#;
+
+#[test]
+fn solids_parse_every_shape() {
+    // Cuboid.
+    let r = Input::from_toml_str(&with_solids(MASKED_SI))
+        .unwrap()
+        .resolve()
+        .unwrap();
+    let g = match &r.target {
+        Target::Csg(g) => g,
+        Target::Stack(_) => panic!("expected a CSG target"),
+    };
+    assert_eq!(g.n_regions(), 1);
+    assert_eq!(r.layers.len(), 1);
+    assert_eq!(r.layers[0].source, "Si");
+    let (lo, hi) = g.bounds();
+    assert_eq!(lo, [0.0, -500.0 * 1e-9, -500.0 * 1e-9]);
+    assert_eq!(hi, [300.0 * 1e-9, 500.0 * 1e-9, 500.0 * 1e-9]);
+
+    // Cylinder with an axis that is not a coordinate axis: accepted (next
+    // to a cuboid that holds the scene's default entry point), and the axis
+    // arrives at the engine normalised.
+    let cyl = with_solids(&format!(
+        "{MASKED_SI}[[target.solids]]\nshape = \"cylinder\"\nmaterial = \"Si\"\nbase_nm = [400.0, 0.0, 0.0]\naxis = [1.0, 2.0, 3.0]\nradius_nm = 50.0\nheight_nm = 200.0"
+    ));
+    let r = Input::from_toml_str(&cyl).unwrap().resolve().unwrap();
+    let g = match &r.target {
+        Target::Csg(g) => g,
+        Target::Stack(_) => panic!("expected a CSG target"),
+    };
+    assert_eq!(g.n_regions(), 2);
+    let axis = match g.solid(1) {
+        Csg::Primitive(crate::geometry::Primitive::Cylinder { axis, .. }) => *axis,
+        s => panic!("expected a cylinder, got {s:?}"),
+    };
+    let l = (14.0f64).sqrt();
+    assert!(
+        (axis[0] - 1.0 / l).abs() < 1e-12 && (axis[2] - 3.0 / l).abs() < 1e-12,
+        "{axis:?}"
+    );
+
+    // Half-space bounded only by an intersection with a cuboid: accepted.
+    let bounded = with_solids(
+        r#"[[target.solids]]
+shape = "intersection"
+material = "Si"
+of = [
+  { shape = "half_space", normal = [0.0, 0.0, -1.0], offset_nm = 100.0 },
+  { shape = "cuboid", lo_nm = [0.0, -50.0, -50.0], hi_nm = [200.0, 50.0, 50.0] },
+]"#,
+    );
+    let r = Input::from_toml_str(&bounded).unwrap().resolve().unwrap();
+    assert_eq!(r.geometry().n_regions(), 1);
+
+    // Echo of a solids input round-trips through TOML.
+    let i = Input::from_toml_str(&bounded).unwrap();
+    let back = Input::from_toml_str(&toml::to_string(&i).unwrap()).unwrap();
+    assert_eq!(back, i);
+    let r = i.resolve().unwrap();
+    let back = Input::from_toml_str(&toml::to_string(&r.input).unwrap()).unwrap();
+    assert_eq!(back, r.input);
+}
+
+#[test]
+fn solids_errors_name_the_key() {
+    // An unknown material reference.
+    let e = err(&with_solids(
+        &MASKED_SI.replace("material = \"Si\"", "material = \"Bananium\""),
+    ));
+    assert_eq!(field(&e), "target.solids[0].material");
+    // A lone half-space is unbounded.
+    let e = err(&with_solids(
+        "[[target.solids]]\nshape = \"half_space\"\nmaterial = \"Si\"\nnormal = [0.0, 0.0, -1.0]\noffset_nm = 100.0",
+    ));
+    assert_eq!(field(&e), "target.solids[0]");
+    assert!(e.to_string().contains("unbounded"), "{e}");
+    // A zero cylinder axis.
+    let e = err(&with_solids(
+        "[[target.solids]]\nshape = \"cylinder\"\nmaterial = \"Si\"\nbase_nm = [0.0, 0.0, 0.0]\naxis = [0.0, 0.0, 0.0]\nradius_nm = 50.0\nheight_nm = 200.0",
+    ));
+    assert_eq!(field(&e), "target.solids[0].axis");
+    // An inverted cuboid.
+    let e = err(&with_solids(
+        &MASKED_SI.replace("hi_nm = [300.0", "hi_nm = [-300.0"),
+    ));
+    assert_eq!(field(&e), "target.solids[0]");
+    // An entry point in vacuum: two disjoint solids, so the scene's
+    // front-face centre (the hull's) misses every solid.
+    let e = err(&with_solids(
+        r#"[[target.solids]]
+shape = "cuboid"
+material = "Si"
+lo_nm = [0.0, -50.0, -50.0]
+hi_nm = [100.0, 50.0, 50.0]
+
+[[target.solids]]
+shape = "cuboid"
+material = "Si"
+lo_nm = [0.0, 200.0, 200.0]
+hi_nm = [100.0, 300.0, 300.0]"#,
+    ));
+    assert_eq!(field(&e), "target.solids");
+    assert!(e.to_string().contains("entry point"), "{e}");
+
+    // Combinations with the other target kinds are refused.
+    let both = with_solids(&format!(
+        "{MASKED_SI}\n[[target.layers]]\nmaterial = \"Si\"\nthickness_nm = 10.0"
+    ));
+    assert_eq!(field(&err(&both)), "target.solids");
+    let substrate = with_solids(&format!("substrate = \"Si\"\n\n{MASKED_SI}"));
+    assert_eq!(field(&err(&substrate)), "target.solids");
+    let crystal = with_solids(&format!(
+        "{MASKED_SI}\n[[crystal]]\nlayers = [0]\npreset = \"Si\"\nnormal = [0, 0, 1]\nreference = [1, 0, 0]"
+    ));
+    assert_eq!(field(&err(&crystal)), "crystal");
+    let dynamic = with_solids(&format!(
+        "{MASKED_SI}\n[dynamic]\nfluence_cm2 = 1e13\nions_per_step = 100"
+    ));
+    assert_eq!(field(&err(&dynamic)), "target.solids");
+    // Neither layers/substrate nor solids.
+    let e = err(&with_solids(""));
+    assert_eq!(field(&e), "target");
+    // Unknown keys inside a solid are refused (deny_unknown_fields).
+    let unknown = Input::from_toml_str(&with_solids(&format!("{MASKED_SI}width_nm = 1.0")));
+    assert!(unknown.is_err(), "unknown solid key must be a parse error");
+}
+
+#[test]
+fn solids_share_one_material_per_two_solids() {
+    // Two solids, one material: one region each, and one shared material
+    // index, so crossing between them is not an event.
+    let two = with_solids(&format!(
+        "{MASKED_SI}[[target.solids]]\nshape = \"cuboid\"\nmaterial = \"Si\"\nlo_nm = [300.0, -500.0, -500.0]\nhi_nm = [600.0, 500.0, 500.0]"
+    ));
+    let r = Input::from_toml_str(&two).unwrap().resolve().unwrap();
+    let g = r.geometry();
+    assert_eq!(g.n_regions(), 2);
+    assert_eq!(g.n_materials(), 1);
+    assert_eq!(g.material_index(0), g.material_index(1));
 }

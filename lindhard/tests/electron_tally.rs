@@ -5,10 +5,8 @@
 //! from simple formulas (constant mean free paths, isotropic angles), not
 //! measured or tabulated data.
 
-use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::transport::{
-    ElectronState, ElectronTally, EscapeRule, Face, Fate, LayerTables, Primary, Transport,
-    TransportConfig,
+    ElectronState, ElectronTally, EscapeRule, Face, Fate, Primary, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
 use lindhard::tally::{
@@ -17,43 +15,11 @@ use lindhard::tally::{
 };
 
 mod common;
-use common::{bare_si, synthetic_table};
+use common::{
+    bare_si, close, empty_layer, finite_stack as finite, synthetic_scattering, with_threads,
+};
 
 const NM: f64 = 1e-9;
-
-/// Isotropic elastic scattering (`cos θ = 1 - 2p`) and inelastic losses
-/// uniform on `[0, frac E]`.
-fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
-            (1.0 - 2.0 * p).acos()
-        }),
-        inelastic: synthetic_table(
-            SamplingAxis::InelasticEnergyLoss,
-            1.0 / lambda_inel,
-            move |e, p| frac * e * p,
-        ),
-    }
-}
-
-/// No interaction at all.
-fn empty() -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0),
-        inelastic: synthetic_table(SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0),
-    }
-}
-
-fn finite(thicknesses_nm: &[f64]) -> Stack {
-    Stack::new(
-        thicknesses_nm
-            .iter()
-            .map(|&t| (bare_si(), t * NM))
-            .collect(),
-        None,
-    )
-    .unwrap()
-}
 
 fn config(e0: f64) -> ElectronTallyConfig {
     let mut c = ElectronTallyConfig::new(
@@ -73,15 +39,7 @@ fn config(e0: f64) -> ElectronTallyConfig {
 }
 
 fn run(t: &Transport, n: u64, e0: f64, seed: u64) -> ElectronReport {
-    let proto = FullElectronTally::new(t, config(e0)).unwrap();
-    t.run(seed, n, 64, &Primary::normal(e0), || proto.clone())
-        .unwrap()
-        .tally
-        .report()
-}
-
-fn close(a: f64, b: f64, rel: f64) -> bool {
-    (a - b).abs() <= rel * a.abs().max(b.abs()).max(f64::MIN_POSITIVE)
+    common::electron_report(t, n, e0, seed, config(e0))
 }
 
 /// The invariants every report must satisfy.
@@ -186,7 +144,7 @@ fn check_report(r: &ElectronReport) {
 fn balance_closes_with_stopping_and_backscatter_in_a_substrate() {
     let t = Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![scattering(2.0 * NM, 3.0 * NM, 0.3)],
+        vec![synthetic_scattering(2.0 * NM, 3.0 * NM, 0.3)],
         TransportConfig::new(10.0),
     )
     .unwrap();
@@ -210,8 +168,8 @@ fn balance_closes_with_transmission_through_a_finite_stack() {
     let t = Transport::new(
         finite(&[5.0, 10.0]),
         vec![
-            scattering(4.0 * NM, 6.0 * NM, 0.2),
-            scattering(3.0 * NM, 5.0 * NM, 0.2),
+            synthetic_scattering(4.0 * NM, 6.0 * NM, 0.2),
+            synthetic_scattering(3.0 * NM, 5.0 * NM, 0.2),
         ],
         TransportConfig::new(10.0),
     )
@@ -229,7 +187,7 @@ fn balance_closes_with_back_face_absorption() {
     cfg.escape_rule = EscapeRule::FrontOnly;
     let t = Transport::new(
         finite(&[10.0]),
-        vec![scattering(4.0 * NM, 6.0 * NM, 0.2)],
+        vec![synthetic_scattering(4.0 * NM, 6.0 * NM, 0.2)],
         cfg,
     )
     .unwrap();
@@ -245,7 +203,7 @@ fn balance_closes_with_electrons_trapped_in_an_empty_substrate() {
     // nothing to hit and no face to reach.
     let t = Transport::new(
         Stack::new(vec![(bare_si(), 5.0 * NM)], Some(bare_si())).unwrap(),
-        vec![scattering(3.0 * NM, 6.0 * NM, 0.2), empty()],
+        vec![synthetic_scattering(3.0 * NM, 6.0 * NM, 0.2), empty_layer()],
         TransportConfig::new(10.0),
     )
     .unwrap();
@@ -261,7 +219,7 @@ fn balance_closes_with_histories_cut_off_by_the_event_cap() {
     cfg.max_events = 5;
     let t = Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![scattering(2.0 * NM, 3.0 * NM, 0.05)],
+        vec![synthetic_scattering(2.0 * NM, 3.0 * NM, 0.05)],
         cfg,
     )
     .unwrap();
@@ -278,17 +236,13 @@ fn threaded(threads: usize) -> ElectronReport {
     let t = Transport::new(
         finite(&[5.0, 30.0]),
         vec![
-            scattering(3.0 * NM, 5.0 * NM, 0.3),
-            scattering(2.0 * NM, 4.0 * NM, 0.3),
+            synthetic_scattering(3.0 * NM, 5.0 * NM, 0.3),
+            synthetic_scattering(2.0 * NM, 4.0 * NM, 0.3),
         ],
         TransportConfig::new(5.0),
     )
     .unwrap();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| run(&t, 3_000, 2_000.0, 0xE1EC))
+    with_threads(threads, || run(&t, 3_000, 2_000.0, 0xE1EC))
 }
 
 #[test]
@@ -327,7 +281,7 @@ fn report_is_bit_identical_for_1_2_and_8_threads() {
 fn transport() -> Transport {
     Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![scattering(2.0 * NM, 3.0 * NM, 0.3)],
+        vec![synthetic_scattering(2.0 * NM, 3.0 * NM, 0.3)],
         TransportConfig::new(10.0),
     )
     .unwrap()

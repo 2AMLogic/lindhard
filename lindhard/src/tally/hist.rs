@@ -154,6 +154,97 @@ impl Histogram {
     }
 }
 
+/// Energy (or any other `f64` weight) over a [`Binning`], with underflow and
+/// overflow: the weighted companion of [`Histogram`].
+///
+/// Sums are plain `f64` additions, merged bin by bin in the order
+/// [`crate::rng::run_particles`] calls `merge` (chunk order), so for a fixed
+/// chunk size the result is bit-identical at any thread count; unlike the
+/// integer counts of [`Histogram`] it is not invariant to the chunk size.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct WeightedHistogram {
+    /// The binning.
+    pub binning: Binning,
+    /// Summed weight per bin.
+    pub sums: Vec<f64>,
+    /// Weight below `binning.lo`.
+    pub underflow: f64,
+    /// Weight at or above `binning.hi` (and at NaN positions).
+    pub overflow: f64,
+}
+
+impl WeightedHistogram {
+    /// Empty histogram.
+    pub fn new(binning: Binning) -> Self {
+        Self {
+            binning,
+            sums: vec![0.0; binning.bins],
+            underflow: 0.0,
+            overflow: 0.0,
+        }
+    }
+
+    /// Add weight `w` at position `x`.
+    pub fn fill(&mut self, x: f64, w: f64) {
+        match self.binning.locate(x) {
+            Ok(i) => self.sums[i] += w,
+            Err(OutOfRange::Below) => self.underflow += w,
+            Err(OutOfRange::Above) => self.overflow += w,
+        }
+    }
+
+    /// Spread weight `w` uniformly along the segment from `x0` to `x1`: each
+    /// bin (and the underflow and overflow) gets `w` times the fraction of
+    /// the segment length inside it. A zero-length or non-finite segment is
+    /// filled at `x1`.
+    pub fn fill_segment(&mut self, x0: f64, x1: f64, w: f64) {
+        let (a, b) = if x0 <= x1 { (x0, x1) } else { (x1, x0) };
+        let len = b - a;
+        if !(len > 0.0 && len.is_finite()) {
+            self.fill(x1, w);
+            return;
+        }
+        let (lo, hi) = (self.binning.lo, self.binning.hi);
+        // Fraction of the segment at positions below `x`.
+        let below = |x: f64| ((x.clamp(a, b) - a) / len).clamp(0.0, 1.0);
+        self.underflow += w * below(lo);
+        self.overflow += w * (1.0 - below(hi));
+        if b < lo || a >= hi {
+            return;
+        }
+        let first = self.binning.locate(a.max(lo)).unwrap_or(0);
+        let last = self
+            .binning
+            .locate(b.min(hi))
+            .unwrap_or(self.binning.bins - 1);
+        for i in first..=last {
+            let f = below(self.binning.edge(i + 1)) - below(self.binning.edge(i));
+            self.sums[i] += w * f;
+        }
+    }
+
+    /// Everything, in range or not.
+    pub fn total(&self) -> f64 {
+        self.sums.iter().sum::<f64>() + self.underflow + self.overflow
+    }
+
+    /// Add `other`, which must have the same binning.
+    ///
+    /// # Panics
+    /// If the binnings differ.
+    pub fn merge(&mut self, other: &WeightedHistogram) {
+        assert_eq!(
+            self.binning, other.binning,
+            "merging histograms with different binnings"
+        );
+        for (a, b) in self.sums.iter_mut().zip(&other.sums) {
+            *a += b;
+        }
+        self.underflow += other.underflow;
+        self.overflow += other.overflow;
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -180,5 +271,33 @@ mod tests {
         g.merge(&h);
         assert_eq!(g.counts, vec![4, 2, 0, 0, 2]);
         assert_eq!(g.total(), 14);
+    }
+
+    #[test]
+    fn weighted_segment_conserves_weight() {
+        let mut h = WeightedHistogram::new(Binning::new(0.0, 10.0, 5).unwrap());
+        h.fill(3.0, 1.0);
+        h.fill(-1.0, 2.0);
+        h.fill(f64::NAN, 4.0);
+        // 12 long, weight 1 per unit length: 2 below lo, 2 per bin, none above.
+        h.fill_segment(-2.0, 10.0, 12.0);
+        assert!((h.underflow - 4.0).abs() < 1e-12);
+        assert!((h.sums[0] - 2.0).abs() < 1e-12);
+        assert!((h.sums[1] - 3.0).abs() < 1e-12);
+        assert_eq!(h.overflow, 4.0);
+        // Reversed, spanning both edges, crossing every bin.
+        let mut g = WeightedHistogram::new(h.binning);
+        g.fill_segment(15.0, -5.0, 20.0);
+        assert!((g.underflow - 5.0).abs() < 1e-12);
+        assert!((g.overflow - 5.0).abs() < 1e-12);
+        assert!(g.sums.iter().all(|s| (s - 2.0).abs() < 1e-12));
+        assert!((g.total() - 20.0).abs() < 1e-12);
+        // Degenerate segment is a point fill.
+        let mut p = WeightedHistogram::new(h.binning);
+        p.fill_segment(5.0, 5.0, 1.5);
+        assert_eq!(p.sums[2], 1.5);
+        let mut m = h.clone();
+        m.merge(&g);
+        assert!((m.total() - h.total() - g.total()).abs() < 1e-12);
     }
 }

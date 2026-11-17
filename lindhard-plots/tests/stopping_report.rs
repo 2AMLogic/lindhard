@@ -1,9 +1,11 @@
 //! Tests of the stopping-residual report: the committed book page is current
 //! (golden), the rendering is repeatable, a modified dataset makes the page
-//! stale, skipped points are stated, and a forbidden source is refused.
+//! stale, skipped points are stated, a forbidden source is refused, and the
+//! binary's `--check` mode reports and exits as it should.
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 use lindhard_plots::stopping_report::render;
 use lindhard_plots::{compare, CheckOutcome};
@@ -73,7 +75,12 @@ fn committed_page_is_what_the_generator_renders() {
     // The committed dataset is in the page, with its per-system statistics.
     for needle in [
         "bader1956_p_cu.csv",
-        "Points: 15. Energy span: 50 keV to 600 keV.",
+        "Points: 15. Energy span: 50\u{a0}keV to 600\u{a0}keV.",
+        "## H on Cu, Bader 1956",
+        "File: `bader1956_p_cu.csv`. Name: `bader1956-p-cu`.",
+        "## Summary",
+        "## H on Si, Grahmann 1976 \u{2014} srim.org",
+        "|---|---|---:|---:|---:|",
         "Phys. Rev. 103, 32 (1956)",
         "| lindhard-scharff | 15 | 0 |",
         "**held out**",
@@ -81,6 +88,29 @@ fn committed_page_is_what_the_generator_renders() {
     ] {
         assert!(page.contains(needle), "page lacks {needle:?}");
     }
+}
+
+#[test]
+fn summary_has_one_row_per_dataset_and_model() {
+    let page = render(&root().join(LABEL), LABEL).unwrap();
+    let summary: Vec<&str> = page
+        .split("## Summary\n")
+        .nth(1)
+        .unwrap()
+        .split("\n## ")
+        .next()
+        .unwrap()
+        .lines()
+        .filter(|l| l.starts_with("| ") && !l.starts_with("| Dataset"))
+        .collect();
+    let datasets = fs::read_dir(root().join(LABEL))
+        .unwrap()
+        .filter(|e| {
+            let p = e.as_ref().unwrap().path();
+            p.extension().is_some_and(|x| x == "csv")
+        })
+        .count();
+    assert_eq!(summary.len(), 4 * datasets);
 }
 
 #[test]
@@ -198,4 +228,92 @@ fn an_eight_column_file_mentioning_srim_is_still_refused() {
     let dir = Scratch::new("srim-eight", &[("a.csv", text)]);
     let err = render(&dir.0, "data").unwrap_err().to_string();
     assert!(err.contains("may not enter"), "{err}");
+}
+
+/// The binary's `--check` mode: the three `CheckOutcome` messages, the exit
+/// codes, and the regenerate command named in each failure. The shared driver
+/// in `lindhard_plots` (`parse_args` / `write_or_check` / `exit_code`) is what
+/// produces these, so this is also the guard that it keeps saying the same
+/// things for this binary as for `lindhard-plots`.
+#[test]
+fn check_mode_passes_fails_and_names_the_regenerate_command() {
+    const REGENERATE: &str = "regenerate it with `cargo run -p lindhard-plots \
+                              --bin lindhard-stopping-report` and commit it";
+    let dir = Scratch::new("bin-check", &[("a.csv", synthetic(1.0))]);
+    let out = dir.0.join("page.md");
+    let run = |args: &[&std::ffi::OsStr]| {
+        Command::new(env!("CARGO_BIN_EXE_lindhard-stopping-report"))
+            .args(args)
+            .output()
+            .expect("binary runs")
+    };
+    let check = || {
+        run(&[
+            "--check".as_ref(),
+            "--input".as_ref(),
+            dir.0.as_os_str(),
+            "--output".as_ref(),
+            out.as_os_str(),
+        ])
+    };
+
+    // Missing file: exit 1, and say which command regenerates it.
+    let o = check();
+    assert_eq!(o.status.code(), Some(1));
+    let msg = String::from_utf8_lossy(&o.stderr);
+    assert!(msg.contains("is missing"), "{msg}");
+    assert!(msg.contains(REGENERATE), "{msg}");
+
+    // Write, then check: exit 0, and the file is the library's rendering with
+    // the given `--input` as the label the page records.
+    let w = run(&[
+        "--input".as_ref(),
+        dir.0.as_os_str(),
+        "--output".as_ref(),
+        out.as_os_str(),
+    ]);
+    assert!(w.status.success(), "{}", String::from_utf8_lossy(&w.stderr));
+    assert!(
+        String::from_utf8_lossy(&w.stdout).contains("wrote "),
+        "{}",
+        String::from_utf8_lossy(&w.stdout)
+    );
+    assert_eq!(
+        fs::read_to_string(&out).unwrap(),
+        render(&dir.0, &dir.0.display().to_string()).unwrap()
+    );
+    let o = check();
+    assert_eq!(
+        o.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&o.stderr)
+    );
+    assert!(
+        String::from_utf8_lossy(&o.stdout).contains("is up to date"),
+        "{}",
+        String::from_utf8_lossy(&o.stdout)
+    );
+
+    // Altered file: exit 1 with the first differing byte, and the command.
+    let mut bytes = fs::read(&out).unwrap();
+    let at = bytes.len() / 2;
+    bytes[at] ^= 1;
+    fs::write(&out, &bytes).unwrap();
+    let o = check();
+    assert_eq!(o.status.code(), Some(1));
+    let msg = String::from_utf8_lossy(&o.stderr);
+    assert!(msg.contains("differs from a fresh render of"), "{msg}");
+    assert!(
+        msg.contains(&format!("first difference at byte {at}")),
+        "{msg}"
+    );
+    assert!(msg.contains(REGENERATE), "{msg}");
+
+    // An unexpected argument is an error (exit 2) quoting the usage line.
+    let o = run(&["--nope".as_ref()]);
+    assert_eq!(o.status.code(), Some(2));
+    let msg = String::from_utf8_lossy(&o.stderr);
+    assert!(msg.contains("unexpected argument"), "{msg}");
+    assert!(msg.contains("usage: lindhard-stopping-report"), "{msg}");
 }

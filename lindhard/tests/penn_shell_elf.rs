@@ -21,13 +21,13 @@ use lindhard::electron::inelastic::{
 use rayon::prelude::*;
 use std::f64::consts::PI;
 
+mod common;
+use common::rel;
+use common::with_threads;
+
 /// A synthetic atom density, m⁻³ (a round number, not a material's).
 const ATOMS_PER_M3: f64 = 5.0e28;
 const MATERIAL: &str = "synthetic target (EADL edges, made-up density)";
-
-fn rel(a: f64, b: f64) -> f64 {
-    (a / b - 1.0).abs()
-}
 
 /// The Stobbe K-shell cross section per electron of a hydrogen-like ion of
 /// charge `z` at photon energy `eps` times its ionization energy, m²
@@ -509,11 +509,7 @@ fn l_shell_elfs_start_at_their_edges_and_carry_their_provenance() {
 #[test]
 fn built_l_shells_are_bit_identical_across_thread_counts() {
     let run = |threads: usize| {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        pool.install(|| {
+        with_threads(threads, || {
             let table = SubshellBindingTable::eadl2017();
             let jobs: Vec<(u8, Subshell)> = (13u8..=30)
                 .flat_map(|z| ["L1", "L2", "L3"].map(|l| (z, Subshell::from_label(l).unwrap())))
@@ -618,11 +614,7 @@ fn built_shells_feed_the_channels_and_add_up_to_the_summed_model() {
 #[test]
 fn built_shells_are_bit_identical_across_thread_counts() {
     let run = |threads: usize| {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        pool.install(|| {
+        with_threads(threads, || {
             let table = SubshellBindingTable::eadl2017();
             let elfs: Vec<Vec<f64>> = (1u8..=30)
                 .into_par_iter()

@@ -4,14 +4,14 @@
 //! or tabulated data, so the step is a physical-consistency check and not a
 //! comparison with a published measurement (see `docs/validation.md`).
 
-use lindhard::electron::data::SamplingAxis;
 use lindhard::electron::transport::{BeamSpread, LayerTables, Primary, Transport, TransportConfig};
 use lindhard::geometry::{Boundary, VoxelGrid};
 use lindhard::material::Material;
 use lindhard::tally::{scan_landing_points, PsfScanConfig, PsfScanReport};
 
 mod common;
-use common::synthetic_table;
+use common::synthetic_scattering;
+use common::with_threads;
 
 const NM: f64 = 1e-9;
 const E0: f64 = 500.0;
@@ -21,26 +21,13 @@ fn material(z: u8) -> Material {
     Material::from_atom_fractions(&[(z, 1.0)], None).unwrap()
 }
 
-fn scattering(lambda_el: f64, lambda_inel: f64, frac: f64) -> LayerTables {
-    LayerTables {
-        elastic: synthetic_table(SamplingAxis::ElasticPolarAngle, 1.0 / lambda_el, |_, p| {
-            (1.0 - 2.0 * p).acos()
-        }),
-        inelastic: synthetic_table(
-            SamplingAxis::InelasticEnergyLoss,
-            1.0 / lambda_inel,
-            move |e, p| frac * e * p,
-        ),
-    }
-}
-
 /// Film (0), light substrate (1: few elastic events) and heavy substrate
 /// (2: many elastic events per inelastic one, hence strong backscatter).
 fn tables() -> Vec<LayerTables> {
     vec![
-        scattering(20.0 * NM, 15.0 * NM, 0.1),
-        scattering(40.0 * NM, 15.0 * NM, 0.1),
-        scattering(2.0 * NM, 15.0 * NM, 0.1),
+        synthetic_scattering(20.0 * NM, 15.0 * NM, 0.1),
+        synthetic_scattering(40.0 * NM, 15.0 * NM, 0.1),
+        synthetic_scattering(2.0 * NM, 15.0 * NM, 0.1),
     ]
 }
 
@@ -98,14 +85,6 @@ fn run(t: &Transport<VoxelGrid>, ys_nm: &[f64], n: u64) -> PsfScanReport {
         "synthetic tables, test",
     )
     .unwrap()
-}
-
-fn in_pool<R: Send>(threads: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(f)
 }
 
 #[test]
@@ -171,8 +150,8 @@ fn buried_heavy_edge_shows_a_monotone_step_of_the_expected_sign() {
 fn report_is_bit_identical_across_thread_counts_and_point_order_seeds() {
     let t = transport(grid(|j| j < 20, Boundary::Vacuum));
     let ys = [150.0, 200.0, 250.0];
-    let a = in_pool(1, || run(&t, &ys, 1_500));
-    let b = in_pool(2, || run(&t, &ys, 1_500));
+    let a = with_threads(1, || run(&t, &ys, 1_500));
+    let b = with_threads(2, || run(&t, &ys, 1_500));
     assert_eq!(a, b);
     assert_eq!(a.to_csv(), b.to_csv());
     // A point's result does not depend on the other points when its index

@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::electron::beam::beam_serde_module;
 use crate::electron::elastic::table::{DEFAULT_MIN_ENERGY_EV, DEFAULT_POINTS_PER_DECADE};
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm};
 use crate::electron::transport::TransportConfig;
@@ -667,23 +668,19 @@ fn default_exposure_tail() -> f64 {
     1e-12
 }
 
-/// Beam profile of `[electron.tally.exposure]`.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-pub enum ExposureBeamSpec {
-    /// All electrons land on the axis.
-    Point,
-    /// Gaussian landing offset, `sigma_nm` per lateral axis.
-    Gaussian {
-        /// Standard deviation per axis, nm.
-        sigma_nm: f64,
-    },
-    /// Uniform disc.
-    UniformDisc {
-        /// Radius, nm.
-        radius_nm: f64,
-    },
-}
+// Serde of the beam of `[electron.tally.exposure]`: the same laws as
+// `[electron.beam.profile]` ([`BeamProfileSpec`], `model = "disc"`), and the
+// historical `kind` tag with `uniform-disc` is still read and still written
+// (so an echoed input is unchanged). Giving both `kind` and `model` is an
+// error. Shared with the report beam's `BeamProfile`.
+beam_serde_module!(
+    exposure_beam,
+    BeamProfileSpec,
+    sigma_nm,
+    radius_nm,
+    width_y_nm,
+    width_z_nm
+);
 
 /// Shape of a volume of `[electron.tally.exposure]`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -732,8 +729,10 @@ pub struct ExposureVolumeSpec {
 pub struct ExposureSpec {
     /// Mean number of incident electrons.
     pub lambda: f64,
-    /// Beam profile.
-    pub beam: ExposureBeamSpec,
+    /// Beam profile: `model = "point" | "gaussian" | "disc" | "rectangle"`
+    /// (the legacy `kind = "uniform-disc"` is also read).
+    #[serde(with = "exposure_beam")]
+    pub beam: BeamProfileSpec,
     /// Target volumes (a neighbour is another volume at its offset).
     pub volumes: Vec<ExposureVolumeSpec>,
     /// Histogram bins of the per-electron deposit.

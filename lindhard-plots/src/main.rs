@@ -8,111 +8,36 @@
 //! `--input` and `--output` override the default paths (both relative to the
 //! current directory when given; the defaults are resolved against the
 //! workspace root, so the command works from anywhere in the checkout).
+//!
+//! The flags, the write-or-compare step and the exit codes are the shared
+//! driver in `lindhard_plots`; only the paths, the usage and regenerate lines
+//! and the render call are here.
 
-use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
-use anyhow::{bail, Context, Result};
-use lindhard_plots::{backscatter, compare, CheckOutcome};
+use anyhow::{Context, Result};
+use lindhard_plots::{backscatter, exit_code, parse_args, write_or_check, Args};
 
 const DEFAULT_INPUT: &str = "validation/experiments/backscatter_results.json";
 const DEFAULT_OUTPUT: &str = "docs/img/backscatter-eta.svg";
 const USAGE: &str =
     "usage: lindhard-plots [--check] [--input <results.json>] [--output <figure.svg>]";
+const REGENERATE: &str = "cargo run -p lindhard-plots";
 
-#[derive(Debug)]
-struct Args {
-    check: bool,
-    input: PathBuf,
-    output: PathBuf,
-}
-
-fn workspace_root() -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .parent()
-        .expect("the crate lives in a workspace subdirectory")
-        .to_path_buf()
-}
-
-fn parse_args() -> Result<Args> {
-    let root = workspace_root();
-    let mut args = Args {
-        check: false,
-        input: root.join(DEFAULT_INPUT),
-        output: root.join(DEFAULT_OUTPUT),
-    };
-    let mut it = std::env::args_os().skip(1);
-    while let Some(arg) = it.next() {
-        match arg.to_str() {
-            Some("--check") => args.check = true,
-            Some("--input") => args.input = it.next().context(USAGE)?.into(),
-            Some("--output") => args.output = it.next().context(USAGE)?.into(),
-            Some("-h" | "--help") => {
-                println!("{USAGE}");
-                std::process::exit(0);
-            }
-            _ => bail!("unexpected argument {arg:?}\n{USAGE}"),
-        }
-    }
-    Ok(args)
-}
-
-fn run() -> Result<bool> {
-    let args = parse_args()?;
+fn render(args: &Args) -> Result<String> {
     let json = std::fs::read_to_string(&args.input)
         .with_context(|| format!("reading {}", args.input.display()))?;
     let results =
         backscatter::parse(&json).with_context(|| format!("in {}", args.input.display()))?;
-    let svg = backscatter::render_svg(&results);
+    Ok(backscatter::render_svg(&results))
+}
 
-    if !args.check {
-        std::fs::write(&args.output, &svg)
-            .with_context(|| format!("writing {}", args.output.display()))?;
-        println!("wrote {} ({} bytes)", args.output.display(), svg.len());
-        return Ok(true);
-    }
-
-    let committed = match std::fs::read(&args.output) {
-        Ok(bytes) => Some(bytes),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
-        Err(e) => return Err(e).with_context(|| format!("reading {}", args.output.display())),
-    };
-    match compare(committed.as_deref(), svg.as_bytes()) {
-        CheckOutcome::Matches => {
-            println!("{} is up to date", args.output.display());
-            Ok(true)
-        }
-        CheckOutcome::Missing => {
-            eprintln!(
-                "{} is missing; regenerate it with `cargo run -p lindhard-plots` and commit it",
-                args.output.display()
-            );
-            Ok(false)
-        }
-        CheckOutcome::Differs {
-            first_difference,
-            committed_len,
-            rendered_len,
-        } => {
-            eprintln!(
-                "{} differs from a fresh render of {} (first difference at byte {first_difference}; \
-                 committed {committed_len} bytes, rendered {rendered_len} bytes); regenerate it with \
-                 `cargo run -p lindhard-plots` and commit it",
-                args.output.display(),
-                args.input.display()
-            );
-            Ok(false)
-        }
-    }
+fn run() -> Result<bool> {
+    let args = parse_args(USAGE, DEFAULT_INPUT, DEFAULT_OUTPUT)?;
+    let svg = render(&args)?;
+    write_or_check(&args, svg.as_bytes(), REGENERATE)
 }
 
 fn main() -> ExitCode {
-    match run() {
-        Ok(true) => ExitCode::SUCCESS,
-        Ok(false) => ExitCode::from(1),
-        Err(e) => {
-            eprintln!("error: {e:#}");
-            ExitCode::from(2)
-        }
-    }
+    exit_code(run())
 }

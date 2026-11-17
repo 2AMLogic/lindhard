@@ -172,6 +172,16 @@ pub fn element_by_symbol(symbol: &str) -> Option<&'static Element> {
     ELEMENTS.iter().find(|e| e.symbol == symbol)
 }
 
+/// The element's symbol for an atomic number (`"Si"`), or `"?"` when `z` is
+/// outside the table (the inverse of [`element_by_symbol`]). The `"?"`
+/// fallback is part of the written output — the damage-export species list
+/// (`docs/damage-export-format.md`), the summary CSVs and the stopping
+/// report — so every writer shares this one lookup rather than each picking
+/// its own fallback.
+pub fn symbol(z: u8) -> &'static str {
+    element(z).map_or("?", |e| e.symbol)
+}
+
 const fn el(
     z: u8,
     symbol: &'static str,

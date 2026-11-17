@@ -202,7 +202,7 @@ class Diagnostics(unittest.TestCase):
     def test_committed_findings_are_reported_not_tuned(self):
         r = json.loads(cd.RESULTS.read_text())
         d = r["diagnostics"]
-        self.assertEqual(d["stored_data"]["ar_ni_sets"], 7)
+        self.assertEqual(d["stored_data"]["ar_ni_sets"], cd.count_stored_sets("ar_ni"))
         self.assertIsNotNone(d["pure_ni_over_stored"])
         self.assertGreater(d["pure_ni_over_stored"]["ratio_to_median"], 0)
         self.assertEqual(r["settings"]["surface_binding_ev"], {s: e["e_s_ev"] for s, e in cd.ELEMENTS.items()})
@@ -211,6 +211,58 @@ class Diagnostics(unittest.TestCase):
             for g in d[tag]["grid"]:
                 # alloy yield is additive in the pure-element yields at fixed composition
                 self.assertAlmostEqual(g["total_over_additive"], 1.0, delta=0.02)
+
+
+class Attribution(unittest.TestCase):
+    """The #544 attribution: candidate inputs and the committed findings."""
+
+    def test_baseline_input_is_unchanged_by_the_override_arguments(self):
+        a = cd.build_static_input(1.0, 0.0, 2000.0, 10, 1)
+        b = cd.build_static_input(1.0, 0.0, 2000.0, 10, 1, physics={}, energies={})
+        self.assertEqual(a, b)
+
+    def test_every_candidate_changes_exactly_what_it_names(self):
+        base = tomllib.loads(cd.build_static_input(0.0, 0.0, 2000.0, 10, 1))
+        for cand in cd.ATTRIBUTION_CANDIDATES:
+            for sym, c in (("Cu", 1.0), ("Ni", 0.0)):
+                physics, energies = cd.candidate_overrides(cand, sym)
+                t = tomllib.loads(cd.build_static_input(c, 0.0, 2000.0, 10, 1, physics=physics, energies=energies))
+                self.assertEqual(t["target"], {"substrate": sym})
+                if cand["id"] == "base":
+                    self.assertIsNone(physics)
+                    self.assertIsNone(energies)
+                for k in physics or {}:
+                    self.assertEqual(t["physics"][k], physics[k])
+        phys, en = cd.candidate_overrides(next(c for c in cd.ATTRIBUTION_CANDIDATES if c["id"] == "es-x0.75"), "Ni")
+        self.assertAlmostEqual(en["Ni"]["e_s_ev"], 0.75 * 4.44)
+        self.assertAlmostEqual(en["Ni"]["e_d_ev"], 0.75 * 4.44)
+        self.assertEqual(base["physics"]["energies"]["Ni"]["e_b_ev"], 0.0)
+
+    def test_leave_one_set_out_and_median(self):
+        pts = [{"set": "a", "yield": 1.0}, {"set": "b", "yield": 2.0}, {"set": "c", "yield": 4.0}]
+        self.assertEqual(cd.median([3.0, 1.0, 2.0]), 2.0)
+        rows = cd.leave_one_set_out(pts, 2.0)
+        self.assertEqual([r["left_out"] for r in rows], ["none", "a", "b", "c"])
+        self.assertAlmostEqual(rows[0]["engine_over_median"], 1.0)
+        self.assertAlmostEqual(rows[1]["median"], 3.0)
+
+    def test_stored_points_cover_the_ni_sets_and_skip_flagged_points(self):
+        ni = cd.stored_points("Ni")
+        self.assertEqual({p["set"] for p in ni}, {f.stem for f in cd.SPUTTER_DATA.glob("ar_ni_sputter_*.json")})
+        self.assertEqual(cd.stored_points("Ni", cd.ATTRIBUTION_ENERGY_WINDOW), [])
+
+    def test_committed_attribution_is_complete_and_unfitted(self):
+        att = json.loads(cd.RESULTS.read_text())["diagnostics"]["attribution"]
+        self.assertEqual([r["id"] for r in att["candidates"]], [c["id"] for c in cd.ATTRIBUTION_CANDIDATES])
+        base = att["candidates"][0]
+        self.assertEqual(base["id"], "base")
+        self.assertAlmostEqual(base["Cu_over_base"], 1.0)
+        self.assertEqual(len(att["points"]["Ni"]), len(cd.stored_points("Ni")))
+        self.assertEqual(len(att["points"]["Cu"]), len(cd.stored_points("Cu", cd.ATTRIBUTION_ENERGY_WINDOW)))
+        # the baseline of the attribution is the pure-element run of the diagnosis
+        d = json.loads(cd.RESULTS.read_text())["diagnostics"]
+        self.assertAlmostEqual(base["Cu"]["value"], d["pure_elements"]["Cu_0deg"]["y_total"]["value"])
+        self.assertAlmostEqual(base["Ni"]["value"], d["pure_elements"]["Ni_0deg"]["y_total"]["value"])
 
 
 class StaticRun(unittest.TestCase):

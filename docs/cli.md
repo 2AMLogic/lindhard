@@ -41,10 +41,61 @@ keys. The schema types are `lindhard::input` (shared with future front ends).
 |---|---|---|
 | `ion` | required | Element symbol of the projectile (case-sensitive, `"As"`) |
 | `mass_amu` | standard atomic weight | Projectile mass, u |
-| `energy_ev` | required | Incident energy, eV |
+| `energy_ev` | one of `energy_ev` / `spectrum` | Incident energy, eV |
+| `spectrum` | none | A weighted list of primary energies (a recoil/PKA spectrum), the `[[beam.spectrum]]` array below. Mutually exclusive with `energy_ev` |
 | `tilt_deg` | 0 | Polar angle from the surface normal, `[0, 90)` |
 | `azimuth_deg` | 0 | Azimuth of the incidence plane |
 | `divergence` | none | Angular spread, the `[beam.divergence]` table below |
+
+#### `[[beam.spectrum]]` (optional)
+
+A primary-energy spectrum, for a cascade started from a recoil (a PKA
+spectrum) rather than from a mono-energetic beam. Give exactly one of
+`energy_ev` and `spectrum` (both, or neither, is an error naming `beam`).
+Each entry is a line:
+
+```toml
+[beam]
+ion = "Si"          # the beam species may be a target element (self-ion)
+spectrum = [
+  { energy_ev = 1000.0, weight = 3.0 },
+  { energy_ev = 2000.0, weight = 1.0 },
+]
+```
+
+| Key | Meaning |
+|---|---|
+| `energy_ev` | Line energy, eV; finite and positive |
+| `weight` | Relative weight; finite and positive. Weights are normalised over the list, so `3, 1` means 75 % / 25 % |
+
+The spectrum is discrete: no continuous or tabulated spectrum and no
+interpolation. At least one line is required. Each history picks its line
+with one uniform draw from a copy of its own random stream at word `2^64`,
+disjoint from the transport draws and the divergence (`2^65`), thermal
+(`2^66`) and lattice-shift (`2^67`) segments, so the choice does not depend
+on the thread count and no other draw of the history moves. With a one-line
+spectrum the run is therefore bit-identical to the same run with `energy_ev`.
+Without the key nothing changes. The energy budget closes per history with
+the drawn energy as the incident energy.
+
+Checks that involve the beam energy use the lines: `physics.primary_cutoff_ev`
+must be below the smallest line, and every line must lie inside the range of a
+`[[stopping.tables]]` entry that serves the beam pair (the advisory stopping
+validity warning fires if any line is outside). Static ion runs only: with a
+`[dynamic]` target the key is an error (`beam.spectrum`); `[electron]` runs
+have no such key.
+
+**Recoil start.** A PKA enters with the beam's `tilt_deg`, `azimuth_deg` and
+divergence like any primary; an isotropic or derived recoil direction, and
+deriving a spectrum from a flux or cross sections, are not part of this key.
+The beam species may equal a target element (e.g. Si into Si, as for the
+isotopic self-ion beam under `[stopping]`); give that element's `e_d_ev`,
+`e_b_ev` and `e_s_ev` under `[physics.energies]` as for any target element.
+
+The summary's `physics.beam_spectrum` records the lines with normalised
+weights and the stream segment (`stream_word`); the echoed `input.beam` is the
+input as written. It is absent without the key and `format.version` stays 1
+(see "Compatibility and extension").
 
 #### `[beam.divergence]` (optional)
 
@@ -114,6 +165,21 @@ Each element takes `symbol` or `z`, `atom_fraction` or `mass_fraction`
 Defaults for the energies come from the element table where one is
 tabulated; see `lindhard/src/material.rs`.
 
+A gas target gives a state instead of a density:
+
+```toml
+[materials.N2]
+gas = { pressure_pa = 101325.0, temperature_k = 300.0, molar_mass_g_mol = 28.0134 }
+elements = [{ symbol = "N", atom_fraction = 1.0 }]
+```
+
+The mass density is the ideal-gas value `rho = P M / (N_A k_B T)`. Give
+`molar_mass_g_mol` (the mass of a *molecule*) for anything but a monatomic
+gas; it defaults to the mean atomic weight. `gas` together with
+`density_g_cm3` is an error, as is a non-finite or non-positive pressure,
+temperature or molar mass. The material reports `Phase::Gas`, which the
+stopping model can read; nothing in the stopping model changes yet.
+
 ### `[target]`
 
 ```toml
@@ -131,15 +197,87 @@ or an inline material table with the same keys as `[materials.<name>]`. A
 `[materials]` key wins over an element symbol of the same name. Without a
 substrate the target has a back face and particles can be transmitted.
 
+#### CSG solids: `[[target.solids]]`
+
+Optional. Describes a laterally varying target as constructive solid
+geometry: an ordered list of solids, each with a `material` (in the same
+three forms as a layer's) and a `shape` selected by a `shape` key. Lengths
+are in nm; `x` is depth from the front surface. `[[target.solids]]` may not
+be combined with `[[target.layers]]`, `target.substrate`, `[[crystal]]` or
+`[dynamic]`; every combination is an error naming the key.
+
+```toml
+[[target.solids]]
+shape = "cuboid"            # the axis-aligned box [lo_nm, hi_nm]
+material = "SiO2"
+lo_nm = [0.0, 0.0, -500.0]
+hi_nm = [40.0, 500.0, 500.0]
+
+[[target.solids]]
+shape = "cylinder"          # a finite cylinder with flat end caps
+material = "Si"
+base_nm = [100.0, 0.0, 0.0] # centre of the first end cap
+axis = [1.0, 0.0, 0.0]      # any non-zero direction; normalised
+radius_nm = 50.0
+height_nm = 200.0
+
+[[target.solids]]
+shape = "half_space"        # { p : normal . p <= offset_nm }
+material = "Si"
+normal = [0.0, 0.0, -1.0]   # any non-zero direction; normalised
+offset_nm = 100.0           # plane distance from the origin, nm
+```
+
+A `half_space` is unbounded on its own, so it must be bounded by a
+combination; a lone one is an error:
+
+```toml
+[[target.solids]]
+shape = "intersection"      # points inside every operand
+material = "Si"
+of = [
+  { shape = "half_space", normal = [0.0, 0.0, -1.0], offset_nm = 100.0 },
+  { shape = "cuboid", lo_nm = [0.0, -50.0, -50.0], hi_nm = [200.0, 50.0, 50.0] },
+]
+```
+
+The other combinations are `union` (`of`, at least one operand) and
+`difference` (`keep` and `cut`; points inside `keep` and not inside `cut`),
+whose operands are the same shapes. Invalid values (a non-finite or
+inverted box, a zero axis or normal, a non-positive radius or height) are
+errors naming the offending key.
+
+**Listing order is priority order.** One region is one top-level solid, in
+the order listed; where solids overlap, the first listed owns the space, so
+a mask listed before the block it patterns cuts into it (the
+[`b_5keV_si_masked.toml`](../examples/b_5keV_si_masked.toml) example). Two
+solids of the same material share one material index: crossing between them
+is not an event.
+
+**Beam entry.** The beam enters at the centre of the front face of the
+scene's bounding box. If no solid contains that point, resolution is an
+error naming `target.solids`; reshape the scene (or make the first solid
+cover the point) to run it.
+
+**Lateral escapes.** Unlike a layer stack, a solid target has lateral
+vacuum faces, and a particle can leave through one. Such escapes count in
+the energy budget (`results.energy_budget_ev_per_ion` reports the lateral
+energy), but `escape_spectra.csv` records front and back escapes only; a
+side escape appears in no spectrum. Size the target so that side escapes do
+not matter: make the solids wide enough that neither the beam's lateral
+straggle nor a cascade reaches a side face, and check that the budget's
+lateral energy is zero.
+
 ### `[physics]`
 
 | Key | Default | Choices |
 |---|---|---|
 | `potential` | `"zbl"` | `zbl`, `kr-c`, `moliere`, `lenz-jensen` |
 | `screening_length` | paired with the potential | `universal`, `firsov`, `lindhard` |
-| `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or`, `none` (see below) |
+| `stopping` | `"lindhard-scharff"` | `lindhard-scharff`, `bethe-bloch`, `equipartition-ls-or`, `srim`, `none` (see below) |
 | `free_path` | `"constant"` | `constant`, `energy-dependent` |
 | `min_cm_angle_deg` | none | Required with, and only with, `energy-dependent` |
+| `straggling` | `"none"` | `none`, `bohr`, `bohr-relativistic`: electronic energy-loss straggling of the free flights (see below) |
 | `weak_collisions` | 0 | `0` to `3`: weak collisions beyond `p_max` per collision step (Moller and Eckstein, IPP 9/64 (1988)); `constant` free path only. See the `ion::bca` docs, "Weak collisions" |
 | `primary_cutoff_ev` | required | The primary stops below this energy |
 | `recoil_cutoff_ev` | required | Recoils stop below this; keep it below the smallest `E_s` |
@@ -155,6 +293,46 @@ transport comparisons against codes run with their electronic stopping off
 nuclear-only studies. It has no energy range, so no validity warning is ever
 raised for it; `physics.models` lists it as `none`, with nothing for Bragg
 additivity to sum unless `[stopping]` tables are given.
+
+**`straggling` (opt-in electronic energy-loss straggling).** With the default
+`"none"` every free flight loses exactly the mean electronic loss.
+`"bohr"` (or `"bohr-relativistic"`) draws the fluctuation of the electronic
+loss from a Gaussian with the Bohr (1948) variance, Bragg-added over the
+layer's composition; the effective charge is the bare form. The draw is made
+once per accumulated path segment, not per free flight: each flight still
+loses its mean, and adds its mean and its Bohr variance to the particle's
+pending segment, and when the segment's mean loss has grown to 4 standard
+deviations (or the particle stops, escapes or reflects), one deviation of
+the segment's accumulated standard deviation is drawn and applied. Bohr's
+variance is linear in path length, so a segment's accumulated variance is
+exactly Bohr's variance for the segment — the published result per unit
+path length — while the cadence never samples the Gaussian where it does
+not apply (a single flight of the constant free path, `lambda = N^(-1/3)`,
+sits a small fraction of its standard deviation above zero, where a
+truncated Gaussian biases the mean badly: the per-flight sampling this
+replaced measured the mean electronic loss inflated about 2.5x in amorphous
+C, 2.8x in amorphous Si and 3.7x on crystal Si lattice flights, with the
+transmitted variance depressed to about 0.42 of the Bohr value). At the
+closing criterion a draw falls below zero with probability `Phi(-4) ~
+3.2e-5`, so the safety clamp of the deviation to `[-mu_acc, E]` — which
+keeps every history's energy exact and non-negative — is essentially
+inactive and the mean loss stays unbiased. That statement covers a segment
+closed at the criterion: a history whose transport ends before its segment
+does — an ion stopped in a layer thinner than the closing distance — draws
+its only deviation from a partial segment that can sit closer to zero than
+4 standard deviations, and there the clamp biases the history's mean loss
+upward. The deviation is tallied on the
+flight that closes the segment (the fluctuation is localized at the
+segment's end rather than spread along it), and layer boundaries do not
+close a segment, so thin layers do not reintroduce short segments. Crystal
+regions sample on lattice flights through the same segments and carry no
+warning of their own. Draws come from each history's own stream, so
+results stay deterministic at any thread count; a default run draws
+nothing and is unchanged. Bohr is a high-energy model, `v >> v0
+Z1^(2/3)`, and an overestimate below about 1 MeV/u
+([stopping models](stopping-models.md)); `lindhard check` warns when the
+beam energy sits below that floor. Corrections beyond Bohr (Chu;
+Yang-O'Connor-Wang) are declined, and models beyond Bohr stay with #638.
 
 `[physics.energies.<symbol>]` sets `e_d_ev`, `e_b_ev` and/or `e_s_ev` for that
 element in every layer that contains it, after (so overriding) the
@@ -201,6 +379,22 @@ tables = ["tables/b_in_si.toml", "tables/p_in_si.toml"]
 | Key | Default | Meaning |
 |---|---|---|
 | `tables` | none | Paths of table files, one per pair |
+| `srim_data` | none | Path of an SRIM coefficient file; required with, and only with, `physics.stopping = "srim"` |
+
+**`stopping = "srim"`.** SRIM-data-sourced stopping: the published
+five-coefficient fit (see `docs/stopping-models.md`) evaluated with
+coefficients read from the `srim_data` file (format
+`lindhard-srim-coefficients/1`, one `[[row]]` per (ion, target element) pair,
+each with a non-blank `citation`). A query for a pair with no row, or outside
+the row's `e_min_kev_per_u..e_max_kev_per_u`, is an error, never an
+extrapolation. The run record's model list names the file and its citations,
+and `summary.json` has `physics.srim_data` with the file's `path` (as
+written), `resolved_path` (absolute where possible) and `sha256` of its bytes,
+so a result identifies the exact coefficients it was produced from. The key is
+absent without `stopping = "srim"`.
+Agreement with SRIM is consistency, not independent validation. User
+`tables` still take precedence for the pairs they declare. The full coefficient
+data is entered in issue #633; until then supply a file.
 
 Absent, the input means what it always meant (`format.version` is unchanged
 and nothing is echoed).
@@ -217,9 +411,9 @@ stopping_ev_1e15_cm2 = [10.0, 30.0, 60.0]         # eV 1e-15 cm^2 per atom
 ```
 
 Interpolation is piecewise linear in ln S versus ln E. `provenance` is
-mandatory (data without an origin is not admitted). Do not use SRIM- or
-ICRU-derived tables in anything committed to a repository; a table is the
-user's own data and its terms are the user's concern.
+mandatory (data without an origin is not admitted). Tables from any source,
+SRIM and ICRU included, are admissible; the provenance names the source (book
+edition, table and page, or program, version and file).
 
 **Paths.** A relative path resolves against the directory of the input file
 (not the current directory). The echoed input keeps the path as written.
@@ -317,7 +511,9 @@ key (`crystal[i].normal`, `.reference`, `.layers`, `.preset`,
 reference not in the surface plane, a layer that does not exist or is already
 assigned, a preset whose elements are not in the layer's material or whose
 atom density differs from the lattice's by more than 5 %, and a non-positive
-search length. Unsupported combinations are errors, never a silent amorphous
+search length. Materials are checked too: `gas` together with `density_g_cm3`, and a
+non-finite or non-positive `gas.pressure_pa`, `gas.temperature_k` or
+`gas.molar_mass_g_mol`, are errors naming the key. Unsupported combinations are errors, never a silent amorphous
 fallback: a `[dynamic]` target, an `[electron]` run, `physics.free_path` other
 than `"constant"`, `physics.weak_collisions > 0`, and `physics.tuning` (the
 only set was fitted for amorphous runs). `physics.stopping =
@@ -525,10 +721,8 @@ Eq. (12) (`AtomicElastic::compute_corrected`); the elastic table's `model` and
 
 **`[electron.inelastic]`**
 
-| Key | Default | Choices |
-|---|---|---|
-| `model` | `"penn-single-pole"` | `penn-single-pole`, `penn-full`, `mermin-melf` (`electron::inelastic::PennAlgorithm`). The full Penn and Mermin models integrate numerically and build tables far more slowly. The single-pole model's mean free path is much longer than the other two below about 30 eV (Al: up to 23 times), which inflates the secondary yield; see `electron::inelastic::penn`, "Low energies" (#173) |
-| `fermi_energy_ev` | 0 | Fermi energy of the model, eV, for the inelastic tables of materials **without** a `band`: the table is on the model's own axis (energy above the model's Fermi level, losses up to that energy). Must be 0 if any material has a `band` (a nonzero value is refused): see below |
+- **`model`** (default `"penn-single-pole"`): `penn-single-pole`, `penn-full`, `mermin-melf` (`electron::inelastic::PennAlgorithm`). The full Penn and Mermin models integrate numerically and build tables far more slowly. The single-pole model's mean free path is much longer than the other two below about 30 eV (Al: up to 23 times), which inflates the secondary yield; see `electron::inelastic::penn`, "Low energies" (#173)
+- **`fermi_energy_ev`** (default 0): Fermi energy of the model, eV, for the inelastic tables of materials **without** a `band`: the table is on the model's own axis (energy above the model's Fermi level, losses up to that energy). Must be 0 if any material has a `band` (a nonzero value is refused): see below
 
 **Energy axis of the inelastic table.** The transport reads a table at the
 electron's kinetic energy `E` above the band bottom of its layer. For every
@@ -597,15 +791,13 @@ target uses, keyed by the name the target gives it (a `[materials]` key or an
 element symbol; an inline target material is an error in an electron run).
 Every name the target uses needs an entry; an unused entry warns.
 
-| Key | Default | Meaning |
-|---|---|---|
-| `optical_elf` | required | Path of an optical ELF file, relative to the input file's directory, in the `lindhard::electron::data::OpticalElf` TOML form (`material`, `provenance`, `energy_ev`, `elf`). It is read with that type's loader, so **a file without a provenance is refused**, as is any invalid table |
-| `band` | none | Band parameters, required with `kieft-bosch`, `step-barrier` or `vacuum-level`: `{ kind = "metal", fermi_ev, work_function_ev, provenance }`, `{ kind = "insulator", valence_band_width_ev, band_gap_ev, affinity_ev, provenance }` or `{ kind = "free-electron-metal", valence_electrons_per_atom, work_function_ev, provenance }` (`lindhard::electron::boundary::BandStructure`; a blank provenance is refused). Either metal kind also takes an optional `valence_binding_ev`: the electron a valence loss liberates is bound that far below the Fermi level instead of at it, and a smaller loss frees none (`BandStructure::with_valence_binding_ev`; absent by default; its source belongs in `provenance`) |
-| `phonon` | none (off) | Fröhlich LO-phonon channel, polar insulators only: `{ hbar_omega_ev, eps_static, eps_high_frequency, temperature_k, provenance }`, or `{ preset = "sio2-63mev" \| "sio2-153mev", temperature_k }` (the library's cited SiO₂ values) |
-| `polaron` | none (off) | Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }` |
-| `mermin_fit` | none (the default fit) | Options of this material's Mermin oscillator fit, `mermin-melf` only: see below |
-| `inner_shells` | none (valence only) | Inner-shell ionisation channels of this material, `penn-single-pole` only: see below |
-| `e_pair` | none | Mean energy per electron-hole pair, `{ ev, source }`: `ev` positive, `source` a required non-blank citation (for example the Klein 1968 rule for a semiconductor, or a measured SiO₂ value). **No default is supplied.** Without it the summary reports the ionisation energy of the material's layers and no pair count. Post-processing only: transport does not read it |
+- **`optical_elf`** (default required): Path of an optical ELF file, relative to the input file's directory, in the `lindhard::electron::data::OpticalElf` TOML form (`material`, `provenance`, `energy_ev`, `elf`). It is read with that type's loader, so **a file without a provenance is refused**, as is any invalid table
+- **`band`** (default none): Band parameters, required with `kieft-bosch`, `step-barrier` or `vacuum-level`: `{ kind = "metal", fermi_ev, work_function_ev, provenance }`, `{ kind = "insulator", valence_band_width_ev, band_gap_ev, affinity_ev, provenance }` or `{ kind = "free-electron-metal", valence_electrons_per_atom, work_function_ev, provenance }` (`lindhard::electron::boundary::BandStructure`; a blank provenance is refused). Either metal kind also takes an optional `valence_binding_ev`: the electron a valence loss liberates is bound that far below the Fermi level instead of at it, and a smaller loss frees none (`BandStructure::with_valence_binding_ev`; absent by default; its source belongs in `provenance`)
+- **`phonon`** (default none (off)): Fröhlich LO-phonon channel, polar insulators only: `{ hbar_omega_ev, eps_static, eps_high_frequency, temperature_k, provenance }`, or `{ preset = "sio2-63mev" | "sio2-153mev", temperature_k }` (the library's cited SiO₂ values)
+- **`polaron`** (default none (off)): Polaron trapping `C exp(-γE)`: `{ c_per_nm, gamma_per_ev, provenance }`
+- **`mermin_fit`** (default none (the default fit)): Options of this material's Mermin oscillator fit, `mermin-melf` only: see below
+- **`inner_shells`** (default none (valence only)): Inner-shell ionisation channels of this material, `penn-single-pole` only: see below
+- **`e_pair`** (default none): Mean energy per electron-hole pair, `{ ev, source }`: `ev` positive, `source` a required non-blank citation (for example the Klein 1968 rule for a semiconductor, or a measured SiO₂ value). **No default is supplied.** Without it the summary reports the ionisation energy of the material's layers and no pair count. Post-processing only: transport does not read it
 
 **`[electron.materials.<name>.mermin_fit]`** (`lindhard::electron::inelastic::MerminFitOptions`):
 the `mermin-melf` model fits Drude-Lorentz oscillators to each material's
@@ -781,7 +973,7 @@ instead of the distribution.
 | Key | Default | Meaning |
 |---|---|---|
 | `lambda` | required | Mean number of incident electrons |
-| `beam` | required | `{ kind = "point" }`, `{ kind = "gaussian", sigma_nm }` (per axis) or `{ kind = "uniform-disc", radius_nm }` |
+| `beam` | required | `{ model = "point" }`, `{ model = "gaussian", sigma_nm }` (per axis), `{ model = "disc", radius_nm }` or `{ model = "rectangle", width_y_nm, width_z_nm }` (full widths); the same laws as `[electron.beam.profile]`. `model` is preferred; the earlier spelling `kind` is still read, with `uniform-disc` for `disc` (giving both is an error). Offsets are drawn from the tally's own stream, so exposure results do not depend on the spelling |
 | `volumes` | required | Array of `{ name, shape = "cylinder", radius_nm }` or `{ name, shape = "box", half_y_nm, half_z_nm }`, each with `depth_lo_nm`, `depth_hi_nm` and `offset_y_nm`, `offset_z_nm` (default 0) from the beam axis |
 | `bins` | 200 | Histogram bins on `(0, x_max_ev]` |
 | `x_max_ev` | beam energy | Upper edge of the histogram, eV |
@@ -799,28 +991,27 @@ instead of the distribution.
 <!-- ANCHOR: output -->
 ### `summary.json`
 
-| Key | Content |
-|---|---|
-| `format` | `{"name": "lindhard-summary", "version": 1}` |
-| `software` | Crate `version` and `git_describe` of the binary |
-| `input` | The input as run: defaults filled in, CLI overrides applied, `run.threads` removed. Deserializes back to the same `lindhard::input::Input`, so a run can be reproduced from its own header |
-| `physics.models` | Every model in use: `role`, `name`, `citation` |
-| `physics.crystal` | Only with `[[crystal]]`: the engine's metadata of each crystal (see `[[crystal]]`) |
-| `physics.stopping_tables` | Only with `[stopping]`: path, SHA-256, provenance and range of each user table (see `[stopping]`) |
-| `physics.engine` | Cutoffs, free path, weak collisions, electronic-loss mode, seed, chunk size as passed to the engine |
-| `physics.scattering_table` | Angle-table grid and its measured interpolation error |
-| `physics.target` | Each layer: extent (nm; `back_nm` is `null` for a substrate), atom density, and the fully resolved material (every `E_d`, `E_b`, `E_s`) |
-| `results.histories` | Primaries run |
-| `results.primaries` | `stopped`, `backscattered`, `transmitted`; mean and standard deviation of the stopped-primary depth, nm (`stopped_depth_mean_nm`, `stopped_depth_std_nm`; the same numbers as `results.range.depth.mean_nm` and `std_dev_nm`, the projected range and straggle, kept under their original keys) |
-| `results.recoils` | Atoms `displaced`, `sputtered` (left through the front face), `transmitted` |
-| `results.yields` | The above per incident ion |
-| `results.energy_budget_ev_per_ion` | Where the incident energy went, per ion, and the largest per-history relative bookkeeping residual |
-| `results.range` | Where the beam particles came to rest, lengths in nm. `depth`: `n`, `mean_nm` (projected range `Rp`), `std_dev_nm` (straggle), `skewness`, `kurtosis` (`beta`, Gaussian 3) and the standard error of each (`null` below two stopped primaries). `pearson_iv`: the Pearson IV density with those moments (`m`, `nu`, `a_nm`, `lambda_nm`), or `null` with the reason in `pearson_iv_error`. `dual_pearson` (or `dual_pearson_error`): only with `tally.dual_pearson = true`; head fraction, head and tail components, chi-square of the fit and of the single Pearson IV. `lateral_y`, `lateral_z`, `radial`: moments of the lateral positions. `layers`: `stopped` and `depth` moments by the layer where the particle stopped |
-| `results.damage` | `nrt`: Norgett-Robinson-Torrens and Kinchin-Pease displacement estimates from the primary knock-on atom damage energies (`pka_count`, `pka_energy_ev`, `damage_energy_ev`, `nrt_displacements`, `kinchin_pease_displacements`). `cascade`: defects counted event by event in the simulated cascades (`displacements`, `replacements`, `vacancies`, `interstitials`). The two are different quantities and are reported separately; see `lindhard::ion::damage` for the conventions, including the approximation used for compounds. Totals over all ions, with `per_ion` and a `layers` breakdown |
-| `results.sputtering` | `yield_per_ion` and `by_element`: target atoms leaving the front face, with `count`, `per_ion` and `mean_energy_ev` for each element |
-| `results.escapes` | `backscatter_coefficient`, `transmission_coefficient`, `energy_reflection_coefficient` (energy carried out of the front face by the beam particles, as a fraction of the incident energy), and `species`: every species (beam first) through the `front` and `back` face, with `count`, `per_ion` and `mean_energy_ev` |
-| `files` | Names of the other files written (`null` if not written) |
-| `run` | `threads`, `table_build_s`, `transport_s`, `ions_per_s` |
+- **`format`**: `{"name": "lindhard-summary", "version": 1}`
+- **`software`**: Crate `version` and `git_describe` of the binary
+- **`input`**: The input as run: defaults filled in, CLI overrides applied, `run.threads` removed. Deserializes back to the same `lindhard::input::Input`, so a run can be reproduced from its own header
+- **`physics.models`**: Every model in use: `role`, `name`, `citation`
+- **`physics.crystal`**: Only with `[[crystal]]`: the engine's metadata of each crystal (see `[[crystal]]`)
+- **`physics.stopping_tables`**: Only with `[stopping]`: path, SHA-256, provenance and range of each user table (see `[stopping]`)
+- **`physics.srim_data`**: Only with `physics.stopping = "srim"`: `path`, `resolved_path` and `sha256` of the coefficient file named by `stopping.srim_data` (see `[stopping]`). Its citations are in `physics.models` (`srim`)
+- **`physics.engine`**: Cutoffs, free path, weak collisions, electronic-loss mode, seed, chunk size as passed to the engine
+- **`physics.scattering_table`**: Angle-table grid and its measured interpolation error
+- **`physics.target`**: Each layer: extent (nm; `back_nm` is `null` for a substrate), atom density, and the fully resolved material (every `E_d`, `E_b`, `E_s`)
+- **`results.histories`**: Primaries run
+- **`results.primaries`**: `stopped`, `backscattered`, `transmitted`; mean and standard deviation of the stopped-primary depth, nm (`stopped_depth_mean_nm`, `stopped_depth_std_nm`; the same numbers as `results.range.depth.mean_nm` and `std_dev_nm`, the projected range and straggle, kept under their original keys)
+- **`results.recoils`**: Atoms `displaced`, `sputtered` (left through the front face), `transmitted`
+- **`results.yields`**: The above per incident ion
+- **`results.energy_budget_ev_per_ion`**: Where the incident energy went, per ion, and the largest per-history relative bookkeeping residual
+- **`results.range`**: Where the beam particles came to rest, lengths in nm. `depth`: `n`, `mean_nm` (projected range `Rp`), `std_dev_nm` (straggle), `skewness`, `kurtosis` (`beta`, Gaussian 3) and the standard error of each (`null` below two stopped primaries). `pearson_iv`: the Pearson IV density with those moments (`m`, `nu`, `a_nm`, `lambda_nm`), or `null` with the reason in `pearson_iv_error`. `dual_pearson` (or `dual_pearson_error`): only with `tally.dual_pearson = true`; head fraction, head and tail components, chi-square of the fit and of the single Pearson IV. `lateral_y`, `lateral_z`, `radial`: moments of the lateral positions. `layers`: `stopped` and `depth` moments by the layer where the particle stopped
+- **`results.damage`**: `nrt`: Norgett-Robinson-Torrens and Kinchin-Pease displacement estimates from the primary knock-on atom damage energies (`pka_count`, `pka_energy_ev`, `damage_energy_ev`, `nrt_displacements`, `kinchin_pease_displacements`). `cascade`: defects counted event by event in the simulated cascades (`displacements`, `replacements`, `vacancies`, `interstitials`). The two are different quantities and are reported separately; see `lindhard::ion::damage` for the conventions, including the approximation used for compounds. Totals over all ions, with `per_ion` and a `layers` breakdown
+- **`results.sputtering`**: `yield_per_ion` and `by_element`: target atoms leaving the front face, with `count`, `per_ion` and `mean_energy_ev` for each element
+- **`results.escapes`**: `backscatter_coefficient`, `transmission_coefficient`, `energy_reflection_coefficient` (energy carried out of the front face by the beam particles, as a fraction of the incident energy), and `species`: every species (beam first) through the `front` and `back` face, with `count`, `per_ion` and `mean_energy_ev`
+- **`files`**: Names of the other files written (`null` if not written)
+- **`run`**: `threads`, `table_build_s`, `transport_s`, `ions_per_s`
 
 **`software.git_describe` freshness.** The CLI's build script stamps `git describe --always --dirty`, and reruns it when a build input that the description reads changes: tracked sources and manifests of `lindhard` and `lindhard-cli` (plus the workspace `Cargo.toml`, `Cargo.lock` and `rust-toolchain.toml`), the index, `HEAD`, the branch ref, `packed-refs` and `refs/heads`/`refs/tags` of the common git directory (so linked worktrees follow shared tags and branches). A non-empty `LINDHARD_GIT_DESCRIBE` in the build environment is used verbatim (trimmed) and git is not consulted; outside a git checkout the value is `unknown`. Limitations: `-dirty` is a flag, not a fingerprint, so two different dirty builds report the same string; untracked files never affect the `-dirty` flag, while `git describe --dirty` covers the whole tracked checkout, so an edit to any tracked file (docs, tests, other crates included) marks the stamp `-dirty` whenever the script next reruns, but a tracked file outside the watched set does not by itself trigger a rerun, so the stamp can stay stale until a watched input or the index changes (for example after `git add`); and it describes the checkout at build time, not the commit of a binary built elsewhere.
 
@@ -844,6 +1035,58 @@ three per incident ion per nm: the cascade defect counts by depth, on the
 depth grid. `vacancies` is displacements minus replacements. The last row,
 with `depth_hi_nm = inf`, holds everything deeper than the grid (empty
 densities). The totals equal `results.damage.cascade`.
+
+### `energy_profile.csv`
+
+`depth_lo_nm,depth_hi_nm,electronic_ev,lattice_ev,recoil_ev,` then the same
+three per incident ion per nm (`*_ev_per_ion_per_nm`): where the beam's
+energy goes, by depth, on the depth grid of `damage_profile.csv`. The `*_ev`
+columns are summed over all histories. The body is followed by an `underflow`
+row (`depth_lo_nm = -inf`) and an `overflow` row (`depth_hi_nm = inf`), with
+empty densities. Summed over all rows, each column equals the matching energy
+budget total times the histories:
+
+| Column | Meaning | Equals |
+|---|---|---|
+| `electronic_ev` | Electronic loss of all particles: the nonlocal loss spread uniformly along each flight segment (by the length of the segment in each bin) plus the local loss at the collision | `electronic_nonlocal + electronic_local` |
+| `lattice_ev` | Energy left in the lattice: subthreshold, weak-collision and binding-energy deposits at the collision, and the energy of each particle where it stopped | `lattice + rest` |
+| `recoil_ev` | Transfer `T` to primary knock-on atoms (generation 1) at the recoil depth | `results.damage.nrt.pka_energy_ev` |
+
+`recoil_ev` is energy the recoils later lose as electronic and lattice
+energy, so it is already inside the other two columns: do not add it to them.
+Energy that leaves the target (backscattered, sputtered, transmitted, surface
+barrier) has no depth and is in none of the columns. The energy budget
+(`results.energy_budget_ev_per_ion`) still closes: its `incident` equals the
+sum of all its other terms.
+
+Which energy-by-depth quantities the ion tally reports (traced at `355ca35`,
+2026-11-10, before this file existed):
+
+| Quantity, by depth | Reported before | Reported now |
+|---|---|---|
+| Electronic loss | no: run totals only (`results.energy_budget_ev_per_ion`) | yes: `electronic_ev` |
+| Energy to the lattice | no: run totals only (`lattice`, `rest`) | yes: `lattice_ev` |
+| Energy to recoils | no: a total over PKAs (`pka_energy_ev`) | yes: `recoil_ev` |
+
+The Python `RunResult.energy_profile` holds the same three profiles as
+arrays.
+### `nrt_profile.csv`
+
+`depth_lo_nm,depth_hi_nm,nrt_displacements,kinchin_pease_displacements,` then
+the same two per incident ion per nm: the NRT and Kinchin-Pease displacement
+**model estimates** by depth of the primary knock-on atom, on the depth grid.
+They are the per-PKA terms of `results.damage.nrt`, placed at the PKA depth
+(no cascade spread), and are separate from the event counts of
+`damage_profile.csv`. The first row (`depth_lo_nm = -inf`) and the last row
+(`depth_hi_nm = inf`) hold what falls before and beyond the grid (empty
+densities); the column sums over all rows equal
+`results.damage.nrt.nrt_displacements` and `kinchin_pease_displacements`.
+
+**Quick damage estimate.** `follow_recoils = false` (see `[engine]`) skips the
+cascades: only the beam is transported, and every PKA is tallied but its
+recoil is not followed. `nrt_profile.csv` and `results.damage.nrt` are then
+complete, at the cost of the cascade counts (`damage_profile.csv`, with no
+replacements). Compound targets follow the convention of `lindhard::ion::damage`.
 
 ### `escape_spectra.csv`
 
@@ -919,20 +1162,18 @@ An electron run writes these instead of the ion files.
 `electron_summary.json` (format `{"name": "lindhard-electron-summary",
 "version": 1}`):
 
-| Key | Content |
-|---|---|
-| `software` | As for an ion run |
-| `input` | The input as run: defaults filled in (including `tables.max_energy_ev`, `tally.escape_energy_max_ev` and the secondary and barrier options), CLI overrides applied, `run.threads` removed. Deserializes to `lindhard::input::electron::ElectronInput` |
-| `physics.models` | Every model in use: `role`, `name`, `citation` (transport loop, elastic model and potential, corrections, inelastic model, secondaries, barrier, phonon and polaron channels, SE/BSE split) |
-| `physics.transport` | The engine's `RunMetadata`: cutoff and its reference, escape rule, event cap, secondary and boundary models, seed, histories, chunk size, the primary, and per layer its extent (m), the `model` and `provenance` strings of both tables, the band parameters, phonon and polaron channels with their provenance |
-| `physics.target` | Each layer: extent (nm), atom density and the resolved material |
-| `physics.materials` | Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`) |
-| `results` | The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`; deposits are measured from the band bottom, so with secondaries in a layer with a Fermi energy `deposited_ev` includes the Fermi-sea energy of liberated conduction electrons and can exceed the energy imparted, which is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev - fermi_sea_ev - phonon_absorbed_ev`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here |
-| `results.dose` | Only with `tally.dose`: `layers`, one entry per layer with `index`, `name`, `thickness_m`, `areal_mass_kg_m2`, `energy_ev` and `dose_gy_m2` (each `{mean, std_err}` per primary; the dose is per unit incident fluence in Gy m², `null` with the thickness and areal mass for a semi-infinite layer), and `transmission`, four entries per interface (forward and back, primary and secondary) with `interface`, `from_layer`, `to_layer`, `secondary`, `count` and `energy_ev` (`{mean, std_err}` per primary) and `energy_fraction` (of the total incident energy). The per-bin depth profile and the spectra are in the CSV files, so `results.dose.depth` and each entry's `spectrum` are omitted |
-| `results.deposition.exposure` | Only with `tally.exposure` (else `null`): `lambda`, `beam` and per volume the volume, `mean_ev`, `second_moment_ev2` with standard errors, `zero_fraction`, the histogram sums (`histories`, `zero_count`, `bin_width_ev`, `overflow_count`, `sum_x` to `sum_x4`; the per-bin counts are in `electron_exposure_histogram.csv`) and `compound` (`mean_ev`, `variance_ev2` with errors, `p_zero`, `k_max`, `truncated_mass`, `distribution` with `quantiles`, `below` and `above`, each value a `low` / `central` / `high` bracket). `electron_exposure_histogram.csv`: `volume,bin,lo_ev,hi_ev,count,fraction`, bin 0 being `X = 0` |
-| `results.psf` | Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. With `tally.psf` the per-bin profile is not repeated in the summary: the `results.deposition.psf` key is omitted. Without `tally.psf` that key is present and `null`. The per-bin profile (bin edges and centre, area, energy and its error, areal density and its error, and the fitted energy of the bin for each fit that succeeded) is in `electron_psf_profile.csv`; the fitted parameters and the `chi2`, `dof`, `reduced_chi2`, `converged` and `iterations` of each fit are in `electron_psf_parameters.csv`. Residuals are not written; the residual of a bin is `energy_ev - model_<model>_ev` |
-| `files` | Names of the CSV files (`null` if not written) |
-| `run` | `threads`, `table_build_s`, `transport_s`, `histories_per_s` |
+- **`software`**: As for an ion run
+- **`input`**: The input as run: defaults filled in (including `tables.max_energy_ev`, `tally.escape_energy_max_ev` and the secondary and barrier options), CLI overrides applied, `run.threads` removed. Deserializes to `lindhard::input::electron::ElectronInput`
+- **`physics.models`**: Every model in use: `role`, `name`, `citation` (transport loop, elastic model and potential, corrections, inelastic model, secondaries, barrier, phonon and polaron channels, SE/BSE split)
+- **`physics.transport`**: The engine's `RunMetadata`: cutoff and its reference, escape rule, event cap, secondary and boundary models, seed, histories, chunk size, the primary, and per layer its extent (m), the `model` and `provenance` strings of both tables, the band parameters, phonon and polaron channels with their provenance
+- **`physics.target`**: Each layer: extent (nm), atom density and the resolved material
+- **`physics.materials`**: Each material: the ELF file (`path`, `resolved_path`, `sha256`, its `material` and `provenance`, energy range and point count), `band`, `phonon`, `polaron`, and for `elastic_table` and `inelastic_table` their `model`, `material`, `provenance`, cache `format_version`, energy range and grid sizes, `source` (`"built"` or `"cache"`) and `cache` (`null` without `--table-cache`, else the table file's `path`, `sha256` and `key_sha256`)
+- **`results`**: The `ElectronReport` (`lindhard::tally::ElectronReport`), lengths in m and energies in eV, summed over all histories unless named per primary: `histories`, `metadata` (split and its source, cutoff, stopping thresholds, tally settings), `fates` of the primaries, `event_caps` (see below), `budget` (the energy balance and its `relative_imbalance`; deposits are measured from the band bottom, so with secondaries in a layer with a Fermi energy `deposited_ev` includes the Fermi-sea energy of liberated conduction electrons and can exceed the energy imparted, which is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev - fermi_sea_ev - phonon_absorbed_ev`), `yields` (`backscatter_eta`, `secondary_delta`, `total_sigma`, transmitted), `front` and `back` (counts, energies, slow and fast classes), `deposition` (`per_layer_ev`; for each grid its binning, `inside_ev` and `outside_ev`), `generation_volume`, `stopping_points` (all electrons that fell below the stopping threshold, and under `primaries` the primaries alone: the penetration depth of stopped primaries), `table_coverage` (see below). The histograms and grid cells are in the CSV files, not here
+- **`results.dose`**: Only with `tally.dose`: `layers`, one entry per layer with `index`, `name`, `thickness_m`, `areal_mass_kg_m2`, `energy_ev` and `dose_gy_m2` (each `{mean, std_err}` per primary; the dose is per unit incident fluence in Gy m², `null` with the thickness and areal mass for a semi-infinite layer), and `transmission`, four entries per interface (forward and back, primary and secondary) with `interface`, `from_layer`, `to_layer`, `secondary`, `count` and `energy_ev` (`{mean, std_err}` per primary) and `energy_fraction` (of the total incident energy). The per-bin depth profile and the spectra are in the CSV files, so `results.dose.depth` and each entry's `spectrum` are omitted
+- **`results.deposition.exposure`**: Only with `tally.exposure` (else `null`): `lambda`, `beam` and per volume the volume, `mean_ev`, `second_moment_ev2` with standard errors, `zero_fraction`, the histogram sums (`histories`, `zero_count`, `bin_width_ev`, `overflow_count`, `sum_x` to `sum_x4`; the per-bin counts are in `electron_exposure_histogram.csv`) and `compound` (`mean_ev`, `variance_ev2` with errors, `p_zero`, `k_max`, `truncated_mass`, `distribution` with `quantiles`, `below` and `above`, each value a `low` / `central` / `high` bracket). `electron_exposure_histogram.csv`: `volume,bin,lo_ev,hi_ev,count,fraction`, bin 0 being `X = 0`
+- **`results.psf`**: Only with `tally.psf`: the profile totals (`histories`, `depth_lo_m`, `depth_hi_m`, `bins`, `total_ev` and `total_std_err_ev` of the slab, `beyond_ev` outside `r_max_nm` with its error) and per fit `model`, `source`, `normalization`, `parameter_names`, `values`, `std_errors`, `reduced_chi2`, `dof` and `converged`. A fit that fails (for example on an empty profile) is listed in `fit_errors` with the error text and does not stop the run. With `tally.psf` the per-bin profile is not repeated in the summary: the `results.deposition.psf` key is omitted. Without `tally.psf` that key is present and `null`. The per-bin profile (bin edges and centre, area, energy and its error, areal density and its error, and the fitted energy of the bin for each fit that succeeded) is in `electron_psf_profile.csv`; the fitted parameters and the `chi2`, `dof`, `reduced_chi2`, `converged` and `iterations` of each fit are in `electron_psf_parameters.csv`. Residuals are not written; the residual of a bin is `energy_ev - model_<model>_ev`
+- **`files`**: Names of the CSV files (`null` if not written)
+- **`run`**: `threads`, `table_build_s`, `transport_s`, `histories_per_s`
 
 `results.damage` (electron runs; an ion run's `results.damage` is the NRT
 block above) splits the deposited energy into **ionisation** (electronic
@@ -1245,14 +1486,17 @@ smooth contour's by `O(h^2)` in the grid spacing.
 
 Files written to the output directory:
 
-| File | Contents |
-|---|---|
-| `exposure_dose.csv` | `x_m,y_m,dose_ev_per_m2`, one row per grid point, rows in grid order (x fastest) |
-| `exposure_contours.csv` | with a threshold: one row per contour vertex, with the contour's index, `closed`, area and centroid |
-| `exposure_features.csv` | with a threshold: one row per contour: `contour,closed,vertices,signed_area_m2,centroid_x_m,centroid_y_m` |
-| `exposure_summary.json` | shot count, the PSF, blur, grid, largest dose, the large-area dose per unit weight density split into the forward (`alpha`) part and the long-range (backscatter) part, the contour count, and (with `--direct`) the `direct` block (settings and the number of flagged points; `null` otherwise) |
-| `exposure_direct.csv` | with `--direct`: `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2` from transport, rows in grid order |
-| `exposure_comparison.csv` | with `--direct`: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged` |
+- `exposure_dose.csv`: `x_m,y_m,dose_ev_per_m2`, one row per grid point, rows in grid order (x fastest)
+- `exposure_contours.csv`: with a threshold: one row per contour vertex, with the contour's index, `closed`, area and centroid
+- `exposure_features.csv`: with a threshold: one row per contour: `contour,closed,vertices,signed_area_m2,centroid_x_m,centroid_y_m`
+- `exposure_summary.json`: shot count, the PSF, blur, grid, largest dose, the large-area dose per unit weight density split into the forward (`alpha`) part and the long-range (backscatter) part, the contour count, and (with `--direct`) the `direct` block (settings and the number of flagged points; `null` otherwise)
+- `exposure_direct.csv`: with `--direct`: `x_m,y_m,dose_ev_per_m2,std_err_ev_per_m2` from transport, rows in grid order
+- `exposure_comparison.csv`: with `--direct`: `x_m,y_m,convolution_ev_per_m2,direct_ev_per_m2,combined_std_err_ev_per_m2,deviation_sigmas,flagged`
+
+Re-running into a populated `--out` follows the same rules as the other modes
+("Reusing an output directory"): the optional files above are removed when the
+flag that produces them is absent, and `exposure_summary.json` is published
+last, so its presence means the whole set is this run's.
 
 The large-area dose of a uniform exposure of `w` primaries per m^2 is `w E`
 (the PSF integrates to `E`), of which the forward term gives the share
@@ -1387,14 +1631,18 @@ and `electron_psf_profile.csv` and `electron_psf_parameters.csv` (without
 `tally.psf`), `electron_exposure_histogram.csv` (without `tally.exposure`),
 `damage_export.csv` (without `electron.tally.voxel`), and
 `electron_depth_dose.csv` and `electron_interface_transmission.csv` (without the
-matching `tally.dose` part).
+matching `tally.dose` part), and, for `lindhard exposure`,
+`exposure_contours.csv` and `exposure_features.csv` (without `--threshold` or
+`--threshold-fraction`) and `exposure_direct.csv` and
+`exposure_comparison.csv` (without `--direct`).
 A missing file is not an error; a failed removal is, and names the path. The
 summary is written last (also for dynamic runs, after both CSVs, so a failed
 CSV write leaves no new summary) and lists only files that exist.
 
 Once output starts, the run first removes the previous summary of its own mode
-(`summary.json`, `electron_summary.json` or `dynamic_summary.json`) and only
-then replaces CSVs. The new summary is written to a freshly created temporary
+(`summary.json`, `electron_summary.json`, `dynamic_summary.json` or
+`exposure_summary.json`) and only then replaces CSVs. The new summary is
+written to a freshly created temporary
 sibling (created exclusively, so an existing file or symlink of the same name is
 never touched; another name is used) and
 renamed into place after every other write succeeds. So, after a failed run,
@@ -1405,8 +1653,8 @@ its path before any CSV changes. A failure before output starts (simulation or
 serialization) leaves existing outputs as they were. This is not a
 transaction: the CSVs are replaced in place, and concurrent runs into one
 directory are not supported. Other files in the
-directory are never touched, and no cleanup happens between ion, electron and
-dynamic runs. Do not keep your own data under a reserved name.
+directory are never touched, and no cleanup happens between ion, electron,
+dynamic and exposure runs. Do not keep your own data under a reserved name.
 
 ## Reproducibility
 
@@ -1434,7 +1682,9 @@ keys, never by changing existing ones:
   `results.escapes` were added this way, without a version bump.
 - `physics.crystal` (the `[[crystal]]` metadata) was added this way, without
   a version bump; an amorphous run does not carry it. `physics.beam_divergence`
-  (the `[beam.divergence]` metadata) likewise.
+  (the `[beam.divergence]` metadata), `physics.beam_spectrum` (the
+  `[beam]` `spectrum` metadata) and `physics.srim_data` (the
+  `stopping.srim_data` file record) likewise.
 - New model choices become new values of the existing `[physics]` keys, or
   new keys with defaults, so existing inputs keep their meaning.
 - `format.version` is bumped only when an existing key is removed or changes

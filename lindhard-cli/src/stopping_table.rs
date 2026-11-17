@@ -684,8 +684,8 @@ pub fn table_json(input: &TableInput, tables: &[Table]) -> Result<String> {
                 .iter()
                 .map(|l| {
                     json!({
-                        "path": l.path,
-                        "sha256": l.sha256,
+                        "path": l.file.path,
+                        "sha256": l.file.sha256,
                         "provenance": l.table.provenance(),
                     })
                 })

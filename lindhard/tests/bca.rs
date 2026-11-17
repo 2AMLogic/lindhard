@@ -12,8 +12,10 @@ use lindhard::material::{EnergyKind, Material};
 const NM: f64 = 1e-9;
 
 mod common;
+use common::ks_statistic;
 use common::si_surface_binding_if_unset as si;
 use common::sio2;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 /// Set `E_d` = 15 eV for every element and `E_s` = 2 eV where the element
@@ -35,14 +37,6 @@ fn elemental(z: u8) -> Material {
 
 fn run_summary(bca: &Bca, bin_m: f64, bins: usize) -> SummaryTally {
     bca.run(|| SummaryTally::new(bin_m, bins)).unwrap()
-}
-
-fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build()
-        .unwrap()
-        .install(f)
 }
 
 #[test]
@@ -96,18 +90,6 @@ fn energy_is_conserved_per_history_with_cascades() {
             t.histories
         );
     }
-}
-
-/// Two-sample Kolmogorov-Smirnov statistic between two histograms.
-fn ks_statistic(a: &[u64], b: &[u64]) -> f64 {
-    let (na, nb) = (a.iter().sum::<u64>() as f64, b.iter().sum::<u64>() as f64);
-    let (mut ca, mut cb, mut d) = (0.0, 0.0, 0.0f64);
-    for (x, y) in a.iter().zip(b) {
-        ca += *x as f64 / na;
-        cb += *y as f64 / nb;
-        d = d.max((ca - cb).abs());
-    }
-    d
 }
 
 #[test]

@@ -192,8 +192,12 @@ use super::penn::InelasticPoint;
 use super::quadrature::{
     integrate_panels, integrate_segments, integrate_weighted, GaussLegendre, Panels, SEGMENT_BUDGET,
 };
-use crate::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, HARTREE_ENERGY};
+use super::shared::{
+    check_energy, check_relative_tolerance, fermi_energy_hartree, inelastic_point_from_au,
+};
+use crate::constants::BOHR_RADIUS;
 use crate::electron::data::{ElectronDataError, OpticalElf};
+use crate::electron::elastic::HARTREE_EV;
 use rayon::prelude::*;
 use std::cell::Cell;
 use std::f64::consts::PI;
@@ -203,27 +207,16 @@ type Result<T> = std::result::Result<T, ElectronDataError>;
 /// Default relative tolerance of the integrals of the full Penn model.
 pub const DEFAULT_FULL_TOLERANCE: f64 = 1.0e-4;
 
+/// Tightest relative tolerance [`FullPenn::with_relative_tolerance`]
+/// accepts: the model nests quadratures and does not resolve further.
+const MIN_FULL_TOLERANCE: f64 = 1.0e-9;
+
 /// Budget of Gauss-Legendre rule applications (5 evaluations each) for the
 /// bisection of one knot interval of the `ω_p` integral of the loss
 /// function (#298); see [`LossFunctionEvaluation`].
 pub const OMEGA_P_INTERVAL_BUDGET: u64 = SEGMENT_BUDGET;
 
 const GL_ORDER: usize = 5;
-
-fn hartree_ev() -> f64 {
-    HARTREE_ENERGY / ELEMENTARY_CHARGE
-}
-
-fn check_energy(what: &'static str, v: f64) -> Result<()> {
-    if v.is_finite() && v > 0.0 {
-        Ok(())
-    } else {
-        Err(ElectronDataError::Invalid {
-            what,
-            reason: format!("must be finite and positive, got {v} eV"),
-        })
-    }
-}
 
 /// Geometric bisection for the point where `pred` switches, on `[lo, hi]`,
 /// with `pred(lo) != pred(hi)`. Returns the end where `pred` equals
@@ -349,7 +342,7 @@ pub struct FullPenn {
 impl FullPenn {
     /// The model for `elf`, with Fermi energy zero and the default tolerance.
     pub fn new(elf: OpticalElf) -> Self {
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let w: Vec<f64> = elf.energy_ev().iter().map(|x| x / h).collect();
         let e = elf.elf_values().to_vec();
         let outer: Vec<f64> = w.clone();
@@ -368,24 +361,13 @@ impl FullPenn {
     /// single-pole model: energies are kinetic energies above the Fermi
     /// level and the kinematics use `T' = T + E_F`.
     pub fn with_fermi_energy_ev(mut self, fermi_ev: f64) -> Result<Self> {
-        if !(fermi_ev.is_finite() && fermi_ev >= 0.0) {
-            return Err(ElectronDataError::Invalid {
-                what: "Fermi energy",
-                reason: format!("must be finite and non-negative, got {fermi_ev} eV"),
-            });
-        }
-        self.fermi = fermi_ev / hartree_ev();
+        self.fermi = fermi_energy_hartree(fermi_ev)?;
         Ok(self)
     }
 
     /// Set the relative integration tolerance, in `[1e-9, 1e-2]`.
     pub fn with_relative_tolerance(mut self, rel_tol: f64) -> Result<Self> {
-        if !(1e-9..=1e-2).contains(&rel_tol) {
-            return Err(ElectronDataError::Invalid {
-                what: "integration tolerance",
-                reason: format!("must be in [1e-9, 1e-2], got {rel_tol}"),
-            });
-        }
+        check_relative_tolerance(rel_tol, MIN_FULL_TOLERANCE)?;
         self.rel_tol = rel_tol;
         Ok(self)
     }
@@ -397,7 +379,7 @@ impl FullPenn {
 
     /// The Fermi energy, eV.
     pub fn fermi_energy_ev(&self) -> f64 {
-        self.fermi * hartree_ev()
+        self.fermi * HARTREE_EV
     }
 
     /// The relative integration tolerance.
@@ -476,7 +458,7 @@ impl FullPenn {
             breaks,
             self.rel_tol,
         )[0];
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         Ok(r * h * h)
     }
 
@@ -606,7 +588,7 @@ impl FullPenn {
         if !(q_per_m.is_finite() && q_per_m >= 0.0 && loss_ev.is_finite() && loss_ev > 0.0) {
             return out;
         }
-        let w = loss_ev / hartree_ev();
+        let w = loss_ev / HARTREE_EV;
         if q_per_m == 0.0 {
             out.value = self.elf_au(w);
             return out;
@@ -634,7 +616,7 @@ impl FullPenn {
                 reason: format!("must be finite, got {loss_ev} eV"),
             });
         }
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let mut out = self.diimfp_eval_au(energy_ev / h, loss_ev / h);
         out.value /= BOHR_RADIUS * h;
         Ok(out)
@@ -787,14 +769,9 @@ impl FullPenn {
     /// the errors are the same.
     pub fn imfp_and_stopping_evaluation(&self, energy_ev: f64) -> Result<ImfpEvaluation> {
         check_energy("electron energy", energy_ev)?;
-        let h = hartree_ev();
-        let (inv, s, cells, err) = self.imfp_and_stopping_eval_au(energy_ev / h);
+        let (inv, s, cells, err) = self.imfp_and_stopping_eval_au(energy_ev / HARTREE_EV);
         Ok(ImfpEvaluation {
-            point: InelasticPoint {
-                energy_ev,
-                inverse_imfp_per_m: inv / BOHR_RADIUS,
-                stopping_ev_per_m: s * h / BOHR_RADIUS,
-            },
+            point: inelastic_point_from_au(energy_ev, inv, s),
             unconverged_cells: cells,
             unconverged_error: err,
         })
@@ -859,7 +836,7 @@ impl FullPenn {
         for &e in energies_ev {
             check_energy("electron energy", e)?;
         }
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let rows: Vec<f64> = energies_ev.iter().map(|e| e / h).collect();
         let t_max = rows.iter().copied().fold(0.0, f64::max);
         let elf_lo = self.w[0];
@@ -1240,7 +1217,7 @@ impl DiimfpGrid {
     /// Whether loss `loss_ev` (eV) lies in an unresolved cell, where
     /// [`Self::diimfp_per_m_ev`] gives no answer.
     pub fn loss_is_unresolved_ev(&self, loss_ev: f64) -> bool {
-        let w = loss_ev / hartree_ev();
+        let w = loss_ev / HARTREE_EV;
         w > 0.0 && self.in_unresolved(w.ln())
     }
 
@@ -1248,7 +1225,7 @@ impl DiimfpGrid {
     /// cells counted in [`Self::unresolved_cells`]; `None` when there are
     /// none. The grid answers in none of these cells.
     pub fn unresolved_loss_range_ev(&self) -> Option<(f64, f64)> {
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let lo = self.unresolved.first()?.0;
         let hi = self.unresolved.iter().map(|c| c.1).fold(lo, f64::max);
         Some((lo.exp() * h, hi.exp() * h))
@@ -1257,7 +1234,7 @@ impl DiimfpGrid {
     /// The cells counted in [`Self::unresolved_cells`] as ranges of
     /// `ln(W / 1 eV)`, ascending: the loss axis of the table rows.
     pub(crate) fn unresolved_ln_loss_ev(&self) -> Vec<(f64, f64)> {
-        let lh = hartree_ev().ln();
+        let lh = HARTREE_EV.ln();
         self.unresolved
             .iter()
             .map(|&(lo, hi)| (lo + lh, hi + lh))
@@ -1291,7 +1268,7 @@ impl DiimfpGrid {
     /// energies passed to [`FullPenn::diimfp_grid`]. The accuracy is
     /// controlled at those energies; between them it is not checked.
     pub fn diimfp_per_m_ev(&self, energy_ev: f64, loss_ev: f64) -> Option<f64> {
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let (t, w) = (energy_ev / h, loss_ev / h);
         if !(t.is_finite() && t > 0.0 && w.is_finite()) {
             return None;
@@ -1342,7 +1319,7 @@ mod tests {
         let fp = FullPenn::new(OpticalElf::from_toml_file(path).unwrap())
             .with_relative_tolerance(1e-5)
             .unwrap();
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let p = fp.loss_profile(208.068_173_188_694_63 / h, 5000.0 / h);
         assert!(p.unconverged_panels() <= 8, "{}", p.unconverged_panels());
         assert!(

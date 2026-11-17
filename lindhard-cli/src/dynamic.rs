@@ -14,7 +14,6 @@ use lindhard::ion::dynamic::{
     atomic_volume_from_density, CompositionGrid, DynamicConfig, DynamicRun, Relaxation, StepPolicy,
     Yields,
 };
-use lindhard::ion::potential::Potential;
 use lindhard::ion::scattering::ScatteringTable;
 
 use crate::output::RunInfo;
@@ -154,19 +153,10 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         .dynamic
         .as_ref()
         .context("the input has no [dynamic] section")?;
-    if threads == Some(0) {
-        bail!("threads must be at least 1");
-    }
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads.unwrap_or(0))
-        .build()
-        .context("building the thread pool")?;
+    let pool = crate::pool::build(threads)?;
 
     let t0 = Instant::now();
-    let z2 = r.layers[0].material.components()[0].z();
-    let pot = Potential::new(r.screening, f64::from(r.beam.ion.z()), f64::from(z2))
-        .with_length(r.screening_length);
-    let table = ScatteringTable::build(&pot, &r.table_spec);
+    let table = r.scattering_table();
     let table_build_s = t0.elapsed().as_secs_f64();
 
     let species: Vec<u8> = {
@@ -178,7 +168,11 @@ pub fn simulate_dynamic(r: &Resolved, threads: Option<usize>) -> Result<DynamicS
         s.into_iter().collect()
     };
 
-    let stack = split_stack(&r.stack, d.slab_nm.map(|nm| nm * 1e-9))?;
+    let stack = split_stack(
+        r.stack()
+            .expect("a [dynamic] target is a layer stack (resolution rejects [[target.solids]])"),
+        d.slab_nm.map(|nm| nm * 1e-9),
+    )?;
     let mut grid = CompositionGrid::from_stack(&stack, relaxation(d, &species)?)
         .context("building the grid")?;
     // An element that enters a slab by implantation or recoil mixing needs the

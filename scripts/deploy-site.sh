@@ -39,8 +39,24 @@ build() {
   cd "$root"
   local web=lindhard-wasm/web calc=book/src/calculator
   "$web/../build.sh" web "$calc/pkg"
-  cp "$web"/index.html "$web"/simulator.html "$web"/simulator.js "$web"/worker.js \
+  cp "$web"/simulator.html "$web"/simulator.js "$web"/worker.js \
      "$web"/toml_model.js "$web"/run_view.js "$web"/plots.js "$calc/"
+  # calculator/index.html is the simulator page in its Quick range state: the
+  # same file with data-view="quick" on the body (read by simulator.js) and the
+  # range calculator's title. One page, so one plot and one set of defaults.
+  sed -e 's|^<body>$|<body data-view="quick">|' \
+      -e 's|<title>lindhard simulator</title>|<title>lindhard range calculator</title>|' \
+      "$web/simulator.html" > "$calc/index.html"
+  grep -q '^<body data-view="quick">$' "$calc/index.html" || { echo "error: Quick range entry was not generated" >&2; exit 1; }
+  # Service worker (offline cache): stamp a hash of the shipped files into the
+  # cache name so a changed deploy replaces the old cache.
+  local build_id
+  rm -f "$calc/sw.js"
+  # The shared chrome (site/) is injected into the pages by assemble_site.py
+  # after this step, so it is hashed here: a changed header must change the cache.
+  build_id="$(cat "$calc"/*.js "$calc"/*.html "$calc"/pkg/lindhard_wasm.js "$calc"/pkg/lindhard_wasm_bg.wasm \
+     site/tokens.css site/chrome.css site/header.html site/footer.html | sha256sum | cut -c1-16)"
+  sed "s/__BUILD_ID__/$build_id/" "$web/sw.js" > "$calc/sw.js"
   mdbook build book
   cargo doc -p lindhard --no-deps
   mkdir -p book/book/api

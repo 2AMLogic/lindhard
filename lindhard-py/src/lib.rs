@@ -37,6 +37,7 @@ fn _lindhard(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<electron::ElectronRunResult>()?;
     m.add_function(wrap_pyfunction!(damage::read_damage_export, m)?)?;
     m.add_class::<result::Histogram>()?;
+    m.add_class::<result::EnergyHistogram>()?;
     m.add_class::<result::RunResult>()?;
     m.add_class::<dynamic_result::DynamicRunResult>()?;
     m.add_function(wrap_pyfunction!(exposure::exposure_dose, m)?)?;

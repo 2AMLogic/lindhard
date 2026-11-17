@@ -7,6 +7,9 @@ use std::process::{Command, Output};
 
 const BIN: &str = env!("CARGO_BIN_EXE_lindhard");
 
+mod common;
+use common::scratch;
+
 fn examples_dir() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../examples")
 }
@@ -20,15 +23,6 @@ fn examples() -> Vec<PathBuf> {
     v.sort();
     assert!(v.len() >= 3, "expected the example inputs, found {v:?}");
     v
-}
-
-fn scratch(name: &str) -> PathBuf {
-    let d = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("lindhard-cli-tests")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&d);
-    std::fs::create_dir_all(&d).unwrap();
-    d
 }
 
 fn lindhard(args: &[&str]) -> Output {
@@ -136,7 +130,12 @@ fn check_tally_outputs(out: &Path, s: &serde_json::Value, stem: &str) {
     let r = &s["results"];
     let p = &r["primaries"];
     let n = r["histories"].as_u64().unwrap();
-    for f in ["lateral_profile", "damage_profile", "escape_spectra"] {
+    for f in [
+        "lateral_profile",
+        "damage_profile",
+        "energy_profile",
+        "escape_spectra",
+    ] {
         let name = s["files"][f].as_str().unwrap();
         assert!(out.join(name).exists(), "{stem}: {name}");
     }
@@ -208,6 +207,31 @@ fn check_tally_outputs(out: &Path, s: &serde_json::Value, stem: &str) {
     assert_eq!(col_sum(&dmg, 2), c["vacancies"].as_u64().unwrap(), "{stem}");
     assert_eq!(col_sum(&dmg, 3), c["interstitials"].as_u64().unwrap());
     assert_eq!(col_sum(&dmg, 4), c["replacements"].as_u64().unwrap());
+    // The energy profiles are listed in the summary and sum to the budget.
+    let en = csv("energy_profile");
+    let f_sum = |col: usize| -> f64 {
+        en.lines()
+            .skip(1)
+            .map(|l| l.split(',').nth(col).unwrap().parse::<f64>().unwrap())
+            .sum()
+    };
+    let b = &r["energy_budget_ev_per_ion"];
+    let per_ion = |k: &str| b[k].as_f64().unwrap() * n as f64;
+    let close = |got: f64, want: f64, what: &str| {
+        let tol = 1e-9 * per_ion("incident").abs().max(want.abs());
+        assert!((got - want).abs() <= tol, "{stem}: {what}: {got} vs {want}");
+    };
+    close(
+        f_sum(2),
+        per_ion("electronic_nonlocal") + per_ion("electronic_local"),
+        "electronic",
+    );
+    close(f_sum(3), per_ion("lattice") + per_ion("rest"), "lattice");
+    close(
+        f_sum(4),
+        r["damage"]["nrt"]["pka_energy_ev"].as_f64().unwrap(),
+        "recoil",
+    );
     let lat = csv("lateral_profile");
     for q in ["y", "z", "radial"] {
         let rows: Vec<_> = lat
@@ -248,8 +272,13 @@ fn deterministic_part(summary: &str) -> &str {
 #[test]
 fn output_is_byte_identical_across_thread_counts() {
     // The layered example exercises an interface, cascades and sputtering;
-    // 300 ions are five chunks of 64, so threads really interleave.
-    for name in ["as_50keV_si_sio2.toml", "ar_1keV_cu.toml"] {
+    // 300 ions are five chunks of 64, so threads really interleave. The
+    // masked CSG example covers the same for a `[[target.solids]]` input.
+    for name in [
+        "as_50keV_si_sio2.toml",
+        "ar_1keV_cu.toml",
+        "b_5keV_si_masked.toml",
+    ] {
         let ex = examples_dir().join(name);
         let mut outs = Vec::new();
         for threads in ["1", "4"] {
@@ -270,6 +299,7 @@ fn output_is_byte_identical_across_thread_counts() {
             "ions.csv",
             "lateral_profile.csv",
             "damage_profile.csv",
+            "energy_profile.csv",
             "escape_spectra.csv",
         ] {
             assert_eq!(read(&outs[0], f), read(&outs[1], f), "{name}: {f}");
@@ -448,6 +478,25 @@ fn user_stopping_table_runs_deterministically_and_is_recorded() {
         "echoed input carries the table path"
     );
     let rec = &s["physics"]["stopping_tables"][0];
+    // Exact key set: the record's wire format is pinned (issue #774) — no
+    // key added, renamed or dropped without a `format.version` step.
+    let mut keys: Vec<_> = rec.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        [
+            "energy_max_ev",
+            "energy_min_ev",
+            "ion_mass_amu",
+            "ion_z",
+            "path",
+            "provenance",
+            "resolved_path",
+            "sha256",
+            "target_z"
+        ],
+        "stopping_tables[0] wire format moved"
+    );
     assert_eq!(rec["path"], "tables/b_in_si.toml");
     assert!(rec["resolved_path"]
         .as_str()
@@ -476,6 +525,113 @@ fn user_stopping_table_runs_deterministically_and_is_recorded() {
     let models = s["physics"]["models"].as_array().unwrap();
     assert!(models.iter().any(|m| m["name"] == "user-table"
         && m["citation"].as_str().unwrap().contains("Lindhard-Scharff")));
+}
+
+// Synthetic coefficients made up for tests, not book values: enough rows for
+// a B-into-Si run with its Si-into-Si cascade (an SRIM query for a pair with
+// no row is an error, never an extrapolation).
+const SRIM_COEFFICIENTS: &str = r#"
+format = "lindhard-srim-coefficients/1"
+
+[[row]]
+ion_z = 5
+target_z = 14
+a1 = 2.0
+a2 = 3.0
+a3 = 400.0
+a4 = 5.0
+a5 = 0.01
+e_min_kev_per_u = 1.0e-6
+e_max_kev_per_u = 1.0e4
+citation = "synthetic test data, made up for integration tests"
+
+[[row]]
+ion_z = 14
+target_z = 14
+a1 = 4.0
+a2 = 5.0
+a3 = 600.0
+a4 = 6.0
+a5 = 0.02
+e_min_kev_per_u = 1.0e-6
+e_max_kev_per_u = 1.0e4
+citation = "synthetic test data, made up for integration tests"
+"#;
+
+/// `physics.stopping = "srim"` records the coefficient file the way
+/// `[stopping]` tables are recorded: path as written, resolved path, and the
+/// SHA-256 of the bytes that produced the result (issue #752).
+#[test]
+fn srim_coefficient_file_is_recorded_in_the_summary() {
+    let dir = scratch("srim-run");
+    std::fs::create_dir_all(dir.join("data")).unwrap();
+    let coeff = dir.join("data/srim.toml");
+    std::fs::write(&coeff, SRIM_COEFFICIENTS).unwrap();
+    let input = dir.join("input.toml");
+    // The path is relative: it resolves against the input file's directory.
+    std::fs::write(
+        &input,
+        format!(
+            "{}\n[stopping]\nsrim_data = \"data/srim.toml\"\n",
+            GOOD.replace("[physics]", "[physics]\nstopping = \"srim\"")
+        ),
+    )
+    .unwrap();
+    ok(&lindhard(&["check", input.to_str().unwrap()]));
+
+    let out = dir.join("out");
+    run(&input, &out, &["--ions", "50"]);
+    let s = json(&out.join("summary.json"));
+    assert_eq!(
+        s["input"]["stopping"]["srim_data"], "data/srim.toml",
+        "echoed input carries the coefficient file path"
+    );
+    let rec = &s["physics"]["srim_data"];
+    // Exact key set: the record's wire format is pinned (issue #774).
+    let mut keys: Vec<_> = rec.as_object().unwrap().keys().cloned().collect();
+    keys.sort();
+    assert_eq!(
+        keys,
+        ["path", "resolved_path", "sha256"],
+        "srim_data wire format moved"
+    );
+    assert_eq!(rec["path"], "data/srim.toml");
+    assert!(
+        rec["resolved_path"]
+            .as_str()
+            .unwrap()
+            .ends_with("data/srim.toml"),
+        "{rec}"
+    );
+    let sha = rec["sha256"].as_str().unwrap();
+    assert_eq!(sha.len(), 64, "{rec}");
+    assert!(sha.bytes().all(|b| b.is_ascii_hexdigit()), "{rec}");
+    // Recompute independently where `shasum` is available.
+    if let Ok(o) = Command::new("shasum")
+        .args(["-a", "256", coeff.to_str().unwrap()])
+        .output()
+    {
+        if o.status.success() {
+            assert!(String::from_utf8_lossy(&o.stdout).starts_with(sha));
+        }
+    }
+    // The hash identifies the bytes: one more byte in the file changes it,
+    // although the coefficients, and so the result, are the same.
+    std::fs::write(&coeff, format!("{SRIM_COEFFICIENTS}\n# edited\n")).unwrap();
+    let out2 = dir.join("out-edited");
+    run(&input, &out2, &["--ions", "50"]);
+    let s2 = json(&out2.join("summary.json"));
+    assert_ne!(
+        s2["physics"]["srim_data"]["sha256"], *sha,
+        "an edited coefficient file gets a different hash"
+    );
+
+    // Without `stopping = "srim"` the key is absent (no `[stopping]` file).
+    let plain = dir.join("plain.toml");
+    std::fs::write(&plain, GOOD).unwrap();
+    let out3 = dir.join("out-plain");
+    run(&plain, &out3, &["--ions", "10"]);
+    assert!(json(&out3.join("summary.json"))["physics"]["srim_data"].is_null());
 }
 
 #[test]

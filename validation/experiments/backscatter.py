@@ -56,6 +56,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
+import dataset_checks  # noqa: E402
 import lindhard_cli  # noqa: E402
 import se_yield  # noqa: E402  (BAND, METAL_BAND_PROVENANCE: the delta(E) band inputs, read only)
 
@@ -63,7 +64,7 @@ DATA = HERE.parent / "data" / "backscatter"
 INPUTS = HERE / "backscatter"
 RESULTS = HERE / "backscatter_results.json"
 TABLE_CACHE = lindhard_cli.RUNS / "backscatter" / "table-cache"
-PROVENANCE = lindhard_cli.REPO / "docs" / "data-provenance.md"
+PROVENANCE = dataset_checks.PROVENANCE
 
 TARGETS = ["C", "Al", "Si", "Cu", "Au"]
 # Comparison energies, keV: the energies most measured sets share (1-30 keV,
@@ -108,20 +109,14 @@ REQUIRED_TEXT = [
 ]
 
 
-def _num(x) -> bool:
-    return isinstance(x, (int, float)) and not isinstance(x, bool) and math.isfinite(x)
+_num = dataset_checks.is_number  # a finite number, and not a bool
 
 
 def check_dataset(path: Path, d: dict, provenance: str) -> list[str]:
     """Every problem with one backscatter dataset, as messages; empty if it passes."""
-    errs = []
+    errs = dataset_checks.check_common(path, d, REQUIRED_TEXT, provenance)
     if d.get("kind") != "backscatter_coefficient":
         errs.append("`kind` must be \"backscatter_coefficient\"")
-    for k in REQUIRED_TEXT:
-        if not isinstance(d.get(k), str) or not d[k].strip():
-            errs.append(f"`{k}` missing or empty")
-    if d.get("id") != path.stem:
-        errs.append(f"`id` {d.get('id')!r} differs from the file name {path.stem!r}")
     if not any(isinstance(d.get(k), str) and d[k].strip() for k in ("original_doi", "url")):
         errs.append("needs an `original_doi` or a `url` for the source that was read")
     if not (isinstance(d.get("z"), int) and d["z"] > 0):
@@ -139,32 +134,13 @@ def check_dataset(path: Path, d: dict, provenance: str) -> list[str]:
                 errs.append(f"points[{i}].eta must be a number in (0, 1)")
             if not (_num(p.get("eta_unc_abs")) and p["eta_unc_abs"] > 0):
                 errs.append(f"points[{i}].eta_unc_abs must be a positive number")
-    if isinstance(d.get("id"), str) and d["id"] not in provenance:
-        errs.append(f"no row in docs/data-provenance.md names `{d['id']}`")
     return errs
 
 
 def load_datasets(directory: Path = DATA) -> list[dict]:
     """All backscatter datasets, checked. Exits 2 on any failure."""
-    provenance = PROVENANCE.read_text()
-    out, failed = [], False
-    for f in sorted(directory.glob("eta_*.json")):
-        rel = f.relative_to(lindhard_cli.REPO) if f.is_relative_to(lindhard_cli.REPO) else f
-        try:
-            d = json.loads(f.read_text())
-        except json.JSONDecodeError as e:
-            print(f"error: {rel}: not valid JSON: {e}", file=sys.stderr)
-            failed = True
-            continue
-        errs = check_dataset(f, d, provenance)
-        for e in errs:
-            print(f"error: {rel}: {e}", file=sys.stderr)
-        failed |= bool(errs)
-        out.append(d)
-    if failed:
-        print("error: backscatter dataset check failed (rules: validation/data/README.md)", file=sys.stderr)
-        sys.exit(2)
-    return out
+    files = sorted(directory.glob("eta_*.json"))
+    return [d for _, d in dataset_checks.load_checked(files, check_dataset, "backscatter dataset")]
 
 
 # --- grouping ---------------------------------------------------------------

@@ -4,15 +4,34 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lindhard simulator</title>
+<!--SITE_HEAD-->
 <style>
-  :root { color-scheme: light dark; --fg: #1d1d1f; --bg: #fff; --muted: #5a5a60; --line: #8886; --accent: #1f5fbf; --bad: #b00020; --panel: #f4f5f8; }
-  @media (prefers-color-scheme: dark) { :root { --fg: #e8e8ea; --bg: #17181b; --muted: #a8a8b0; --accent: #6fa8ff; --bad: #ff8a80; --panel: #22242a; } }
-  body { font: 16px/1.4 system-ui, sans-serif; color: var(--fg); background: var(--bg); max-width: 72rem; margin: 1rem auto; padding: 0 1rem; }
-  nav { display: flex; gap: .5rem; margin: 1rem 0; }
-  nav button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
-  fieldset { border: 1px solid var(--line); border-radius: .4rem; margin: 0 0 1rem; padding: .75rem; background: var(--panel); }
+  /* The page's own names for the shared tokens (site/tokens.css). */
+  :root { --fg: var(--lh-fg); --bg: var(--lh-bg); --muted: var(--lh-muted); --line: var(--lh-rule); --accent: var(--lh-link); --bad: var(--lh-caution); --panel: var(--lh-surface); }
+  body { margin: 0; font: 1rem/1.6 var(--lh-font, system-ui, sans-serif); color: var(--fg); background: var(--bg); }
+  main { max-width: 96rem; margin: 1rem auto 0; padding: 0 1rem; }
+  nav[role="tablist"] { display: flex; gap: .5rem; margin: 1rem 0; }
+  nav[role="tablist"] button[aria-selected="true"] { background: var(--accent); color: var(--bg); }
+  /* One column and two tabs on a phone; at 64rem and wider both panels show side by side. */
+  #app { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0 1.5rem; }
+  #runbar { position: sticky; top: 0; z-index: 5; background: var(--bg); border-bottom: 1px solid var(--line); padding: .5rem 0; margin-bottom: .75rem; }
+  #runbar .tools { align-items: center; margin: 0 0 .3rem; }
+  #runbar button#btn-run { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; padding: .4rem 1.4rem; }
+  #runbar button#btn-run:disabled { opacity: .5; }
+  #runbar progress { flex: 1 1 8rem; width: auto; min-width: 6rem; }
+  #runbar #status { margin: 0; min-height: 1.4rem; font-size: .9rem; }
+  @media (min-width: 64rem) {
+    nav[role="tablist"] { display: none; }
+    #app { grid-template-columns: minmax(22rem, 28rem) minmax(0, 1fr); grid-template-areas: "setup bar" "setup run"; align-items: start; }
+    #runbar { grid-area: bar; }
+    #setup { grid-area: setup; position: sticky; top: .5rem; max-height: calc(100vh - 1rem); overflow-y: auto; padding-right: .3rem; }
+    #run { grid-area: run; }
+    #setup .row { grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); }
+  }
+  /* min-width: a fieldset is otherwise as wide as its content, and overflows a phone. */
+  fieldset { border: 1px solid var(--line); border-radius: .4rem; margin: 0 0 1rem; padding: .75rem; background: var(--panel); min-width: 0; }
   legend { font-weight: 600; padding: 0 .3rem; }
-  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; align-items: end; }
+  .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: .6rem; align-items: end; }
   label { display: flex; flex-direction: column; font-size: .85rem; gap: .2rem; }
   label.inline { flex-direction: row; align-items: center; gap: .4rem; }
   input, select, button, textarea { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: .25rem; padding: .3rem .4rem; min-width: 0; }
@@ -21,82 +40,238 @@
   :focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
   .layer { border: 1px solid var(--line); border-radius: .3rem; padding: .6rem; margin: 0 0 .6rem; background: var(--bg); }
   .layer h3 { margin: 0 0 .4rem; font-size: 1rem; }
-  .elements { width: 100%; border-collapse: collapse; margin: .5rem 0; font-size: .9rem; }
-  .elements th, .elements td { text-align: left; padding: .15rem .3rem .15rem 0; }
-  .elements input { width: 100%; }
+  /* Value and unit read as one control. */
+  .group { display: flex; min-width: 0; }
+  .group input { flex: 1 1 auto; width: 100%; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+  .group select { flex: 0 0 auto; border-left: 0; border-top-left-radius: 0; border-bottom-left-radius: 0; }
+  .layer-head { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: .6rem; align-items: end; }
+  .layer-title { display: flex; align-items: center; gap: .4rem; margin: 0 0 .4rem; }
+  .layer-title h3 { margin: 0; flex: 1; }
+  .icon { min-width: 2rem; padding: .2rem .4rem; line-height: 1.2; }
+  .el-head, .el-row { display: grid; grid-template-columns: 4.5rem repeat(4, minmax(4.5rem, 1fr)) 2rem; gap: .4rem; align-items: end; }
+  .el-head { font-size: .8rem; color: var(--muted); margin-top: .5rem; }
+  .el-row { margin: .3rem 0; }
+  .el-row .cell { display: flex; flex-direction: column; min-width: 0; font-size: .8rem; }
+  .el-row .cap { display: none; color: var(--muted); }
+  .el-row input { width: 100%; box-sizing: border-box; }
+  .target { display: grid; gap: .5rem 1rem; }
+  .notes .note, #mass-note, #cap-note { font-size: .8rem; margin: .3rem 0; }
+  .pair { display: grid; gap: 0 1rem; grid-template-columns: minmax(0, 1fr); }
+  .pair > * { min-width: 0; align-self: start; }
+  figure.stack { margin: 0; }
+  figure.stack figcaption { font-size: .85rem; color: var(--muted); }
+  figure.stack svg { width: 100%; height: auto; max-width: 16rem; }
+  .stack-block { fill: var(--panel); stroke: var(--muted); stroke-width: 1; }
+  .stack-block.alt { fill: var(--bg); }
+  .stack-text { fill: var(--fg); font: 11px system-ui, sans-serif; text-anchor: middle; }
+  .stack-beam { stroke: var(--accent); fill: var(--accent); stroke-width: 2; }
+  details { border: 1px solid var(--line); border-radius: .4rem; margin: 0 0 1rem; padding: .5rem .75rem; background: var(--panel); }
+  details > summary { cursor: pointer; font-weight: 600; }
+  details > summary .note { font-weight: 400; font-size: .85rem; }
+  h1 { margin: .3rem 0; }
+  p#status { margin: .3rem 0; }
+  .e-legend { font-size: .8rem; margin: .2rem 0 0; }
+  .radios { display: flex; flex-direction: column; gap: .3rem; font-size: .9rem; margin-bottom: .6rem; }
+  .ion-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); gap: .6rem; align-items: end; }
+  .ion-row .sym { max-width: 6rem; }
   .flag { color: var(--bad); font-weight: 600; }
   .note, small { color: var(--muted); }
   .tools { display: flex; flex-wrap: wrap; gap: .4rem; margin: .4rem 0; }
   #problems { margin: 0; padding-left: 1.2rem; }
-  #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 ui-monospace, monospace; box-sizing: border-box; }
-  #status { min-height: 1.4rem; }
+  #toml { width: 100%; min-height: 14rem; font: .85rem/1.35 var(--lh-mono, monospace); box-sizing: border-box; }
   #status.error { color: var(--bad); }
   progress { width: 100%; }
-  table.counters { border-collapse: collapse; margin: .6rem 0; }
-  table.counters th, table.counters td { text-align: left; padding: .2rem 1.2rem .2rem 0; }
-  canvas { width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  #problems-box { border: 1px solid var(--bad); border-radius: .4rem; padding: .5rem .75rem; margin: 0 0 1rem; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(10.5rem, 1fr)); gap: .6rem; margin: 0 0 .6rem; }
+  .tile { border: 1px solid var(--line); border-radius: .4rem; background: var(--panel); padding: .5rem .7rem; min-width: 0; }
+  .tile .lbl { display: block; font-size: .8rem; color: var(--muted); }
+  .tile .val { display: block; font-size: 1.5rem; line-height: 1.25; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tile .val .unit { font-size: .85rem; color: var(--muted); margin-left: .2rem; }
+  .tile .val .err { display: block; font-size: .85rem; color: var(--muted); }
+  .tiles.second .val { font-size: 1.2rem; }
+  .tag { font-size: .75rem; border: 1px solid var(--line); border-radius: 1rem; padding: 0 .4rem; margin-left: .3rem; color: var(--muted); white-space: nowrap; }
+  .partition { margin: 0 0 .6rem; }
+  .partition .bar { display: flex; height: 1.6rem; border: 1px solid var(--line); border-radius: .3rem; overflow: hidden; }
+  .partition .bar span { min-width: 0; }
+  .partition ul { list-style: none; display: flex; flex-wrap: wrap; gap: .2rem 1.2rem; padding: 0; margin: .3rem 0 0; font-size: .85rem; }
+  .partition .sw { display: inline-block; width: .8rem; height: .8rem; border: 1px solid var(--line); vertical-align: -1px; margin-right: .3rem; }
+  .strip { font-size: .85rem; color: var(--muted); margin: .3rem 0 .8rem; }
+  .strip b { color: var(--fg); font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* Quick range: the one-element view (calculator/index.html sets data-view on the body). */
+  #more-options > summary { cursor: pointer; font-weight: 600; margin: 0 0 .5rem; }
+  body:not([data-view="quick"]) #quick-fields { display: none; }
+  body:not([data-view="quick"]) #more-options { border: 0; padding: 0; margin: 0; background: none; }
+  body:not([data-view="quick"]) #more-options > summary { display: none; }
+  body[data-view="quick"] #more-options { margin-top: 0; }
+  body[data-view="quick"] .tiles.second, body[data-view="quick"] .partition, body[data-view="quick"] #results-body > fieldset,
+  body[data-view="quick"] #plots h2, body[data-view="quick"] #plots-escapes, body[data-view="quick"] .plot:not([data-plot="range"]),
+  body[data-view="quick"] #caveats, body[data-view="quick"] #dl-json { display: none; }
+  #quick-fields input[aria-invalid="true"] { border-color: var(--bad); outline: 1px solid var(--bad); }
+  .chips { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 0; }
+  .chips button { border-radius: 1rem; padding: .25rem .8rem; }
+  /* hkl / uvw triples read as one control. */
+  .triple { display: flex; gap: .25rem; }
+  .triple input { width: 3.5rem; }
+  #plots h2 { font-size: 1.05rem; margin: .8rem 0 .4rem; }
+  .plotgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 26rem), 1fr)); gap: .8rem; margin: 0 0 .6rem; }
+  .plot { border: 1px solid var(--line); border-radius: .4rem; padding: .5rem .6rem; background: var(--panel); min-width: 0; }
+  .plot header { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
+  .plot h3 { margin: 0; font-size: .95rem; }
+  .plot header button { font-size: .75rem; padding: .1rem .5rem; }
+  .plot .note { font-size: .8rem; margin: .2rem 0 0; }
+  canvas { display: block; width: 100%; max-width: 900px; height: auto; border: 1px solid var(--line); background: var(--bg); }
+  canvas#traj { aspect-ratio: 900 / 360; }
+  /* 3D view: taller, and a horizontal drag turns it (a vertical swipe still scrolls). */
+  canvas#traj.orbit { aspect-ratio: 900 / 540; cursor: grab; touch-action: pan-y; }
+  canvas#traj.orbit.dragging { cursor: grabbing; }
+  .plot canvas[role=img] { aspect-ratio: 3 / 1; }
   .legend { list-style: none; display: flex; flex-wrap: wrap; gap: .3rem 1rem; padding: 0; margin: .3rem 0; font-size: .85rem; }
   [hidden] { display: none !important; }
-  @media (max-width: 40rem) { body { font-size: 15px; } .row { grid-template-columns: 1fr 1fr; } }
+  /* Setup is the full page width below 64rem and a 22-28rem column from there, so
+     its inner layout follows its own width (a container query), not the window's. */
+  #setup { container-type: inline-size; }
+  @container (min-width: 56rem) { .target { grid-template-columns: minmax(0, 1fr) 20rem; align-items: start; } .pair { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pair.ratio { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); } figure.stack { position: sticky; top: 1rem; } }
+  @container (max-width: 38rem) {
+    .row, .ion-row, .layer-head { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .el-head { display: none; }
+    .el-row { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .el-row .cap { display: block; }
+    .el-row .rm { align-self: end; }
+  }
+  @media (max-width: 40rem) { body { font-size: 15px; } }
 </style>
 </head>
 <body>
-<h1>lindhard simulator</h1>
-<p>Set up a beam and a layered amorphous target, then run it. The
+<!--SITE_HEADER-->
+<main>
+<h1 id="title">lindhard simulator</h1>
+<p id="intro">Set up a beam and a layered target — amorphous, or crystalline on
+the lattice — then run it. The
 <a href="https://github.com/2AMLogic/lindhard">lindhard</a> binary-collision engine
 runs in your browser (WebAssembly, in a Web Worker); nothing is sent to a server.
-The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
+The page opens with an example run. <a href="index.html">Quick range</a> is the
+one-element view of this page.</p>
 
 <nav role="tablist" aria-label="View">
   <button role="tab" id="tab-setup" aria-selected="true" aria-controls="setup">Setup</button>
-  <button role="tab" id="tab-run" aria-selected="false" aria-controls="run">Run</button>
+  <button role="tab" id="tab-run" aria-selected="false" aria-controls="run">Results</button>
 </nav>
 
-<p id="status" role="status"></p>
+<div id="app">
+<div id="runbar" role="group" aria-label="Run controls">
+  <div class="tools">
+    <button type="button" id="btn-run">Run</button>
+    <button type="button" id="btn-pause" disabled>Pause</button>
+    <button type="button" id="btn-stop" disabled>Stop</button>
+    <progress id="progress" max="1" value="0" aria-label="Progress"></progress>
+    <button type="button" id="dl-json" disabled>Download report (JSON)</button>
+  </div>
+  <p id="status" role="status"></p>
+</div>
 
 <section id="setup" role="tabpanel" aria-labelledby="tab-setup">
+  <fieldset id="quick-fields">
+    <legend>Quick range</legend>
+    <div class="row">
+      <label>Ion <input id="q-ion" list="ions-common" required size="3" autocomplete="off"></label>
+      <label>Energy (keV) <input id="q-energy" type="number" min="0" step="any" required></label>
+      <label>Target <input id="q-target" list="targets-common" required size="3" autocomplete="off"></label>
+    </div>
+    <p class="note" id="q-note"></p>
+  </fieldset>
+
+  <details id="more-options">
+  <summary>More options</summary>
+  <div class="tools" id="examples-row">
+    <span class="note">Load an example into Setup:</span>
+    <span class="chips" id="examples">
+      <button type="button" data-example="b-si">B into Si</button>
+      <button type="button" data-example="as-sio2-si">As into SiO₂ on Si</button>
+      <button type="button" data-example="ar-cu">Ar into Cu, full cascades</button>
+    </span>
+  </div>
+  <div class="pair">
   <fieldset>
     <legend>Ion</legend>
-    <div class="row">
-      <label>Element <input id="ion" list="symbols" size="3" required autocomplete="off"></label>
+    <div class="ion-row">
+      <label class="sym">Element <input id="ion" list="symbols" size="3" required autocomplete="off"></label>
       <label>Mass (u) <input id="mass" type="number" min="0" step="any"></label>
-      <label>Energy <input id="energy" type="number" min="0" step="any" required></label>
-      <label>Unit <select id="energy-unit"><option>eV</option><option selected>keV</option><option>MeV</option></select></label>
+      <label>Energy
+        <span class="group"><input id="energy" type="number" min="0" step="any" required>
+        <select id="energy-unit" aria-label="Energy unit"><option>eV</option><option selected>keV</option><option>MeV</option></select></span></label>
       <label>Tilt from the normal (°) <input id="tilt" type="number" min="0" max="89.9" step="any" required></label>
+      <label>Azimuth (°) <input id="azimuth" type="number" step="any"></label>
     </div>
     <p class="note" id="mass-note"></p>
   </fieldset>
 
   <fieldset>
-    <legend>Target layers (surface first)</legend>
-    <div id="layers"></div>
-    <div class="tools">
-      <button type="button" id="add-layer">Add layer</button>
-      <label class="inline">Preset <select id="preset"></select></label>
-      <button type="button" id="add-preset">Add preset layer</button>
-    </div>
-    <p class="note">Blank energy fields use the element table's value, shown as the placeholder;
-    a field with no table value must be filled in. Preset densities cite the sources in
-    <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md">the data provenance table</a>.</p>
-  </fieldset>
-
-  <fieldset>
     <legend>Calculation</legend>
+    <div class="radios" role="radiogroup" aria-label="Mode">
+      <label class="inline"><input type="radio" name="mode" id="mode-quick" value="quick" checked> Ion distribution, quick damage (NRT estimate)</label>
+      <label class="inline"><input type="radio" name="mode" id="mode-full" value="full"> Full cascades (recoils followed)</label>
+    </div>
     <div class="row">
-      <label>Mode
-        <select id="mode">
-          <option value="quick">Ion distribution, quick damage (NRT estimate)</option>
-          <option value="full">Full cascades (recoils followed)</option>
-        </select></label>
       <label>Ions <input id="ions" type="number" min="1" step="1" required></label>
       <label>Seed <input id="seed" type="number" min="0" step="1" required></label>
       <label>Depth bin (nm) <input id="bin" type="number" min="0" step="any" required></label>
       <label>Depth bins <input id="bins" type="number" min="1" step="1" required></label>
     </div>
+    <p class="note" id="cap-note"></p>
+  </fieldset>
+  </div>
+
+  <fieldset>
+    <legend>Target layers (surface first)</legend>
+    <div class="target">
+      <div>
+        <div id="layers"></div>
+        <p class="note e-legend">E<sub>d</sub> displacement, E<sub>b</sub> lattice binding and E<sub>s</sub> surface binding energy, in eV.</p>
+        <div class="tools">
+          <label class="inline">Add layer
+            <select id="preset"></select></label>
+          <button type="button" id="add-layer">Add</button>
+        </div>
+      </div>
+      <figure class="stack">
+        <div id="stack"></div>
+        <figcaption>Layer stack: depth runs left to right from the surface; the arrow is the beam.</figcaption>
+      </figure>
+      <div class="notes">
+        <p class="note">Blank energy fields use the element table's value, shown as the placeholder;
+        a field with no table value must be filled in. A blank density uses the element table's
+        density (X-Ray Data Booklet) for a one-element layer; otherwise enter one. Preset densities cite the sources in
+        <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md">the data provenance table</a>.
+        The Si and SiO₂ presets carry illustrative displacement energies (Si 15 eV, O 20 eV), model
+        parameters rather than recommendations; the GaAs preset leaves Ga and As blank, so enter them.</p>
+        <p class="note" id="preset-note"></p>
+      </div>
+    </div>
   </fieldset>
 
   <fieldset>
-    <legend>Physics</legend>
+    <legend>Crystal</legend>
+    <label class="inline"><input type="checkbox" id="crystal-on"> Transport chosen layers on the crystal lattice</label>
+    <div id="crystal-controls" hidden>
+      <div class="row">
+        <label>Lattice preset <select id="crystal-preset"></select></label>
+        <label>Wafer rotation (°) <input id="crystal-wafer" type="number" step="any"></label>
+        <label>Temperature (K) <input id="crystal-temp" type="number" min="0" step="any" placeholder="static"></label>
+      </div>
+      <div class="row">
+        <label>Normal (h k l)
+          <span class="triple"><input id="cn-0" type="number" step="1" aria-label="normal h"><input id="cn-1" type="number" step="1" aria-label="normal k"><input id="cn-2" type="number" step="1" aria-label="normal l"></span></label>
+        <label>Reference [u v w]
+          <span class="triple"><input id="cr-0" type="number" step="1" aria-label="reference u"><input id="cr-1" type="number" step="1" aria-label="reference v"><input id="cr-2" type="number" step="1" aria-label="reference w"></span></label>
+      </div>
+      <p class="note" id="crystal-layers"></p>
+      <p class="note" id="crystal-note"></p>
+    </div>
+  </fieldset>
+
+  <div class="pair ratio">
+  <details id="physics">
+    <summary>Physics: <span class="note" id="physics-summary"></span></summary>
     <div class="row">
       <label>Interatomic potential <select id="potential"></select></label>
       <label>Electronic stopping <select id="stopping"></select></label>
@@ -106,10 +281,10 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
     <p class="note" id="model-cite"></p>
     <p class="note">The recoil cutoff must stay below the smallest surface binding energy, or
     sputtered atoms are lost.</p>
-  </fieldset>
+  </details>
 
-  <fieldset>
-    <legend>Input file</legend>
+  <details id="input-file">
+    <summary>Input file</summary>
     <p class="note">This is the lindhard input the setup produces. The same file runs unchanged
     with <code>lindhard run file.toml --out out/</code> (lindhard-cli) and gives the same report for the same seed and ion count.</p>
     <div class="tools">
@@ -117,7 +292,10 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
       <label>Load <input id="load" type="file" accept=".toml,text/plain"></label>
     </div>
     <textarea id="toml" readonly aria-label="Generated lindhard input file"></textarea>
-  </fieldset>
+  </details>
+
+  </div>
+  </details>
 
   <div id="problems-box" role="alert" hidden>
     <strong class="flag">Fix before running:</strong>
@@ -126,64 +304,74 @@ The <a href="index.html">range calculator</a> is the one-element shortcut.</p>
 </section>
 
 <section id="run" role="tabpanel" aria-labelledby="tab-run" hidden>
-  <div class="tools">
-    <button type="button" id="btn-run">Run</button>
-    <button type="button" id="btn-pause" disabled>Pause</button>
-    <button type="button" id="btn-resume" disabled>Resume</button>
-    <button type="button" id="btn-stop" disabled>Stop</button>
+  <p id="example-label" class="note" hidden>Example run: 1000 ions, seed 1.</p>
+
+  <div id="results" hidden>
+    <div class="tiles" id="counters">
+      <div class="tile"><span class="lbl"><i>R</i><sub>p</sub> (mean depth)</span><span class="val" id="c-rp">–</span></div>
+      <div class="tile"><span class="lbl">Δ<i>R</i><sub>p</sub> (depth straggle)</span><span class="val" id="c-drp">–</span></div>
+      <div class="tile"><span class="lbl">Lateral straggle, y</span><span class="val" id="c-ly">–</span></div>
+      <div class="tile"><span class="lbl">Lateral straggle, z</span><span class="val" id="c-lz">–</span></div>
+      <div class="tile"><span class="lbl">Radial range</span><span class="val" id="c-rad">–</span></div>
+    </div>
+    <div class="tiles second">
+      <div class="tile"><span class="lbl">Backscattered (per ion)</span><span class="val" id="c-back">–</span></div>
+      <div class="tile"><span class="lbl">Transmitted (per ion)</span><span class="val" id="c-trans">–</span></div>
+      <div class="tile"><span class="lbl">Sputtered atoms per ion</span><span class="val" id="c-sput">–</span></div>
+      <div class="tile"><span class="lbl">Vacancies per ion <span class="tag" id="c-vac-mode"></span></span><span class="val" id="c-vac">–</span></div>
+    </div>
+    <div class="partition">
+      <div class="note">Where the incident energy goes</div>
+      <div class="bar" id="partition-bar" role="img" aria-label="Energy partition"></div>
+      <ul>
+        <li><span class="sw" style="background:var(--lh-plot-1)"></span>To electrons (ionization) <b id="c-eion">–</b></li>
+        <li><span class="sw" style="background:var(--lh-plot-2)"></span>To the lattice (nuclear) <b id="c-enuc">–</b></li>
+        <li><span class="sw" style="background:var(--lh-plot-3)"></span>Carried out of the target <b id="c-eesc">–</b></li>
+        <li id="r-erec" hidden><span class="sw" style="background:var(--lh-plot-4)"></span>Given to recoils, not followed in quick mode <b id="c-erec">–</b></li>
+        <li><span class="sw" style="background:var(--lh-plot-5)"></span>Other (surface barrier, at rest) <b id="c-eoth">–</b></li>
+      </ul>
+    </div>
   </div>
-  <label>Progress <progress id="progress" max="1" value="0"></progress></label>
-  <p id="progress-text">Not started.</p>
-  <p class="note" id="cap-note"></p>
-  <table class="counters" id="counters">
-    <tr><th>Ions done</th><td id="c-done">–</td></tr>
-    <tr><th><i>R</i><sub>p</sub></th><td id="c-rp">–</td></tr>
-    <tr><th>Δ<i>R</i><sub>p</sub></th><td id="c-drp">–</td></tr>
-    <tr><th>Lateral straggle, y</th><td id="c-ly">–</td></tr>
-    <tr><th>Lateral straggle, z</th><td id="c-lz">–</td></tr>
-    <tr><th>Radial</th><td id="c-rad">–</td></tr>
-    <tr><th>Stopped in the target</th><td id="c-stopped">–</td></tr>
-    <tr><th>Backscattered (per ion)</th><td id="c-back">–</td></tr>
-    <tr><th>Transmitted (per ion)</th><td id="c-trans">–</td></tr>
-    <tr><th>Sputtered atoms per ion</th><td id="c-sput">–</td></tr>
-    <tr><th>Vacancies per ion <span id="c-vac-mode"></span></th><td id="c-vac">–</td></tr>
-    <tr><th>Energy to electrons (ionization)</th><td id="c-eion">–</td></tr>
-    <tr><th>Energy to the lattice (nuclear)</th><td id="c-enuc">–</td></tr>
-    <tr><th>Energy carried out of the target</th><td id="c-eesc">–</td></tr>
-    <tr><th>Energy, other (surface barrier, at rest)</th><td id="c-eoth">–</td></tr>
-  </table>
-  <fieldset>
-    <legend>Trajectories</legend>
-    <div class="tools">
-      <label>View
-        <select id="traj-view">
-          <option value="side">Side: depth across, y down</option>
-          <option value="end">End-on: y across, z down</option>
-        </select></label>
-      <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
+
+  <p class="strip" id="strip">Ions done <b id="c-done">–</b>; stopped in the target <b id="c-stopped">–</b>.
+  ± is one standard error. Models: <span id="strip-models"></span>
+  Validation status and limits: <a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md">docs/validation.md</a>.
+  Layered targets; layers are amorphous unless a crystal is set.</p>
+
+  <div id="results-body" hidden>
+    <fieldset>
+      <legend>Trajectories</legend>
+      <div class="tools">
+        <label>View
+          <select id="traj-view">
+            <option value="side">Side: depth across, y down</option>
+            <option value="end">End-on: y across, z down</option>
+            <option value="3d">3D: drag to rotate</option>
+          </select></label>
+        <label class="inline"><input type="checkbox" id="traj-cascades" checked> Recoil cascades</label>
+        <button type="button" id="traj-reset" hidden>Reset rotation</button>
+        <button type="button" id="dl-png">Download trajectory view (PNG)</button>
+      </div>
+      <canvas id="traj" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
+      <ul id="traj-legend" class="legend"></ul>
+      <p class="note" id="traj-note"></p>
+    </fieldset>
+    <div id="plots">
+      <div class="plotgrid" id="plots-main"></div>
+      <h2>Escapes</h2>
+      <div class="plotgrid" id="plots-escapes"></div>
     </div>
-    <canvas id="traj" width="900" height="360" role="img" aria-label="Recorded ion and recoil trajectories"></canvas>
-    <ul id="traj-legend" class="legend"></ul>
-    <p class="note" id="traj-note"></p>
-  </fieldset>
-  <fieldset>
-    <legend>Distributions</legend>
-    <div class="tools">
-      <button type="button" id="dl-json" disabled>Download full report (JSON)</button>
-      <button type="button" id="dl-png">Download trajectory view (PNG)</button>
-    </div>
-    <div id="plots"></div>
-    <ul id="caveats" class="note"></ul>
-  </fieldset>
+  </div>
+  <ul id="caveats" class="note"></ul>
   <p id="warnings" class="note"></p>
 </section>
-
-<p><small>Amorphous, static layered targets; the models in use are listed under Physics and
-written into the input file. Results carry statistical error (shown as one standard error);
-the engine's validation status and its limits are in
-<a href="https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md">docs/validation.md</a>.</small></p>
+</div>
 
 <datalist id="symbols"></datalist>
+<datalist id="ions-common"><option>H<option>He<option>B<option>C<option>N<option>O<option>F<option>Al<option>Si<option>P<option>Ar<option>Ga<option>Ge<option>As<option>In<option>Sb<option>Xe</datalist>
+<datalist id="targets-common"><option>C<option>Al<option>Si<option>Ti<option>Fe<option>Ni<option>Cu<option>Ge<option>Ag<option>W<option>Pt<option>Au</datalist>
+</main>
+<!--SITE_FOOTER-->
 <script type="module" src="simulator.js"></script>
 </body>
 </html>

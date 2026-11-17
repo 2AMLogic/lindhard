@@ -2,8 +2,231 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-17
+
+- **PR #874**: ci: run the .github/scripts unit-test suites in workflow-checks
+- **Issue #871** (closed): CI: run the .github/scripts unit tests (test_check_wasm_bindgen_pin.py, test_advisories_report.py) in workflow-checks
+- **PR #870**: ci: assert the workflows' wasm-bindgen pin matches the crate pin
+- **Issue #868** (closed): CI gate: assert the wasm-bindgen CLI pin in workflows matches lindhard-wasm/Cargo.toml
+
+### 2026-11-16
+
+- **PR #863**: ci: restate the rust cap comment across five green -O3 runs
+- **Issue #861** (measured from `gh api repos/2AMLogic/lindhard/actions/runs/<id>/jobs` job start/completed timestamps; five green `-O3` runs, 2026-11-15/16): the `rust` cap comment's worst-leg and spread bullets are restated from one run snapshot to the whole matrix — runs 43770337253 @ `f18e015` (main), 43772463891 @ `e916859` and 43775944627 @ `b8a686f` (PR #860's `feature/issue-855` branch; its test tree is byte-identical to main @ `11c86ad`'s, while the two earlier main runs predate the #855 10-line straggling.rs cut), 43778248787 @ `7a0b938` (main), 43779864274 @ `11c86ad` (main). Per-leg job totals: macOS 7m48s-19m06s (swing 11m18s, 2.45x), ubuntu-24.04 10m41s-17m13s (6m32s, 1.61x), ubuntu-24.04-arm 11m41s-12m36s (55s, 1.08x). The worst leg alternates run to run (macOS, macOS, ubuntu-24.04, ubuntu-24.04, macOS), so the comment no longer names one leg from one snapshot: worst observed total 19m06s (macOS, run 43779864274 @ `11c86ad`, 2026-11-16) — the issue's predicted instability, now with the new-worst run landing after the issue was filed. The macOS-specific spread attribution is corrected: spread is whole-matrix (both x86 legs swing, the arm leg barely moves), and the ~13 min opt-level-0 bound (measured across 9 green runs 2026-11-15, pre-#859) is measured adequate at `-O3` — the largest observed swing (11m18s) stays inside it, the issue's "measured refutation" landing. Derivation inputs updated: 19m06s + ~13m ≈ 32m vs the 75-min cap, ~43 min of margin; `timeout-minutes: 75` unchanged; runner-variance hypothesis in the issue's "Suspected cause" remains untested (out of scope)
+- **PR #860**: test: cut straggling_none_makes_no_draw to 300 histories; restate CI cap budget from the -O3 tree's figures
+
+### 2026-11-15
+
+- **PR #859**: ci: compile the test profile at opt-level 3
+- **PR #858**: docs: record #851's opt-level A/B verdict in WORK_LOG (test execute half 7.56x at -O3)
+- **PR #853**: docs: distinguish whole-run cancels from gate failures in prose-gate fail-closed sentence
+- **Issue #850** (closed): CONTRIBUTING.md's prose-gate paragraph still describes the pre-#841 `always()` semantics
+- **Issue #855** (measured: per-test isolation plus a same-load before/after pair on this host; CI figures from run 43748757639): the filed three-test critical-path hypothesis for `tests/straggling.rs` is **refuted** — run alone (`RAYON_NUM_THREADS=4`, `--test-threads 1`, debug, one test at a time), the nominally largest test is nearly the cheapest: `transmitted_variance_matches_bohr_in_a_thin_foil` 4.63s (25 000 histories on the energy-dependent free path, i.e. long flights), while the real heavy set all sits on the constant free path's ~480 flights/history: `transmitted_variance_matches_bohr_with_constant_free_path` 64.5s (3000 histories, statistical — untouched), `straggling_run_is_bit_identical_across_thread_counts` 50.4s, `straggling_none_makes_no_draw` 48.3s (4 × 500), `mean_loss_is_unbiased_with_constant_free_path` 41.1s, `crystal_lattice_flight_mean_loss_is_unbiased` 37.6s, `relativistic_variant_mean_loss_is_unbiased` 22.0s, `crystal_straggling_run_is_bit_identical_across_thread_counts` 14.4s, and the two conservation tests ≤ 0.4s each (all 10 passing; opt-level-0 figures — the whole file costs 39.96s per ubuntu leg in CI at #859's `-O3`, run 43772463891). Only the exact-assertion count moves: `straggling_none_makes_no_draw` 500 → 300 histories per run, the trade `straggling_run_is_bit_identical_across_thread_counts` already states for bit-equality assertions; same-load local pair 54.8s → 36.4s (−34% isolated ≈ −74 CPU-s ≈ −18s on the saturated ubuntu leg — real but within the minutes-scale job spread). The statistical bounds #844 documented (the ~1% and 2.6% standard-error derivations) are untouched. The cap comment in `ci.yml` keeps the #844-tree figures as history (worst green total 49m18s, ubuntu-24.04 @ run 43748757639, `tests/straggling.rs` 13.78s → 482.80s across it) but now derives from this PR's own run 43772463891 @ `e916859`, because #859's `[profile.test] opt-level = 3` landed in this PR's base between that measurement and review: worst green total 15m39s (macOS, test step 14m13s), ubuntu-24.04-arm 11m41s, ubuntu-24.04 10m41s, `tests/straggling.rs` 39.96s (10 passed, ~7% of the ubuntu test step — no longer its driver); worst + the ~13 min macOS spread, carried over from the opt-level-0 regime as an unmeasured upper bound, ≈ 29m vs the 75-min cap, ~46 min of margin; `timeout-minutes` unchanged. No local concurrent (multi-test) run was taken — the shared 8-vCPU dispatch worker sat at load 20-30 during this work, so AC2's concurrent before/after pair is CI's — but that CI pair is **not** attributable to this PR's cut: 482.80s @ 43748757639 → 39.96s @ this PR's run also carries #859's `-O3`; the reduction's own estimate stays the same-load pair above (54.8s → 36.4s, −34% isolated)
+- **Issue #857** (applied; licence is #851's A/B measurement, run 43754676167 on one `macos-latest` runner, probe branch `ci-probe/851` deleted unmerged): `[profile.test]` `opt-level = 3` added to the root `Cargo.toml` — the A/B measured the equivalent env-var form (`CARGO_PROFILE_TEST_OPT_LEVEL=3`) at 7.56x on the execute half (2348.7s → 310.5s across the 76 test binaries, 76/76 green in both arms, doctests green). Caveat recorded by the curation: the A/B tree predated #844, so its `straggling.rs` ledger row covers the 4-test file, not #844's six new tests — those were first exercised at `-O3` by this PR's own CI (all three `rust` legs are the gate per the issue's Test Plan)
+- **Issue #851** (measured on scratch branch `ci-probe/851` with a two-arm `zz-probe-851.yml` restored from #849's harness, run 43754676167 / job 132936049187, `macos-latest`, probe and branch deleted unmerged): `CARGO_PROFILE_TEST_OPT_LEVEL=3` — measured exactly equivalent to a root `[profile.test] opt-level = 3` — collapses the `test` step's execute half **7.56x**: the 76 test binaries ran serially in **2348.7s** at the default opt-level 0 (arm A) vs **310.5s** at -O3 (arm A′), both arms 0 failures, arm A reproducing #849's 2321.5s baseline within +1.2% on a different runner; the top 3 fall 7.27x (0.138x ratio: `examples` 528.2→87.7s, `penn_full` 301.0→44.7s, `cli_equivalence` 278.3→20.0s) and the top 10 7.8x — decision-rule branch 1 (≥2x) — with concentration roughly unchanged (top-3 share 47.2%→49.1%); no binary or label-group is materially slower under -O3 (worst ≈1.00x, on sub-2s table-cache/provenance targets); the FP constraint is cleared by the stronger detector — every golden-file / published-reference comparison binary (`golden`, `validation`, `electron_elastic_reference`, `mermin_inelastic`, `penn_inelastic_table`, `electron_bench_determinism`, `parity`, …) and every thread-count identity test's binary (`examples`, `crystal_input`, `bca`, `exposure`) green in arm A′, on aarch64 macOS, closing the x86-only caveat the curation recorded; build halves not compared by design (arm A warm ≈139s vs arm A′ cold ≈489s at -O3); the run is red only because step E (report-only) died on BSD `join`'s `-o` after both measurement steps had printed their ledgers. Application filed as #857; projects the production `test` step ≈2389s → ≈8 min
+- **PR #852**: docs: record the macOS test-step build/run split and ledger in WORK_LOG
+- **PR #848**: ci: raise rust job timeout 45 -> 75 min, restate stale budget comment with dated measurements
+- **Issue #847** (closed): CI flake: Rust (macos-latest) cancelled by the 45-min job timeout at the cache-save step after fmt/clippy/test all passed
+- **PR #846**: ci: run the prose-gated jobs under !cancelled() so a supersede cancels them
+- **PR #845**: docs: record the #809 prose-gate live verification in WORK_LOG
+- **PR #844**: fix: draw Bohr straggling per accumulated path segment so the mean loss stays unbiased
+- **Issue #829** (closed): Straggling: the per-flight [0, E] truncation inflates the mean electronic loss 2.5-3.7x at short flights
+- **PR #843**: test: say what the clamp test's upper bound actually defends
+- **Issue #835** (closed): Clamp test comment still overstates its reach: the `de > 0.0` guard, not only the clamp, is what the upper bound exercises
+- **PR #842**: docs: record the #831 measurement — always() defeats cancel-in-progress on the gated CI jobs
+- **PR #834**: perf: hoist the Bohr straggling variance per layer beside loss_coef
+- **Issue #815** (closed): Hoist Bohr variance per layer out of the per-flight path (straggling perf)
+- **Issue #849** (measured, probe branch `ci-probe/849` deleted, run 43744655930): the macOS `test` step's cost is execution, not build — `cargo test --workspace --no-run` 137s (warm `rust-cache`, one-test-file delta) vs 2321.5s executing the 76 test binaries serially vs 10s doctests; reconstruction 2471s ≈ the production step's fresh 2389s @ `711fddf` (job 132896114092, same day); execute time is concentrated: the top 3 binaries (`examples` 581.1s, `penn_full` 292.7s, `cli_equivalence` 249.1s) are 48.4% of execute, the top 10 are 73.8%, and one test (`page_generated_crystal_input_gives_the_cli_report`, 256.9s) alone is 11%; the opt-level A/B follow-up is filed as #851
+- **Issue #841** (measured on scratch branch `ci-probe/841` with a throwaway `zz-probe.yml`, runs 43730538826 / 43730913335 / 43731027188, probe and branch deleted unmerged): `!cancelled()` preserves the rule-6 fail-closed dispatch — the undocumented case is settled: a `needs` job that dies on its **own** `timeout-minutes` (workflow itself not cancelled) does **not** make `cancelled()` true for its dependents. Run 43730538826: `gate` concluded `cancelled` at its own 1-min timeout and the `!cancelled() && (needs.gate.result != 'success')` dependent still dispatched (log: `DISPATCHED result=cancelled`) alongside the `always()` control. Supersede check, run 43730913335 superseded by 43731027188: the `!cancelled()` dependent was killed mid-flight (`cancelled`, ~1s into a 60s sleep, never completed) while the `always()` control **started after the supersede** and ran to `success` — the same within-one-run contrast as #831's production table, so the switch reclaims the ≈130 post-supersede runner-minutes. `always()` → `!cancelled()` landed on the `rust` and `python` gates with all three legs verbatim; a manual cancel of a `push: branches: [main]` run now skips the gated jobs too (a cancelled run is no verdict). The `changes`-job invariants comment is untouched.
+- **Issue #827**: live verification of #809's CI prose gate — criterion 6: prose-only scratch PR #837, run 43722391248 (gate success, `Rust (${{ matrix.os }})` + Python `skipped`, 2m20s); criterion 3: forced `exit 1` atop the classify step, run 43722764412 (gate `failure`, all four gated jobs still ran and passed, run red — rule 6 holds); criterion 5: scratch PR #838, run 43722425806 (gate success, gated jobs ran, red in `figures` at the SVG byte-check and all three Rust legs at `backscatter.rs::committed_docs_figure_is_current`); criterion 4: scratch PR #839, run 43726035282 (gate success, gated jobs ran, red in `figures` at the page byte-check and all three Rust legs at `stopping_report.rs::committed_page_is_what_the_generator_renders`); criteria 1/2/7/8 were observed off runs 43718734512, 43715171750, 43706905404, 43714952941; scratch PRs closed unmerged, branches deleted
+- **Issue #831** (measured, scratch PR #836 deleted unmerged): `always()` in the prose gate's `if` **defeats `cancel-in-progress`** — on superseded run 43721980560 all four gated jobs kept running after the superseding push: `Rust (ubuntu-24.04)` `success` (+40 min), `Rust (ubuntu-24.04-arm)` `success` (+41 min), `Python bindings (lindhard-py)` `success` (+6 min), `Rust (macos-latest)` `cancelled` by its own 45-min `timeout-minutes` overrun (+43 min); ≈130 runner-minutes after the supersede, above the ~95-min ceiling #831 estimated. Second-order effect: replacement run 43722473563 sat pending ~43 min in the concurrency group — the newer push's CI did not start until the doomed run's jobs vacated. Corroborated on run 43721484232 (Python bindings ran to `success` across a supersede). `always()` stays as written for now — the rule-6 fail-closed reason stands until #841 measures whether `!cancelled()` preserves it.
+- **PR #832**: test: cover crystal-path Bohr straggling and make the clamp test bite
+- **Issue #830** (closed): Straggling test coverage: no committed crystal+straggling test, and the clamp test does not test the clamp
+- **PR #825**: docs: collapse repeated Unreleased sub-sections in CHANGELOG.md and name the two published crates
+- **Issue #814** (closed): CHANGELOG.md: collapse the repeated sub-sections under [Unreleased], and fix the "both crates" antecedent
+- **PR #798**: feat(wasm): crystal controls and beam azimuth on the simulator page
+- **Issue #782** (closed): Simulator page: crystal orientation controls, now that the session transports [[crystal]]
+- **PR #828**: chore: gate Rust/Python CI jobs behind a fail-closed prose filter
+- **Issue #809** (closed): CI: ci.yml has no path filtering, so a docs-only PR runs the full Rust matrix (~98 runner-minutes measured)
+- **PR #820**: refactor: call elements::symbol at the five inline fallback copies
+- **Issue #806** (closed): Five element-symbol copies survive #788: the inline copies its `fn symbol` grep could not see
+- **PR #799**: feat: sample opt-in Bohr energy-loss straggling in BCA transport
+- **Issue #767** (closed): Opt-in Bohr energy-loss straggling in ion BCA transport
+- **PR #824**: docs: record the #768 CSG-target API change and correct stale lateral-face comments
+- **Issue #819** (closed): CHANGELOG: no ### Changed entry for the breaking Resolved/IonTally ion-target API change
+- **Issue #823** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #821** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #817** (closed): Remove unused rayon dependency from lindhard-py
+- **PR #816**: chore: remove unused rayon dependency from lindhard-py
+- **Issue #811** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #818** (closed): IonTally::escaped's Face::Side comment is stale for [[target.solids]] targets
+- **PR #805**: feat(input): CSG ion targets through TOML ([[target.solids]])
+- **Issue #768** (closed): [Epic #25] TOML input for a laterally varying ion target built from CSG solids
+- **PR #810**: docs: name all three synthetic SRIM coefficient fixtures in provenance record
+- **Issue #775** (closed): Name the SRIM integration-test fixture in docs/data-provenance.md's SRIM section
+- **PR #807**: docs: record the wasm session's crystal support and widen the changelog scope
+- **Issue #781** (closed): CHANGELOG: record that the wasm session accepts [[crystal]] targets
+- **PR #797**: refactor(wasm): remove the orphaned one-shot range calculator
+- **Issue #789** (closed): Remove the orphaned one-shot WASM range calculator
+- **PR #760**: refactor(electron): move the beam model out of transport.rs into electron::beam
+- **Issue #753** (closed): Move the electron beam model out of electron/transport.rs into its own electron::beam module
+- **PR #803**: refactor: hold DataFile in LoadedStoppingTable and LoadedSrimData
+- **Issue #774** (closed): Fold the path/resolved_path/sha256 triple into a `file: DataFile` field
+- **PR #783**: docs: repoint cstool inelastic_axis attribution at assemble.rs
+- **Issue #765** (closed): THIRD_PARTY_LICENSES.md still points cstool's inelastic_axis attribution at the old file
+- **PR #802**: docs: add #546 to the WORK_PLAN blocked-and-waiting table
+- **Issue #786** (closed): WORK_PLAN.md: account for #546, open but listed only as done
+- **PR #795**: refactor: share one hist_rows writer and one element-symbol lookup
+- **Issue #788** (closed): Share the one histogram-CSV writer and the one element-symbol lookup
+- **PR #796**: refactor(cli,py): share one thread-pool helper across front ends
+- **Issue #787** (closed): Share one thread-pool helper across the CLI and Python crates
+- **Issue #773** (closed): Finish the tests/common consolidation: 18 clusters of byte-identical test helpers remain
+- **Issue #812** (closed): Remove unused rayon dependency from lindhard-py
+- **Issue #813** (closed): Remove unused rayon dependency from lindhard-py
+- **PR #804**: refactor: one adaptive step-size policy for the 1-D and 2-D dynamic runs
+- **Issue #793** (closed): Share the adaptive step-size policy between the 1-D and 2-D dynamic runs: four rules written twice, and the 1-D/2-D equivalence #559 requires rests on them matching
+- **PR #780**: refactor(electron): share one secondary-spawn tail and one Kieft-Bosch options value
+- **Issue #764** (closed): Collapse the duplicated secondary-spawn tail in electron transport, and pass the Kieft-Bosch options as one value
+- **PR #800**: refactor(tests): share the csg/mesh geometry helpers through tests/common
+- **Issue #785** (closed): Share the 100 duplicated helper lines of tests/csg.rs and tests/mesh.rs via tests/common
+- **PR #794**: refactor(electron): state the Eq. 3.145 step-transmission formula once
+- **Issue #791** (closed): Call one helper for the step-transmission formula: Eq. 3.145 is written twice in electron::boundary and only the unused copy is tested
+- **PR #776**: build: run the pinned clippy from package.json and guard the pin
+- **Issue #763** (closed): Root package.json clippy scripts run floating stable, not the pinned CI gate toolchain
+
+### 2026-11-14
+
+- **PR #792**: refactor(tests): share 17 duplicated integration-test fixtures through common
+- **PR #784**: refactor(validation): share the level-2 oracle scaffolding through validation/lib
+- **Issue #778** (closed): Share the oracle-harness scaffolding the two level-2 runners duplicate (Oracle, NotConfigured, _git, _round, sha256)
+- **PR #779**: feat(wasm): accept [[crystal]] targets in the simulation session
+- **Issue #769** (closed): [Epic #28] Accept `[[crystal]]` targets in the WASM simulation session
+- **PR #770**: refactor(cli): publish exposure outputs through the shared OutputSet
+- **Issue #758** (closed): Collapse the duplicate output path in `lindhard exposure` into the shared OutputSet lifecycle
+- **PR #759**: refactor(input): share one data-file loader and record the SRIM file's hash
+- **Issue #752** (closed): Share one data-file loader across the input resolvers, and record the SRIM coefficient file's SHA-256 that is computed but never written
+- **Issue #511** (closed): [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning
+- **PR #766**: docs: roadmap as of 2026-11-13
+- **PR #772**: refactor(cli): build the summary target[] array in one shared place
+- **Issue #761** (closed): Remove the duplicate `LayerOut` summary record in the CLI: share one with `output.rs`
+- **PR #762**: refactor(electron): share one table/transport assembly with the benches
+- **Issue #750** (closed): Consolidate electron table/transport assembly: the bench copy has drifted from lindhard-cli
+- **PR #757**: test: move the shared crystal_si, beam and run-summary helpers into tests/common
+- **Issue #751** (closed): Consolidate the duplicated crystal_si, beam and run-summary helpers across the crystal integration tests
+- **PR #756**: fix(scripts): point root package.json checks at the real cargo commands
+- **Issue #755** (closed): Remove the stub root package.json: four exit-0 placeholder checks and a dangling worktree-return path
+
+### 2026-11-13
+
+- **PR #754**: refactor(input): share the scattering table, tally binning and engine assembly via Resolved
+- **Issue #747** (closed): Move the scattering-table and tally-binning assembly onto Resolved so the CLI and WASM front ends share it
+- **PR #749**: refactor(inelastic): share the energy, Fermi and tolerance checks across the three models
+- **Issue #745** (closed): Share the duplicated energy, Fermi-energy and tolerance checks across the three inelastic models
+- **PR #746**: test: move the shared electron fixture helpers into tests/common
+- **Issue #741** (closed): Share the duplicated synthetic scattering and band-structure helpers across the electron integration tests
+- **PR #744**: refactor(plots): share one write-or-check driver between the two generator binaries
+- **Issue #740** (closed): Share the write-or-check driver between the two lindhard-plots binaries
+- **PR #743**: refactor(validation): share the level-3 dataset loader and provenance rules
+- **Issue #742** (closed): Share the dataset loader and common provenance checks across the level-3 experiment scripts
+- **PR #738**: refactor(geometry): share the ownership walk between mesh and CSG
+- **Issue #735** (closed): Share the ownership walk between MeshGeometry and CsgGeometry (about 110 duplicated lines)
+- **PR #737**: refactor(serde): share one beam_serde_module macro between the two exposure beams
+- **Issue #733** (closed): Deduplicate the two exposure beam serde modules (beam_serde / exposure_beam)
+- **PR #736**: test: require the four elastic reference fields and drop empty-fixture paths
+- **Issue #734** (closed): Remove placeholder-fixture scaffolding and stale #93 markers from the elastic reference test
+- **PR #731**: refactor(tests): call common::with_threads for the hand-built rayon pools
+- **Issue #730** (closed): Use common::with_threads for the 48 hand-built rayon pools in lindhard/tests
+- **Issue #33** (closed): Epic: Permissive stopping-power data library
+
+### 2026-11-12
+
+- **PR #724**: data: add Madsen 1953 proton stopping in Cu and Au from the paper's tables
+- **Issue #483** (closed): [Epic #33] Seed measured stopping datasets from primary papers (first batch: H/He/B/P/As in Si, H/He in Cu and Au)
+- **PR #721**: fix(sw): never store a redirected response in the offline cache
+- **PR #720**: Bump Repo Skills 0.25.10 -> 0.26.1
+- **PR #719**: feat(simulator): 3D trajectory view; fix the Setup column layout
+- **PR #718**: feat(site): fold the range calculator into the simulator and run an example on load
+- **PR #717**: refactor(exposure): share the electron transport beam profile and add rectangle
+- **Issue #671** (closed): Decide: fold the range calculator into the simulator, and run the default case on page load?
+- **Issue #608** (closed): Decide whether to collapse exposure::BeamProfile into transport::BeamProfile
+
+### 2026-11-11
+
+- **PR #716**: feat(site): restructure the landing page around a hero, trust rows and examples
+- **PR #714**: feat(gallery): generate the quick-start figure from one wasm session
+- **Issue #713** (closed): Landing hero: generate the quick-start figure (trajectories over depth profile) in gallery.py
+- **Issue #665** (closed): Landing page: hero with a real figure, tools and physics as cards, a scannable trust section
+- **PR #711**: test: cover the layer stack drawing at tilt 0 and with a long layer name
+- **PR #710**: fix: reset hidden species on run start and make empty trajectory bounds 1:1
+- **PR #706**: test: consolidate duplicated test helpers into tests/common
+- **PR #705**: feat(simulator): trim plot axes, integer count ticks, species colours, radial plot, Rp marker
+- **PR #704**: feat(simulator): readable trajectory cascades with axes, 1:1 scale and species toggles
+- **PR #703**: test: assert stopping-residuals tables fit at 768 px
+- **PR #700**: test: assert Setup's visible controls fit 1440x900, skipping closed details
+- **PR #687**: feat(site): shared header, footer and design tokens across all site surfaces
+- **PR #685**: feat(simulator): two-column desktop layout, single run bar, result tiles and plot grid
+- **Issue #712** (closed): Simulator empty state: layer drawing may not span its row (flex-grow in metres)
+- **Issue #708** (closed): Simulator trajectory view: reset hidden species per run; fix empty-segment lateralScale
+- **Issue #699** (closed): Consolidate duplicated integration-test helpers into tests/common (with_threads, rel, simpson_log, close)
+- **Issue #698** (closed): Simulator Setup: one-layer target ends 1333 px down at 1440x900; fit the 900 px viewport
+- **Issue #696** (closed): docs: check stopping-residuals tables at 1440/768/390 px after #688
+- **Issue #692** (closed): Simulator: "Add element" button throws ReferenceError; 1440 px single-screen layout not met
+- **Issue #677** (closed): Simulator trajectory view: readable cascades, true aspect ratio, real axes
+- **Issue #676** (closed): Simulator plots: axes that follow the data, integer count ticks, consistent species colours
+- **Issue #667** (closed): Simulator: sharp, responsive canvases; axes that follow the data; a readable trajectory view
+- **Issue #666** (closed): Simulator: one workspace on desktop, a single Run button, result tiles, and plots in a grid
+- **Issue #664** (closed): One shared header, footer and visual system across the landing page, the book and the browser tools
+- **PR #693**: fix: export el for the simulator's Add element button; add e2e tests
+- **PR #701**: docs: regenerate screen_oxide gallery table and curve after ZBL constant change
+- **PR #697**: docs: turn the exposure output-files table into a list and drop the last wide-table exception
+- **Issue #695** (closed): Follow-on from PR #686: screen_oxide gallery numbers drift from the committed results
+- **Issue #691** (closed): Simulator Setup: fix Add element ReferenceError; finish one-screen layout at 1440 px
+- **Issue #663** (closed): Book: tables that need content changes to fit (output and input guides, stopping residuals, validity)
+- **PR #690**: docs: reflow example band tables and shorten Pearson IV excerpt
+- **PR #688**: docs: readable titles and summary table for the stopping-residuals page
+- **PR #686**: docs(book): collapsed sidebar, readability stylesheet, dark-aware gallery figures
+- **PR #683**: feat(simulator): size canvases from CSS box and pixel ratio, redraw on resize and theme change
+- **Issue #675** (closed): Book: gallery and first-run code lines overflow the page
+- **Issue #674** (closed): Simulator canvases: sharp at any pixel density, redraw on resize and theme change
+- **Issue #673** (closed): Book: stopping-residuals page — shorter headers, summary table, readable headings
+- **Issue #669** (closed): Book readability: collapsible sidebar with the user guide first, line length and heading rhythm, code blocks, gallery figures in dark mode
+- **PR #689**: feat: compact simulator setup form with layer stack drawing
+- **PR #684**: docs: turn long-prose book tables into lists and add header to coefficient tables
+- **PR #682**: feat(wasm-calculator): fix dark mode, ticks, freeze, form and escaped-ion count
+- **PR #681**: fix(wasm): label unfollowed-recoil energy and correct damage-plot note in quick mode
+- **PR #680**: feat(book): style tables and display equations to fit their column
+- **PR #679**: fix: link the shipped simulator from the landing page and fail the build if it is missing
+- **Issue #672** (closed): Book: hand-written tables to definition lists (output, input, validity, potentials)
+- **Issue #670** (closed): Simulator quick mode: the damage plot contradicts its note, and the energy partition reads as wrong
+- **Issue #668** (closed): Simulator Setup: fields sized to their content, clearer layer controls, and a drawn layer stack
+- **Issue #662** (closed): Book: tables do not fit their content, and equations pan the page sideways on a phone
+- **Issue #661** (closed): Range calculator: unreadable in dark mode, and other small defects
+- **Issue #660** (closed): Landing page says the trajectory simulator is "planned" although it is published
+- **PR #617**: validation: attribute the pure-Cu sputter shortfall and compare engine Ni with stored sets
+- **Issue #544** (closed): [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2)
+
 ### 2026-11-10
 
+- **PR #657**: feat: add service worker for offline calculator use
+- **PR #656**: fix(web): give Si and SiO2 presets an illustrative Si displacement energy
+- **PR #655**: test(site): Playwright browser tests of the site, run in CI before and after publishing
+- **PR #652**: feat: add stopping = "srim" model reading a cited coefficient file
+- **PR #649**: feat: report electronic, lattice and recoil energy by depth
+- **PR #648**: feat: tally NRT and Kinchin-Pease displacements by PKA depth
+- **PR #647**: feat: weighted primary-energy spectrum for [beam]
+- **PR #646**: feat: add ideal-gas material spec with a gas phase flag
+- **PR #645**: docs: record that BCA transport does not sample straggling
+- **Issue #654** (closed): Simulator: adding a Si, SiO2 or GaAs preset layer leaves the setup unrunnable until a displacement energy is typed
+- **Issue #653** (closed): Simulator page does not work offline after its first load
+- **Issue #641** (closed): [Epic #630] PKA-spectrum primaries (neutron-recoil style cascades)
+- **Issue #640** (closed): [Epic #630] Quick-calculation mode: K-P/NRT damage without cascades (verify, expose)
+- **Issue #639** (closed): [Epic #630] Ionization, phonon and energy-to-recoil depth profiles (verify, add missing)
+- **Issue #636** (closed): [Epic #630] Gas targets: density from pressure and temperature, gas-phase flag
+- **Issue #632** (closed): [Epic #630] `stopping = "srim"`: SRIM-book electronic stopping as a selectable model
+- **PR #635**: docs: data is not licensed, code is; admit cited data from any source (#629)
+- **Issue #629** (closed): Data policy: admit SRIM data (book and srim.org), including computed tables; rewrite the CLAUDE.md rule and README positioning
+- **PR #627**: refactor: consolidate duplicated [f64; 3] helpers into a vec3 module
+- **Issue #625** (closed): Simplify: consolidate duplicated 3-vector helpers (dot/cross/norm/normalize) into one module
 - **PR #584**: feat: add per-layer dose, depth-dose and interface transmission tallies for electrons
 - **Issue #547** (closed): Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack
 - **PR #624**: refactor: split ElectronInput::resolve_in into per-stage helpers

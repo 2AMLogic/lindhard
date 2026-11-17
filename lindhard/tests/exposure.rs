@@ -5,6 +5,9 @@ use std::f64::consts::PI;
 use lindhard::exposure::{parse_shots_csv, uniform_area_dose, Exposure, Grid, Shot, SpotShape};
 use lindhard::tally::GaussianPsf;
 
+mod common;
+use common::with_threads;
+
 const NM: f64 = 1e-9;
 
 fn double() -> GaussianPsf {
@@ -190,13 +193,7 @@ fn grid_is_bit_identical_at_1_2_4_threads() {
         nx: 40,
         ny: 45,
     };
-    let run = |threads| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| e.dose_on_grid(&grid).unwrap())
-    };
+    let run = |threads| with_threads(threads, || e.dose_on_grid(&grid).unwrap());
     let base = run(1);
     for t in [2, 4] {
         let other = run(t);

@@ -4,6 +4,7 @@
 Needs PyYAML (like test_clippy_canary.py); otherwise standard library only.
 Run: python3 .github/scripts/test_advisories_report.py
 """
+import json
 import os
 import sys
 import tempfile
@@ -29,6 +30,38 @@ def triggers(doc):
     return doc.get("on", doc.get(True))  # PyYAML parses bare `on` as True
 
 
+OWN_UNIT_TEST_RUN = "python3 .github/scripts/test_advisories_report.py"
+
+# Every spelling of a PR-time RustSec check that must never appear in
+# `ci.yml` (CONTRIBUTING.md, "Dependency advisories"): the `cargo deny
+# check advisories` family keys on "advisories", while `cargo audit`,
+# the hyphenated `cargo-audit` binary and the `rustsec/audit-check`
+# action contain no such word (issues #880, #882). Common spellings
+# only; this list is final (CONTRIBUTING.md, "Dependency advisories").
+BANNED_TOKENS = ("advisories", "cargo audit", "cargo-audit", "rustsec/",
+                 "audit-check")
+
+
+def no_advisories_check(doc):
+    """True when a parsed `ci.yml` runs no PR-time RustSec (advisories) check.
+
+    The exact `run` of this suite's own unit-test step in workflow-checks
+    (issue #871) is exempted first; every remaining step, and all job and
+    workflow level `env`, must not mention any of BANNED_TOKENS at all,
+    so env-var or flag-splitting indirection cannot hide the check
+    (issue #876) and the `cargo audit` / `cargo-audit` (issue #882) /
+    `rustsec/audit-check` spellings cannot pass without the word
+    "advisories" (issue #880). Operates on a
+    deep copy; the caller's doc is left untouched.
+    """
+    doc = json.loads(json.dumps(doc))
+    for job in doc.get("jobs", {}).values():
+        job["steps"] = [s for s in job.get("steps", [])
+                        if s.get("run", "").strip() != OWN_UNIT_TEST_RUN]
+    text = json.dumps(doc)
+    return not any(tok in text for tok in BANNED_TOKENS)
+
+
 class StaticWorkflowTests(unittest.TestCase):
     def test_triggers_are_schedule_and_dispatch_only(self):
         _, doc = load("advisories.yml")
@@ -39,8 +72,84 @@ class StaticWorkflowTests(unittest.TestCase):
         self.assertIs(inp["default"], False)
 
     def test_ci_runs_no_advisories_check(self):
-        text, _ = load("ci.yml")
-        self.assertNotIn("advisories", text)
+        # ci.yml runs only `cargo deny check licenses sources`: a PR-time
+        # RustSec check would fail unrelated PRs on a newly published
+        # advisory (CONTRIBUTING.md, "Dependency advisories"). The exact
+        # `run` of this suite's own unit-test step in workflow-checks
+        # (issue #871) is exempted; every other step, and any job or
+        # workflow level `env`, must not mention any BANNED_TOKENS at all,
+        # so env-var or flag-splitting indirection cannot hide the check
+        # (issue #876) and `cargo audit` / `cargo-audit` (issue #882) /
+        # `rustsec/audit-check`, which lack the word "advisories", cannot
+        # pass either (issue #880).
+        _, doc = load("ci.yml")
+        self.assertTrue(no_advisories_check(doc))
+
+    def test_no_advisories_check_rejects_indirection(self):
+        # The predicate must catch an advisories check hidden outside the
+        # `run` string, with `cargo deny check` split up, or chained onto
+        # the exempted own command (issue #876).
+        _, doc = load("ci.yml")
+
+        def injected(mutate):
+            d = json.loads(json.dumps(doc))
+            mutate(d)
+            return no_advisories_check(d)
+
+        def env_indirected(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "deny", "env": {"DENY_ARGS": "advisories"},
+                 "run": "cargo deny check $DENY_ARGS --show-stats"})
+
+        def split_flags(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "deny",
+                 "run": "cargo deny --manifest-path Cargo.toml check advisories"})
+
+        def own_chained_with_check(d):
+            d["jobs"]["workflow-checks"]["steps"].append(
+                {"name": "chained",
+                 "run": OWN_UNIT_TEST_RUN + " && cargo deny check advisories"})
+
+        def job_env_indirected(d):
+            d["jobs"]["dependency-policy"]["env"]["DENY_ARGS"] = "advisories"
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "deny", "run": "cargo deny check $DENY_ARGS"})
+
+        def uses_audit_action(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "audit", "uses": "rustsec/audit-check@v2"})
+
+        def cargo_audit_run(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "audit", "run": "cargo audit --deny warnings"})
+
+        def cargo_audit_dashed_run(d):
+            # The hyphenated binary spelling (issue #882). The bare token
+            # match also flags e.g. `cargo install cargo-audit`; that is
+            # acceptable — the guard is defence-in-depth, not a sandbox
+            # (CONTRIBUTING.md, "Dependency advisories").
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "audit", "run": "cargo-audit audit --deny warnings"})
+
+        def audit_check_ref(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "audit", "uses": "acme/audit-check@v3"})
+
+        for mutate in (env_indirected, split_flags, own_chained_with_check,
+                       job_env_indirected, uses_audit_action, cargo_audit_run,
+                       cargo_audit_dashed_run, audit_check_ref):
+            self.assertFalse(injected(mutate), mutate.__name__)
+
+    def test_no_advisories_check_accepts_own_step_anywhere(self):
+        # The exemption is the exact `run`, not the step's name or job: a
+        # copy of the unit-test step in another job stays allowed.
+        _, doc = load("ci.yml")
+        d = json.loads(json.dumps(doc))
+        own = [s for s in d["jobs"]["workflow-checks"]["steps"]
+               if s.get("run", "").strip() == OWN_UNIT_TEST_RUN]
+        d["jobs"]["rust"]["steps"].extend(own)
+        self.assertTrue(no_advisories_check(d))
 
     def test_permissions(self):
         _, doc = load("advisories.yml")

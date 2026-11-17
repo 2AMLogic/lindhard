@@ -32,9 +32,10 @@ path, the SHA-256 of the file's bytes, the provenance string, the pair and
 the energy range), and lists it under `physics.models` as `user-table` with
 its provenance as the source.
 
-**Do not load SRIM- or ICRU-derived tables into anything committed to a
-repository.** A table is the user's own data and its terms are the user's
-concern; this project's own tree never contains such tables.
+**Tables from any source may be loaded and committed**, SRIM and ICRU tables
+included (data is not licensed; code is: operator ruling, 2026-11-10,
+lindhard#629). `provenance` must name the source precisely: book edition,
+table and page, or program, version and file.
 
 ## Selecting it
 

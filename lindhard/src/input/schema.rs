@@ -3,12 +3,14 @@
 //! Moved out of the parent module unchanged; every item is re-exported there.
 
 use crate::ion::potential::{Screening, ScreeningLength};
+use crate::ion::stopping::srim::SrimStopping;
 use crate::ion::stopping::table::StoppingTable;
 use crate::material::MaterialSpec;
 use serde::de::{self, MapAccess, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+
+use super::DataFile;
 
 // Only for intra-doc links.
 #[cfg(doc)]
@@ -27,8 +29,16 @@ pub struct BeamSpec {
     /// Projectile mass, u. Default: the standard atomic weight.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mass_amu: Option<f64>,
-    /// Incident kinetic energy, eV.
-    pub energy_ev: f64,
+    /// Incident kinetic energy, eV. Exactly one of `energy_ev` and
+    /// [`spectrum`](Self::spectrum) is given.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub energy_ev: Option<f64>,
+    /// A weighted list of primary energies (a recoil, or PKA, spectrum):
+    /// each history draws its energy from one line, with probability
+    /// proportional to the line's weight. Mutually exclusive with
+    /// `energy_ev`; static ion runs only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub spectrum: Option<Vec<SpectrumLine>>,
     /// Polar angle of incidence from the surface normal, degrees, in `[0, 90)`.
     #[serde(default)]
     pub tilt_deg: f64,
@@ -39,6 +49,24 @@ pub struct BeamSpec {
     /// only). Absent: every primary has the nominal direction.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub divergence: Option<DivergenceSpec>,
+}
+
+/// One line of a `[beam]` `spectrum`: a primary energy and its weight.
+///
+/// ```toml
+/// [[beam.spectrum]]
+/// energy_ev = 1000.0
+/// weight = 3.0
+/// ```
+///
+/// Weights are relative (normalised over the list when resolved).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SpectrumLine {
+    /// Primary kinetic energy, eV.
+    pub energy_ev: f64,
+    /// Relative weight; finite and positive.
+    pub weight: f64,
 }
 
 /// `[beam.divergence]`: the beam's angular spread about its nominal
@@ -122,7 +150,8 @@ pub struct LayerSpec {
 }
 
 /// `[target]`: finite layers front to back, then an optional semi-infinite
-/// substrate. At least one of the two must be given.
+/// substrate, or instead a set of CSG solids. Exactly one of the three forms
+/// must be given.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TargetSpec {
@@ -133,6 +162,184 @@ pub struct TargetSpec {
     /// a back face and particles can be transmitted.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub substrate: Option<MaterialRef>,
+    /// CSG solids, in listing order. Not allowed together with `layers`,
+    /// `substrate`, `[[crystal]]` or `[dynamic]`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub solids: Vec<SolidSpec>,
+}
+
+/// One `[[target.solids]]` entry: a material and a shape, selected by the
+/// `shape` key (`cuboid`, `cylinder`, `half_space`, or the combinations
+/// `union`, `intersection`, `difference`). Lengths are in nm.
+///
+/// **Listing order is priority order**: where solids overlap, the first
+/// listed owns the space, so a mask listed before the block it patterns cuts
+/// into it.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "shape", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum SolidSpec {
+    /// The axis-aligned box `[lo_nm, hi_nm]` (each `lo_nm[k] < hi_nm[k]`).
+    Cuboid {
+        /// The solid's material.
+        material: MaterialRef,
+        /// Lower corner, nm.
+        lo_nm: [f64; 3],
+        /// Upper corner, nm.
+        hi_nm: [f64; 3],
+    },
+    /// A finite cylinder with flat end caps, along `axis` from `base_nm`.
+    Cylinder {
+        /// The solid's material.
+        material: MaterialRef,
+        /// Centre of the first end cap, nm.
+        base_nm: [f64; 3],
+        /// Direction of the axis (any non-zero length; normalised).
+        axis: [f64; 3],
+        /// Radius, nm.
+        radius_nm: f64,
+        /// Length along the axis, nm.
+        height_nm: f64,
+    },
+    /// The half-space `{p : normal . p <= offset_nm}`, with `normal` its
+    /// outward direction (any non-zero length; normalised, so `offset_nm` is
+    /// the plane's signed distance from the origin in nm). Unbounded on its
+    /// own: bound it with `intersection` (or `difference`), or it is an
+    /// error.
+    #[serde(rename = "half_space")]
+    HalfSpace {
+        /// The solid's material.
+        material: MaterialRef,
+        /// Outward normal direction (any non-zero length; normalised).
+        normal: [f64; 3],
+        /// Signed distance of the plane from the origin along the normalised
+        /// normal, nm.
+        offset_nm: f64,
+    },
+    /// Points inside every operand (at least one). Bounds a half-space.
+    Intersection {
+        /// The solid's material.
+        material: MaterialRef,
+        /// The intersected shapes.
+        of: Vec<SolidShape>,
+    },
+    /// Points inside `keep` and not inside `cut`.
+    Difference {
+        /// The solid's material.
+        material: MaterialRef,
+        /// The shape kept.
+        keep: Box<SolidShape>,
+        /// The shape cut away.
+        cut: Box<SolidShape>,
+    },
+    /// Points inside any operand (at least one).
+    Union {
+        /// The solid's material.
+        material: MaterialRef,
+        /// The united shapes.
+        of: Vec<SolidShape>,
+    },
+}
+
+impl SolidSpec {
+    /// The entry's material reference.
+    pub fn material(&self) -> &MaterialRef {
+        match self {
+            Self::Cuboid { material, .. }
+            | Self::Cylinder { material, .. }
+            | Self::HalfSpace { material, .. }
+            | Self::Intersection { material, .. }
+            | Self::Difference { material, .. }
+            | Self::Union { material, .. } => material,
+        }
+    }
+
+    /// The entry's shape without its material: what the engine's
+    /// [`Csg`](crate::geometry::Csg) tree is built from.
+    pub fn shape(&self) -> SolidShape {
+        match self {
+            Self::Cuboid { lo_nm, hi_nm, .. } => SolidShape::Cuboid {
+                lo_nm: *lo_nm,
+                hi_nm: *hi_nm,
+            },
+            Self::Cylinder {
+                base_nm,
+                axis,
+                radius_nm,
+                height_nm,
+                ..
+            } => SolidShape::Cylinder {
+                base_nm: *base_nm,
+                axis: *axis,
+                radius_nm: *radius_nm,
+                height_nm: *height_nm,
+            },
+            Self::HalfSpace {
+                normal, offset_nm, ..
+            } => SolidShape::HalfSpace {
+                normal: *normal,
+                offset_nm: *offset_nm,
+            },
+            Self::Intersection { of, .. } => SolidShape::Intersection { of: of.clone() },
+            Self::Difference { keep, cut, .. } => SolidShape::Difference {
+                keep: keep.clone(),
+                cut: cut.clone(),
+            },
+            Self::Union { of, .. } => SolidShape::Union { of: of.clone() },
+        }
+    }
+}
+
+/// A shape of a `[[target.solids]]` entry without its material: the leaves
+/// and combinations a solid's `shape` (or an operand of `union`,
+/// `intersection` or `difference`) is built from. The same shapes as
+/// [`SolidSpec`]; see there for the keys and the bounds rules.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "shape", rename_all = "kebab-case", deny_unknown_fields)]
+pub enum SolidShape {
+    /// The axis-aligned box `[lo_nm, hi_nm]`.
+    Cuboid {
+        /// Lower corner, nm.
+        lo_nm: [f64; 3],
+        /// Upper corner, nm.
+        hi_nm: [f64; 3],
+    },
+    /// A finite cylinder with flat end caps.
+    Cylinder {
+        /// Centre of the first end cap, nm.
+        base_nm: [f64; 3],
+        /// Direction of the axis (any non-zero length; normalised).
+        axis: [f64; 3],
+        /// Radius, nm.
+        radius_nm: f64,
+        /// Length along the axis, nm.
+        height_nm: f64,
+    },
+    /// The half-space `{p : normal . p <= offset_nm}`.
+    #[serde(rename = "half_space")]
+    HalfSpace {
+        /// Outward normal direction (any non-zero length; normalised).
+        normal: [f64; 3],
+        /// Signed distance of the plane from the origin along the normalised
+        /// normal, nm.
+        offset_nm: f64,
+    },
+    /// Points inside every operand (at least one).
+    Intersection {
+        /// The intersected shapes.
+        of: Vec<SolidShape>,
+    },
+    /// Points inside `keep` and not inside `cut`.
+    Difference {
+        /// The shape kept.
+        keep: Box<SolidShape>,
+        /// The shape cut away.
+        cut: Box<SolidShape>,
+    },
+    /// Points inside any operand (at least one).
+    Union {
+        /// The united shapes.
+        of: Vec<SolidShape>,
+    },
 }
 
 /// Screening function choice.
@@ -212,26 +419,38 @@ pub struct StoppingSpec {
     /// Paths of table files, one per (ion, target element) pair.
     #[serde(default)]
     pub tables: Vec<String>,
+    /// Path of an SRIM coefficient file ([`SrimStopping`]); required with
+    /// `physics.stopping = "srim"` and rejected otherwise. Resolves against
+    /// the directory of the input file.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub srim_data: Option<String>,
 }
 
 impl StoppingSpec {
-    /// No tables declared.
+    /// No tables and no SRIM data file declared.
     pub fn is_empty(&self) -> bool {
-        self.tables.is_empty()
+        self.tables.is_empty() && self.srim_data.is_none()
     }
+}
+
+/// An SRIM coefficient file after loading, with what a run record needs to
+/// identify the exact file.
+#[derive(Debug, Clone)]
+pub struct LoadedSrimData {
+    /// The file's provenance record (path as written in the input, resolved
+    /// path, SHA-256).
+    pub file: DataFile,
+    /// The validated coefficients.
+    pub model: SrimStopping,
 }
 
 /// A user stopping table after loading, with what a run record needs to
 /// identify the exact file.
 #[derive(Debug, Clone)]
 pub struct LoadedStoppingTable {
-    /// The path as written in the input (`stopping.tables[i]`).
-    pub path: String,
-    /// The path the file was read from (the input directory joined with
-    /// `path`, made absolute when possible).
-    pub resolved_path: PathBuf,
-    /// SHA-256 of the file's bytes, lowercase hex.
-    pub sha256: String,
+    /// The file's provenance record (path as written in the input, resolved
+    /// path, SHA-256).
+    pub file: DataFile,
     /// The validated table.
     pub table: StoppingTable,
 }
@@ -249,6 +468,11 @@ pub enum StoppingChoice {
     /// Equipartition of Lindhard-Scharff: half nonlocal, half local at each
     /// collision by Oen-Robinson ([`ElectronicLoss::EquipartitionLsOr`]).
     EquipartitionLsOr,
+    /// SRIM-data-sourced stopping ([`SrimStopping`]): the published
+    /// coefficient fit, with coefficients read from the file named by
+    /// `stopping.srim_data`, all loss nonlocal. Output is SRIM-data-sourced:
+    /// agreement with SRIM is consistency, not independent validation.
+    Srim,
     /// No electronic stopping ([`NoStopping`]): nuclear loss only. For
     /// like-for-like transport comparisons against codes run with electronic
     /// stopping off, and for nuclear-only studies; not a realistic setting.
@@ -265,6 +489,31 @@ pub enum FreePathChoice {
     Constant,
     /// [`MeanFreePath::EnergyDependent`]; needs `min_cm_angle_deg`.
     EnergyDependent,
+}
+
+/// Electronic energy-loss straggling of the BCA's nonlocal loss.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum StragglingChoice {
+    /// No straggling: every free flight loses exactly the mean electronic
+    /// loss, and the engine draws nothing for it.
+    #[default]
+    None,
+    /// Bohr's (1948) variance, non-relativistic. Valid at high energy,
+    /// `v >> v0 Z1^(2/3)`; an overestimate below about 1 MeV/u
+    /// ([`crate::ion::stopping::straggling`]).
+    Bohr,
+    /// Bohr's variance with the relativistic factor
+    /// `(1 - beta^2/2) / (1 - beta^2)` (Bethe and Livingston 1937; Fano 1963).
+    BohrRelativistic,
+}
+
+impl StragglingChoice {
+    /// The default `None`: the echoed input omits the key, so a run with the
+    /// default echoes exactly as before the option existed.
+    pub fn is_none(&self) -> bool {
+        matches!(self, StragglingChoice::None)
+    }
 }
 
 /// Per-element energy overrides, eV.
@@ -308,6 +557,15 @@ pub struct PhysicsSpec {
     /// required with `free_path = "energy-dependent"`, rejected otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub min_cm_angle_deg: Option<f64>,
+    /// Electronic energy-loss straggling of the nonlocal loss. Default
+    /// `"none"`: every free flight loses the mean electronic loss and no
+    /// random draw is made. `"bohr"` (or `"bohr-relativistic"`) draws the
+    /// fluctuation of the accumulated loss once per path segment, from a
+    /// Gaussian with the Bohr variance accumulated over that segment
+    /// ([`crate::ion::stopping::straggling`]); the draw is clamped so a
+    /// history never gains energy (see there for the closing criterion).
+    #[serde(default, skip_serializing_if = "StragglingChoice::is_none")]
+    pub straggling: StragglingChoice,
     /// Weak collisions per collision step, `0..=3`
     /// ([`crate::ion::bca::BcaConfig::weak_collisions`]); constant free path
     /// only. Default 0.

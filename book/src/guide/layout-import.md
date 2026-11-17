@@ -1,4 +1,4 @@
-# Layout cross-section import (finding)
+# Layout cross-section import
 
 **Status: blocked upstream.** No import code exists. This page records what
 the pinned layout tool offers, so the next step is a precise upstream request

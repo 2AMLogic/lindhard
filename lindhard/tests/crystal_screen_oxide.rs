@@ -32,7 +32,6 @@ use lindhard::ion::bca::{
     Thermal,
 };
 use lindhard::ion::crystal::debye::THETA_D_SI;
-use lindhard::ion::crystal::{Lattice, Orientation};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
 use serde::Serialize;
@@ -48,20 +47,12 @@ const TEMPERATURE_K: f64 = 300.0;
 mod common;
 use common::si;
 use common::sio2;
+use common::with_threads;
 use common::zbl_si_table as table;
 
+/// [`common::crystal_si`] with the [`TEMPERATURE_K`] Debye vibration.
 fn crystal_si(tilt_deg: f64, twist_deg: f64) -> CrystalTarget {
-    let lat = Lattice::silicon();
-    let o = Orientation::new(
-        &lat,
-        [1, 0, 0],
-        [0, 1, 0],
-        tilt_deg.to_radians(),
-        twist_deg.to_radians(),
-        0.0,
-    )
-    .unwrap();
-    CrystalTarget::new(lat, o).with_thermal(Thermal::new(TEMPERATURE_K, THETA_D_SI))
+    common::crystal_si(tilt_deg, twist_deg).with_thermal(Thermal::new(TEMPERATURE_K, THETA_D_SI))
 }
 
 /// Per-history substrate-entry bookkeeping and sums, merged in chunk order.
@@ -422,11 +413,7 @@ fn run(r: &Run, tail_m: &[f64], threads: Option<usize>) -> (OxideTally, serde_js
     };
     let tally = match threads {
         None => go(),
-        Some(n) => rayon::ThreadPoolBuilder::new()
-            .num_threads(n)
-            .build()
-            .unwrap()
-            .install(go),
+        Some(n) => with_threads(n, go),
     };
     (tally, meta)
 }

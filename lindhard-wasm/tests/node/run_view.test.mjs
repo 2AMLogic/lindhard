@@ -7,7 +7,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   INTERACTIVE_MAX_IONS, RECORDED_HISTORIES, anyTruncated, dashFor, deriveCounters,
-  energyPartition, layerSpans, segmentBounds, speciesLabels, trajectorySegments, vacanciesPerIon,
+  boxBounds, boxEdges, clampPitch, orbitProjector, ORBIT_HOME,
+  energyPartition, layerSpans, roundToError, segmentBounds, speciesLabels, trajectorySegments, vacanciesPerIon,
 } from "../../web/run_view.js";
 
 const m = (mean, sd) => ({ n: 100, mean, std_dev: sd, skewness: 0, kurtosis: 3, mean_std_err: sd / 10, std_dev_std_err: sd / 14 });
@@ -33,6 +34,22 @@ test("energy partition adds up to the incident energy", () => {
   assert.ok(Math.abs(p.ionization + p.nuclear + p.escaped + p.other - 1) < 1e-12);
   assert.equal(energyPartition({ incident: 0 }), null);
   assert.equal(energyPartition(undefined), null);
+});
+
+test("quick mode splits unfollowed-recoil energy out and both modes sum to 100 %", () => {
+  const q = energyPartition(report.budget, false);
+  assert.ok(Math.abs(q.recoilsNotFollowed - 0.057) < 1e-12);
+  assert.ok(Math.abs(q.other - 0.001) < 1e-12);
+  const sum = (p) => p.ionization + p.nuclear + p.escaped + p.other + (p.recoilsNotFollowed ?? 0);
+  assert.ok(Math.abs(sum(q) - 1) < 1e-9);
+  const f = energyPartition(report.budget, true);
+  assert.equal(f.recoilsNotFollowed, null);
+  assert.ok(Math.abs(f.other - 0.058) < 1e-12);
+  assert.ok(Math.abs(sum(f) - 1) < 1e-9);
+  const z = energyPartition({ ...report.budget, rest: 0, surface_barrier: 0, lattice: 3080 }, true);
+  assert.ok(Math.abs(sum(z) - 1) < 1e-9);
+  assert.equal(deriveCounters(report, { done: 1, total: 1, followRecoils: false }).partition.recoilsNotFollowed, 0.057);
+  assert.equal(deriveCounters({ ...report, budget: null }, { done: 1, total: 1, followRecoils: false }).partition, null);
 });
 
 test("vacancies per ion use the cascade in full mode and NRT in quick mode", () => {
@@ -124,6 +141,40 @@ test("bounds: depth starts at the surface and lateral is symmetric", () => {
   assert.ok(empty.u1 > empty.u0 && empty.v1 > empty.v0);
 });
 
+test("empty bounds with a plot aspect are 1:1 at every aspect", () => {
+  for (const aspect of [0.5, 1, 2]) {
+    const b = segmentBounds([], "side", aspect);
+    assert.equal(b.lateralScale, 1);
+    assert.ok(Math.abs((b.u1 - b.u0) / (b.v1 - b.v0) - aspect) < 1e-12, `aspect ${aspect}`);
+  }
+  for (const a of [undefined, NaN, 0]) {
+    const b = segmentBounds([], "side", a);
+    assert.equal(b.v1, 5e-9);
+  }
+});
+
+test("bounds with a plot aspect are 1:1, or report the lateral scale", () => {
+  const aspect = 3.6;
+  const e = segmentBounds(trajectorySegments([hist()], { view: "end" }), "end", aspect);
+  assert.ok(Math.abs((e.u1 - e.u0) / (e.v1 - e.v0) - aspect) < 1e-9);
+  assert.equal(e.lateralScale, 1);
+  // A narrow cascade fits: equal metres per pixel on both axes.
+  const narrow = [{ a: [0, 0], b: [1e-7, 1e-9], species: 0, generation: 0 }];
+  const s = segmentBounds(narrow, "side", aspect);
+  assert.ok(Math.abs((s.u1 - s.u0) / (s.v1 - s.v0) - aspect) < 1e-9);
+  assert.equal(s.lateralScale, 1);
+  // A wide one does not: the lateral range holds it and the factor is reported.
+  const wide = [{ a: [0, 0], b: [1e-8, 4e-8], species: 0, generation: 0 }];
+  const w = segmentBounds(wide, "side", aspect);
+  assert.ok(w.v1 >= 4e-8 && w.lateralScale < 1);
+  assert.ok(Math.abs(w.lateralScale - ((w.u1 - w.u0) / aspect / 2) / w.v1) < 1e-12);
+});
+
+test("hidden species leave no segments", () => {
+  assert.equal(trajectorySegments([hist()], { hidden: new Set([0]) }).filter((s) => s.species === 0).length, 0);
+  assert.equal(trajectorySegments([hist()], { hidden: new Set() }).length, 3);
+});
+
 test("generations get different dash patterns (a non-colour cue)", () => {
   assert.notDeepEqual(dashFor(0), dashFor(1));
   assert.notDeepEqual(dashFor(1), dashFor(2));
@@ -136,4 +187,80 @@ test("truncation flag and species labels", () => {
   const names = { 5: "B", 14: "Si" };
   assert.deepEqual(speciesLabels(report, (z) => names[z]), ["B (beam)", "Si"]);
   assert.deepEqual(speciesLabels(report, () => undefined), ["Z=5 (beam)", "Z=14"]);
+});
+
+test("a value and its error share a decimal place, the error to two figures", () => {
+  assert.deepEqual(roundToError(46.38, 0.999), { value: "46.4", err: "1.0" });
+  assert.deepEqual(roundToError(46.38, 0.131), { value: "46.38", err: "0.13" });
+  assert.deepEqual(roundToError(56789.4, 1234), { value: "56800", err: "1200" });
+  assert.deepEqual(roundToError(100, 0.1234), { value: "100.00", err: "0.12" });
+  assert.deepEqual(roundToError(5, 0), { value: "5", err: "0" });
+  assert.deepEqual(roundToError(3, null), { value: "3", err: null });
+  assert.deepEqual(roundToError(NaN, 1), { value: "–", err: null });
+});
+
+test("3D segments keep all three coordinates", () => {
+  const segs = trajectorySegments([hist()], { view: "3d" });
+  assert.equal(segs.length, 3);
+  assert.deepEqual(segs[0].b, [1e-9, 2e-10, -1e-10]);
+  assert.equal(trajectorySegments([hist()], { view: "3d", cascades: false }).length, 2);
+});
+
+test("3D box: starts at the surface, holds every point, same half-width for y and z", () => {
+  const segs = trajectorySegments([hist()], { view: "3d" });
+  const b = boxBounds(segs);
+  assert.equal(b.x0, 0);
+  assert.ok(b.x1 >= 3e-9);
+  assert.ok(b.w >= 5e-10);
+  const back = boxBounds([{ a: [-2e-9, 0, 0], b: [1e-9, 0, 4e-9] }]);
+  assert.equal(back.x0, -2e-9);
+  assert.ok(back.w >= 4e-9);
+  const empty = boxBounds([]);
+  assert.ok(empty.x1 > empty.x0 && empty.w > 0);
+  assert.equal(boxEdges(b).length, 12);
+  assert.deepEqual(boxEdges(b).map((e) => e.axis).sort(), [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2]);
+});
+
+test("3D projector at yaw 0, pitch 0 is a side view: depth right, z up, y away", () => {
+  const box = { x0: 0, x1: 100e-9, w: 30e-9 };
+  const p = orbitProjector({ yaw: 0, pitch: 0 }, box, 800, 400);
+  const [cx, cy, away0] = p.project([50e-9, 0, 0]);
+  assert.deepEqual([cx, cy, away0], [400, 200, 0]);
+  assert.ok(p.project([60e-9, 0, 0])[0] > cx);
+  assert.ok(p.project([50e-9, 0, 10e-9])[1] < cy);
+  assert.ok(p.project([50e-9, 10e-9, 0])[2] > 0);
+  assert.equal(p.project([50e-9, 10e-9, 0])[0], cx);
+});
+
+test("3D projector: one scale on every axis, and the box stays in the plot area at any angle", () => {
+  const box = { x0: -5e-9, x1: 100e-9, w: 30e-9 };
+  const centre = [(box.x0 + box.x1) / 2, 0, 0];
+  for (const yaw of [-3, -0.55, 0, 0.7, 1.6, 2.9]) for (const pitch of [-Math.PI / 2, -0.4, 0, 0.3, 1.2, Math.PI / 2]) {
+    const p = orbitProjector({ yaw, pitch }, box, 800, 400);
+    const o = p.project(centre);
+    for (let axis = 0; axis < 3; axis++) {
+      const q = [...centre];
+      q[axis] += 1e-9;
+      const r = p.project(q);
+      // A 1 nm step is `scale` nm-pixels long in screen-plus-depth space: no axis is stretched.
+      const len = Math.hypot(r[0] - o[0], r[1] - o[1], (r[2] - o[2]) * p.scale);
+      assert.ok(Math.abs(len - p.scale * 1e-9) < 1e-9 * p.scale * 1e-9 + 1e-9);
+    }
+    for (const e of boxEdges(box)) for (const corner of [e.a, e.b]) {
+      const [x, y] = p.project(corner);
+      assert.ok(x > -1e-6 && x < 800 + 1e-6 && y > -1e-6 && y < 400 + 1e-6, `corner off the plot at yaw ${yaw}, pitch ${pitch}`);
+    }
+  }
+  // The scale does not depend on the yaw.
+  assert.equal(orbitProjector({ yaw: 0.3, pitch: 0.3 }, box, 800, 400).scale, orbitProjector({ yaw: 2, pitch: 0.3 }, box, 800, 400).scale);
+});
+
+test("3D projector: a positive pitch looks down from above, and the pitch is clamped", () => {
+  const box = { x0: 0, x1: 100e-9, w: 30e-9 };
+  const p = orbitProjector({ yaw: 0, pitch: 0.5 }, box, 800, 400);
+  // The near side (y < 0) is lower on the screen than the far side.
+  assert.ok(p.project([50e-9, -30e-9, 0])[1] > p.project([50e-9, 30e-9, 0])[1]);
+  assert.equal(clampPitch(5), Math.PI / 2);
+  assert.equal(clampPitch(-5), -Math.PI / 2);
+  assert.equal(clampPitch(ORBIT_HOME.pitch), ORBIT_HOME.pitch);
 });

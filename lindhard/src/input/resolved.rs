@@ -1,16 +1,19 @@
 //! The resolved run: [`Resolved`], its parts and the shared material resolver.
 
 use crate::elements::element_by_symbol;
-use crate::geometry::Stack;
-use crate::ion::bca::{BcaConfig, Beam, CrystalTarget, MeanFreePath};
-use crate::ion::potential::{Screening, ScreeningLength};
-use crate::ion::scattering::TableSpec;
+use crate::geometry::{CsgGeometry, Geometry, Stack};
+use crate::ion::bca::{Bca, BcaConfig, BcaError, Beam, CrystalTarget, MeanFreePath};
+use crate::ion::potential::{Potential, Screening, ScreeningLength};
+use crate::ion::scattering::{ScatteringTable, TableSpec};
 use crate::ion::stopping::bethe::BetheBloch;
 use crate::ion::stopping::lindhard_scharff::LindhardScharff;
 use crate::ion::stopping::none::NoStopping;
+use crate::ion::stopping::srim::SrimStopping;
+use crate::ion::stopping::straggling::StragglingModel;
 use crate::ion::stopping::table::TableOverride;
 use crate::ion::stopping::ElectronicStopping;
 use crate::material::{Material, MaterialSpec};
+use crate::tally::{Binning, BinningError, IonTallyConfig};
 use serde::Serialize;
 use std::borrow::Cow;
 use std::collections::BTreeMap;
@@ -59,9 +62,14 @@ pub struct Resolved {
     /// Beam divergence about the nominal direction ([`crate::ion::crystal::Divergence::None`]
     /// without `[beam.divergence]`).
     pub divergence: crate::ion::crystal::Divergence,
-    /// The target.
-    pub stack: Stack,
-    /// Layers in stack order, with where each material came from.
+    /// Primary-energy spectrum from `[beam] spectrum` (`None` without it;
+    /// then every primary has `beam.energy_ev`). With a spectrum,
+    /// `beam.energy_ev` is the largest line.
+    pub spectrum: Option<crate::ion::bca::EnergySpectrum>,
+    /// The target: a layer stack or CSG solids.
+    pub target: Target,
+    /// Regions in region order — the stack's layers, or the CSG solids —
+    /// with where each material came from.
     pub layers: Vec<ResolvedLayer>,
     /// Engine configuration (including the seed).
     pub config: BcaConfig,
@@ -73,12 +81,46 @@ pub struct Resolved {
     pub table_spec: TableSpec,
     /// User stopping tables, in input order (empty without `[stopping]`).
     pub stopping_tables: Vec<LoadedStoppingTable>,
+    /// The SRIM coefficient file, when `physics.stopping = "srim"`.
+    pub srim: Option<LoadedSrimData>,
     /// Crystal assignments, in input order (empty: amorphous run).
     pub crystals: Vec<ResolvedCrystal>,
     /// Non-fatal advice (e.g. beam energy outside a model's validity range).
     pub warnings: Vec<String>,
     /// The tuning applied, if `[physics] tuning` named a set.
     pub tuning: Option<TuningReport>,
+}
+
+/// The resolved target: the geometry the engine transports through.
+#[derive(Debug, Clone)]
+pub enum Target {
+    /// A laterally uniform layer stack (`[[target.layers]]` /
+    /// `target.substrate`), semi-infinite in depth with a substrate.
+    Stack(Stack),
+    /// Constructive solid geometry (`[[target.solids]]`): one region per
+    /// top-level solid, in listing order; the first listed owns overlaps.
+    Csg(CsgGeometry),
+}
+
+impl Target {
+    /// The engine-facing [`Geometry`]. This is what [`Bca::new`](crate::ion::bca::Bca::new)
+    /// and [`IonTally::new`](crate::tally::IonTally::new) take.
+    pub fn geometry(&self) -> &dyn Geometry {
+        match self {
+            Self::Stack(s) => s,
+            Self::Csg(g) => g,
+        }
+    }
+
+    /// The layer stack, when the target is one. `None` for a
+    /// `[[target.solids]]` target: paths that need layers (the `[dynamic]`
+    /// composition loop) use this and reject the rest.
+    pub fn stack(&self) -> Option<&Stack> {
+        match self {
+            Self::Stack(s) => Some(s),
+            Self::Csg(_) => None,
+        }
+    }
 }
 
 /// Scattering-table grid used for every run: `per_decade` points per decade
@@ -154,8 +196,22 @@ pub fn resolve_material(
 /// is returned so the validity range can still be checked. For
 /// [`StoppingChoice::None`] it is [`NoStopping`], whose validity range is
 /// unbounded, so no out-of-range warning is raised.
+///
+/// For [`StoppingChoice::Srim`] this has no data and every query is an error;
+/// use [`stopping_model_with`] (or [`Resolved::stopping_model`]) to supply the
+/// loaded coefficients.
 pub fn stopping_model(choice: StoppingChoice) -> Box<dyn ElectronicStopping + Send + Sync> {
+    stopping_model_with(choice, None)
+}
+
+/// Like [`stopping_model`], with the SRIM coefficients for
+/// [`StoppingChoice::Srim`] (ignored for every other choice).
+pub fn stopping_model_with(
+    choice: StoppingChoice,
+    srim: Option<&SrimStopping>,
+) -> Box<dyn ElectronicStopping + Send + Sync> {
     match choice {
+        StoppingChoice::Srim => Box::new(srim.cloned().unwrap_or_default()),
         StoppingChoice::LindhardScharff | StoppingChoice::EquipartitionLsOr => {
             Box::new(LindhardScharff::new())
         }
@@ -165,11 +221,26 @@ pub fn stopping_model(choice: StoppingChoice) -> Box<dyn ElectronicStopping + Se
 }
 
 impl Resolved {
+    /// The engine-facing target geometry: what [`Bca::new`](crate::ion::bca::Bca::new)
+    /// and [`IonTally::new`](crate::tally::IonTally::new) take.
+    pub fn geometry(&self) -> &dyn Geometry {
+        self.target.geometry()
+    }
+
+    /// The layer stack, when the target is one. `None` for a
+    /// `[[target.solids]]` target.
+    pub fn stack(&self) -> Option<&Stack> {
+        self.target.stack()
+    }
+
     /// The electronic stopping model of the run: the `[physics] stopping`
     /// choice, with any `[stopping]` tables layered over it for the pairs
     /// they declare. This is what to pass to the engine.
     pub fn stopping_model(&self) -> Box<dyn ElectronicStopping + Send + Sync> {
-        let base = stopping_model(self.input.physics.stopping);
+        let base = stopping_model_with(
+            self.input.physics.stopping,
+            self.srim.as_ref().map(|s| &s.model),
+        );
         if self.stopping_tables.is_empty() {
             base
         } else {
@@ -181,6 +252,86 @@ impl Resolved {
                 base,
             ))
         }
+    }
+
+    /// The scattering table of the run: the `[physics]` screening function
+    /// tabulated on [`Resolved::table_spec`] with the resolved screening
+    /// length. This is what to pass to the engine.
+    ///
+    /// The table is in reduced variables, so it depends on the screening
+    /// function and the screening length only; the `Z` pair of the
+    /// [`Potential`] is immaterial and is taken from the beam and the first
+    /// component of the first layer.
+    pub fn scattering_table(&self) -> ScatteringTable {
+        let z2 = self.layers[0].material.components()[0].z();
+        let pot = Potential::new(self.screening, f64::from(self.beam.ion.z()), f64::from(z2))
+            .with_length(self.screening_length);
+        ScatteringTable::build(&pot, &self.table_spec)
+    }
+
+    /// The ion tally's geometry for the run, from `[tally]`. Depth uses the
+    /// `depth_bin_nm`/`depth_bins` grid from zero; lateral and radial use
+    /// `lateral_bin_nm`/`lateral_bins` as documented in `docs/cli.md`; escape
+    /// energies run from 0 to `escape_energy_max_ev` (default: the beam
+    /// energy) and polar angles from 0 to 90 degrees.
+    pub fn ion_tally_config(&self) -> Result<IonTallyConfig, BinningError> {
+        let t = &self.input.tally;
+        let nm = 1e-9;
+        let depth_w = t.depth_bin_nm * nm;
+        let lat_half = t.lateral_bins as f64 * t.lateral_bin_nm * nm;
+        let e_max = t.escape_energy_max_ev.unwrap_or(self.beam.energy_ev);
+        let b = |lo: f64, hi: f64, n: usize| Binning::new(lo, hi, n);
+        Ok(IonTallyConfig {
+            depth: b(0.0, depth_w * t.depth_bins as f64, t.depth_bins)?,
+            lateral: b(-lat_half, lat_half, 2 * t.lateral_bins)?,
+            radial: b(0.0, lat_half, t.lateral_bins)?,
+            escape_energy: b(0.0, e_max, t.escape_energy_bins)?,
+            escape_polar: b(0.0, std::f64::consts::FRAC_PI_2, t.escape_polar_bins)?,
+        })
+    }
+
+    /// The transport engine for the run, borrowing `stopping` and `table`
+    /// (from [`Resolved::stopping_model`] and [`Resolved::scattering_table`]).
+    ///
+    /// Everything the input configures is applied: the beam divergence
+    /// (`[beam.divergence]`), the primary-energy spectrum (`[beam] spectrum`)
+    /// and every `[[crystal]]` assignment. Front ends call this instead of
+    /// assembling the engine themselves, so a new engine option reaches all of
+    /// them at once rather than only the front end that added it.
+    ///
+    /// [`Bca`] borrows the target, the stopping model and the table, so a
+    /// front end that rebuilds the engine for each chunk calls this again
+    /// instead of storing it next to the data it borrows; building it is cheap
+    /// next to the transport.
+    pub fn bca<'a>(
+        &'a self,
+        stopping: &'a (dyn ElectronicStopping + Sync),
+        table: &'a ScatteringTable,
+    ) -> Result<Bca<'a>, BcaError> {
+        let mut bca = Bca::new(
+            self.beam,
+            self.target.geometry(),
+            self.config,
+            stopping,
+            table,
+        )?
+        .with_divergence(self.divergence)?;
+        if let Some(sp) = &self.spectrum {
+            bca = bca.with_spectrum(sp.clone());
+        }
+        for (i, c) in self.crystals.iter().enumerate() {
+            // Name the assignment that failed: `with_crystal` reports every
+            // failure as `InvalidConfig` without saying which crystal it was.
+            bca = bca
+                .with_crystal(c.target.clone(), &c.regions)
+                .map_err(|e| match e {
+                    BcaError::InvalidConfig(m) => {
+                        BcaError::InvalidConfig(format!("crystal[{i}]: {m}"))
+                    }
+                    other => other,
+                })?;
+        }
+        Ok(bca)
     }
 
     /// Every model in use, with its published source, in a fixed order.
@@ -299,6 +450,21 @@ impl Resolved {
                     ),
                 },
             ],
+            StoppingChoice::Srim => vec![ModelInfo {
+                role: "electronic stopping",
+                name: "srim",
+                citation: Cow::Owned(match &self.srim {
+                    Some(s) => format!(
+                        "SRIM-data-sourced (consistency with SRIM, not independent \
+                         validation): five-coefficient fit of H. H. Andersen and J. F. Ziegler \
+                         (1977) / J. F. Ziegler, J. P. Biersack, U. Littmark (1985) ch. 3; \
+                         coefficients from {}: {}",
+                        s.file.path,
+                        s.model.citations().join("; ")
+                    ),
+                    None => "SRIM-data-sourced (no coefficient file loaded)".to_string(),
+                }),
+            }],
             StoppingChoice::None => vec![ModelInfo {
                 role: "electronic stopping",
                 name: "none",
@@ -314,7 +480,7 @@ impl Resolved {
             v.push(ModelInfo {
                 role: "electronic stopping (user table)",
                 name: "user-table",
-                citation: Cow::Owned(format!("{}: {}", l.path, l.table.provenance())),
+                citation: Cow::Owned(format!("{}: {}", l.file.path, l.table.provenance())),
             });
         }
         // With no electronic stopping and no tables there is nothing to add up.
@@ -324,6 +490,21 @@ impl Resolved {
                 name: "bragg-additivity",
                 citation: Cow::Borrowed(
                     "W. H. Bragg and R. Kleeman, Phil. Mag. 10 (1905) 318; no compound correction",
+                ),
+            });
+        }
+        // Only when straggling is on: a default run's model list is unchanged.
+        if let Some(model) = self.config.straggling {
+            v.push(ModelInfo {
+                role: "energy-loss straggling",
+                name: match model {
+                    StragglingModel::Bohr => "bohr",
+                    StragglingModel::BohrRelativistic => "bohr-relativistic",
+                },
+                citation: Cow::Borrowed(
+                    "N. Bohr, Mat. Fys. Medd. Dan. Vid. Selsk. 18 (8) (1948); \
+                       relativistic factor: H. A. Bethe and M. S. Livingston, \
+                       Rev. Mod. Phys. 9, 245 (1937); U. Fano, Ann. Rev. Nucl. Sci. 13, 1 (1963)",
                 ),
             });
         }

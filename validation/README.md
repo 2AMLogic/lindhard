@@ -19,6 +19,8 @@ validation/run.sh [--experiments] [--oracles]
 | `experiments/backscatter.py`, `experiments/backscatter/` | 3 | Electron backscatter coefficient vs measurements (#148): checks `data/backscatter/`, runs the committed `[electron]` inputs at 1 to 30 keV and the elastic-correction sensitivity; writes `experiments/backscatter_results.json` (`run.sh --backscatter`) |
 | `experiments/se_yield.py` | 3 | Secondary-electron yield δ(E) of Al, Cu, Si and Au against the measured sets of `data/se_yield/` (#149): checks them, runs `lindhard` electron runs (DHFS elastic potential), writes `experiments/se_yield_results.json`, evaluates the initial bounds (`--check`) and prints the tables spliced into `docs/validation.md` |
 | `lib/lindhard_cli.py` | 2, 3 | Builds and drives the `lindhard` command |
+| `lib/oracle.py` | 2 | The oracle-harness scaffolding both level-2 runners share: the `Oracle` base (binary resolution, the one `<PREFIX>_BIN`/`_SRC`/`_VERSION`/`_COMMIT`/`_BUILD` convention, version and commit), `NotConfigured`, `git_output` and the summary float rounding |
+| `lib/dataset_checks.py` | 3 | The dataset rules every level-3 experiment shares (required text, `id` matches the file name, a row in `docs/data-provenance.md`) and the loop that applies them |
 | `update_docs.py` | all | Splices the tables into `docs/validation.md` between marker comments |
 | `check_manual_coverage.py` | docs | Fails if a variant of a model-selecting enum is not named in the physics manual (`book/src/models/`); run in CI |
 | `book_walkthrough.py` | docs | Runs `examples/b_5keV_si.toml` once and writes (or with `--check`, compares) the output excerpts the user guide quotes; run in CI |
@@ -29,17 +31,22 @@ the harness never runs them.
 
 ## Unit tests
 
-Four stdlib `unittest` files guard the harness itself (level-3 provenance
-enforcement, secondary-electron yield evaluation, and electron table-coverage
-summing, and the ion-run resume manifest). They need no build, simulation or third-party package and run in
-under a second. CI runs them in the `validation-docs` job, and
-`validation/run.sh` runs them first:
+Stdlib `unittest` files guard the harness itself (level-3 provenance
+enforcement and the shared dataset rules, secondary-electron yield evaluation,
+electron table-coverage summing and oracle identity, the ion-run resume
+manifest, and the oracle scaffolding both level-2 runners share). They need no
+build, simulation or third-party package and run in under a second. CI runs
+them in the `validation-docs` job, and `validation/run.sh` runs them first:
 
 ```sh
 python3 validation/experiments/test_run.py
 python3 validation/experiments/test_se_yield.py
+python3 validation/experiments/test_se_yield_candidates.py
+python3 validation/experiments/test_backscatter.py
 python3 validation/oracles/test_run_electron.py
 python3 validation/lib/test_lindhard_cli.py
+python3 validation/lib/test_dataset_checks.py
+python3 validation/lib/test_oracle.py
 ```
 
 ## Resuming a sweep
@@ -72,16 +79,19 @@ From [`CONTRIBUTING.md`](../CONTRIBUTING.md):
 - Oracles are run **unmodified**, installed by the user, and never vendored.
   Adapters write an oracle's input from its *published documentation* (paper,
   manual), never from its source code or its example inputs and test
-  fixtures. RustBCA is GPL (Tier B); OpenTRIM is MIT (Tier A), but its
-  SRIM-2013 stopping tables are Tier C and are neither used for matched runs
-  nor copied.
+  fixtures. RustBCA is GPL (Tier B); OpenTRIM is MIT (Tier A). Its SRIM-2013
+  stopping tables are SRIM data: not used for matched runs today, and
+  admissible as data with provenance.
 - Raw oracle output, and the input files written for an oracle, stay in
   `oracle-runs/`. Commit only scalar summary metrics, with the oracle's name,
   version and upstream commit. Install oracles outside this tree.
-- No SRIM/TRIM output committed anywhere, including as reference data. SRIM
-  is a full comparison reference: run it locally, or compare against the
-  printed tables of the SRIM book (2008 edition), with the numbers kept in
-  `oracle-runs/`. Its output never becomes a fixture, and nothing of ours is
-  tuned or fitted to it (CONTRIBUTING.md, "Reference, never input").
+- SRIM/TRIM output and the SRIM book's printed tables are data
+  (CONTRIBUTING.md, Tier C and "Data"). Raw runs stay in `oracle-runs/` by
+  default and summary metrics are committed; output wanted as a fixture or a
+  selectable table is committed as a dataset with a provenance row naming the
+  SRIM version or the book's edition and page. A comparison against data from
+  the same code is a consistency check, not independent validation, and a
+  model tuned to it is a named calibration (CONTRIBUTING.md, "Label what came
+  from where").
 - Every experimental dataset is cited to its paper and has a row in
   [`docs/data-provenance.md`](../docs/data-provenance.md).

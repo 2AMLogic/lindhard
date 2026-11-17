@@ -21,6 +21,7 @@ use lindhard::tally::{Binning, ElectronTallyConfig, FullElectronTally};
 
 mod common;
 use common::bare_si;
+use common::with_threads;
 
 const GRID: [f64; 5] = [0.01, 1.0, 10.0, 100.0, 10_000.0];
 
@@ -416,15 +417,11 @@ fn mixed(channels: bool) -> Transport {
 
 fn mixed_run(threads: usize, channels: bool) -> SummaryTally {
     let t = mixed(channels);
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
     let primary = Primary {
         energy_ev: 60.0,
         direction: [1.0, 0.2, 0.0],
     };
-    pool.install(|| {
+    with_threads(threads, || {
         t.run(0xC0DE, 800, 9, &primary, SummaryTally::default)
             .unwrap()
             .tally
@@ -516,11 +513,7 @@ fn channel_report(threads: usize, channels: bool) -> lindhard::tally::ElectronRe
         energy_ev: 60.0,
         direction: [1.0, 0.2, 0.0],
     };
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    pool.install(|| {
+    with_threads(threads, || {
         t.run(0xC0DE, 800, 9, &primary, || proto.clone())
             .unwrap()
             .tally

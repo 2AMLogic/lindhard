@@ -80,8 +80,8 @@
 //!
 //! Units: energies in eV, lengths in metres.
 
-use crate::electron::transport::{disc_offset, finite_positive, gaussian_offset};
-use crate::rng::{stream, uniform};
+use crate::electron::beam::{beam_serde_module, BeamProfile, BeamSpread};
+use crate::rng::stream;
 use serde::{Deserialize, Serialize};
 
 /// Largest `bins * k_max * bins` multiply-add count the convolution is
@@ -100,52 +100,39 @@ fn invalid<T>(msg: impl Into<String>) -> Result<T, ExposureError> {
     Err(ExposureError::Invalid(msg.into()))
 }
 
-/// Lateral profile of the beam.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-#[serde(tag = "kind", rename_all = "kebab-case")]
-pub enum BeamProfile {
-    /// All electrons land on the axis.
-    Point,
-    /// Landing offset Gaussian with standard deviation `sigma_m` per axis.
-    Gaussian {
-        /// Standard deviation per lateral axis, m.
-        sigma_m: f64,
-    },
-    /// Landing offset uniform on a disc.
-    UniformDisc {
-        /// Disc radius, m.
-        radius_m: f64,
-    },
+/// The landing offset `(y, z)` of history `index`, drawn from
+/// `rng::stream(seed, index)`: the shared [`BeamSpread::sample_position`]
+/// law on a stream of the exposure's own, so the draws (two for a Gaussian,
+/// disc or rectangle, none for a point) do not depend on the transport's
+/// history RNG.
+pub(crate) fn beam_offset(profile: BeamProfile, seed: u64, index: u64) -> [f64; 2] {
+    let beam = BeamSpread {
+        profile,
+        ..BeamSpread::default()
+    };
+    beam.sample_position(&mut stream(seed, index))
 }
 
-impl BeamProfile {
-    /// The landing offset `(y, z)` of history `index`, drawn from
-    /// `rng::stream(seed, index)`.
-    pub fn offset(&self, seed: u64, index: u64) -> [f64; 2] {
-        match *self {
-            BeamProfile::Point => [0.0, 0.0],
-            BeamProfile::Gaussian { sigma_m } => {
-                let mut rng = stream(seed, index);
-                let (u1, u2) = (uniform(&mut rng), uniform(&mut rng));
-                gaussian_offset(sigma_m, u1, u2)
-            }
-            BeamProfile::UniformDisc { radius_m } => {
-                let mut rng = stream(seed, index);
-                let (u1, u2) = (uniform(&mut rng), uniform(&mut rng));
-                disc_offset(radius_m, u1, u2)
-            }
-        }
+fn validate_beam(profile: BeamProfile) -> Result<(), ExposureError> {
+    BeamSpread {
+        profile,
+        ..BeamSpread::default()
     }
-
-    fn validate(&self) -> Result<(), ExposureError> {
-        match *self {
-            BeamProfile::Point => Ok(()),
-            BeamProfile::Gaussian { sigma_m } if finite_positive(sigma_m) => Ok(()),
-            BeamProfile::UniformDisc { radius_m } if finite_positive(radius_m) => Ok(()),
-            _ => invalid("beam sigma or radius must be positive and finite"),
-        }
-    }
+    .validate()
+    .or_else(|_| invalid("beam sizes must be positive and finite"))
 }
+
+// Serde of the exposure beam, shared with the input schema's
+// `BeamProfileSpec`: read under either tag, written under the historical
+// `kind` / `uniform-disc` one, so reports are unchanged.
+beam_serde_module!(
+    beam_serde,
+    BeamProfile,
+    sigma_m,
+    radius_m,
+    width_y_m,
+    width_z_m
+);
 
 /// Lateral shape of a target volume, centred on the volume's offset.
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -231,6 +218,7 @@ pub struct ExposureConfig {
     /// The volumes (a neighbour is simply another volume at its offset).
     pub volumes: Vec<ExposureVolume>,
     /// Beam profile.
+    #[serde(with = "beam_serde")]
     pub beam: BeamProfile,
     /// Seed of the landing-offset stream (independent of the transport's).
     pub seed: u64,
@@ -259,7 +247,7 @@ impl ExposureConfig {
         for v in &self.volumes {
             v.validate()?;
         }
-        self.beam.validate()?;
+        validate_beam(self.beam)?;
         if self.bins == 0 || !(self.x_max_ev.is_finite() && self.x_max_ev > 0.0) {
             return invalid("bins must be at least 1 and x_max_ev positive");
         }
@@ -752,7 +740,7 @@ impl ExposureAccumulator {
     /// Starts history `index` of a primary starting at lateral position
     /// `start_yz` (m).
     pub fn begin_history(&mut self, index: u64, start_yz: [f64; 2]) {
-        self.shift = self.config.beam.offset(self.config.seed, index);
+        self.shift = beam_offset(self.config.beam, self.config.seed, index);
         self.origin = start_yz;
         self.scratch.iter_mut().for_each(|s| *s = 0.0);
     }
@@ -861,6 +849,7 @@ pub struct ExposureReport {
     /// Mean number of incident electrons.
     pub lambda: f64,
     /// Beam profile the landing offsets were drawn from.
+    #[serde(with = "beam_serde")]
     pub beam: BeamProfile,
     /// Per volume, in configuration order.
     pub volumes: Vec<ExposureVolumeReport>,
@@ -1020,12 +1009,72 @@ mod tests {
 
     #[test]
     fn beam_offsets_are_deterministic_and_on_the_disc() {
-        let b = BeamProfile::UniformDisc { radius_m: 2.0 };
-        assert_eq!(b.offset(5, 9), b.offset(5, 9));
+        let b = BeamProfile::Disc { radius_m: 2.0 };
+        assert_eq!(beam_offset(b, 5, 9), beam_offset(b, 5, 9));
         for i in 0..200 {
-            let [y, z] = b.offset(5, i);
+            let [y, z] = beam_offset(b, 5, i);
             assert!(y.hypot(z) <= 2.0);
         }
-        assert_eq!(BeamProfile::Point.offset(1, 1), [0.0, 0.0]);
+        assert_eq!(beam_offset(BeamProfile::Point, 1, 1), [0.0, 0.0]);
+    }
+
+    /// Offsets pinned (as bit patterns) from the implementation that
+    /// preceded the shared `BeamProfile`: exposure outputs must not change.
+    #[test]
+    fn beam_offsets_match_the_pre_collapse_values() {
+        let g = BeamProfile::Gaussian { sigma_m: 2.0e-9 };
+        let d = BeamProfile::Disc { radius_m: 2.0e-9 };
+        let pins: [(u64, u64, [u64; 2], [u64; 2]); 3] = [
+            (
+                5,
+                9,
+                [13700577897049466983, 4473225342959788010],
+                [13697051147390112027, 4469798170415752487],
+            ),
+            (
+                7,
+                0,
+                [13703477898877166490, 4470049725223532726],
+                [13699204085114069181, 4465745900496159260],
+            ),
+            (
+                229,
+                12345,
+                [13691557554783294055, 13704169934443835958],
+                [13686989468617801408, 13699556425738655030],
+            ),
+        ];
+        for (seed, index, gb, db) in pins {
+            assert_eq!(beam_offset(g, seed, index).map(f64::to_bits), gb);
+            assert_eq!(beam_offset(d, seed, index).map(f64::to_bits), db);
+        }
+    }
+
+    #[test]
+    fn beam_serde_reads_both_spellings_and_writes_the_legacy_one() {
+        #[derive(Serialize, Deserialize, PartialEq, Debug)]
+        struct W(#[serde(with = "beam_serde")] BeamProfile);
+        let legacy: W = serde_json::from_str(r#"{"kind":"uniform-disc","radius_m":2.0}"#).unwrap();
+        let new: W = serde_json::from_str(r#"{"model":"disc","radius_m":2.0}"#).unwrap();
+        assert_eq!(legacy, new);
+        assert_eq!(
+            serde_json::to_string(&legacy).unwrap(),
+            r#"{"kind":"uniform-disc","radius_m":2.0}"#
+        );
+        let rect: W =
+            serde_json::from_str(r#"{"model":"rectangle","width_y_m":1.0,"width_z_m":2.0}"#)
+                .unwrap();
+        assert_eq!(
+            serde_json::from_str::<W>(&serde_json::to_string(&rect).unwrap()).unwrap(),
+            rect
+        );
+        for bad in [
+            r#"{"kind":"disc","model":"disc","radius_m":2.0}"#,
+            r#"{"kind":"gaussian","radius_m":2.0}"#,
+            r#"{"kind":"disc"}"#,
+            r#"{"radius_m":2.0}"#,
+        ] {
+            assert!(serde_json::from_str::<W>(bad).is_err(), "{bad}");
+        }
     }
 }

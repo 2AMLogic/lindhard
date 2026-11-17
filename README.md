@@ -3,8 +3,9 @@
 **A clean-room, MIT-licensed Rust engine for Monte Carlo transport of ions and
 electrons in matter.** It computes implantation range profiles, damage,
 sputtering and backscatter for ions, and energy deposition for low-energy
-electrons. SRIM/TRIM covers the same problem class; lindhard uses none of its
-code or data.
+electrons. SRIM/TRIM covers the same problem class, and lindhard aims to be a
+complete open replacement for it: it shares none of SRIM's code, and it uses
+SRIM's published data (cited) alongside the primary literature.
 
 > **Status: early, pre-release (0.0.1).** The amorphous ion core (milestone
 > M0) is the most mature part, with the electron engine (M1), crystalline
@@ -38,8 +39,8 @@ license and scope:
   code. That covers channeling under tilt and twist, screen oxides, and damage
   that builds up to amorphization. Today it means IMSIL, Crystal-TRIM, MARLOWE
   or commercial TCAD.
-- **Ion codes that are open** are either copyleft (RustBCA, iradina, IM3D) or
-  use stopping tables taken from SRIM (OpenTRIM).
+- **Ion codes that are open** are mostly copyleft (RustBCA, iradina, IM3D);
+  OpenTRIM (MIT) is the permissive exception.
 - **Low-energy electron transport** (eV–50 keV, for e-beam lithography
   proximity functions, SEM and EBIC) has one permissive open code, Nebula, and
   it has stalled. The reference physics lives inside Geant4 or AGPL codes.

@@ -1,13 +1,19 @@
 # Simulator in the browser
 
-The [simulator](../calculator/simulator.html) is the layered-target companion
-of the [range calculator](range-calculator.md). It runs the same engine as
+The [simulator](../calculator/simulator.html) runs the same engine as the
+[range calculator](range-calculator.md), which is this page in its Quick range
+state. It runs as
 WebAssembly in a Web Worker, so the page stays responsive during a run, and it
 is static: there is no server and nothing you enter leaves your machine.
 
 The page has a **Setup** view and a **Run** view. The Run view shows live
 counters, a trajectory view, the energy partition, live distribution plots and
 downloads.
+
+The page opens by running the default case (10 keV B into Si) with 1000 ions
+and seed 1, in the worker, labelled "Example run: 1000 ions, seed 1." The seed
+is fixed, so every visitor sees the same example. The page is usable while it
+runs, and the first edit or Run replaces the label.
 
 ## Run
 
@@ -18,7 +24,11 @@ downloads.
   to electrons, to the lattice, out of the target, and elsewhere. Brackets give one
   standard error.
 - **Trajectories**: the paths of the first 50 ion histories, in a side view
-  (depth across, lateral y down, layers shaded and named) or an end-on y × z view.
+  (depth across, lateral y down, layers shaded and named), an end-on y × z view, or
+  a 3D view. The 3D view is drawn at one scale on all three axes, with the layer
+  interfaces as sheets across the box; drag it, or use the arrow keys, to rotate it
+  (Home, a double-click or the button resets the angle). Nearer tracks are drawn
+  stronger than far ones.
   Primary paths are always drawn; recoil cascades can be switched off. Species are
   told apart by colour and by the shape of the marker at the track's end, and the
   generation by the dash pattern (solid primary, dashed first recoils, dotted later
@@ -33,7 +43,7 @@ downloads.
   are stated under each plot.
 - **Downloads**: each plot's data as CSV (one row per bin per series, with the
   under- and overflow counts as rows), the full report as JSON, and the trajectory
-  view as a PNG. Results are shown with their statistical error, the models in use,
+  view as a PNG (the 3D view at the angle it is turned to). Results are shown with their statistical error, the models in use,
   and a pointer to `docs/validation.md`.
 - **Limit**: the page runs up to 100 000 ions so that it stays responsive; use
   `lindhard run` for larger runs.
@@ -41,7 +51,9 @@ downloads.
 ## Setup
 
 - **Ion**: element, mass (the standard atomic weight unless set), energy in
-  eV, keV or MeV, and the tilt from the surface normal (7° by default).
+  eV, keV or MeV, and the beam direction: the tilt from the surface normal
+  (7° by default) and the azimuth about it, measured from the crystal
+  reference direction when one is set.
 - **Target layers**, surface first: a name, a thickness (Å, nm or µm) or
   "semi-infinite" for the last layer, a composition by atom fraction, a density
   and the displacement, lattice-binding and surface-binding energies of each
@@ -50,12 +62,16 @@ downloads.
   Layers can be added, deleted and reordered, and a preset fills one layer
   (Si, Cu, Au, SiO₂, GaAs). The preset densities are the ones recorded in
   [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md);
-  the O energies of the SiO₂ preset are the illustrative model parameters of
-  `examples/as_50keV_si_sio2.toml`, not recommendations.
+  the Si (15 eV) and O (20 eV) displacement energies of the Si and SiO₂ presets
+  are the illustrative model parameters of `examples/as_50keV_si_sio2.toml`,
+  not recommendations. The GaAs preset leaves the Ga and As displacement
+  energies blank, because the element table has none: enter them before running.
 - **Calculation**: "ion distribution, quick damage" (`follow_recoils = false`)
   or "full cascades" (`follow_recoils = true`), the ion count and the seed.
 - **Physics**: the potential and the electronic-stopping model, each with its
   citation, and the two energy cutoffs.
+- **Crystal** (off by default): transports chosen layers on the lattice — see
+  Limits below for the models and the cost.
 
 ## The input file
 
@@ -63,12 +79,23 @@ The page shows the [TOML input](input.md) its setup produces, with Download and
 Load buttons. The file runs unchanged under `lindhard run`, and gives the same
 report for the same seed and ion count (checked natively in
 `lindhard-wasm/tests/cli_equivalence.rs`). Loading a file fills the form. The
-form exposes a subset of the input keys; a key it cannot represent (a crystal,
-a dynamic target, a beam azimuth, `mass_fraction`, and so on) is reported by
+form exposes a subset of the input keys; a key it cannot represent (a dynamic
+target, a second `[[crystal]]` table, `mass_fraction`, and so on) is reported by
 name and the file is not loaded, rather than silently dropped.
 
 ## Limits
 
-Amorphous, static targets only. Results carry statistical error (one standard
+Layered targets, amorphous by default. One crystal assignment transports
+chosen layers (front to back, the substrate last) on a cubic lattice — Si, Ge,
+GaAs or 3C-SiC — with the beam azimuth as the twist about the in-plane
+reference direction, an optional wafer rotation, and optional Debye vibration
+at a set temperature (a blank temperature is a static lattice). A crystal run
+takes about 17 times longer per ion than an amorphous one on the WASM build
+(measured on the shipped B-into-Si example, 2026-11-14: about 5.1 ms per ion
+crystalline against 0.29 ms amorphous), so a crystal setup is best kept to a
+few thousand ions: 2000, about 10 s, is a sensible count. The form refuses an
+orientation the engine would reject — a reference direction off the surface
+plane, a zero index triple, an empty or out-of-range layer list — before a
+run starts. Results carry statistical error (one standard
 error is shown) and the models listed on the page; the validation status is in
 [`docs/validation.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/validation.md).

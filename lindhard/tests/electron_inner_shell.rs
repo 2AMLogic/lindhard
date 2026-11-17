@@ -6,21 +6,22 @@
 //! secondary model, determinism across thread counts, and the rejection of
 //! incompatible channel tables.
 
-use lindhard::electron::boundary::{BandModel, BandStructure};
+use lindhard::electron::boundary::BandStructure;
 use lindhard::electron::data::{
     CrossSectionTable, CrossSectionTableParts, SamplingAxis, ShellChannelTable, Subshell,
 };
 use lindhard::electron::inelastic::InnerShell;
-use lindhard::electron::secondary::{SecondaryEvent, SecondaryModel};
+use lindhard::electron::secondary::SecondaryEvent;
 use lindhard::electron::transport::{
-    BoundaryModel, CutoffReference, ElectronState, ElectronTally, LayerTables, Primary,
-    SummaryTally, Transport, TransportConfig,
+    ElectronState, ElectronTally, LayerTables, Primary, SummaryTally, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
 use lindhard::tally::{Binning, ElectronTallyConfig, FullElectronTally};
 
 mod common;
 use common::bare_si;
+use common::full_physics;
+use common::with_threads;
 
 const GRID: [f64; 5] = [1.0, 10.0, 100.0, 1_000.0, 10_000.0];
 const PROB: [f64; 3] = [0.0, 0.5, 1.0];
@@ -130,27 +131,12 @@ fn shell_for(
 
 /// Synthetic metal: `E_F = 5 eV`, `Φ = 4 eV`, so `U = 9 eV`.
 fn metal() -> BandStructure {
-    BandStructure::new(
-        BandModel::Metal {
-            fermi_ev: 5.0,
-            work_function_ev: 4.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_metal(PROVENANCE)
 }
 
 /// Synthetic insulator: `E_F = 7.5 eV`, `E_g = 3 eV`, `U = 10 eV`.
 fn insulator() -> BandStructure {
-    BandStructure::new(
-        BandModel::Insulator {
-            valence_band_width_ev: 6.0,
-            band_gap_ev: 3.0,
-            affinity_ev: 1.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_insulator(PROVENANCE)
 }
 
 fn semi_infinite() -> Stack {
@@ -159,16 +145,6 @@ fn semi_infinite() -> Stack {
 
 fn off(cutoff: f64) -> TransportConfig {
     TransportConfig::new(cutoff)
-}
-
-/// Secondaries and the step barrier, cutoff 0.5 eV above the vacuum level
-/// (thresholds 9.5 eV in the metal, 10.5 eV in the insulator).
-fn full_physics() -> TransportConfig {
-    let mut cfg = TransportConfig::new(0.5);
-    cfg.secondaries = SecondaryModel::KIEFT_BOSCH;
-    cfg.boundary = BoundaryModel::STEP_BARRIER;
-    cfg.cutoff_reference = CutoffReference::VacuumLevel;
-    cfg
 }
 
 /// A 6 nm metal on an insulator substrate, valence-only.
@@ -564,15 +540,11 @@ fn runs_with_shells_close_the_energy_balance_with_and_without_secondaries() {
 fn shell_runs_are_bit_identical_across_thread_counts() {
     let t = with_shells(metal_on_insulator());
     let run = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| {
-                t.run(9, 120, 8, &Primary::normal(1_200.0), SummaryTally::default)
-                    .unwrap()
-                    .tally
-            })
+        with_threads(threads, || {
+            t.run(9, 120, 8, &Primary::normal(1_200.0), SummaryTally::default)
+                .unwrap()
+                .tally
+        })
     };
     let one = run(1);
     assert!(one.inner_shell_events > 0);

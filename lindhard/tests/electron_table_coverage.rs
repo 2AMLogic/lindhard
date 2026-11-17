@@ -10,12 +10,12 @@
 //! tests (constant or proportional losses, isotropic angles), not material
 //! data.
 
-use lindhard::electron::boundary::{BandModel, BandStructure};
-use lindhard::electron::data::{CrossSectionTable, CrossSectionTableParts, SamplingAxis};
-use lindhard::electron::secondary::SecondaryModel;
+use lindhard::electron::boundary::BandStructure;
+use lindhard::electron::data::{CrossSectionTable, SamplingAxis};
+use lindhard::electron::secondary::{KieftBoschOptions, SecondaryModel};
 use lindhard::electron::transport::{
-    BoundaryModel, CutoffReference, ElectronState, ElectronTally, Fate, GridCoverage, LayerTables,
-    Primary, SummaryTally, TableChannel, Transport, TransportConfig,
+    BoundaryModel, CutoffReference, ElectronState, ElectronTally, Fate, GridCoverage, Primary,
+    SummaryTally, TableChannel, Transport, TransportConfig,
 };
 use lindhard::geometry::Stack;
 use lindhard::tally::{
@@ -25,54 +25,26 @@ use lindhard::tally::{
 
 mod common;
 use common::bare_si;
+use common::finite_stack as finite;
+use common::layer_pair;
+use common::synthetic_table_on;
+use common::with_threads;
 
-const PROB: [f64; 3] = [0.0, 0.5, 1.0];
 const NM: f64 = 1e-9;
 const PROVENANCE: &str = "synthetic, tests/electron_table_coverage.rs";
 
-/// A table on `grid` with the same rate at every energy and quantile rows
-/// from `row(E, p)` (none where the rate is zero).
-fn table(
-    axis: SamplingAxis,
-    grid: &[f64],
-    rate: f64,
-    row: impl Fn(f64, f64) -> f64,
-) -> CrossSectionTable {
-    let quantiles = grid
-        .iter()
-        .map(|&e| {
-            if rate == 0.0 {
-                vec![]
-            } else {
-                PROB.iter().map(|&p| row(e, p)).collect()
-            }
-        })
-        .collect();
-    CrossSectionTable::new(CrossSectionTableParts {
-        model: "synthetic".into(),
-        material: "synthetic".into(),
-        provenance: PROVENANCE.into(),
-        axis,
-        energy_ev: grid.to_vec(),
-        inverse_mfp_per_m: vec![rate; grid.len()],
-        probability: PROB.to_vec(),
-        quantiles,
-    })
-    .unwrap()
-}
-
 fn elastic_none(grid: &[f64]) -> CrossSectionTable {
-    table(SamplingAxis::ElasticPolarAngle, grid, 0.0, |_, _| 0.0)
+    synthetic_table_on(grid, SamplingAxis::ElasticPolarAngle, 0.0, |_, _| 0.0)
 }
 
 fn inelastic_none(grid: &[f64]) -> CrossSectionTable {
-    table(SamplingAxis::InelasticEnergyLoss, grid, 0.0, |_, _| 0.0)
+    synthetic_table_on(grid, SamplingAxis::InelasticEnergyLoss, 0.0, |_, _| 0.0)
 }
 
 fn elastic_isotropic(grid: &[f64], lambda_m: f64) -> CrossSectionTable {
-    table(
-        SamplingAxis::ElasticPolarAngle,
+    synthetic_table_on(
         grid,
+        SamplingAxis::ElasticPolarAngle,
         1.0 / lambda_m,
         |_, p| (1.0 - 2.0 * p).acos(),
     )
@@ -81,9 +53,9 @@ fn elastic_isotropic(grid: &[f64], lambda_m: f64) -> CrossSectionTable {
 /// Loss `dw` at every energy and probability: the same inside and beyond the
 /// grid, so the continuation does not change the history.
 fn inelastic_const(grid: &[f64], lambda_m: f64, dw: f64) -> CrossSectionTable {
-    table(
-        SamplingAxis::InelasticEnergyLoss,
+    synthetic_table_on(
         grid,
+        SamplingAxis::InelasticEnergyLoss,
         1.0 / lambda_m,
         move |_, _| dw,
     )
@@ -91,39 +63,17 @@ fn inelastic_const(grid: &[f64], lambda_m: f64, dw: f64) -> CrossSectionTable {
 
 /// Loss `frac * E` at every probability.
 fn inelastic_frac(grid: &[f64], lambda_m: f64, frac: f64) -> CrossSectionTable {
-    table(
-        SamplingAxis::InelasticEnergyLoss,
+    synthetic_table_on(
         grid,
+        SamplingAxis::InelasticEnergyLoss,
         1.0 / lambda_m,
         move |e, _| frac * e,
     )
 }
 
-fn pair(elastic: CrossSectionTable, inelastic: CrossSectionTable) -> LayerTables {
-    LayerTables { elastic, inelastic }
-}
-
-fn finite(thicknesses_nm: &[f64]) -> Stack {
-    Stack::new(
-        thicknesses_nm
-            .iter()
-            .map(|&t| (bare_si(), t * NM))
-            .collect(),
-        None,
-    )
-    .unwrap()
-}
-
 /// Synthetic metal: `E_F = 5 eV`, `Φ = 4 eV`.
 fn metal() -> BandStructure {
-    BandStructure::new(
-        BandModel::Metal {
-            fermi_ev: 5.0,
-            work_function_ev: 4.0,
-        },
-        PROVENANCE,
-    )
-    .unwrap()
+    common::synthetic_metal(PROVENANCE)
 }
 
 fn counts(min: f64, max: f64, below: u64, within: u64, above: u64) -> TableCoverageCounts {
@@ -169,7 +119,7 @@ fn zero_rate_flight_is_one_evaluation_classed_by_energy() {
     let grid = [10.0, 100.0, 1_000.0];
     let t = Transport::new(
         finite(&[5.0]),
-        vec![pair(elastic_none(&grid), inelastic_none(&grid))],
+        vec![layer_pair(elastic_none(&grid), inelastic_none(&grid))],
         TransportConfig::new(1.0),
     )
     .unwrap();
@@ -200,7 +150,7 @@ fn zero_rate_flight_is_one_evaluation_classed_by_energy() {
 fn collisions_across_the_grid_ends_with_exact_endpoints() {
     let t = Transport::new(
         Stack::semi_infinite(bare_si()),
-        vec![pair(
+        vec![layer_pair(
             elastic_none(&[50.0, 200.0, 500.0]),
             inelastic_const(&[100.0, 250.0, 400.0], 2.0 * NM, 50.0),
         )],
@@ -230,11 +180,11 @@ fn multilayer_crossing_counts_each_layer_and_channel_on_its_own_grid() {
     let t = Transport::new(
         finite(&[3.0, 4.0]),
         vec![
-            pair(
+            layer_pair(
                 elastic_none(&[10.0, 1_000.0]),
                 inelastic_none(&[500.0, 5_000.0]),
             ),
-            pair(
+            layer_pair(
                 elastic_none(&[20.0, 200.0]),
                 inelastic_none(&[300.0, 400.0]),
             ),
@@ -309,13 +259,13 @@ fn tally_config(e0: f64) -> ElectronTallyConfig {
 #[test]
 fn secondaries_are_counted_with_the_primary() {
     let mut cfg = TransportConfig::new(45.0);
-    cfg.secondaries = SecondaryModel::KieftBosch {
+    cfg.secondaries = SecondaryModel::KieftBosch(KieftBoschOptions {
         instantaneous_momentum: false,
         momentum_conservation: false,
-    };
+    });
     let t = Transport::with_band_structures(
         Stack::semi_infinite(bare_si()),
-        vec![pair(
+        vec![layer_pair(
             elastic_none(&[60.0, 150.0]),
             inelastic_frac(&[1.0, 10.0, 100.0, 1_000.0], 3.0 * NM, 0.5),
         )],
@@ -372,11 +322,11 @@ fn mixed() -> Transport {
     Transport::with_band_structures(
         finite(&[4.0, 20.0]),
         vec![
-            pair(
+            layer_pair(
                 elastic_isotropic(&[30.0, 100.0, 300.0], 2.0 * NM),
                 inelastic_frac(&[20.0, 200.0], 4.0 * NM, 0.3),
             ),
-            pair(
+            layer_pair(
                 elastic_isotropic(&[15.0, 150.0], 3.0 * NM),
                 inelastic_frac(&[40.0, 400.0], 3.0 * NM, 0.3),
             ),
@@ -507,16 +457,12 @@ fn evaluations_equal_flights_not_collisions() {
 fn mixed_report(threads: usize) -> ElectronReport {
     let t = mixed();
     let proto = FullElectronTally::new(&t, tally_config(300.0)).unwrap();
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| {
-            t.run(0x253, 400, 16, &Primary::normal(300.0), || proto.clone())
-                .unwrap()
-                .tally
-                .report()
-        })
+    with_threads(threads, || {
+        t.run(0x253, 400, 16, &Primary::normal(300.0), || proto.clone())
+            .unwrap()
+            .tally
+            .report()
+    })
 }
 
 #[test]
@@ -652,7 +598,10 @@ fn merging_coverage_for_different_tables_panics() {
     let a = TableCoverageTally::new(&mixed());
     let other = Transport::new(
         finite(&[5.0]),
-        vec![pair(elastic_none(&[1.0, 2.0]), inelastic_none(&[1.0, 2.0]))],
+        vec![layer_pair(
+            elastic_none(&[1.0, 2.0]),
+            inelastic_none(&[1.0, 2.0]),
+        )],
         TransportConfig::new(0.5),
     )
     .unwrap();

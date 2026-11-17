@@ -64,6 +64,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "lib"))
 import lindhard_cli  # noqa: E402
+import oracle  # noqa: E402
+from oracle import NotConfigured, git_output, round_floats  # noqa: E402
 
 SUMMARIES = HERE / "summaries"
 FORMAT = "lindhard-oracle-summary/2"
@@ -85,26 +87,12 @@ ELEMENTS = {
 AVOGADRO = 6.02214076e23  # exact (SI 2019)
 
 
-class NotConfigured(Exception):
-    pass
-
-
 # Worker threads for every code: None = all logical CPUs (`--threads`).
 THREADS: int | None = None
 
 
 def worker_threads() -> int:
     return THREADS or os.cpu_count() or 1
-
-
-def _git(src: str | None, *args: str) -> str | None:
-    if not src:
-        return None
-    try:
-        out = subprocess.run(["git", "-C", src, *args], capture_output=True, text=True, timeout=30)
-    except (OSError, subprocess.TimeoutExpired):
-        return None
-    return out.stdout.strip() or None if out.returncode == 0 else None
 
 
 # ---------------------------------------------------------------------------
@@ -167,48 +155,9 @@ def lindhard_settings(problem: dict) -> dict:
 # Oracles
 
 
-class Oracle:
-    """One external program. Subclasses implement `run`."""
-
-    name = "?"
-    env = "?"
-    source_url = "?"
-    license_note = ""
-
-    def _var(self, suffix: str) -> str | None:
-        return os.environ.get(self.env.replace("_BIN", suffix))
-
-    def binary(self) -> Path:
-        b = os.environ.get(self.env)
-        if not b:
-            raise NotConfigured(f"{self.name}: not configured (set {self.env}); skipped")
-        p = Path(b)
-        if not p.exists():
-            raise NotConfigured(f"{self.name}: {self.env}={b} does not exist; skipped")
-        self.check(p)
-        return p
-
-    def check(self, binary: Path) -> None:
-        """Extra prerequisites; raise NotConfigured if one is missing."""
-
-    def version(self, binary: Path) -> str:
-        """`$<NAME>_VERSION`, else `git describe` of `$<NAME>_SRC`, else the
-        first line of `--version`."""
-        v = self._var("_VERSION") or _git(self._var("_SRC"), "describe", "--tags", "--always")
-        if v:
-            return v
-        try:
-            out = subprocess.run([str(binary), "--version"], capture_output=True, text=True, timeout=30)
-            line = (out.stdout or out.stderr).strip().splitlines()
-            return line[0] if line else "unknown"
-        except (OSError, subprocess.TimeoutExpired):
-            return "unknown"
-
-    def commit(self) -> str:
-        return self._var("_COMMIT") or _git(self._var("_SRC"), "rev-parse", "HEAD") or "unknown"
-
-    def build(self) -> str:
-        return self._var("_BUILD") or "unknown"
+class Oracle(oracle.Oracle):
+    """One external program (`validation/lib/oracle.py`), with this runner's
+    own `run` contract. Subclasses implement `run`."""
 
     def run(self, problem: dict, workdir: Path, binary: Path, matched: dict) -> dict:
         """Run the oracle unmodified on `problem` in `workdir`. Return a dict
@@ -500,7 +449,7 @@ class OpenTrim(Oracle):
             out = ""
         m = re.search(r"version\s+(\S+)", out)
         ver = m.group(1) if m else "unknown"
-        desc = _git(self._var("_SRC"), "describe", "--tags", "--always")
+        desc = git_output(self._var("_SRC"), "describe", "--tags", "--always")
         return f"{ver} ({desc})" if desc else ver
 
     def _read(self, h5: Path, path: str) -> list[float]:
@@ -746,16 +695,6 @@ def compare(ours: dict, ours_se: dict, theirs: dict, metrics: list[str]) -> dict
     return out
 
 
-def _round(x):
-    if isinstance(x, float):
-        return float(f"{x:.6g}")
-    if isinstance(x, dict):
-        return {k: _round(v) for k, v in x.items()}
-    if isinstance(x, list):
-        return [_round(v) for v in x]
-    return x
-
-
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--problem", action="append", help="problem id (repeatable)")
@@ -895,7 +834,7 @@ def main() -> int:
                 "mismatches": theirs.get("mismatches", []),
             }
             path = SUMMARIES / f"{o.name.lower()}-{p['id']}.json"
-            path.write_text(json.dumps(_round(summary), indent=2, ensure_ascii=False) + "\n")
+            path.write_text(json.dumps(round_floats(summary), indent=2, ensure_ascii=False) + "\n")
             print(f"  {o.name}: wrote {path.relative_to(lindhard_cli.REPO)}")
     return 0
 

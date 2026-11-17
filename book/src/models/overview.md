@@ -38,22 +38,28 @@ page that introduces randomness says which draws it makes and in which order.
 
 ## The clean-room position
 
-lindhard implements published physics from the papers. It does not use the
-code or the data of closed or copyleft programs (the tiers are set out in
-`CONTRIBUTING.md`). In particular:
+lindhard implements published physics from the papers. It never uses the
+code of closed or copyleft programs (the tiers are set out in
+`CONTRIBUTING.md`). Data is different: data is not licensed, code is
+(operator ruling, 2026-11-10, lindhard#629), and lindhard aims to be a
+complete open replacement for SRIM/TRIM. In particular:
 
-- **No SRIM stopping tables**, and nothing interpolated or fitted from one,
-  and no ICRU stopping tables. Electronic stopping is computed from closed-form
-  models; tabulated stopping enters only as a user-supplied table that carries
-  its own provenance, and is never committed with SRIM- or ICRU-derived
-  numbers.
-- **No ZBL stopping tables.** The ZBL *universal screening function* (eight
-  published coefficients) and the ZBL reduced nuclear stopping fit are used;
-  the electronic stopping coefficient sets of the same book are not.
+- **Tabulated stopping is admissible data**, SRIM, ICRU and ZBL tables
+  included, as long as it carries its provenance. The electronic stopping
+  models are computed from closed-form physics by default; a table, from a
+  user or committed to the tree, is a separately named stopping source, and a
+  comparison against the code it came from is a consistency check, not
+  independent validation.
+- The ZBL *universal screening function* (eight published coefficients) and
+  the ZBL reduced nuclear stopping fit are used. The electronic stopping
+  coefficient sets of the same book are not used yet; they are admissible
+  data.
 - Terms whose only published coefficients are tabulated (the Barkas term,
   shell corrections, multi-oscillator density-effect parameters, Chu and
-  Yang-O'Connor-Wang straggling) are declined, and the declines are listed in
-  [Validity ranges and declined terms](stopping-validity.md).
+  Yang-O'Connor-Wang straggling) were declined under the former no-tables
+  rule. They are now admissible and stay listed in
+  [Validity ranges and declined terms](stopping-validity.md) until each is
+  implemented.
 
 Every coefficient that enters the code as a number has a row in
 [`docs/data-provenance.md`](https://github.com/2AMLogic/lindhard/blob/main/docs/data-provenance.md)

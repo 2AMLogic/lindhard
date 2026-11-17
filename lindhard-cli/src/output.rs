@@ -9,8 +9,11 @@
 
 use std::fmt::Write as _;
 
+use lindhard::elements::symbol;
+use lindhard::geometry::{CsgGeometry, Geometry, Stack};
+use lindhard::input::Target;
 use lindhard::input::TuningReport;
-use lindhard::input::{ModelInfo, Resolved};
+use lindhard::input::{ModelInfo, Resolved, ResolvedLayer};
 use lindhard::ion::bca::{CrystalMetadata, EnergyBudget, MeanFreePath};
 use lindhard::ion::scattering::ScatteringTable;
 use lindhard::material::MaterialSpec;
@@ -34,6 +37,8 @@ pub const DEPTH_FILE: &str = "depth_profile.csv";
 pub const IONS_FILE: &str = "ions.csv";
 pub const LATERAL_FILE: &str = "lateral_profile.csv";
 pub const DAMAGE_FILE: &str = "damage_profile.csv";
+pub const ENERGY_FILE: &str = "energy_profile.csv";
+pub const NRT_FILE: &str = "nrt_profile.csv";
 pub const ESCAPES_FILE: &str = "escape_spectra.csv";
 pub const VOXEL_CSV_FILE: &str = "voxel_tally.csv";
 pub const VOXEL_VTK_FILE: &str = "voxel_tally.vtk";
@@ -85,8 +90,11 @@ struct Table {
     max_rel_error: f64,
 }
 
+/// One layer of the `target[]` array, shared by `summary.json` and
+/// `electron_summary.json` so the two describe the same record (built by
+/// [`target_layers`]).
 #[derive(Serialize)]
-struct LayerOut {
+pub(crate) struct LayerOut {
     index: usize,
     source: String,
     front_nm: f64,
@@ -94,6 +102,46 @@ struct LayerOut {
     back_nm: Option<f64>,
     atom_density_per_cm3: f64,
     material: MaterialSpec,
+}
+
+/// The `target[]` array of a summary: the resolved stack geometry paired with
+/// the layer sources it was resolved from. Every run mode writes this same
+/// record, so a field added here reaches all of them at once.
+pub(crate) fn target_layers(stack: &Stack, layers: &[ResolvedLayer]) -> Vec<LayerOut> {
+    stack
+        .layers()
+        .iter()
+        .zip(layers)
+        .enumerate()
+        .map(|(index, (g, l))| LayerOut {
+            index,
+            source: l.source.clone(),
+            front_nm: g.front_m() / NM,
+            back_nm: g.back_m().is_finite().then(|| g.back_m() / NM),
+            atom_density_per_cm3: g.material().atom_number_density() * 1e-6,
+            material: MaterialSpec::from(g.material().clone()),
+        })
+        .collect()
+}
+
+/// The `target[]` array for a `[[target.solids]]` run: one record per region
+/// (top-level solid), with the solid's `x` extent in place of the layer's
+/// front/back faces and the material its region is filled with.
+pub(crate) fn target_solids(g: &CsgGeometry, layers: &[ResolvedLayer]) -> Vec<LayerOut> {
+    (0..g.n_regions())
+        .map(|i| {
+            let m = g.material(g.material_index(i));
+            let (lo, hi) = g.solid(i).bounds();
+            LayerOut {
+                index: i,
+                source: layers[i].source.clone(),
+                front_nm: lo[0] / NM,
+                back_nm: Some(hi[0] / NM),
+                atom_density_per_cm3: m.atom_number_density() * 1e-6,
+                material: MaterialSpec::from(m.clone()),
+            }
+        })
+        .collect()
 }
 
 /// A user stopping table, identified by file, for provenance. User tables are
@@ -112,12 +160,29 @@ struct StoppingTableOut {
     energy_max_ev: f64,
 }
 
+/// The SRIM coefficient file, identified by file, for provenance. The file
+/// is user data, so the record is the path as given, where it was read from
+/// and the SHA-256 of its bytes — the same identification
+/// [`StoppingTableOut`] carries. Its citations are in `physics.models`
+/// (`srim`), which already quotes the dataset's own.
+#[derive(Serialize)]
+struct SrimDataOut {
+    path: String,
+    resolved_path: String,
+    sha256: String,
+}
+
 #[derive(Serialize)]
 struct Physics {
     models: Vec<ModelInfo>,
     /// Present only when the input has a `[stopping]` table.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     stopping_tables: Vec<StoppingTableOut>,
+    /// Present only with `physics.stopping = "srim"`: the coefficient file
+    /// named by `stopping.srim_data`. Added without a `format.version` bump
+    /// (docs/cli.md, "Compatibility and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    srim_data: Option<SrimDataOut>,
     engine: Engine,
     scattering_table: Table,
     target: Vec<LayerOut>,
@@ -137,6 +202,12 @@ struct Physics {
     /// (docs/cli.md, "Compatibility and extension").
     #[serde(skip_serializing_if = "Option::is_none")]
     beam_divergence: Option<lindhard::ion::bca::DivergenceMetadata>,
+    /// Present only for a run with a `[beam]` `spectrum`: the lines with
+    /// normalised weights and the random-stream segment of the energy draw.
+    /// Added without a `format.version` bump (docs/cli.md, "Compatibility
+    /// and extension").
+    #[serde(skip_serializing_if = "Option::is_none")]
+    beam_spectrum: Option<lindhard::ion::bca::EnergySpectrumMetadata>,
 }
 
 #[derive(Serialize)]
@@ -379,10 +450,6 @@ struct Escapes {
     species: Vec<SpeciesOut>,
 }
 
-pub fn symbol(z: u8) -> &'static str {
-    lindhard::elements::element(z).map_or("?", |e| e.symbol)
-}
-
 fn range_out(r: &IonReport) -> Range {
     let g = &r.range;
     Range {
@@ -487,6 +554,8 @@ struct Files {
     ions: Option<&'static str>,
     lateral_profile: &'static str,
     damage_profile: &'static str,
+    energy_profile: &'static str,
+    nrt_profile: &'static str,
     escape_spectra: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     voxel_tally_csv: Option<&'static str>,
@@ -575,9 +644,9 @@ pub fn summary_json(
                 .map(|l| {
                     let (lo, hi) = l.table.energy_range_ev();
                     StoppingTableOut {
-                        path: l.path.clone(),
-                        resolved_path: l.resolved_path.display().to_string(),
-                        sha256: l.sha256.clone(),
+                        path: l.file.path.clone(),
+                        resolved_path: l.file.resolved_path.display().to_string(),
+                        sha256: l.file.sha256.clone(),
                         provenance: l.table.provenance().to_string(),
                         ion_z: l.table.ion_z(),
                         ion_mass_amu: l.table.ion_mass_amu(),
@@ -587,6 +656,11 @@ pub fn summary_json(
                     }
                 })
                 .collect(),
+            srim_data: r.srim.as_ref().map(|l| SrimDataOut {
+                path: l.file.path.clone(),
+                resolved_path: l.file.resolved_path.display().to_string(),
+                sha256: l.file.sha256.clone(),
+            }),
             engine: Engine {
                 primary_cutoff_ev: c.primary_cutoff_ev,
                 recoil_cutoff_ev: c.recoil_cutoff_ev,
@@ -617,24 +691,17 @@ pub fn summary_json(
                 max_abs_error_rad: table.max_abs_error(),
                 max_rel_error: table.max_rel_error(),
             },
-            target: r
-                .stack
-                .layers()
-                .iter()
-                .zip(&r.layers)
-                .enumerate()
-                .map(|(index, (g, l))| LayerOut {
-                    index,
-                    source: l.source.clone(),
-                    front_nm: g.front_m() / NM,
-                    back_nm: g.back_m().is_finite().then(|| g.back_m() / NM),
-                    atom_density_per_cm3: g.material().atom_number_density() * 1e-6,
-                    material: MaterialSpec::from(g.material().clone()),
-                })
-                .collect(),
+            target: match &r.target {
+                Target::Stack(stack) => target_layers(stack, &r.layers),
+                Target::Csg(g) => target_solids(g, &r.layers),
+            },
             tuning: r.tuning.clone(),
             crystal: crystals.to_vec(),
             beam_divergence: lindhard::ion::bca::DivergenceMetadata::new(&r.divergence),
+            beam_spectrum: r
+                .spectrum
+                .as_ref()
+                .map(lindhard::ion::bca::EnergySpectrumMetadata::new),
         },
         results: Results {
             histories: s.histories,
@@ -666,6 +733,8 @@ pub fn summary_json(
             ions: t.per_ion.then_some(IONS_FILE),
             lateral_profile: LATERAL_FILE,
             damage_profile: DAMAGE_FILE,
+            energy_profile: ENERGY_FILE,
+            nrt_profile: NRT_FILE,
             escape_spectra: ESCAPES_FILE,
             voxel_tally_csv: t.voxel.is_some().then_some(VOXEL_CSV_FILE),
             voxel_tally_vtk: t.voxel.is_some().then_some(VOXEL_VTK_FILE),
@@ -696,12 +765,8 @@ pub fn export_csv<T: serde::Serialize>(
     seed: u64,
     input: &T,
 ) -> String {
-    use sha2::{Digest, Sha256};
     let echo = serde_json::to_vec(input).expect("the input serializes");
-    let hash: String = Sha256::digest(&echo)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let hash = crate::table_cache::sha256_hex(&echo);
     let p = lindhard::tally::ExportProvenance::new(engine, seed, &hash);
     report.to_export_csv(&p)
 }
@@ -756,6 +821,12 @@ pub fn density(count: u64, histories: u64, width_nm: f64) -> f64 {
     count as f64 / (histories.max(1) as f64 * width_nm)
 }
 
+/// Per-ion, per-nm density of the energy `sum_ev` (summed over all
+/// histories) in a depth bin.
+pub fn energy_density(sum_ev: f64, histories: u64, width_nm: f64) -> f64 {
+    sum_ev / (histories.max(1) as f64 * width_nm)
+}
+
 /// `lateral_profile.csv`: stopped primaries by lateral position `y`, `z` and
 /// radial distance (long format). Rows of each quantity are in bin order,
 /// followed by its `underflow` and `overflow` rows (edges `-inf`/`inf`).
@@ -772,9 +843,16 @@ pub fn lateral_csv(r: &IonReport) -> String {
     out
 }
 
-/// Append one row per bin of `h` (edges divided by `unit`) then underflow and
-/// overflow rows. `prefix` starts every row.
-fn hist_rows(out: &mut String, prefix: &str, h: &Histogram, histories: u64, unit: f64, scale: f64) {
+/// Append one row per bin of `h` (edges divided by `unit`, then multiplied
+/// by `scale`) then underflow and overflow rows. `prefix` starts every row.
+pub(crate) fn hist_rows(
+    out: &mut String,
+    prefix: &str,
+    h: &Histogram,
+    histories: u64,
+    unit: f64,
+    scale: f64,
+) {
     let b = &h.binning;
     let w = b.width() / unit * scale;
     for (i, &c) in h.counts.iter().enumerate() {
@@ -832,6 +910,110 @@ pub fn damage_csv(r: &IonReport) -> String {
         d.vacancy_histogram.overflow,
         d.interstitial_histogram.overflow,
         d.replacement_histogram.overflow
+    )
+    .unwrap();
+    out
+}
+
+/// `energy_profile.csv`: where the beam's energy went, by depth, on the depth
+/// grid of `damage_profile.csv`. `*_ev` columns are summed over all
+/// histories, eV; the `*_ev_per_ion_per_nm` columns divide by the histories
+/// and the bin width. `electronic` is the electronic loss of all particles,
+/// `lattice` the energy left in the lattice (subthreshold, weak-collision and
+/// binding deposits, and the energy of every particle where it stopped) and
+/// `recoil` the transfer `T` to primary knock-on atoms, which is later lost
+/// by the recoils and so already inside the other two. The body is followed
+/// by an `underflow` row (`depth_lo_nm = -inf`) and an `overflow` row
+/// (`depth_hi_nm = inf`) with empty densities; the sum of each `*_ev` column
+/// over all rows equals the matching `results.energy_budget_ev_per_ion`
+/// total times the histories (`electronic`: nonlocal plus local; `lattice`:
+/// lattice plus rest; `recoil`: `results.damage.nrt.pka_energy_ev`).
+pub fn energy_csv(r: &IonReport) -> String {
+    let e = &r.energy;
+    let n = r.histories;
+    let b = &e.electronic.binning;
+    let w = b.width() / NM;
+    let mut out = String::from(
+        "depth_lo_nm,depth_hi_nm,electronic_ev,lattice_ev,recoil_ev,\
+         electronic_ev_per_ion_per_nm,lattice_ev_per_ion_per_nm,recoil_ev_per_ion_per_nm\n",
+    );
+    for i in 0..b.bins {
+        let (el, la, rc) = (e.electronic.sums[i], e.lattice.sums[i], e.recoil.sums[i]);
+        writeln!(
+            out,
+            "{:?},{:?},{el:?},{la:?},{rc:?},{:?},{:?},{:?}",
+            b.edge(i) / NM,
+            b.edge(i + 1) / NM,
+            energy_density(el, n, w),
+            energy_density(la, n, w),
+            energy_density(rc, n, w)
+        )
+        .unwrap();
+    }
+    writeln!(
+        out,
+        "-inf,{:?},{:?},{:?},{:?},,,",
+        b.lo / NM,
+        e.electronic.underflow,
+        e.lattice.underflow,
+        e.recoil.underflow
+    )
+    .unwrap();
+    writeln!(
+        out,
+        "{:?},inf,{:?},{:?},{:?},,,",
+        b.hi / NM,
+        e.electronic.overflow,
+        e.lattice.overflow,
+        e.recoil.overflow
+    )
+    .unwrap();
+    out
+}
+
+/// `nrt_profile.csv`: NRT and Kinchin-Pease displacement estimates by depth of
+/// the primary knock-on atom. These are model estimates (damage-energy based,
+/// no cascade spread), not the event counts of `damage_profile.csv`.
+/// Densities are per incident ion per nm. The last row is everything deeper
+/// than the grid, the first row everything shallower; the column sums over
+/// all rows equal
+/// `results.damage.nrt`.
+pub fn nrt_csv(r: &IonReport) -> String {
+    let d = &r.damage;
+    let n = r.histories.max(1) as f64;
+    let (h, k) = (&d.nrt_histogram, &d.kinchin_pease_histogram);
+    let b = &h.binning;
+    let w = b.width() / NM;
+    let mut out = String::from(
+        "depth_lo_nm,depth_hi_nm,nrt_displacements,kinchin_pease_displacements,\
+         nrt_per_ion_per_nm,kinchin_pease_per_ion_per_nm\n",
+    );
+    writeln!(
+        out,
+        "-inf,{:?},{:?},{:?},,",
+        b.lo / NM,
+        h.underflow,
+        k.underflow
+    )
+    .unwrap();
+    for i in 0..b.bins {
+        let (a, c) = (h.sums[i], k.sums[i]);
+        writeln!(
+            out,
+            "{:?},{:?},{a:?},{c:?},{:?},{:?}",
+            b.edge(i) / NM,
+            b.edge(i + 1) / NM,
+            a / (n * w),
+            c / (n * w)
+        )
+        .unwrap();
+    }
+    writeln!(
+        out,
+        "{:?},inf,{:?},{:?},,",
+        b.hi / NM,
+        h.overflow,
+        k.overflow
     )
     .unwrap();
     out

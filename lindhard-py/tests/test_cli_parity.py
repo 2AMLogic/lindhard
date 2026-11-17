@@ -93,6 +93,16 @@ def test_arrays_equal_the_csv_values(cli, example, tmp_path):
         assert np.array_equal(hist.density, floats(cols[k + 3]))
     assert np.array_equal(res.vacancies.edges[:-1], floats(cols[0]))
 
+    _, rows = read_csv(tmp_path / "energy_profile.csv")
+    body = list(zip(*rows[:-2]))
+    for k, key in ((2, "electronic"), (3, "lattice"), (4, "recoil")):
+        hist = res.energy_profile[key]
+        assert np.array_equal(hist.energy, floats(body[k]))
+        assert np.array_equal(hist.density, floats(body[k + 3]))
+        assert np.array_equal(hist.edges[:-1], floats(body[0]))
+        assert hist.underflow == float(rows[-2][k])
+        assert hist.overflow == float(rows[-1][k])
+
     _, rows = read_csv(tmp_path / "escape_spectra.csv")
     assert res.escapes
     for esc in res.escapes:
@@ -135,6 +145,31 @@ def test_independent_of_thread_count(example):
     assert np.array_equal(one.vacancies.counts, three.vacancies.counts)
     assert one.summary()["run"]["threads"] == 1
     assert three.summary()["run"]["threads"] == 3
+
+
+def test_energy_profiles_sum_to_the_budget(example):
+    res = python_run(example)
+    b = res.summary()["results"]["energy_budget_ev_per_ion"]
+    n = res.histories
+    ep = res.energy_profile
+    assert set(ep) == {"electronic", "lattice", "recoil"}
+
+    def total(h):
+        return h.energy.sum() + h.underflow + h.overflow
+
+    incident = b["incident"] * n
+    for key, want in (
+        ("electronic", (b["electronic_nonlocal"] + b["electronic_local"]) * n),
+        ("lattice", (b["lattice"] + b["rest"]) * n),
+        ("recoil", res.summary()["results"]["damage"]["nrt"]["pka_energy_ev"]),
+    ):
+        assert abs(total(ep[key]) - want) <= 1e-9 * incident, key
+
+
+def test_energy_profiles_independent_of_thread_count(example):
+    one, three = python_run(example, 1), python_run(example, 3)
+    for key in ("electronic", "lattice", "recoil"):
+        assert np.array_equal(one.energy_profile[key].energy, three.energy_profile[key].energy)
 
 
 def test_per_ion_false_has_no_ions():
@@ -196,7 +231,7 @@ def test_write_failure_on_reused_dir_leaves_no_old_summary(tmp_path):
 
 def test_write_failed_summary_invalidation_changes_no_csv(tmp_path):
     names = ["depth_profile.csv", "lateral_profile.csv", "damage_profile.csv",
-             "escape_spectra.csv"]
+             "energy_profile.csv", "escape_spectra.csv"]
     for n in names:
         (tmp_path / n).write_text("old")
     (tmp_path / "summary.json").mkdir()

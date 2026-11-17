@@ -20,11 +20,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::hist::{Binning, Histogram};
+use super::hist::{Binning, Histogram, WeightedHistogram};
 use super::moments::{MomentSummary, Moments};
 use super::pearson::{DualPearson, DualPearsonFit, PearsonError, PearsonIv};
-use crate::geometry::Stack;
-use crate::ion::bca::{BcaTally, EnergyBudget, Face, LatticeDeposit, Particle};
+use crate::geometry::Geometry;
+use crate::ion::bca::{BcaTally, ElectronicChannel, EnergyBudget, Face, LatticeDeposit, Particle};
 use crate::ion::damage::{damage_energy_ev, kinchin_pease, nrt_displacements};
 use crate::material::MaterialError;
 
@@ -274,6 +274,13 @@ pub struct IonTally {
     displacement_hist: Histogram,
     replacement_hist: Histogram,
     interstitial_hist: Histogram,
+    electronic_energy: WeightedHistogram,
+    lattice_energy: WeightedHistogram,
+    recoil_energy: WeightedHistogram,
+    /// NRT displacements by PKA depth.
+    nrt_hist: WeightedHistogram,
+    /// Kinchin-Pease displacements by PKA depth.
+    kp_hist: WeightedHistogram,
     /// `[species] -> (front, back)`.
     escapes: Vec<(FaceAcc, FaceAcc)>,
     /// Per-history scratch: not part of the result, reset every history.
@@ -281,20 +288,27 @@ pub struct IonTally {
 }
 
 impl IonTally {
-    /// Empty tally for `stack`, with the particle species of the engine
+    /// Empty tally for `geometry`, with the particle species of the engine
     /// (`species_z`, as returned by [`crate::ion::bca::Bca::species_z`]:
     /// index 0 is the beam).
     ///
-    /// Every element of every layer must have `E_d` and `E_b` set (the engine
-    /// requires the same).
+    /// One accumulator is built per **region** (`Particle.layer` is the
+    /// region index: a stack layer, the flat voxel index of a grid, or a
+    /// top-level solid of a CSG target), with the material the geometry
+    /// fills it with — for a CSG target, regions and materials are not 1:1,
+    /// so indexing by material would merge solids.
+    ///
+    /// Every element of every region's material must have `E_d` and `E_b`
+    /// set (the engine requires the same).
     pub fn new(
-        stack: &Stack,
+        geometry: &dyn Geometry,
         species_z: &[u8],
         config: IonTallyConfig,
     ) -> Result<Self, MaterialError> {
-        let mut consts = Vec::with_capacity(stack.layers().len());
-        for l in stack.layers() {
-            let m = l.material();
+        let n = geometry.n_regions();
+        let mut consts = Vec::with_capacity(n);
+        for region in 0..n {
+            let m = geometry.material(geometry.material_index(region));
             let mut elems = Vec::new();
             let mut mean_z = 0.0;
             for (z, x) in m.atom_fractions() {
@@ -337,6 +351,11 @@ impl IonTally {
             displacement_hist: Histogram::new(config.depth),
             replacement_hist: Histogram::new(config.depth),
             interstitial_hist: Histogram::new(config.depth),
+            electronic_energy: WeightedHistogram::new(config.depth),
+            lattice_energy: WeightedHistogram::new(config.depth),
+            recoil_energy: WeightedHistogram::new(config.depth),
+            nrt_hist: WeightedHistogram::new(config.depth),
+            kp_hist: WeightedHistogram::new(config.depth),
             escapes: species_z
                 .iter()
                 .map(|_| (FaceAcc::new(&config), FaceAcc::new(&config)))
@@ -439,6 +458,8 @@ impl IonTally {
             vacancy_histogram: vacancy_hist,
             interstitial_histogram: self.interstitial_hist.clone(),
             replacement_histogram: self.replacement_hist.clone(),
+            nrt_histogram: self.nrt_hist.clone(),
+            kinchin_pease_histogram: self.kp_hist.clone(),
         };
         let species: Vec<SpeciesEscape> = self
             .escapes
@@ -464,12 +485,18 @@ impl IonTally {
             sputter_yield: per(sputtered as f64, h),
             species,
         };
+        let energy = EnergyProfileReport {
+            electronic: self.electronic_energy.clone(),
+            lattice: self.lattice_energy.clone(),
+            recoil: self.recoil_energy.clone(),
+        };
         IonReport {
             histories: h,
             species_z: self.species_z.clone(),
             budget: self.budget,
             range,
             damage,
+            energy,
             escapes,
         }
     }
@@ -480,7 +507,24 @@ impl BcaTally for IonTally {
         self.last_site.clear();
     }
 
-    fn lattice(&mut self, _at: [f64; 3], _layer: usize, kind: LatticeDeposit, _energy_ev: f64) {
+    fn electronic(
+        &mut self,
+        p: &Particle,
+        from: [f64; 3],
+        channel: ElectronicChannel,
+        energy_ev: f64,
+    ) {
+        match channel {
+            ElectronicChannel::NonLocal => {
+                self.electronic_energy
+                    .fill_segment(from[0], p.pos[0], energy_ev);
+            }
+            ElectronicChannel::Local => self.electronic_energy.fill(p.pos[0], energy_ev),
+        }
+    }
+
+    fn lattice(&mut self, at: [f64; 3], _layer: usize, kind: LatticeDeposit, energy_ev: f64) {
+        self.lattice_energy.fill(at[0], energy_ev);
         if kind == LatticeDeposit::Subthreshold {
             self.last_site.clear();
         }
@@ -500,9 +544,14 @@ impl BcaTally for IonTally {
             let t_dam = damage_energy_ev(t, f64::from(r.z), r.mass_amu, c.mean_z, c.mean_a);
             acc.nrt.pka_count += 1;
             acc.nrt.pka_energy_ev += t;
+            self.recoil_energy.fill(r.pos[0], t);
             acc.nrt.damage_energy_ev += t_dam;
-            acc.nrt.nrt_displacements += nrt_displacements(t_dam, e_d);
-            acc.nrt.kinchin_pease_displacements += kinchin_pease(t_dam, e_d);
+            let n_nrt = nrt_displacements(t_dam, e_d);
+            let n_kp = kinchin_pease(t_dam, e_d);
+            acc.nrt.nrt_displacements += n_nrt;
+            acc.nrt.kinchin_pease_displacements += n_kp;
+            self.nrt_hist.fill(r.pos[0], n_nrt);
+            self.kp_hist.fill(r.pos[0], n_kp);
         }
         self.last_site.recoil(r);
     }
@@ -510,6 +559,9 @@ impl BcaTally for IonTally {
     fn stopped(&mut self, p: &Particle) {
         let replaced = self.last_site.stopped(p).is_some();
         let x = p.pos[0];
+        // The rest energy of every stopped particle is lattice energy, so the
+        // profile integrates to `budget.lattice + budget.rest`.
+        self.lattice_energy.fill(x, p.energy_ev);
         if replaced {
             self.layers[p.layer].defects.replacements += 1;
             self.replacement_hist.fill(x);
@@ -541,8 +593,10 @@ impl BcaTally for IonTally {
         let acc = match face {
             Face::Front => &mut pair.0,
             Face::Back => &mut pair.1,
-            // Lateral faces exist only on voxel grids, which this stack
-            // tally does not describe.
+            // A side escape — a voxel-grid side wall or a CSG solid's
+            // lateral face — is counted in `EnergyBudget::lateral` but
+            // deliberately left out of the face-escape spectra
+            // (escape_spectra.csv); see docs/cli.md, "Lateral escapes".
             Face::Side => return,
         };
         acc.count += 1;
@@ -586,6 +640,11 @@ impl BcaTally for IonTally {
         self.displacement_hist.merge(&o.displacement_hist);
         self.replacement_hist.merge(&o.replacement_hist);
         self.interstitial_hist.merge(&o.interstitial_hist);
+        self.electronic_energy.merge(&o.electronic_energy);
+        self.lattice_energy.merge(&o.lattice_energy);
+        self.recoil_energy.merge(&o.recoil_energy);
+        self.nrt_hist.merge(&o.nrt_hist);
+        self.kp_hist.merge(&o.kp_hist);
         for (a, b) in self.escapes.iter_mut().zip(&o.escapes) {
             a.0.merge(&b.0);
             a.1.merge(&b.1);
@@ -606,6 +665,8 @@ pub struct IonReport {
     pub range: RangeReport,
     /// Damage: model estimates and cascade counts, side by side.
     pub damage: DamageReport,
+    /// Where the energy of the beam went, by depth.
+    pub energy: EnergyProfileReport,
     /// Backscattering, transmission and sputtering.
     pub escapes: EscapeReport,
 }
@@ -658,6 +719,28 @@ pub struct LayerRange {
     pub depth_histogram: Histogram,
 }
 
+/// Energy deposited by depth, on the binning of the range histogram, eV
+/// summed over all histories (divide by [`IonReport::histories`] for per-ion
+/// values). Each profile plus its underflow and overflow equals the matching
+/// [`EnergyBudget`] total; energy that leaves the target has no depth and is
+/// in no profile.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct EnergyProfileReport {
+    /// Electronic loss of all particles: `electronic_nonlocal` (spread along
+    /// each flight segment) plus `electronic_local` (at the collision).
+    /// Sums to `budget.electronic_nonlocal + budget.electronic_local`.
+    pub electronic: WeightedHistogram,
+    /// Energy left in the lattice: subthreshold, weak-collision and binding
+    /// deposits at the collision, and the energy of each particle where it
+    /// stopped. Sums to `budget.lattice + budget.rest`.
+    pub lattice: WeightedHistogram,
+    /// Energy `T` transferred to primary knock-on atoms (generation 1), at
+    /// the recoil depth. Sums to [`NrtDamage::pka_energy_ev`]. This is a
+    /// share of the other two profiles in a later stage, not an extra
+    /// channel: do not add it to them.
+    pub recoil: WeightedHistogram,
+}
+
 /// Damage, as two separate kinds of result. See [`crate::ion::damage`].
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct DamageReport {
@@ -673,6 +756,13 @@ pub struct DamageReport {
     pub interstitial_histogram: Histogram,
     /// Depth histogram of replacements, m.
     pub replacement_histogram: Histogram,
+    /// NRT displacement estimate by depth of the PKA, m. A model estimate
+    /// (damage-energy based, no cascade spread), not an event count; its sum
+    /// over bins, underflow and overflow is `nrt.nrt_displacements`.
+    pub nrt_histogram: WeightedHistogram,
+    /// Kinchin-Pease displacement estimate by PKA depth, m; sums to
+    /// `nrt.kinchin_pease_displacements`.
+    pub kinchin_pease_histogram: WeightedHistogram,
 }
 
 /// Damage in one layer.

@@ -164,14 +164,14 @@ fn relative_paths_resolve_against_the_base_directory_and_are_recorded() {
     std::fs::write(d.join("sub/b.toml"), &text).unwrap();
     let r = with_tables(&["sub/b.toml"]).resolve_in(&d).unwrap();
     let l = &r.stopping_tables[0];
-    assert_eq!(l.path, "sub/b.toml");
-    assert!(l.resolved_path.is_absolute());
-    assert_eq!(l.sha256.len(), 64);
-    assert!(l.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
+    assert_eq!(l.file.path, "sub/b.toml");
+    assert!(l.file.resolved_path.is_absolute());
+    assert_eq!(l.file.sha256.len(), 64);
+    assert!(l.file.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
     // Same bytes, same hash; different bytes, different hash.
     std::fs::write(d.join("sub/c.toml"), format!("{text}\n# edited\n")).unwrap();
     let r2 = with_tables(&["sub/c.toml"]).resolve_in(&d).unwrap();
-    assert_ne!(l.sha256, r2.stopping_tables[0].sha256);
+    assert_ne!(l.file.sha256, r2.stopping_tables[0].file.sha256);
     // Listed as a model with its provenance.
     let m = r
         .models()
@@ -179,6 +179,22 @@ fn relative_paths_resolve_against_the_base_directory_and_are_recorded() {
         .find(|m| m.name == "user-table")
         .expect("table model listed");
     assert!(m.citation.contains("sub/b.toml") && m.citation.contains("Lindhard-Scharff"));
+}
+
+/// A path with a `..` component resolves against the base directory too, and
+/// the provenance record keeps the path as written while identifying the
+/// file it names (issue #774: the record rides through the `file` field).
+#[test]
+fn dot_dot_path_components_resolve_against_the_base_directory() {
+    let d = scratch("dotdot");
+    std::fs::create_dir_all(d.join("sub")).unwrap();
+    std::fs::write(d.join("b.toml"), ls_table(5, 14, 1.0, 1.0e4, "")).unwrap();
+    let r = with_tables(&["sub/../b.toml"]).resolve_in(&d).unwrap();
+    let l = &r.stopping_tables[0];
+    assert_eq!(l.file.path, "sub/../b.toml");
+    assert!(l.file.resolved_path.is_absolute());
+    assert!(l.file.resolved_path.ends_with("b.toml"));
+    assert_eq!(l.file.sha256.len(), 64);
 }
 
 #[test]
@@ -420,7 +436,7 @@ fn none_run_has_zero_electronic_loss_and_matches_the_library_model() {
     assert_eq!(r.screening, Screening::ZblUniversal);
     let table = ScatteringTable::build(&pot, &r.table_spec);
     let run = |stopping: &(dyn ElectronicStopping + Sync)| {
-        Bca::new(r.beam, &r.stack, r.config, stopping, &table)
+        Bca::new(r.beam, r.geometry(), r.config, stopping, &table)
             .unwrap()
             .run(|| SummaryTally::new(1e-9, 100))
             .unwrap()
@@ -434,4 +450,123 @@ fn none_run_has_zero_electronic_loss_and_matches_the_library_model() {
     // And Lindhard-Scharff does lose energy to electrons on the same problem.
     let ls = run(&LindhardScharff::new());
     assert!(ls.budget.electronic_nonlocal > 0.0);
+}
+
+// ---- `[physics] stopping = "srim"` (issue #632) ----
+
+// Synthetic numbers made up for tests; not book values.
+const SRIM_FIXTURE: &str = r#"
+format = "lindhard-srim-coefficients/1"
+
+[[row]]
+ion_z = 5
+target_z = 14
+a1 = 2.0
+a2 = 3.0
+a3 = 400.0
+a4 = 5.0
+a5 = 0.01
+e_min_kev_per_u = 0.1
+e_max_kev_per_u = 1.0e4
+citation = "synthetic test data, made up for unit tests"
+"#;
+
+fn srim_input(dir: &Path, file_text: Option<&str>, extra: &str) -> Input {
+    if let Some(t) = file_text {
+        std::fs::write(dir.join("srim.toml"), t).unwrap();
+    }
+    Input::from_toml_str(&format!(
+        "{INPUT}\n[stopping]\nsrim_data = \"srim.toml\"\n{extra}\n"
+    ))
+    .map(|mut i| {
+        i.physics.stopping = StoppingChoice::Srim;
+        i
+    })
+    .unwrap()
+}
+
+#[test]
+fn srim_is_accepted_resolved_listed_and_serves_the_pair() {
+    let d = scratch("srim_ok");
+    let i = srim_input(&d, Some(SRIM_FIXTURE), "");
+    let r = i.resolve_in(&d).unwrap();
+    let l = r.srim.as_ref().unwrap();
+    assert_eq!(l.file.sha256.len(), 64);
+    let m = r.models();
+    let info = m.iter().find(|m| m.name == "srim").unwrap();
+    assert!(info.citation.contains("not independent validation"));
+    assert!(info.citation.contains("synthetic test data"));
+    let model = r.stopping_model();
+    let b = Ion::new(5).unwrap();
+    assert!(model.stopping(&b, 14, 1.0e5).is_ok());
+    // out of range is an error, not an extrapolation
+    assert!(model.stopping(&b, 14, 1.0).is_err());
+    // unknown pair is an error
+    assert!(model.stopping(&b, 8, 1.0e5).is_err());
+    // echo round-trips
+    let back = Input::from_toml_str(&toml::to_string(&r.input).unwrap()).unwrap();
+    assert_eq!(back, r.input);
+}
+
+/// The SRIM coefficient file is identified the way a user table is: the path
+/// as written, an absolute resolved path, and a hash of the bytes that
+/// changes with them (issue #752; the user-table case is
+/// `relative_paths_resolve_against_the_base_directory_and_are_recorded`).
+#[test]
+fn srim_relative_path_resolves_against_the_base_directory_and_is_recorded() {
+    let d = scratch("srim_paths");
+    std::fs::create_dir_all(d.join("sub")).unwrap();
+    std::fs::write(d.join("sub/srim.toml"), SRIM_FIXTURE).unwrap();
+    let mut i = srim_input(&d, None, "");
+    i.stopping.srim_data = Some("sub/srim.toml".to_string());
+    let r = i.resolve_in(&d).unwrap();
+    let l = r.srim.as_ref().unwrap();
+    assert_eq!(l.file.path, "sub/srim.toml");
+    assert!(l.file.resolved_path.is_absolute());
+    assert!(l.file.resolved_path.ends_with("sub/srim.toml"));
+    assert_eq!(l.file.sha256.len(), 64);
+    assert!(l.file.sha256.bytes().all(|b| b.is_ascii_hexdigit()));
+    // Same bytes, same hash; different bytes, different hash.
+    let again = i.resolve_in(&d).unwrap();
+    assert_eq!(l.file.sha256, again.srim.as_ref().unwrap().file.sha256);
+    std::fs::write(
+        d.join("sub/srim.toml"),
+        format!("{SRIM_FIXTURE}\n# edited\n"),
+    )
+    .unwrap();
+    let edited = i.resolve_in(&d).unwrap();
+    assert_ne!(l.file.sha256, edited.srim.as_ref().unwrap().file.sha256);
+}
+
+#[test]
+fn srim_mixes_with_a_user_table_for_another_pair() {
+    let d = scratch("srim_mixed");
+    std::fs::write(d.join("o.toml"), ls_table(5, 8, 1.0e2, 1.0e6, "")).unwrap();
+    let i = srim_input(&d, Some(SRIM_FIXTURE), "tables = [\"o.toml\"]");
+    let r = i.resolve_in(&d).unwrap();
+    let model = r.stopping_model();
+    let b = Ion::new(5).unwrap();
+    assert!(model.stopping(&b, 8, 1.0e4).is_ok()); // user table
+    assert!(model.stopping(&b, 14, 1.0e5).is_ok()); // srim
+}
+
+#[test]
+fn srim_data_field_errors_name_the_field() {
+    let d = scratch("srim_err");
+    // srim chosen, no file
+    let mut i = Input::from_toml_str(INPUT).unwrap();
+    i.physics.stopping = StoppingChoice::Srim;
+    let (f, _) = field_of(i.resolve_in(&d).unwrap_err());
+    assert_eq!(f, "stopping.srim_data");
+    // file given without srim
+    let i =
+        Input::from_toml_str(&format!("{INPUT}\n[stopping]\nsrim_data = \"x.toml\"\n")).unwrap();
+    let (f, m) = field_of(i.resolve_in(&d).unwrap_err());
+    assert_eq!(f, "stopping.srim_data");
+    assert!(m.contains("srim"), "{m}");
+    // blank citation
+    let bad = SRIM_FIXTURE.replace("synthetic test data, made up for unit tests", "");
+    let (f, m) = field_of(srim_input(&d, Some(&bad), "").resolve_in(&d).unwrap_err());
+    assert_eq!(f, "stopping.srim_data");
+    assert!(m.contains("provenance"), "{m}");
 }

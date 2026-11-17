@@ -7,10 +7,9 @@ use std::path::PathBuf;
 
 use lindhard::geometry::{Boundary, Stack, VoxelGrid};
 use lindhard::ion::bca::{
-    Bca, BcaConfig, BcaTally, Beam, ElectronicChannel, EnergyBudget, Particle, SummaryTally,
+    Bca, BcaConfig, BcaTally, ElectronicChannel, EnergyBudget, Particle, SummaryTally,
 };
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
-use lindhard::ion::stopping::Ion;
 use lindhard::tally::Binning;
 use lindhard::tally::{
     ExportProvenance, IonTally, IonTallyConfig, SpeciesDefects, VoxelCell, VoxelRecord,
@@ -20,18 +19,10 @@ use lindhard::tally::{
 const NM: f64 = 1e-9;
 
 mod common;
+use common::boron_2kev as beam;
 use common::si_with_surface_binding as si;
+use common::with_threads;
 use common::zbl_si_table as table;
-
-fn beam(count: u64) -> Beam {
-    Beam {
-        ion: Ion::new(5).unwrap(),
-        energy_ev: 2.0e3,
-        polar_rad: 0.3,
-        azimuth_rad: 0.0,
-        count,
-    }
-}
 
 /// `nx` voxels of 1 nm along depth in front of vacuum, `2 x 2` transverse
 /// voxels of 20 nm with periodic sides: laterally uniform.
@@ -184,13 +175,7 @@ fn matches_the_ion_tally_of_the_layer_engine() {
 #[test]
 fn results_are_bit_identical_across_thread_counts() {
     let grid = column(12);
-    let run = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| run_both(&grid, 400, 16).voxel.report())
-    };
+    let run = |threads: usize| with_threads(threads, || run_both(&grid, 400, 16).voxel.report());
     let r1 = run(1);
     assert!(r1.voxels.len() > 10 && r1.totals().displacements > 0);
     for n in [2, 8] {
@@ -562,13 +547,7 @@ fn without_following_recoils_there_are_no_replacements() {
 
 #[test]
 fn per_element_defects_are_identical_across_thread_counts() {
-    let run = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| run_defects(true, 300, 16).0)
-    };
+    let run = |threads: usize| with_threads(threads, || run_defects(true, 300, 16).0);
     let r1 = run(1);
     assert!(r1.grand_defect_totals().iter().any(|d| d.vacancies > 0));
     for n in [2, 8] {

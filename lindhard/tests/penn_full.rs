@@ -22,42 +22,15 @@ use lindhard::electron::inelastic::{
 use lindhard::material::Material;
 use rayon::prelude::*;
 
-const TOL: f64 = 1e-3;
+mod common;
+use common::{drude_plasmon_elf as fixture, rel, simpson_log, with_threads};
 
-fn fixture() -> OpticalElf {
-    DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
-        .unwrap()
-        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
-        .unwrap()
-}
+const TOL: f64 = 1e-3;
 
 fn full() -> FullPenn {
     FullPenn::new(fixture())
         .with_relative_tolerance(TOL)
         .unwrap()
-}
-
-fn rel(a: f64, b: f64) -> f64 {
-    (a / b - 1.0).abs()
-}
-
-/// Composite Simpson rule in `ln x` on `[lo, hi]` with `n` (even) intervals.
-fn simpson_log(f: &impl Fn(f64) -> f64, lo: f64, hi: f64, n: usize) -> f64 {
-    let (a, b) = (lo.ln(), hi.ln());
-    let h = (b - a) / n as f64;
-    let mut s = 0.0;
-    for i in 0..=n {
-        let x = (a + h * i as f64).exp().clamp(lo, hi);
-        let w = if i == 0 || i == n {
-            1.0
-        } else if i % 2 == 1 {
-            4.0
-        } else {
-            2.0
-        };
-        s += w * f(x) * x;
-    }
-    s * h / 3.0
 }
 
 // ---------------------------------------------------------------------------
@@ -286,11 +259,7 @@ fn tables_are_bit_identical_across_thread_counts() {
     let grid = [40.0, 300.0, 3e4];
     let serial = fpa.tabulate(&grid).unwrap();
     for threads in [1, 3] {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        let parallel: Vec<_> = pool.install(|| {
+        let parallel: Vec<_> = with_threads(threads, || {
             grid.par_iter()
                 .map(|&e| fpa.imfp_and_stopping(e).unwrap())
                 .collect()
@@ -416,11 +385,9 @@ fn full_penn_tables_follow_the_model_on_any_thread_count() {
     let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
     let options = InelasticTableOptions::new(GRID_ENERGIES.to_vec());
     let build = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| build_inelastic_table_for_model(&m, &material, &options).unwrap())
+        with_threads(threads, || {
+            build_inelastic_table_for_model(&m, &material, &options).unwrap()
+        })
     };
     let t1 = build(1);
     let elf_min = coarse_fixture().energy_ev()[0];
@@ -540,11 +507,9 @@ fn build_low(
     let m = PennInelastic::Full(coarse_full());
     let material = Material::from_atom_fractions(&[(13, 1.0)], None).unwrap();
     let options = InelasticTableOptions::new(grid.to_vec()).with_axis(axis);
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap()
-        .install(|| build_inelastic_table_for_model(&m, &material, &options).unwrap())
+    with_threads(threads, || {
+        build_inelastic_table_for_model(&m, &material, &options).unwrap()
+    })
 }
 
 #[test]

@@ -23,10 +23,16 @@
 //! * Atom number density follows `n_i = x_i * rho * N_A / sum_j(x_j * M_j)`
 //!   with `x` the atom fractions, `rho` the mass density and `M` the atomic
 //!   weights (CODATA 2022 `N_A`).
+//! * A **gas** target is a material whose spec gives `gas = { pressure_pa,
+//!   temperature_k, molar_mass_g_mol? }` instead of a density. The mass
+//!   density is then the ideal-gas value `rho = P M / (R T)` (see
+//!   [`GasSpec`]), and [`Material::phase`] reports [`Phase::Gas`] so the
+//!   stopping model can apply a gas-phase correction. Giving `gas` together
+//!   with a density is an error.
 
 use serde::{Deserialize, Serialize};
 
-use crate::constants::AVOGADRO;
+use crate::constants::{AVOGADRO, BOLTZMANN};
 use crate::elements::{element, element_by_symbol};
 use crate::units::{g_cm3_to_kg_m3, kg_m3_to_g_cm3};
 
@@ -108,6 +114,32 @@ pub enum MaterialError {
     /// A serialized element entry was malformed (spec level problems).
     #[error("invalid material specification: {0}")]
     InvalidSpec(String),
+    /// A gas-state field (pressure, temperature or molar mass) is not a finite
+    /// positive number.
+    #[error("invalid gas specification: {field} must be finite and > 0, got {value}")]
+    InvalidGas {
+        /// The offending key, e.g. `gas.pressure_pa`.
+        field: &'static str,
+        /// The value given.
+        value: f64,
+    },
+}
+
+/// Thermodynamic phase of a material, as seen by the stopping model.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Phase {
+    /// Condensed matter (the default for every material without a `gas` spec).
+    Solid,
+    /// A gas specified by pressure and temperature.
+    Gas,
+}
+
+/// Thermodynamic state of a gas target.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct GasState {
+    pressure_pa: f64,
+    temperature_k: f64,
+    molar_mass_g_mol: f64,
 }
 
 /// One element within a material.
@@ -142,6 +174,7 @@ pub struct Material {
     name: Option<String>,
     components: Vec<Component>,
     density_kg_m3: f64,
+    gas: Option<GasState>,
 }
 
 fn check_fraction(z: u8, v: f64) -> Result<(), MaterialError> {
@@ -217,6 +250,7 @@ impl Material {
             name: None,
             components,
             density_kg_m3: density,
+            gas: None,
         })
     }
 
@@ -260,8 +294,24 @@ impl Material {
         self.density_kg_m3
     }
 
-    /// Override the mass density, kg/m³.
+    /// Phase of the material: [`Phase::Gas`] if it was given a `gas` spec.
+    pub fn phase(&self) -> Phase {
+        if self.gas.is_some() {
+            Phase::Gas
+        } else {
+            Phase::Solid
+        }
+    }
+
+    /// Override the mass density, kg/m³. Not allowed for a gas material, whose
+    /// density is fixed by its pressure and temperature.
     pub fn set_mass_density(&mut self, density_kg_m3: f64) -> Result<(), MaterialError> {
+        if self.gas.is_some() {
+            return Err(MaterialError::InvalidSpec(
+                "cannot override the density of a gas material; change gas.pressure_pa or gas.temperature_k"
+                    .to_string(),
+            ));
+        }
         if !(density_kg_m3.is_finite() && density_kg_m3 > 0.0) {
             return Err(MaterialError::InvalidDensity(density_kg_m3));
         }
@@ -422,6 +472,37 @@ pub struct ElementSpec {
     pub e_s_ev: Option<f64>,
 }
 
+/// Gas target given by thermodynamic state instead of a density.
+///
+/// The mass density is the ideal-gas value
+/// `rho = P M / (R T)` with `R = N_A k_B` (both exact SI constants), e.g.
+/// Atkins & de Paula, *Physical Chemistry*, the perfect-gas equation of state
+/// `p V = n R T`. Real-gas corrections are not applied.
+///
+/// `molar_mass_g_mol` is the mass of one mole of *molecules*. It defaults to
+/// the mean atomic weight, which is correct only for a monatomic gas; give it
+/// explicitly for N2, O2, H2O and so on (atom fractions alone do not record the
+/// atoms per molecule).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct GasSpec {
+    /// Pressure, Pa.
+    pub pressure_pa: f64,
+    /// Temperature, K.
+    pub temperature_k: f64,
+    /// Molar mass of the gas molecule, g/mol (default: mean atomic weight).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub molar_mass_g_mol: Option<f64>,
+}
+
+fn check_gas(field: &'static str, value: f64) -> Result<f64, MaterialError> {
+    if value.is_finite() && value > 0.0 {
+        Ok(value)
+    } else {
+        Err(MaterialError::InvalidGas { field, value })
+    }
+}
+
 /// Serialized form of a [`Material`] (what the CLI's TOML describes).
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -432,6 +513,10 @@ pub struct MaterialSpec {
     /// Mass density override, g/cm³. Required for compounds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub density_g_cm3: Option<f64>,
+    /// Gas target by pressure and temperature; mutually exclusive with
+    /// `density_g_cm3`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gas: Option<GasSpec>,
     /// Elements, in order.
     pub elements: Vec<ElementSpec>,
 }
@@ -475,8 +560,33 @@ impl TryFrom<MaterialSpec> for Material {
             }
             parts.push((z, f));
         }
-        let density = spec.density_g_cm3.map(g_cm3_to_kg_m3);
+        let mut gas_state = None;
+        let density = match (spec.gas, spec.density_g_cm3) {
+            (Some(_), Some(_)) => {
+                return Err(bad(
+                    "`gas` and `density_g_cm3` are both set; a gas density follows from its pressure and temperature",
+                ))
+            }
+            (Some(g), None) => {
+                let p = check_gas("gas.pressure_pa", g.pressure_pa)?;
+                let t = check_gas("gas.temperature_k", g.temperature_k)?;
+                let probe = Material::build(&parts, kind.unwrap_or(false), Some(1.0))?;
+                let mm = match g.molar_mass_g_mol {
+                    Some(v) => check_gas("gas.molar_mass_g_mol", v)?,
+                    None => probe.mean_atomic_weight(),
+                };
+                gas_state = Some(GasState {
+                    pressure_pa: p,
+                    temperature_k: t,
+                    molar_mass_g_mol: mm,
+                });
+                // rho [kg/m^3] = P M[kg/mol] / (N_A k_B T)
+                Some(p * mm * 1.0e-3 / (AVOGADRO * BOLTZMANN * t))
+            }
+            (None, d) => d.map(g_cm3_to_kg_m3),
+        };
         let mut m = Material::build(&parts, kind.unwrap_or(false), density)?;
+        m.gas = gas_state;
         m.name = spec.name;
         for (e, &(z, _)) in spec.elements.iter().zip(&parts) {
             if let Some(v) = e.e_d_ev {
@@ -497,7 +607,16 @@ impl From<Material> for MaterialSpec {
     fn from(m: Material) -> Self {
         MaterialSpec {
             name: m.name,
-            density_g_cm3: Some(kg_m3_to_g_cm3(m.density_kg_m3)),
+            density_g_cm3: if m.gas.is_some() {
+                None
+            } else {
+                Some(kg_m3_to_g_cm3(m.density_kg_m3))
+            },
+            gas: m.gas.map(|g| GasSpec {
+                pressure_pa: g.pressure_pa,
+                temperature_k: g.temperature_k,
+                molar_mass_g_mol: Some(g.molar_mass_g_mol),
+            }),
             elements: m
                 .components
                 .iter()
@@ -681,6 +800,115 @@ e_s_ev = 2.0
         assert_eq!(s, toml::to_string(&back).unwrap());
         let j = serde_json::to_string(&m).unwrap();
         let _: Material = serde_json::from_str(&j).unwrap();
+    }
+
+    fn gas_toml(extra: &str, gas: &str) -> String {
+        format!("{extra}\ngas = {gas}\n[[elements]]\nsymbol = \"N\"\natom_fraction = 1.0\n")
+    }
+
+    // Hand value: N2, M = 28.0134 g/mol, P = 101325 Pa, T = 300 K.
+    //   rho = P M / (N_A k_B T) = 101325 * 0.0280134 / (8.314462618 * 300)
+    //       = 2838.4... / 2494.3388 = 1.13795 kg/m^3
+    //   n_atoms = 2 P / (k_B T) = 2 * 101325 / (1.380649e-23 * 300)
+    //           = 4.8928e25 m^-3
+    #[test]
+    fn nitrogen_gas_density() {
+        let t = gas_toml(
+            "",
+            "{ pressure_pa = 101325.0, temperature_k = 300.0, molar_mass_g_mol = 28.0134 }",
+        );
+        let m: Material = toml::from_str(&t).unwrap();
+        assert_eq!(m.phase(), Phase::Gas);
+        assert!(
+            rel(m.mass_density(), 1.13795) < 1e-4,
+            "{}",
+            m.mass_density()
+        );
+        // Atom density is rho N_A / (mean atomic weight 14.007), which equals
+        // 2 P / (k_B T) to within the 28.0134 vs 2 * 14.007 rounding.
+        let n_expected = 2.0 * 101325.0 / (BOLTZMANN * 300.0);
+        assert!(rel(m.atom_number_density(), n_expected) < 1e-3);
+    }
+
+    #[test]
+    fn helium_defaults_to_atomic_weight_and_round_trips() {
+        let m: Material = toml::from_str(
+            "gas = { pressure_pa = 1000.0, temperature_k = 293.15 }\n[[elements]]\nsymbol = \"He\"\natom_fraction = 1.0\n",
+        )
+        .unwrap();
+        let mw = m.mean_atomic_weight();
+        let expect = 1000.0 * mw * 1.0e-3 / (AVOGADRO * BOLTZMANN * 293.15);
+        assert!(rel(m.mass_density(), expect) < 1e-14);
+        let spec = MaterialSpec::from(m.clone());
+        assert!(spec.density_g_cm3.is_none());
+        assert!(spec.gas.is_some());
+        let back = Material::try_from(spec).unwrap();
+        assert_eq!(back.phase(), Phase::Gas);
+        assert!(rel(back.mass_density(), m.mass_density()) < 1e-14);
+        let s = toml::to_string(&m).unwrap();
+        let again: Material = toml::from_str(&s).unwrap();
+        assert_eq!(again.phase(), Phase::Gas);
+        let mut g = m;
+        assert!(g.set_mass_density(1.0).is_err());
+    }
+
+    #[test]
+    fn solid_is_solid() {
+        let m = Material::from_atom_fractions(&[(14, 1.0)], None).unwrap();
+        assert_eq!(m.phase(), Phase::Solid);
+    }
+
+    #[test]
+    fn gas_with_density_is_rejected() {
+        let t = gas_toml(
+            "density_g_cm3 = 0.001",
+            "{ pressure_pa = 101325.0, temperature_k = 300.0 }",
+        );
+        let e = toml::from_str::<Material>(&t).unwrap_err().to_string();
+        assert!(e.contains("gas") && e.contains("density_g_cm3"), "{e}");
+    }
+
+    #[test]
+    fn bad_gas_state_is_rejected() {
+        for (g, field) in [
+            (
+                "{ pressure_pa = 0.0, temperature_k = 300.0 }",
+                "gas.pressure_pa",
+            ),
+            (
+                "{ pressure_pa = -1.0, temperature_k = 300.0 }",
+                "gas.pressure_pa",
+            ),
+            (
+                "{ pressure_pa = nan, temperature_k = 300.0 }",
+                "gas.pressure_pa",
+            ),
+            (
+                "{ pressure_pa = 1.0, temperature_k = 0.0 }",
+                "gas.temperature_k",
+            ),
+            (
+                "{ pressure_pa = 1.0, temperature_k = -5.0 }",
+                "gas.temperature_k",
+            ),
+            (
+                "{ pressure_pa = 1.0, temperature_k = inf }",
+                "gas.temperature_k",
+            ),
+            (
+                "{ pressure_pa = 1.0, temperature_k = 300.0, molar_mass_g_mol = 0.0 }",
+                "gas.molar_mass_g_mol",
+            ),
+            (
+                "{ pressure_pa = 1.0, temperature_k = 300.0, molar_mass_g_mol = -2.0 }",
+                "gas.molar_mass_g_mol",
+            ),
+        ] {
+            let e = toml::from_str::<Material>(&gas_toml("", g))
+                .unwrap_err()
+                .to_string();
+            assert!(e.contains(field), "{g}: {e}");
+        }
     }
 
     #[test]

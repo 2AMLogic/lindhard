@@ -108,8 +108,14 @@ export function createController(wasm, post) {
 }
 
 if (typeof WorkerGlobalScope !== "undefined" && self instanceof WorkerGlobalScope) {
+  // Listen before the first await. The page posts "init" as soon as it has
+  // created the worker, and a message delivered while the engine is still
+  // loading is dropped if no handler is set yet: the run then never starts.
+  const early = [];
+  self.onmessage = (e) => early.push(e.data);
   const wasm = await import("./pkg/lindhard_wasm.js");
   await wasm.default();
   const c = createController(wasm, (m) => self.postMessage(m));
   self.onmessage = (e) => c.handle(e.data);
+  for (const m of early) c.handle(m);
 }

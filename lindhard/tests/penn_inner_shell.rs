@@ -16,20 +16,18 @@ use lindhard::electron::inelastic::table::{
     build_inelastic_table, build_shell_channel_tables, mean_loss_ev, InelasticTableOptions,
 };
 use lindhard::electron::inelastic::{
-    born_ochkur_factor, Channel, DrudeLorentz, DrudeLorentzOscillator, ExchangeCorrection,
-    InnerShell, ShellResolvedChannels, SinglePolePenn,
+    born_ochkur_factor, Channel, ExchangeCorrection, InnerShell, ShellResolvedChannels,
+    SinglePolePenn,
 };
 use lindhard::material::Material;
 use rayon::prelude::*;
 
-const SYNTHETIC: &str = "synthetic test fixture, not physical data";
+mod common;
+use common::drude_plasmon_elf as fixture_elf;
+use common::rel;
+use common::with_threads;
 
-fn fixture_elf() -> OpticalElf {
-    DrudeLorentz::new(vec![DrudeLorentzOscillator::plasmon(20.0, 5.0)])
-        .unwrap()
-        .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
-        .unwrap()
-}
+const SYNTHETIC: &str = "synthetic test fixture, not physical data";
 
 fn shell(label: &str, ebi: f64, occ: f64) -> ShellBinding {
     ShellBinding::new(Subshell::from_label(label).unwrap(), ebi, occ).unwrap()
@@ -114,10 +112,6 @@ fn summed_elf() -> OpticalElf {
         })
         .collect();
     OpticalElf::new("synthetic sum", SYNTHETIC, v.energy_ev().to_vec(), sum).unwrap()
-}
-
-fn rel(a: f64, b: f64) -> f64 {
-    (a / b - 1.0).abs()
 }
 
 #[test]
@@ -415,11 +409,7 @@ fn results_are_bit_identical_across_thread_counts() {
         .map(|&e| c.inverse_imfps(e).unwrap())
         .collect();
     for threads in [1usize, 2] {
-        let pool = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap();
-        let par: Vec<_> = pool.install(|| {
+        let par: Vec<_> = with_threads(threads, || {
             energies
                 .par_iter()
                 .map(|&e| c.inverse_imfps(e).unwrap())
@@ -552,15 +542,10 @@ fn shell_channel_tables_match_the_channel_rates_and_loss_moments() {
 fn shell_channel_tables_are_deterministic_and_refuse_exchange() {
     let options = InelasticTableOptions::new(vec![150.0, 400.0, 2500.0]);
     let build = |threads: usize| {
-        rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build()
-            .unwrap()
-            .install(|| {
-                let c = channels(SinglePolePenn::new(fixture_elf()));
-                build_shell_channel_tables(&c, &silicon_label(), &options, BINDING_PROVENANCE)
-                    .unwrap()
-            })
+        with_threads(threads, || {
+            let c = channels(SinglePolePenn::new(fixture_elf()));
+            build_shell_channel_tables(&c, &silicon_label(), &options, BINDING_PROVENANCE).unwrap()
+        })
     };
     let one = build(1);
     assert_eq!(one, build(3));

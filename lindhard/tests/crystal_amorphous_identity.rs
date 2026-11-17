@@ -14,7 +14,11 @@
 //!   `kinematics::sin_cos_turns` (#424), which changes results at the
 //!   1e-16 level, and re-recorded again when the universal screening length
 //!   switched to the Thomas-Fermi constant (#536), a relative shift of about
-//!   1e-4 in the potential. They were recorded on x86_64 Linux; libm
+//!   1e-4 in the potential, and re-recorded once more when the damage report
+//!   gained the NRT and Kinchin-Pease depth histograms (#640). That change
+//!   only adds serialised fields: with those two fields excluded from the
+//!   JSON, the previous digests still matched, so transport is unchanged.
+//!   They were recorded on x86_64 Linux; libm
 //!   `exp`/`ln`/`pow`/trigonometry differ in the last bit on other targets
 //!   (macOS, aarch64 Linux), so the serialised floats, and the digests, are
 //!   platform dependent. The gate keeps the before/after
@@ -26,26 +30,19 @@
 //! collisions in the digest case, a layered target with an interface).
 
 use lindhard::geometry::Stack;
-use lindhard::ion::bca::{Bca, BcaConfig, Beam, CrystalTarget, ElectronicLoss};
-use lindhard::ion::crystal::{Lattice, Orientation};
+use lindhard::ion::bca::{Bca, BcaConfig, Beam, ElectronicLoss};
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
 use lindhard::ion::stopping::Ion;
-use lindhard::material::Material;
 use lindhard::tally::{Binning, IonTally, IonTallyConfig};
 
 const NM: f64 = 1e-9;
+/// Incident polar angle of every case here, degrees. The crystal is oriented
+/// along it, so the two must stay the same number.
+const TILT_DEG: f64 = 7.0;
 
 mod common;
+use common::elemental;
 use common::zbl_si_table as table;
-
-fn elemental(z: u8) -> Material {
-    let mut m = Material::from_atom_fractions(&[(z, 1.0)], None).unwrap();
-    m.set_displacement_energy_ev(z, 15.0).unwrap();
-    if m.surface_binding_energy_ev(z).is_err() {
-        m.set_surface_binding_energy_ev(z, 2.0).unwrap();
-    }
-    m
-}
 
 /// Serialised `IonReport` of a 7-degree run; with `crystal`, a silicon
 /// crystal is attached to the given regions.
@@ -61,13 +58,15 @@ fn report_json(
     let beam = Beam {
         ion: Ion::new(z_ion).unwrap(),
         energy_ev,
-        polar_rad: 7f64.to_radians(),
+        polar_rad: TILT_DEG.to_radians(),
         azimuth_rad: 0.0,
         count: n,
     };
     let mut bca = Bca::new(beam, stack, cfg, &ls, table()).unwrap();
     if let Some(regions) = crystal {
-        bca = bca.with_crystal(crystal_si(), regions).unwrap();
+        bca = bca
+            .with_crystal(common::crystal_si(TILT_DEG, 0.0), regions)
+            .unwrap();
     }
     let species = bca.species_z();
     let tc = IonTallyConfig {
@@ -81,13 +80,6 @@ fn report_json(
         .run(|| IonTally::new(stack, &species, tc).unwrap())
         .unwrap();
     serde_json::to_string(&tally.report(false)).unwrap()
-}
-
-/// Silicon cut on (100), oriented along the beam's 7-degree tilt.
-fn crystal_si() -> CrystalTarget {
-    let lat = Lattice::silicon();
-    let o = Orientation::new(&lat, [1, 0, 0], [0, 1, 0], 7f64.to_radians(), 0.0, 0.0).unwrap();
-    CrystalTarget::new(lat, o)
 }
 
 #[cfg(all(target_arch = "x86_64", target_os = "linux"))]
@@ -108,7 +100,7 @@ fn b_5kev_si_example_is_unchanged() {
     cfg.seed = 1;
     let d = digest(&stack, 5, 5.0e3, cfg, 3000);
     assert_eq!(
-        d, "2cf7e0bf54600db52e816474fec792f5fd2cf0698e6c0337cbcef3fad1830065",
+        d, "1e717abe2512a33b4851765638df133c7404d57e3afe1b75f85ed28c46e9f088",
         "amorphous B 5 keV Si report changed"
     );
 }
@@ -123,7 +115,7 @@ fn all_optional_branches_are_unchanged() {
     cfg.weak_collisions = 2;
     let d = digest(&stack, 18, 2.0e3, cfg, 1500);
     assert_eq!(
-        d, "ec7190289f070659abfb92b62f5399eaf151870e6efad86a918731b450cdcb21",
+        d, "a574a38e714d56bce35bd7b1362175030f0e42846278661a50c33796f83ae13d",
         "amorphous multi-branch report changed"
     );
 }

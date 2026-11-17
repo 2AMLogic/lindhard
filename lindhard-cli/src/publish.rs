@@ -1,4 +1,5 @@
-//! The output lifecycle shared by the ion, electron and dynamic run modes.
+//! The output lifecycle shared by the ion, electron, dynamic and exposure
+//! run modes.
 //!
 //! A run replaces its CSVs in place and publishes its summary last, so the
 //! summary certifies the completed output set. [`OutputSet::begin`] removes
@@ -143,6 +144,8 @@ pub fn publish_static_ion(
     set.write(output::DEPTH_FILE, output::depth_csv(tally))?;
     set.write(output::LATERAL_FILE, output::lateral_csv(report))?;
     set.write(output::DAMAGE_FILE, output::damage_csv(report))?;
+    set.write(output::ENERGY_FILE, output::energy_csv(report))?;
+    set.write(output::NRT_FILE, output::nrt_csv(report))?;
     set.write(output::ESCAPES_FILE, output::escapes_csv(report))?;
     set.reconcile_optional(
         output::IONS_FILE,
@@ -303,10 +306,11 @@ seed = 1
         (summary, s)
     }
 
-    const CSVS: [&str; 4] = [
+    const CSVS: [&str; 5] = [
         output::DEPTH_FILE,
         output::LATERAL_FILE,
         output::DAMAGE_FILE,
+        output::ENERGY_FILE,
         output::ESCAPES_FILE,
     ];
 

@@ -15,7 +15,8 @@
 //! Validity ranges per model are in `docs/stopping-models.md` and are exposed
 //! at run time by [`ElectronicStopping::validity`].
 //!
-//! No tabulated SRIM or ICRU data enters this module. Terms whose published
+//! Except for [`srim`], which reads published coefficients from a data file,
+//! no tabulated SRIM or ICRU data enters this module. Terms whose published
 //! coefficients are only available from such tables are omitted, and the
 //! omission is listed in `docs/stopping-models.md`.
 
@@ -27,6 +28,7 @@ pub mod lindhard_scharff;
 pub mod mix;
 pub mod none;
 pub mod oen_robinson;
+pub mod srim;
 pub mod straggling;
 pub mod table;
 
@@ -98,6 +100,14 @@ pub enum StoppingError {
         table_ion: u8,
         /// Table target Z.
         table_target: u8,
+        /// Requested ion Z.
+        ion: u8,
+        /// Requested target Z.
+        target: u8,
+    },
+    /// An SRIM coefficient file ([`srim`]) has no row for this pair.
+    #[error("no SRIM coefficients for Z1={ion}, Z2={target}")]
+    NoSrimCoefficients {
         /// Requested ion Z.
         ion: u8,
         /// Requested target Z.

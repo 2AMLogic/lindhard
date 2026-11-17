@@ -22,14 +22,6 @@ fn normal(rng: &mut ParticleRng) -> f64 {
     (-2.0 * u1.ln()).sqrt() * (2.0 * PI * u2).cos()
 }
 
-fn with_threads<R: Send>(n: usize, f: impl FnOnce() -> R + Send) -> R {
-    rayon::ThreadPoolBuilder::new()
-        .num_threads(n)
-        .build()
-        .unwrap()
-        .install(f)
-}
-
 #[test]
 fn gaussian_moments_are_recovered() {
     let (mu, sigma) = (120.0 * NM, 35.0 * NM);
@@ -291,6 +283,7 @@ fn dual_pearson_rejects_thin_histograms() {
 
 mod common;
 use common::si;
+use common::with_threads;
 use common::zbl_si_table as table;
 
 fn config() -> IonTallyConfig {
@@ -393,6 +386,54 @@ fn ion_tally_agrees_with_the_engine_bookkeeping() {
     assert_eq!(si_esc.front.polar_histogram.overflow, 0);
 }
 
+/// Each energy profile, with its underflow and overflow, sums to the matching
+/// budget total: per ion (the run is a single history) and over the run.
+fn assert_energy_profiles_close(r: &IonReport) {
+    let b = &r.budget;
+    let tol = |x: f64| 1e-9 * b.incident.max(x.abs());
+    let e = &r.energy;
+    let electronic = b.electronic_nonlocal + b.electronic_local;
+    assert!((e.electronic.total() - electronic).abs() < tol(electronic));
+    assert!((e.lattice.total() - (b.lattice + b.rest)).abs() < tol(b.lattice + b.rest));
+    let pka = r.damage.nrt.pka_energy_ev;
+    assert!((e.recoil.total() - pka).abs() < tol(pka));
+    assert!(b.residual().abs() < 1e-9 * b.incident);
+    assert_eq!(e.electronic.binning, r.range.depth_histogram.binning);
+    // Nothing is deposited above the surface, and the profiles are not
+    // empty in range.
+    assert_eq!(e.electronic.underflow, 0.0);
+    assert_eq!(e.lattice.underflow, 0.0);
+    assert!(e.electronic.sums.iter().sum::<f64>() > 0.0);
+}
+
+#[test]
+fn energy_profiles_close_against_the_budget() {
+    // Film with backscattering and transmission: escaped energy is in no
+    // profile, so the profiles total less than the incident energy.
+    let film = Stack::new(vec![(si(), 20.0 * NM)], None).unwrap();
+    let (r, _) = run_ion(&film, 5, 5e3, 400, 2.0, 2);
+    assert_energy_profiles_close(&r);
+    assert!(r.budget.backscattered > 0.0 && r.budget.transmitted > 0.0);
+    let inside = r.energy.electronic.total() + r.energy.lattice.total();
+    assert!(inside < r.budget.incident);
+    // Per ion: one history at a time.
+    for n in [1, 3] {
+        let (one, _) = run_ion(&film, 5, 5e3, n, 2.0, 1);
+        assert_energy_profiles_close(&one);
+    }
+    // Two layers: stopping in layer 2.
+    let two = Stack::new(vec![(si(), 8.0 * NM), (si(), 40.0 * NM)], None).unwrap();
+    let (r2, _) = run_ion(&two, 5, 3e3, 200, 2.0, 2);
+    assert_energy_profiles_close(&r2);
+    assert!(r2.range.layers[1].stopped > 0);
+    // Deep implant: primaries and flight segments reach the overflow bin.
+    let deep = Stack::semi_infinite(si());
+    let (r3, _) = run_ion(&deep, 5, 4e4, 100, 2.0, 2);
+    assert_energy_profiles_close(&r3);
+    assert!(r3.range.depth_histogram.overflow > 0);
+    assert!(r3.energy.electronic.overflow > 0.0 && r3.energy.lattice.overflow > 0.0);
+}
+
 #[test]
 fn replacements_are_counted_for_self_ions() {
     // Si into Si with the recoil cutoff at E_d: moving Si atoms that stop
@@ -435,4 +476,66 @@ fn dual_pearson_is_never_worse_than_the_single_pearson() {
     let fit = DualPearson::fit(&hist).unwrap();
     let single = fit.single_chi_square.expect("type IV moments");
     assert!(fit.chi_square <= single);
+}
+
+/// `follow_recoils = false` run with a depth grid shorter than the target, so
+/// some PKAs land in the overflow bin.
+fn run_pka_only(threads: usize) -> IonReport {
+    let stack = Stack::new(vec![(si(), 10.0 * NM), (si(), 40.0 * NM)], Some(si())).unwrap();
+    let ls = LindhardScharff::new();
+    let mut cfg = BcaConfig::new(5.0, 2.0);
+    cfg.follow_recoils = false;
+    let bca = Bca::new(
+        Beam::normal(Ion::new(5).unwrap(), 20e3, 200),
+        &stack,
+        cfg,
+        &ls,
+        table(),
+    )
+    .unwrap();
+    let mut c = config();
+    c.depth = Binning::new(0.0, 30.0 * NM, 30).unwrap();
+    let proto = IonTally::new(&stack, &bca.species_z(), c).unwrap();
+    with_threads(threads, || bca.run(|| proto.clone()).unwrap().report(false))
+}
+
+#[test]
+fn nrt_depth_profile_sums_to_the_totals() {
+    let r = run_pka_only(1);
+    let (h, k) = (&r.damage.nrt_histogram, &r.damage.kinchin_pease_histogram);
+    let n = r.damage.nrt;
+    assert!(n.pka_count > 0 && n.nrt_displacements > 0.0);
+    let close = |a: f64, b: f64| (a - b).abs() <= 1e-9 * b.abs();
+    assert!(close(h.total(), n.nrt_displacements));
+    assert!(close(k.total(), n.kinchin_pease_displacements));
+    // The grid ends inside the substrate layer: PKAs beyond it overflow, and
+    // nothing is shallower than the surface.
+    assert!(h.overflow > 0.0 && k.overflow > 0.0);
+    assert_eq!(h.underflow, 0.0);
+    // Both layers contribute, and the profile reaches into the second layer.
+    assert!(r.damage.layers.iter().all(|l| l.nrt.pka_count > 0));
+    assert!(h.sums[15..].iter().any(|&v| v > 0.0));
+    // Kinchin-Pease never lies below NRT, bin by bin.
+    for (a, b) in h.sums.iter().zip(&k.sums) {
+        assert!(b >= a);
+    }
+    // No cascades: the cascade count histograms hold only the PKAs.
+    assert_eq!(r.damage.cascade.replacements, 0);
+    assert_eq!(r.damage.vacancy_histogram.total(), n.pka_count);
+}
+
+#[test]
+fn nrt_depth_profile_is_bit_identical_across_threads() {
+    let r1 = run_pka_only(1);
+    for t in [2, 4] {
+        let r = run_pka_only(t);
+        assert_eq!(
+            r1.damage.nrt_histogram, r.damage.nrt_histogram,
+            "{t} threads"
+        );
+        assert_eq!(
+            r1.damage.kinchin_pease_histogram, r.damage.kinchin_pease_histogram,
+            "{t} threads"
+        );
+    }
 }

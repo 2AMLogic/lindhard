@@ -29,6 +29,7 @@ or as a mix of the two ([BCA transport](bca.md), "Electronic loss").
 | `stopping = "lindhard-scharff"` (default) | `StoppingChoice::LindhardScharff` | all nonlocal | [Lindhard-Scharff](stopping-lindhard-scharff.md) |
 | `stopping = "bethe-bloch"` | `StoppingChoice::BetheBloch` | all nonlocal | [Bethe-Bloch](stopping-bethe-bloch.md) |
 | `stopping = "equipartition-ls-or"` | `StoppingChoice::EquipartitionLsOr` | half nonlocal (LS), half local (Oen-Robinson) | [Oen-Robinson](stopping-oen-robinson.md) |
+| `stopping = "srim"` | `StoppingChoice::Srim` | all nonlocal | [SRIM-data-sourced](stopping-srim.md) |
 | `stopping = "none"` | `StoppingChoice::None` | none: nuclear loss only | below |
 
 A `[stopping]` table replaces the chosen model for the one (ion, target

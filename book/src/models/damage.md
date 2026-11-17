@@ -80,6 +80,9 @@ During transport a target atom is **displaced** when it receives
 These are kept in total, per layer and as a depth profile
 (`damage_profile.csv`).
 
+The NRT and Kinchin-Pease estimates also have a depth profile at the PKA
+depth (`nrt_profile.csv`), separate from these counts.
+
 ## Selecting it
 
 Always on: both are computed in every run. The inputs are the

@@ -6,11 +6,14 @@
 // dropped. Units follow the file (eV, nm, degrees, g/cm^3).
 //
 // A setup:
-//   { beam:   { ion, massAmu|null, energyEv, tiltDeg },
+//   { beam:   { ion, massAmu|null, energyEv, tiltDeg, azimuthDeg },
 //     layers: [{ name, thicknessNm|null (semi-infinite, last layer only),
 //                densityGcm3|null (null: the tabulated density of a pure
 //                element), elements: [{ symbol, fraction,
 //                eDEv|null, eBEv|null, eSEv|null }] }],   // null: table default
+//     crystal: null | { layers: [stack indices, substrate last], preset,
+//                       normal: [h, k, l], reference: [u, v, w],
+//                       waferRotationDeg, temperatureK|null },  // null: amorphous
 //     physics: { potential, stopping, followRecoils, primaryCutoffEv,
 //                recoilCutoffEv },
 //     run:    { ions, seed },
@@ -21,14 +24,38 @@
 
 export const POTENTIALS = ["zbl", "kr-c", "moliere", "lenz-jensen"];
 export const STOPPINGS = ["lindhard-scharff", "bethe-bloch", "equipartition-ls-or"];
+// The full CrystalPreset set (lindhard/src/input/schema.rs).
+export const CRYSTAL_PRESETS = ["Si", "Ge", "GaAs", "3C-SiC"];
 export const MAX_IONS = 1000000;
 const NAME_RE = /^[A-Za-z0-9_-]+$/;
 
 export class ModelError extends Error {}
 
+// Presets. SiO2 density: the usual handbook density of vitreous silica (CRC
+// Handbook; docs/data-provenance.md, example inputs). GaAs: 5.321 g/cm^3,
+// NBS Monograph 25 sec. 3 (docs/data-provenance.md, lattice constants). Si,
+// Cu, Au: the element table's densities. The Si displacement energy (15 eV)
+// and the O energies are the illustrative model parameters of
+// examples/as_50keV_si_sio2.toml, not recommendations. Ga and As have no
+// tabulated displacement energy and no value is invented for them.
+export const el = (symbol, fraction = 1, eDEv = null, eSEv = null) => ({ symbol, fraction, eDEv, eBEv: null, eSEv });
+export const PRESETS = {
+  Si: { density: null, elements: [el("Si", 1, 15)], note: "The Si displacement energy (15 eV) is an illustrative model parameter, not a recommendation" },
+  Cu: { density: null, elements: [el("Cu")] },
+  Au: { density: null, elements: [el("Au")] },
+  SiO2: {
+    density: 2.2, elements: [el("Si", 1, 15), el("O", 2, 20, 2)],
+    note: "The Si (15 eV) and O (20 eV, surface 2 eV) energies are illustrative model parameters, not recommendations",
+  },
+  GaAs: {
+    density: 5.321, elements: [el("Ga"), el("As")],
+    note: "Ga and As have no tabulated displacement energy: enter one for each",
+  },
+};
+
 export function defaultSetup() {
   return {
-    beam: { ion: "B", massAmu: null, energyEv: 10000, tiltDeg: 7 },
+    beam: { ion: "B", massAmu: null, energyEv: 10000, tiltDeg: 7, azimuthDeg: 0 },
     layers: [
       {
         name: "Si",
@@ -37,6 +64,7 @@ export function defaultSetup() {
         elements: [{ symbol: "Si", fraction: 1, eDEv: 15, eBEv: null, eSEv: null }],
       },
     ],
+    crystal: null,
     physics: {
       potential: "zbl",
       stopping: "lindhard-scharff",
@@ -72,7 +100,9 @@ export function toToml(s) {
     `ion = ${str(s.beam.ion)}`,
   ];
   if (s.beam.massAmu != null) out.push(`mass_amu = ${float(s.beam.massAmu)}`);
-  out.push(`energy_ev = ${float(s.beam.energyEv)}`, `tilt_deg = ${float(s.beam.tiltDeg)}`, "");
+  out.push(`energy_ev = ${float(s.beam.energyEv)}`, `tilt_deg = ${float(s.beam.tiltDeg)}`);
+  if (s.beam.azimuthDeg !== 0) out.push(`azimuth_deg = ${float(s.beam.azimuthDeg)}`);
+  out.push("");
 
   for (const l of s.layers) {
     out.push(`[materials.${l.name}]`);
@@ -87,6 +117,20 @@ export function toToml(s) {
   out.push("");
   for (const l of finite) {
     out.push("[[target.layers]]", `material = ${str(l.name)}`, `thickness_nm = ${float(l.thicknessNm)}`, "");
+  }
+
+  if (s.crystal) {
+    const c = s.crystal;
+    out.push(
+      "[[crystal]]",
+      `layers = [${c.layers.join(", ")}]`,
+      `preset = ${str(c.preset)}`,
+      `normal = [${c.normal.join(", ")}]`,
+      `reference = [${c.reference.join(", ")}]`,
+      `wafer_rotation_deg = ${float(c.waferRotationDeg)}`,
+      "",
+    );
+    if (c.temperatureK != null) out.push("[crystal.thermal]", `temperature_k = ${float(c.temperatureK)}`, "");
   }
 
   const p = s.physics;
@@ -134,6 +178,7 @@ export function validate(s, elements) {
   if (!(num(s.beam.tiltDeg) && s.beam.tiltDeg >= 0 && s.beam.tiltDeg < 90)) {
     add("beam.tilt", "the incidence angle must be in [0, 90) degrees");
   }
+  if (!num(s.beam.azimuthDeg)) add("beam.azimuth", "the azimuth must be a number");
 
   if (s.layers.length === 0) add("layers", "the target needs at least one layer");
   const names = new Set();
@@ -176,6 +221,41 @@ export function validate(s, elements) {
       add(`${at}.density`, `${l.elements[0].symbol} has no tabulated density: enter one`);
     }
   });
+
+  // The engine's own crystal checks (resolve_crystals / Orientation::new),
+  // mirrored so the form refuses a run the engine would refuse.
+  if (s.crystal) {
+    const c = s.crystal;
+    if (!CRYSTAL_PRESETS.includes(c.preset)) add("crystal.preset", "unknown lattice preset");
+    if (!Array.isArray(c.layers) || c.layers.length === 0) {
+      add("crystal.layers", "the crystal needs at least one layer index");
+    } else {
+      const seen = new Set();
+      for (const l of c.layers) {
+        if (!Number.isInteger(l) || l < 0 || l >= s.layers.length) {
+          add("crystal.layers", `layer ${l} does not exist: the target has ${s.layers.length} layer(s), indices 0..${s.layers.length - 1}`);
+        } else if (seen.has(l)) {
+          add("crystal.layers", `layer ${l} is already assigned`);
+        }
+        seen.add(l);
+      }
+    }
+    const triple = (t) => Array.isArray(t) && t.length === 3 && t.every((v) => Number.isInteger(v));
+    if (!triple(c.normal) || c.normal.every((v) => v === 0)) {
+      add("crystal.normal", "the normal must be three integers, not all zero");
+    }
+    if (!triple(c.reference) || c.reference.every((v) => v === 0)) {
+      add("crystal.reference", "the reference must be three integers, not all zero");
+    }
+    if (triple(c.normal) && triple(c.reference) && !c.normal.every((v) => v === 0) && !c.reference.every((v) => v === 0)) {
+      const dot = c.normal[0] * c.reference[0] + c.normal[1] * c.reference[1] + c.normal[2] * c.reference[2];
+      if (dot !== 0) add("crystal.reference", `the reference must lie in the surface plane: h·u + k·v + l·w = ${dot}, must be 0`);
+    }
+    if (!num(c.waferRotationDeg)) add("crystal.waferRotation", "the wafer rotation must be a number");
+    if (c.temperatureK != null && !(num(c.temperatureK) && c.temperatureK >= 0)) {
+      add("crystal.temperature", "the temperature must be non-negative");
+    }
+  }
 
   const p = s.physics;
   if (!POTENTIALS.includes(p.potential)) add("physics.potential", "unknown potential");
@@ -388,15 +468,16 @@ function typed(v, where, type) {
  */
 export function fromToml(text) {
   const t = parseToml(text);
-  only(t, ["beam", "materials", "target", "physics", "run", "tally"], "the file");
+  only(t, ["beam", "materials", "target", "crystal", "physics", "run", "tally"], "the file");
 
   const b = t.beam ?? {};
-  only(b, ["ion", "mass_amu", "energy_ev", "tilt_deg"], "[beam]");
+  only(b, ["ion", "mass_amu", "energy_ev", "tilt_deg", "azimuth_deg"], "[beam]");
   const beam = {
     ion: need(b, "ion", "[beam]", "string"),
     massAmu: opt(b, "mass_amu", "[beam]"),
     energyEv: need(b, "energy_ev", "[beam]"),
     tiltDeg: opt(b, "tilt_deg", "[beam]") ?? 0,
+    azimuthDeg: opt(b, "azimuth_deg", "[beam]") ?? 0,
   };
 
   const materials = t.materials ?? {};
@@ -449,6 +530,78 @@ export function fromToml(text) {
     if (!referenced.has(name)) throw new ModelError(`[materials.${name}] is not used by any layer`);
   }
 
+  // [[crystal]]: the form supports exactly one entry filling some stack layers
+  // (front to back, the substrate last). p_max_nm, q_max_nm and
+  // search_length_nm stay rejected by name through only(): they are valid in
+  // an input file but not keys this page exposes.
+  let crystal = null;
+  if ("crystal" in t) {
+    const list = t.crystal;
+    if (!Array.isArray(list)) throw new ModelError("[[crystal]] must be an array of tables");
+    if (list.length > 1) {
+      throw new ModelError(
+        `crystal: ${list.length} [[crystal]] tables are not supported by this page. ` +
+          "It is valid in a lindhard input file: run that file with lindhard-cli instead.",
+      );
+    }
+    const c = list[0];
+    const w = "[[crystal]]";
+    only(c, ["layers", "preset", "normal", "reference", "wafer_rotation_deg", "thermal"], w);
+    const indexTriple = (k) => {
+      if (!(k in c)) throw new ModelError(`${w}: missing "${k}"`);
+      const v = c[k];
+      if (!Array.isArray(v) || v.length !== 3 || !v.every((x) => Number.isInteger(x))) {
+        throw new ModelError(`${w}: "${k}" must be an array of three integers`);
+      }
+      return v;
+    };
+    if (!("layers" in c)) throw new ModelError(`${w}: missing "layers"`);
+    const layersList = c.layers;
+    if (!Array.isArray(layersList) || !layersList.every((x) => Number.isInteger(x) && x >= 0)) {
+      throw new ModelError(`${w}: "layers" must be an array of layer indices`);
+    }
+    let temperatureK = null;
+    if ("thermal" in c) {
+      only(c.thermal, ["temperature_k"], "[crystal.thermal]");
+      temperatureK = need(c.thermal, "temperature_k", "[crystal.thermal]");
+    }
+    crystal = {
+      layers: layersList,
+      preset: need(c, "preset", w, "string"),
+      normal: indexTriple("normal"),
+      reference: indexTriple("reference"),
+      waferRotationDeg: opt(c, "wafer_rotation_deg", w) ?? 0,
+      temperatureK,
+    };
+    // The engine's checks, at load time and with the engine's meaning
+    // (resolve_crystals, Orientation::new), so a bad orientation is refused
+    // here instead of at run time.
+    if (crystal.layers.length === 0) {
+      throw new ModelError(`${w}: layers needs at least one layer index`);
+    }
+    for (const l of crystal.layers) {
+      if (l >= layers.length) {
+        throw new ModelError(`${w}: layer ${l} does not exist: the target has ${layers.length} layer(s), indices 0..${layers.length - 1}`);
+      }
+      if (crystal.layers.indexOf(l) !== crystal.layers.lastIndexOf(l)) {
+        throw new ModelError(`${w}: layer ${l} is already assigned`);
+      }
+    }
+    if (crystal.normal.every((v) => v === 0)) {
+      throw new ModelError(`${w}: the normal ${j3(crystal.normal)} is all zero`);
+    }
+    if (crystal.reference.every((v) => v === 0)) {
+      throw new ModelError(`${w}: the reference ${j3(crystal.reference)} is all zero`);
+    }
+    const dot = crystal.normal[0] * crystal.reference[0] + crystal.normal[1] * crystal.reference[1] + crystal.normal[2] * crystal.reference[2];
+    if (dot !== 0) {
+      throw new ModelError(
+        `${w}: reference direction ${j3(crystal.reference)} does not lie in the ${j3(crystal.normal)} plane: ` +
+          `h u + k v + l w = ${dot}, must be 0`,
+      );
+    }
+  }
+
   const p = t.physics ?? {};
   only(
     p,
@@ -498,5 +651,8 @@ export function fromToml(text) {
     depthBins: opt(ta, "depth_bins", "[tally]") ?? 1000,
   };
 
-  return { beam, layers, physics, run, tally };
+  return { beam, layers, crystal, physics, run, tally };
 }
+
+// [h, k, l] as the engine prints a Rust index triple.
+const j3 = (t) => `[${t.join(", ")}]`;

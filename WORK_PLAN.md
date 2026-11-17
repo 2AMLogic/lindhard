@@ -28,128 +28,132 @@ validation datasets (#15, #51), which do not touch the code it builds on
 (operator ruling, 2026-10-08, on #12).
 The rest run as capacity allows.
 
-## Current phase: close out and release 0.1.0
+## Where it stands
 
-Operator decision, 2026-11-09: cut a first real release, 0.1.0, with the
-scope below. The release waits almost entirely on operator inputs (a source,
-a measurement, a ruling) rather than on agent work, so agent capacity went to
-new work from 2026-11-09: 27 issues (#546 to #572) on electron dose and
-exposure, electrons on voxel targets, damage outputs, focused ion beams,
-optical data and a photon channel. That work is listed under "Alongside the
-close-out" below. **It does not change the 0.1.0 scope and does not gate the
-release** (operator ruling, 2026-11-10): whatever has merged by the tag ships
-with it, and its open validations are listed as such in
-`docs/validation.md`.
+Status as of 2026-11-13, `main` @ `eff4bf6`. The engine work of every
+milestone has merged. What is open is validation against published
+measurements, data entry from printed sources, and reach (inputs, bindings).
+Most of that waits on a source or a ruling, not on agent work.
 
-Operator rulings, 2026-11-09:
-
-- **Scope: hold 0.1.0 until the M1 and M3 validation gates close** (#148,
-  #151, #511). They are release blockers, not known deviations.
-- **Sources: the operator will obtain** the Oen and Robinson (1976) paper
-  (#251) and the SIMS papers for #515, and scan the relevant pages, as for
-  the SRIM book. Scans stay out of the tree.
-- **Publishing: GitHub release, crates.io and PyPI.** The website stays
-  live but unannounced, so the browser check (#469) does not gate the
-  release.
-
-Where the milestones stand:
-
-| Milestone | State | What is left |
+| Area | Done and evidenced | Open |
 |---|---|---|
-| M0 amorphous ion core (#10) | **Closed 2026-11-10.** Feature-complete and validated (levels 1 to 3) | Recorded gaps, not release blockers: #15 (ASTM E521 `E_d`; C and Mn densities), #45 (Lenz-Jensen polynomial digits; Kr-C screening coefficients) |
-| M1 electron engine (#11) | Engine done, 24 sub-issues closed | Validation gates #148 (η), #151 (PSF); #111 and #162 wait on sources |
-| M2 crystalline implant (#12) | Engine done through step 23 (#513, #514) | SIMS validation #515 then #516; #251 (Oen-Robinson length) affects channeled-range accuracy |
-| M3 dynamic composition (#22) | Engine and two validations done | #511 (Ar to Cu/Ni yield ratio): #543, then #544. Focused ion beams (#554) run alongside |
-| 2D/3D geometry (#25) | Voxel tallies and masked-edge validation done | #434 waits on a `klayout-tools` polygon export. Electrons on voxel targets (#549) run alongside |
-| Bindings (#28) | Python and WASM done | #469 browser check (operator) |
-| Stopping-data library (#33) | Loader, residual report, compilation bibliography done | Digitization #486, #497 and seed datasets #483, #503: **after 0.1.0** |
+| M0 amorphous ion core (#10) | Closed 2026-11-10; validated at levels 1 to 3 (`docs/validation.md`) | Recorded gaps: #15 (ASTM E521 `E_d`; C and Mn densities), #45 (Lenz-Jensen digits; Kr-C coefficients) |
+| M1 electron engine (#11) | Engine, secondaries, PSF, exposure, charge tally (#546 delivered as a tally) | Gates #148 (η), #151 (PSF); #557 (depth-dose), #111, #162 wait on sources |
+| M2 crystalline implant (#12) | Engine through step 23 (#513, #514) | SIMS validation #515 then #516; #251 (Oen-Robinson length) |
+| M3 dynamic composition (#22) | Engine; validations #436, #437, #448, #465, #512; Ni datasets and Cu attribution (#543, #544) | #511 (parent of #543/#544) is still open; focused ion beams #554: #565, #561 |
+| 2D/3D geometry (#25) | Voxel, CSG and mesh geometry in the library; voxel tallies; masked-edge and buried-edge validations (#435, #572) | No TOML input for a laterally varying target (`docs/cli.md`, "Direct Monte Carlo exposure"); #434 layout import; #121 |
+| Bindings (#28) | Python package and WASM session and simulator | #469 real-browser check; the WASM session rejects `[[crystal]]` and `[dynamic]` |
+| Stopping-data library (#33) | Epic closed 2026-11-13; loader, residual report, first primary-paper datasets (#483, PR #724) | #497 (heavy-ion plots), #486 (parent, parked on #497), #503 and #723 (papers), #487 (explorer) |
+| SRIM/TRIM parity (#630) | Data policy #629; `stopping = "srim"` loader #632; gas targets #636; depth profiles #639; quick damage mode #640; PKA-spectrum primaries #641 | #637 (PR #650), #633, #658, #634, #638, #642, #643 |
+| Photon channel (#548) | Part A implemented in PR #631 (open) | #562 until #631 merges; then #566, #567 |
+| Damage outputs, optical data | #553 and #563 (versioned export), #552, #555 closed | Optical gaps listed in `docs/data-provenance.md` |
 
-### Close-out steps, in order
+**0.1.0** (operator decision, 2026-11-09): the release is held until the M1
+and M3 validation gates close (#148, #151, #511). It publishes a GitHub
+release, the crate and the wheels (`CONTRIBUTING.md`, "Releasing"). The
+website stays live but unannounced, so #469 does not gate it. Work merged
+alongside ships with the tag and does not change the scope (ruling,
+2026-11-10).
 
-1. ~~**Land the SRIM-book verifications.**~~ Done 2026-11-09: #540 and
-   #538 (0.8853 universal length) merged.
-2. ~~**Narrow #45 and #15 to what is truly inaccessible,** then close M0
-   (#10).~~ Done 2026-11-10: both issues now open with their remaining
-   scope, and #10 is closed. One of its success criteria (every provenance
-   row verified against its source) is not met, and the close says so. Left
-   in #45: the Lenz-Jensen polynomial digits and the Kr-C screening
-   coefficients (Wilson, Haggmark and Biersack 1977). Left in #15: the ASTM
-   E521 `E_d` values and the C and Mn densities. These are recorded gaps,
-   not release blockers.
-3. **M2 SIMS validation** (#515, then #516). Before it, close #251
-   (Oen-Robinson length), since the channeled tail depends on it. Both wait
-   on the papers the operator is obtaining.
-4. **Close the M1 and M3 validation gates** (operator ruling: they block
-   0.1.0):
-   - #148 (backscatter η): parked by the operator's 2026-10-19 ruling (the
-     0.05 tolerance stands; Si misses at 20 and 30 keV stay visible). #457
-     delivered a source audit and comparison plan (`docs/validation.md`,
-     "Si shell inputs, the 199 eV join and Au"). Executing it needs operator
-     decisions: whether a source for the Si core region above 199 eV (the
-     Henke tables, unopened) is admissible, and authorizing the comparison
-     runs. Operator inputs.
-   - #511 (Ar to Cu/Ni yield ratio): split on 2026-11-09 as the Builder
-     recommended. #543 stores the Ni datasets (IPPJ-AM-32, PDF p. 103,
-     digitized by the existing method); #544 then attributes the 0.67 Cu
-     ratio without tuning. Agent work. A first Builder pass on #543
-     (2026-11-09) stopped on glyph stacks at 60 to 150 eV, which lie below
-     the stored range (196 eV to 10.2 keV); the issue was returned to the
-     queue on 2026-11-10 with that noted.
-   - #151 (PSF): needs an openable measured PSF for a stated resist stack
-     and energy, and the PMMA optical ELF (#162; the open question there is
-     whether the CXRO tables are acceptable). Operator inputs.
-5. **Cut 0.1.0** (`CONTRIBUTING.md`, "Releasing"): CHANGELOG section,
-   workspace version, annotated tag; publish the GitHub release, the crate
-   to crates.io and the wheels to PyPI. The website is not announced with
-   it, so #469 is not a prerequisite.
+Changed in this revision (2026-11-13): #543 and #544 are closed, so #511 is
+no longer waiting on them; Epic #33 and #483 are closed, so the stopping-data
+library is no longer "after 0.1.0" as a whole; the SRIM/TRIM parity epic
+(#630) was missing and is added; #549, #552, #553, #555, #563 and #572 are
+closed and left the "alongside" table; the photon data question moved from
+"which attenuation source" to the angular data in PR #631. This revision
+dropped the "still wants a comparison" caveat from the M1 Done cell, so #546
+was added to "Blocked and waiting" afterwards (2026-11-14, #786): the charge
+tally is delivered (#578) and the issue still waits on a validation source.
 
-### Alongside the close-out
+## Now
 
-Opened 2026-11-09 and 2026-11-10. None of it gates 0.1.0. Each front carries
-its own validation issue, and a front is not done until that closes.
+Can start today. Each item is one pull request.
 
-| Front | Issues | Open validation or gap |
+| What | Done when | Issue |
 |---|---|---|
-| Electron dose, charge and exposure | #546, #547, #550, #551 | #557 (depth-dose against published measurements), #555 (direct Monte Carlo check of the PSF convolution); #546 is delivered as a tally (#578) and still wants a comparison |
-| Electrons on voxel targets (#549, Epic #25) | #570, #571 | #572 (position-dependent PSF and buried-edge validation) |
-| Damage outputs (#553) | #558, #560 | #563 (versioned export with a Python round trip) |
-| Focused ion beams (#554, Epic #22) | #559 | #565 (yield against incidence angle; needs a readable paper), #561 |
-| Optical energy-loss functions (#552) | #556, #564, #568, #569 | Only amorphous Al2O3 has a sourced ELF so far (#577). W, Ta, Ti, Co, Ru, TiN, TaN and HSQ are recorded in `docs/data-provenance.md` as gaps: no openable source |
-| Photon channel (#548) | #562, then #566, #567 | #562 waits on an operator ruling on the attenuation data source |
+| Structural clean-up already claimed: shared loaders, an `electron::beam` module, shared test and bench helpers, the stub `package.json` | Each issue's pull request merges with CI green | #750, #751, #752, #753, #755 |
+| Opt-in Bohr energy-loss straggling in ion transport. `ion/stopping/straggling.rs` states that BCA transport does not sample it; the Bohr variance is already in the tree and cited | A `[physics]` key, off by default, with a thin-foil test: the transmitted energy variance matches the Bohr value within the stated statistical error; default results stay bit-identical; thread-count determinism test passes | none yet |
+| TOML input for a laterally varying ion target built from the library's CSG solids (cuboid, cylinder, half-space) | `lindhard check` and `run` accept an example under `examples/`; `docs/cli.md` documents the tables; a test compares a one-cuboid target with the equivalent layer stack | none yet (Epic #25; lifts the block on #121) |
+| `[[crystal]]` targets in the WASM session | `Simulation::new` accepts a crystal input; a `wasm-bindgen` test reproduces the native depth profile for `examples/b_5keV_si_crystal.toml` at the same seed | none yet (Epic #28) |
 
-### Operator inputs that unblock work
+## Next
+
+Unblocked by a named item above or by one merge.
+
+| What | Done when | Waits on |
+|---|---|---|
+| `lindhard stopping-table` (#637) | PR #650 merged after a rebase (it conflicts with `main`) | A human merge: the pull request adds a dependency to `lindhard-cli/Cargo.toml`, which holds it |
+| Lateral fate in `docs/cli.md` and `CHANGELOG.md` (#121) | The three criteria in #121 are met | The CSG-input item above |
+| Close or restate #511 | The issue is closed, or its body says what remains after #543 and #544 | A re-read of the issue; both cited blockers are closed |
+| Photon parts B and C (#566, #567) | Each issue's criteria | PR #631 merged (#562) |
+| Straggling beyond Bohr (#638) | A Chu-type variant with paper-sourced coefficients, or a recorded decline | The Bohr item above for the transport hook, and a readable source |
+| SRIM-format output writers and a TRIM.IN importer (#643, #642) | Each issue's criteria | Operator hold on both |
+
+## Later
+
+Direction, each with the question to answer first.
+
+- **Electron and dynamic runs in the browser.** Which run drivers need a
+  timer-free path first? `lindhard-wasm/README.md` records that the CLI
+  driver's use of `std::time::Instant` panics on `wasm32-unknown-unknown`.
+- **Layout cross-section import (#434).** Does `klayout-tools` export
+  per-layer merged polygons in a versioned format? The issue forbids a second
+  GDS or OASIS reader in this tree.
+- **Stopping-data explorer in the book (#487).** Is the digitized compilation
+  complete enough to show (#497)?
+- **More wheel platforms.** `lindhard-py/README.md` lists musllinux and
+  Windows arm64 as not covered. Is there a native runner or a cross build for
+  each that the release workflow can use?
+- **Kr-C magic-formula set.** Needs Table 4-1 of the SRIM book; checked
+  against the quadrature like the other two sets.
+- **Muffin-tin potential and a GPU backend.** Both are recorded deferrals
+  with the conditions that lift them (`docs/muffin-tin-deferral.md`,
+  `docs/gpu-feasibility.md`).
+- **Default stopping model.** #630 adds SRIM-compatible options and changes
+  no default; changing one is a separate decision.
+
+## Blocked and waiting
+
+Outside the Now table, no open issue can be started by an agent today. Every
+other open issue waits on one of these.
 
 | Input | Unblocks |
 |---|---|
-| Oen and Robinson, NIM 132, 647 (1976) (operator obtaining) | #251, then M2 accuracy |
-| Lenz (1932) and Jensen (1932); Wilson, Haggmark, Biersack (1977) | the rest of #45 |
-| ASTM E521 (any edition); a CRC Handbook edition later than the 80th | the rest of #15 |
-| A ruling on the photon attenuation data source (NIST XCOM's terms reserve all rights; EPDL97/EPICS2017 is the proposed alternative) | #562, then #566, #567 |
-| Oliva-Florio et al., Phys. Rev. B 35, 2198 (1987), or another measured yield against incidence angle | #565 |
-| Openable optical data for W, Ta, Ti, Co, Ru, TiN, TaN and HSQ | the rest of #556, #564, #569 |
-| SIMS profiles from papers (B, P, As in Si; screen oxide) (operator obtaining) | #515, #516 |
+| A human merge of PR #650 (critical-file hold) | #637 |
+| A ruling on the source of the form-factor and scattering-function data in PR #631 | #562, then #566, #567 |
+| Scans of the SRIM book tables and pages (they stay out of the tree) | #633, #658, #634, the Kr-C set |
+| A run on the machine that holds the srim.org mirror and the OCR tools | #497, then #486, #487 |
+| Oen and Robinson, NIM 132, 647 (1976) | #251, then M2 accuracy |
+| SIMS profiles from papers (B, P, As in Si; screen oxide) | #515, #516 |
 | An openable measured resist PSF; a ruling on the CXRO tables for the PMMA ELF | #151 (release gate), #162 |
-| A ruling on a Si core-region ELF source (Henke tables) and authorization of the #457 comparison runs | #148 (release gate) |
-| Primary stopping papers for B, P, As in Si | #503, #483 |
+| A ruling on a Si core-region ELF source (Henke tables) and on running the #457 comparison | #148 (release gate) |
+| A readable electron depth-dose or interface measurement | #557 |
+| A readable stopped-charge depth-profile measurement (thick conductor, two energies) | #546 |
+| Oliva-Florio et al., Phys. Rev. B 35, 2198 (1987), or another measured yield against angle | #565; #561 is operator-held |
+| Primary stopping papers (H, He, B, P, As in Si; He in Cu and Au) | #503, #723 |
+| Chu (1976), Yang, O'Connor and Wang (1991), or the SRIM book's straggling text | #638 |
+| Lenz (1932), Jensen (1932); Wilson, Haggmark, Biersack (1977); ASTM E521; a later CRC Handbook | the rest of #45 and #15 |
 | A sourced high-l phase-shift method | #111 |
-| An idle machine for benchmarks; a penn-full build measurement | #76, #177; #360 |
-| A real-browser check of the WASM simulator (needed only to announce the website) | #469 |
-| Loom guard reviews | #195, #220 |
+| An idle machine for benchmarks; a penn-full build measurement | #76, #177, #360 |
+| A real-browser check of the simulator | #469, #709, then #467 |
+| The post-merge failure-simulation run for the advisories gate | #199 |
+| Operator rulings | #728 (shared blocks and formats), #739 (`statistical.yml` skip), #195 and #220 (guard reviews) |
 
-### After 0.1.0
+## Not planned
 
-The stopping-data library (#33: #486, #497, #483, #487), the public website
-(#467), layout import (#434, once `klayout-tools` exports polygons), the
-Kr-C magic-formula set (Table 4-1 of the SRIM book, p. 7-6; checked against
-the quadrature like the other two), a RustSec advisory report (#199) and the
-docs follow-up #121.
+- Reading, porting or transcribing code from SRIM/TRIM or any Tier B or
+  Tier C program (`CONTRIBUTING.md`). Data from those sources is admitted
+  with a provenance row (#629).
+- A copyleft dependency anywhere in the build.
+- A second GDS or OASIS reader (#434).
+- Descriptions of downstream applications (`CLAUDE.md`).
 
 <!-- guide:plan-body:start -->
 ## Operator Attention: Merge-Risk-Hold Pileup
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-_None._
+- **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
 
 ## Very Important
 
@@ -161,40 +165,37 @@ _None._
 
 `loom:important`; taken before unlabelled work.
 
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement
 - **#486**: [Epic #33] Digitize the measured points from the srim.org stopping plots (cited, flagged, count-checked)
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup
+- **#637**: [Epic #630] `lindhard stopping-table`: stopping and range tables over an energy grid
 
 ## Ready
 
 Human-approved issues ready for implementation (`loom:issue`).
 
-_None._
+- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-- **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2)
-- **#547**: Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack
-- **#551**: Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check
-- **#568**: Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3
-- **#572**: [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549)
-- **#602**: Electron voxel damage map: input table and Python/CLI export
+- **#872**: CI: macOS Rust leg links lindhard-py against a cached pyo3 build-script path (-lpython3.15) the runner lacks
+- **#876**: Tighten test_ci_runs_no_advisories_check: the narrowed ban misses advisories checks spelled via env/flag indirection
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#585**: feat: add multi-shot exposure dose, iso-dose contours and lindhard exposure command
-- **#611**: docs: record SiCOH and SiCN optical ELF as gaps
-- **#614**: feat: electron voxel damage map table and damage_export for electron runs
-- **#615**: feat: position-dependent PSF scan over voxel targets
+- **#877**: ci: match the no-advisories guard per step so env/flag indirection cannot hide a check
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-_None._
+- **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
+- **#875**: ci: pin the rust job's python interpreter and key rust-cache on it (#872)
 
 ## Proposed
 
@@ -204,30 +205,36 @@ Issues carrying `loom:curated`.
 - **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
 - **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
 - **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
-- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(curated)*
 - **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
 - **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
 - **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
 - **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated)*
 - **#360**: Measure the build time and peak RSS of a penn-full table with band-bottom rate refinement (operator-run) *(curated)*
-- **#483**: [Epic #33] Seed measured stopping datasets from primary papers (first batch: H/He/B/P/As in Si, H/He in Cu and Au) *(curated)*
+- **#409**: CI: clippy canary failing on latest stable or beta Rust *(curated)*
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)*
-- **#511**: [Epic #22] Single-element Ar → Cu and Ar → Ni yields: store a Ni dataset and explain the 0.67 Cu ratio without tuning *(curated)*
 - **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
-- **#544**: [Epic #22] Attribute the Ar → Cu 0.67 yield ratio and add the engine-Ni row, without tuning (split from #511, part 2) *(curated)*
 - **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)*
-- **#547**: Electron engine: dose to named buried layers, depth-dose near interfaces, and transmission through a stack *(curated)*
-- **#551**: Pattern exposure from the point-spread function: dose from a shot list, iso-dose contours, direct Monte Carlo check *(curated)*
+- **#557**: Electron depth-dose and interface-enhancement validation against published measurements *(curated)*
 - **#561**: [Epic #22] Focused ion beams, part 3: lateral implant and damage profiles, film cut-through fluence, trench comparison *(curated)*
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose *(curated)*
 - **#565**: [Epic #22] Focused ion beams, part 2: validate sputter yield against incidence angle for one ion-target pair *(curated)*
-- **#568**: Sourced optical ELFs: SiO2, Si3N4, SiCOH, SiCN, HfO2, Al2O3 *(curated)*
-- **#572**: [Epic #25] Position-dependent electron PSF report and buried-edge validation (part of #549) *(curated)*
-- **#602**: Electron voxel damage map: input table and Python/CLI export *(curated)*
+- **#630**: Epic: lindhard as a comprehensive SRIM/TRIM replacement (feature-parity census and plan) *(curated)*
+- **#633**: [Epic #630] Enter the SRIM book's stopping coefficient and effective-charge tables (double entry) *(curated)*
+- **#634**: [Epic #630] Compound stopping: cores-and-bonds and phase corrections and a compound dictionary from the book *(curated)*
+- **#637**: [Epic #630] `lindhard stopping-table`: stopping and range tables over an energy grid *(curated)*
+- **#638**: [Epic #630] Energy-loss straggling beyond Bohr (verify transport use, add Chu-type model) *(curated)*
+- **#642**: [Epic #630] TRIM.IN importer *(curated)*
+- **#643**: [Epic #630] SRIM-format output writers *(curated)*
+- **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
+- **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
+- **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
+- **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
+- **#876**: Tighten test_ci_runs_no_advisories_check: the narrowed ban misses advisories checks spelled via env/flag indirection *(curated)*
 
 ## Proposed (Architect / Hermit)
 
-_None._
+- **#771**: Consolidate the three copies of Gaussian elimination with partial pivoting (and their divergent singularity tests) *(hermit)*
+- **#777**: Trim never-called public API before 0.1.0 locks the surface: 8 items with zero references *(hermit)*
 
 ## Epics
 
@@ -236,23 +243,22 @@ _None._
 - **#22**: Epic: M3, dynamic composition (fluence-dependent targets)
 - **#25**: Epic: 2D/3D target geometry and layout cross-sections
 - **#28**: Epic: Python and WASM bindings
-- **#33**: Epic: Permissive stopping-power data library
 - **#548**: Photon channel for electron runs: bremsstrahlung and characteristic x-rays, and the dose they carry beyond the electron range
 
 ## Backlog Balance
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 0 |
+| Operator merge-risk holds | 1 |
 | Very important | 0 |
-| Important | 2 |
-| Ready (`loom:issue`) | 0 |
-| In Progress (`loom:building`) | 6 |
-| PRs awaiting review | 4 |
-| Approved PRs awaiting merge | 0 |
-| Curated | 24 |
-| Architect / Hermit proposals | 0 |
-| Active epics | 7 |
+| Important | 5 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 2 |
+| Curated | 29 |
+| Architect / Hermit proposals | 2 |
+| Active epics | 6 |
 <!-- guide:plan-body:end -->
 
 ## Done

@@ -237,9 +237,13 @@
 
 use super::bethe;
 use super::quadrature::{integrate_segments, GaussLegendre};
+use super::shared::{
+    check_energy, check_relative_tolerance, fermi_energy_hartree, inelastic_point_from_au,
+};
 use super::sum_rules::SumRuleReport;
-use crate::constants::{BOHR_RADIUS, ELEMENTARY_CHARGE, HARTREE_ENERGY};
+use crate::constants::BOHR_RADIUS;
 use crate::electron::data::{ElectronDataError, OpticalElf};
+use crate::electron::elastic::HARTREE_EV;
 use std::f64::consts::PI;
 
 type Result<T> = std::result::Result<T, ElectronDataError>;
@@ -247,17 +251,17 @@ type Result<T> = std::result::Result<T, ElectronDataError>;
 /// Default relative tolerance of the IMFP, stopping and DIIMFP integrals.
 pub const DEFAULT_RELATIVE_TOLERANCE: f64 = 1.0e-7;
 
+/// Tightest relative tolerance [`SinglePolePenn::with_relative_tolerance`]
+/// accepts. The single pole integrates a closed-form kernel, so it resolves
+/// further than the nested quadratures of the other two models.
+const MIN_RELATIVE_TOLERANCE: f64 = 1.0e-12;
+
 /// The outer (loss) integral of the exchange-corrected total is this many
 /// times looser than the tolerance of the inner integrals.
 const EXCHANGE_OUTER_TOLERANCE_FACTOR: f64 = 100.0;
 
 /// Gauss-Legendre order of the adaptive integrals.
 const GL_ORDER: usize = 5;
-
-/// The Hartree energy in eV.
-pub(crate) fn hartree_ev() -> f64 {
-    HARTREE_ENERGY / ELEMENTARY_CHARGE
-}
 
 /// `(3π/4)^(1/3)`: `k_F(ω_p) = KF · ω_p^(2/3)` (S2017, below eq. (8)).
 fn kf_coefficient() -> f64 {
@@ -461,17 +465,6 @@ pub struct SinglePolePenn {
     exchange: Option<ExchangeCorrection>,
 }
 
-fn check_energy(what: &'static str, v: f64) -> Result<()> {
-    if v.is_finite() && v > 0.0 {
-        Ok(())
-    } else {
-        Err(ElectronDataError::Invalid {
-            what,
-            reason: format!("must be finite and positive, got {v} eV"),
-        })
-    }
-}
-
 fn check_binding(v: f64) -> Result<()> {
     if v.is_finite() && v >= 0.0 {
         Ok(())
@@ -486,7 +479,7 @@ fn check_binding(v: f64) -> Result<()> {
 impl SinglePolePenn {
     /// The model for `elf`, with Fermi energy zero and the default tolerance.
     pub fn new(elf: OpticalElf) -> Self {
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let w = elf.energy_ev().iter().map(|x| x / h).collect();
         let e = elf.elf_values().to_vec();
         Self {
@@ -531,24 +524,13 @@ impl SinglePolePenn {
     /// the model are then kinetic energies above the Fermi level, and the
     /// kinematics use `T' = T + E_F` (S2017 eq. (2)).
     pub fn with_fermi_energy_ev(mut self, fermi_ev: f64) -> Result<Self> {
-        if !(fermi_ev.is_finite() && fermi_ev >= 0.0) {
-            return Err(ElectronDataError::Invalid {
-                what: "Fermi energy",
-                reason: format!("must be finite and non-negative, got {fermi_ev} eV"),
-            });
-        }
-        self.fermi = fermi_ev / hartree_ev();
+        self.fermi = fermi_energy_hartree(fermi_ev)?;
         Ok(self)
     }
 
     /// Set the relative integration tolerance, in `[1e-12, 1e-2]`.
     pub fn with_relative_tolerance(mut self, rel_tol: f64) -> Result<Self> {
-        if !(1e-12..=1e-2).contains(&rel_tol) {
-            return Err(ElectronDataError::Invalid {
-                what: "integration tolerance",
-                reason: format!("must be in [1e-12, 1e-2], got {rel_tol}"),
-            });
-        }
+        check_relative_tolerance(rel_tol, MIN_RELATIVE_TOLERANCE)?;
         self.rel_tol = rel_tol;
         Ok(self)
     }
@@ -560,7 +542,7 @@ impl SinglePolePenn {
 
     /// The Fermi energy, eV.
     pub fn fermi_energy_ev(&self) -> f64 {
-        self.fermi * hartree_ev()
+        self.fermi * HARTREE_EV
     }
 
     /// The relative integration tolerance.
@@ -596,7 +578,7 @@ impl SinglePolePenn {
             return 0.0;
         }
         let q = q_per_m * BOHR_RADIUS;
-        let w = loss_ev / hartree_ev();
+        let w = loss_ev / HARTREE_EV;
         if q == 0.0 {
             return self.elf_au(w);
         }
@@ -638,7 +620,7 @@ impl SinglePolePenn {
             });
         }
         check_binding(binding_ev)?;
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let p_au = self.diimfp_au(energy_ev / h, loss_ev / h, binding_ev / h);
         Ok(p_au / (BOHR_RADIUS * h))
     }
@@ -647,7 +629,7 @@ impl SinglePolePenn {
     /// binding energy `b`, with the exchange correction (and its
     /// `ω <= (T' + B)/2` limit) where it applies.
     fn diimfp_au(&self, t: f64, w: f64, b: f64) -> f64 {
-        let exchange = self.exchange_applies_at(t * hartree_ev());
+        let exchange = self.exchange_applies_at(t * HARTREE_EV);
         if exchange && w > 0.5 * (t + self.fermi + b) {
             return 0.0;
         }
@@ -748,7 +730,7 @@ impl SinglePolePenn {
         if t.is_nan() || t <= self.w[0] {
             return (0.0, 0.0);
         }
-        if self.exchange_applies_at(t * hartree_ev()) {
+        if self.exchange_applies_at(t * HARTREE_EV) {
             return self.imfp_and_stopping_exchange_au(t, b);
         }
         let tp = t + self.fermi;
@@ -821,13 +803,9 @@ impl SinglePolePenn {
     ) -> Result<InelasticPoint> {
         check_energy("electron energy", energy_ev)?;
         check_binding(binding_ev)?;
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let (inv, s) = self.imfp_and_stopping_au(energy_ev / h, binding_ev / h);
-        Ok(InelasticPoint {
-            energy_ev,
-            inverse_imfp_per_m: inv / BOHR_RADIUS,
-            stopping_ev_per_m: s * h / BOHR_RADIUS,
-        })
+        Ok(inelastic_point_from_au(energy_ev, inv, s))
     }
 
     /// The inelastic mean free path `λ(E)`, m; infinite where no loss is
@@ -855,7 +833,7 @@ impl SinglePolePenn {
     /// k_F²/3))`, over the whole table.
     pub fn bethe_inverse_imfp_per_m(&self, energy_ev: f64) -> Result<f64> {
         check_energy("electron energy", energy_ev)?;
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let tp = energy_ev / h + self.fermi;
         let r = integrate_segments(
             &self.gl,
@@ -933,7 +911,7 @@ mod tests {
     /// of `T' - ω`.
     #[test]
     fn exchange_factor_uses_primary_energy_less_emitted_energy() {
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let (t, b, w) = (400.0 / h, 150.0 / h, 200.0 / h);
         let t_minus_w = t - (w - b);
         assert!((t_minus_w * h - 350.0).abs() < 1e-9);
@@ -956,7 +934,7 @@ mod tests {
             .to_optical_elf("synthetic Drude plasmon", 0.05, 2e4, 240)
             .unwrap();
         let m = SinglePolePenn::new(elf);
-        let h = hartree_ev();
+        let h = HARTREE_EV;
         let (t, w, b) = (400.0 / h, 200.0 / h, 150.0 / h);
         let direct = m.diimfp_core_au(t, w, false, 0.0);
         let b0 = m.diimfp_core_au(t, w, true, 0.0);

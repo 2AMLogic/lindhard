@@ -2,9 +2,10 @@
 
 Published measurements that `lindhard` is compared against
 ([`docs/validation.md`](../../docs/validation.md) section 3). Everything here
-is a measured fact cited to its paper. **Never** SRIM/TRIM output, tables
-derived from it, or any other code's output, however well known
-([`CONTRIBUTING.md`](../../CONTRIBUTING.md), clean-room tiers).
+is a measured fact cited to its paper. Code output (SRIM/TRIM tables and
+others) is admissible data too ([`CONTRIBUTING.md`](../../CONTRIBUTING.md),
+"Data"), but it lives elsewhere, labelled as code output, so that this
+directory holds measurements only.
 
 ## Status
 
@@ -39,6 +40,10 @@ derived from it, or any other code's output, however well known
   (50 to 600 keV) from Table I of Bader et al., Phys. Rev. 103, 32 (1956),
   in the `lindhard-stopping-data/1` format (#430). The authors' smoothed
   curve values; no uncertainty stated.
+- **Stopping, protons in Cu and Au:** `stopping/madsen1953_p_cu.csv` and
+  `stopping/madsen1953_p_au.csv`, 14 values each (359 to 2002 keV) from
+  Tables IV and VI of C. B. Madsen, Mat. Fys. Medd. Dan. Vid. Selsk. 27,
+  no. 13 (1953), converted from keV per mg/cm² (#483). No uncertainty stated.
 - **Stopping, H, D, He and Li, 176 ion–target systems (74 target elements) (srim.org compilation):**
   `stopping/compilation/srim_org_stopping.csv`, 11,771 measured points digitized
   from the per-system plots of the srim.org compilation, each with candidate

@@ -592,7 +592,7 @@ use crate::vec3::dot;
 
 use super::{
     kinematics, Bca, BcaError, BcaTally, ElectronicChannel, EnergyBudget, MeanFreePath, Particle,
-    Scratch,
+    Scratch, StraggleSegment,
 };
 pub(super) use crate::ion::crystal::Candidate;
 
@@ -1080,11 +1080,13 @@ impl<'a> Bca<'a> {
         ci: usize,
         shift: [f64; 3],
         p: &mut Particle,
+        rng: &mut ParticleRng,
         pending: &mut Vec<Particle>,
         budget: &mut EnergyBudget,
         tally: &mut T,
         scratch: &mut Scratch,
         trng: &mut Option<ParticleRng>,
+        seg: &mut StraggleSegment,
     ) -> Result<bool, crate::ion::stopping::StoppingError> {
         let cr = &self.crystals[ci];
         let cutoff = self.species[p.species].cutoff_ev;
@@ -1200,17 +1202,17 @@ impl<'a> Bca<'a> {
             Flight::Event(ex) => {
                 let from = p.pos;
                 p.pos = ex.at;
-                self.electronic_nonlocal(p, from, ex.distance, budget, tally)?;
+                self.electronic_nonlocal(p, from, ex.distance, rng, budget, tally, seg)?;
                 if p.energy_ev < cutoff {
                     return Ok(false);
                 }
-                return Ok(self.apply_event(p, ex.outcome, budget, tally));
+                return Ok(self.apply_event(p, ex.outcome, budget, tally, seg, rng));
             }
             Flight::Clear { region } => {
                 let from = p.pos;
                 Self::advance(p, limit);
                 p.layer = region;
-                self.electronic_nonlocal(p, from, limit, budget, tally)?;
+                self.electronic_nonlocal(p, from, limit, rng, budget, tally, seg)?;
             }
         }
         let Some(hit) = hit else {

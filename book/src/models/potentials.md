@@ -38,8 +38,9 @@ The default length is the one each function was introduced or fitted with
 Four exponentials fitted by Ziegler, Biersack and Littmark (1985, ch. 2) to
 Hartree-Fock-Slater solid-state pair potentials:
 
+| | | | | |
+|---|---:|---:|---:|---:|
 | \\( c_i \\) | 0.1818 | 0.5099 | 0.2802 | 0.02817 |
-|---|---|---|---|---|
 | \\( b_i \\) | 3.2 | 0.9423 | 0.4029 | 0.2016 |
 
 These are the commonly printed four-digit rounding of the published values.
@@ -49,8 +50,9 @@ These are the commonly printed four-digit rounding of the published values.
 Three exponentials fitted to the Hartree-Fock Kr-Kr pair interaction (Wilson,
 Haggmark and Biersack 1977):
 
+| | | | |
+|---|---:|---:|---:|
 | \\( c_i \\) | 0.190945 | 0.473674 | 0.335381 |
-|---|---|---|---|
 | \\( b_i \\) | 0.278544 | 0.637174 | 1.919249 |
 
 ### Molière
@@ -58,8 +60,9 @@ Haggmark and Biersack 1977):
 Molière's three-exponential approximation to the Thomas-Fermi screening
 function (Molière 1947):
 
+| | | | |
+|---|---:|---:|---:|
 | \\( c_i \\) | 0.35 | 0.55 | 0.10 |
-|---|---|---|---|
 | \\( b_i \\) | 0.3 | 1.2 | 6.0 |
 
 ### Lenz-Jensen

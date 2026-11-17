@@ -14,6 +14,13 @@ command that runs it, and a figure and table of the result:
    on a metal and dielectric stack over a thin oxide, with **synthetic**
    electron data.
 
+<div class="gallery-thumbs">
+<a href="screen-oxide.html"><img src="generated/screen_oxide.svg" alt="Depth profile of 50 keV As in Si through 10 nm SiO2"><span>Implant through a screen oxide</span></a>
+<a href="sputtering-angle.html"><img src="generated/sputter_angle.svg" alt="Sputtering yield of Cu under 1 keV Ar against angle"><span>Sputtering yield against incidence angle</span></a>
+<a href="resist-on-si.html"><img src="generated/resist_on_si.svg" alt="Energy deposited by 10 keV electrons in a resist on Si"><span>Electron deposition in a resist on Si</span></a>
+<a href="dose-buried-oxide.html"><img src="generated/dose_buried_oxide.svg" alt="Dose in a buried oxide against beam energy"><span>Dose in a buried oxide</span></a>
+</div>
+
 Every figure and table is generated from a run of the `lindhard` binary by one
 committed script, [`validation/gallery.py`](https://github.com/2AMLogic/lindhard/blob/main/validation/gallery.py);
 nothing is drawn by hand. From the root of the repository:
