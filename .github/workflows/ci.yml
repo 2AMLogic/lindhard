@@ -442,9 +442,26 @@ jobs:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: actions/setup-python@v7
+        id: setup-python
         with:
           python-version: "3.12"
       - uses: Swatinem/rust-cache@v2
+        with:
+          # Key on the interpreter setup-python actually resolved (the exact
+          # 3.12.x), not on the requested minor — for the same reason the
+          # `rust` job's cache keys on it (#878, #886): pyo3's build-script
+          # output — which this cache stores and restores — bakes the
+          # patch-qualified toolcache lib dir on Linux, so a cache saved
+          # under one patch would otherwise be restored unchanged after the
+          # toolcache moves to the next patch, carrying a link path the new
+          # runner does not have (the #872 mechanism). This job's exposure
+          # is plausibly lower (abi3 extension modules normally do not link
+          # libpython, so a stale -L/-rpath is likely inert), but the key is
+          # cheap consistency: one cache miss when the patch first moves.
+          # rust-cache already prefixes keys with the job id
+          # (v0-rust-python-…), so this cannot collide with the `rust`
+          # job's py-… keys.
+          key: py-${{ steps.setup-python.outputs.python-version }}
       - name: build the command (the parity tests compare against it)
         run: cargo build -p lindhard-cli
       - name: build the extension and run the tests
