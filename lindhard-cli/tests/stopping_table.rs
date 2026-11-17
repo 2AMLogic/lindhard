@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use std::process::Command;
 
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
+use lindhard::ion::stopping::srim::SrimStopping;
 use lindhard::ion::stopping::{ElectronicStopping, Ion};
 use lindhard_cli::stopping_table::{CSV_FILE, JSON_FILE};
 use serde_json::Value;
@@ -178,5 +179,127 @@ fn bad_input_is_rejected_with_the_key() {
     let o = run(&d, &BASIC.replace("\"Si\"", "\"Unobtainium\""), "x");
     assert!(!o.status.success());
     assert!(String::from_utf8_lossy(&o.stderr).contains("targets[0]"));
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// Synthetic numbers made up for tests; not book values. Mirrors
+/// `SRIM_FIXTURE` in `lindhard/tests/stopping_tables.rs` (B in Si).
+const SRIM_FIXTURE: &str = r#"
+format = "lindhard-srim-coefficients/1"
+
+[[row]]
+ion_z = 5
+target_z = 14
+a1 = 2.0
+a2 = 3.0
+a3 = 400.0
+a4 = 5.0
+a5 = 0.01
+e_min_kev_per_u = 0.1
+e_max_kev_per_u = 1.0e4
+citation = "synthetic test data, made up for unit tests"
+"#;
+
+/// `physics.stopping = "srim"` resolves and the electronic column is the
+/// coefficient file's values (regression: the synthetic run input dropped
+/// `stopping.srim_data`, so `srim` could never resolve and the file the user
+/// set was reported as missing).
+#[test]
+fn srim_stopping_resolves_and_uses_the_coefficient_file() {
+    let d = dir("srim");
+    std::fs::write(d.join("srim.toml"), SRIM_FIXTURE).unwrap();
+    let toml = r#"
+targets = ["Si"]
+[[ions]]
+ion = "B"
+[physics]
+stopping = "srim"
+[stopping]
+srim_data = "srim.toml"
+[energy]
+values_ev = [10000.0, 100000.0]
+[range]
+enabled = false
+[units]
+stopping = "eV/1e15 atoms/cm^2"
+"#;
+    let o = run(&d, toml, "out");
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let j = json(&d, "out");
+    // The echoed electronic model is the file's, citation and all.
+    let srim = j["tables"][0]["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["name"] == "srim")
+        .expect("the srim model echoed")
+        .clone();
+    assert!(
+        srim["citation"]
+            .as_str()
+            .unwrap()
+            .contains("synthetic test data"),
+        "{}",
+        srim["citation"]
+    );
+    // And the row values are that file's coefficients, loaded here directly.
+    let model = SrimStopping::from_toml_str(SRIM_FIXTURE).unwrap();
+    let ion = Ion::new(5).unwrap();
+    for r in j["tables"][0]["rows"].as_array().unwrap() {
+        let e = r["energy_ev"].as_f64().unwrap();
+        let want = lindhard::ion::stopping::to_ev_1e15_cm2(model.stopping(&ion, 14, e).unwrap());
+        let got = r["electronic_stopping"].as_f64().unwrap();
+        assert!((got / want - 1.0).abs() < 1e-12, "{got} vs {want}");
+    }
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// A user table for B in Si on [1000, 100000] eV, sampled from the library's
+/// own Lindhard-Scharff model: no external data.
+fn b_si_table() -> String {
+    let ls = LindhardScharff::new();
+    let ion = Ion::new(5).unwrap();
+    let (mut e, mut s) = (Vec::new(), Vec::new());
+    for i in 0..=8 {
+        let en = 1000.0 * 100.0f64.powf(f64::from(i) / 8.0);
+        e.push(format!("{en:e}"));
+        s.push(format!(
+            "{:e}",
+            lindhard::ion::stopping::to_ev_1e15_cm2(ls.stopping(&ion, 14, en).unwrap())
+        ));
+    }
+    format!(
+        "provenance = \"Lindhard-Scharff model of this repository sampled on a grid (test)\"\n\
+         ion_z = 5\ntarget_z = 14\nenergy_ev = [{}]\nstopping_ev_1e15_cm2 = [{}]\n",
+        e.join(", "),
+        s.join(", ")
+    )
+}
+
+/// A user table whose lower bound sits above the synthetic cutoff warns
+/// nothing: `physics.primary_cutoff_ev` is not a key of this input, and the
+/// resolver's advice is about a slowing down that never happens here
+/// (regression: the placeholder fired on most `[stopping] tables` inputs).
+#[test]
+fn table_lower_bound_does_not_warn_about_the_placeholder_cutoff() {
+    let d = dir("cutoff");
+    std::fs::write(d.join("b_si.toml"), b_si_table()).unwrap();
+    let toml = r#"
+targets = ["Si"]
+[[ions]]
+ion = "B"
+[stopping]
+tables = ["b_si.toml"]
+[energy]
+values_ev = [1000.0, 10000.0]
+[range]
+from_ev = 1000.0
+[units]
+stopping = "eV/1e15 atoms/cm^2"
+"#;
+    let o = run(&d, toml, "out");
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let err = String::from_utf8_lossy(&o.stderr);
+    assert!(!err.contains("physics.primary_cutoff_ev"), "{err}");
     std::fs::remove_dir_all(&d).unwrap();
 }

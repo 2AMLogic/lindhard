@@ -15,8 +15,8 @@ use anyhow::{anyhow, bail, Context, Result};
 use clap::Args;
 use lindhard::elements::element;
 use lindhard::input::{
-    resolve_material, stopping_model, Input, LengthChoice, MaterialRef, PotentialChoice, Resolved,
-    StoppingChoice, StoppingSpec,
+    resolve_material, stopping_model_with, Input, LengthChoice, MaterialRef, PotentialChoice,
+    Resolved, StoppingChoice, StoppingSpec,
 };
 use lindhard::ion::potential::Potential;
 use lindhard::ion::range::{csda_ranges, nuclear_stopping_cross_section};
@@ -411,7 +411,7 @@ fn resolve_pair(
         "materials": input.materials,
         "target": { "substrate": target },
         "physics": physics,
-        "stopping": { "tables": input.stopping.tables },
+        "stopping": input.stopping,
         "run": { "ions": 1, "seed": 0 },
     });
     let as_input: Input = serde_json::from_value(doc).map_err(|e| anyhow!("{e}"))?;
@@ -548,12 +548,14 @@ fn pair_table(
         }
     }
 
+    // The resolver judged the placeholders: its beam-energy warnings are
+    // about the synthetic `beam.energy_ev`, and its table-coverage warning
+    // names `physics.primary_cutoff_ev`, which is not even a key of this
+    // input. The grid itself is judged below.
     let mut warnings: Vec<String> = resolved
         .warnings
         .iter()
-        // The resolver judged the placeholder beam energy; the grid is
-        // checked below.
-        .filter(|w| !w.starts_with("beam energy "))
+        .filter(|w| !w.starts_with("beam energy ") && !w.contains("physics.primary_cutoff_ev"))
         .cloned()
         .collect();
     let uncovered = material.components().iter().any(|c| {
@@ -562,7 +564,12 @@ fn pair_table(
             .iter()
             .any(|t| t.table.covers_pair(ion.z(), c.z()))
     });
-    let fallback = stopping_model(input.physics.stopping);
+    // With `srim`, the advisory validity range is the loaded coefficients',
+    // not the data-less default model's.
+    let fallback = stopping_model_with(
+        input.physics.stopping,
+        resolved.srim.as_ref().map(|s| &s.model),
+    );
     let v = fallback.validity(&ion);
     if uncovered && energies.iter().any(|&e| !v.contains(e)) {
         warnings.push(format!(
