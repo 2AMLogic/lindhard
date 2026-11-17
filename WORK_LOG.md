@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-17
 
+- **PR #874**: ci: run the .github/scripts unit-test suites in workflow-checks
+- **Issue #871** (closed): CI: run the .github/scripts unit tests (test_check_wasm_bindgen_pin.py, test_advisories_report.py) in workflow-checks
 - **PR #870**: ci: assert the workflows' wasm-bindgen pin matches the crate pin
 - **Issue #868** (closed): CI gate: assert the wasm-bindgen CLI pin in workflows matches lindhard-wasm/Cargo.toml
 
