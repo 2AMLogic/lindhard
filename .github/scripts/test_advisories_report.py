@@ -39,8 +39,18 @@ class StaticWorkflowTests(unittest.TestCase):
         self.assertIs(inp["default"], False)
 
     def test_ci_runs_no_advisories_check(self):
-        text, _ = load("ci.yml")
-        self.assertNotIn("advisories", text)
+        # ci.yml runs only `cargo deny check licenses sources`: a PR-time
+        # RustSec check would fail unrelated PRs on a newly published
+        # advisory (CONTRIBUTING.md, "Dependency advisories"). The word
+        # "advisories" may still name this suite's own unit-test step in
+        # workflow-checks (issue #871), so the ban is on the check itself,
+        # not on the substring anywhere in the file.
+        _, doc = load("ci.yml")
+        runs = [s.get("run", "") for job in doc["jobs"].values()
+                for s in job.get("steps", [])]
+        for run in runs:
+            if "cargo deny check" in run:
+                self.assertNotIn("advisories", run)
 
     def test_permissions(self):
         _, doc = load("advisories.yml")
