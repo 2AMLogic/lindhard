@@ -247,7 +247,8 @@ To check the reporting path live, dispatch the canary with `simulate-failure`
 set to true, confirm the tracking issue is created or updated, then dispatch a
 normal run and confirm the recovery comment and closure. The reporting logic and
 the workflow wiring have offline tests:
-`python3 .github/scripts/test_clippy_canary.py` (needs PyYAML).
+`python3 .github/scripts/test_clippy_canary.py` (needs PyYAML), run by the
+`workflow-checks` job of [`ci.yml`](.github/workflows/ci.yml).
 
 ## Dependency advisories
 
@@ -281,8 +282,9 @@ To check the reporting path live, dispatch the workflow with `simulate-failure`
 set to true, confirm the tracking issue is created, dispatch it again and confirm
 no second issue appears, then dispatch a normal run and confirm the recovery
 comment and closure. The reporting logic and the workflow wiring have offline
-tests: `python3 .github/scripts/test_advisories_report.py` (needs PyYAML). They
-are not run by `ci.yml`.
+tests: `python3 .github/scripts/test_advisories_report.py` (needs PyYAML). All
+`.github/scripts/test_*.py` suites run in the `workflow-checks` job of
+[`ci.yml`](.github/workflows/ci.yml).
 
 ## Prose-only pull requests skip the Rust and Python suites
 

@@ -156,7 +156,7 @@ jobs:
         run: python3 validation/experiments/test_sb_si_dynamic.py
 
   workflow-checks:
-    name: Workflow checks (clippy pin, canary reporting, wasm-bindgen pin)
+    name: Workflow checks (clippy pin, canary reporting, wasm-bindgen pin, script unit tests)
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -171,6 +171,14 @@ jobs:
         # This job is not gated by `changes`, so it also catches a
         # workflow-only edit of either file.
         run: python3 .github/scripts/check_wasm_bindgen_pin.py
+      - name: wasm-bindgen pin gate unit tests
+        # Guards the pin parser itself: an edit to PIN_RE/SEMVER_RE that made
+        # an unparsable pin silently pass would reach CI unchecked, because
+        # the gate step above only fails on a pin it can still parse
+        # (issue #871). Standard library only.
+        run: python3 .github/scripts/test_check_wasm_bindgen_pin.py
+      - name: advisories reporting unit tests
+        run: python3 .github/scripts/test_advisories_report.py
 
   figures:
     name: Validation figures match the committed results
