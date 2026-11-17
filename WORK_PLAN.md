@@ -176,25 +176,26 @@ _None._
 Human-approved issues ready for implementation (`loom:issue`).
 
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
-- **#868**: CI gate: assert the wasm-bindgen CLI pin in workflows matches lindhard-wasm/Cargo.toml
 
 ## In Progress
 
 Issues currently being built (`loom:building`).
 
-_None._
+- **#872**: CI: macOS Rust leg links lindhard-py against a cached pyo3 build-script path (-lpython3.15) the runner lacks
+- **#876**: Tighten test_ci_runs_no_advisories_check: the narrowed ban misses advisories checks spelled via env/flag indirection
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#877**: ci: match the no-advisories guard per step so env/flag indirection cannot hide a check
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
 - **#650**: feat: add stopping-table subcommand for stopping and CSDA range tables
+- **#875**: ci: pin the rust job's python interpreter and key rust-cache on it (#872)
 
 ## Proposed
 
@@ -228,7 +229,7 @@ Issues carrying `loom:curated`.
 - **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
 - **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
 - **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
-- **#868**: CI gate: assert the wasm-bindgen CLI pin in workflows matches lindhard-wasm/Cargo.toml *(curated)*
+- **#876**: Tighten test_ci_runs_no_advisories_check: the narrowed ban misses advisories checks spelled via env/flag indirection *(curated)*
 
 ## Proposed (Architect / Hermit)
 
@@ -251,10 +252,10 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 1 |
 | Very important | 0 |
 | Important | 5 |
-| Ready (`loom:issue`) | 2 |
-| In Progress (`loom:building`) | 0 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 1 |
+| Ready (`loom:issue`) | 1 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 2 |
 | Curated | 29 |
 | Architect / Hermit proposals | 2 |
 | Active epics | 6 |
