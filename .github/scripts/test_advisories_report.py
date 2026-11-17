@@ -32,21 +32,30 @@ def triggers(doc):
 
 OWN_UNIT_TEST_RUN = "python3 .github/scripts/test_advisories_report.py"
 
+# Every spelling of a PR-time RustSec check that must never appear in
+# `ci.yml` (CONTRIBUTING.md, "Dependency advisories"): the `cargo deny
+# check advisories` family keys on "advisories", while `cargo audit`
+# and the `rustsec/audit-check` action contain no such word (issue #880).
+BANNED_TOKENS = ("advisories", "cargo audit", "rustsec/", "audit-check")
+
 
 def no_advisories_check(doc):
     """True when a parsed `ci.yml` runs no PR-time RustSec (advisories) check.
 
     The exact `run` of this suite's own unit-test step in workflow-checks
     (issue #871) is exempted first; every remaining step, and all job and
-    workflow level `env`, must not mention "advisories" at all, so env-var
-    or flag-splitting indirection cannot hide the check (issue #876).
-    Operates on a deep copy; the caller's doc is left untouched.
+    workflow level `env`, must not mention any of BANNED_TOKENS at all,
+    so env-var or flag-splitting indirection cannot hide the check
+    (issue #876) and the `cargo audit` / `rustsec/audit-check` spellings
+    cannot pass without the word "advisories" (issue #880). Operates on a
+    deep copy; the caller's doc is left untouched.
     """
     doc = json.loads(json.dumps(doc))
     for job in doc.get("jobs", {}).values():
         job["steps"] = [s for s in job.get("steps", [])
                         if s.get("run", "").strip() != OWN_UNIT_TEST_RUN]
-    return "advisories" not in json.dumps(doc)
+    text = json.dumps(doc)
+    return not any(tok in text for tok in BANNED_TOKENS)
 
 
 class StaticWorkflowTests(unittest.TestCase):
@@ -64,9 +73,10 @@ class StaticWorkflowTests(unittest.TestCase):
         # advisory (CONTRIBUTING.md, "Dependency advisories"). The exact
         # `run` of this suite's own unit-test step in workflow-checks
         # (issue #871) is exempted; every other step, and any job or
-        # workflow level `env`, must not mention "advisories" at all, so
-        # env-var or flag-splitting indirection cannot hide the check
-        # (issue #876).
+        # workflow level `env`, must not mention any BANNED_TOKENS at all,
+        # so env-var or flag-splitting indirection cannot hide the check
+        # (issue #876) and `cargo audit` / `rustsec/audit-check`, which
+        # lack the word "advisories", cannot pass either (issue #880).
         _, doc = load("ci.yml")
         self.assertTrue(no_advisories_check(doc))
 
@@ -101,8 +111,21 @@ class StaticWorkflowTests(unittest.TestCase):
             d["jobs"]["dependency-policy"]["steps"].append(
                 {"name": "deny", "run": "cargo deny check $DENY_ARGS"})
 
+        def uses_audit_action(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "audit", "uses": "rustsec/audit-check@v2"})
+
+        def cargo_audit_run(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "audit", "run": "cargo audit --deny warnings"})
+
+        def audit_check_ref(d):
+            d["jobs"]["dependency-policy"]["steps"].append(
+                {"name": "audit", "uses": "acme/audit-check@v3"})
+
         for mutate in (env_indirected, split_flags, own_chained_with_check,
-                       job_env_indirected):
+                       job_env_indirected, uses_audit_action, cargo_audit_run,
+                       audit_check_ref):
             self.assertFalse(injected(mutate), mutate.__name__)
 
     def test_no_advisories_check_accepts_own_step_anywhere(self):
