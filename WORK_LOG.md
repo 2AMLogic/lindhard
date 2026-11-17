@@ -4,6 +4,19 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-17
 
+- **PR #887**: ci: key the python job's rust-cache on the resolved Python version
+- **PR #884**: ci: key rust-cache on setup-python's resolved python version (#878)
+- **PR #883**: ci: catch the hyphenated cargo-audit spelling in the no-advisories guard
+- **PR #881**: fix: ban cargo audit and rustsec/audit-check spellings in no-advisories ci.yml guard
+- **PR #877**: ci: match the no-advisories guard per step so env/flag indirection cannot hide a check
+- **PR #875**: ci: pin the rust job's python interpreter and key rust-cache on it (#872)
+- **Issue #886** (closed): CI: the `python` job's rust-cache key carries no Python version at all (#878's fix covers only the `rust` job)
+- **Issue #885** (closed): CI (macOS): pyo3 resolves the image's python.org framework, not setup-python's toolcache interpreter — residual stale-cache window outside #878's key
+- **Issue #882** (closed): CI: no_advisories_check misses the hyphenated `cargo-audit` invocation
+- **Issue #880** (closed): no-advisories CI guard keys on the word "advisories": `cargo audit` and `uses: rustsec/audit-check` still pass
+- **Issue #878** (closed): CI: rust-cache key carries only the Python minor (py-3.12) while the baked pyo3 link path is patch-specific (3.12.10)
+- **Issue #876** (closed): Tighten test_ci_runs_no_advisories_check: the narrowed ban misses advisories checks spelled via env/flag indirection
+- **Issue #872** (closed): CI: macOS Rust leg links lindhard-py against a cached pyo3 build-script path (-lpython3.15) the runner lacks
 - **PR #874**: ci: run the .github/scripts unit-test suites in workflow-checks
 - **Issue #871** (closed): CI: run the .github/scripts unit tests (test_check_wasm_bindgen_pin.py, test_advisories_report.py) in workflow-checks
 - **PR #870**: ci: assert the workflows' wasm-bindgen pin matches the crate pin
