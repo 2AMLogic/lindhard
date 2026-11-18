@@ -304,12 +304,13 @@ stopping = "eV/1e15 atoms/cm^2"
     std::fs::remove_dir_all(&d).unwrap();
 }
 
-/// A user table for a pair the batch never asks for (C in Si, ions = B)
-/// warns that the table is unused, in stopping-table terms: it names the
-/// ion and the target elements, and neither `physics.follow_recoils`, "run"
-/// nor "beam" — those describe a transport run, not this input
-/// (regression: the resolver's unused-table warning leaked through the
-/// filter with its `run` wording).
+/// A user table for a pair this batch never asks for (C in Si, ion = B)
+/// warns that the table is unused for that pair, in stopping-table terms: it
+/// names the ion and the target elements and scopes the claim to the pair,
+/// and neither `physics.follow_recoils`, "run", "beam" nor a claim about
+/// "this input" appears (regressions: the resolver's unused-table warning
+/// leaked through the filter with its `run` wording; the wording then judged
+/// the whole input instead of the pair).
 #[test]
 fn unused_user_table_warns_in_stopping_table_terms() {
     let d = dir("unused");
@@ -342,8 +343,8 @@ stopping = "eV/1e15 atoms/cm^2"
     );
     assert!(msg.contains("ion B"), "{msg}");
     assert!(msg.contains("target elements Si"), "{msg}");
-    assert!(msg.ends_with("; it is unused"), "{msg}");
-    for banned in ["run", "beam", "follow_recoils"] {
+    assert!(msg.ends_with("; it is unused for this pair"), "{msg}");
+    for banned in ["run", "beam", "follow_recoils", "this input"] {
         assert!(!msg.contains(banned), "{banned} in: {msg}");
     }
     let err = String::from_utf8_lossy(&o.stderr);
@@ -375,5 +376,69 @@ stopping = "eV/1e15 atoms/cm^2"
     let j = json(&d, "out");
     let w = j["tables"][0]["warnings"].as_array().unwrap();
     assert!(w.is_empty(), "{w:?}");
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// The issue's repro: a two-ion batch (B, C in Si) whose only user table is
+/// for C->Si. The ion-B entry's unused-table warning is scoped to that pair —
+/// it names the pair, and it does not claim the pair "does not occur in this
+/// input" nor that the table is unused by the batch, where the C entry does
+/// use it — and the ion-C entry still warns nothing and keeps its user-table
+/// model (regression: the wording judged the whole input, not the pair).
+#[test]
+fn multi_ion_batch_scopes_the_unused_table_warning_to_the_pair() {
+    let d = dir("multi");
+    std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
+    let toml = r#"
+targets = ["Si"]
+[[ions]]
+ion = "B"
+[[ions]]
+ion = "C"
+[stopping]
+tables = ["c_si.toml"]
+[energy]
+values_ev = [1000.0, 10000.0]
+[range]
+from_ev = 1000.0
+[units]
+stopping = "eV/1e15 atoms/cm^2"
+"#;
+    let o = run(&d, toml, "out");
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let j = json(&d, "out");
+    let tables = j["tables"].as_array().unwrap();
+    assert_eq!(tables.len(), 2);
+    assert_eq!(tables[0]["ion"]["symbol"], "B");
+    assert_eq!(tables[1]["ion"]["symbol"], "C");
+    let w = tables[0]["warnings"].as_array().unwrap();
+    let msgs: Vec<&str> = w
+        .iter()
+        .filter_map(|x| x.as_str())
+        .filter(|m| m.starts_with("stopping.tables["))
+        .collect();
+    assert_eq!(msgs.len(), 1, "{w:?}");
+    let msg = msgs[0];
+    assert!(
+        msg.starts_with("stopping.tables[0]: the table (C->Si, Z1=6, Z2=14)"),
+        "{msg}"
+    );
+    assert!(msg.contains("ion B"), "{msg}");
+    assert!(msg.contains("target elements Si"), "{msg}");
+    assert!(msg.ends_with("; it is unused for this pair"), "{msg}");
+    assert!(!msg.contains("this input"), "{msg}");
+    for banned in ["run", "beam", "follow_recoils"] {
+        assert!(!msg.contains(banned), "{banned} in: {msg}");
+    }
+    let wc = tables[1]["warnings"].as_array().unwrap();
+    assert!(wc.is_empty(), "{wc:?}");
+    let models = tables[1]["models"].as_array().unwrap();
+    assert!(
+        models.iter().any(|m| m["name"] == "user-table"
+            && m["role"]
+                .as_str()
+                .is_some_and(|r| r.starts_with("electronic"))),
+        "{models:?}"
+    );
     std::fs::remove_dir_all(&d).unwrap();
 }

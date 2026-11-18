@@ -575,8 +575,8 @@ fn pair_table(
             continue;
         }
         warnings.push(format!(
-            "stopping.tables[{i}]: the table ({}->{}, Z1={}, Z2={}) is for a pair that does \
-             not occur in this input (ion {}, target elements {}); it is unused",
+            "stopping.tables[{i}]: the table ({}->{}, Z1={}, Z2={}) does not cover this \
+             pair (ion {}, target elements {}); it is unused for this pair",
             sym(t.ion_z()),
             sym(t.target_z()),
             t.ion_z(),
