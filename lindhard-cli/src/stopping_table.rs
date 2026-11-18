@@ -27,6 +27,7 @@ use lindhard::units::J_PER_EV;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
+use crate::output::csv_field;
 use crate::publish::OutputSet;
 
 /// The table of every (ion, target) pair, one CSV.
@@ -231,11 +232,6 @@ impl StoppingUnit {
     pub fn from_si(self, s_j_m2: f64, n: f64, rho: f64) -> f64 {
         s_j_m2 * self.factor(n, rho)
     }
-
-    /// Inverse of [`from_si`](Self::from_si).
-    pub fn to_si(self, value: f64, n: f64, rho: f64) -> f64 {
-        value / self.factor(n, rho)
-    }
 }
 
 /// Unit of the range column.
@@ -275,11 +271,6 @@ impl RangeUnit {
     /// Convert a length in metres to this unit, for mass density `rho` kg/m³.
     pub fn from_si(self, metres: f64, rho: f64) -> f64 {
         metres * self.factor(rho)
-    }
-
-    /// Inverse of [`from_si`](Self::from_si).
-    pub fn to_si(self, value: f64, rho: f64) -> f64 {
-        value / self.factor(rho)
     }
 }
 
@@ -621,14 +612,6 @@ fn pair_table(
     })
 }
 
-fn csv_field(s: &str) -> String {
-    if s.contains([',', '"', '\n']) {
-        format!("\"{}\"", s.replace('"', "\"\""))
-    } else {
-        s.to_string()
-    }
-}
-
 /// Mass density and atom density of a table's target.
 fn densities(t: &Table) -> (f64, f64) {
     (
@@ -813,29 +796,37 @@ mod tests {
     use super::*;
 
     #[test]
-    fn stopping_units_round_trip() {
+    fn stopping_units_convert_known_values() {
+        // s = 7.3e-35 J m^2 per atom in a target with n = 4.9e28 m^-3 and
+        // rho = 2329 kg/m^3: a linear stopping power of s*n = 3.577e-6 J/m.
         let (n, rho) = (4.9e28, 2329.0);
-        for u in [
-            StoppingUnit::EvPerNm,
-            StoppingUnit::KevPerUm,
-            StoppingUnit::MevPerMgCm2,
-            StoppingUnit::EvPer1e15AtomsCm2,
-        ] {
-            let s = 7.3e-35;
-            let back = u.to_si(u.from_si(s, n, rho), n, rho);
-            assert!((back / s - 1.0).abs() < 1e-13, "{u:?}");
-        }
-        for u in [RangeUnit::Nm, RangeUnit::Um, RangeUnit::MgCm2] {
-            let back = u.to_si(u.from_si(1.5e-7, rho), rho);
-            assert!((back / 1.5e-7 - 1.0).abs() < 1e-13, "{u:?}");
-        }
+        let s = 7.3e-35;
+        // 3.577e-6 J/m is 2.2326e13 eV/m (1 eV = 1.602176634e-19 J, exact),
+        // and 1 eV/nm = 1 keV/um = 1e9 eV/m: both units read the same value.
+        let want = 3.577e-6 / 1.602176634e-19 * 1e-9;
+        assert!((StoppingUnit::EvPerNm.from_si(s, n, rho) / want - 1.0).abs() < 1e-12);
+        assert!((StoppingUnit::KevPerUm.from_si(s, n, rho) / want - 1.0).abs() < 1e-12);
+        // 1 MeV/(mg/cm^2) = 1e6 eV over 1e-2 kg/m^2 = 1e8 eV m^2/kg: the
+        // linear stopping over the density, per 1e8 eV m^2/kg.
+        let want = 3.577e-6 / 2329.0 / 1.602176634e-19 / 1e8;
+        assert!((StoppingUnit::MevPerMgCm2.from_si(s, n, rho) / want - 1.0).abs() < 1e-12);
+        // The energy lost crossing 1e15 atoms/cm^2 = 1e19 atoms/m^2 is
+        // s * 1e19 J = 4556.3 eV, independent of n.
+        let want = 7.3e-35 * 1e19 / 1.602176634e-19;
+        assert!((StoppingUnit::EvPer1e15AtomsCm2.from_si(s, n, rho) / want - 1.0).abs() < 1e-12);
+        // A range of 1.5e-7 m is 150 nm = 0.15 um; at rho = 2329 kg/m^3 its
+        // areal density is 1.5e-7 * 2329 = 3.4935e-4 kg/m^2 = 0.034935 mg/cm^2.
+        assert!((RangeUnit::Nm.from_si(1.5e-7, rho) - 150.0).abs() < 1e-9);
+        assert!((RangeUnit::Um.from_si(1.5e-7, rho) - 0.15).abs() < 1e-9);
+        assert!((RangeUnit::MgCm2.from_si(1.5e-7, rho) - 3.4935e-2).abs() < 1e-9);
     }
 
     #[test]
     fn units_agree_with_each_other() {
-        // 100 eV/nm in Si (n = 5e28 m^-3, rho = 2329 kg/m^3).
+        // 100 eV/nm in Si (n = 5e28 m^-3, rho = 2329 kg/m^3) is 100e9 eV/m =
+        // 100e9 * J_PER_EV J/m, i.e. s = 100e9 * J_PER_EV / n J m^2 per atom.
         let (n, rho) = (5.0e28, 2329.0);
-        let s = StoppingUnit::EvPerNm.to_si(100.0, n, rho);
+        let s = 100e9 * J_PER_EV / n;
         assert!((StoppingUnit::KevPerUm.from_si(s, n, rho) - 100.0).abs() < 1e-9);
         // 100 eV/nm = 100e7 eV/cm = 1e9 eV/cm; per g/cm^2 /2.329; MeV/(mg/cm^2): 1e9/2.329 eV
         // per g/cm^2 = 1e9/2.329/1e6 MeV per 1e3 mg/cm^2.
@@ -845,6 +836,27 @@ mod tests {
         assert!((StoppingUnit::EvPer1e15AtomsCm2.from_si(s, n, rho) - 20.0).abs() < 1e-9);
         // 1 um of Si is 2329e-6 * 100 mg/cm^2... 1e-4 cm * 2.329 g/cm^3 = 0.2329 mg/cm^2.
         assert!((RangeUnit::MgCm2.from_si(1e-6, rho) - 0.2329).abs() < 1e-12);
+    }
+
+    #[test]
+    fn table_csv_quotes_cr_in_target_names() {
+        let input = TableInput::from_toml_str(
+            r#"
+targets = ["a\rb"]
+[materials."a\rb"]
+density_g_cm3 = 2.329
+elements = [ { symbol = "Si", atom_fraction = 1.0 } ]
+[[ions]]
+ion = "B"
+[energy]
+values_ev = [1000.0]
+"#,
+        )
+        .unwrap();
+        let tables = compute(&input, Path::new(".")).unwrap();
+        let csv = table_csv(&tables, &input.units);
+        // A bare CR would break row framing; RFC 4180 quotes the field.
+        assert!(csv.contains("\"a\rb\","), "{csv}");
     }
 
     #[test]
