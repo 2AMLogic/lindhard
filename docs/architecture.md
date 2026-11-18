@@ -118,3 +118,12 @@ the core and nothing else.
   [`muffin-tin-deferral.md`](muffin-tin-deferral.md) states the gap, gives no
   number, and lists what lifts the deferral. A `MuffinTin` wrapper over
   `ScreenedPotential` is the intended shape.
+- **Result and model types expose their state symmetrically (#777,
+  2026-11-18).** A public accessor or builder setter on a result or model
+  type stays whether or not a front end calls it today: the library surface
+  is meant to be read and configured symmetrically, and "no caller outside
+  its own tests" is not by itself a reason to remove or demote an item. The
+  exception is an item that duplicates a public field on its own terms; for
+  example `BetheBloch::with_effective_charge` was removed because
+  `BetheBloch { effective_charge: …, ..BetheBloch::new() }` already does
+  the same thing.
