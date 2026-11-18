@@ -54,10 +54,9 @@ mod tests;
 pub(crate) use data_file::read_data_file;
 pub use data_file::DataFile;
 pub(crate) use resolve::divergence_from_spec;
-pub(crate) use resolved::resolve_material;
 pub use resolved::{
-    stopping_model, stopping_model_with, ModelInfo, Resolved, ResolvedCrystal, ResolvedLayer,
-    Target, TABLE_SPEC,
+    resolve_material, stopping_model, stopping_model_with, ModelInfo, Resolved, ResolvedCrystal,
+    ResolvedLayer, Target, TABLE_SPEC,
 };
 pub use schema::*;
 
