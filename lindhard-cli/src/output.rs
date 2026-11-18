@@ -771,6 +771,16 @@ pub fn export_csv<T: serde::Serialize>(
     report.to_export_csv(&p)
 }
 
+/// A CSV text field per RFC 4180: quoted, with embedded quotes doubled, when
+/// it contains a comma, double quote, CR or LF; otherwise unchanged.
+pub(crate) fn csv_field(s: &str) -> std::borrow::Cow<'_, str> {
+    if s.contains([',', '"', '\r', '\n']) {
+        format!("\"{}\"", s.replace('"', "\"\"")).into()
+    } else {
+        s.into()
+    }
+}
+
 /// `depth_profile.csv`: stopped primaries per depth bin. The last bin also
 /// holds everything deeper; its upper edge is written as `inf` and its
 /// density is left empty.
@@ -1242,4 +1252,18 @@ pub fn dynamic_summary_json(r: &Resolved, d: &DynamicSimulation) -> serde_json::
     let mut s = serde_json::to_string_pretty(&summary)?;
     s.push('\n');
     Ok(s)
+}
+
+#[cfg(test)]
+mod csv_field_tests {
+    use super::csv_field;
+
+    #[test]
+    fn simple_names_are_unchanged_and_special_ones_quoted() {
+        assert_eq!(csv_field("Si"), "Si");
+        assert_eq!(csv_field("SiO2 film"), "SiO2 film");
+        assert_eq!(csv_field("a,b"), "\"a,b\"");
+        assert_eq!(csv_field("a\"b"), "\"a\"\"b\"");
+        assert_eq!(csv_field("a\r\nb\nc"), "\"a\r\nb\nc\"");
+    }
 }
