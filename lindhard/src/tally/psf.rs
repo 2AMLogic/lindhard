@@ -1030,7 +1030,7 @@ pub fn fit_psf(
             for j in 0..nf {
                 m[j * nf + j] += lambda * a[j * nf + j].max(f64::MIN_POSITIVE);
             }
-            let Some(delta) = solve(m, g.clone(), nf) else {
+            let Some(delta) = crate::linalg::solve(m, g.clone(), nf) else {
                 lambda *= 10.0;
                 continue;
             };
@@ -1074,7 +1074,7 @@ pub fn fit_psf(
             }
         }
     }
-    let inv = invert(a, nf).ok_or(PsfError::Singular)?;
+    let inv = crate::linalg::invert(a, nf).ok_or(PsfError::Singular)?;
     let mut covariance = vec![vec![0.0; np]; np];
     for (j, &fj) in free.iter().enumerate() {
         for (k, &fk) in free.iter().enumerate() {
@@ -1174,7 +1174,7 @@ fn grid_start(
                 }
             }
         }
-        let Some(amp) = solve(m, rhs, k) else {
+        let Some(amp) = crate::linalg::solve(m, rhs, k) else {
             return;
         };
         if !amp.iter().all(|a| a.is_finite() && *a > 0.0) {
@@ -1227,51 +1227,6 @@ fn grid_start(
         v.push(amp[t] / amp[0]);
     }
     Ok(v)
-}
-
-/// Solves the `n x n` system `m x = r` (row-major) by Gaussian elimination
-/// with partial pivoting; `None` if singular.
-fn solve(mut m: Vec<f64>, mut r: Vec<f64>, n: usize) -> Option<Vec<f64>> {
-    for c in 0..n {
-        let piv = (c..n).max_by(|&i, &j| m[i * n + c].abs().total_cmp(&m[j * n + c].abs()))?;
-        if m[piv * n + c] == 0.0 || !m[piv * n + c].is_finite() {
-            return None;
-        }
-        if piv != c {
-            for k in 0..n {
-                m.swap(c * n + k, piv * n + k);
-            }
-            r.swap(c, piv);
-        }
-        for i in c + 1..n {
-            let f = m[i * n + c] / m[c * n + c];
-            for k in c..n {
-                m[i * n + k] -= f * m[c * n + k];
-            }
-            r[i] -= f * r[c];
-        }
-    }
-    let mut x = vec![0.0; n];
-    for c in (0..n).rev() {
-        let s: f64 = (c + 1..n).map(|k| m[c * n + k] * x[k]).sum();
-        x[c] = (r[c] - s) / m[c * n + c];
-    }
-    x.iter().all(|v| v.is_finite()).then_some(x)
-}
-
-/// Inverse of an `n x n` matrix (row-major), column by column with
-/// [`solve`]; `None` if singular.
-fn invert(m: Vec<f64>, n: usize) -> Option<Vec<f64>> {
-    let mut inv = vec![0.0; n * n];
-    for c in 0..n {
-        let mut e = vec![0.0; n];
-        e[c] = 1.0;
-        let x = solve(m.clone(), e, n)?;
-        for r in 0..n {
-            inv[r * n + c] = x[r];
-        }
-    }
-    Some(inv)
 }
 
 /// A radial profile and its fits, for export.
@@ -1489,25 +1444,5 @@ mod tests {
         }
         a.merge(&c);
         assert_eq!(a.profile(), acc.profile());
-    }
-
-    #[test]
-    fn solver_and_inverse() {
-        let m = vec![4.0, 1.0, 0.0, 1.0, 3.0, 1.0, 0.0, 1.0, 2.0];
-        let x = solve(m.clone(), vec![1.0, 2.0, 3.0], 3).unwrap();
-        let r: Vec<f64> = (0..3)
-            .map(|i| (0..3).map(|k| m[i * 3 + k] * x[k]).sum())
-            .collect();
-        for (a, b) in r.iter().zip([1.0, 2.0, 3.0]) {
-            assert!((a - b).abs() < 1e-12);
-        }
-        let inv = invert(m.clone(), 3).unwrap();
-        for i in 0..3 {
-            for j in 0..3 {
-                let s: f64 = (0..3).map(|k| m[i * 3 + k] * inv[k * 3 + j]).sum();
-                assert!((s - if i == j { 1.0 } else { 0.0 }).abs() < 1e-12);
-            }
-        }
-        assert!(solve(vec![1.0, 2.0, 2.0, 4.0], vec![1.0, 1.0], 2).is_none());
     }
 }

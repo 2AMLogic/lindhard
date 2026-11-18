@@ -397,35 +397,9 @@ fn solve(samples: &[Sample], degree: usize, lo: f64, hi: f64) -> Option<Vec<f64>
             a[r][m] += s.weight * basis[r] * s.log_ratio;
         }
     }
-    let scale = (0..m).map(|i| a[i][i]).fold(0.0, f64::max);
-    for col in 0..m {
-        let mut piv = col;
-        for r in col + 1..m {
-            if a[r][col].abs() > a[piv][col].abs() {
-                piv = r;
-            }
-        }
-        if a[piv][col].abs().is_nan() || a[piv][col].abs() <= 1e-12 * scale {
-            return None;
-        }
-        a.swap(col, piv);
-        let pivot_row = a[col].clone();
-        for row in a.iter_mut().skip(col + 1) {
-            let f = row[col] / pivot_row[col];
-            for (x, p) in row[col..].iter_mut().zip(&pivot_row[col..]) {
-                *x -= f * p;
-            }
-        }
-    }
-    let mut c = vec![0.0; m];
-    for r in (0..m).rev() {
-        let mut v = a[r][m];
-        for k in r + 1..m {
-            v -= a[r][k] * c[k];
-        }
-        c[r] = v / a[r][r];
-    }
-    c.iter().all(|v| v.is_finite()).then_some(c)
+    let flat: Vec<f64> = a.iter().flat_map(|row| row[..m].iter().copied()).collect();
+    let rhs: Vec<f64> = a.iter().map(|row| row[m]).collect();
+    crate::linalg::solve(flat, rhs, m)
 }
 
 /// Uniform index in `0..n` from one 64-bit draw (multiply-shift; the bias is

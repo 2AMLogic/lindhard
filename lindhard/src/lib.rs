@@ -27,6 +27,7 @@ pub mod exposure;
 pub mod geometry;
 pub mod input;
 pub mod ion;
+pub(crate) mod linalg;
 pub mod material;
 pub mod rng;
 pub mod tally;

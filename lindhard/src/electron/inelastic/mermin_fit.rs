@@ -368,36 +368,6 @@ fn nnls(cols: &[Vec<f64>], y: &[f64]) -> Vec<f64> {
     x
 }
 
-/// Solve the small symmetric positive system `M x = r` by Gaussian
-/// elimination with partial pivoting.
-fn solve(mut m: Vec<Vec<f64>>, mut r: Vec<f64>) -> Option<Vec<f64>> {
-    let n = r.len();
-    for k in 0..n {
-        let p = (k..n).max_by(|&a, &b| m[a][k].abs().total_cmp(&m[b][k].abs()))?;
-        if m[p][k].abs() < 1e-300 {
-            return None;
-        }
-        m.swap(k, p);
-        r.swap(k, p);
-        for i in (k + 1)..n {
-            let f = m[i][k] / m[k][k];
-            for j in k..n {
-                m[i][j] -= f * m[k][j];
-            }
-            r[i] -= f * r[k];
-        }
-    }
-    let mut x = vec![0.0; n];
-    for k in (0..n).rev() {
-        let mut s = r[k];
-        for j in (k + 1)..n {
-            s -= m[k][j] * x[j];
-        }
-        x[k] = s / m[k][k];
-    }
-    x.iter().all(|v| v.is_finite()).then_some(x)
-}
-
 // ---- the fit ----
 
 /// The local knot spacing of the sorted grid `w` at the energy `e`, eV: the
@@ -723,8 +693,21 @@ pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> R
             for (a, row) in m.iter_mut().enumerate() {
                 row[a] += lambda * jtj[a][a].max(1e-12 * gmax.max(1e-300));
             }
-            let rhs: Vec<f64> = g.iter().map(|v| -v).collect();
-            if let Some(mut delta) = solve(m, rhs) {
+            // Jacobi equilibration: the shared solver's singularity test is
+            // relative to the largest entry, and a dead oscillator has a
+            // diagonal many decades below the others, so solve the unit-
+            // diagonal system `(D^-1 M D^-1) y = -D^-1 g`, `x = D^-1 y`.
+            let dg: Vec<f64> = (0..np).map(|a| m[a][a].sqrt()).collect();
+            let flat: Vec<f64> = (0..np * np)
+                .map(|k| m[k / np][k % np] / (dg[k / np] * dg[k % np]))
+                .collect();
+            let rhs: Vec<f64> = g.iter().zip(&dg).map(|(v, d)| -v / d).collect();
+            if let Some(mut delta) = crate::linalg::solve(flat, rhs, np).map(|mut y| {
+                for (yi, d) in y.iter_mut().zip(&dg) {
+                    *yi /= d;
+                }
+                y
+            }) {
                 for d in &mut delta {
                     *d = d.clamp(-1.0, 1.0);
                 }

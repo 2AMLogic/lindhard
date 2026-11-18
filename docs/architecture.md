@@ -13,8 +13,9 @@ it:
 - `lindhard-wasm`: wasm-bindgen build of the ion engine for in-browser range calculators (M3), with a static page published with the book. It runs the library's transport on one thread and does not use `lindhard-cli` (whose driver needs `std::time::Instant`); a test compares it to the native build for the same seed. Its steppable `Simulation` session for the in-browser simulator resolves a full TOML run description, advances it with `Bca::run_range` one engine chunk at a time (so the report and the recorded trajectories do not depend on the step sizes), and returns the `IonReport`, the trajectories and the element table as JSON.
 
 Within the library, the shared core (materials, geometry, random numbers,
-tallies, input/output) is separate from the particle engines (ion BCA,
-electron MC). The engines share the core and nothing else.
+tallies, input/output, and shared numerical primitives such as `linalg`) is
+separate from the particle engines (ion BCA, electron MC). The engines share
+the core and nothing else.
 
 ## Modules
 
@@ -23,6 +24,7 @@ electron MC). The engines share the core and nothing else.
 | `units`, `constants` | SI internally; CODATA constants with citations | M0 |
 | `material` | Elements (Z, mass, density), compounds, mixtures; per-element displacement, lattice and surface binding energies, user-set with documented defaults | M0 |
 | `rng` | Counter-based streams keyed on (seed, particle index) so results do not depend on the thread count | M0 |
+| `linalg` | Crate-private dense solver and inverse (Gaussian elimination, partial pivoting) with one scale-relative singularity criterion, shared by the PSF, Mermin and stopping-correction fits | M0+ |
 | `geometry` | `Geometry` trait (regions, per-material data, exit event along a flight) with four implementations: the 1D layered `Stack`, the 3D `VoxelGrid` (exact DDA traversal), `MeshGeometry` (closed STL/OBJ solids, BVH; `geometry::mesh`) and `CsgGeometry` (box, cylinder and half-space primitives under union, intersection and difference; `geometry::csg`). Ownership and tolerance rules: module docs | M0+ |
 | `ion::potential` | Screening functions: ZBL universal, Kr-C, Molière, Lenz-Jensen; screening lengths | M0 |
 | `ion::scattering` | Scattering integral solved by Gauss–Mehler quadrature; precomputed (ε, b) tables; magic formula kept as a cross-check | M0 |
