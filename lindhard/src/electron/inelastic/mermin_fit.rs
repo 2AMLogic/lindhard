@@ -693,21 +693,11 @@ pub fn fit_mermin_oscillators(elf: &OpticalElf, options: &MerminFitOptions) -> R
             for (a, row) in m.iter_mut().enumerate() {
                 row[a] += lambda * jtj[a][a].max(1e-12 * gmax.max(1e-300));
             }
-            // Jacobi equilibration: the shared solver's singularity test is
-            // relative to the largest entry, and a dead oscillator has a
-            // diagonal many decades below the others, so solve the unit-
-            // diagonal system `(D^-1 M D^-1) y = -D^-1 g`, `x = D^-1 y`.
-            let dg: Vec<f64> = (0..np).map(|a| m[a][a].sqrt()).collect();
-            let flat: Vec<f64> = (0..np * np)
-                .map(|k| m[k / np][k % np] / (dg[k / np] * dg[k % np]))
-                .collect();
-            let rhs: Vec<f64> = g.iter().zip(&dg).map(|(v, d)| -v / d).collect();
-            if let Some(mut delta) = crate::linalg::solve(flat, rhs, np).map(|mut y| {
-                for (yi, d) in y.iter_mut().zip(&dg) {
-                    *yi /= d;
-                }
-                y
-            }) {
+            // `linalg::solve` equilibrates a positive-diagonal system itself, so
+            // a dead oscillator's tiny diagonal does not trip its singularity test.
+            let flat: Vec<f64> = m.iter().flatten().copied().collect();
+            let rhs: Vec<f64> = g.iter().map(|v| -v).collect();
+            if let Some(mut delta) = crate::linalg::solve(flat, rhs, np) {
                 for d in &mut delta {
                     *d = d.clamp(-1.0, 1.0);
                 }
