@@ -36,6 +36,16 @@ fn json(d: &std::path::Path, out: &str) -> Value {
     serde_json::from_str(&std::fs::read_to_string(d.join(out).join(JSON_FILE)).unwrap()).unwrap()
 }
 
+/// The `name` of every model in a table entry's `models` list.
+fn model_names(t: &Value) -> Vec<&str> {
+    t["models"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|m| m["name"].as_str())
+        .collect()
+}
+
 const BASIC: &str = r#"
 targets = ["Si"]
 [[ions]]
@@ -349,6 +359,15 @@ stopping = "eV/1e15 atoms/cm^2"
     }
     let err = String::from_utf8_lossy(&o.stderr);
     assert!(err.contains(&format!("warning: {msg}")), "{err}");
+    // The pair entry agrees with its warning: no `user-table` model and no
+    // table entry — the fields are per pair, not the input's manifest.
+    let models = model_names(&j["tables"][0]);
+    assert!(!models.contains(&"user-table"), "{models:?}");
+    assert!(models.contains(&"lindhard-scharff"), "{models:?}");
+    assert!(j["tables"][0]["stopping_tables"]
+        .as_array()
+        .unwrap()
+        .is_empty());
     std::fs::remove_dir_all(&d).unwrap();
 }
 
@@ -376,6 +395,131 @@ stopping = "eV/1e15 atoms/cm^2"
     let j = json(&d, "out");
     let w = j["tables"][0]["warnings"].as_array().unwrap();
     assert!(w.is_empty(), "{w:?}");
+    // The covered pair lists the table and its `user-table` model.
+    let models = model_names(&j["tables"][0]);
+    assert!(models.contains(&"user-table"), "{models:?}");
+    let st = j["tables"][0]["stopping_tables"].as_array().unwrap();
+    assert_eq!(st.len(), 1, "{st:?}");
+    assert_eq!(st[0]["path"], "c_si.toml");
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// A batch of two ions with one user table (C->Si): the pair the table
+/// covers (C) lists the `user-table` model and the table's provenance, the
+/// pair it does not cover (B) lists neither and keeps the fallback
+/// `lindhard-scharff` — beside the warning that says the table is unused
+/// for that pair (regression: both pair entries carried the input's
+/// whole-table manifest, so one place said the table was unused and the
+/// other that it was the electronic model).
+#[test]
+fn per_pair_models_and_stopping_tables_list_only_covering_tables() {
+    let d = dir("per-pair");
+    std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
+    let toml = r#"
+targets = ["Si"]
+[[ions]]
+ion = "B"
+[[ions]]
+ion = "C"
+[stopping]
+tables = ["c_si.toml"]
+[energy]
+values_ev = [1000.0, 10000.0]
+[range]
+from_ev = 1000.0
+[units]
+stopping = "eV/1e15 atoms/cm^2"
+"#;
+    let o = run(&d, toml, "out");
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let j = json(&d, "out");
+    let (b, c) = (&j["tables"][0], &j["tables"][1]);
+    assert_eq!(b["ion"]["symbol"], "B");
+    assert_eq!(c["ion"]["symbol"], "C");
+    let bm = model_names(b);
+    assert!(!bm.contains(&"user-table"), "{bm:?}");
+    assert!(bm.contains(&"lindhard-scharff"), "{bm:?}");
+    assert!(b["stopping_tables"].as_array().unwrap().is_empty());
+    assert!(b["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|w| w.as_str())
+        .any(|w| w.starts_with("stopping.tables[0]:")));
+    let cm = model_names(c);
+    assert!(cm.contains(&"user-table"), "{cm:?}");
+    let st = c["stopping_tables"].as_array().unwrap();
+    assert_eq!(st.len(), 1, "{st:?}");
+    assert_eq!(st[0]["path"], "c_si.toml");
+    assert!(c["warnings"].as_array().unwrap().is_empty());
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// Coverage is per (ion, target component): in SiO2, a C->Si table is
+/// listed on the C entry (one component is Si) and on no B entry (the ion
+/// must match too); a table whose pair occurs nowhere in the batch
+/// (Ar->Cu) is listed on no entry at all.
+#[test]
+fn compound_component_is_covered_and_a_pairless_table_is_listed_nowhere() {
+    let d = dir("compound-pairless");
+    std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
+    std::fs::write(d.join("ar_cu.toml"), sampled_table(18, 29)).unwrap();
+    let toml = r#"
+targets = ["SiO2"]
+[[ions]]
+ion = "B"
+[[ions]]
+ion = "C"
+[materials.SiO2]
+density_g_cm3 = 2.2
+elements = [ { symbol = "Si", atom_fraction = 1.0 }, { symbol = "O", atom_fraction = 2.0 } ]
+[stopping]
+tables = ["c_si.toml", "ar_cu.toml"]
+[energy]
+values_ev = [1000.0, 10000.0]
+[range]
+from_ev = 1000.0
+[units]
+stopping = "eV/1e15 atoms/cm^2"
+"#;
+    let o = run(&d, toml, "out");
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let j = json(&d, "out");
+    let (b, c) = (&j["tables"][0], &j["tables"][1]);
+    assert_eq!(b["target"]["name"], "SiO2");
+    // B: neither table covers the pair (C->Si wants ion C; Ar->Cu wants
+    // Cu) — empty field, no `user-table` model, both tables warned unused.
+    assert!(b["stopping_tables"].as_array().unwrap().is_empty());
+    assert!(
+        !model_names(b).contains(&"user-table"),
+        "{:?}",
+        model_names(b)
+    );
+    let bw: Vec<&str> = b["warnings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|w| w.as_str())
+        .collect();
+    assert!(
+        bw.iter().any(|w| w.starts_with("stopping.tables[0]:")),
+        "{bw:?}"
+    );
+    assert!(
+        bw.iter().any(|w| w.starts_with("stopping.tables[1]:")),
+        "{bw:?}"
+    );
+    // C: the table's Si component covers the pair.
+    let st = c["stopping_tables"].as_array().unwrap();
+    assert_eq!(st.len(), 1, "{st:?}");
+    assert_eq!(st[0]["path"], "c_si.toml");
+    assert_eq!(
+        model_names(c)
+            .iter()
+            .filter(|&&m| m == "user-table")
+            .count(),
+        1
+    );
     std::fs::remove_dir_all(&d).unwrap();
 }
 

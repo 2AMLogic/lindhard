@@ -1591,7 +1591,14 @@ all in the one CSV (columns `ion`, `target`, `energy_ev`, then the electronic,
 nuclear, total stopping and the range, with the units in the column names) and
 in the JSON, which also echoes the units, the models with their citations, the
 target composition and densities, the path, SHA-256 and provenance of every
-user table, and the warnings.
+user table, and the warnings. A table entry's `models` and `stopping_tables`
+are per pair: a `user-table` model and a table's provenance entry appear only
+on the entries of pairs the table covers (matching ion and target element; a
+compound counts by its components), so an entry served only by the fallback
+model lists no `user-table` even when the input loads a table for another
+pair — that entry's warning is what says so. The whole-input manifest of
+loaded tables stays in a `run`'s `summary.json` (`physics.models`,
+`physics.stopping_tables`).
 
 **Quantities.** Electronic stopping is the model's `S_e` summed over the
 elements of the target by atom fraction (Bragg additivity, as in `run`, with no
