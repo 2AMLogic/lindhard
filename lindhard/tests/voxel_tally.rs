@@ -328,6 +328,7 @@ fn fixture() -> VoxelReport {
             rest_ev: r,
         },
         defects: Vec::new(),
+        mass_kg: None,
     };
     VoxelReport {
         grid,
@@ -628,4 +629,115 @@ fn damage_export_reader_refuses_files_without_provenance() {
     assert!(VoxelReport::read_export_csv(&no_seed).is_err());
     let v9 = text.replace("format_version = 1", "format_version = 9");
     assert!(VoxelReport::read_export_csv(&v9).is_err());
+}
+
+// ---- per-voxel mass (#903) ----
+
+mod mass {
+    use super::*;
+    use lindhard::geometry::{Csg, CsgGeometry};
+    use lindhard::material::Material;
+
+    fn carbon() -> Material {
+        Material::from_atom_fractions(&[(6, 1.0)], None).unwrap()
+    }
+
+    /// A report whose occupied voxels are the given indices.
+    fn report_at(grid: VoxelTallyGrid, indices: &[[usize; 3]]) -> VoxelReport {
+        let mut r = fixture();
+        r.grid = grid;
+        r.voxels = indices
+            .iter()
+            .map(|&index| VoxelRecord {
+                index,
+                cell: VoxelCell::default(),
+                defects: Vec::new(),
+                mass_kg: None,
+            })
+            .collect();
+        r
+    }
+
+    fn close(a: f64, b: f64) -> bool {
+        (a - b).abs() <= 1e-12 * b.abs().max(f64::MIN_POSITIVE)
+    }
+
+    #[test]
+    fn single_material_slab_is_density_times_volume() {
+        let stack = Stack::semi_infinite(si());
+        let grid = VoxelTallyGrid::new([0.0; 3], [NM; 3], [4, 2, 2]).unwrap();
+        let mut r = report_at(grid, &[[1, 0, 0], [3, 1, 1]]);
+        r.attach_masses(&stack).unwrap();
+        let expect = si().mass_density() * NM * NM * NM;
+        for v in &r.voxels {
+            assert!(close(v.mass_kg.unwrap(), expect));
+        }
+    }
+
+    #[test]
+    fn straddling_voxel_is_volume_weighted() {
+        let c = carbon();
+        let stack = Stack::new(vec![(si(), 1.5 * NM)], Some(c.clone())).unwrap();
+        let grid = VoxelTallyGrid::new([0.0; 3], [NM; 3], [4, 1, 1]).unwrap();
+        let r = report_at(grid, &[[1, 0, 0]]);
+        let m = r.voxel_masses_kg(&stack).unwrap()[0];
+        let expect = (0.5 * si().mass_density() + 0.5 * c.mass_density()) * NM * NM * NM;
+        assert!(close(m, expect), "{m} vs {expect}");
+        // Same on a VoxelGrid whose own voxels are offset from the tally's.
+        let g = VoxelGrid::new(
+            vec![si(), c.clone()],
+            [3, 1, 1],
+            [2.0 * NM, NM, NM],
+            vec![0, 1, 1],
+            [Boundary::Vacuum, Boundary::Vacuum, Boundary::Vacuum],
+        )
+        .unwrap();
+        // Tally voxel x in [1, 2] nm lies wholly in grid voxel 0 (silicon).
+        let m0 = r.voxel_masses_kg(&g).unwrap()[0];
+        assert!(close(m0, si().mass_density() * NM * NM * NM));
+        // Tally voxel x in [1.5, 2.5] nm straddles silicon and carbon.
+        let grid = VoxelTallyGrid::new([0.5 * NM, 0.0, 0.0], [NM; 3], [4, 1, 1]).unwrap();
+        let r = report_at(grid, &[[1, 0, 0]]);
+        let m1 = r.voxel_masses_kg(&g).unwrap()[0];
+        assert!(close(
+            m1,
+            (0.5 * si().mass_density() + 0.5 * c.mass_density()) * NM * NM * NM
+        ));
+    }
+
+    #[test]
+    fn voxel_outside_or_partly_outside_the_target() {
+        let stack = Stack::new(vec![(si(), 1.5 * NM)], None).unwrap();
+        let grid = VoxelTallyGrid::new([-0.5 * NM, 0.0, 0.0], [NM; 3], [5, 1, 1]).unwrap();
+        // x in [-0.5, 0.5] (half inside), [1.5, 2.5] (outside), [3.5, 4.5].
+        let r = report_at(grid, &[[0, 0, 0], [2, 0, 0], [4, 0, 0]]);
+        let m = r.voxel_masses_kg(&stack).unwrap();
+        let full = si().mass_density() * NM * NM * NM;
+        assert!(close(m[0], 0.5 * full));
+        assert_eq!(m[1], 0.0);
+        assert_eq!(m[2], 0.0);
+    }
+
+    #[test]
+    fn csg_target_is_a_named_error_and_changes_nothing() {
+        let csg = CsgGeometry::new(vec![si()], vec![(Csg::cuboid([0.0; 3], [NM; 3]), 0)]).unwrap();
+        let grid = VoxelTallyGrid::new([0.0; 3], [NM; 3], [1, 1, 1]).unwrap();
+        let mut r = report_at(grid, &[[0, 0, 0]]);
+        assert_eq!(
+            r.attach_masses(&csg).unwrap_err(),
+            VoxelTallyError::MassUnsupported
+        );
+        assert_eq!(r.voxels[0].mass_kg, None);
+    }
+
+    #[test]
+    fn masses_do_not_depend_on_thread_count() {
+        let stack = Stack::new(vec![(si(), 2.3 * NM)], Some(carbon())).unwrap();
+        let grid = VoxelTallyGrid::new([0.0; 3], [0.7 * NM; 3], [8, 2, 2]).unwrap();
+        let idx: Vec<[usize; 3]> = (0..8).map(|i| [i, 1, 0]).collect();
+        let r = report_at(grid, &idx);
+        let a = with_threads(1, || r.voxel_masses_kg(&stack).unwrap());
+        let b = with_threads(4, || r.voxel_masses_kg(&stack).unwrap());
+        assert_eq!(a, b);
+    }
 }

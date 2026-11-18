@@ -115,6 +115,16 @@ impl Geometry for Stack {
         Some(self)
     }
 
+    fn material_volumes_in_box(&self, lo: [f64; 3], hi: [f64; 3]) -> Option<Vec<f64>> {
+        let lateral = (hi[1] - lo[1]).max(0.0) * (hi[2] - lo[2]).max(0.0);
+        Some(
+            self.layers
+                .iter()
+                .map(|l| super::overlap_m(lo[0], hi[0], l.front_m, l.back_m) * lateral)
+                .collect(),
+        )
+    }
+
     fn n_materials(&self) -> usize {
         self.layers.len()
     }
