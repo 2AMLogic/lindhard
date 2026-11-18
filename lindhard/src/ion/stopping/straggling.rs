@@ -71,7 +71,7 @@
 //! charge correction either. The variance stays pinned to that charge
 //! regardless of the caller's stopping model: a `bethe-bloch` mean loss
 //! configured with a non-bare effective charge
-//! (`BetheBloch::with_effective_charge`) samples against a variance
+//! (`BetheBloch::effective_charge`) samples against a variance
 //! computed for a bare projectile, so the pairing is not self-consistent —
 //! the mean loss carries the charge correction, the variance does not.
 //! That is a known limitation, recorded here rather than fixed: threading
