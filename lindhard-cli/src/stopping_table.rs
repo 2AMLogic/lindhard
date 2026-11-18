@@ -551,13 +551,45 @@ fn pair_table(
     // The resolver judged the placeholders: its beam-energy warnings are
     // about the synthetic `beam.energy_ev`, and its table-coverage warning
     // names `physics.primary_cutoff_ev`, which is not even a key of this
-    // input. The grid itself is judged below.
+    // input; its unused-table warning speaks of "this run" and the beam,
+    // neither of which this input has. All three are dropped; unused user
+    // tables are re-judged below in stopping-table terms.
     let mut warnings: Vec<String> = resolved
         .warnings
         .iter()
-        .filter(|w| !w.starts_with("beam energy ") && !w.contains("physics.primary_cutoff_ev"))
+        .filter(|w| {
+            !w.starts_with("beam energy ")
+                && !w.contains("physics.primary_cutoff_ev")
+                && !(w.starts_with("stopping.tables[") && w.contains("it is unused"))
+        })
         .cloned()
         .collect();
+    let sym = |z: u8| element(z).map_or("?", |e| e.symbol);
+    for (i, l) in resolved.stopping_tables.iter().enumerate() {
+        let t = &l.table;
+        if material
+            .components()
+            .iter()
+            .any(|c| t.covers_pair(ion.z(), c.z()))
+        {
+            continue;
+        }
+        warnings.push(format!(
+            "stopping.tables[{i}]: the table ({}->{}, Z1={}, Z2={}) is for a pair that does \
+             not occur in this input (ion {}, target elements {}); it is unused",
+            sym(t.ion_z()),
+            sym(t.target_z()),
+            t.ion_z(),
+            t.target_z(),
+            sym(ion.z()),
+            material
+                .components()
+                .iter()
+                .map(|c| sym(c.z()))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
     let uncovered = material.components().iter().any(|c| {
         !resolved
             .stopping_tables

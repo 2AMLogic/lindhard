@@ -254,23 +254,23 @@ stopping = "eV/1e15 atoms/cm^2"
     std::fs::remove_dir_all(&d).unwrap();
 }
 
-/// A user table for B in Si on [1000, 100000] eV, sampled from the library's
-/// own Lindhard-Scharff model: no external data.
-fn b_si_table() -> String {
+/// A user table for (ion_z in target_z) on [1000, 100000] eV, sampled from
+/// the library's own Lindhard-Scharff model: no external data.
+fn sampled_table(ion_z: u8, target_z: u8) -> String {
     let ls = LindhardScharff::new();
-    let ion = Ion::new(5).unwrap();
+    let ion = Ion::new(ion_z).unwrap();
     let (mut e, mut s) = (Vec::new(), Vec::new());
     for i in 0..=8 {
         let en = 1000.0 * 100.0f64.powf(f64::from(i) / 8.0);
         e.push(format!("{en:e}"));
         s.push(format!(
             "{:e}",
-            lindhard::ion::stopping::to_ev_1e15_cm2(ls.stopping(&ion, 14, en).unwrap())
+            lindhard::ion::stopping::to_ev_1e15_cm2(ls.stopping(&ion, target_z, en).unwrap())
         ));
     }
     format!(
         "provenance = \"Lindhard-Scharff model of this repository sampled on a grid (test)\"\n\
-         ion_z = 5\ntarget_z = 14\nenergy_ev = [{}]\nstopping_ev_1e15_cm2 = [{}]\n",
+         ion_z = {ion_z}\ntarget_z = {target_z}\nenergy_ev = [{}]\nstopping_ev_1e15_cm2 = [{}]\n",
         e.join(", "),
         s.join(", ")
     )
@@ -283,7 +283,7 @@ fn b_si_table() -> String {
 #[test]
 fn table_lower_bound_does_not_warn_about_the_placeholder_cutoff() {
     let d = dir("cutoff");
-    std::fs::write(d.join("b_si.toml"), b_si_table()).unwrap();
+    std::fs::write(d.join("b_si.toml"), sampled_table(5, 14)).unwrap();
     let toml = r#"
 targets = ["Si"]
 [[ions]]
@@ -301,5 +301,79 @@ stopping = "eV/1e15 atoms/cm^2"
     assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
     let err = String::from_utf8_lossy(&o.stderr);
     assert!(!err.contains("physics.primary_cutoff_ev"), "{err}");
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// A user table for a pair the batch never asks for (C in Si, ions = B)
+/// warns that the table is unused, in stopping-table terms: it names the
+/// ion and the target elements, and neither `physics.follow_recoils`, "run"
+/// nor "beam" — those describe a transport run, not this input
+/// (regression: the resolver's unused-table warning leaked through the
+/// filter with its `run` wording).
+#[test]
+fn unused_user_table_warns_in_stopping_table_terms() {
+    let d = dir("unused");
+    std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
+    let toml = r#"
+targets = ["Si"]
+[[ions]]
+ion = "B"
+[stopping]
+tables = ["c_si.toml"]
+[energy]
+values_ev = [1000.0, 10000.0]
+[units]
+stopping = "eV/1e15 atoms/cm^2"
+"#;
+    let o = run(&d, toml, "out");
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let j = json(&d, "out");
+    let w = j["tables"][0]["warnings"].as_array().unwrap();
+    let msgs: Vec<&str> = w
+        .iter()
+        .filter_map(|x| x.as_str())
+        .filter(|m| m.starts_with("stopping.tables["))
+        .collect();
+    assert_eq!(msgs.len(), 1, "{w:?}");
+    let msg = msgs[0];
+    assert!(
+        msg.starts_with("stopping.tables[0]: the table (C->Si, Z1=6, Z2=14)"),
+        "{msg}"
+    );
+    assert!(msg.contains("ion B"), "{msg}");
+    assert!(msg.contains("target elements Si"), "{msg}");
+    assert!(msg.ends_with("; it is unused"), "{msg}");
+    for banned in ["run", "beam", "follow_recoils"] {
+        assert!(!msg.contains(banned), "{banned} in: {msg}");
+    }
+    let err = String::from_utf8_lossy(&o.stderr);
+    assert!(err.contains(&format!("warning: {msg}")), "{err}");
+    std::fs::remove_dir_all(&d).unwrap();
+}
+
+/// The same table for the pair it declares (C in Si) is used and emits no
+/// warning.
+#[test]
+fn used_user_table_warns_nothing() {
+    let d = dir("used");
+    std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
+    let toml = r#"
+targets = ["Si"]
+[[ions]]
+ion = "C"
+[stopping]
+tables = ["c_si.toml"]
+[energy]
+values_ev = [1000.0, 10000.0]
+[range]
+from_ev = 1000.0
+[units]
+stopping = "eV/1e15 atoms/cm^2"
+"#;
+    let o = run(&d, toml, "out");
+    assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
+    let j = json(&d, "out");
+    let w = j["tables"][0]["warnings"].as_array().unwrap();
+    assert!(w.is_empty(), "{w:?}");
     std::fs::remove_dir_all(&d).unwrap();
 }
