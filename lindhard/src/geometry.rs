@@ -361,4 +361,23 @@ pub trait Geometry: Sync {
     fn as_stack(&self) -> Option<&Stack> {
         None
     }
+
+    /// Volume, m³, of each material (indexed as [`Geometry::material`])
+    /// inside the axis-aligned box `lo..hi`, counting only the part of the
+    /// box that lies inside the target (a [`Stack`] is laterally infinite, a
+    /// [`VoxelGrid`] is the box `0..extent`, periodic images are not
+    /// replicated). `None` when the geometry cannot compute it: the default,
+    /// kept by [`MeshGeometry`] and [`CsgGeometry`], whose regions are not
+    /// axis-aligned and have no exact box intersection here.
+    ///
+    /// `lo[a] <= hi[a]` must hold and both must be finite. The result is a
+    /// fixed-order sum, so it is deterministic.
+    fn material_volumes_in_box(&self, _lo: [f64; 3], _hi: [f64; 3]) -> Option<Vec<f64>> {
+        None
+    }
+}
+
+/// Length of the overlap of `lo..hi` and `a..b`, m (zero when disjoint).
+pub(crate) fn overlap_m(lo: f64, hi: f64, a: f64, b: f64) -> f64 {
+    (hi.min(b) - lo.max(a)).max(0.0)
 }

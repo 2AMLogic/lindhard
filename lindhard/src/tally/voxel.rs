@@ -92,7 +92,7 @@ use serde::{Deserialize, Serialize};
 
 use super::ion::ReplacementTracker;
 use crate::elements::{element_by_symbol, symbol};
-use crate::geometry::VoxelGrid;
+use crate::geometry::{Geometry, VoxelGrid};
 use crate::ion::bca::{BcaTally, ElectronicChannel, Face, LatticeDeposit, Particle};
 
 /// Errors from building a [`VoxelTallyGrid`] or reading an exported file.
@@ -128,6 +128,12 @@ pub enum VoxelTallyError {
         /// Requested dimensions.
         dims: [usize; 3],
     },
+    /// The target geometry cannot give the volume of each material in a box
+    /// (a mesh or CSG target), so no per-voxel mass is available.
+    #[error(
+        "per-voxel mass is not available for this geometry (mesh and CSG targets are unsupported)"
+    )]
+    MassUnsupported,
     /// An exported file could not be read. `line` is 1-based.
     #[error("voxel tally parse error (line {line}): {message}")]
     Parse {
@@ -483,6 +489,7 @@ impl VoxelTally {
                 .map(|(&flat, &cell)| VoxelRecord {
                     index: self.grid.unflatten(flat),
                     cell,
+                    mass_kg: None,
                     defects: match self.defects.get(&flat) {
                         Some(acc) => report_defects(acc),
                         None => vec![SpeciesDefects::default(); n],
@@ -600,6 +607,11 @@ pub struct VoxelRecord {
     /// empty when the tally had no species).
     #[serde(default)]
     pub defects: Vec<SpeciesDefects>,
+    /// Target mass inside the voxel, kg, once set by
+    /// [`VoxelReport::attach_masses`]; `None` until then. Not read from or
+    /// written to the CSV and VTK exports.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mass_kg: Option<f64>,
 }
 
 /// A [`VoxelTally`] as plain data. Voxels are in increasing flat-index order
@@ -795,6 +807,48 @@ impl ExportProvenance {
 }
 
 impl VoxelReport {
+    /// Mass, kg, of the target inside each occupied voxel (same order as
+    /// [`Self::voxels`]): the volume of each material in the voxel times its
+    /// [`crate::material::Material::mass_density`], summed over materials, so
+    /// a voxel straddling two materials gets the volume-weighted mass. Only
+    /// the part of the voxel inside the target counts, so a voxel partly
+    /// outside has a smaller mass and one wholly outside has zero.
+    ///
+    /// # Errors
+    /// [`VoxelTallyError::MassUnsupported`] if the geometry cannot supply
+    /// material volumes in a box (a mesh or CSG target).
+    pub fn voxel_masses_kg(&self, geometry: &dyn Geometry) -> Result<Vec<f64>, VoxelTallyError> {
+        self.voxels
+            .iter()
+            .map(|v| {
+                let lo = self.grid.corner_m(v.index);
+                let h = self.grid.spacing_m();
+                let hi = std::array::from_fn(|a| lo[a] + h[a]);
+                let vols = geometry
+                    .material_volumes_in_box(lo, hi)
+                    .ok_or(VoxelTallyError::MassUnsupported)?;
+                Ok(vols
+                    .iter()
+                    .enumerate()
+                    .map(|(m, vol)| vol * geometry.material(m).mass_density())
+                    .sum())
+            })
+            .collect()
+    }
+
+    /// Compute [`Self::voxel_masses_kg`] and store each in its record's
+    /// [`VoxelRecord::mass_kg`]. Nothing is changed on error.
+    ///
+    /// # Errors
+    /// As [`Self::voxel_masses_kg`].
+    pub fn attach_masses(&mut self, geometry: &dyn Geometry) -> Result<(), VoxelTallyError> {
+        let masses = self.voxel_masses_kg(geometry)?;
+        for (v, m) in self.voxels.iter_mut().zip(masses) {
+            v.mass_kg = Some(m);
+        }
+        Ok(())
+    }
+
     /// Per-species defects summed over the occupied voxels (not including
     /// [`Self::outside_defects`]); empty without species.
     pub fn defect_totals(&self) -> Vec<SpeciesDefects> {
@@ -1071,6 +1125,7 @@ impl VoxelReport {
             }
             let record = VoxelRecord {
                 index,
+                mass_kg: None,
                 cell: VoxelCell {
                     implanted: num(f[6], n)?,
                     displacements: num(f[7], n)?,
@@ -1344,6 +1399,7 @@ impl VoxelReport {
                     index,
                     cell,
                     defects: defects_from_values(&row),
+                    mass_kg: None,
                 })
             })
             .collect::<Result<Vec<_>, _>>()?;

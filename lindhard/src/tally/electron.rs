@@ -1099,6 +1099,7 @@ impl FullElectronTally {
                     index: v.grid.unflatten(flat),
                     cell,
                     defects: Vec::new(),
+                    mass_kg: None,
                 })
                 .collect(),
             outside: v.outside,

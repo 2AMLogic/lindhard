@@ -150,6 +150,34 @@ impl VoxelGrid {
 }
 
 impl Geometry for VoxelGrid {
+    /// Sums the overlap of the box with every voxel it touches, in flat
+    /// order, so a box straddling two materials gets each one's share.
+    fn material_volumes_in_box(&self, lo: [f64; 3], hi: [f64; 3]) -> Option<Vec<f64>> {
+        let mut range = [0..0, 0..0, 0..0];
+        for a in 0..3 {
+            let h = self.spacing_m[a];
+            let first = (lo[a].max(0.0) / h).floor();
+            let last = (hi[a].min(self.extent_m[a]) / h).ceil();
+            if last.partial_cmp(&first) != Some(std::cmp::Ordering::Greater) {
+                return Some(vec![0.0; self.materials.len()]);
+            }
+            range[a] = first as usize..(last as usize).min(self.dims[a]);
+        }
+        let mut out = vec![0.0; self.materials.len()];
+        let [hx, hy, hz] = self.spacing_m;
+        for k in range[2].clone() {
+            let dz = super::overlap_m(lo[2], hi[2], k as f64 * hz, (k + 1) as f64 * hz);
+            for j in range[1].clone() {
+                let dy = super::overlap_m(lo[1], hi[1], j as f64 * hy, (j + 1) as f64 * hy);
+                for i in range[0].clone() {
+                    let dx = super::overlap_m(lo[0], hi[0], i as f64 * hx, (i + 1) as f64 * hx);
+                    out[self.cells[self.flat_unchecked([i, j, k])] as usize] += dx * dy * dz;
+                }
+            }
+        }
+        Some(out)
+    }
+
     fn n_materials(&self) -> usize {
         self.materials.len()
     }
