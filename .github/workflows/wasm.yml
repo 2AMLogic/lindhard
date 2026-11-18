@@ -40,8 +40,8 @@ jobs:
       # Must equal the `=` pin on wasm-bindgen in lindhard-wasm/Cargo.toml: the
       # command-line tool refuses a module built by another version. One pin
       # for the whole job: the URL and the checksum both read it.
-      WASM_BINDGEN_VERSION: "0.2.129"
-      WASM_BINDGEN_SHA256: "82d12bb940e2d4e72e0d5605387fc1b8ca179044e012b620f0ce4e7440e8320e"
+      WASM_BINDGEN_VERSION: "0.2.130"
+      WASM_BINDGEN_SHA256: "9687f3bb551b9f66f37ed32a40d7913a00f7962db653054e56857bc306c3227f"
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable

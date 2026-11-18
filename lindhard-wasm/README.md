@@ -58,7 +58,7 @@ elements_json();                       // the element table, from lindhard::elem
 ## Build
 
 Needs the `wasm32-unknown-unknown` target and the `wasm-bindgen` command-line
-tool at the exact version pinned in `Cargo.toml` (release `0.2.129`;
+tool at the exact version pinned in `Cargo.toml` (release `0.2.130`;
 CI downloads it with a checksum, see `.github/workflows/wasm.yml`).
 
 ```sh
