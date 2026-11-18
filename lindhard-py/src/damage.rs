@@ -75,6 +75,14 @@ pub(crate) fn to_dict<'py>(
         "deposited_ev",
         dense(py, r, &shape, |v| v.cell.deposited_ev())?,
     )?;
+    // Target mass per voxel (kg); NaN where the mass is unavailable
+    // (unoccupied voxels and files written without masses).
+    let mut mass = vec![f64::NAN; nx * ny * nz];
+    for rec in &r.voxels {
+        let [i, j, k] = rec.index;
+        mass[(i * ny + j) * nz + k] = rec.mass_kg.unwrap_or(f64::NAN);
+    }
+    d.set_item("mass_kg", mass.into_pyarray(py).reshape(shape.to_vec())?)?;
     d.set_item("vacancies", species_array(py, r, |s| s.vacancies)?)?;
     d.set_item("interstitials", species_array(py, r, |s| s.interstitials)?)?;
     d.set_item("replacements", species_array(py, r, |s| s.replacements)?)?;
@@ -98,6 +106,7 @@ pub(crate) fn to_dict<'py>(
     d.set_item("outside", outside)?;
     let prov = PyDict::new(py);
     prov.set_item("format_version", lindhard::tally::EXPORT_FORMAT_VERSION)?;
+    prov.set_item("producer", &p.producer)?;
     prov.set_item("engine", &p.engine)?;
     prov.set_item("lindhard_version", &p.lindhard_version)?;
     prov.set_item("seed", p.seed)?;

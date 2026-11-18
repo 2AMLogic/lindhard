@@ -716,9 +716,10 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
 /// `damage_export.csv`: the electron voxel tally in the versioned exchange
 /// format (engine `electron`), or `None` without `[electron.tally.voxel]`.
 pub fn damage_export_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> Option<String> {
-    let report = sim.voxel.as_ref()?;
+    let report = sim.voxel.clone()?;
     Some(crate::output::export_csv(
         report,
+        &r.stack,
         "electron",
         r.input.run.seed,
         &r.input,

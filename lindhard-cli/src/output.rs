@@ -748,25 +748,39 @@ pub fn summary_json(
 }
 
 /// `damage_export.csv`: the ion voxel tally in the versioned exchange format,
-/// or `None` without `[tally.voxel]`. The header carries the engine, the
-/// `lindhard` version, the seed and the SHA-256 of the resolved-input echo
-/// (the `input` block of `summary.json`'s source, serialized compactly).
+/// or `None` without `[tally.voxel]`. The header carries the producer, the
+/// engine, the `lindhard` version, the seed and the SHA-256 of the
+/// resolved-input echo (the `input` block of `summary.json`'s source,
+/// serialized compactly); the `mass_kg` column holds the target mass of each
+/// occupied voxel.
 pub fn damage_export_csv(r: &Resolved, t: &CliTally) -> Option<String> {
     let report = t.voxel.as_ref()?.report();
-    Some(export_csv(&report, "ion", r.config.seed, &r.input))
+    Some(export_csv(
+        report,
+        r.geometry(),
+        "ion",
+        r.config.seed,
+        &r.input,
+    ))
 }
 
 /// The versioned damage-export text of `report` for either engine: the
-/// header carries `engine`, the `lindhard` version, the `seed` and the
-/// SHA-256 of `input` (the resolved-input echo, serialized compactly).
+/// header carries `producer`, `engine`, the `lindhard` version, the `seed` and
+/// the SHA-256 of `input` (the resolved-input echo, serialized compactly).
+/// Voxel masses come from `geometry`; for a geometry that cannot supply them
+/// (a mesh or CSG target) the `mass_kg` column is left empty.
 pub fn export_csv<T: serde::Serialize>(
-    report: &lindhard::tally::VoxelReport,
+    mut report: lindhard::tally::VoxelReport,
+    geometry: &dyn Geometry,
     engine: &str,
     seed: u64,
     input: &T,
 ) -> String {
     let echo = serde_json::to_vec(input).expect("the input serializes");
     let hash = crate::table_cache::sha256_hex(&echo);
+    // `MassUnsupported` leaves every mass unset (an empty column); nothing is
+    // changed on error.
+    let _ = report.attach_masses(geometry);
     let p = lindhard::tally::ExportProvenance::new(engine, seed, &hash);
     report.to_export_csv(&p)
 }

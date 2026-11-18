@@ -1,26 +1,27 @@
 # Damage export format
 
-One text file that carries a damage map from either engine: positions, units,
-per-channel energies, optional per-species defect counts, and the provenance
-of the run. It is the voxel-tally CSV of [`cli.md`](cli.md#voxel_tallycsv-and-voxel_tallyvtk)
+One text file that carries a damage map from either engine: positions,
+per-channel energies, optional per-species defect counts, the target mass of
+each voxel, and the provenance of the run. It is the voxel-tally CSV of [`cli.md`](cli.md#voxel_tallycsv-and-voxel_tallyvtk)
 (same columns, same row order) under a banner and a header that identifies the
 run.
 
 **Status.** The format is for exchange between this engine and the tools that
 read its maps. It is not a stability promise beyond its `format_version`: a
 change to the header keys, the columns or their meaning bumps the version, and
-a reader must refuse a version it does not know.
+a reader must refuse a version it does not know. A version 1 reader cannot
+read version 2, and the reverse.
 
 ## Layout
 
 ```
-# lindhard damage export v1
-# format_version = 1
+# damage export v2
+# format_version = 2
+# producer = lindhard
 # engine = ion
 # lindhard_version = 0.0.1
 # seed = 9
 # input_sha256 = <64 hex digits>
-# units = length=m; energy=eV; counts=1
 # origin_m = 0e0,-1e-8,-1e-8
 # spacing_m = 4e-9,1e-8,1e-8
 # dims = 10,2,2
@@ -28,19 +29,19 @@ a reader must refuse a version it does not know.
 # outside = <implanted>,<displacements>,<electronic_ev>,<lattice_ev>,<rest_ev>
 # species = 0:B,1:Si,2:O
 # outside_defects = <3 integers per species>
-i,j,k,x_m,y_m,z_m,implanted,displacements,electronic_ev,lattice_ev,rest_ev,deposited_ev,vacancies_0_B,...
+i,j,k,x_m,y_m,z_m,implanted,displacements,electronic_ev,lattice_ev,rest_ev,deposited_ev,mass_kg,vacancies_0_B,...
 ```
 
 Header lines are `# key = value`; the first line is the banner. Keys:
 
 | Key | Meaning |
 |---|---|
-| `format_version` | Integer, currently `1`. |
+| `format_version` | Integer, currently `2`. |
+| `producer` | Name of the program that wrote the file (`lindhard` for this engine). |
 | `engine` | `ion` or `electron`. |
 | `lindhard_version` | Version of the writer. |
 | `seed` | Root seed of the run. |
 | `input_sha256` | SHA-256 (hex) of the resolved input echo, serialized as compact JSON. The ion CLI and Python bindings compute it from the echoed input of `summary.json`. |
-| `units` | The fixed string `length=m; energy=eV; counts=1`. |
 | `origin_m`, `spacing_m`, `dims` | Grid: corner of voxel `[0,0,0]`, voxel edges (m) and voxel counts. Axis `x` is depth. |
 | `histories` | Primary histories tallied. |
 | `outside` | Sums of the events outside the grid (same five fields as the columns). |
@@ -61,9 +62,11 @@ One row per occupied voxel, in increasing flat index `i + nx (j + ny k)`
 | `lattice_ev` | eV | Energy left in the lattice: for ions the subthreshold and binding energy, for electrons LO-phonon emission and polaron trapping. |
 | `rest_ev` | eV | Kinetic energy of a particle that stopped below its cutoff. |
 | `deposited_ev` | eV | The sum of the three energy channels. |
+| `mass_kg` | kg | Mass of the target material inside the voxel: for each material, its volume inside the voxel times its mass density, summed. Only the part of the voxel inside the target counts, so a voxel partly outside has a smaller mass. A computed `0` means the voxel lies wholly outside the target; an **empty field** means the mass is unavailable (a geometry that cannot supply material volumes, such as a mesh or CSG target, or a file written without masses). |
 | `vacancies_<n>_<sym>`, `interstitials_<n>_<sym>`, `replacements_<n>_<sym>` | count | Per species `n` (0 is the beam, then target elements in order of first appearance). Ion runs only. |
 
-Floats are written as the shortest decimal text that parses back to the same
+Lengths are in m, energies in eV and counts are plain integers, as the
+table states. Floats are written as the shortest decimal text that parses back to the same
 `f64` bits, so reading a written file returns the report unchanged. The
 electron engine has no species axis: its files have no `species` header and no
 defect columns. An empty tally is a header and a column row only.
@@ -72,7 +75,11 @@ defect columns. An empty tally is a header and a column row only.
 
 - Rust: `VoxelReport::write_export_csv` / `to_export_csv` take an
   `ExportProvenance`; `VoxelReport::read_export_csv` returns the report and
-  the provenance, and refuses a missing banner, version or provenance key.
+  the provenance. It refuses a missing banner, version or provenance key, and
+  a version other than 2 (including version 1) with an unsupported-version
+  error before it reads any row. Version 1 files (banner
+  `# lindhard damage export v1`, a `units` key, no `producer` or `mass_kg`)
+  are not read; regenerate them.
   `FullElectronTally::voxel_report` gives the electron map to write.
 - CLI: `lindhard run` writes `damage_export.csv` next to the other outputs
   when the input has a `[tally.voxel]` table (ion runs) or an

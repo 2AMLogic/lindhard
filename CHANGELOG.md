@@ -7,6 +7,10 @@ the crates use [Semantic Versioning](https://semver.org/) (`lindhard` and
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: damage export format version 2** (`docs/damage-export-format.md`). The banner is now the neutral `# damage export v2`, `format_version` is 2, and a new `producer` header key names the writing program (`lindhard`). The fixed `units` key is gone (per-column units are in the document) and a `mass_kg` column (target mass in each occupied voxel, kg; empty when unavailable, as for a mesh or CSG target) follows `deposited_ev`. All other keys and column names are unchanged. `VoxelReport::read_export_csv`, `lindhard.read_damage_export` and the CLI refuse a version 1 file or any unknown version with an unsupported-version error; regenerate old files with `lindhard run`. `ExportProvenance` gains a `producer` field, `output::export_csv` takes the report and geometry, and the Python dict gains `mass_kg` and `provenance["producer"]`. The standalone `voxel_tally.csv` and VTK schemas are unchanged.
+
 ### Added
 
 - The simulator page gains crystal controls: a setup can transport chosen stack layers on a cubic lattice (Si, Ge, GaAs, 3C-SiC) with the surface normal (hkl), the in-plane reference [uvw], the wafer rotation, an optional lattice temperature, and the beam azimuth as the twist; the page now emits and loads `[[crystal]]`/`[crystal.thermal]` and `beam.azimuth_deg`, refuses orientations the engine would reject (zone law, zero triples, bad layer indices), keeps `p_max_nm`/`q_max_nm`/`search_length_nm` rejected by name, and documents that a crystal run costs about 17 times more per ion on WASM (#782).

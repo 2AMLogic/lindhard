@@ -598,22 +598,22 @@ fn damage_export_round_trips_with_provenance_for_species_and_plain_reports() {
     for (engine, r) in [("ion", species), ("electron", plain), ("ion", empty)] {
         let p = provenance(engine);
         let text = r.to_export_csv(&p);
-        assert!(text.starts_with("# lindhard damage export v1\n"));
+        assert!(text.starts_with("# damage export v2\n"));
+        assert!(!text.contains("units"), "v2 has no units key");
+        assert!(text.contains(",deposited_ev,mass_kg"));
         for key in [
-            "# format_version = 1",
+            "# format_version = 2",
+            "# producer = lindhard",
             "# engine = ",
             "# lindhard_version = ",
             "# seed = 3340",
             "# input_sha256 = ",
-            "# units = length=m; energy=eV; counts=1",
         ] {
             assert!(text.contains(key), "{key}");
         }
         let (back, p2) = VoxelReport::read_export_csv(&text).unwrap();
         assert_eq!(back, r);
         assert_eq!(p2, p);
-        // The plain reader accepts the same file.
-        assert_eq!(VoxelReport::read_csv(&text).unwrap(), r);
         // Deterministic.
         assert_eq!(text, r.to_export_csv(&p));
     }
@@ -627,8 +627,54 @@ fn damage_export_reader_refuses_files_without_provenance() {
     let text = r.to_export_csv(&provenance("ion"));
     let no_seed = text.replace("# seed = 3340\n", "");
     assert!(VoxelReport::read_export_csv(&no_seed).is_err());
-    let v9 = text.replace("format_version = 1", "format_version = 9");
-    assert!(VoxelReport::read_export_csv(&v9).is_err());
+    let v9 = text.replace("format_version = 2", "format_version = 9");
+    let err = VoxelReport::read_export_csv(&v9).unwrap_err().to_string();
+    assert!(err.contains("unsupported damage-export version 9"), "{err}");
+    let no_producer = text.replace("# producer = lindhard\n", "");
+    assert!(VoxelReport::read_export_csv(&no_producer).is_err());
+}
+
+#[test]
+fn damage_export_reader_refuses_v1_files_and_unknown_versions() {
+    // An authentic v1 file: v1 banner and header (with `units`), v1 columns.
+    let v1 = "# lindhard damage export v1\n# format_version = 1\n# engine = electron\n\
+        # lindhard_version = 0.0.1\n# seed = 3\n# input_sha256 = ab\n\
+        # units = length=m; energy=eV; counts=1\n# origin_m = 0e0,0e0,0e0\n\
+        # spacing_m = 1e-9,1e-9,1e-9\n# dims = 1,1,1\n# histories = 1\n\
+        # outside = 0,0,0e0,0e0,0e0\n\
+        i,j,k,x_m,y_m,z_m,implanted,displacements,electronic_ev,lattice_ev,rest_ev,deposited_ev\n\
+        0,0,0,5e-10,5e-10,5e-10,0,0,1e0,0e0,0e0,1e0\n";
+    let err = VoxelReport::read_export_csv(v1).unwrap_err().to_string();
+    assert!(err.contains("unsupported damage-export version 1"), "{err}");
+    // A future banner is refused as unsupported, not misparsed.
+    let v3 = v1.replace("# lindhard damage export v1", "# damage export v3");
+    let err = VoxelReport::read_export_csv(&v3).unwrap_err().to_string();
+    assert!(err.contains("unsupported damage-export version 3"), "{err}");
+    // A v2 banner over a v1 version key is refused before the rows are read.
+    let mixed = v1.replace("# lindhard damage export v1", "# damage export v2");
+    let err = VoxelReport::read_export_csv(&mixed)
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("unsupported damage-export version 1"), "{err}");
+}
+
+#[test]
+fn damage_export_distinguishes_zero_mass_from_unavailable() {
+    let mut r = fixture();
+    assert!(r.voxels.len() >= 2);
+    r.voxels[0].mass_kg = Some(0.0);
+    r.voxels[1].mass_kg = Some(1.25e-21);
+    for v in r.voxels.iter_mut().skip(2) {
+        v.mass_kg = None;
+    }
+    let text = r.to_export_csv(&provenance("electron"));
+    let (back, _) = VoxelReport::read_export_csv(&text).unwrap();
+    assert_eq!(back.voxels[0].mass_kg, Some(0.0));
+    assert_eq!(back.voxels[1].mass_kg, Some(1.25e-21));
+    assert!(back.voxels.iter().skip(2).all(|v| v.mass_kg.is_none()));
+    assert_eq!(back, r);
+    // The standalone CSV has no mass column.
+    assert!(!r.to_csv().contains("mass_kg"));
 }
 
 // ---- per-voxel mass (#903) ----

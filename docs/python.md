@@ -165,10 +165,13 @@ run (`ElectronRun`) gives the same from an `[electron.tally.voxel]` table
 Keys: `origin_m`, `spacing_m` (3-vectors, m), `dims`, `histories`,
 `species_z` (list), the `(nx, ny, nz)` arrays `implanted`, `displacements`
 (integer counts) and `electronic_ev`, `lattice_ev`, `rest_ev`, `deposited_ev`
-(eV), the `(nspecies, nx, ny, nz)` integer arrays `vacancies`, `interstitials`,
+(eV), `mass_kg` (the target mass in each occupied voxel, kg; NaN where the
+mass is unavailable and in unoccupied voxels), the `(nspecies, nx, ny, nz)` integer arrays `vacancies`, `interstitials`,
 `replacements`, `outside` (the same fields summed outside the grid, plus
-`defects` of shape `(nspecies, 3)`) and `provenance` (`engine`, `seed`,
-`lindhard_version`, `input_sha256`, `format_version`). Unoccupied voxels are 0.
+`defects` of shape `(nspecies, 3)`) and `provenance` (`producer`, `engine`,
+`seed`, `lindhard_version`, `input_sha256`, `format_version`, currently 2).
+Unoccupied voxels are 0 in every array except `mass_kg`. `read_damage_export`
+raises `InputError` for a version 1 file or any version it does not know.
 Electron voxel maps use the same file format (`species_z` empty); the electron
 Python run does not yet configure a voxel grid, so only the reader applies to
 them there.
