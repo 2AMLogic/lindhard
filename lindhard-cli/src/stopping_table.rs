@@ -668,7 +668,10 @@ pub fn table_csv(tables: &[Table], units: &UnitsSpec) -> String {
 }
 
 /// The JSON: units, grid and range settings, and per table the ion, target,
-/// models, user-table provenance, warnings and rows.
+/// models, user-table provenance, warnings and rows. The `models` and
+/// `stopping_tables` of a table entry cover that entry's (ion, target) pair
+/// only: a `user-table` entry is listed on a pair its table serves, not on
+/// every pair of the input.
 pub fn table_json(input: &TableInput, tables: &[Table]) -> Result<String> {
     let units = &input.units;
     let out: Vec<Value> = tables
@@ -678,14 +681,40 @@ pub fn table_json(input: &TableInput, tables: &[Table]) -> Result<String> {
             let ion = t.ion();
             let symbol = element(ion.z()).map_or("?", |e| e.symbol);
             let st = |x: f64| units.stopping.from_si(x, n, rho);
+            // `resolved.models()` and `resolved.stopping_tables` are the
+            // resolved input's whole-table manifest; this entry is one
+            // (ion, target) pair. A `user-table` entry is listed here only
+            // when its table covers this pair — the same test as the
+            // unused-table warning above — so an entry never names
+            // `user-table` beside a warning that the table is unused for
+            // it. The pairing is positional: `models()` pushes one
+            // `user-table` model per stopping table, in order.
+            let covered: Vec<bool> = t
+                .resolved
+                .stopping_tables
+                .iter()
+                .map(|l| {
+                    t.material()
+                        .components()
+                        .iter()
+                        .any(|c| l.table.covers_pair(ion.z(), c.z()))
+                })
+                .collect();
+            let mut user_table_i = 0usize;
             let mut models: Vec<Value> = t
                 .resolved
                 .models()
                 .iter()
                 .filter(|m| {
-                    m.role.starts_with("screening")
+                    let keep_role = m.role.starts_with("screening")
                         || m.role.starts_with("electronic")
-                        || m.role == "compound stopping"
+                        || m.role == "compound stopping";
+                    if !keep_role || m.name != "user-table" {
+                        return keep_role;
+                    }
+                    let listed = covered.get(user_table_i).copied().unwrap_or(true);
+                    user_table_i += 1;
+                    listed
                 })
                 .map(|m| json!({ "role": m.role, "name": m.name, "citation": m.citation }))
                 .collect();
@@ -721,7 +750,9 @@ pub fn table_json(input: &TableInput, tables: &[Table]) -> Result<String> {
                 .resolved
                 .stopping_tables
                 .iter()
-                .map(|l| {
+                .zip(&covered)
+                .filter(|(_, listed)| **listed)
+                .map(|(l, _)| {
                     json!({
                         "path": l.file.path,
                         "sha256": l.file.sha256,
