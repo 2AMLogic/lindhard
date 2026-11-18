@@ -160,12 +160,6 @@ impl BetheBloch {
         Self::default()
     }
 
-    /// Set the effective-charge model.
-    pub fn with_effective_charge(mut self, m: EffectiveCharge) -> Self {
-        self.effective_charge = m;
-        self
-    }
-
     /// Set the mean excitation energy, eV (cite its source at the call site).
     pub fn with_mean_excitation_ev(mut self, i_ev: f64) -> Self {
         self.mean_excitation_ev = Some(i_ev);
