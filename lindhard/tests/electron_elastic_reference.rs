@@ -323,7 +323,7 @@ fn elastic_cross_sections_match_published_partial_waves() {
 /// without blocking on a model difference; run with `--ignored` to gate the
 /// issue's completion.
 #[test]
-#[ignore = "fails while any of the 16 values is outside its pinned tolerance (#93)"]
+#[ignore = "fails while any of the 16 values is outside its pinned tolerance (standing tracker #902)"]
 fn complete_validation_requires_all_sixteen_values() {
     let f = fixture();
     let o = run_comparisons(&f);
