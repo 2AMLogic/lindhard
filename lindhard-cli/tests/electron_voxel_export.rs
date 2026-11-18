@@ -44,6 +44,14 @@ fn electron_voxel_export_balances_is_deterministic_and_optional() {
 
     let (back, prov) = VoxelReport::read_export_csv(&csv1).unwrap();
     assert_eq!(prov.engine, "electron");
+    assert_eq!(prov.producer, "lindhard");
+    assert!(csv1.starts_with("# damage export v2\n"));
+    // Every occupied voxel carries a computed, non-negative mass (slab target).
+    assert!(back
+        .voxels
+        .iter()
+        .all(|v| v.mass_kg.is_some_and(|m| m >= 0.0)));
+    assert!(back.voxels.iter().any(|v| v.mass_kg.unwrap() > 0.0));
     assert_eq!(back.histories, 30);
     let total = back.grand_totals().deposited_ev();
     let budget = s1.report.budget.deposited_ev;

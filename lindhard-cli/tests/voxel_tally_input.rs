@@ -85,7 +85,17 @@ fn voxel_tally_matches_the_cascade_totals_and_is_published() {
     let on_disk = std::fs::read_to_string(dir.join(output::DAMAGE_EXPORT_FILE)).unwrap();
     assert_eq!(on_disk, export);
     let (back, prov) = VoxelReport::read_export_csv(&on_disk).unwrap();
-    assert_eq!(back, report);
+    // The export adds the per-voxel mass to the plain report.
+    assert_eq!(back.voxels.len(), report.voxels.len());
+    assert!(back
+        .voxels
+        .iter()
+        .all(|v| v.mass_kg.is_some_and(|m| m >= 0.0)));
+    let mut with_mass = report.clone();
+    with_mass.attach_masses(r.geometry()).unwrap();
+    assert_eq!(back, with_mass);
+    assert_eq!(prov.producer, "lindhard");
+    assert!(on_disk.starts_with("# damage export v2\n"));
     assert_eq!((prov.engine.as_str(), prov.seed), ("ion", r.config.seed));
     assert_eq!(prov.input_sha256.len(), 64);
     // The export is a function of the input: other thread counts give the same bytes.

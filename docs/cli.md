@@ -1117,10 +1117,10 @@ all voxels, the header's `outside` sums and all species they equal the
 ### `damage_export.csv`
 
 Written with a `[tally.voxel]` table, removed from a reused output directory
-without it, and listed under `files` in `summary.json`. The same voxel map as
-`voxel_tally.csv` under the versioned exchange header (engine, version, seed,
-SHA-256 of the input echo, units); see
-[Damage export format](damage-export-format.md).
+without it, and listed under `files` in `summary.json`. The voxel map of
+`voxel_tally.csv` under the versioned exchange header (producer, engine,
+version, seed, SHA-256 of the input echo) with a `mass_kg` column after
+`deposited_ev`; see [Damage export format](damage-export-format.md).
 
 ### `ions.csv`
 

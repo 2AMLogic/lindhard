@@ -608,8 +608,9 @@ pub struct VoxelRecord {
     #[serde(default)]
     pub defects: Vec<SpeciesDefects>,
     /// Target mass inside the voxel, kg, once set by
-    /// [`VoxelReport::attach_masses`]; `None` until then. Not read from or
-    /// written to the CSV and VTK exports.
+    /// [`VoxelReport::attach_masses`]; `None` until then. Written to and read
+    /// from the damage-export file (`mass_kg` column, empty when `None`);
+    /// not part of the standalone CSV and VTK exports.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mass_kg: Option<f64>,
 }
@@ -769,19 +770,31 @@ fn defects_from_values(v: &[u64]) -> Vec<SpeciesDefects> {
 }
 
 /// The banner line of a damage-export file (see `docs/damage-export-format.md`).
-pub const EXPORT_BANNER: &str = "# lindhard damage export v1";
+pub const EXPORT_BANNER: &str = "# damage export v2";
+
+/// Banner text shared by every version of the format, used to recognise a
+/// file of another version and refuse it with a clear error.
+const EXPORT_BANNER_PREFIX: &str = "# damage export v";
+
+/// Banner of the retired version 1 (written by earlier releases).
+const EXPORT_BANNER_V1: &str = "# lindhard damage export v1";
 
 /// Version of the damage-export format, the `format_version` header key.
-pub const EXPORT_FORMAT_VERSION: u32 = 1;
+pub const EXPORT_FORMAT_VERSION: u32 = 2;
 
-/// Units statement written into every damage-export header.
-const EXPORT_UNITS: &str = "length=m; energy=eV; counts=1";
+/// Name of the per-voxel mass column of the damage export.
+const MASS_COLUMN: &str = "mass_kg";
+
+/// The `producer` header value written by this library.
+pub const EXPORT_PRODUCER: &str = "lindhard";
 
 /// Where a damage-export file came from: the header keys beyond the grid and
 /// the tallies. The CSV is an exchange format; these fields let a reader tie
 /// a file to the run that made it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExportProvenance {
+    /// The program that wrote the file ([`EXPORT_PRODUCER`] for this library).
+    pub producer: String,
     /// The engine that produced the map: `"ion"` or `"electron"`.
     pub engine: String,
     /// `lindhard` version that wrote the file ([`crate::VERSION`]).
@@ -798,6 +811,7 @@ impl ExportProvenance {
     /// stamped with this library's version.
     pub fn new(engine: &str, seed: u64, input_sha256: &str) -> Self {
         Self {
+            producer: EXPORT_PRODUCER.to_string(),
             engine: engine.to_string(),
             lindhard_version: crate::VERSION.to_string(),
             seed,
@@ -906,8 +920,9 @@ impl VoxelReport {
     }
 
     /// Write the damage-export file: the [`Self::write_csv`] layout under the
-    /// [`EXPORT_BANNER`], with the provenance and units keys in the header
-    /// (`docs/damage-export-format.md`). Floats are the shortest text that
+    /// [`EXPORT_BANNER`], with the provenance keys in the header and a
+    /// `mass_kg` column after `deposited_ev` (empty where the mass was not
+    /// attached; `docs/damage-export-format.md`). Floats are the shortest text that
     /// reads back to the same bits, so [`Self::read_export_csv`] returns the
     /// report unchanged.
     pub fn write_export_csv<W: Write>(&self, w: W, p: &ExportProvenance) -> io::Result<()> {
@@ -933,11 +948,11 @@ impl VoxelReport {
         if let Some(p) = export {
             writeln!(w, "{EXPORT_BANNER}")?;
             writeln!(w, "# format_version = {EXPORT_FORMAT_VERSION}")?;
+            writeln!(w, "# producer = {}", p.producer)?;
             writeln!(w, "# engine = {}", p.engine)?;
             writeln!(w, "# lindhard_version = {}", p.lindhard_version)?;
             writeln!(w, "# seed = {}", p.seed)?;
             writeln!(w, "# input_sha256 = {}", p.input_sha256)?;
-            writeln!(w, "# units = {EXPORT_UNITS}")?;
         } else {
             writeln!(w, "# lindhard voxel tally v{}", if v2 { 2 } else { 1 })?;
         }
@@ -951,6 +966,9 @@ impl VoxelReport {
             o.implanted, o.displacements, o.electronic_ev, o.lattice_ev, o.rest_ev
         )?;
         let mut columns: Vec<String> = CSV_COLUMNS.iter().map(|c| (*c).to_string()).collect();
+        if export.is_some() {
+            columns.push(MASS_COLUMN.to_string());
+        }
         if v2 {
             writeln!(w, "# species = {}", species_list(&self.species_z))?;
             let od: Vec<String> = defect_values(&self.outside_defects)
@@ -979,6 +997,12 @@ impl VoxelReport {
                 t.rest_ev,
                 t.deposited_ev()
             )?;
+            if export.is_some() {
+                match v.mass_kg {
+                    Some(m) => write!(w, ",{m:e}")?,
+                    None => write!(w, ",")?,
+                }
+            }
             for n in defect_values(&v.defects) {
                 write!(w, ",{n}")?;
             }
@@ -996,28 +1020,55 @@ impl VoxelReport {
 
     /// Read back a file written by [`Self::write_csv`].
     pub fn read_csv(text: &str) -> Result<Self, VoxelTallyError> {
-        Self::parse_csv(text).map(|(r, _)| r)
+        Self::parse_csv(text, false).map(|(r, _)| r)
     }
 
     /// Read back a file written by [`Self::write_export_csv`], with its
     /// provenance. Errors if the banner, the format version or any
-    /// provenance key is missing.
+    /// provenance key is missing, and refuses any version but
+    /// [`EXPORT_FORMAT_VERSION`] (including the retired version 1) before
+    /// reading the rows.
     pub fn read_export_csv(text: &str) -> Result<(Self, ExportProvenance), VoxelTallyError> {
         let first = text.lines().map(str::trim).find(|l| !l.is_empty());
-        if first != Some(EXPORT_BANNER) {
-            return Err(parse_err(1, "not a damage-export file (banner missing)"));
+        let unsupported = |what: &str| {
+            parse_err(
+                1,
+                format!(
+                    "unsupported damage-export version {what} (this reader reads only \
+                     version {EXPORT_FORMAT_VERSION})"
+                ),
+            )
+        };
+        match first {
+            Some(EXPORT_BANNER) => {}
+            Some(EXPORT_BANNER_V1) => return Err(unsupported("1")),
+            Some(l) if l.starts_with(EXPORT_BANNER_PREFIX) => {
+                return Err(unsupported(&l[EXPORT_BANNER_PREFIX.len()..]))
+            }
+            _ => return Err(parse_err(1, "not a damage-export file (banner missing)")),
         }
-        let (report, keys) = Self::parse_csv(text)?;
+        // The version key decides the row layout, so check it before parsing.
+        let declared = text
+            .lines()
+            .map(str::trim)
+            .take_while(|l| l.is_empty() || l.starts_with('#'))
+            .find_map(|l| {
+                let (k, v) = l.strip_prefix('#')?.split_once('=')?;
+                (k.trim() == "format_version").then(|| v.trim().to_string())
+            })
+            .ok_or_else(|| parse_err(1, "header is missing `format_version`"))?;
+        if declared != EXPORT_FORMAT_VERSION.to_string() {
+            return Err(unsupported(&declared));
+        }
+        let (report, keys) = Self::parse_csv(text, true)?;
         let get = |k: &str| {
             keys.get(k)
                 .cloned()
                 .ok_or_else(|| parse_err(1, format!("header is missing `{k}`")))
         };
-        if get("format_version")? != EXPORT_FORMAT_VERSION.to_string() {
-            return Err(parse_err(1, "unsupported damage-export format_version"));
-        }
         let seed = get("seed")?;
         let prov = ExportProvenance {
+            producer: get("producer")?,
             engine: get("engine")?,
             lindhard_version: get("lindhard_version")?,
             seed: seed
@@ -1025,12 +1076,12 @@ impl VoxelReport {
                 .map_err(|_| parse_err(1, format!("cannot parse the seed {seed:?}")))?,
             input_sha256: get("input_sha256")?,
         };
-        get("units")?;
         Ok((report, prov))
     }
 
     fn parse_csv(
         text: &str,
+        export: bool,
     ) -> Result<(Self, std::collections::BTreeMap<String, String>), VoxelTallyError> {
         let mut extra = std::collections::BTreeMap::new();
         let mut origin = None;
@@ -1080,8 +1131,10 @@ impl VoxelReport {
                             .collect::<Result<_, _>>()?,
                     );
                 }
-                k @ ("format_version" | "engine" | "lindhard_version" | "seed" | "input_sha256"
-                | "units") => {
+                k @ ("format_version" | "producer" | "engine" | "lindhard_version" | "seed"
+                | "input_sha256")
+                    if export =>
+                {
                     extra.insert(k.to_string(), value.trim().to_string());
                 }
                 other => return Err(parse_err(n, format!("unknown header key {other:?}"))),
@@ -1095,6 +1148,11 @@ impl VoxelReport {
         )?;
         let (hn, header_row) = header_row.ok_or_else(|| parse_err(1, "no column row"))?;
         let mut expected: Vec<String> = CSV_COLUMNS.iter().map(|c| (*c).to_string()).collect();
+        if export {
+            expected.push(MASS_COLUMN.to_string());
+        }
+        // Columns before the defect columns.
+        let fixed = expected.len();
         expected.extend(defect_columns(&species_z));
         if header_row != expected.join(",") {
             return Err(parse_err(hn, "unexpected column row"));
@@ -1125,7 +1183,11 @@ impl VoxelReport {
             }
             let record = VoxelRecord {
                 index,
-                mass_kg: None,
+                mass_kg: if export && !f[CSV_COLUMNS.len()].trim().is_empty() {
+                    Some(num(f[CSV_COLUMNS.len()], n)?)
+                } else {
+                    None
+                },
                 cell: VoxelCell {
                     implanted: num(f[6], n)?,
                     displacements: num(f[7], n)?,
@@ -1134,7 +1196,7 @@ impl VoxelReport {
                     rest_ev: num(f[10], n)?,
                 },
                 defects: defects_from_values(
-                    &f[CSV_COLUMNS.len()..]
+                    &f[fixed..]
                         .iter()
                         .map(|t| num::<u64>(t, n))
                         .collect::<Result<Vec<_>, _>>()?,

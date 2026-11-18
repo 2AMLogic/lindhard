@@ -83,6 +83,14 @@ def test_written_file_reads_back_unchanged(tmp_path):
     assert back["displacements"].sum() > 0
     prov = back["provenance"]
     assert prov["engine"] == "ion"
+    assert prov["producer"] == "lindhard"
+    assert prov["format_version"] == 2
+    assert "units" not in prov
+    mass = back["mass_kg"]
+    assert mass.shape == (10, 2, 2)
+    occupied = back["deposited_ev"] > 0
+    assert np.all(mass[occupied] >= 0.0)
+    assert np.all(np.isfinite(mass[occupied]))
     assert prov["seed"] == 9
     assert prov["lindhard_version"] == lh.__version__
     assert len(prov["input_sha256"]) == 64
@@ -112,3 +120,14 @@ def test_reader_errors(tmp_path):
     bad.write_text("# lindhard voxel tally v1\n")
     with pytest.raises(lh.InputError):
         lh.read_damage_export(bad)
+    v1 = tmp_path / "v1.csv"
+    v1.write_text(
+        "# lindhard damage export v1\n# format_version = 1\n# engine = ion\n"
+        "# units = length=m; energy=eV; counts=1\n"
+    )
+    with pytest.raises(lh.InputError, match="unsupported damage-export version 1"):
+        lh.read_damage_export(v1)
+    v9 = tmp_path / "v9.csv"
+    v9.write_text("# damage export v9\n# format_version = 9\n")
+    with pytest.raises(lh.InputError, match="unsupported damage-export version 9"):
+        lh.read_damage_export(v9)
