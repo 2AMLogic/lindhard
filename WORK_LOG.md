@@ -2,6 +2,12 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-18
+
+- **PR #867**: Bump wasm-bindgen from 0.2.129 to 0.2.130 in the cargo-minor-patch group across 1 directory
+- **PR #650**: feat: add stopping-table subcommand for stopping and CSDA range tables
+- **Issue #637** (closed): [Epic #630] `lindhard stopping-table`: stopping and range tables over an energy grid
+
 ### 2026-11-17
 
 - **PR #887**: ci: key the python job's rust-cache on the resolved Python version
