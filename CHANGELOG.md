@@ -7,6 +7,10 @@ the crates use [Semantic Versioning](https://semver.org/) (`lindhard` and
 
 ## [Unreleased]
 
+## [0.0.1] - 2026-11-19
+
+First release, published to crates.io as `lindhard` and `lindhard-cli`.
+
 ### Changed
 
 - **Breaking: damage export format version 2** (`docs/damage-export-format.md`). The banner is now the neutral `# damage export v2`, `format_version` is 2, and a new `producer` header key names the writing program (`lindhard`). The fixed `units` key is gone (per-column units are in the document) and a `mass_kg` column (target mass in each occupied voxel, kg; empty when unavailable, as for a mesh or CSG target) follows `deposited_ev`. All other keys and column names are unchanged. `VoxelReport::read_export_csv`, `lindhard.read_damage_export` and the CLI refuse a version 1 file or any unknown version with an unsupported-version error; regenerate old files with `lindhard run`. `ExportProvenance` gains a `producer` field, `output::export_csv` takes the report and geometry, and the Python dict gains `mass_kg` and `provenance["producer"]`. The standalone `voxel_tally.csv` and VTK schemas are unchanged.
