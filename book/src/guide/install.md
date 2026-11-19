@@ -1,8 +1,24 @@
 # Installing
 
-lindhard is pre-release and is not yet published as a package; build it
-from source. It is pure Rust with no C or Fortran dependencies in the
-default build.
+lindhard is pre-release (0.0.x): expect breaking changes between versions.
+It is pure Rust with no C or Fortran dependencies in the default build.
+
+## Install a release
+
+- Prebuilt binaries for Linux (x86_64, aarch64), macOS (Intel, Apple
+  Silicon) and Windows (x86_64) are attached to each
+  [GitHub release](https://github.com/2AMLogic/lindhard/releases), with a
+  `SHA256SUMS` file.
+- With a Rust toolchain, install the command from crates.io:
+
+  ```sh
+  cargo install --locked lindhard-cli    # puts `lindhard` on your PATH
+  ```
+
+  The library is the [`lindhard`](https://crates.io/crates/lindhard) crate.
+
+To work on lindhard itself, or to run unreleased changes, build from source
+as below.
 
 ## Prerequisites
 
