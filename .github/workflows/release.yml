@@ -15,10 +15,15 @@ name: Release
 # skipped twice over: preflight sets dry_run=true for anything but a tag push,
 # and both jobs also require `github.event_name == 'push'`.
 #
-# One-time repository setup (operator):
-#   * Settings -> Environments -> create `release`, with required reviewers.
-#   * Secret `CARGO_REGISTRY_TOKEN` (crates.io API token) on that environment.
-# See "Releasing" in CONTRIBUTING.md.
+# crates.io publishing uses trusted publishing (OIDC): no API token is stored.
+# Setup (owner):
+#   * Settings -> Environments -> `release`, with the owner as required reviewer.
+#   * On crates.io, for `lindhard` and `lindhard-cli`: Settings -> Trusted
+#     Publishing -> GitHub, repository `2AMLogic/lindhard`, workflow
+#     `release.yml`, environment `release`.
+# crates.io can register a trusted publisher only for a crate that already
+# exists, so each crate's first version was uploaded once by hand. See
+# "Releasing" in CONTRIBUTING.md.
 
 on:
   push:
@@ -238,21 +243,53 @@ jobs:
     timeout-minutes: 20
     # Protected environment: requires the configured reviewers' approval.
     environment: release
+    permissions:
+      contents: read
+      id-token: write # OIDC token for crates.io trusted publishing
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
     steps:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@stable
-      - name: Publish lindhard, then lindhard-cli
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+      # Idempotent re-runs: publish only the crates whose version is not on
+      # crates.io yet (a version uploaded by hand, or a run that published the
+      # library but failed on the CLI). 404 means "not published"; any other
+      # status fails the job rather than guessing.
+      - name: Which crates still need publishing?
+        id: check
         run: |
           set -euo pipefail
-          if [ -z "${CARGO_REGISTRY_TOKEN:-}" ]; then
-            echo '::error::secret CARGO_REGISTRY_TOKEN is not set on the `release` environment'
-            exit 1
-          fi
-          cargo publish --locked -p lindhard
-          # lindhard-cli depends on the just-published library; cargo waits
-          # for the index to show it before returning, so publish directly.
-          cargo publish --locked -p lindhard-cli
+          pending=""
+          # Library first: the CLI's packaged manifest depends on it.
+          for crate in lindhard lindhard-cli; do
+            code="$(curl -s -o /dev/null -w '%{http_code}' --retry 3 --retry-all-errors \
+              -A 'lindhard-release (github.com/2AMLogic/lindhard)' \
+              "https://crates.io/api/v1/crates/${crate}/${VERSION}")"
+            case "$code" in
+              200) echo "::notice::${crate} ${VERSION} is already on crates.io" ;;
+              404) pending="${pending} ${crate}" ;;
+              *) echo "::error::crates.io returned HTTP ${code} for ${crate} ${VERSION}"; exit 1 ;;
+            esac
+          done
+          echo "pending=${pending# }" >> "$GITHUB_OUTPUT"
+      - name: Authenticate to crates.io
+        if: steps.check.outputs.pending != ''
+        id: auth
+        # rust-lang/crates-io-auth-action v1.0.5, pinned: it exchanges the
+        # GitHub OIDC token for a short-lived crates.io token and revokes it
+        # when the job ends.
+        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18
+      # lindhard-cli depends on the just-published library; cargo waits for
+      # the index to show it before returning, so publish directly.
+      - name: Publish lindhard, then lindhard-cli
+        if: steps.check.outputs.pending != ''
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+          PENDING: ${{ steps.check.outputs.pending }}
+        run: |
+          set -euo pipefail
+          for crate in $PENDING; do
+            cargo publish --locked -p "$crate"
+          done

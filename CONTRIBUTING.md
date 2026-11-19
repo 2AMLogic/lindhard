@@ -190,9 +190,41 @@ and `publish` jobs are skipped, and a pull request (including one from a
 fork) gets a read-only token and no environment secrets. Release builds skip
 the Rust build cache, so tag-built binaries come from a clean build.
 
-One-time setup: create the `release` environment with required reviewers and
-give it the secret `CARGO_REGISTRY_TOKEN` (a crates.io API token). The publish
-job fails with a clear message if the secret is missing.
+The `publish` job uses crates.io trusted publishing (OIDC): no crates.io token
+is stored in the repository or its environments. It skips any crate whose
+version is already on crates.io, so re-running a failed publish resumes where
+it stopped.
+
+Setup (owner): the `release` environment has the owner as required reviewer.
+On crates.io, both `lindhard` and `lindhard-cli` have a trusted publisher under
+Settings -> Trusted Publishing: GitHub, repository `2AMLogic/lindhard`, workflow
+`release.yml`, environment `release`.
+
+### First crates.io upload (one time only)
+
+crates.io lets an owner register a trusted publisher only on a crate that
+already exists, so the first version of each crate is uploaded once by hand.
+This is the only API-token publish the project makes.
+
+1. On crates.io, create an API token with scope `publish-new` only, limited to
+   the crates `lindhard` and `lindhard-cli`, expiring in one day.
+2. From a clean checkout of the release commit (`git checkout vX.Y.Z`), upload
+   the library, then the CLI, passing the token through the environment so it
+   never reaches `~/.cargo/credentials.toml`:
+
+   ```sh
+   export CARGO_REGISTRY_TOKEN=...   # the token from step 1
+   cargo publish --locked -p lindhard
+   cargo publish --locked -p lindhard-cli
+   unset CARGO_REGISTRY_TOKEN
+   ```
+
+3. Revoke the token on crates.io straight away.
+4. Add the trusted publisher above to both crates.
+
+Push the tag before or after the upload: the tag's `publish` job finds both
+versions already on crates.io and publishes nothing. Every later version goes
+through the workflow.
 
 ## Clippy pin and canary
 
