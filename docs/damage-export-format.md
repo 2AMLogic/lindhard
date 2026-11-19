@@ -3,7 +3,7 @@
 One text file that carries a damage map from either engine: positions,
 per-channel energies, optional per-species defect counts, the target mass of
 each voxel, and the provenance of the run. It is the voxel-tally CSV of [`cli.md`](cli.md#voxel_tallycsv-and-voxel_tallyvtk)
-(same columns, same row order) under a banner and a header that identifies the
+(same row order, with an extra `mass_kg` column after `deposited_ev`) under a banner and a header that identifies the
 run.
 
 **Status.** The format is for exchange between this engine and the tools that
