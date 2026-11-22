@@ -149,6 +149,96 @@ fn solid_csg(shape: &SolidShape, field: &str) -> Result<Csg, InputError> {
     })
 }
 
+/// The validated `[beam]` and `[run]`: the beam, its energy spectrum and
+/// spread, and the span of the primary energies.
+struct ResolvedBeam {
+    /// The beam, at the largest primary energy.
+    beam: Beam,
+    /// The primary-energy spectrum from `[beam] spectrum` (`None` for a
+    /// plain `energy_ev`).
+    spectrum: Option<EnergySpectrum>,
+    /// The angular spread about the nominal direction.
+    divergence: Divergence,
+    /// The smallest primary energy.
+    e_min: f64,
+    /// The largest primary energy.
+    e_max: f64,
+}
+
+/// The collected target regions before the geometry is built: the solids'
+/// shapes, every region's resolved material with the input key it came from,
+/// and the finite layers' thicknesses.
+struct TargetParts {
+    /// One [`Csg`] per `[[target.solids]]` entry (empty for a stack).
+    shapes: Vec<Csg>,
+    /// Every region in region order: the layers with the substrate last, or
+    /// the solids.
+    layers: Vec<ResolvedLayer>,
+    /// The input key of each region's material, for error messages.
+    fields: Vec<String>,
+    /// The thickness of each finite layer, in metres (stack targets only).
+    thick: Vec<f64>,
+}
+
+/// Build the engine's target from the collected regions: the CSG scene of a
+/// `[[target.solids]]` target, or the layer stack of a
+/// layers-and-substrate target.
+fn build_target(parts: &TargetParts) -> Result<Target, InputError> {
+    if !parts.shapes.is_empty() {
+        // One region per solid; two solids that resolve to an equal
+        // material share one material index, so crossing between them is
+        // not an event (the same rule as for solids of one material in
+        // the engine's own tests).
+        let mut materials: Vec<Material> = Vec::new();
+        let mut solids = Vec::with_capacity(parts.shapes.len());
+        for (shape, l) in parts.shapes.iter().zip(&parts.layers) {
+            let idx = materials
+                .iter()
+                .position(|m| *m == l.material)
+                .unwrap_or_else(|| {
+                    materials.push(l.material.clone());
+                    materials.len() - 1
+                });
+            solids.push((shape.clone(), idx as u32));
+        }
+        let g = CsgGeometry::new(materials, solids).map_err(|e| match e {
+            GeometryError::CsgInvalid { solid, reason } => invalid(
+                format!("target.solids[{solid}]"),
+                format!("invalid shape: {reason}"),
+            ),
+            GeometryError::CsgUnbounded { solid } => invalid(
+                format!("target.solids[{solid}]"),
+                "unbounded: a lone half-space has no back face; bound it with \
+                 shape = \"intersection\" or \"difference\" (e.g. with a cuboid), \
+                 or use a cuboid",
+            ),
+            other => invalid("target.solids", other.to_string()),
+        })?;
+        // The engine rejects an entry point in vacuum, but without naming
+        // the key; pre-check here so the error does.
+        let ep = g.entry_point();
+        if g.locate(ep).is_none() {
+            return Err(invalid(
+                "target.solids",
+                format!(
+                    "the default entry point {ep:?} (the centre of the scene's \
+                     front face) lies in vacuum: no solid contains it"
+                ),
+            ));
+        }
+        Ok(Target::Csg(g))
+    } else {
+        let mut finite = Vec::with_capacity(parts.thick.len());
+        let mut it = parts.layers.iter();
+        for &th in &parts.thick {
+            finite.push((it.next().expect("one per layer").material.clone(), th));
+        }
+        let substrate = it.next().map(|l| l.material.clone());
+        let stack = Stack::new(finite, substrate).map_err(|e| invalid("target", e.to_string()))?;
+        Ok(Target::Stack(stack))
+    }
+}
+
 impl Input {
     /// Validate `[dynamic]`.
     fn check_dynamic(&self, d: &DynamicSpec) -> Result<(), InputError> {
@@ -479,8 +569,69 @@ impl Input {
         sets: &[TuningSet],
     ) -> Result<Resolved, InputError> {
         let mut warnings = Vec::new();
+        let beam = self.resolve_beam_and_run()?;
 
-        // Beam.
+        // Materials (all of them, so a broken unused entry is still reported).
+        for (name, spec) in &self.materials {
+            Material::try_from(spec.clone())
+                .map_err(|e| invalid(format!("materials.{name}"), e.to_string()))?;
+        }
+
+        let mut parts = self.resolve_target_layers()?;
+
+        self.apply_energy_overrides(&mut parts.layers, &parts.fields)?;
+        let tuning = self.apply_tuning(sets, &mut parts.layers, &mut warnings)?;
+
+        let target = build_target(&parts)?;
+
+        let config = self.resolve_physics(&beam, &parts.layers, &mut warnings)?;
+
+        self.resolve_tally()?;
+        let crystals = self.resolve_crystals(&parts.layers, &mut warnings)?;
+
+        let screening = self.physics.potential.screening();
+        let screening_length = self
+            .physics
+            .screening_length
+            .map_or(screening.default_length(), LengthChoice::length);
+        let stopping_tables = self.load_stopping_tables(base_dir)?;
+        let srim = self.load_srim_data(base_dir)?;
+        self.check_advisory_ranges(
+            &beam,
+            &stopping_tables,
+            srim.as_ref(),
+            &parts.layers,
+            &mut warnings,
+        );
+        self.check_stopping_tables(
+            &stopping_tables,
+            &beam.beam.ion,
+            &parts.layers,
+            &mut warnings,
+        )?;
+
+        Ok(Resolved {
+            input: self.echo(),
+            beam: beam.beam,
+            divergence: beam.divergence,
+            spectrum: beam.spectrum,
+            target,
+            layers: parts.layers,
+            config,
+            screening,
+            screening_length,
+            table_spec: TABLE_SPEC,
+            stopping_tables,
+            srim,
+            crystals,
+            warnings,
+            tuning,
+        })
+    }
+
+    /// Validate `[beam]` and `[run]` and build the beam, its spectrum, its
+    /// spread and the span of primary energies.
+    fn resolve_beam_and_run(&self) -> Result<ResolvedBeam, InputError> {
         let b = &self.beam;
         let el = element_by_symbol(&b.ion).ok_or_else(|| {
             invalid(
@@ -519,24 +670,27 @@ impl Input {
             ));
         }
         let divergence = self.resolve_divergence()?;
-        let beam = Beam {
-            ion,
-            energy_ev: e_max,
-            polar_rad: b.tilt_deg.to_radians(),
-            azimuth_rad: b.azimuth_deg.to_radians(),
-            count: self.run.ions,
-        };
+        Ok(ResolvedBeam {
+            beam: Beam {
+                ion,
+                energy_ev: e_max,
+                polar_rad: b.tilt_deg.to_radians(),
+                azimuth_rad: b.azimuth_deg.to_radians(),
+                count: self.run.ions,
+            },
+            spectrum,
+            divergence,
+            e_min,
+            e_max,
+        })
+    }
 
-        // Materials (all of them, so a broken unused entry is still reported).
-        for (name, spec) in &self.materials {
-            Material::try_from(spec.clone())
-                .map_err(|e| invalid(format!("materials.{name}"), e.to_string()))?;
-        }
-
-        // Target.
+    /// Validate the target's kind (layers with a substrate, or solids — not
+    /// a mix) and collect its regions, then validate `[dynamic]` when
+    /// present.
+    fn resolve_target_layers(&self) -> Result<TargetParts, InputError> {
         let t = &self.target;
-        let solids_target = !t.solids.is_empty();
-        if solids_target {
+        if !t.solids.is_empty() {
             if !t.layers.is_empty() || t.substrate.is_some() {
                 return Err(invalid(
                     "target.solids",
@@ -564,10 +718,12 @@ impl Input {
                  [[target.solids]]",
             ));
         }
-        let mut shapes = Vec::with_capacity(t.solids.len());
-        let mut layers = Vec::with_capacity(t.layers.len() + t.solids.len() + 1);
-        let mut fields = Vec::with_capacity(t.layers.len() + t.solids.len() + 1);
-        let mut thick = Vec::with_capacity(t.layers.len());
+        let mut parts = TargetParts {
+            shapes: Vec::with_capacity(t.solids.len()),
+            layers: Vec::with_capacity(t.layers.len() + t.solids.len() + 1),
+            fields: Vec::with_capacity(t.layers.len() + t.solids.len() + 1),
+            thick: Vec::with_capacity(t.layers.len()),
+        };
         for (i, l) in t.layers.iter().enumerate() {
             let field = format!("target.layers[{i}]");
             if !finite_pos(l.thickness_nm) {
@@ -576,33 +732,48 @@ impl Input {
                     format!("{} nm must be finite and positive", l.thickness_nm),
                 ));
             }
-            layers.push(self.material(&format!("{field}.material"), &l.material)?);
-            fields.push(format!("{field}.material"));
-            thick.push(l.thickness_nm * 1e-9);
+            parts
+                .layers
+                .push(self.material(&format!("{field}.material"), &l.material)?);
+            parts.fields.push(format!("{field}.material"));
+            parts.thick.push(l.thickness_nm * 1e-9);
         }
         if let Some(s) = &t.substrate {
-            layers.push(self.material("target.substrate", s)?);
-            fields.push("target.substrate".to_string());
+            parts.layers.push(self.material("target.substrate", s)?);
+            parts.fields.push("target.substrate".to_string());
         }
         for (i, s) in t.solids.iter().enumerate() {
             let field = format!("target.solids[{i}]");
-            shapes.push(solid_csg(&s.shape(), &field)?);
-            layers.push(self.material(&format!("{field}.material"), s.material())?);
-            fields.push(format!("{field}.material"));
+            parts.shapes.push(solid_csg(&s.shape(), &field)?);
+            parts
+                .layers
+                .push(self.material(&format!("{field}.material"), s.material())?);
+            parts.fields.push(format!("{field}.material"));
         }
 
         if let Some(d) = &self.dynamic {
             self.check_dynamic(d)?;
         }
+        Ok(parts)
+    }
 
-        // Energy overrides.
+    /// Apply the `[physics.energies.*]` per-element overrides to the layers
+    /// that contain the element (an override for an element no layer
+    /// contains is an error), then reject any layer whose material still
+    /// misses a displacement or binding energy. `fields` holds each layer's
+    /// input key, for error messages.
+    fn apply_energy_overrides(
+        &self,
+        layers: &mut [ResolvedLayer],
+        fields: &[String],
+    ) -> Result<(), InputError> {
         let p = &self.physics;
         for (sym, o) in &p.energies {
             let field = format!("physics.energies.{sym}");
             let el = element_by_symbol(sym)
                 .ok_or_else(|| invalid(&field, format!("unknown element symbol {sym:?}")))?;
             let mut used = false;
-            for l in &mut layers {
+            for l in layers.iter_mut() {
                 if l.material.components().iter().all(|c| c.z() != el.z) {
                     continue;
                 }
@@ -627,9 +798,9 @@ impl Input {
                 return Err(invalid(&field, format!("{sym} is not in any target layer")));
             }
         }
-        for (l, field) in layers.iter().zip(&fields) {
+        for (l, field) in layers.iter().zip(fields) {
             if let Some(&(z, kind)) = l.material.unset_energies().first() {
-                let sym = crate::elements::element(z).expect("validated").symbol;
+                let sym = symbol(z);
                 let key = match kind {
                     EnergyKind::Displacement => "e_d_ev",
                     EnergyKind::LatticeBinding => "e_b_ev",
@@ -644,65 +815,19 @@ impl Input {
                 ));
             }
         }
+        Ok(())
+    }
 
-        let tuning = self.apply_tuning(sets, &mut layers, &mut warnings)?;
-
-        let target = if solids_target {
-            // One region per solid; two solids that resolve to an equal
-            // material share one material index, so crossing between them is
-            // not an event (the same rule as for solids of one material in
-            // the engine's own tests).
-            let mut materials: Vec<Material> = Vec::new();
-            let mut solids = Vec::with_capacity(shapes.len());
-            for (shape, l) in shapes.iter().zip(&layers) {
-                let idx = materials
-                    .iter()
-                    .position(|m| *m == l.material)
-                    .unwrap_or_else(|| {
-                        materials.push(l.material.clone());
-                        materials.len() - 1
-                    });
-                solids.push((shape.clone(), idx as u32));
-            }
-            let g = CsgGeometry::new(materials, solids).map_err(|e| match e {
-                GeometryError::CsgInvalid { solid, reason } => invalid(
-                    format!("target.solids[{solid}]"),
-                    format!("invalid shape: {reason}"),
-                ),
-                GeometryError::CsgUnbounded { solid } => invalid(
-                    format!("target.solids[{solid}]"),
-                    "unbounded: a lone half-space has no back face; bound it with \
-                     shape = \"intersection\" or \"difference\" (e.g. with a cuboid), \
-                     or use a cuboid",
-                ),
-                other => invalid("target.solids", other.to_string()),
-            })?;
-            // The engine rejects an entry point in vacuum, but without naming
-            // the key; pre-check here so the error does.
-            let ep = g.entry_point();
-            if g.locate(ep).is_none() {
-                return Err(invalid(
-                    "target.solids",
-                    format!(
-                        "the default entry point {ep:?} (the centre of the scene's \
-                         front face) lies in vacuum: no solid contains it"
-                    ),
-                ));
-            }
-            Target::Csg(g)
-        } else {
-            let mut finite = Vec::with_capacity(thick.len());
-            let mut it = layers.iter();
-            for &th in &thick {
-                finite.push((it.next().expect("one per layer").material.clone(), th));
-            }
-            let substrate = it.next().map(|l| l.material.clone());
-            let stack =
-                Stack::new(finite, substrate).map_err(|e| invalid("target", e.to_string()))?;
-            Target::Stack(stack)
-        };
-
-        // Physics.
+    /// Validate `[physics]` against the beam and the target's layers, and
+    /// build the engine's [`BcaConfig`]. The recoil-cutoff warning (a cutoff
+    /// above the smallest surface binding energy) is emitted here.
+    fn resolve_physics(
+        &self,
+        beam: &ResolvedBeam,
+        layers: &[ResolvedLayer],
+        warnings: &mut Vec<String>,
+    ) -> Result<BcaConfig, InputError> {
+        let p = &self.physics;
         let mean_free_path = match (p.free_path, p.min_cm_angle_deg) {
             (FreePathChoice::Constant, None) => MeanFreePath::Constant,
             (FreePathChoice::Constant, Some(_)) => {
@@ -746,14 +871,14 @@ impl Input {
                 "must be finite and non-negative",
             ));
         }
-        if p.primary_cutoff_ev >= e_min {
+        if p.primary_cutoff_ev >= beam.e_min {
             return Err(invalid(
                 "physics.primary_cutoff_ev",
                 format!(
                     "{} eV is not below the beam energy {} eV{}",
                     p.primary_cutoff_ev,
-                    e_min,
-                    if spectrum.is_some() {
+                    beam.e_min,
+                    if beam.spectrum.is_some() {
                         " (the smallest spectrum line)"
                     } else {
                         ""
@@ -820,8 +945,11 @@ impl Input {
         // `ion::stopping::straggling` module docs). The Bohr validity floor
         // below is a different limit and still applies.
         config.seed = self.run.seed;
+        Ok(config)
+    }
 
-        // Tally.
+    /// Validate `[tally]` and `[tally.voxel]`.
+    fn resolve_tally(&self) -> Result<(), InputError> {
         if !finite_pos(self.tally.depth_bin_nm) {
             return Err(invalid("tally.depth_bin_nm", "must be finite and positive"));
         }
@@ -873,35 +1001,44 @@ impl Input {
                 ));
             }
         }
+        Ok(())
+    }
 
-        let crystals = self.resolve_crystals(&layers, &mut warnings)?;
-
-        let screening = p.potential.screening();
-        let screening_length = p
-            .screening_length
-            .map_or(screening.default_length(), LengthChoice::length);
-        let stopping_tables = self.load_stopping_tables(base_dir)?;
-        let srim = self.load_srim_data(base_dir)?;
-        let fallback = stopping_model_with(p.stopping, srim.as_ref().map(|s| &s.model));
-        let validity = fallback.validity(&ion);
+    /// Emit the advisory warnings that need the loaded stopping data: a
+    /// beam energy outside the fallback stopping model's validity range
+    /// (for the pairs no user table covers), and a beam energy below Bohr
+    /// straggling's validity floor.
+    fn check_advisory_ranges(
+        &self,
+        beam: &ResolvedBeam,
+        tables: &[LoadedStoppingTable],
+        srim: Option<&LoadedSrimData>,
+        layers: &[ResolvedLayer],
+        warnings: &mut Vec<String>,
+    ) {
+        let p = &self.physics;
+        let ion = &beam.beam.ion;
+        let fallback = stopping_model_with(p.stopping, srim.map(|s| &s.model));
+        let validity = fallback.validity(ion);
         // The advisory range of the fallback model only matters for the pairs
         // it actually serves; a beam pair with a table has its range checked
         // as an error above.
         let beam_pair_uncovered = layers.iter().any(|l| {
-            l.material.components().iter().any(|c| {
-                !stopping_tables
-                    .iter()
-                    .any(|t| t.table.covers_pair(ion.z(), c.z()))
-            })
+            l.material
+                .components()
+                .iter()
+                .any(|c| !tables.iter().any(|t| t.table.covers_pair(ion.z(), c.z())))
         });
-        let outside = [e_min, e_max].into_iter().find(|&e| !validity.contains(e));
+        let outside = [beam.e_min, beam.e_max]
+            .into_iter()
+            .find(|&e| !validity.contains(e));
         if let (true, Some(e)) = (beam_pair_uncovered, outside) {
             warnings.push(format!(
                 "beam energy {} eV is outside the advisory validity range of the {} \
                  stopping model for {} ([{}, {}] eV)",
                 e,
                 fallback.name(),
-                b.ion,
+                self.beam.ion,
                 validity.min_energy_ev,
                 validity.max_energy_ev
             ));
@@ -912,34 +1049,18 @@ impl Input {
         // that floor, where it is an overestimate.
         if p.straggling != StragglingChoice::None {
             let bohr_floor_ev = ion.mass_amu() * velocity_scale_energy_per_amu_ev(ion.z(), 1.0);
-            if let Some(e) = [e_min, e_max].into_iter().find(|&e| e < bohr_floor_ev) {
+            if let Some(e) = [beam.e_min, beam.e_max]
+                .into_iter()
+                .find(|&e| e < bohr_floor_ev)
+            {
                 warnings.push(format!(
                     "beam energy {e} eV is below the advisory validity floor of Bohr \
                      straggling (v >> v0 Z1^(2/3), above about {bohr_floor_ev:.3e} eV for \
                      {}); the Bohr variance is an overestimate there",
-                    b.ion
+                    self.beam.ion
                 ));
             }
         }
-        self.check_stopping_tables(&stopping_tables, &ion, &layers, &mut warnings)?;
-
-        Ok(Resolved {
-            input: self.echo(),
-            beam,
-            divergence,
-            spectrum,
-            target,
-            layers,
-            config,
-            screening,
-            screening_length,
-            table_spec: TABLE_SPEC,
-            stopping_tables,
-            srim,
-            crystals,
-            warnings,
-            tuning,
-        })
     }
 
     /// The primary energies the beam can have: the spectrum's lines, or the
@@ -1257,7 +1378,7 @@ impl Input {
         let mut components = Vec::with_capacity(layers.len());
         for (i, l) in layers.iter_mut().enumerate() {
             let z = l.material.components()[0].z();
-            let sym = crate::elements::element(z).expect("validated").symbol;
+            let sym = symbol(z);
             let original = l.material.surface_binding_energy_ev(z).expect("set");
             let factor = *factors.get(&z).ok_or_else(|| {
                 invalid(
