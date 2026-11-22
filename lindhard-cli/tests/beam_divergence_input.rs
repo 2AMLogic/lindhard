@@ -4,18 +4,11 @@
 //! untouched, records the resolved spread, and bad settings fail with the
 //! field name (issue #285).
 
-use lindhard::input::Input;
-use lindhard::ion::bca::{Bca, CrystalTarget};
-use lindhard::ion::crystal::{Divergence, Lattice, Orientation};
-use lindhard::ion::potential::Potential;
-use lindhard::ion::scattering::ScatteringTable;
-use lindhard::tally::IonTally;
-use lindhard_cli::output::RunInfo;
-use lindhard_cli::sim::{simulate, Simulation};
-use lindhard_cli::tally::CliTally;
+use lindhard::ion::crystal::Divergence;
+use lindhard_cli::sim::simulate;
 
 mod common;
-use common::{check, summary};
+use common::{check, direct_simulation, resolve, si_001_target, summary};
 
 /// A 20 nm amorphous Si screen over a crystalline Si substrate.
 const BASE: &str = r#"
@@ -62,72 +55,6 @@ fn with_divergence(table: &str) -> String {
 const GAUSS: &str = "model = \"gaussian\"\nsigma_deg = 0.5";
 const CONE: &str = "model = \"uniform-cone\"\nhalf_angle_deg = 1.0";
 
-fn resolve(text: &str) -> lindhard::input::Resolved {
-    Input::from_toml_str(text).unwrap().resolve().unwrap()
-}
-
-/// The engine set up by hand with the divergence given in radians.
-fn direct(r: &lindhard::input::Resolved, div: Divergence, threads: usize) -> Simulation {
-    let pot = Potential::new(r.screening, f64::from(r.beam.ion.z()), 14.0)
-        .with_length(r.screening_length);
-    let table = ScatteringTable::build(&pot, &r.table_spec);
-    let lattice = Lattice::silicon();
-    let orientation = Orientation::new(
-        &lattice,
-        [0, 0, 1],
-        [0, 1, 0],
-        7f64.to_radians(),
-        22f64.to_radians(),
-        0.0,
-    )
-    .unwrap();
-    let target = CrystalTarget::new(lattice, orientation);
-    let stopping = r.stopping_model();
-    let bca = Bca::new(r.beam, r.geometry(), r.config, &*stopping, &table)
-        .unwrap()
-        .with_divergence(div)
-        .unwrap()
-        .with_crystal(target, &[1])
-        .unwrap();
-    let crystals = bca.crystal_metadata();
-    let proto = IonTally::new(
-        r.geometry(),
-        &bca.species_z(),
-        r.ion_tally_config().unwrap(),
-    )
-    .unwrap();
-    let t = &r.input.tally;
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    let tally = pool
-        .install(|| {
-            bca.run(|| {
-                CliTally::new(
-                    t.depth_bin_nm * 1e-9,
-                    t.depth_bins,
-                    t.per_ion,
-                    proto.clone(),
-                )
-            })
-        })
-        .unwrap();
-    let report = tally.ion.report(t.dual_pearson);
-    Simulation {
-        tally,
-        table,
-        report,
-        crystals,
-        info: RunInfo {
-            threads,
-            table_build_s: 0.0,
-            transport_s: 0.0,
-            ions_per_s: 0.0,
-        },
-    }
-}
-
 #[test]
 fn toml_divergence_run_equals_direct_engine_setup() {
     for (toml, div) in [
@@ -147,7 +74,12 @@ fn toml_divergence_run_equals_direct_engine_setup() {
         let r = resolve(&with_divergence(toml));
         assert_eq!(r.divergence, div);
         let a = simulate(&r, Some(1)).unwrap();
-        let b = direct(&r, div, 1);
+        let b = direct_simulation(&r, 1, |bca| {
+            bca.with_divergence(div)
+                .unwrap()
+                .with_crystal(si_001_target(), &[1])
+                .unwrap()
+        });
         assert_eq!(a.tally.finals, b.tally.finals, "{toml}");
         assert_eq!(summary(&r, &a), summary(&r, &b), "{toml}");
         // Thread independence.

@@ -9,14 +9,15 @@ use lindhard::input::electron::ElectronInput;
 use lindhard::tally::VoxelReport;
 use lindhard_cli::electron::{damage_export_csv, simulate_electron};
 
+mod common;
+use common::scratch;
+
 const VOXEL: &str = "\n[electron.tally.voxel]\norigin_nm = [0.0, -500.0, -500.0]\n\
 spacing_nm = [300.0, 500.0, 500.0]\ndims = [5, 2, 2]\n";
 
 fn setup(name: &str) -> (PathBuf, String) {
     let ex = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/electron");
-    let dir = std::env::temp_dir().join(format!("lindhard-evoxel-{name}-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = scratch(&format!("evoxel-{name}"));
     std::fs::copy(
         ex.join("synthetic_plasmon_elf.toml"),
         dir.join("synthetic_plasmon_elf.toml"),
