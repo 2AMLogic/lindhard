@@ -3,19 +3,12 @@
 //! leaves amorphous inputs and amorphous layers untouched, and is diagnosed
 //! by `check` before transport.
 
-use lindhard::input::Input;
-use lindhard::ion::bca::{Bca, CrystalTarget, Thermal};
+use lindhard::ion::bca::Thermal;
 use lindhard::ion::crystal::debye::THETA_D_SI;
-use lindhard::ion::crystal::{Lattice, Orientation};
-use lindhard::ion::potential::Potential;
-use lindhard::ion::scattering::ScatteringTable;
-use lindhard::tally::IonTally;
-use lindhard_cli::output::RunInfo;
-use lindhard_cli::sim::{simulate, Simulation};
-use lindhard_cli::tally::CliTally;
+use lindhard_cli::sim::simulate;
 
 mod common;
-use common::{check, summary};
+use common::{check, direct_simulation, resolve, si_001_target, summary};
 
 const AMORPHOUS: &str = r#"
 [beam]
@@ -56,70 +49,16 @@ fn crystal_input() -> String {
     format!("{AMORPHOUS}{CRYSTAL}")
 }
 
-fn resolve(text: &str) -> lindhard::input::Resolved {
-    Input::from_toml_str(text).unwrap().resolve().unwrap()
-}
-
-/// The engine set up by hand: Si lattice, (001) cut, [010] reference, the
-/// beam's tilt and azimuth, 300 K with the cited Debye temperature.
-fn direct(r: &lindhard::input::Resolved, threads: usize) -> Simulation {
-    let pot = Potential::new(r.screening, f64::from(r.beam.ion.z()), 14.0)
-        .with_length(r.screening_length);
-    let table = ScatteringTable::build(&pot, &r.table_spec);
-    let lattice = Lattice::silicon();
-    let orientation = Orientation::new(
-        &lattice,
-        [0, 0, 1],
-        [0, 1, 0],
-        7f64.to_radians(),
-        22f64.to_radians(),
-        0.0,
-    )
-    .unwrap();
-    let target =
-        CrystalTarget::new(lattice, orientation).with_thermal(Thermal::new(300.0, THETA_D_SI));
-    let stopping = r.stopping_model();
-    let bca = Bca::new(r.beam, r.geometry(), r.config, &*stopping, &table)
+/// The engine set up by hand: the shared Si `(001)` target at 300 K with
+/// the cited Debye temperature.
+fn direct(r: &lindhard::input::Resolved, threads: usize) -> lindhard_cli::sim::Simulation {
+    direct_simulation(r, threads, |bca| {
+        bca.with_crystal(
+            si_001_target().with_thermal(Thermal::new(300.0, THETA_D_SI)),
+            &[0],
+        )
         .unwrap()
-        .with_crystal(target, &[0])
-        .unwrap();
-    let crystals = bca.crystal_metadata();
-    let proto = IonTally::new(
-        r.geometry(),
-        &bca.species_z(),
-        r.ion_tally_config().unwrap(),
-    )
-    .unwrap();
-    let t = &r.input.tally;
-    let pool = rayon::ThreadPoolBuilder::new()
-        .num_threads(threads)
-        .build()
-        .unwrap();
-    let tally = pool
-        .install(|| {
-            bca.run(|| {
-                CliTally::new(
-                    t.depth_bin_nm * 1e-9,
-                    t.depth_bins,
-                    t.per_ion,
-                    proto.clone(),
-                )
-            })
-        })
-        .unwrap();
-    let report = tally.ion.report(t.dual_pearson);
-    Simulation {
-        tally,
-        table,
-        report,
-        crystals,
-        info: RunInfo {
-            threads,
-            table_build_s: 0.0,
-            transport_s: 0.0,
-            ions_per_s: 0.0,
-        },
-    }
+    })
 }
 
 #[test]
@@ -177,28 +116,8 @@ fn crystal_changes_the_physics_but_amorphous_input_does_not_gain_the_field() {
         "the crystal engine was actually used"
     );
     // The amorphous summary equals the one of the amorphous engine run by hand.
-    let pot = Potential::new(ra.screening, 5.0, 14.0).with_length(ra.screening_length);
-    let table = ScatteringTable::build(&pot, &ra.table_spec);
-    let stopping = ra.stopping_model();
-    let bca = Bca::new(ra.beam, ra.geometry(), ra.config, &*stopping, &table).unwrap();
-    let proto = IonTally::new(
-        ra.geometry(),
-        &bca.species_z(),
-        ra.ion_tally_config().unwrap(),
-    )
-    .unwrap();
-    let t = &ra.input.tally;
-    let tally = bca
-        .run(|| {
-            CliTally::new(
-                t.depth_bin_nm * 1e-9,
-                t.depth_bins,
-                t.per_ion,
-                proto.clone(),
-            )
-        })
-        .unwrap();
-    assert_eq!(tally.finals, a.tally.finals);
+    let amorphous = direct_simulation(&ra, 1, |bca| bca);
+    assert_eq!(amorphous.tally.finals, a.tally.finals);
 }
 
 const OVERLAYER: &str = r#"

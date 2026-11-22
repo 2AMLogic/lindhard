@@ -21,6 +21,9 @@ use lindhard_cli::table_cache::{
     key_text, sha256_hex, BuildId, CachedTable, TableCache, TableKind, TableSource,
 };
 
+mod common;
+use common::scratch;
+
 /// Role of a child process (unset in the parent).
 const CHILD_ROLE: &str = "LINDHARD_TABLE_CACHE_TEST_ROLE";
 /// Working directory shared by the parent and its children.
@@ -39,15 +42,6 @@ fn example() -> ResolvedElectron {
         .unwrap()
         .resolve_in(&dir)
         .unwrap()
-}
-
-fn scratch(name: &str) -> PathBuf {
-    let d = Path::new(env!("CARGO_TARGET_TMPDIR"))
-        .join("lindhard-cli-table-cache-concurrency")
-        .join(name);
-    let _ = std::fs::remove_dir_all(&d);
-    std::fs::create_dir_all(&d).unwrap();
-    d
 }
 
 /// A fixed build identity, so every process (and thread) computes the same

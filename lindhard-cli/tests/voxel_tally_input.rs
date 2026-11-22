@@ -9,6 +9,9 @@ use lindhard_cli::output;
 use lindhard_cli::publish::publish_static_ion;
 use lindhard_cli::sim::simulate;
 
+mod common;
+use common::{resolve, scratch};
+
 const BASE: &str = r#"
 [beam]
 ion = "B"
@@ -50,10 +53,6 @@ spacing_nm = [4.0, 10.0, 10.0]
 dims = [10, 2, 2]
 "#;
 
-fn resolve(text: &str) -> lindhard::input::Resolved {
-    Input::from_toml_str(text).unwrap().resolve().unwrap()
-}
-
 #[test]
 fn voxel_tally_matches_the_cascade_totals_and_is_published() {
     let r = resolve(&format!("{BASE}{VOXEL}"));
@@ -76,9 +75,7 @@ fn voxel_tally_matches_the_cascade_totals_and_is_published() {
     assert_eq!(s4.tally.voxel.as_ref().unwrap().report(), report);
 
     // Publication: both files, and the summary names them.
-    let dir = std::env::temp_dir().join(format!("lindhard-voxel-input-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = scratch("voxel-input");
     let summary = "{}".to_string();
     let export = output::damage_export_csv(&r, &s1.tally).expect("export text");
     publish_static_ion(&dir, summary, &s1.tally, &s1.report, Some(export.clone())).unwrap();
@@ -112,7 +109,6 @@ fn voxel_tally_matches_the_cascade_totals_and_is_published() {
     assert!(!dir.join(output::VOXEL_CSV_FILE).exists());
     assert!(!dir.join(output::VOXEL_VTK_FILE).exists());
     assert!(!dir.join(output::DAMAGE_EXPORT_FILE).exists());
-    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]

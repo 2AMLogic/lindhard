@@ -2,7 +2,6 @@
 //! its analytic value, units, batches, compounds, one-point grids, and errors
 //! that write nothing.
 
-use std::path::PathBuf;
 use std::process::Command;
 
 use lindhard::ion::stopping::lindhard_scharff::LindhardScharff;
@@ -11,15 +10,8 @@ use lindhard::ion::stopping::{ElectronicStopping, Ion};
 use lindhard_cli::stopping_table::{CSV_FILE, JSON_FILE};
 use serde_json::Value;
 
-fn dir(name: &str) -> PathBuf {
-    let d = std::env::temp_dir().join(format!(
-        "lindhard-stopping-table-{name}-{}",
-        std::process::id()
-    ));
-    let _ = std::fs::remove_dir_all(&d);
-    std::fs::create_dir_all(&d).unwrap();
-    d
-}
+mod common;
+use common::scratch;
 
 fn run(d: &std::path::Path, toml: &str, out: &str) -> std::process::Output {
     std::fs::write(d.join("in.toml"), toml).unwrap();
@@ -60,7 +52,7 @@ stopping = "eV/1e15 atoms/cm^2"
 /// requested unit; the total is the sum; the range is positive and ascending.
 #[test]
 fn lindhard_scharff_row_matches_the_model() {
-    let d = dir("ls");
+    let d = scratch("ls");
     let o = run(&d, BASIC, "out");
     assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
     let j = json(&d, "out");
@@ -87,7 +79,6 @@ fn lindhard_scharff_row_matches_the_model() {
     let csv = std::fs::read_to_string(d.join("out").join(CSV_FILE)).unwrap();
     assert_eq!(csv.lines().count(), 3);
     assert!(csv.starts_with("ion,target,energy_ev,electronic_stopping [eV/1e15 atoms/cm^2]"));
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// Two ions and two targets: four tables in input order, ions outer; a
@@ -95,7 +86,7 @@ fn lindhard_scharff_row_matches_the_model() {
 /// on a rerun.
 #[test]
 fn batch_compound_and_one_point_grid_are_deterministic() {
-    let d = dir("batch");
+    let d = scratch("batch");
     let toml = r#"
 targets = ["Si", "SiO2"]
 [[ions]]
@@ -141,14 +132,13 @@ enabled = false
             "{f}"
         );
     }
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// An energy outside the model's hard domain is an error naming the key, and
 /// nothing is written.
 #[test]
 fn out_of_domain_energy_fails_and_writes_nothing() {
-    let d = dir("domain");
+    let d = scratch("domain");
     let toml = r#"
 targets = ["Si"]
 [[ions]]
@@ -173,13 +163,12 @@ enabled = false
     let err = String::from_utf8_lossy(&o.stderr);
     assert!(err.contains("energy.values_ev[0]"), "{err}");
     assert!(!d.join("bad").exists());
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// Unknown keys and a range start above the grid are input errors.
 #[test]
 fn bad_input_is_rejected_with_the_key() {
-    let d = dir("bad");
+    let d = scratch("bad");
     let o = run(&d, &BASIC.replace("[units]", "[unitz]"), "x");
     assert!(!o.status.success());
     assert!(String::from_utf8_lossy(&o.stderr).contains("unitz"));
@@ -189,7 +178,6 @@ fn bad_input_is_rejected_with_the_key() {
     let o = run(&d, &BASIC.replace("\"Si\"", "\"Unobtainium\""), "x");
     assert!(!o.status.success());
     assert!(String::from_utf8_lossy(&o.stderr).contains("targets[0]"));
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// Synthetic numbers made up for tests; not book values. Mirrors
@@ -216,7 +204,7 @@ citation = "synthetic test data, made up for unit tests"
 /// set was reported as missing).
 #[test]
 fn srim_stopping_resolves_and_uses_the_coefficient_file() {
-    let d = dir("srim");
+    let d = scratch("srim");
     std::fs::write(d.join("srim.toml"), SRIM_FIXTURE).unwrap();
     let toml = r#"
 targets = ["Si"]
@@ -261,7 +249,6 @@ stopping = "eV/1e15 atoms/cm^2"
         let got = r["electronic_stopping"].as_f64().unwrap();
         assert!((got / want - 1.0).abs() < 1e-12, "{got} vs {want}");
     }
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// A user table for (ion_z in target_z) on [1000, 100000] eV, sampled from
@@ -292,7 +279,7 @@ fn sampled_table(ion_z: u8, target_z: u8) -> String {
 /// (regression: the placeholder fired on most `[stopping] tables` inputs).
 #[test]
 fn table_lower_bound_does_not_warn_about_the_placeholder_cutoff() {
-    let d = dir("cutoff");
+    let d = scratch("cutoff");
     std::fs::write(d.join("b_si.toml"), sampled_table(5, 14)).unwrap();
     let toml = r#"
 targets = ["Si"]
@@ -311,7 +298,6 @@ stopping = "eV/1e15 atoms/cm^2"
     assert!(o.status.success(), "{}", String::from_utf8_lossy(&o.stderr));
     let err = String::from_utf8_lossy(&o.stderr);
     assert!(!err.contains("physics.primary_cutoff_ev"), "{err}");
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// A user table for a pair this batch never asks for (C in Si, ion = B)
@@ -323,7 +309,7 @@ stopping = "eV/1e15 atoms/cm^2"
 /// the whole input instead of the pair).
 #[test]
 fn unused_user_table_warns_in_stopping_table_terms() {
-    let d = dir("unused");
+    let d = scratch("unused");
     std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
     let toml = r#"
 targets = ["Si"]
@@ -368,14 +354,13 @@ stopping = "eV/1e15 atoms/cm^2"
         .as_array()
         .unwrap()
         .is_empty());
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// The same table for the pair it declares (C in Si) is used and emits no
 /// warning.
 #[test]
 fn used_user_table_warns_nothing() {
-    let d = dir("used");
+    let d = scratch("used");
     std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
     let toml = r#"
 targets = ["Si"]
@@ -401,7 +386,6 @@ stopping = "eV/1e15 atoms/cm^2"
     let st = j["tables"][0]["stopping_tables"].as_array().unwrap();
     assert_eq!(st.len(), 1, "{st:?}");
     assert_eq!(st[0]["path"], "c_si.toml");
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// A batch of two ions with one user table (C->Si): the pair the table
@@ -413,7 +397,7 @@ stopping = "eV/1e15 atoms/cm^2"
 /// other that it was the electronic model).
 #[test]
 fn per_pair_models_and_stopping_tables_list_only_covering_tables() {
-    let d = dir("per-pair");
+    let d = scratch("per-pair");
     std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
     let toml = r#"
 targets = ["Si"]
@@ -452,7 +436,6 @@ stopping = "eV/1e15 atoms/cm^2"
     assert_eq!(st.len(), 1, "{st:?}");
     assert_eq!(st[0]["path"], "c_si.toml");
     assert!(c["warnings"].as_array().unwrap().is_empty());
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// Coverage is per (ion, target component): in SiO2, a C->Si table is
@@ -461,7 +444,7 @@ stopping = "eV/1e15 atoms/cm^2"
 /// (Ar->Cu) is listed on no entry at all.
 #[test]
 fn compound_component_is_covered_and_a_pairless_table_is_listed_nowhere() {
-    let d = dir("compound-pairless");
+    let d = scratch("compound-pairless");
     std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
     std::fs::write(d.join("ar_cu.toml"), sampled_table(18, 29)).unwrap();
     let toml = r#"
@@ -520,7 +503,6 @@ stopping = "eV/1e15 atoms/cm^2"
             .count(),
         1
     );
-    std::fs::remove_dir_all(&d).unwrap();
 }
 
 /// The issue's repro: a two-ion batch (B, C in Si) whose only user table is
@@ -531,7 +513,7 @@ stopping = "eV/1e15 atoms/cm^2"
 /// model (regression: the wording judged the whole input, not the pair).
 #[test]
 fn multi_ion_batch_scopes_the_unused_table_warning_to_the_pair() {
-    let d = dir("multi");
+    let d = scratch("multi");
     std::fs::write(d.join("c_si.toml"), sampled_table(6, 14)).unwrap();
     let toml = r#"
 targets = ["Si"]
@@ -584,5 +566,4 @@ stopping = "eV/1e15 atoms/cm^2"
                 .is_some_and(|r| r.starts_with("electronic"))),
         "{models:?}"
     );
-    std::fs::remove_dir_all(&d).unwrap();
 }

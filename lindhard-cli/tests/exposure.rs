@@ -6,6 +6,9 @@ use lindhard_cli::exposure::{
     SUMMARY_FILE,
 };
 
+mod common;
+use common::scratch;
+
 const PARAMS: &str = "model,parameter,value,std_error\n\
 double_gaussian,total_ev,1e4,\ndouble_gaussian,alpha_m,4e-8,\n\
 double_gaussian,beta_m,1.2e-7,\ndouble_gaussian,eta,0.7,\n\
@@ -48,8 +51,7 @@ fn args(dir: &std::path::Path, threads: Option<usize>) -> ExposureArgs {
 
 #[test]
 fn writes_dose_contours_and_summary_identically_at_any_thread_count() {
-    let dir = std::env::temp_dir().join(format!("lindhard-exposure-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = scratch("exposure");
     std::fs::write(dir.join("params.csv"), PARAMS).unwrap();
     std::fs::write(
         dir.join("shots.csv"),
@@ -70,7 +72,6 @@ fn writes_dose_contours_and_summary_identically_at_any_thread_count() {
         String::from_utf8_lossy(&dose[0]).lines().count(),
         1 + 30 * 30
     );
-    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
@@ -89,9 +90,7 @@ fn direct_mode_writes_dose_and_comparison_identically_at_any_thread_count() {
     use lindhard_cli::exposure::{COMPARISON_FILE, DIRECT_FILE};
 
     let ex = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../examples/electron");
-    let dir = std::env::temp_dir().join(format!("lindhard-exposure-direct-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = scratch("exposure-direct");
     std::fs::copy(
         ex.join("synthetic_plasmon_elf.toml"),
         dir.join("synthetic_plasmon_elf.toml"),
@@ -137,9 +136,7 @@ fn direct_mode_writes_dose_and_comparison_identically_at_any_thread_count() {
 /// reports no contours. Unrelated files in the directory are untouched.
 #[test]
 fn rerun_without_a_threshold_removes_the_stale_contour_files() {
-    let dir = std::env::temp_dir().join(format!("lindhard-exposure-rerun-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&dir);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = scratch("exposure-rerun");
     std::fs::write(dir.join("params.csv"), PARAMS).unwrap();
     std::fs::write(dir.join("shots.csv"), "x_m,y_m,weight\n0,0,1\n5e-8,0,2\n").unwrap();
 
@@ -169,6 +166,4 @@ fn rerun_without_a_threshold_removes_the_stale_contour_files() {
     );
     // The summary is renamed into place, so no temporary sibling is left.
     assert!(!a.out.join(format!(".{SUMMARY_FILE}.tmp")).exists());
-
-    std::fs::remove_dir_all(&dir).unwrap();
 }
