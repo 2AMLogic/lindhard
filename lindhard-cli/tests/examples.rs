@@ -323,19 +323,15 @@ fn fails(name: &str, text: &str) -> String {
     let dir = scratch(&format!("bad-{name}"));
     let input = dir.join("input.toml");
     std::fs::write(&input, text).unwrap();
-    for cmd in ["check", "run"] {
-        let mut args = vec![cmd, input.to_str().unwrap()];
-        if cmd == "run" {
-            args.extend(["--out", dir.to_str().unwrap()]);
-        }
-        let o = lindhard(&args);
-        assert!(!o.status.success(), "{cmd} {name} should fail");
-    }
+    let checked = lindhard(&["check", input.to_str().unwrap()]);
+    assert!(!checked.status.success(), "check {name} should fail");
+    let run = run_raw(&input, &dir, &[]);
+    assert!(!run.status.success(), "run {name} should fail");
     assert!(
         !dir.join("summary.json").exists(),
         "{name}: no output on error"
     );
-    String::from_utf8(lindhard(&["check", input.to_str().unwrap()]).stderr).unwrap()
+    String::from_utf8(checked.stderr).unwrap()
 }
 
 const GOOD: &str = r#"
@@ -1326,15 +1322,14 @@ fn inner_shell_input(name: &str, extra: &str) -> (PathBuf, PathBuf) {
 
 /// `check` and `run` both refuse `input`; the `check` message.
 fn refused(dir: &Path, input: &Path) -> String {
-    for cmd in ["check", "run"] {
-        let mut args = vec![cmd, input.to_str().unwrap()];
-        if cmd == "run" {
-            args.extend(["--out", dir.to_str().unwrap()]);
-        }
-        assert!(!lindhard(&args).status.success(), "{cmd} must refuse");
-    }
+    let checked = lindhard(&["check", input.to_str().unwrap()]);
+    assert!(!checked.status.success(), "check must refuse");
+    assert!(
+        !run_raw(input, dir, &[]).status.success(),
+        "run must refuse"
+    );
     assert!(!dir.join("electron_summary.json").exists());
-    String::from_utf8_lossy(&lindhard(&["check", input.to_str().unwrap()]).stderr).into_owned()
+    String::from_utf8_lossy(&checked.stderr).into_owned()
 }
 
 const SI_K_L: &str =
