@@ -225,23 +225,38 @@
 //! fixed `chunk_size` the report is bit-identical at any thread count
 //! (`lindhard/tests/electron_tally.rs`). Nothing is stored in a hash map.
 
-use std::collections::BTreeMap;
-
 use serde::{Deserialize, Serialize};
 
-use super::dose::{DoseAcc, DoseConfig, DoseError, DoseReport};
-use super::exposure::{ExposureAccumulator, ExposureConfig, ExposureError, ExposureReport};
-use super::hist::{Binning, Histogram};
-use super::moments::{MomentSummary, Moments};
-use super::psf::{PsfConfig, PsfError, RadialAccumulator, RadialProfile};
-use super::table_coverage::{LayerTableCoverage, TableCoverageTally};
-use super::voxel::{VoxelCell, VoxelRecord, VoxelReport, VoxelTallyGrid};
+use super::dose::{DoseAcc, DoseConfig, DoseError};
+use super::exposure::{ExposureAccumulator, ExposureConfig, ExposureError};
+use super::hist::Binning;
+use super::moments::Moments;
+use super::psf::{PsfConfig, PsfError, RadialAccumulator};
+use super::table_coverage::TableCoverageTally;
+use super::voxel::{VoxelRecord, VoxelReport, VoxelTallyGrid};
 use crate::electron::secondary::{SecondaryEvent, SecondaryModel};
 use crate::electron::transport::{
     Boundary, ElectronState, ElectronTally, Face, Fate, GridCoverage, PhononEvent, TableChannel,
     Transport,
 };
 use crate::geometry::Geometry;
+
+mod acc;
+mod charge;
+mod report;
+
+pub use charge::{
+    net_mean_se, CartesianCharge, ChargeCells, ChargeCounts, ChargeReport, CylindricalCharge,
+    EscapedCharge,
+};
+pub use report::{
+    CartesianDeposition, CylindricalDeposition, DepositionReport, ElectronEnergyBudget,
+    ElectronReport, ElectronTallyMetadata, EmissionClass, EventCapCounts, FaceEmission, FateCounts,
+    GenerationVolume, PrimaryStoppingPoints, StoppingPoints, Yields,
+};
+
+use acc::{per, Budget, Channel, DepositKind, FaceAcc, GridAcc, VoxelAcc, WeightedMoments};
+use charge::ChargeAcc;
 
 /// Default SE/BSE energy split, eV: an escaping electron below this energy is
 /// in the secondary (slow) class, at or above it in the backscattered (fast)
@@ -413,489 +428,6 @@ impl ElectronTallyConfig {
     }
 }
 
-/// Energy-weighted mean and centred second moment of one coordinate,
-/// mergeable. The pairwise update is that of T. F. Chan, G. H. Golub and
-/// R. J. LeVeque, Stanford report STAN-CS-79-773 (1979) (the update also used
-/// by [`super::moments`]), with the counts replaced by weights, which is the
-/// weighted form of D. H. D. West, "Updating mean and variance estimates: an
-/// improved method", Commun. ACM 22, 532 (1979), doi:10.1145/359146.359153.
-/// With `W = W_a + W_b` and `δ = mean_b - mean_a`:
-/// `mean = mean_a + δ W_b / W`, `M2 = M2_a + M2_b + δ² W_a W_b / W`.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-struct WeightedMoments {
-    weight: f64,
-    mean: f64,
-    m2: f64,
-}
-
-impl WeightedMoments {
-    fn push(&mut self, x: f64, w: f64) {
-        self.merge_parts(w, x, 0.0);
-    }
-
-    fn merge(&mut self, o: &WeightedMoments) {
-        self.merge_parts(o.weight, o.mean, o.m2);
-    }
-
-    fn merge_parts(&mut self, w_b: f64, mean_b: f64, m2_b: f64) {
-        if w_b <= 0.0 {
-            return;
-        }
-        if self.weight <= 0.0 {
-            *self = Self {
-                weight: w_b,
-                mean: mean_b,
-                m2: m2_b,
-            };
-            return;
-        }
-        let w = self.weight + w_b;
-        let d = mean_b - self.mean;
-        self.m2 += m2_b + d * d * self.weight * w_b / w;
-        self.mean += d * w_b / w;
-        self.weight = w;
-    }
-
-    fn variance(&self) -> f64 {
-        if self.weight > 0.0 {
-            (self.m2 / self.weight).max(0.0)
-        } else {
-            0.0
-        }
-    }
-}
-
-/// Energy sums, eV.
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-struct Budget {
-    incident: f64,
-    inelastic: f64,
-    residual: f64,
-    escaped_front: f64,
-    escaped_back: f64,
-    escaped_side: f64,
-    no_interaction: f64,
-    absorbed: f64,
-    event_cap: f64,
-    fermi_sea: f64,
-    barrier: f64,
-    phonon_emitted: f64,
-    phonon_absorbed: f64,
-    polaron: f64,
-}
-
-impl Budget {
-    fn merge(&mut self, o: &Budget) {
-        self.incident += o.incident;
-        self.inelastic += o.inelastic;
-        self.residual += o.residual;
-        self.escaped_front += o.escaped_front;
-        self.escaped_back += o.escaped_back;
-        self.escaped_side += o.escaped_side;
-        self.no_interaction += o.no_interaction;
-        self.absorbed += o.absorbed;
-        self.event_cap += o.event_cap;
-        self.fermi_sea += o.fermi_sea;
-        self.barrier += o.barrier;
-        self.phonon_emitted += o.phonon_emitted;
-        self.phonon_absorbed += o.phonon_absorbed;
-        self.polaron += o.polaron;
-    }
-
-    fn report(&self) -> ElectronEnergyBudget {
-        let deposited = self.inelastic + self.residual + self.phonon_emitted + self.polaron;
-        let escaped = self.escaped_front + self.escaped_back + self.escaped_side;
-        let trapped = self.no_interaction + self.absorbed + self.event_cap;
-        let source = self.incident + self.fermi_sea + self.phonon_absorbed;
-        let sink = deposited + escaped + trapped + self.barrier;
-        let relative_imbalance = if source > 0.0 {
-            (sink - source).abs() / source
-        } else {
-            0.0
-        };
-        ElectronEnergyBudget {
-            incident_ev: self.incident,
-            deposited_ev: deposited,
-            escaped_ev: escaped,
-            trapped_ev: trapped,
-            inelastic_ev: self.inelastic,
-            residual_ev: self.residual,
-            escaped_front_ev: self.escaped_front,
-            escaped_back_ev: self.escaped_back,
-            escaped_side_ev: self.escaped_side,
-            no_interaction_ev: self.no_interaction,
-            absorbed_ev: self.absorbed,
-            event_cap_ev: self.event_cap,
-            fermi_sea_ev: self.fermi_sea,
-            barrier_ev: self.barrier,
-            phonon_emitted_ev: self.phonon_emitted,
-            phonon_absorbed_ev: self.phonon_absorbed,
-            polaron_ev: self.polaron,
-            ionisation_ev: self.inelastic + self.residual,
-            lattice_ev: self.phonon_emitted + self.polaron,
-            relative_imbalance,
-        }
-    }
-}
-
-/// The channel a deposit is booked to (see
-/// [the module docs](self#the-ionisation-and-lattice-channels)).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Channel {
-    Ionisation,
-    Lattice,
-}
-
-/// One accumulator per channel; the plain total is kept alongside so the
-/// existing total maps are unchanged.
-#[derive(Debug, Clone, PartialEq)]
-struct GridAcc {
-    energy_ev: Vec<f64>,
-    ionisation_ev: Vec<f64>,
-    lattice_ev: Vec<f64>,
-    outside_ev: f64,
-    outside_ionisation_ev: f64,
-    outside_lattice_ev: f64,
-}
-
-impl GridAcc {
-    fn new(cells: usize) -> Self {
-        Self {
-            energy_ev: vec![0.0; cells],
-            ionisation_ev: vec![0.0; cells],
-            lattice_ev: vec![0.0; cells],
-            outside_ev: 0.0,
-            outside_ionisation_ev: 0.0,
-            outside_lattice_ev: 0.0,
-        }
-    }
-
-    fn add(&mut self, cell: Option<usize>, e: f64, channel: Channel) {
-        match cell {
-            Some(i) => {
-                self.energy_ev[i] += e;
-                match channel {
-                    Channel::Ionisation => self.ionisation_ev[i] += e,
-                    Channel::Lattice => self.lattice_ev[i] += e,
-                }
-            }
-            None => {
-                self.outside_ev += e;
-                match channel {
-                    Channel::Ionisation => self.outside_ionisation_ev += e,
-                    Channel::Lattice => self.outside_lattice_ev += e,
-                }
-            }
-        }
-    }
-
-    fn merge(&mut self, o: &GridAcc) {
-        for (a, b) in self.energy_ev.iter_mut().zip(&o.energy_ev) {
-            *a += b;
-        }
-        for (a, b) in self.ionisation_ev.iter_mut().zip(&o.ionisation_ev) {
-            *a += b;
-        }
-        for (a, b) in self.lattice_ev.iter_mut().zip(&o.lattice_ev) {
-            *a += b;
-        }
-        self.outside_ev += o.outside_ev;
-        self.outside_ionisation_ev += o.outside_ionisation_ev;
-        self.outside_lattice_ev += o.outside_lattice_ev;
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct ClassAcc {
-    count: u64,
-    energy_ev: f64,
-    polar_hist: Histogram,
-}
-
-impl ClassAcc {
-    fn new(c: &ElectronTallyConfig) -> Self {
-        Self {
-            count: 0,
-            energy_ev: 0.0,
-            polar_hist: Histogram::new(c.escape_polar),
-        }
-    }
-
-    fn merge(&mut self, o: &ClassAcc) {
-        self.count += o.count;
-        self.energy_ev += o.energy_ev;
-        self.polar_hist.merge(&o.polar_hist);
-    }
-
-    fn report(&self, histories: u64) -> EmissionClass {
-        EmissionClass {
-            count: self.count,
-            per_primary: per(self.count as f64, histories),
-            energy_ev: self.energy_ev,
-            mean_energy_ev: per(self.energy_ev, self.count),
-            polar_histogram: self.polar_hist.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone, PartialEq)]
-struct FaceAcc {
-    slow: ClassAcc,
-    fast: ClassAcc,
-    energy_hist: Histogram,
-}
-
-impl FaceAcc {
-    fn new(c: &ElectronTallyConfig) -> Self {
-        Self {
-            slow: ClassAcc::new(c),
-            fast: ClassAcc::new(c),
-            energy_hist: Histogram::new(c.escape_energy),
-        }
-    }
-
-    fn merge(&mut self, o: &FaceAcc) {
-        self.slow.merge(&o.slow);
-        self.fast.merge(&o.fast);
-        self.energy_hist.merge(&o.energy_hist);
-    }
-
-    fn report(&self, histories: u64) -> FaceEmission {
-        let count = self.slow.count + self.fast.count;
-        FaceEmission {
-            count,
-            per_primary: per(count as f64, histories),
-            energy_ev: self.slow.energy_ev + self.fast.energy_ev,
-            energy_histogram: self.energy_hist.clone(),
-            slow: self.slow.report(histories),
-            fast: self.fast.report(histories),
-        }
-    }
-}
-
-/// Which [`VoxelCell`] field a deposit goes to.
-#[derive(Debug, Clone, Copy)]
-enum DepositKind {
-    /// Left at an inelastic event: `electronic_ev`.
-    Electronic,
-    /// Given to the lattice (LO-phonon emission, polaron trapping):
-    /// `lattice_ev`.
-    Lattice,
-    /// The energy of an electron that fell below the stopping threshold:
-    /// `rest_ev`.
-    Rest,
-}
-
-impl DepositKind {
-    /// The ionisation/lattice channel this deposit is booked to. The
-    /// sub-cutoff residual goes to ionisation by convention.
-    fn channel(self) -> Channel {
-        match self {
-            DepositKind::Electronic | DepositKind::Rest => Channel::Ionisation,
-            DepositKind::Lattice => Channel::Lattice,
-        }
-    }
-}
-
-/// Sparse per-voxel energy deposition on a [`VoxelTallyGrid`], keyed on the
-/// flat voxel index (`BTreeMap`, so merging and export follow one fixed
-/// order).
-#[derive(Debug, Clone, PartialEq)]
-struct VoxelAcc {
-    grid: VoxelTallyGrid,
-    cells: BTreeMap<u64, VoxelCell>,
-    outside: VoxelCell,
-}
-
-impl VoxelAcc {
-    fn new(grid: VoxelTallyGrid) -> Self {
-        Self {
-            grid,
-            cells: BTreeMap::new(),
-            outside: VoxelCell::default(),
-        }
-    }
-
-    fn add(&mut self, pos: [f64; 3], e: f64, kind: DepositKind) {
-        let cell = match self.grid.locate(pos) {
-            Some(ijk) => self.cells.entry(self.grid.flat_index(ijk)).or_default(),
-            None => &mut self.outside,
-        };
-        match kind {
-            DepositKind::Electronic => cell.electronic_ev += e,
-            DepositKind::Lattice => cell.lattice_ev += e,
-            DepositKind::Rest => cell.rest_ev += e,
-        }
-    }
-
-    fn merge(&mut self, o: &VoxelAcc) {
-        assert!(
-            self.grid == o.grid,
-            "merging electron tallies built on different voxel grids"
-        );
-        self.outside.add(&o.outside);
-        for (&flat, cell) in &o.cells {
-            self.cells.entry(flat).or_default().add(cell);
-        }
-    }
-}
-
-/// Electron counts at one place, split by the generation of the electron:
-/// charge in units of the electron's, per [`ChargeReport`]'s convention.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct ChargeCounts {
-    /// Primaries that terminated here (every terminal fate but escape).
-    pub stopped_primary: u64,
-    /// Secondaries that terminated here, including a liberated electron
-    /// dropped at its creation point because it was below the stopping
-    /// threshold.
-    pub stopped_secondary: u64,
-    /// Holes (liberated electrons) created here by collisions of a primary.
-    pub created_by_primary: u64,
-    /// Holes created here by collisions of a secondary.
-    pub created_by_secondary: u64,
-}
-
-impl ChargeCounts {
-    /// Electrons that terminated here.
-    pub fn stopped(&self) -> u64 {
-        self.stopped_primary + self.stopped_secondary
-    }
-
-    /// Electrons liberated here (holes left behind).
-    pub fn created(&self) -> u64 {
-        self.created_by_primary + self.created_by_secondary
-    }
-
-    /// Net electron number gained here: stopped minus created.
-    pub fn net(&self) -> i64 {
-        self.stopped() as i64 - self.created() as i64
-    }
-
-    fn merge(&mut self, o: &ChargeCounts) {
-        self.stopped_primary += o.stopped_primary;
-        self.stopped_secondary += o.stopped_secondary;
-        self.created_by_primary += o.created_by_primary;
-        self.created_by_secondary += o.created_by_secondary;
-    }
-}
-
-/// Charge counts per cell of one grid, with the per-history net charge
-/// squared and summed for the standard error. Everything is integer, so the
-/// merge is exact and independent of the order of the parts.
-#[derive(Debug, Clone, PartialEq)]
-struct ChargeGrid {
-    counts: Vec<ChargeCounts>,
-    /// Sum over histories of the squared net charge the history left in the
-    /// cell.
-    net_sum_sq: Vec<u64>,
-    outside: ChargeCounts,
-    outside_net_sum_sq: u64,
-    /// Per-history scratch: `(cell, net change)`; `usize::MAX` is outside.
-    touched: Vec<(usize, i64)>,
-}
-
-impl ChargeGrid {
-    fn new(cells: usize) -> Self {
-        Self {
-            counts: vec![ChargeCounts::default(); cells],
-            net_sum_sq: vec![0; cells],
-            outside: ChargeCounts::default(),
-            outside_net_sum_sq: 0,
-            touched: Vec::new(),
-        }
-    }
-
-    /// An electron terminated in `cell`.
-    fn stop(&mut self, cell: Option<usize>, secondary: bool) {
-        let c = self.slot(cell, 1);
-        if secondary {
-            c.stopped_secondary += 1;
-        } else {
-            c.stopped_primary += 1;
-        }
-    }
-
-    /// A hole was created in `cell` by an electron of the given generation.
-    fn create(&mut self, cell: Option<usize>, by_secondary: bool) {
-        let c = self.slot(cell, -1);
-        if by_secondary {
-            c.created_by_secondary += 1;
-        } else {
-            c.created_by_primary += 1;
-        }
-    }
-
-    fn slot(&mut self, cell: Option<usize>, delta: i64) -> &mut ChargeCounts {
-        self.touched.push((cell.unwrap_or(usize::MAX), delta));
-        match cell {
-            Some(i) => &mut self.counts[i],
-            None => &mut self.outside,
-        }
-    }
-
-    /// Fold the history's per-cell net charge into the squared sums.
-    fn end_history(&mut self) {
-        self.touched.sort_unstable_by_key(|t| t.0);
-        let mut i = 0;
-        while i < self.touched.len() {
-            let cell = self.touched[i].0;
-            let mut net = 0i64;
-            while i < self.touched.len() && self.touched[i].0 == cell {
-                net += self.touched[i].1;
-                i += 1;
-            }
-            let sq = (net * net) as u64;
-            if cell == usize::MAX {
-                self.outside_net_sum_sq += sq;
-            } else {
-                self.net_sum_sq[cell] += sq;
-            }
-        }
-        self.touched.clear();
-    }
-
-    fn merge(&mut self, o: &ChargeGrid) {
-        for (a, b) in self.counts.iter_mut().zip(&o.counts) {
-            a.merge(b);
-        }
-        for (a, b) in self.net_sum_sq.iter_mut().zip(&o.net_sum_sq) {
-            *a += b;
-        }
-        self.outside.merge(&o.outside);
-        self.outside_net_sum_sq += o.outside_net_sum_sq;
-    }
-
-    fn report(&self) -> ChargeCells {
-        ChargeCells {
-            counts: self.counts.clone(),
-            net_sum_sq: self.net_sum_sq.clone(),
-            outside: self.outside,
-            outside_net_sum_sq: self.outside_net_sum_sq,
-        }
-    }
-}
-
-/// Charge bookkeeping of a tally: per layer, per grid cell, and escapes.
-#[derive(Debug, Clone, PartialEq)]
-struct ChargeAcc {
-    layers: ChargeGrid,
-    cartesian: Option<ChargeGrid>,
-    cylindrical: Option<ChargeGrid>,
-    /// Escapes through each face: `[primary, secondary]`.
-    escaped_front: [u64; 2],
-    escaped_back: [u64; 2],
-    escaped_side: [u64; 2],
-}
-
-fn per(x: f64, n: u64) -> f64 {
-    if n == 0 {
-        0.0
-    } else {
-        x / n as f64
-    }
-}
-
 /// Deposition, emission and energy-balance tally for the electron transport
 /// loop. See the module docs.
 #[derive(Debug, Clone, PartialEq)]
@@ -1006,18 +538,11 @@ impl FullElectronTally {
             FaceAcc::new(&config),
             FaceAcc::new(&config),
         );
-        let charge = ChargeAcc {
-            layers: ChargeGrid::new(transport.n_materials()),
-            cartesian: cartesian
-                .as_ref()
-                .map(|a| ChargeGrid::new(a.energy_ev.len())),
-            cylindrical: cylindrical
-                .as_ref()
-                .map(|a| ChargeGrid::new(a.energy_ev.len())),
-            escaped_front: [0; 2],
-            escaped_back: [0; 2],
-            escaped_side: [0; 2],
-        };
+        let charge = ChargeAcc::new(
+            transport.n_materials(),
+            config.cartesian,
+            config.cylindrical,
+        );
         Ok(Self {
             config,
             cutoff_ev: transport.config().cutoff_ev,
@@ -1146,91 +671,6 @@ impl FullElectronTally {
         }
     }
 
-    /// An electron of the current generation terminated at `at`.
-    fn charge_stop(&mut self, at: &ElectronState) {
-        self.charge_stop_gen(at, self.in_secondary);
-    }
-
-    fn charge_stop_gen(&mut self, at: &ElectronState, secondary: bool) {
-        let c = &mut self.charge;
-        c.layers.stop(Some(at.layer), secondary);
-        if let (Some(a), Some(g)) = (&mut c.cartesian, &self.config.cartesian) {
-            a.stop(g.locate(at.pos), secondary);
-        }
-        if let (Some(a), Some(g)) = (&mut c.cylindrical, &self.config.cylindrical) {
-            a.stop(g.locate(at.pos), secondary);
-        }
-    }
-
-    /// A hole was left at `at` by a collision of the current electron.
-    fn charge_create(&mut self, at: &ElectronState) {
-        let by_secondary = self.in_secondary;
-        let c = &mut self.charge;
-        c.layers.create(Some(at.layer), by_secondary);
-        if let (Some(a), Some(g)) = (&mut c.cartesian, &self.config.cartesian) {
-            a.create(g.locate(at.pos), by_secondary);
-        }
-        if let (Some(a), Some(g)) = (&mut c.cylindrical, &self.config.cylindrical) {
-            a.create(g.locate(at.pos), by_secondary);
-        }
-    }
-
-    fn charge_end_history(&mut self) {
-        let c = &mut self.charge;
-        c.layers.end_history();
-        if let Some(a) = &mut c.cartesian {
-            a.end_history();
-        }
-        if let Some(a) = &mut c.cylindrical {
-            a.end_history();
-        }
-    }
-
-    fn charge_report(&self) -> ChargeReport {
-        let c = &self.charge;
-        let mut total = ChargeCounts::default();
-        for l in &c.layers.counts {
-            total.merge(l);
-        }
-        let esc = |e: [u64; 2]| EscapedCharge {
-            primary: e[0],
-            secondary: e[1],
-        };
-        let escaped = c
-            .escaped_front
-            .iter()
-            .chain(&c.escaped_back)
-            .chain(&c.escaped_side)
-            .sum::<u64>();
-        ChargeReport {
-            incident: self.histories,
-            total,
-            per_layer: c.layers.report(),
-            escaped_front: esc(c.escaped_front),
-            escaped_back: esc(c.escaped_back),
-            escaped_side: esc(c.escaped_side),
-            imbalance: self.histories as i64 + total.created() as i64
-                - total.stopped() as i64
-                - escaped as i64,
-            cartesian: self
-                .config
-                .cartesian
-                .zip(c.cartesian.as_ref())
-                .map(|(grid, a)| CartesianCharge {
-                    grid,
-                    cells: a.report(),
-                }),
-            cylindrical: self
-                .config
-                .cylindrical
-                .zip(c.cylindrical.as_ref())
-                .map(|(grid, a)| CylindricalCharge {
-                    grid,
-                    cells: a.report(),
-                }),
-        }
-    }
-
     /// The plain-data result.
     pub fn report(&self) -> ElectronReport {
         let h = self.histories;
@@ -1311,7 +751,7 @@ impl FullElectronTally {
             deposition,
             dose,
             generation_volume,
-            charge: self.charge_report(),
+            charge: self.charge.report(self.histories),
             stopping_points: StoppingPoints {
                 stopped: self.stop_depth.n,
                 depth: self.stop_depth.summary(),
@@ -1372,9 +812,9 @@ impl ElectronTally for FullElectronTally {
             // A hole is left where the electron was lifted out. A liberated
             // electron that is not followed was below the stopping threshold
             // and is dropped here, so it stops where its hole is.
-            self.charge_create(primary);
+            self.charge.create(primary, self.in_secondary);
             if created.is_none() {
-                self.charge_stop_gen(primary, true);
+                self.charge.stop(primary, true);
             }
         }
         // `W = secondary + binding + deposited` (module docs): the created
@@ -1405,7 +845,7 @@ impl ElectronTally for FullElectronTally {
 
     fn polaron_trapped(&mut self, at: &ElectronState) {
         self.last = None;
-        self.charge_stop(at);
+        self.charge.stop(at, self.in_secondary);
         self.budget.polaron += at.energy_ev;
         self.deposit(at, at.energy_ev, DepositKind::Lattice);
     }
@@ -1441,7 +881,7 @@ impl ElectronTally for FullElectronTally {
                 self.budget.event_cap += s.energy_ev;
             }
             if let Some(s) = self.last {
-                self.charge_stop_gen(&s, true);
+                self.charge.stop(&s, true);
             }
             self.event_caps.secondary_tracks += 1;
             self.history_capped = true;
@@ -1453,7 +893,7 @@ impl ElectronTally for FullElectronTally {
         self.last = None;
         // Below the threshold or trapped without an interaction, the
         // electron ends inside the target either way.
-        self.charge_stop(at);
+        self.charge.stop(at, self.in_secondary);
         let e = at.energy_ev;
         if e < self.thresholds[at.layer] {
             self.budget.residual += e;
@@ -1476,21 +916,18 @@ impl ElectronTally for FullElectronTally {
         self.last = None;
         let e = at.energy_ev;
         let polar = at.dir[0].abs().min(1.0).acos();
-        let g = usize::from(self.in_secondary);
+        self.charge.escaped(face, self.in_secondary);
         let acc = match face {
             Face::Front => {
                 self.budget.escaped_front += e;
-                self.charge.escaped_front[g] += 1;
                 &mut self.front
             }
             Face::Back => {
                 self.budget.escaped_back += e;
-                self.charge.escaped_back[g] += 1;
                 &mut self.back
             }
             Face::Side => {
                 self.budget.escaped_side += e;
-                self.charge.escaped_side[g] += 1;
                 &mut self.side
             }
         };
@@ -1507,7 +944,7 @@ impl ElectronTally for FullElectronTally {
 
     fn absorbed(&mut self, at: &ElectronState) {
         self.last = None;
-        self.charge_stop(at);
+        self.charge.stop(at, self.in_secondary);
         self.budget.absorbed += at.energy_ev;
     }
 
@@ -1539,11 +976,11 @@ impl ElectronTally for FullElectronTally {
                 };
                 if let Some(s) = primary {
                     self.budget.event_cap += s.energy_ev;
-                    self.charge_stop_gen(&s, false);
+                    self.charge.stop(&s, false);
                 }
             }
         }
-        self.charge_end_history();
+        self.charge.end_history();
         if self.history_capped || fate == Fate::EventCap {
             // Once per history, however many of its electrons were capped.
             self.event_caps.affected_histories += 1;
@@ -1615,578 +1052,9 @@ impl ElectronTally for FullElectronTally {
             (None, None) => {}
             _ => panic!("merging electron tallies built for different runs"),
         }
-        self.charge.layers.merge(&o.charge.layers);
-        if let (Some(a), Some(b)) = (&mut self.charge.cartesian, &o.charge.cartesian) {
-            a.merge(b);
-        }
-        if let (Some(a), Some(b)) = (&mut self.charge.cylindrical, &o.charge.cylindrical) {
-            a.merge(b);
-        }
-        for g in 0..2 {
-            self.charge.escaped_front[g] += o.charge.escaped_front[g];
-            self.charge.escaped_back[g] += o.charge.escaped_back[g];
-            self.charge.escaped_side[g] += o.charge.escaped_side[g];
-        }
+        self.charge.merge(&o.charge);
         self.table_coverage.merge_from(&o.table_coverage);
     }
-}
-
-/// Everything a [`FullElectronTally`] measured, as plain data.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ElectronReport {
-    /// Primary histories.
-    pub histories: u64,
-    /// The tally settings and conventions.
-    pub metadata: ElectronTallyMetadata,
-    /// How the primary histories ended.
-    pub fates: FateCounts,
-    /// Electrons cut off by the collision cap: capped secondary tracks and
-    /// histories with any capped electron. A numerical diagnostic; all zero
-    /// in reports written before it existed.
-    #[serde(default)]
-    pub event_caps: EventCapCounts,
-    /// Summed energy balance of all histories, eV.
-    pub budget: ElectronEnergyBudget,
-    /// Emission yields per primary.
-    pub yields: Yields,
-    /// Electrons leaving the front face (`x = 0`).
-    pub front: FaceEmission,
-    /// Electrons leaving the back face of a finite stack.
-    pub back: FaceEmission,
-    /// Electrons leaving through a lateral face of a voxel target; `None`
-    /// when none did (always, for a stack).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub side: Option<FaceEmission>,
-    /// Where the energy was deposited.
-    pub deposition: DepositionReport,
-    /// Dose per layer, depth-dose and interface transmission, if configured
-    /// ([`ElectronTallyConfig::dose`]).
-    #[serde(default)]
-    pub dose: Option<DoseReport>,
-    /// Energy-weighted moments of the deposition position; `None` if nothing
-    /// was deposited.
-    pub generation_volume: Option<GenerationVolume>,
-    /// Where electrons stopped and where holes were left, and the balance
-    /// against the incident electrons. Empty in reports written before it
-    /// existed.
-    #[serde(default)]
-    pub charge: ChargeReport,
-    /// Where electrons fell below the stopping threshold.
-    pub stopping_points: StoppingPoints,
-    /// Per layer, the rate evaluations of the elastic and inelastic tables
-    /// inside and beyond each table's energy grid, with the grid bounds
-    /// (primaries and secondaries together). These count evaluations, not
-    /// collisions; see [`super::table_coverage`]. Empty in reports written
-    /// before it existed.
-    #[serde(default)]
-    pub table_coverage: Vec<LayerTableCoverage>,
-}
-
-/// Where the electrons of a run came to rest and where holes were left, as
-/// integer counts, and the balance against the incident electrons.
-///
-/// Charge is counted in units of the electron's, per electron number:
-///
-/// - every electron that ends inside the target counts `+1` where it ends:
-///   every terminal fate except escape (stopped below the layer's threshold,
-///   trapped without an interaction, absorbed at the back face, polaron
-///   trapped, cut off by the collision cap);
-/// - every liberated electron (a secondary-model event with
-///   `liberated = true`) counts `-1` at the event, the hole it leaves, whether
-///   or not the electron is followed. A liberated electron below the stopping
-///   threshold is not followed, it is dropped and counted `+1` where it was
-///   created, so its `-1` and `+1` cancel;
-/// - an electron leaving through a face carries its charge out and is counted
-///   in `escaped_front` / `escaped_back`.
-///
-/// The balance is exact in integers: `incident + created = stopped +
-/// escaped`, so `imbalance` is zero on every run and the net electron number
-/// deposited in the target, `stopped - created`, equals `incident - escaped`.
-/// Generation: `primary` is the incident electron, `secondary` every electron
-/// created by the secondary model. A secondary below the cutoff is not
-/// followed and is therefore counted where it is dropped (see
-/// [`ElectronTallyMetadata::cutoff_ev`]).
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct ChargeReport {
-    /// Incident electrons (primary histories).
-    pub incident: u64,
-    /// Totals over the target.
-    pub total: ChargeCounts,
-    /// Per layer.
-    pub per_layer: ChargeCells,
-    /// Electrons that left through the front face.
-    pub escaped_front: EscapedCharge,
-    /// Electrons that left through the back face.
-    pub escaped_back: EscapedCharge,
-    /// Electrons that left through the lateral boundary of a non-slab
-    /// geometry.
-    pub escaped_side: EscapedCharge,
-    /// `incident + created - stopped - escaped`; zero if every electron was
-    /// counted exactly once.
-    pub imbalance: i64,
-    /// The Cartesian grid, if the run has one.
-    pub cartesian: Option<CartesianCharge>,
-    /// The cylindrical grid, if the run has one.
-    pub cylindrical: Option<CylindricalCharge>,
-}
-
-/// Electrons that left through one face, by generation.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct EscapedCharge {
-    /// Primaries.
-    pub primary: u64,
-    /// Secondaries.
-    pub secondary: u64,
-}
-
-/// Charge counts per cell (or per layer) with the data for the standard
-/// error of the net charge per primary.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ChargeCells {
-    /// Counts per cell.
-    pub counts: Vec<ChargeCounts>,
-    /// Per cell, the sum over histories of the square of the net charge
-    /// (stopped minus created) the history left there.
-    pub net_sum_sq: Vec<u64>,
-    /// Counts outside the grid.
-    pub outside: ChargeCounts,
-    /// Squared net charge sum outside the grid.
-    pub outside_net_sum_sq: u64,
-}
-
-impl ChargeCells {
-    /// Net charge per incident electron in cell `i` and its standard error
-    /// (of the mean over `histories`).
-    pub fn net_per_primary(&self, i: usize, histories: u64) -> (f64, f64) {
-        net_mean_se(self.counts[i].net(), self.net_sum_sq[i], histories)
-    }
-}
-
-/// Mean and standard error of a per-history integer quantity from its sum
-/// and sum of squares.
-pub fn net_mean_se(sum: i64, sum_sq: u64, n: u64) -> (f64, f64) {
-    if n == 0 {
-        return (0.0, 0.0);
-    }
-    let nf = n as f64;
-    let mean = sum as f64 / nf;
-    if n == 1 {
-        return (mean, 0.0);
-    }
-    let var = ((sum_sq as f64 - nf * mean * mean) / (nf - 1.0)).max(0.0);
-    (mean, (var / nf).sqrt())
-}
-
-/// Charge on the Cartesian grid, in [`CartesianGrid::index`] order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CartesianCharge {
-    /// The grid.
-    pub grid: CartesianGrid,
-    /// Per voxel.
-    pub cells: ChargeCells,
-}
-
-/// Charge on the cylindrical `(r, depth)` grid, in
-/// [`CylindricalGrid::index`] order.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CylindricalCharge {
-    /// The grid.
-    pub grid: CylindricalGrid,
-    /// Per cell.
-    pub cells: ChargeCells,
-}
-
-/// The settings and conventions a report was made with.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ElectronTallyMetadata {
-    /// SE/BSE split, eV.
-    pub se_bse_split_ev: f64,
-    /// How an escaping electron is classed against the split.
-    pub se_bse_split_rule: String,
-    /// Where the split convention comes from.
-    pub se_bse_split_source: String,
-    /// Transport cutoff, eV, as configured (measured from the band bottom or
-    /// the vacuum level, see the run's
-    /// [`RunMetadata`](crate::electron::transport::RunMetadata)).
-    pub cutoff_ev: f64,
-    /// Stopping threshold per layer, eV: a `stopped` electron below its
-    /// layer's threshold is a deposit, at or above it a trapped electron.
-    pub stopping_threshold_ev: Vec<f64>,
-    /// Layers in the stack.
-    pub layers: usize,
-    /// The full tally configuration (grids and spectrum binnings).
-    pub config: ElectronTallyConfig,
-}
-
-/// How the primary histories ended (one per history, from its
-/// [`Fate`]).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct FateCounts {
-    /// Fell below the stopping threshold in the target.
-    pub stopped: u64,
-    /// Left through the front face.
-    pub escaped_front: u64,
-    /// Left through the back face.
-    pub escaped_back: u64,
-    /// Left through a lateral face of a voxel target.
-    #[serde(default)]
-    pub escaped_side: u64,
-    /// Absorbed at the back face.
-    pub absorbed: u64,
-    /// No interaction available and no face to reach.
-    pub trapped: u64,
-    /// Cut off by the collision cap.
-    pub event_capped: u64,
-    /// Trapped as a polaron (an opt-in insulator channel).
-    #[serde(default)]
-    pub polaron_trapped: u64,
-}
-
-impl FateCounts {
-    fn merge(&mut self, o: &FateCounts) {
-        self.stopped += o.stopped;
-        self.escaped_front += o.escaped_front;
-        self.escaped_back += o.escaped_back;
-        self.escaped_side += o.escaped_side;
-        self.absorbed += o.absorbed;
-        self.trapped += o.trapped;
-        self.event_capped += o.event_capped;
-        self.polaron_trapped += o.polaron_trapped;
-    }
-}
-
-/// Electrons cut off by the collision cap ([`Fate::EventCap`]), a numerical
-/// truncation diagnostic rather than a physical fate. The primaries' own caps
-/// are [`FateCounts::event_capped`] (one fate per primary); these counts add
-/// the secondaries. Both are plain counts (tracks, histories), not energies;
-/// the energy the capped electrons still carried is
-/// [`ElectronEnergyBudget::event_cap_ev`].
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
-pub struct EventCapCounts {
-    /// Secondary tracks cut off by the cap, one per capped secondary.
-    #[serde(default)]
-    pub secondary_tracks: u64,
-    /// Primary histories in which the primary or at least one secondary was
-    /// cut off by the cap, each counted once.
-    #[serde(default)]
-    pub affected_histories: u64,
-}
-
-impl EventCapCounts {
-    fn merge(&mut self, o: &EventCapCounts) {
-        self.secondary_tracks += o.secondary_tracks;
-        self.affected_histories += o.affected_histories;
-    }
-}
-
-/// The energy balance, eV, summed over all histories and every electron of
-/// them (see [the module docs](self#the-energy-balance)):
-/// `incident + fermi_sea + phonon_absorbed = deposited + escaped + trapped +
-/// barrier`, with
-///
-/// - `deposited = inelastic + residual + phonon_emitted + polaron`: energy
-///   left in the solid at inelastic events, plus the energy electrons had
-///   left when they fell below the stopping threshold, plus the `ħω` given to
-///   the lattice at LO-phonon emissions, plus the whole remaining energy of
-///   electrons trapped as polarons;
-/// - `phonon_absorbed`: the `ħω` electrons took from the lattice at LO-phonon
-///   absorptions (a source; zero without the insulator channels);
-/// - `escaped = escaped_front + escaped_back + escaped_side`;
-/// - `trapped = no_interaction + absorbed + event_cap`: energy still carried
-///   by electrons that ended in the target without falling below the
-///   threshold (no interaction available, absorbed at the back face, or cut
-///   off by the collision cap);
-/// - `fermi_sea`: the kinetic energy liberated secondaries already had (a
-///   source; zero without a secondary model);
-/// - `barrier`: the kinetic energy taken by the potential steps at the faces,
-///   the sum of `-ΔU` (signed; zero with transparent faces).
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct ElectronEnergyBudget {
-    /// Energy of the primaries.
-    pub incident_ev: f64,
-    /// Deposited in the target, measured from the band bottom. With a
-    /// secondary model in a layer with a Fermi energy this includes the
-    /// Fermi-sea energy of liberated conduction electrons (`fermi_sea_ev`),
-    /// so it can exceed the energy the beam imparted; the net energy imparted
-    /// is `incident_ev - escaped_ev = deposited_ev + trapped_ev + barrier_ev -
-    /// fermi_sea_ev - phonon_absorbed_ev` (see
-    /// [the module docs](self#deposits-and-the-energy-imparted)).
-    pub deposited_ev: f64,
-    /// Carried out of the target.
-    pub escaped_ev: f64,
-    /// Carried by electrons that ended in the target at or above the
-    /// stopping threshold.
-    pub trapped_ev: f64,
-    /// Energy left in the solid at inelastic events (part of
-    /// `deposited_ev`): the loss `W` without a secondary model; with one,
-    /// [`SecondaryEvent::deposited_ev`] plus any positive
-    /// [`SecondaryEvent::binding_ev`].
-    pub inelastic_ev: f64,
-    /// Remaining energy of electrons that fell below the stopping threshold
-    /// (part of `deposited_ev`).
-    pub residual_ev: f64,
-    /// Out of the front face (part of `escaped_ev`).
-    pub escaped_front_ev: f64,
-    /// Out of the back face (part of `escaped_ev`).
-    pub escaped_back_ev: f64,
-    /// Out of a lateral face of a voxel target (part of `escaped_ev`); zero
-    /// for a stack.
-    #[serde(default)]
-    pub escaped_side_ev: f64,
-    /// Electrons with no interaction and no face to reach (part of
-    /// `trapped_ev`).
-    pub no_interaction_ev: f64,
-    /// Electrons absorbed at the back face (part of `trapped_ev`).
-    pub absorbed_ev: f64,
-    /// Electrons cut off by the collision cap (part of `trapped_ev`).
-    pub event_cap_ev: f64,
-    /// Energy the liberated secondaries brought with them, the sum of
-    /// `-binding_ev` over events where it is negative (a source).
-    pub fermi_sea_ev: f64,
-    /// Kinetic energy taken by the potential steps, the sum of `-ΔU` over
-    /// face transmissions (signed).
-    pub barrier_ev: f64,
-    /// `ħω` given to the lattice by LO-phonon emission (part of
-    /// `deposited_ev`).
-    #[serde(default)]
-    pub phonon_emitted_ev: f64,
-    /// `ħω` taken from the lattice by LO-phonon absorption (a source).
-    #[serde(default)]
-    pub phonon_absorbed_ev: f64,
-    /// Remaining energy of electrons trapped as polarons (part of
-    /// `deposited_ev`).
-    #[serde(default)]
-    pub polaron_ev: f64,
-    /// Ionisation channel of `deposited_ev`: `inelastic_ev + residual_ev`
-    /// (the residual is placed here by convention, see
-    /// [the channel split](self#the-ionisation-and-lattice-channels)).
-    #[serde(default)]
-    pub ionisation_ev: f64,
-    /// Lattice channel of `deposited_ev`: `phonon_emitted_ev + polaron_ev`.
-    #[serde(default)]
-    pub lattice_ev: f64,
-    /// `|deposited + escaped + trapped + barrier - incident - fermi_sea| /
-    /// (incident + fermi_sea)` (0 with no incident energy).
-    pub relative_imbalance: f64,
-}
-
-/// Emission yields per primary.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct Yields {
-    /// Backscatter yield `η`: fast electrons out of the front face per
-    /// primary.
-    pub backscatter_eta: f64,
-    /// Secondary yield `δ`: slow electrons out of the front face per primary.
-    pub secondary_delta: f64,
-    /// Total yield `σ = η + δ`.
-    pub total_sigma: f64,
-    /// Fast electrons out of the back face per primary.
-    pub transmitted_fast: f64,
-    /// Slow electrons out of the back face per primary.
-    pub transmitted_slow: f64,
-}
-
-/// Electrons leaving through one face.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct FaceEmission {
-    /// Electrons.
-    pub count: u64,
-    /// Electrons per primary.
-    pub per_primary: f64,
-    /// Sum of their energies, eV.
-    pub energy_ev: f64,
-    /// Energy spectrum, eV, both classes.
-    pub energy_histogram: Histogram,
-    /// Slow electrons (`E < split`, the secondary class).
-    pub slow: EmissionClass,
-    /// Fast electrons (`E >= split`, the backscattered class).
-    pub fast: EmissionClass,
-}
-
-/// One energy class of the electrons leaving through a face.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct EmissionClass {
-    /// Electrons.
-    pub count: u64,
-    /// Electrons per primary.
-    pub per_primary: f64,
-    /// Sum of their energies, eV.
-    pub energy_ev: f64,
-    /// Mean energy, eV (0 if none).
-    pub mean_energy_ev: f64,
-    /// Polar angle from the outward surface normal, rad.
-    pub polar_histogram: Histogram,
-}
-
-/// Deposited energy by layer and on the configured grids, eV.
-///
-/// Deposits are measured from the band bottom. With a secondary model in a
-/// layer with a Fermi energy they include the Fermi-sea energy of liberated
-/// conduction electrons, so they can sum to more than the energy the beam
-/// imparted; see [`ElectronEnergyBudget::deposited_ev`] and
-/// [the module docs](self#deposits-and-the-energy-imparted).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct DepositionReport {
-    /// By the layer the deposit was made in.
-    pub per_layer_ev: Vec<f64>,
-    /// The ionisation part of `per_layer_ev`, eV (electronic excitation,
-    /// including the residual of sub-cutoff electrons; see
-    /// [the channel split](self#the-ionisation-and-lattice-channels)). Empty
-    /// in reports written before it existed.
-    #[serde(default)]
-    pub per_layer_ionisation_ev: Vec<f64>,
-    /// The lattice part of `per_layer_ev`, eV (LO-phonon emission and polaron
-    /// traps); `ionisation + lattice = per_layer_ev` per layer.
-    #[serde(default)]
-    pub per_layer_lattice_ev: Vec<f64>,
-    /// On the Cartesian grid, if configured.
-    pub cartesian: Option<CartesianDeposition>,
-    /// On the cylindrical grid, if configured.
-    pub cylindrical: Option<CylindricalDeposition>,
-    /// Radial profile in the PSF depth slab, with per-history errors, if
-    /// configured ([`ElectronTallyConfig::psf`]); fit it with
-    /// [`super::psf::fit_psf`].
-    #[serde(default)]
-    pub psf: Option<RadialProfile>,
-    /// Exposure statistics, if configured ([`ElectronTallyConfig::exposure`]).
-    #[serde(default)]
-    pub exposure: Option<ExposureReport>,
-}
-
-/// Deposited energy on a [`CartesianGrid`].
-///
-/// Measured from the band bottom: with a secondary model in a layer with a
-/// Fermi energy the cells include the Fermi-sea energy of liberated
-/// conduction electrons, so they can sum to more than the energy the beam
-/// imparted (see [`ElectronEnergyBudget::deposited_ev`]).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CartesianDeposition {
-    /// The grid.
-    pub grid: CartesianGrid,
-    /// Energy per voxel, eV, at [`CartesianGrid::index`].
-    pub energy_ev: Vec<f64>,
-    /// Energy deposited outside the grid, eV.
-    pub outside_ev: f64,
-    /// Ionisation part of `energy_ev` per voxel, eV; `ionisation + lattice =
-    /// energy` per voxel. Empty in reports written before it existed.
-    #[serde(default)]
-    pub ionisation_ev: Vec<f64>,
-    /// Lattice part of `energy_ev` per voxel, eV.
-    #[serde(default)]
-    pub lattice_ev: Vec<f64>,
-    /// Ionisation part of `outside_ev`, eV.
-    #[serde(default)]
-    pub outside_ionisation_ev: f64,
-    /// Lattice part of `outside_ev`, eV.
-    #[serde(default)]
-    pub outside_lattice_ev: f64,
-}
-
-impl CartesianDeposition {
-    /// Energy in voxel `(ix, iy, iz)`, eV.
-    pub fn at(&self, ix: usize, iy: usize, iz: usize) -> f64 {
-        self.energy_ev[self.grid.index(ix, iy, iz)]
-    }
-
-    /// Energy per volume in each voxel, eV/m³.
-    pub fn density_ev_per_m3(&self) -> Vec<f64> {
-        let v = self.grid.voxel_volume_m3();
-        self.energy_ev.iter().map(|e| e / v).collect()
-    }
-}
-
-/// Deposited energy on a [`CylindricalGrid`].
-///
-/// Measured from the band bottom: with a secondary model in a layer with a
-/// Fermi energy the cells include the Fermi-sea energy of liberated
-/// conduction electrons, so they can sum to more than the energy the beam
-/// imparted (see [`ElectronEnergyBudget::deposited_ev`]).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct CylindricalDeposition {
-    /// The grid.
-    pub grid: CylindricalGrid,
-    /// Energy per cell, eV, at [`CylindricalGrid::index`].
-    pub energy_ev: Vec<f64>,
-    /// Energy deposited outside the grid, eV.
-    pub outside_ev: f64,
-    /// Ionisation part of `energy_ev` per cell, eV; `ionisation + lattice =
-    /// energy` per cell. Empty in reports written before it existed.
-    #[serde(default)]
-    pub ionisation_ev: Vec<f64>,
-    /// Lattice part of `energy_ev` per cell, eV.
-    #[serde(default)]
-    pub lattice_ev: Vec<f64>,
-    /// Ionisation part of `outside_ev`, eV.
-    #[serde(default)]
-    pub outside_ionisation_ev: f64,
-    /// Lattice part of `outside_ev`, eV.
-    #[serde(default)]
-    pub outside_lattice_ev: f64,
-}
-
-impl CylindricalDeposition {
-    /// Energy in cell `(ir, ix)`, eV.
-    pub fn at(&self, ir: usize, ix: usize) -> f64 {
-        self.energy_ev[self.grid.index(ir, ix)]
-    }
-
-    /// Energy per volume in each cell, eV/m³.
-    pub fn density_ev_per_m3(&self) -> Vec<f64> {
-        self.energy_ev
-            .iter()
-            .enumerate()
-            .map(|(i, e)| e / self.grid.cell_volume_m3(i / self.grid.depth.bins))
-            .collect()
-    }
-}
-
-/// Energy-weighted moments of the deposition position (weights: the energy
-/// of each deposit). Lengths in metres.
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
-pub struct GenerationVolume {
-    /// Total weight: the deposited energy, eV.
-    pub energy_ev: f64,
-    /// Weighted mean of `[x, y, z]`.
-    pub mean_m: [f64; 3],
-    /// Weighted standard deviation of `[x, y, z]`.
-    pub std_dev_m: [f64; 3],
-    /// Weighted mean distance from the beam axis.
-    pub mean_radius_m: f64,
-    /// Weighted standard deviation of the distance from the beam axis.
-    pub radius_std_dev_m: f64,
-    /// Weighted RMS distance from the beam axis, `<y² + z²>^(1/2)`.
-    pub rms_radius_m: f64,
-}
-
-/// Where electrons fell below the stopping threshold (unweighted, one sample
-/// each).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct StoppingPoints {
-    /// Electrons that fell below the stopping threshold.
-    pub stopped: u64,
-    /// Depth moments, m; `None` with fewer than two.
-    pub depth: Option<MomentSummary>,
-    /// Moments of the distance from the beam axis, m.
-    pub radial: Option<MomentSummary>,
-    /// The primaries among `stopped`: those that fell below the threshold
-    /// before any secondary of their history began (the transport follows a
-    /// history's primary to its end first), i.e. histories whose fate is
-    /// [`Fate::Stopped`]. Absent from reports written before it existed.
-    #[serde(default)]
-    pub primaries: PrimaryStoppingPoints,
-}
-
-/// Where the primaries fell below the stopping threshold (unweighted, one
-/// sample per stopped primary): the penetration depth of stopped primaries,
-/// as compared with other codes in `docs/validation.md`.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
-pub struct PrimaryStoppingPoints {
-    /// Primaries that fell below the stopping threshold.
-    pub stopped: u64,
-    /// Depth moments, m; `None` with fewer than two.
-    pub depth: Option<MomentSummary>,
-    /// Moments of the distance from the beam axis, m.
-    pub radial: Option<MomentSummary>,
 }
 
 #[cfg(test)]
