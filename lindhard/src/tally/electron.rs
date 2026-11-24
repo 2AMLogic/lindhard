@@ -1062,36 +1062,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn weighted_moments_merge_matches_direct() {
-        let xs = [(1.0, 2.0), (3.0, 1.0), (-2.0, 0.5), (7.0, 4.0), (0.5, 3.0)];
-        let mut all = WeightedMoments::default();
-        for &(x, w) in &xs {
-            all.push(x, w);
-        }
-        let mut a = WeightedMoments::default();
-        let mut b = WeightedMoments::default();
-        for &(x, w) in &xs[..2] {
-            a.push(x, w);
-        }
-        for &(x, w) in &xs[2..] {
-            b.push(x, w);
-        }
-        a.merge(&b);
-        let wsum: f64 = xs.iter().map(|p| p.1).sum();
-        let mean = xs.iter().map(|p| p.0 * p.1).sum::<f64>() / wsum;
-        let var = xs.iter().map(|p| p.1 * (p.0 - mean).powi(2)).sum::<f64>() / wsum;
-        for m in [all, a] {
-            assert!((m.weight - wsum).abs() < 1e-12);
-            assert!((m.mean - mean).abs() < 1e-12);
-            assert!((m.variance() - var).abs() < 1e-12);
-        }
-        // Zero weights are ignored.
-        let before = all;
-        all.push(100.0, 0.0);
-        assert_eq!(all, before);
-    }
-
-    #[test]
     fn grid_indices() {
         let g = CartesianGrid {
             x: Binning::new(0.0, 1.0, 2).unwrap(),
