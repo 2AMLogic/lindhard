@@ -277,10 +277,10 @@ jobs:
       - name: Authenticate to crates.io
         if: steps.check.outputs.pending != ''
         id: auth
-        # rust-lang/crates-io-auth-action v1.0.6, pinned: it exchanges the
-        # GitHub OIDC token for a short-lived crates.io token and revokes it
-        # when the job ends.
-        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9
+        # Pinned rust-lang/crates-io-auth-action: exchanges the GitHub OIDC
+        # token for a short-lived crates.io token and revokes it when the job
+        # ends.
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
       # lindhard-cli depends on the just-published library; cargo waits for
       # the index to show it before returning, so publish directly.
       - name: Publish lindhard, then lindhard-cli
