@@ -2,8 +2,59 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-25
+
+- **PR #920**: build(deps): Bump rust-lang/crates-io-auth-action from 1.0.5 to 1.0.6 in the github-actions group across 1 directory
+
+### 2026-11-24
+
+- **PR #925**: refactor(tally): split electron.rs into acc, charge and report submodules
+- **Issue #924** (closed): Simplify: split 2,245-line tally/electron.rs into sibling acc, charge, and report modules
+
+### 2026-11-23
+
+- **PR #919**: build(deps): Bump toml from 1.1.8+spec-1.1.0 to 1.2.1+spec-1.1.0 in the cargo-minor-patch group across 1 directory
+- **PR #923**: test(cli): reuse check output for stderr in invalid-input helpers
+- **Issue #922** (closed): Reuse check stderr in CLI invalid-input tests
+
+### 2026-11-22
+
+- **PR #918**: refactor: split Input::resolve_with_sets into per-stage helpers
+- **PR #916**: refactor(cli-tests): share resolve, direct engine setup and scratch dirs in common
+- **Issue #917** (closed): Simplify: split 468-line Input::resolve_with_sets into per-stage helpers
+- **Issue #915** (closed): Consolidate remaining duplicated helpers and scratch dirs across lindhard-cli/tests
+
+### 2026-11-19
+
+- **PR #914**: release: v0.0.1
+- **PR #913**: ci: publish crates with crates.io trusted publishing
+- **PR #911**: docs(damage-export): state v2 adds mass_kg column after deposited_ev
+- **Issue #912** (closed): Publish crates with crates.io trusted publishing (CI crates publish is broken: secret never set)
+- **Issue #728** (closed): Shared blocks, material schema, structure file and two interchange formats: proposals touching lindhard
+- **Issue #910** (closed): docs: damage-export format doc still says "same columns" as voxel_tally.csv after the v2 mass column
+
 ### 2026-11-18
 
+- **PR #909**: feat(tally)!: damage export v2 with neutral banner, producer key and per-voxel mass
+- **PR #908**: refactor(mermin_fit): drop redundant hand equilibration before linalg::solve
+- **PR #906**: feat(tally): per-voxel target mass from the geometry
+- **PR #901**: refactor: share one scale-relative Gaussian-elimination solver
+- **PR #905**: docs: cite standing tracker #902 from the elastic gate skip and ignore reason
+- **PR #900**: refactor(bethe): drop redundant with_effective_charge setter
+- **PR #899**: cli: share one RFC 4180 csv_field and drop unused to_si from stopping-table
+- **PR #898**: fix(stopping-table): list user tables per pair in the JSON report
+- **PR #895**: cli: scope the unused-user-table warning to the (ion, target) pair
+- **PR #892**: cli: warn on unused user stopping tables in stopping-table terms
+- **Issue #904** (closed): Damage export v2: neutral banner, producer key, no units key, mass column
+- **Issue #907** (closed): mermin_fit's hand-rolled Jacobi equilibration is now redundant (linalg::solve equilibrates), and its comment misdescribes the shared solver
+- **Issue #903** (closed): Per-voxel mass for the damage export
+- **Issue #771** (closed): Consolidate the three copies of Gaussian elimination with partial pivoting (and their divergent singularity tests)
+- **Issue #739** (closed): Decide whether the statistical.yml --skip for the elastic completion gate needs an open tracking issue
+- **Issue #777** (closed): Trim never-called public API before 0.1.0 locks the surface: 8 items with zero references
+- **Issue #897** (closed): Remove duplicate csv_field and unused to_si from stopping-table
+- **Issue #896** (closed): stopping-table: a pair entry lists the user-table model even for a pair the table does not cover
+- **Issue #894** (closed): stopping-table: unused-user-table warning says "this input" but is judged per (ion, target) pair
+- **Issue #890** (closed): stopping-table: the unused-table warning names physics.follow_recoils, a key the input rejects
 - **PR #867**: Bump wasm-bindgen from 0.2.129 to 0.2.130 in the cargo-minor-patch group across 1 directory
 - **PR #650**: feat: add stopping-table subcommand for stopping and CSDA range tables
 - **Issue #637** (closed): [Epic #630] `lindhard stopping-table`: stopping and range tables over an energy grid

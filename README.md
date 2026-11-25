@@ -7,7 +7,7 @@ electrons. SRIM/TRIM covers the same problem class, and lindhard aims to be a
 complete open replacement for it: it shares none of SRIM's code, and it uses
 SRIM's published data (cited) alongside the primary literature.
 
-> **Status: early, pre-release (0.0.1).** The amorphous ion core (milestone
+> **Current release: [v0.0.1](https://github.com/2AMLogic/lindhard/releases/tag/v0.0.1).** The amorphous ion core (milestone
 > M0) is the most mature part, with the electron engine (M1), crystalline
 > targets (M2) and dynamic composition and geometry (M3) under active
 > development. Milestones and their state are tracked in
