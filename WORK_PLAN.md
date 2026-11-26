@@ -233,7 +233,7 @@ Issues carrying `loom:curated`.
 
 ## Proposed (Architect / Hermit)
 
-_None._
+- **#930**: Skip the discarded valence table build during inner-shell assembly *(hermit)*
 
 ## Epics
 
@@ -256,7 +256,7 @@ _None._
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 2 |
 | Curated | 28 |
-| Architect / Hermit proposals | 0 |
+| Architect / Hermit proposals | 1 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
 
