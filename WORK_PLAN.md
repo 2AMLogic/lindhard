@@ -183,13 +183,12 @@ Human-approved issues ready for implementation (`loom:issue`).
 Issues currently being built (`loom:building`).
 
 - **#935**: Share fixture setup and resolution in electron input unit tests
-- **#937**: Simplify: split 2,005-line electron/transport.rs into sibling types, tally, and sampling modules
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#939**: refactor(electron): split transport.rs into types/tally/sampling
+_None._
 
 ## Approved (Awaiting Merge)
 
@@ -232,7 +231,6 @@ Issues carrying `loom:curated`.
 ## Proposed (Architect / Hermit)
 
 - **#930**: Skip the discarded valence table build during inner-shell assembly *(hermit)*
-- **#937**: Simplify: split 2,005-line electron/transport.rs into sibling types, tally, and sampling modules *(hermit)*
 
 ## Epics
 
@@ -251,11 +249,11 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 6 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 1 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 27 |
-| Architect / Hermit proposals | 2 |
+| Architect / Hermit proposals | 1 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
 
