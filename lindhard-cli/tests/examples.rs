@@ -269,6 +269,31 @@ fn deterministic_part(summary: &str) -> &str {
     &summary[..i]
 }
 
+/// Two runs that differ only in their thread count wrote byte-identical
+/// output: `summary` matches up to the trailing `run` (timing) block, and
+/// each listed CSV matches in full. Both directories and the file name go
+/// into every failure message, so a mismatch names the example, the two
+/// runs and the file.
+fn assert_runs_match(a: &Path, b: &Path, summary: &str, csvs: &[&str]) {
+    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
+    assert_eq!(
+        deterministic_part(&read(a, summary)),
+        deterministic_part(&read(b, summary)),
+        "{summary}: {} vs {}",
+        a.display(),
+        b.display()
+    );
+    for f in csvs {
+        assert_eq!(
+            read(a, f),
+            read(b, f),
+            "{f}: {} vs {}",
+            a.display(),
+            b.display()
+        );
+    }
+}
+
 #[test]
 fn output_is_byte_identical_across_thread_counts() {
     // The layered example exercises an interface, cascades and sputtering;
@@ -286,24 +311,21 @@ fn output_is_byte_identical_across_thread_counts() {
             run(&ex, &out, &["--ions", "300", "--threads", threads]);
             outs.push(out);
         }
-        let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
-        let (a, b) = (
-            read(&outs[0], "summary.json"),
-            read(&outs[1], "summary.json"),
+        assert_runs_match(
+            &outs[0],
+            &outs[1],
+            "summary.json",
+            &[
+                "depth_profile.csv",
+                "ions.csv",
+                "lateral_profile.csv",
+                "damage_profile.csv",
+                "energy_profile.csv",
+                "escape_spectra.csv",
+            ],
         );
-        assert_eq!(deterministic_part(&a), deterministic_part(&b), "{name}");
         assert_eq!(json(&outs[0].join("summary.json"))["run"]["threads"], 1);
         assert_eq!(json(&outs[1].join("summary.json"))["run"]["threads"], 4);
-        for f in [
-            "depth_profile.csv",
-            "ions.csv",
-            "lateral_profile.csv",
-            "damage_profile.csv",
-            "energy_profile.csv",
-            "escape_spectra.csv",
-        ] {
-            assert_eq!(read(&outs[0], f), read(&outs[1], f), "{name}: {f}");
-        }
     }
 }
 
@@ -458,15 +480,12 @@ fn user_stopping_table_runs_deterministically_and_is_recorded() {
         run(&input, &out, &["--ions", "300", "--threads", threads]);
         outs.push(out);
     }
-    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
-    let (a, b) = (
-        read(&outs[0], "summary.json"),
-        read(&outs[1], "summary.json"),
+    assert_runs_match(
+        &outs[0],
+        &outs[1],
+        "summary.json",
+        &["depth_profile.csv", "ions.csv", "damage_profile.csv"],
     );
-    assert_eq!(deterministic_part(&a), deterministic_part(&b));
-    for f in ["depth_profile.csv", "ions.csv", "damage_profile.csv"] {
-        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
-    }
 
     let s = json(&outs[0].join("summary.json"));
     assert_eq!(
@@ -744,14 +763,12 @@ fn stopping_none_runs_deterministically_with_zero_electronic_loss() {
         run(&input, &out, &["--ions", "300", "--threads", threads]);
         outs.push(out);
     }
-    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
-    assert_eq!(
-        deterministic_part(&read(&outs[0], "summary.json")),
-        deterministic_part(&read(&outs[1], "summary.json"))
+    assert_runs_match(
+        &outs[0],
+        &outs[1],
+        "summary.json",
+        &["depth_profile.csv", "ions.csv", "damage_profile.csv"],
     );
-    for f in ["depth_profile.csv", "ions.csv", "damage_profile.csv"] {
-        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
-    }
 
     let s = json(&outs[0].join("summary.json"));
     assert_eq!(s["input"]["physics"]["stopping"], "none");
@@ -910,7 +927,6 @@ fn dynamic_retention_limit_caps_the_implanted_species_and_reports_re_emission() 
 #[test]
 fn dynamic_output_is_byte_identical_across_thread_counts() {
     let ex = dynamic_example();
-    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
     let mut outs = Vec::new();
     for threads in ["1", "2", "8"] {
         let out = scratch(&format!("dynamic-det-{threads}"));
@@ -918,12 +934,11 @@ fn dynamic_output_is_byte_identical_across_thread_counts() {
         outs.push(out);
     }
     for o in &outs[1..] {
-        for f in ["dynamic_steps.csv", "dynamic_composition.csv"] {
-            assert_eq!(read(&outs[0], f), read(o, f), "{f}");
-        }
-        assert_eq!(
-            deterministic_part(&read(&outs[0], "dynamic_summary.json")),
-            deterministic_part(&read(o, "dynamic_summary.json"))
+        assert_runs_match(
+            &outs[0],
+            o,
+            "dynamic_summary.json",
+            &["dynamic_steps.csv", "dynamic_composition.csv"],
         );
     }
 }
@@ -1237,12 +1252,16 @@ fn electron_output_is_byte_identical_across_thread_counts() {
         run(&ex, &out, &["--histories", "80", "--threads", threads]);
         outs.push(out);
     }
-    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
-    let (a, b) = (
-        read(&outs[0], "electron_summary.json"),
-        read(&outs[1], "electron_summary.json"),
+    assert_runs_match(
+        &outs[0],
+        &outs[1],
+        "electron_summary.json",
+        &[
+            "electron_escape_spectra.csv",
+            "electron_deposition_cylindrical.csv",
+            "electron_tables.csv",
+        ],
     );
-    assert_eq!(deterministic_part(&a), deterministic_part(&b));
     assert_eq!(
         json(&outs[0].join("electron_summary.json"))["run"]["threads"],
         1
@@ -1251,13 +1270,6 @@ fn electron_output_is_byte_identical_across_thread_counts() {
         json(&outs[1].join("electron_summary.json"))["run"]["threads"],
         4
     );
-    for f in [
-        "electron_escape_spectra.csv",
-        "electron_deposition_cylindrical.csv",
-        "electron_tables.csv",
-    ] {
-        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
-    }
 }
 
 #[test]
@@ -1557,15 +1569,13 @@ fn shipped_tuning_set_is_deterministic_and_equals_an_explicit_override() {
         run(&input, &dir, &["--ions", "300", "--threads", threads]);
         outs.push(dir);
     }
-    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
     for o in &outs[1..] {
-        assert_eq!(
-            deterministic_part(&read(&outs[0], "summary.json")),
-            deterministic_part(&read(o, "summary.json"))
+        assert_runs_match(
+            &outs[0],
+            o,
+            "summary.json",
+            &["depth_profile.csv", "ions.csv", "escape_spectra.csv"],
         );
-        for f in ["depth_profile.csv", "ions.csv", "escape_spectra.csv"] {
-            assert_eq!(read(&outs[0], f), read(o, f), "{f}");
-        }
     }
     let s = json(&outs[0].join("summary.json"));
     let t = &s["physics"]["tuning"];
@@ -1588,6 +1598,8 @@ fn shipped_tuning_set_is_deterministic_and_equals_an_explicit_override() {
     assert_eq!(s["input"]["physics"]["tuning"], set.name);
 
     // The same run untuned, with E_s = the effective value set explicitly.
+    // Its summary is allowed to differ (it echoes the explicit E_s, not a
+    // tuning block); only its physical CSVs must match.
     let explicit = format!("{text}\n[physics.energies.Cu]\ne_s_ev = {effective:?}\n");
     let dir = scratch("tuning-set-explicit");
     let input = dir.join("input.toml");
@@ -1597,7 +1609,8 @@ fn shipped_tuning_set_is_deterministic_and_equals_an_explicit_override() {
     assert!(e["physics"].get("tuning").is_none());
     assert_eq!(s["results"], e["results"]);
     for f in ["depth_profile.csv", "ions.csv", "escape_spectra.csv"] {
-        assert_eq!(read(&outs[0], f), read(&dir, f), "{f}");
+        let x = std::fs::read_to_string(dir.join(f)).unwrap();
+        assert_eq!(std::fs::read_to_string(outs[0].join(f)).unwrap(), x, "{f}");
     }
 
     // Other beams and unlisted elements are rejected.
@@ -2278,15 +2291,12 @@ fn electron_psf_output_is_byte_identical_across_thread_counts() {
         run(&input, &out, &["--histories", "80", "--threads", threads]);
         outs.push(out);
     }
-    let read = |d: &Path, f: &str| std::fs::read_to_string(d.join(f)).unwrap();
-    for f in ["electron_psf_profile.csv", "electron_psf_parameters.csv"] {
-        assert_eq!(read(&outs[0], f), read(&outs[1], f), "{f}");
-    }
-    let (a, b) = (
-        read(&outs[0], "electron_summary.json"),
-        read(&outs[1], "electron_summary.json"),
+    assert_runs_match(
+        &outs[0],
+        &outs[1],
+        "electron_summary.json",
+        &["electron_psf_profile.csv", "electron_psf_parameters.csv"],
     );
-    assert_eq!(deterministic_part(&a), deterministic_part(&b));
 }
 
 #[test]
