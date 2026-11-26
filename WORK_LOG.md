@@ -2,6 +2,11 @@
 
 Chronological record of notable decisions and merges.
 
+### 2026-11-26
+
+- **PR #927**: perf(py): build damage_export arrays from the prepared report, skipping the CSV round trip
+- **Issue #926** (closed): Remove the in-memory CSV round trip from Python damage exports
+
 ### 2026-11-25
 
 - **PR #920**: build(deps): Bump rust-lang/crates-io-auth-action from 1.0.5 to 1.0.6 in the github-actions group across 1 directory

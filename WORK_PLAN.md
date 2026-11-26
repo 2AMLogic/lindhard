@@ -183,19 +183,18 @@ Human-approved issues ready for implementation (`loom:issue`).
 Issues currently being built (`loom:building`).
 
 - **#921**: release.yml: pinned-action comment still says v1.0.5 after the v1.0.6 SHA bump
-- **#926**: Remove the in-memory CSV round trip from Python damage exports
+- **#932**: Share the output comparison across seven CLI determinism tests
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#933**: test(cli): share one cross-thread output assertion across the determinism tests
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#927**: perf(py): build damage_export arrays from the prepared report, skipping the CSV round trip
 - **#928**: docs(ci): name v1.0.6 in the crates-io-auth-action pin comment
 
 ## Proposed
@@ -253,8 +252,8 @@ Issues carrying `loom:curated`.
 | Important | 6 |
 | Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 0 |
-| Approved PRs awaiting merge | 2 |
+| PRs awaiting review | 1 |
+| Approved PRs awaiting merge | 1 |
 | Curated | 28 |
 | Architect / Hermit proposals | 1 |
 | Active epics | 6 |
