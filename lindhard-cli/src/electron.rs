@@ -716,8 +716,22 @@ pub fn summary_json(r: &ResolvedElectron, sim: &ElectronSimulation) -> Result<St
 /// `damage_export.csv`: the electron voxel tally in the versioned exchange
 /// format (engine `electron`), or `None` without `[electron.tally.voxel]`.
 pub fn damage_export_csv(r: &ResolvedElectron, sim: &ElectronSimulation) -> Option<String> {
+    let (report, p) = damage_export_parts(r, sim)?;
+    Some(report.to_export_csv(&p))
+}
+
+/// The electron damage export before serialization: the voxel report with
+/// masses attached and its provenance, or `None` without the voxel table.
+/// This is exactly what [`damage_export_csv`] writes.
+pub fn damage_export_parts(
+    r: &ResolvedElectron,
+    sim: &ElectronSimulation,
+) -> Option<(
+    lindhard::tally::VoxelReport,
+    lindhard::tally::ExportProvenance,
+)> {
     let report = sim.voxel.clone()?;
-    Some(crate::output::export_csv(
+    Some(crate::output::prepare_export(
         report,
         &r.stack,
         "electron",

@@ -451,11 +451,9 @@ impl RunResult {
     /// See "Damage export" in `docs/python.md`. The arrays equal what
     /// `read_damage_export` returns for the written `damage_export.csv`.
     fn damage_export<'py>(&self, py: Python<'py>) -> PyResult<Option<Bound<'py, PyDict>>> {
-        let Some(text) = output::damage_export_csv(&self.resolved, &self.sim.tally) else {
+        let Some((r, p)) = output::damage_export_parts(&self.resolved, &self.sim.tally) else {
             return Ok(None);
         };
-        let (r, p) =
-            lindhard::tally::VoxelReport::read_export_csv(&text).map_err(|e| errors::run(&e))?;
         crate::damage::to_dict(py, &r, &p).map(Some)
     }
 

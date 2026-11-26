@@ -754,8 +754,22 @@ pub fn summary_json(
 /// serialized compactly); the `mass_kg` column holds the target mass of each
 /// occupied voxel.
 pub fn damage_export_csv(r: &Resolved, t: &CliTally) -> Option<String> {
+    let (report, p) = damage_export_parts(r, t)?;
+    Some(report.to_export_csv(&p))
+}
+
+/// The ion damage export before serialization: the voxel report with masses
+/// attached and its provenance, or `None` without `[tally.voxel]`. This is
+/// exactly what [`damage_export_csv`] writes.
+pub fn damage_export_parts(
+    r: &Resolved,
+    t: &CliTally,
+) -> Option<(
+    lindhard::tally::VoxelReport,
+    lindhard::tally::ExportProvenance,
+)> {
     let report = t.voxel.as_ref()?.report();
-    Some(export_csv(
+    Some(prepare_export(
         report,
         r.geometry(),
         "ion",
@@ -770,19 +784,35 @@ pub fn damage_export_csv(r: &Resolved, t: &CliTally) -> Option<String> {
 /// Voxel masses come from `geometry`; for a geometry that cannot supply them
 /// (a mesh or CSG target) the `mass_kg` column is left empty.
 pub fn export_csv<T: serde::Serialize>(
-    mut report: lindhard::tally::VoxelReport,
+    report: lindhard::tally::VoxelReport,
     geometry: &dyn Geometry,
     engine: &str,
     seed: u64,
     input: &T,
 ) -> String {
+    let (report, p) = prepare_export(report, geometry, engine, seed, input);
+    report.to_export_csv(&p)
+}
+
+/// Attach voxel masses from `geometry` to `report` and build the provenance
+/// (see [`export_csv`]); the shared step of the file and live export paths.
+pub fn prepare_export<T: serde::Serialize>(
+    mut report: lindhard::tally::VoxelReport,
+    geometry: &dyn Geometry,
+    engine: &str,
+    seed: u64,
+    input: &T,
+) -> (
+    lindhard::tally::VoxelReport,
+    lindhard::tally::ExportProvenance,
+) {
     let echo = serde_json::to_vec(input).expect("the input serializes");
     let hash = crate::table_cache::sha256_hex(&echo);
     // `MassUnsupported` leaves every mass unset (an empty column); nothing is
     // changed on error.
     let _ = report.attach_masses(geometry);
     let p = lindhard::tally::ExportProvenance::new(engine, seed, &hash);
-    report.to_export_csv(&p)
+    (report, p)
 }
 
 /// A CSV text field per RFC 4180: quoted, with embedded quotes doubled, when
