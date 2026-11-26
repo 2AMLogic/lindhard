@@ -1,11 +1,12 @@
 //! Tests for the electron input module.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::*;
 use crate::electron::inelastic::{FitWeighting, MerminFitOptions, PennAlgorithm, MAX_OSCILLATORS};
 use crate::electron::secondary::{KieftBoschOptions, SecondaryModel};
 use crate::electron::transport::BoundaryModel;
+use crate::input::InputError;
 use crate::tally::{PsfModel, PsfNormalization};
 
 const ELF: &str = "material = \"synthetic\"\nprovenance = \"synthetic test ELF\"\n\
@@ -19,6 +20,16 @@ fn dir(name: &str) -> PathBuf {
     let _ = std::fs::remove_dir_all(&d);
     std::fs::create_dir_all(&d).unwrap();
     d
+}
+
+fn dir_with_elf(name: &str) -> PathBuf {
+    let d = dir(name);
+    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    d
+}
+
+fn resolve(base_dir: &Path, text: &str) -> Result<ResolvedElectron, InputError> {
+    ElectronInput::from_toml_str(text)?.resolve_in(base_dir)
 }
 
 const GOOD: &str = r#"
@@ -50,10 +61,8 @@ fn detects_electron_documents() {
 
 #[test]
 fn resolves_and_echoes_defaults() {
-    let d = dir("good");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
-    let i = ElectronInput::from_toml_str(GOOD).unwrap();
-    let r = i.resolve_in(&d).unwrap();
+    let d = dir_with_elf("good");
+    let r = resolve(&d, GOOD).unwrap();
     assert_eq!(r.layers.len(), 1);
     assert_eq!(
         r.materials[0].optical_elf.provenance(),
@@ -99,19 +108,18 @@ fn data_without_provenance_is_refused() {
 
 #[test]
 fn metal_band_takes_an_optional_valence_binding() {
-    let d = dir("valence-binding");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
-    let with = |band: &str| {
-        GOOD.replace(
+    let d = dir_with_elf("valence-binding");
+    let resolve_band = |band: &str| {
+        let text = GOOD.replace(
             "optical_elf = \"elf.toml\"",
             &format!("optical_elf = \"elf.toml\"\nband = {band}"),
-        )
+        );
+        resolve(&d, &text)
     };
-    let resolve = |text: &str| ElectronInput::from_toml_str(text).and_then(|i| i.resolve_in(&d));
     // Absent: no binding, and the echo has no such key.
-    let r = resolve(&with(
+    let r = resolve_band(
         "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, provenance = \"p\" }",
-    ))
+    )
     .unwrap();
     assert_eq!(
         r.materials[0].band.as_ref().unwrap().valence_binding_ev(),
@@ -128,7 +136,7 @@ fn metal_band_takes_an_optional_valence_binding() {
         "{ kind = \"free-electron-metal\", valence_electrons_per_atom = 1.0, \
          work_function_ev = 4.0, valence_binding_ev = 7.5, provenance = \"p\" }",
     ] {
-        let r = resolve(&with(band)).unwrap();
+        let r = resolve_band(band).unwrap();
         assert_eq!(
             r.materials[0].band.as_ref().unwrap().valence_binding_ev(),
             Some(7.5)
@@ -137,30 +145,24 @@ fn metal_band_takes_an_optional_valence_binding() {
         assert_eq!(back, r.input);
     }
     // Refused: a negative binding, and any binding on an insulator.
-    let e = resolve(&with(
+    let e = resolve_band(
         "{ kind = \"metal\", fermi_ev = 5.0, work_function_ev = 4.0, valence_binding_ev = -1.0, \
          provenance = \"p\" }",
-    ))
+    )
     .unwrap_err()
     .to_string();
     assert!(e.contains("electron.materials.Si.band"), "{e}");
-    assert!(resolve(&with(
+    assert!(resolve_band(
         "{ kind = \"insulator\", valence_band_width_ev = 6.0, band_gap_ev = 3.0, \
          affinity_ev = 1.0, valence_binding_ev = 1.0, provenance = \"p\" }",
-    ))
+    )
     .is_err());
 }
 
 #[test]
 fn errors_name_the_field() {
-    let d = dir("errors");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
-    let bad = |text: &str| {
-        ElectronInput::from_toml_str(text)
-            .and_then(|i| i.resolve_in(&d))
-            .unwrap_err()
-            .to_string()
-    };
+    let d = dir_with_elf("errors");
+    let bad = |text: &str| resolve(&d, text).unwrap_err().to_string();
     let e = bad(&GOOD.replace("cutoff_ev = 20.0", "cutoff_ev = -1.0"));
     assert!(e.contains("electron.transport.cutoff_ev"), "{e}");
     let e = bad(&GOOD.replace("[electron.materials.Si]", "[electron.materials.Ge]"));
@@ -194,28 +196,21 @@ fn errors_name_the_field() {
 /// nonzero value is refused instead of counted twice (#241).
 #[test]
 fn inelastic_fermi_energy_is_refused_with_a_band() {
-    let d = dir("fermi-band");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("fermi-band");
     let fermi = |text: &str, ev: &str| {
         text.replace(
             "[electron.elastic]",
             &format!("[electron.inelastic]\nfermi_energy_ev = {ev}\n[electron.elastic]"),
         )
     };
-    let r = ElectronInput::from_toml_str(&fermi(GOOD, "1.5"))
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r = resolve(&d, &fermi(GOOD, "1.5")).unwrap();
     assert_eq!(r.inelastic_fermi_ev, 1.5);
     let banded = GOOD.replace(
         "optical_elf = \"elf.toml\"",
         "optical_elf = \"elf.toml\"\nband = { kind = \"metal\", fermi_ev = 5.0, \
          work_function_ev = 4.0, provenance = \"synthetic test band\" }",
     );
-    let r = ElectronInput::from_toml_str(&fermi(&banded, "0.0"))
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r = resolve(&d, &fermi(&banded, "0.0")).unwrap();
     assert_eq!(r.inelastic_fermi_ev, 0.0);
     let e = ElectronInput::from_toml_str(&fermi(&banded, "1.5"))
         .unwrap()
@@ -234,18 +229,16 @@ fn inelastic_fermi_energy_is_refused_with_a_band() {
 /// another inelastic model are refused naming the key.
 #[test]
 fn mermin_fit_options_parse_validate_and_resolve() {
-    let d = dir("mermin-fit");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("mermin-fit");
     let mermin = GOOD.replace(
         "[electron.elastic]",
         "[electron.inelastic]\nmodel = \"mermin-melf\"\n[electron.elastic]",
     );
     let with_fit =
         |base: &str, fit: &str| format!("{base}\n[electron.materials.Si.mermin_fit]\n{fit}\n");
-    let resolve = |text: &str| ElectronInput::from_toml_str(text).and_then(|i| i.resolve_in(&d));
     // Absent: the defaults, and nothing echoed.
     for text in [GOOD, mermin.as_str()] {
-        let r = resolve(text).unwrap();
+        let r = resolve(&d, text).unwrap();
         assert_eq!(r.materials[0].mermin_fit, MerminFitOptions::default());
         assert!(r.input.electron.materials["Si"].mermin_fit.is_none());
         assert!(!r.input.to_toml_string().unwrap().contains("mermin_fit"));
@@ -256,7 +249,7 @@ fn mermin_fit_options_parse_validate_and_resolve() {
         "",
         "oscillators = 3\nweighting = \"relative\"\nrelative_floor = 0.01",
     ] {
-        let r = resolve(&with_fit(&mermin, fit)).unwrap();
+        let r = resolve(&d, &with_fit(&mermin, fit)).unwrap();
         assert_eq!(r.materials[0].mermin_fit, MerminFitOptions::default());
         let echo = r.input.electron.materials["Si"].mermin_fit.clone().unwrap();
         assert_eq!(
@@ -270,7 +263,11 @@ fn mermin_fit_options_parse_validate_and_resolve() {
         let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
         assert_eq!(back, r.input);
     }
-    let r = resolve(&with_fit(&mermin, "oscillators = 6\nrelative_floor = 0.05")).unwrap();
+    let r = resolve(
+        &d,
+        &with_fit(&mermin, "oscillators = 6\nrelative_floor = 0.05"),
+    )
+    .unwrap();
     assert_eq!(
         r.materials[0].mermin_fit,
         MerminFitOptions {
@@ -279,10 +276,10 @@ fn mermin_fit_options_parse_validate_and_resolve() {
             ..MerminFitOptions::default()
         }
     );
-    let r = resolve(&with_fit(
-        &mermin,
-        "oscillators = 16\nweighting = \"uniform\"",
-    ))
+    let r = resolve(
+        &d,
+        &with_fit(&mermin, "oscillators = 16\nweighting = \"uniform\""),
+    )
     .unwrap();
     assert_eq!(r.materials[0].mermin_fit.n_oscillators, MAX_OSCILLATORS);
     assert_eq!(r.materials[0].mermin_fit.weighting, FitWeighting::Uniform);
@@ -291,7 +288,7 @@ fn mermin_fit_options_parse_validate_and_resolve() {
     let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
     assert_eq!(back, r.input);
     // Refused, naming the key.
-    let bad = |text: &str| resolve(text).unwrap_err().to_string();
+    let bad = |text: &str| resolve(&d, text).unwrap_err().to_string();
     let key = "electron.materials.Si.mermin_fit";
     for (fit, field) in [
         ("oscillators = 0", "oscillators"),
@@ -329,14 +326,10 @@ fn mermin_fit_options_parse_validate_and_resolve() {
 
 #[test]
 fn psf_section_defaults_echo_and_errors_name_fields() {
-    let d = dir("psf");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("psf");
     let psf = "\n[electron.tally.psf]\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\nr_min_nm = 0.5\nr_max_nm = 50.0\nbins = 8\n";
     let text = format!("{GOOD}{psf}");
-    let r = ElectronInput::from_toml_str(&text)
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r = resolve(&d, &text).unwrap();
     let c = r.tally.psf.unwrap();
     assert_eq!(c.depth_hi_m, 5e-9);
     assert_eq!(c.radial.bins, 8);
@@ -351,30 +344,21 @@ fn psf_section_defaults_echo_and_errors_name_fields() {
     let back = ElectronInput::from_toml_str(&r.input.to_toml_string().unwrap()).unwrap();
     assert_eq!(back, r.input);
     // No PSF: nothing resolved.
-    let r0 = ElectronInput::from_toml_str(GOOD)
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r0 = resolve(&d, GOOD).unwrap();
     assert!(r0.tally.psf.is_none() && r0.psf_fits.is_empty());
     // Empty and explicit fit lists, free normalisation.
-    let r = ElectronInput::from_toml_str(&text.replace(
+    let free = text.replace(
         "bins = 8",
         "bins = 8\nfits = [\"triple\", \"triple\"]\nnormalization = \"free\"",
-    ))
-    .unwrap()
-    .resolve_in(&d)
-    .unwrap();
+    );
+    let r = resolve(&d, &free).unwrap();
     assert_eq!(r.psf_fits, vec![PsfModel::TripleGaussian]);
     assert_eq!(r.psf_normalization, PsfNormalization::Free);
-    let r = ElectronInput::from_toml_str(&text.replace("bins = 8", "bins = 8\nfits = []"))
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r = resolve(&d, &text.replace("bins = 8", "bins = 8\nfits = []")).unwrap();
     assert!(r.psf_fits.is_empty());
     // Errors.
     let bad = |from: &str, to: &str| {
-        ElectronInput::from_toml_str(&text.replace(from, to))
-            .and_then(|i| i.resolve_in(&d))
+        resolve(&d, &text.replace(from, to))
             .unwrap_err()
             .to_string()
     };
@@ -396,8 +380,7 @@ fn psf_section_defaults_echo_and_errors_name_fields() {
 
 #[test]
 fn every_option_resolves_and_is_recorded() {
-    let d = dir("rich");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("rich");
     let text = r#"
 [electron.beam]
 energy_ev = 2000.0
@@ -454,10 +437,7 @@ substrate = "Si"
 histories = 10
 seed = 3
 "#;
-    let r = ElectronInput::from_toml_str(text)
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r = resolve(&d, text).unwrap();
     assert_eq!(r.layer_material, vec![0, 1]);
     assert_eq!(r.materials[0].name, "Ox");
     assert!(r.materials[0].channels.phonon.is_some());
@@ -520,20 +500,14 @@ seed = 3
 /// another inelastic model are refused naming the field.
 #[test]
 fn inner_shells_parse_validate_and_resolve() {
-    let d = dir("inner-shells");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("inner-shells");
     let with = |body: &str| format!("{GOOD}\n[electron.materials.Si.inner_shells]\n{body}\n");
-    let resolve = |text: &str| {
-        ElectronInput::from_toml_str(text)
-            .map_err(|e| e.to_string())
-            .and_then(|i| i.resolve_in(&d).map_err(|e| e.to_string()))
-    };
 
-    let r = resolve(GOOD).unwrap();
+    let r = resolve(&d, GOOD).unwrap();
     assert!(r.materials[0].inner_shells.is_none());
     assert!(!r.input.to_toml_string().unwrap().contains("inner_shells"));
 
-    let r = resolve(&with("subshells = [\"K\", \"L3\"]")).unwrap();
+    let r = resolve(&d, &with("subshells = [\"K\", \"L3\"]")).unwrap();
     let s = r.materials[0].inner_shells.as_ref().unwrap();
     let labels: Vec<_> = s.subshells.iter().map(|x| x.label()).collect();
     assert_eq!(labels, ["K", "L3"]);
@@ -555,7 +529,7 @@ fn inner_shells_parse_validate_and_resolve() {
             "cannot read",
         ),
     ] {
-        let e = resolve(&with(body)).unwrap_err();
+        let e = resolve(&d, &with(body)).unwrap_err().to_string();
         assert!(
             e.contains("electron.materials.Si.inner_shells"),
             "{body}: {e}"
@@ -563,11 +537,11 @@ fn inner_shells_parse_validate_and_resolve() {
         assert!(e.contains(what), "{body}: {e}");
     }
 
-    let e = resolve(&with("subshells = [\"K\"]").replace(
+    let penn_full = with("subshells = [\"K\"]").replace(
         "[electron.elastic]",
         "[electron.inelastic]\nmodel = \"penn-full\"\n\n[electron.elastic]",
-    ))
-    .unwrap_err();
+    );
+    let e = resolve(&d, &penn_full).unwrap_err().to_string();
     assert!(e.contains("electron.materials.Si.inner_shells") && e.contains("penn-single-pole"));
 }
 
@@ -578,13 +552,9 @@ fn inner_shells_parse_validate_and_resolve() {
 fn beam_profile_defaults_round_trip_and_errors_name_fields() {
     use crate::electron::beam::{BeamProfile, BeamSpread};
     use crate::ion::crystal::Divergence;
-    let d = dir("beam-profile");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("beam-profile");
 
-    let r = ElectronInput::from_toml_str(GOOD)
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r = resolve(&d, GOOD).unwrap();
     assert_eq!(r.beam, BeamSpread::default());
     let echo = toml::to_string(&r.input).unwrap();
     assert!(
@@ -612,13 +582,11 @@ fn beam_profile_defaults_round_trip_and_errors_name_fields() {
     );
 
     let bad = |extra: &str| {
-        ElectronInput::from_toml_str(&GOOD.replace(
+        let text = GOOD.replace(
             "energy_ev = 1000.0",
             &format!("energy_ev = 1000.0\n{extra}"),
-        ))
-        .and_then(|i| i.resolve_in(&d))
-        .unwrap_err()
-        .to_string()
+        );
+        resolve(&d, &text).unwrap_err().to_string()
     };
     let e = bad("[electron.beam.profile]\nmodel = \"gaussian\"\nsigma_nm = 0.0");
     assert!(e.contains("electron.beam.profile.sigma_nm"), "{e}");
@@ -637,20 +605,14 @@ fn beam_profile_defaults_round_trip_and_errors_name_fields() {
 /// present needs a positive value and a citation.
 #[test]
 fn e_pair_has_no_default_and_needs_a_source() {
-    let d = dir("e-pair");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("e-pair");
     let with = |body: &str| format!("{GOOD}\n[electron.materials.Si.e_pair]\n{body}\n");
-    let resolve = |text: &str| {
-        ElectronInput::from_toml_str(text)
-            .map_err(|e| e.to_string())
-            .and_then(|i| i.resolve_in(&d).map_err(|e| e.to_string()))
-    };
 
-    let r = resolve(GOOD).unwrap();
+    let r = resolve(&d, GOOD).unwrap();
     assert!(r.materials[0].e_pair.is_none());
     assert!(!r.input.to_toml_string().unwrap().contains("e_pair"));
 
-    let r = resolve(&with("ev = 3.6\nsource = \" a test source \"")).unwrap();
+    let r = resolve(&d, &with("ev = 3.6\nsource = \" a test source \"")).unwrap();
     let p = r.materials[0].e_pair.as_ref().unwrap();
     assert_eq!((p.ev, p.source.as_str()), (3.6, "a test source"));
     assert!(r.input.to_toml_string().unwrap().contains("e_pair"));
@@ -660,24 +622,20 @@ fn e_pair_has_no_default_and_needs_a_source() {
         ("ev = -1.0\nsource = \"s\"", "e_pair.ev"),
         ("ev = 3.6\nsource = \"  \"", "e_pair.source"),
     ] {
-        let e = resolve(&with(body)).unwrap_err();
+        let e = resolve(&d, &with(body)).unwrap_err().to_string();
         assert!(e.contains(field), "{body}: {e}");
     }
     // A missing source is a parse error, not a silent default.
-    assert!(resolve(&with("ev = 3.6")).is_err());
+    assert!(ElectronInput::from_toml_str(&with("ev = 3.6")).is_err());
 }
 
 #[test]
 fn exposure_section_resolves_echoes_and_names_bad_fields() {
-    let d = dir("exposure");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("exposure");
     let sec = "\n[electron.tally.exposure]\nlambda = 5.0\nbeam = { kind = \"gaussian\", sigma_nm = 2.0 }\n\
 [[electron.tally.exposure.volumes]]\nname = \"a\"\nshape = \"cylinder\"\nradius_nm = 10.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\n\
 [[electron.tally.exposure.volumes]]\nname = \"n\"\nshape = \"box\"\nhalf_y_nm = 5.0\nhalf_z_nm = 5.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\noffset_y_nm = 30.0\n";
-    let r = ElectronInput::from_toml_str(&format!("{GOOD}{sec}"))
-        .unwrap()
-        .resolve_in(&d)
-        .unwrap();
+    let r = resolve(&d, &format!("{GOOD}{sec}")).unwrap();
     let x = r.tally.exposure.clone().unwrap();
     assert_eq!(x.volumes.len(), 2);
     assert_eq!(x.bins, 200);
@@ -705,17 +663,10 @@ fn exposure_section_resolves_echoes_and_names_bad_fields() {
 
 #[test]
 fn voxel_table_resolves_echoes_and_names_bad_fields() {
-    let d = dir("voxel");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("voxel");
     let sec = "\n[electron.tally.voxel]\norigin_nm = [0.0, -10.0, -10.0]\n\
 spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
-    let resolve = |text: &str| {
-        ElectronInput::from_toml_str(text)
-            .unwrap()
-            .resolve_in(&d)
-            .map_err(|e| e.to_string())
-    };
-    let r = resolve(&format!("{GOOD}{sec}")).unwrap();
+    let r = resolve(&d, &format!("{GOOD}{sec}")).unwrap();
     assert!(r.voxel_grid.is_some());
     let echoed = r.input.electron.tally.voxel.clone().unwrap();
     assert_eq!(echoed.dims, [10, 2, 2]);
@@ -723,7 +674,7 @@ spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
     let text = toml::to_string(&r.input).unwrap();
     assert!(text.contains("[electron.tally.voxel]"), "{text}");
     // Without the table there is no grid.
-    assert!(resolve(GOOD).unwrap().voxel_grid.is_none());
+    assert!(resolve(&d, GOOD).unwrap().voxel_grid.is_none());
 
     for (from, to, field) in [
         ("origin_nm = [0.0,", "origin_nm = [nan,", "voxel.origin_nm"),
@@ -739,7 +690,9 @@ spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
         ),
         ("dims = [10,", "dims = [0,", "voxel.dims"),
     ] {
-        let e = resolve(&format!("{GOOD}{}", sec.replace(from, to))).unwrap_err();
+        let input =
+            ElectronInput::from_toml_str(&format!("{GOOD}{}", sec.replace(from, to))).unwrap();
+        let e = input.resolve_in(&d).unwrap_err().to_string();
         assert!(e.contains(&format!("electron.tally.{field}")), "{e}");
     }
 }
@@ -747,15 +700,11 @@ spacing_nm = [4.0, 10.0, 10.0]\ndims = [10, 2, 2]\n";
 #[test]
 fn exposure_beam_reads_legacy_and_new_spellings_and_rectangle() {
     use crate::electron::beam::BeamProfile;
-    let d = dir("exposure_beam");
-    std::fs::write(d.join("elf.toml"), ELF).unwrap();
+    let d = dir_with_elf("exposure_beam");
     let vol = "[[electron.tally.exposure.volumes]]\nname = \"a\"\nshape = \"cylinder\"\nradius_nm = 10.0\ndepth_lo_nm = 0.0\ndepth_hi_nm = 5.0\n";
     let beam_of = |beam: &str| {
         let sec = format!("\n[electron.tally.exposure]\nlambda = 5.0\nbeam = {beam}\n{vol}");
-        ElectronInput::from_toml_str(&format!("{GOOD}{sec}"))
-            .map_err(|e| e.to_string())
-            .and_then(|i| i.resolve_in(&d).map_err(|e| e.to_string()))
-            .map(|r| r.tally.exposure.unwrap().beam)
+        resolve(&d, &format!("{GOOD}{sec}")).map(|r| r.tally.exposure.unwrap().beam)
     };
     let disc = BeamProfile::Disc {
         radius_m: 3.0 * 1e-9,
@@ -790,10 +739,16 @@ fn exposure_beam_reads_legacy_and_new_spellings_and_rectangle() {
     // `[electron.beam.profile]` resolver uses its own); positivity is not
     // checked here but by `tally::exposure`, which is why the zero and
     // negative sizes above fail under its message instead of these keys.
-    let e = beam_of("{ model = \"gaussian\", sigma_nm = nan }").unwrap_err();
+    let e = beam_of("{ model = \"gaussian\", sigma_nm = nan }")
+        .unwrap_err()
+        .to_string();
     assert!(e.contains("electron.tally.exposure.beam.sigma_nm"), "{e}");
-    let e = beam_of("{ model = \"rectangle\", width_y_nm = inf, width_z_nm = 6.0 }").unwrap_err();
+    let e = beam_of("{ model = \"rectangle\", width_y_nm = inf, width_z_nm = 6.0 }")
+        .unwrap_err()
+        .to_string();
     assert!(e.contains("electron.tally.exposure.beam.width_y_nm"), "{e}");
-    let e = beam_of("{ model = \"disc\", radius_nm = nan }").unwrap_err();
+    let e = beam_of("{ model = \"disc\", radius_nm = nan }")
+        .unwrap_err()
+        .to_string();
     assert!(e.contains("electron.tally.exposure.beam.radius_nm"), "{e}");
 }
