@@ -4,6 +4,8 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-26
 
+- **PR #939**: refactor(electron): split transport.rs into types/tally/sampling
+- **Issue #937** (closed): Simplify: split 2,005-line electron/transport.rs into sibling types, tally, and sampling modules
 - **PR #933**: test(cli): share one cross-thread output assertion across the determinism tests
 - **PR #928**: docs(ci): name v1.0.6 in the crates-io-auth-action pin comment
 - **Issue #932** (closed): Share the output comparison across seven CLI determinism tests
