@@ -159,7 +159,7 @@ _None._
 
 `loom:very-important` (one counts per workspace); every stage takes these first.
 
-_None._
+- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
 
 ## Important
 
@@ -170,7 +170,6 @@ _None._
 - **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables
 - **#486**: [Epic #33] Digitize the measured points from the srim.org stopping plots (cited, flagged, count-checked)
 - **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup
-- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
 
 ## Ready
 
@@ -246,8 +245,8 @@ Issues carrying `loom:curated`.
 | Bucket | Count |
 |------|-------|
 | Operator merge-risk holds | 0 |
-| Very important | 0 |
-| Important | 6 |
+| Very important | 1 |
+| Important | 5 |
 | Ready (`loom:issue`) | 1 |
 | In Progress (`loom:building`) | 1 |
 | PRs awaiting review | 0 |
