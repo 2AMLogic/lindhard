@@ -183,12 +183,13 @@ Human-approved issues ready for implementation (`loom:issue`).
 Issues currently being built (`loom:building`).
 
 - **#935**: Share fixture setup and resolution in electron input unit tests
+- **#937**: Simplify: split 2,005-line electron/transport.rs into sibling types, tally, and sampling modules
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-_None._
+- **#939**: refactor(electron): split transport.rs into types/tally/sampling
 
 ## Approved (Awaiting Merge)
 
@@ -250,8 +251,8 @@ Issues carrying `loom:curated`.
 | Very important | 0 |
 | Important | 6 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 1 |
-| PRs awaiting review | 0 |
+| In Progress (`loom:building`) | 2 |
+| PRs awaiting review | 1 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 27 |
 | Architect / Hermit proposals | 2 |
