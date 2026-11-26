@@ -4,6 +4,10 @@ Chronological record of notable decisions and merges.
 
 ### 2026-11-26
 
+- **PR #933**: test(cli): share one cross-thread output assertion across the determinism tests
+- **PR #928**: docs(ci): name v1.0.6 in the crates-io-auth-action pin comment
+- **Issue #932** (closed): Share the output comparison across seven CLI determinism tests
+- **Issue #921** (closed): release.yml: pinned-action comment still says v1.0.5 after the v1.0.6 SHA bump
 - **PR #927**: perf(py): build damage_export arrays from the prepared report, skipping the CSV round trip
 - **Issue #926** (closed): Remove the in-memory CSV round trip from Python damage exports
 

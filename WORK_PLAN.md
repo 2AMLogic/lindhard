@@ -153,7 +153,7 @@ other open issue waits on one of these.
 
 Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
 
-- **#928**: docs(ci): name v1.0.6 in the crates-io-auth-action pin comment
+_None._
 
 ## Very Important
 
@@ -182,20 +182,19 @@ Human-approved issues ready for implementation (`loom:issue`).
 
 Issues currently being built (`loom:building`).
 
-- **#921**: release.yml: pinned-action comment still says v1.0.5 after the v1.0.6 SHA bump
-- **#932**: Share the output comparison across seven CLI determinism tests
+- **#935**: Share fixture setup and resolution in electron input unit tests
 
 ## PRs Awaiting Review
 
 PRs waiting on Judge (`loom:review-requested`).
 
-- **#933**: test(cli): share one cross-thread output assertion across the determinism tests
+_None._
 
 ## Approved (Awaiting Merge)
 
 PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
 
-- **#928**: docs(ci): name v1.0.6 in the crates-io-auth-action pin comment
+- **#936**: test: share ELF setup and typed resolution in electron input tests
 
 ## Proposed
 
@@ -228,11 +227,11 @@ Issues carrying `loom:curated`.
 - **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
 - **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
 - **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
-- **#921**: release.yml: pinned-action comment still says v1.0.5 after the v1.0.6 SHA bump *(curated)*
 
 ## Proposed (Architect / Hermit)
 
 - **#930**: Skip the discarded valence table build during inner-shell assembly *(hermit)*
+- **#937**: Simplify: split 2,005-line electron/transport.rs into sibling types, tally, and sampling modules *(hermit)*
 
 ## Epics
 
@@ -247,15 +246,15 @@ Issues carrying `loom:curated`.
 
 | Bucket | Count |
 |------|-------|
-| Operator merge-risk holds | 1 |
+| Operator merge-risk holds | 0 |
 | Very important | 0 |
 | Important | 6 |
 | Ready (`loom:issue`) | 1 |
-| In Progress (`loom:building`) | 2 |
-| PRs awaiting review | 1 |
+| In Progress (`loom:building`) | 1 |
+| PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
-| Curated | 28 |
-| Architect / Hermit proposals | 1 |
+| Curated | 27 |
+| Architect / Hermit proposals | 2 |
 | Active epics | 6 |
 <!-- guide:plan-body:end -->
 
