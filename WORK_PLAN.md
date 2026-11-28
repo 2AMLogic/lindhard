@@ -149,9 +149,10 @@ other open issue waits on one of these.
 - Descriptions of downstream applications (`CLAUDE.md`).
 
 <!-- guide:plan-body:start -->
+_Generated: 2026-11-28T05:47:01Z (snapshot; compare against live labels)_
 ## Operator Attention: Merge-Risk-Hold Pileup
 
-Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — only a human merge decision is missing.
+Judge-approved PRs under a hold (`loom:blocked` or `loom:operator`) — a human merge decision, or the prerequisite shown, is missing.
 
 _None._
 
@@ -165,17 +166,23 @@ _None._
 
 `loom:important`; taken before unlabelled work.
 
-- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements
-- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement
-- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables
-- **#486**: [Epic #33] Digitize the measured points from the srim.org stopping plots (cited, flagged, count-checked)
-- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup
+- **#148**: [Epic #11] Validation: backscatter coefficient η(E, Z) vs published measurements *(held)*
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(held)*
+- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(held)*
+- **#486**: [Epic #33] Digitize the measured points from the srim.org stopping plots (cited, flagged, count-checked) *(held)*
+- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(held)*
 
 ## Ready
 
-Human-approved issues ready for implementation (`loom:issue`).
+Human-approved issues (`loom:issue`) ready for implementation — excluding held (`loom:blocked`/`loom:operator`/`loom:frozen`), `loom:building`, and issues with an open linked PR (native admission `OPEN_PR`; listed under Issues with Open PRs).
 
-- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose
+_None._
+
+## Issues with Open PRs (Not Dispatchable)
+
+`loom:issue` issues an open linked PR already holds — native admission would refuse them (`OPEN_PR`); listed with the PR and its stage, not counted above.
+
+- **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose — open PR #631 (held)
 
 ## In Progress
 
@@ -191,53 +198,53 @@ _None._
 
 ## Approved (Awaiting Merge)
 
-PRs that passed review and are queued for Champion auto-merge (`loom:pr`).
+PRs that passed review (`loom:pr`); unmarked PRs are queued for Champion auto-merge, PRs marked `*(held …)*` are not (the hold decides).
 
-- **#936**: test: share ELF setup and typed resolution in electron input tests
+- **#936**: test: share ELF setup and typed resolution in electron input tests — closes #935
 
 ## Proposed
 
 Issues carrying `loom:curated`.
 
-- **#15**: [Epic #10] Verify element and constant data against primary sources *(curated)*
-- **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)*
-- **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)*
-- **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)*
-- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)*
-- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)*
-- **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)*
-- **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated)*
-- **#360**: Measure the build time and peak RSS of a penn-full table with band-bottom rate refinement (operator-run) *(curated)*
+- **#15**: [Epic #10] Verify element and constant data against primary sources *(curated)* *(held)*
+- **#45**: Verify Lenz-Jensen, Moliere magic and screening-length coefficients against primary sources (follow-up to #40) *(curated)* *(held)*
+- **#76**: Benchmarks: quiet-machine re-measure of oracle ions/s and a 1..N thread-scaling curve *(curated)* *(held)*
+- **#111**: [Epic #11] Mott elastic: WKB / asymptotic phase shifts for high-energy partial waves (follow-up to #17) *(curated)* *(held)*
+- **#151**: [Epic #11] Validation: PSF fit vs a published resist PSF measurement *(curated)* *(held)*
+- **#162**: Source the PMMA optical ELF (Ritsko 1978) via a legitimate copy; ask operator about CXRO tables *(curated)* *(held)*
+- **#177**: [Epic #11] Benchmarks follow-up: quiet-machine thread scaling and Nebula CPU timings (remainder of #152) *(curated)* *(held)*
+- **#199**: CI: add a RustSec advisories gate to cargo-deny *(curated)* *(held)*
+- **#360**: Measure the build time and peak RSS of a penn-full table with band-bottom rate refinement (operator-run) *(curated)* *(held)*
 - **#409**: CI: clippy canary failing on latest stable or beta Rust *(curated)*
-- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)*
-- **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)*
-- **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)*
-- **#557**: Electron depth-dose and interface-enhancement validation against published measurements *(curated)*
-- **#561**: [Epic #22] Focused ion beams, part 3: lateral implant and damage profiles, film cut-through fluence, trench comparison *(curated)*
+- **#497**: [Epic #33] Digitize heavy-ion aggregate stopping plots (STOP<Z>xx / STOPxx<Z>) with cross-view dedup *(curated)* *(held)*
+- **#515**: [Epic #12] Step 24: low-dose SIMS validation of channeled B, P, As in ⟨100⟩ Si vs tilt/twist and a screen-oxide case *(curated)* *(held)*
+- **#546**: Electron engine: deposited-charge tally (where electrons stop, net charge per layer and voxel) *(curated)* *(held)*
+- **#557**: Electron depth-dose and interface-enhancement validation against published measurements *(curated)* *(held)*
+- **#561**: [Epic #22] Focused ion beams, part 3: lateral implant and damage profiles, film cut-through fluence, trench comparison *(curated)* *(held)*
 - **#562**: [Photon channel #548] A: photon transport with cited attenuation data and per-layer photon dose *(curated)*
-- **#565**: [Epic #22] Focused ion beams, part 2: validate sputter yield against incidence angle for one ion-target pair *(curated)*
+- **#565**: [Epic #22] Focused ion beams, part 2: validate sputter yield against incidence angle for one ion-target pair *(curated)* *(held)*
 - **#630**: Epic: lindhard as a comprehensive SRIM/TRIM replacement (feature-parity census and plan) *(curated)*
-- **#633**: [Epic #630] Enter the SRIM book's stopping coefficient and effective-charge tables (double entry) *(curated)*
-- **#634**: [Epic #630] Compound stopping: cores-and-bonds and phase corrections and a compound dictionary from the book *(curated)*
-- **#638**: [Epic #630] Energy-loss straggling beyond Bohr (verify transport use, add Chu-type model) *(curated)*
-- **#642**: [Epic #630] TRIM.IN importer *(curated)*
-- **#643**: [Epic #630] SRIM-format output writers *(curated)*
-- **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)*
-- **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)*
-- **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)*
-- **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)*
+- **#633**: [Epic #630] Enter the SRIM book's stopping coefficient and effective-charge tables (double entry) *(curated)* *(held)*
+- **#634**: [Epic #630] Compound stopping: cores-and-bonds and phase corrections and a compound dictionary from the book *(curated)* *(held)*
+- **#638**: [Epic #630] Energy-loss straggling beyond Bohr (verify transport use, add Chu-type model) *(curated)* *(held)*
+- **#642**: [Epic #630] TRIM.IN importer *(curated)* *(held)*
+- **#643**: [Epic #630] SRIM-format output writers *(curated)* *(held)*
+- **#658**: Check the low-energy form of the SRIM-data-sourced stopping against the book before entering coefficients *(curated)* *(held)*
+- **#827**: Live-verify the #809 prose-only CI path gate on the forge *(curated)* *(held)*
+- **#841**: CI: measure !cancelled() vs the gate's fail-closed promise before replacing always() (measured: always() defeats cancel-in-progress, ~130 runner-min per superseded push) *(curated)* *(held)*
+- **#849**: CI: the macOS rust test step is ~96% of a 40-44 min job and growing — profile what dominates it *(curated)* *(held)*
 
 ## Proposed (Architect / Hermit)
 
-- **#930**: Skip the discarded valence table build during inner-shell assembly *(hermit)*
+- **#930**: Skip the discarded valence table build during inner-shell assembly *(hermit)* *(held)*
 
 ## Epics
 
 - **#11**: Epic: M1, low-energy electron engine
 - **#12**: Epic: M2, crystalline implant (channeling, damage accumulation, amorphization)
-- **#22**: Epic: M3, dynamic composition (fluence-dependent targets)
+- **#22**: Epic: M3, dynamic composition (fluence-dependent targets) *(held)*
 - **#25**: Epic: 2D/3D target geometry and layout cross-sections
-- **#28**: Epic: Python and WASM bindings
+- **#28**: Epic: Python and WASM bindings *(held)*
 - **#548**: Photon channel for electron runs: bremsstrahlung and characteristic x-rays, and the dose they carry beyond the electron range
 
 ## Backlog Balance
@@ -247,8 +254,9 @@ Issues carrying `loom:curated`.
 | Operator merge-risk holds | 0 |
 | Very important | 1 |
 | Important | 5 |
-| Ready (`loom:issue`) | 1 |
+| Ready (`loom:issue`, net of holds/building/open-linked-PRs) | 0 |
 | In Progress (`loom:building`) | 1 |
+| Held, no other bucket | 17 |
 | PRs awaiting review | 0 |
 | Approved PRs awaiting merge | 1 |
 | Curated | 27 |
